@@ -1,6 +1,8 @@
-# GalliGranja — Sistema Gallinero 🐔
+# El Gallinero 🐔
 
-Sistema de gestión para una micro-granja avícola: control de gallinas, pollos y gallos, producción de huevos por tamaño, inventario FIFO, incubación, alimentación, gallinaza, ventas con presentaciones, egresos, sacrificio/carne, control sanitario y panel de finanzas con KPIs.
+Sistema de gestión para **gallineros pequeños y medianos**: control integral del ciclo avícola — gallinas, pollos y gallos; producción e inventario de huevos por tamaño (PEPS); incubación; alimentación con programas por etapa; gallinaza; ventas con presentaciones; egresos; sacrificio/carne; control sanitario y un panel de finanzas con KPIs y comportamiento en el tiempo.
+
+Todas las operaciones comerciales y de mantenimiento **alimentan automáticamente las finanzas** (cada venta, sacrificio, compra de alimento, tarea de mantenimiento o evento sanitario genera su transacción, con trazabilidad a su fuente).
 
 ## Requisitos
 
@@ -66,32 +68,48 @@ El seed crea el usuario administrador:
 
 ## Módulos
 
-| Módulo | Ruta | Descripción |
+La navegación está agrupada: **Producción** (pestañas: Gallinas, Pollos, Alimentación, Huevos, Incubación, Gallinaza, Carne) y módulos independientes para Ventas, Egresos y Finanzas.
+
+| Módulo | Ruta | Funcionalidades |
 | --- | --- | --- |
-| Dashboard | `/` | Resumen general del negocio |
-| Gallinas | `/gallinas` | Registro individual, peso, estado (activa, empollando, descarte…) |
-| Pollos y Gallos | `/pollos` | Reproductores y lotes de engorde por etapa |
-| Alimentación | `/alimentacion` | Inventario de alimento, consumos, programas por etapa |
-| Producción Huevos | `/huevos` | Recolección diaria por tamaño de huevo (precios del catálogo) |
-| Inventario Huevos | `/inventario` | Stock por tamaño con PEPS, envejecimiento y valor |
-| Incubación | `/incubacion` | Huevos incubados, nacimientos, machos/hembras |
-| Gallinaza | `/gallinaza` | Acumulación por kg/día, ajustes y ventas |
-| Ventas | `/ventas` | Ventas de huevos por presentación (docena, caja x30…) |
-| Carne | `/sacrificio` | Sacrificio, peso en canal, destino (venta/consumo) |
-| Egresos | `/egresos` | Flujo de gastos con categoría, proveedor y cantidad |
-| Mantenimiento | `/mantenimiento` | Tareas y costos del gallinero |
-| Control Sanitario | `/sanidad` | Vacunas, desparasitación, tratamientos |
-| Finanzas | `/finanzas` | Panel de KPIs y comportamiento en el tiempo |
-| Catálogos | `/catalogos` | Datos maestros: tamaños con precio, presentaciones con unidades, razas, compradores… |
+| Dashboard | `/` | Resumen del negocio: gallinas activas, huevos esperados/real, ingresos y ganancia (30d); FCR (conversión alimenticia); gráficos de producción (14d) y alimento vs huevos; proyección de stock por alimento; lista de mant. pendientes; balance de gallos |
+| Gallinas | `/produccion?tab=gallinas` | Registro individual (código, raza, nacimiento, peso, estado, notas); ciclo de vida automático: 8 estados y etapa por edad (pollito → postura); detección de gallinas recomendadas a sacrificio y aviso de motivos; filtros por estado y etapa; edición y eliminación |
+| Pollos y Gallos | `/produccion?tab=pollos` | Gallos reproductores (código `GA-###` autogenerado) y lotes de engorde (código `L-###`); balance de parvada con alerta de gallos faltantes (1 por cada 10 gallinas); lotes pasan a "listo sacrificio" al alcanzar semanas o peso objetivo |
+| Alimentación | `/produccion?tab=alimentacion` | Inventario de alimentos (categoría, tipo, stock mín/máx, costo, proveedor) con alerta de stock bajo; movimientos de entrada/salida por etapa (bloquea stock negativo); programas de alimentación por etapa (% dieta y g/ave/día); proyección de stock con días restantes y actualización de mínimo sugerido; comparativo planificado vs real (7/14/21/30d) con gráfico |
+| Producción de Huevos | `/produccion?tab=huevos` | Recolección diaria por **tamaño de huevo** (precios del catálogo), rotos y para incubación, con total en vivo; comparación contra producción esperada por etapa (rendimiento %); validación de sobreproducción (1.5× lo esperado) con confirmación; gráfico apilado por tamaño con proyección |
+| Inventario de Huevos | `/inventario` | Stock por tamaño (producidos − vendidos) con **PEPS** por talla; edad/envejecimiento con alerta de >21 días; valor estimado en dinero (disponible × precio catálogo); lotes con estado (disponible / vender pronto / por vencer / agotado) |
+| Incubación | `/produccion?tab=incubacion` | Registro de incubaciones con eclosión a los 21 días y gallina clueca; **asignación automática de nacidos**: hembras → nuevas gallinas, machos → cubren déficit de gallos o lote de engorde; tasa de eclosión (%); historial y métricas |
+| Gallinaza | `/produccion?tab=gallinaza` | Factores de producción por grupo (etapas, gallos, lotes) para estimar kg/día; acumulación de stock con ajustes (± con motivo); ventas con presentación (bulto/costal/granel) que descuentan stock y generan ingreso |
+| Ventas | `/ventas` | **Huevos**: ventas multi-ítem por tamaño y presentación (unidad, docena, media docena, bandeja/cubeta) con precios del catálogo y total en vivo; validación de disponibilidad por talla. **Aves**: gallinas/gallos/lotes con precio por ave o por kg. Cada venta crea su ingreso y actualiza inventario/estados |
+| Carne / Sacrificio | `/produccion?tab=carne` | Registro de sacrificio por tipo de ave (gallina descarte, pollo, gallo) con pre-selección de la recomendada; peso en canal, destino (consumo, venta, donación); si se vende crea ingreso; revierte estados de las aves |
+| Egresos | `/egresos` | Registro de gastos en dos modos: **compra con presentación** (categorías de compra; para alimento vincula el inventario y convierte a unidad base) y **general** (cantidad × valor o monto manual); métricas, gráfico por fecha y desglose por categoría |
+| Mantenimiento | `/mantenimiento` | Tareas del gallinero con estado (pendiente/en progreso/completado), costo y plantillas rápidas; al completar con costo genera egreso automático (sin duplicados al editar) |
+| Control Sanitario | `/sanidad` | Eventos (vacunación, desparasitación, tratamiento, inspección, fumigación, vitaminas, otro) con producto, costo y próxima aplicación; los tratamientos marcan gallinas como enfermas; próximos eventos a vencer |
+| Finanzas | `/finanzas` | Panel con KPIs (ingresos, egresos, utilidad, promedios diarios, flujo neto) e insights (mejor/peor día, margen, proyección mensual); gráficos de evolución temporal, utilidad acumulada y distribución por categoría (períodos 7/30/90/365); historial completo con nueva transacción manual |
+| Catálogos | `/catalogos` | Datos maestros (16 categorías): tamaños de huevo con precio, presentaciones con unidades/factores, razas, compradores, proveedores, unidades de medida, categorías de ingreso/egreso, tipos de sanidad/mantenimiento… Con activar/desactivar y orden |
+
+## Reglas de negocio clave
+
+- **Ciclo de vida de la gallina**: etapa según edad (Pollito 0–6, Juvenil 6–18, Pre-postura 18–20, Postura 20+ semanas); estados terminales (vendida, faena, muerta) nunca se sobreescriben; a los ~80 semanas se recomienda sacrificio.
+- **Balance de parvada**: 1 gallo por cada 10 gallinas; los machos nacidos cubren primero el déficit y el resto pasa a lote de engorde.
+- **Lotes de engorde**: listos a sacrificio al cumplir semanas objetivo o ≥2.5 kg promedio; baja de cantidad validada (0 ≤ actual ≤ inicial).
+- **Inventario de huevos PEPS**: las ventas se descuentan del lote más antiguo de cada tamaño; huevos con más de 21 días generan alerta.
+- **Producción esperada**: huevos/día = Σ(gallinas por etapa × factor del catálogo); rendimiento % contra lo real y alerta si supera 1.5×.
+- **Alimentación**: bloqueo de stock negativo; consumo registrado por etapa con gramos/gallina/día; proyección de días de stock.
+- **Trazabilidad financiera**: cada venta, sacrificio, compra de alimento, mantenimiento completado y evento sanitario con costo crea su transacción automáticamente (`sourceType`/`sourceId`); al borrar el origen se revierte la transacción.
 
 ## Estructura del proyecto
 
 ```
 ├── src/
 │   ├── app/
-│   │   ├── (app)/            # Páginas del sistema (dashboard, gallinas, huevos, ventas…)
-│   │   │   ├── produccion/   # Vista por pestañas de alimentación, huevos, carne…
-│   │   │   └── layout.tsx    # Layout con Sidebar y autenticación
+│   │   ├── (app)/            # Páginas del sistema (dashboard, ventas, finanzas…)
+│   │   │   ├── produccion/   # Pestañas: gallinas, pollos, alimentacion, huevos, incubacion, gallinaza, carne
+│   │   │   ├── inventario/   # Inventario PEPS de huevos por tamaño
+│   │   │   ├── ventas/       # Ventas de huevos y aves
+│   │   │   ├── egresos/      # Flujo de gastos
+│   │   │   ├── finanzas/     # Panel de KPIs y comportamiento
+│   │   │   └── …             # mantenimiento, sanidad, catalogos
 │   │   ├── api/              # API Routes (Next.js)
 │   │   │   ├── auth/         # login, logout, me
 │   │   │   ├── huevos/       # producción por tamaño + inventario
@@ -100,12 +118,12 @@ El seed crea el usuario administrador:
 │   │   │   └── …             # gallinas, pollos, alimentacion, gallinaza, sanidad…
 │   │   ├── login/            # Página de acceso
 │   │   └── layout.tsx
-│   ├── components/           # Sidebar y componentes UI (Card, StatCard…)
+│   ├── components/           # Sidebar y componentes UI (Card, StatCard, Modal, Table…)
 │   ├── db/
-│   │   ├── schema.ts         # Modelo de datos (Drizzle ORM)
-│   │   ├── seed.ts           # Datos demo idempotentes
+│   │   ├── schema.ts         # Modelo de datos (25 tablas, Drizzle ORM)
+│   │   ├── seed.ts           # Datos demo idempotentes (admin/admin123)
 │   │   └── index.ts          # Conexión a Postgres
-│   └── lib/                  # auth (sesiones), inventory (PEPS), flock, helpers
+│   └── lib/                  # auth (sesiones), inventory (PEPS), flock, lifecycle, manure, birdExit
 ├── docs/                     # Especificaciones y planes de diseño
 ├── tests/                    # Pruebas de flujo (vitest)
 └── drizzle.config.ts
