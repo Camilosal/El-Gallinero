@@ -1,5 +1,5 @@
 import { db } from "@/db";
-import { hens, catalogos } from "@/db/schema";
+import { hens, catalogos, incubation, chickenSales, slaughter, mortalityRecords } from "@/db/schema";
 import { eq, desc, and, sql, inArray } from "drizzle-orm";
 import { NextRequest, NextResponse } from "next/server";
 import { evaluateLifecycle, isAutoManaged, type StageRange } from "@/lib/lifecycle";
@@ -101,6 +101,12 @@ export async function DELETE(req: NextRequest) {
   const { searchParams } = new URL(req.url);
   const id = searchParams.get("id");
   if (!id) return NextResponse.json({ error: "ID requerido" }, { status: 400 });
-  await db.delete(hens).where(eq(hens.id, id));
+  await db.transaction(async (tx) => {
+    await tx.delete(incubation).where(eq(incubation.henId, id));
+    await tx.delete(chickenSales).where(eq(chickenSales.henId, id));
+    await tx.delete(slaughter).where(eq(slaughter.henId, id));
+    await tx.delete(mortalityRecords).where(eq(mortalityRecords.henId, id));
+    await tx.delete(hens).where(eq(hens.id, id));
+  });
   return NextResponse.json({ ok: true });
 }

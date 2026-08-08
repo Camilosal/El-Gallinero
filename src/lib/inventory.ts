@@ -1,5 +1,5 @@
 import { db } from "@/db";
-import { eggProduction, eggProductionDetails, eggSales, eggSalesItems, catalogos } from "@/db/schema";
+import { eggProduction, eggProductionDetails, eggSales, eggSalesItems, eggLosses, catalogos } from "@/db/schema";
 import { asc, eq } from "drizzle-orm";
 
 export interface EggLot {
@@ -17,6 +17,7 @@ export interface SizeSummary {
   price: number | null;
   produced: number;
   sold: number;
+  lost: number;
   available: number;
   value: number;
 }
@@ -30,6 +31,7 @@ export interface EggInventory {
   summary: {
     produced: number;
     sold: number;
+    lost: number;
     available: number;
     sizes: SizeSummary[];
   };
@@ -41,11 +43,12 @@ export interface EggInventory {
 
 // Inventario de huevos con consumo PEPS (FIFO): se vende primero el lote más antiguo
 export async function computeEggInventory(): Promise<EggInventory> {
-  const [productions, details, sales, saleItems, sizeCatalog] = await Promise.all([
+  const [productions, details, sales, saleItems, losses, sizeCatalog] = await Promise.all([
     db.select().from(eggProduction).orderBy(asc(eggProduction.date)),
     db.select().from(eggProductionDetails),
     db.select().from(eggSales).orderBy(asc(eggSales.date)),
     db.select().from(eggSalesItems),
+    db.select().from(eggLosses),
     db.select().from(catalogos).where(eq(catalogos.category, "tamano_huevo")),
   ]);
 
@@ -89,6 +92,11 @@ export async function computeEggInventory(): Promise<EggInventory> {
   const soldBySize = new Map<string, number>();
   for (const s of effectiveSales) soldBySize.set(s.size, (soldBySize.get(s.size) || 0) + s.quantity);
 
+  const lostBySize = new Map<string, number>();
+  for (const l of losses) {
+    if (l.size) lostBySize.set(l.size, (lostBySize.get(l.size) || 0) + l.quantity);
+  }
+
   const lots: EggLot[] = [];
   for (const size of sizeOrder) {
     // Cola de ventas para consumo FIFO (independiente de la fecha de venta)
@@ -130,13 +138,15 @@ export async function computeEggInventory(): Promise<EggInventory> {
   const sizes: SizeSummary[] = sizeOrder.map((size) => {
     const produced = producedBySize.get(size) || 0;
     const sold = soldBySize.get(size) || 0;
-    const available = produced - sold;
+    const lost = lostBySize.get(size) || 0;
+    const available = produced - sold - lost;
     const price = priceBySize.get(size) ?? null;
-    return { size, price, produced, sold, available, value: price != null ? available * price : 0 };
+    return { size, price, produced, sold, lost, available, value: price != null ? available * price : 0 };
   });
 
   const totalProduced = sizes.reduce((s, x) => s + x.produced, 0);
   const totalSold = sizes.reduce((s, x) => s + x.sold, 0);
+  const totalLost = sizes.reduce((s, x) => s + x.lost, 0);
   const totalAvailable = sizes.reduce((s, x) => s + x.available, 0);
   const estimatedValue = sizes.reduce((s, x) => s + x.value, 0);
 
@@ -159,7 +169,7 @@ export async function computeEggInventory(): Promise<EggInventory> {
     : null;
 
   return {
-    summary: { produced: totalProduced, sold: totalSold, available: totalAvailable, sizes },
+    summary: { produced: totalProduced, sold: totalSold, lost: totalLost, available: totalAvailable, sizes },
     lots,
     aging,
     oldestLot,

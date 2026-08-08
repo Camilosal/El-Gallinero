@@ -7,6 +7,7 @@ const menuItems = [
   { href: "/", label: "Dashboard", icon: "📊" },
   { href: "/gallinas", label: "Gallinas", icon: "🐔" },
   { href: "/pollos", label: "Pollos y Gallos", icon: "🐓" },
+  { href: "/adquisiciones", label: "Adquisiciones", icon: "📥" },
   { href: "/alimentacion", label: "Alimentación", icon: "🌾" },
   { href: "/huevos", label: "Producción Huevos", icon: "🥚" },
   { href: "/inventario", label: "Inventario Huevos", icon: "📦" },
@@ -15,11 +16,19 @@ const menuItems = [
   { href: "/gallinaza", label: "Gallinaza", icon: "🌱" },
   { href: "/ventas", label: "Ventas", icon: "💰" },
   { href: "/sacrificio", label: "Carne", icon: "🍗" },
+  { href: "/mortalidad", label: "Mortalidad", icon: "💀" },
+  { href: "/insumos", label: "Insumos", icon: "🧰" },
   { href: "/egresos", label: "Egresos", icon: "📤" },
   { href: "/mantenimiento", label: "Mantenimiento", icon: "🔧" },
   { href: "/sanidad", label: "Control Sanitario", icon: "💊" },
   { href: "/finanzas", label: "Finanzas", icon: "📈" },
+  { href: "/kpis", label: "KPIs", icon: "🎯" },
+  { href: "/reportes", label: "Reportes", icon: "📋" },
+  { href: "/presupuestos", label: "Presupuestos", icon: "💵" },
+  { href: "/cuentas", label: "Cuentas", icon: "💳" },
   { href: "/catalogos", label: "Catálogos", icon: "🗂️" },
+  { href: "/calendario-sanitario", label: "Calendario Sanitario", icon: "📅" },
+  { href: "/plan-parvada", label: "Plan Parvada", icon: "🏠" },
 ];
 
 export default function Sidebar() {

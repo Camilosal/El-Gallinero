@@ -1,5 +1,5 @@
 import { db } from "@/db";
-import { catalogos } from "@/db/schema";
+import { catalogos, sanitaryCalendar, feedMovements } from "@/db/schema";
 import { eq, asc, and, sql } from "drizzle-orm";
 import { NextRequest, NextResponse } from "next/server";
 
@@ -64,6 +64,10 @@ export async function DELETE(req: NextRequest) {
   const { searchParams } = new URL(req.url);
   const id = searchParams.get("id");
   if (!id) return NextResponse.json({ error: "ID requerido" }, { status: 400 });
-  await db.delete(catalogos).where(eq(catalogos.id, id));
+  await db.transaction(async (tx) => {
+    await tx.delete(sanitaryCalendar).where(eq(sanitaryCalendar.targetStageId, id));
+    await tx.delete(feedMovements).where(eq(feedMovements.stageCatalogoId, id));
+    await tx.delete(catalogos).where(eq(catalogos.id, id));
+  });
   return NextResponse.json({ ok: true });
 }

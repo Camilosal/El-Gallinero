@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useCallback } from "react";
 import { PageHeader, Button, Card, Table, Badge, Modal, Input, Select, Textarea, EmptyState, StatCard } from "@/components/ui";
+import { apiFetch } from "@/lib/fetch";
 
 interface Hen { id: string; code: string; status: string; }
 interface Incubation {
@@ -31,8 +32,8 @@ export default function IncubacionPage() {
 
   const load = useCallback(() => {
     Promise.all([
-      fetch("/api/incubacion").then((r) => r.json()),
-      fetch("/api/gallinas").then((r) => r.json()),
+      apiFetch("/api/incubacion").then((r) => r.json()),
+      apiFetch("/api/gallinas").then((r) => r.json()),
     ]).then(([i, h]) => {
       setIncubations(i);
       setHens(h);
@@ -43,7 +44,7 @@ export default function IncubacionPage() {
   useEffect(() => { load(); }, [load]);
 
   const save = async () => {
-    await fetch("/api/incubacion", {
+    await apiFetch("/api/incubacion", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(form),
@@ -54,7 +55,7 @@ export default function IncubacionPage() {
 
   const complete = async () => {
     if (!completeModal) return;
-    const res = await fetch("/api/incubacion", {
+    const res = await apiFetch("/api/incubacion", {
       method: "PUT",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ id: completeModal.id, eggsHatched: hatchForm.eggsHatched, femalesHatched: hatchForm.femalesHatched, malesHatched: hatchForm.malesHatched, isComplete: true, notes: hatchForm.notes || completeModal.notes }),

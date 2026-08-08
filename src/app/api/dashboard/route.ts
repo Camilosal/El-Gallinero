@@ -1,5 +1,5 @@
 import { db } from "@/db";
-import { hens, eggProduction, eggSales, feedInventory, transactions, incubation, maintenance, catalogos, feedPrograms, feedMovements, chickenSales, slaughter, roosters, broilerBatches, manureFactors, manureInventory } from "@/db/schema";
+import { hens, eggProduction, eggSales, feedInventory, transactions, incubation, maintenance, catalogos, feedPrograms, feedMovements, chickenSales, slaughter, roosters, broilerBatches, manureFactors, manureInventory, mortalityRecords, sanitaryCalendar, supplyInventory } from "@/db/schema";
 import { eq, sql, desc, and, gte, or } from "drizzle-orm";
 import { NextResponse } from "next/server";
 import { ageInWeeks, isAvailableForExit, stageForAge } from "@/lib/lifecycle";
@@ -25,6 +25,9 @@ export async function GET() {
       financeStats,
       stages,
       allHens,
+      mortalityRows,
+      sanitaryAlerts,
+      supplyAlerts,
     ] = await Promise.all([
       db.select({
         status: hens.status,
@@ -68,6 +71,22 @@ export async function GET() {
         .orderBy(sql`${catalogos.sortOrder}`),
 
       db.select({ id: hens.id, birthDate: hens.birthDate, status: hens.status }).from(hens),
+
+      // Mortality records last 30 days
+      db.select({
+        birdType: mortalityRecords.birdType,
+        cause: mortalityRecords.cause,
+        total: sql<number>`coalesce(sum(${mortalityRecords.quantity}), 0)::int`,
+      }).from(mortalityRecords).where(gte(mortalityRecords.date, dateStr))
+        .groupBy(mortalityRecords.birdType, mortalityRecords.cause),
+
+      // Sanitary alerts (due within 7 days)
+      db.select({ count: sql<number>`count(*)::int` }).from(sanitaryCalendar)
+        .where(and(eq(sanitaryCalendar.isActive, true), sql`${sanitaryCalendar.nextDueDate}::date <= CURRENT_DATE + 7`)),
+
+      // Supply alerts (low stock)
+      db.select({ count: sql<number>`count(*)::int` }).from(supplyInventory)
+        .where(sql`${supplyInventory.currentStock}::numeric <= ${supplyInventory.minStock}::numeric`),
     ]);
 
     const totalHens = henStats.reduce((sum, s) => sum + s.count, 0);
@@ -214,6 +233,17 @@ export async function GET() {
       totalKgPerDay: totalEstimatedKgPerDay(manureGroups),
     };
 
+    // ─── Mortality rate computation ───
+    const mortalityByCause: Record<string, number> = {};
+    let totalDeaths30d = 0;
+    for (const m of mortalityRows) {
+      totalDeaths30d += m.total;
+      const cause = m.cause || "otro";
+      mortalityByCause[cause] = (mortalityByCause[cause] || 0) + m.total;
+    }
+    const totalFlock = totalHens + (roosterCount[0]?.count || 0) + (batchQty[0]?.total || 0);
+    const mortalityRate = totalFlock > 0 ? Math.round((totalDeaths30d / totalFlock) * 10000) / 100 : 0;
+
     const totalEggs30 = eggStats[0]?.total || 0;
     const totalHatched = incubationStats?.totalHatched || 0;
     // Combine chickenSales + slaughter for total meat
@@ -275,6 +305,13 @@ export async function GET() {
       },
       feedChartData,
       manure,
+      mortality: {
+        total30d: totalDeaths30d,
+        rate: mortalityRate,
+        byCause: mortalityByCause,
+      },
+      sanitaryAlerts: sanitaryAlerts[0]?.count || 0,
+      supplyAlerts: supplyAlerts[0]?.count || 0,
     });
   } catch (error) {
     console.error("Dashboard error:", error);

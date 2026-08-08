@@ -1,5 +1,5 @@
 import { db } from "@/db";
-import { transactions, feedInventory, feedMovements } from "@/db/schema";
+import { transactions, feedInventory, feedMovements, accountsPayable } from "@/db/schema";
 import { eq, desc, sql, gte, and } from "drizzle-orm";
 import { NextRequest, NextResponse } from "next/server";
 
@@ -249,6 +249,20 @@ export async function POST(req: NextRequest) {
           sourceId: movement.id,
         }).where(eq(transactions.id, created.id));
 
+        // 5. If credit, mark transaction and create accounts payable
+        if (body.isCredit) {
+          await tx.update(transactions).set({ isCredit: true }).where(eq(transactions.id, created.id));
+          await tx.insert(accountsPayable).values({
+            transactionId: created.id,
+            supplier: body.counterparty || body.description || "Sin nombre",
+            totalAmount: String(amount),
+            paidAmount: "0",
+            pendingAmount: String(amount),
+            dueDate: body.dueDate || null,
+            status: "pendiente",
+          });
+        }
+
         return created;
       });
 
@@ -256,37 +270,73 @@ export async function POST(req: NextRequest) {
     }
 
     // Non-feed purchase with presentation — just save the transaction
-    const [created] = await db.insert(transactions).values({
+    const result = await db.transaction(async (tx) => {
+      const [created] = await tx.insert(transactions).values({
+        date: body.date,
+        type: body.type || "egreso",
+        category: body.category,
+        description: body.description,
+        counterparty: body.counterparty || null,
+        amount,
+        quantity: String(quantityInBaseUnit),
+        unitPrice: String(unitPricePerBaseUnit),
+        unit: body.unit || null,
+        presentation: body.presentation || null,
+        notes: body.notes || null,
+      }).returning();
+
+      if (body.isCredit && (body.type || "egreso") === "egreso") {
+        await tx.update(transactions).set({ isCredit: true }).where(eq(transactions.id, created.id));
+        await tx.insert(accountsPayable).values({
+          transactionId: created.id,
+          supplier: body.counterparty || body.description || "Sin nombre",
+          totalAmount: String(amount),
+          paidAmount: "0",
+          pendingAmount: String(amount),
+          dueDate: body.dueDate || null,
+          status: "pendiente",
+        });
+      }
+
+      return created;
+    });
+
+    return NextResponse.json(result, { status: 201 });
+  }
+
+  // Legacy path: no presentation data
+  const result = await db.transaction(async (tx) => {
+    const [created] = await tx.insert(transactions).values({
       date: body.date,
-      type: body.type || "egreso",
+      type: body.type,
       category: body.category,
       description: body.description,
       counterparty: body.counterparty || null,
       amount,
-      quantity: String(quantityInBaseUnit),
-      unitPrice: String(unitPricePerBaseUnit),
+      quantity: body.quantity || null,
+      unitPrice: body.unitPrice || null,
       unit: body.unit || null,
       presentation: body.presentation || null,
       notes: body.notes || null,
     }).returning();
-    return NextResponse.json(created, { status: 201 });
-  }
 
-  // Legacy path: no presentation data
-  const [created] = await db.insert(transactions).values({
-    date: body.date,
-    type: body.type,
-    category: body.category,
-    description: body.description,
-    counterparty: body.counterparty || null,
-    amount,
-    quantity: body.quantity || null,
-    unitPrice: body.unitPrice || null,
-    unit: body.unit || null,
-    presentation: body.presentation || null,
-    notes: body.notes || null,
-  }).returning();
-  return NextResponse.json(created, { status: 201 });
+    if (body.isCredit && (body.type || "egreso") === "egreso") {
+      await tx.update(transactions).set({ isCredit: true }).where(eq(transactions.id, created.id));
+      await tx.insert(accountsPayable).values({
+        transactionId: created.id,
+        supplier: body.counterparty || body.description || "Sin nombre",
+        totalAmount: String(amount),
+        paidAmount: "0",
+        pendingAmount: String(amount),
+        dueDate: body.dueDate || null,
+        status: "pendiente",
+      });
+    }
+
+    return created;
+  });
+
+  return NextResponse.json(result, { status: 201 });
 }
 
 export async function PUT(req: NextRequest) {
@@ -320,40 +370,44 @@ export async function PUT(req: NextRequest) {
     unitPriceValue = String(unitPricePerBaseUnit);
   }
 
-  const [updated] = await db.update(transactions).set({
-    date: body.date,
-    type: body.type,
-    category: body.category,
-    description: body.description,
-    counterparty: body.counterparty || null,
-    amount,
-    quantity: quantityValue,
-    unitPrice: unitPriceValue,
-    unit: unitValue,
-    presentation: body.presentation || null,
-    notes: body.notes || null,
-  }).where(eq(transactions.id, body.id)).returning();
+  const result = await db.transaction(async (tx) => {
+    const [updated] = await tx.update(transactions).set({
+      date: body.date,
+      type: body.type,
+      category: body.category,
+      description: body.description,
+      counterparty: body.counterparty || null,
+      amount,
+      quantity: quantityValue,
+      unitPrice: unitPriceValue,
+      unit: unitValue,
+      presentation: body.presentation || null,
+      notes: body.notes || null,
+    }).where(eq(transactions.id, body.id)).returning();
 
-  // Si la transacción está vinculada a un movimiento de alimento, sincronizar el stock
-  // con la nueva cantidad (el vínculo al alimento original se mantiene)
-  if (existing.sourceType === "alimento" && existing.sourceId) {
-    const newQty = Number(quantityValue);
-    const oldQty = Number(existing.quantity);
-    if (!isNaN(newQty) && !isNaN(oldQty) && newQty !== oldQty) {
-      const [mov] = await db.select().from(feedMovements).where(eq(feedMovements.id, existing.sourceId));
-      if (mov) {
-        const delta = newQty - oldQty;
-        const modifier = delta >= 0 ? "+" : "-";
-        await db.update(feedInventory).set({
-          currentStock: sql`greatest(0, (${feedInventory.currentStock}::numeric ${sql.raw(modifier)} ${Math.abs(delta)}))`,
-          updatedAt: new Date(),
-        }).where(eq(feedInventory.id, mov.feedId));
-        await db.update(feedMovements).set({ quantity: String(newQty), date: body.date }).where(eq(feedMovements.id, mov.id));
+    // Si la transacción está vinculada a un movimiento de alimento, sincronizar el stock
+    // con la nueva cantidad (el vínculo al alimento original se mantiene)
+    if (existing.sourceType === "alimento" && existing.sourceId) {
+      const newQty = Number(quantityValue);
+      const oldQty = Number(existing.quantity);
+      if (!isNaN(newQty) && !isNaN(oldQty) && newQty !== oldQty) {
+        const [mov] = await tx.select().from(feedMovements).where(eq(feedMovements.id, existing.sourceId));
+        if (mov) {
+          const delta = newQty - oldQty;
+          const modifier = delta >= 0 ? "+" : "-";
+          await tx.update(feedInventory).set({
+            currentStock: sql`greatest(0, (${feedInventory.currentStock}::numeric ${sql.raw(modifier)} ${Math.abs(delta)}))`,
+            updatedAt: new Date(),
+          }).where(eq(feedInventory.id, mov.feedId));
+          await tx.update(feedMovements).set({ quantity: String(newQty), date: body.date }).where(eq(feedMovements.id, mov.id));
+        }
       }
     }
-  }
 
-  return NextResponse.json(updated);
+    return updated;
+  });
+
+  return NextResponse.json(result);
 }
 
 export async function DELETE(req: NextRequest) {
@@ -362,19 +416,22 @@ export async function DELETE(req: NextRequest) {
   if (!id) return NextResponse.json({ error: "ID requerido" }, { status: 400 });
 
   // If this transaction is linked to a feed movement, reverse the stock change
-  const [tx] = await db.select().from(transactions).where(eq(transactions.id, id));
-  if (tx && tx.sourceType === "alimento" && tx.sourceId) {
-    const [mov] = await db.select().from(feedMovements).where(eq(feedMovements.id, tx.sourceId));
-    if (mov) {
-      const modifier = mov.isEntry ? "-" : "+";
-      await db.update(feedInventory).set({
-        currentStock: sql`(${feedInventory.currentStock}::numeric ${sql.raw(modifier)} ${Number(mov.quantity)})`,
-        updatedAt: new Date(),
-      }).where(eq(feedInventory.id, mov.feedId));
-      await db.delete(feedMovements).where(eq(feedMovements.id, mov.id));
+  await db.transaction(async (tx) => {
+    const [record] = await tx.select().from(transactions).where(eq(transactions.id, id));
+    if (record && record.sourceType === "alimento" && record.sourceId) {
+      const [mov] = await tx.select().from(feedMovements).where(eq(feedMovements.id, record.sourceId));
+      if (mov) {
+        const modifier = mov.isEntry ? "-" : "+";
+        await tx.update(feedInventory).set({
+          currentStock: sql`(${feedInventory.currentStock}::numeric ${sql.raw(modifier)} ${Number(mov.quantity)})`,
+          updatedAt: new Date(),
+        }).where(eq(feedInventory.id, mov.feedId));
+        await tx.delete(feedMovements).where(eq(feedMovements.id, mov.id));
+      }
     }
-  }
 
-  await db.delete(transactions).where(eq(transactions.id, id));
+    await tx.delete(transactions).where(eq(transactions.id, id));
+  });
+
   return NextResponse.json({ ok: true });
 }

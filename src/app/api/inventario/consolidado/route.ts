@@ -2,7 +2,7 @@ import { db } from "@/db";
 import {
   catalogos, hens, roosters, broilerBatches,
   feedInventory, feedMovements, eggProductionDetails,
-  manureInventory,
+  manureInventory, supplyInventory, meatInventory, mortalityRecords,
 } from "@/db/schema";
 import { eq, and, sql, desc, gte } from "drizzle-orm";
 import { NextRequest, NextResponse } from "next/server";
@@ -45,6 +45,9 @@ export async function GET(req: NextRequest) {
     manureRows,
     sizeCatalog,
     movementsByType,
+    supplyRows,
+    meatRows,
+    mortalityRows,
   ] = await Promise.all([
     // 1. Alimentos
     db.select().from(feedInventory).orderBy(desc(feedInventory.category)),
@@ -78,6 +81,20 @@ export async function GET(req: NextRequest) {
       .from(feedMovements)
       .where(gte(feedMovements.date, startStr))
       .groupBy(feedMovements.movementType, feedMovements.isEntry),
+
+    // Supply inventory
+    db.select().from(supplyInventory).orderBy(desc(supplyInventory.name)),
+
+    // Meat inventory
+    db.select().from(meatInventory).orderBy(desc(meatInventory.date)),
+
+    // Mortality records in period
+    db.select({
+      birdType: mortalityRecords.birdType,
+      cause: mortalityRecords.cause,
+      total: sql<number>`coalesce(sum(${mortalityRecords.quantity}), 0)::int`,
+    }).from(mortalityRecords).where(gte(mortalityRecords.date, startStr))
+      .groupBy(mortalityRecords.birdType, mortalityRecords.cause),
   ]);
 
   // 1. Alimentos con valor y días restantes
@@ -166,10 +183,53 @@ export async function GET(req: NextRequest) {
     }
   }
 
+  // Supplies section
+  const supplies = supplyRows.map((s) => {
+    const stock = Number(s.currentStock);
+    const minStock = Number(s.minStock);
+    const costPerUnit = Number(s.costPerUnit);
+    return {
+      supplyId: s.id,
+      name: s.name,
+      category: s.category,
+      unit: s.unit,
+      currentStock: stock,
+      minStock,
+      costPerUnit,
+      estimatedValue: Math.round(stock * costPerUnit * 100) / 100,
+      isLow: stock <= minStock,
+      supplier: s.supplier,
+      expiryDate: s.expiryDate,
+    };
+  });
+  const totalSuppliesValue = supplies.reduce((s, x) => s + x.estimatedValue, 0);
+
+  // Meat section
+  const meat = meatRows.map((m) => ({
+    id: m.id,
+    date: m.date,
+    source: m.source,
+    birdType: m.birdType,
+    quantityKg: Number(m.quantityKg),
+    availableKg: Number(m.availableKg),
+    costPerKg: Number(m.costPerKg),
+  }));
+  const totalMeatKg = meat.reduce((s, m) => s + m.availableKg, 0);
+  const totalMeatValue = meat.reduce((s, m) => s + m.availableKg * m.costPerKg, 0);
+
+  // Mortality section
+  const mortalityByCause: Record<string, number> = {};
+  let totalDeaths = 0;
+  for (const m of mortalityRows) {
+    totalDeaths += m.total;
+    const cause = m.cause || "otro";
+    mortalityByCause[cause] = (mortalityByCause[cause] || 0) + m.total;
+  }
+
   // 6. Valor total
   const eggValue = eggInv.estimatedValue;
   const birdsValue = birds.batches.reduce((s, b) => s + b.currentQuantity * b.avgWeightKg, 0); // valor informativo en kg de carne en pie
-  const totalValue = Math.round((totalFoodValue + eggValue) * 100) / 100;
+  const totalValue = Math.round((totalFoodValue + eggValue + totalSuppliesValue + totalMeatValue) * 100) / 100;
 
   return NextResponse.json({
     generatedAt: today.toISOString(),
@@ -184,6 +244,12 @@ export async function GET(req: NextRequest) {
       foodValue: Math.round(totalFoodValue * 100) / 100,
       eggValue: Math.round(eggValue * 100) / 100,
       birdsValue: Math.round(birdsValue * 100) / 100,
+      totalSupplies: supplies.length,
+      lowStockSupplies: supplies.filter((s) => s.isLow).length,
+      totalMeatKg: Math.round(totalMeatKg * 100) / 100,
+      suppliesValue: Math.round(totalSuppliesValue * 100) / 100,
+      meatValue: Math.round(totalMeatValue * 100) / 100,
+      totalDeaths,
     },
     foods: foodItems,
     eggs: eggSummary,
@@ -194,6 +260,12 @@ export async function GET(req: NextRequest) {
       exitsByType,
       totalEntries: Math.round(totalEntries * 100) / 100,
       totalExits: Math.round(totalExits * 100) / 100,
+    },
+    supplies,
+    meat,
+    mortality: {
+      byCause: mortalityByCause,
+      totalDeaths,
     },
   });
 }

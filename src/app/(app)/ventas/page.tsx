@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState, useCallback } from "react";
-import { PageHeader, Button, Card, Table, Modal, Input, Select, Textarea, EmptyState, StatCard } from "@/components/ui";
+import { PageHeader, Button, Card, Table, Modal, Input, Select, Textarea, EmptyState, StatCard, Badge } from "@/components/ui";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from "recharts";
 import { apiFetch } from "@/lib/fetch";
 import { useCatalog } from "@/lib/useCatalog";
@@ -26,6 +26,7 @@ interface Sale {
   presentation: string | null;
   buyer: string | null;
   notes: string | null;
+  isCredit?: boolean;
   items: SaleItem[];
 }
 
@@ -43,6 +44,8 @@ interface ChickenSale {
   henId: string | null;
   roosterId?: string | null;
   batchId?: string | null;
+  isCredit?: boolean;
+  dueDate?: string | null;
   notes: string | null;
   hen?: {
     id: string;
@@ -125,6 +128,8 @@ export default function VentasPage() {
     notes: "",
     items: [{ key: "1", size: "", presentations: 1, presentation: "", pricePerUnit: "500" }] as SaleFormItem[],
   });
+  const [isCredit, setIsCredit] = useState(false);
+  const [dueDate, setDueDate] = useState("");
 
   // ─── Chicken sales state ───
   const [chickenSales, setChickenSales] = useState<ChickenSale[]>([]);
@@ -149,6 +154,8 @@ export default function VentasPage() {
     batchId: "",
     notes: "",
   });
+  const [birdIsCredit, setBirdIsCredit] = useState(false);
+  const [birdDueDate, setBirdDueDate] = useState("");
 
   // ─── Catalogs ───
   const { values: buyerOptions } = useCatalog("comprador");
@@ -198,6 +205,8 @@ export default function VentasPage() {
   const openNew = () => {
     setEditing(null);
     setError("");
+    setIsCredit(false);
+    setDueDate("");
     setForm({
       date: new Date().toISOString().split("T")[0],
       buyer: "",
@@ -265,6 +274,7 @@ export default function VentasPage() {
     }
     const payload = {
       date: form.date, buyer: form.buyer || null, notes: form.notes || null,
+      isCredit, dueDate: dueDate || null,
       items: form.items.map((item) => ({ size: item.size, quantity: getItemEggs(item), presentations: item.presentations, pricePerUnit: Number(item.pricePerUnit), presentation: item.presentation || null })),
     };
     const method = editing ? "PUT" : "POST";
@@ -272,6 +282,8 @@ export default function VentasPage() {
     const res = await apiFetch("/api/ventas", { method, headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
     if (!res.ok) { const data = await res.json().catch(() => ({})); setError(data.error || "Error al guardar la venta"); return; }
     setModalOpen(false);
+    setIsCredit(false);
+    setDueDate("");
     load();
   };
 
@@ -285,6 +297,8 @@ export default function VentasPage() {
   const openNewBird = () => {
     setEditingBird(null);
     setBirdError("");
+    setBirdIsCredit(false);
+    setBirdDueDate("");
     setBirdForm({ date: new Date().toISOString().split("T")[0], birdType: "gallina_descarte", quantity: "1", weightKg: "", priceMode: "por_ave", pricePerUnit: "25000", buyer: "", presentation: "", henId: "", roosterId: "", batchId: "", notes: "" });
     setBirdModalOpen(true);
   };
@@ -292,6 +306,8 @@ export default function VentasPage() {
   const openEditBird = (s: ChickenSale) => {
     setEditingBird(s);
     setBirdError("");
+    setBirdIsCredit(!!s.isCredit);
+    setBirdDueDate(s.dueDate || "");
     setBirdForm({ date: s.date, birdType: s.birdType, quantity: String(s.quantity), weightKg: s.weightKg || "", priceMode: s.priceMode, pricePerUnit: s.pricePerUnit, buyer: s.buyer || "", presentation: s.presentation || "", henId: s.henId || "", roosterId: s.roosterId || "", batchId: s.batchId || "", notes: s.notes || "" });
     setBirdModalOpen(true);
   };
@@ -353,6 +369,8 @@ export default function VentasPage() {
       buyer: birdForm.buyer || null,
       presentation: birdForm.presentation || null,
       notes: birdForm.notes || null,
+      isCredit: birdIsCredit,
+      dueDate: birdDueDate || null,
       ...(birdForm.henId ? { henId: birdForm.henId } : {}),
       ...(birdForm.roosterId ? { roosterId: birdForm.roosterId } : {}),
       ...(birdForm.batchId ? { batchId: birdForm.batchId } : {}),
@@ -363,6 +381,8 @@ export default function VentasPage() {
     const res = await apiFetch("/api/ventas-aves", { method, headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) });
     if (!res.ok) { const data = await res.json().catch(() => ({})); setBirdError(data.error || "Error al guardar"); return; }
     setBirdModalOpen(false);
+    setBirdIsCredit(false);
+    setBirdDueDate("");
     load();
   };
 
@@ -477,7 +497,10 @@ export default function VentasPage() {
                     <td className="px-4 py-3">{new Date(s.date + "T12:00:00").toLocaleDateString("es")}</td>
                     <td className="px-4 py-3 font-semibold text-sm">{formatSaleItems(s)}</td>
                     <td className="px-4 py-3 font-bold text-green-600">${Number(s.totalAmount).toLocaleString()}</td>
-                    <td className="px-4 py-3 text-sm">{s.buyer || "—"}</td>
+                    <td className="px-4 py-3 text-sm">
+                      {s.buyer || "—"}
+                      {s.isCredit && <Badge color="orange">Crédito</Badge>}
+                    </td>
                     <td className="px-4 py-3">
                       <div className="flex gap-1">
                         <button onClick={() => openEdit(s)} className="text-blue-600 hover:underline text-xs">Editar</button>
@@ -569,6 +592,17 @@ export default function VentasPage() {
           <datalist id="catalog-compradores">
             {buyerOptions.map((b) => <option key={b} value={b} />)}
           </datalist>
+
+          <div className="flex items-center gap-2">
+            <input type="checkbox" id="isCredit" checked={isCredit} onChange={(e) => setIsCredit(e.target.checked)} className="rounded" />
+            <label htmlFor="isCredit" className="text-sm font-medium text-gray-700">Venta a crédito</label>
+          </div>
+          {isCredit && (
+            <div>
+              <label className="text-sm font-medium text-gray-700">Fecha vencimiento</label>
+              <input type="date" value={dueDate} onChange={(e) => setDueDate(e.target.value)} className="mt-1 block w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm focus:border-green-500 focus:ring-1 focus:ring-green-500" />
+            </div>
+          )}
 
           <div>
             <div className="flex items-center justify-between mb-2">
@@ -717,6 +751,17 @@ export default function VentasPage() {
           <datalist id="catalog-compradores-bird">
             {buyerOptions.map((b) => <option key={b} value={b} />)}
           </datalist>
+
+          <div className="flex items-center gap-2">
+            <input type="checkbox" id="birdIsCredit" checked={birdIsCredit} onChange={(e) => setBirdIsCredit(e.target.checked)} className="rounded" />
+            <label htmlFor="birdIsCredit" className="text-sm font-medium text-gray-700">Venta a crédito</label>
+          </div>
+          {birdIsCredit && (
+            <div>
+              <label className="text-sm font-medium text-gray-700">Fecha vencimiento</label>
+              <input type="date" value={birdDueDate} onChange={(e) => setBirdDueDate(e.target.value)} className="mt-1 block w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm focus:border-green-500 focus:ring-1 focus:ring-green-500" />
+            </div>
+          )}
 
           <div className="p-3 bg-green-50 rounded-lg text-sm text-green-700">
             <p>🐔 Total aves: <strong className="text-lg">{birdForm.quantity}</strong></p>

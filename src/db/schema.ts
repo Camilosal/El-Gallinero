@@ -85,6 +85,15 @@ export const broilerBatchStatusEnum = pgEnum("broiler_batch_status", [
   "faena",
 ]);
 
+export const mortalityCauseEnum = pgEnum("mortality_cause", [
+  "enfermedad",
+  "depredador",
+  "accidente",
+  "sacrificio_sanitario",
+  "causa_natural",
+  "otro",
+]);
+
 // ─── Gallinas ───
 export const hens = pgTable("hens", {
   id: uuid("id").defaultRandom().primaryKey(),
@@ -96,6 +105,8 @@ export const hens = pgTable("hens", {
   notes: text("notes"),
   isBroody: boolean("is_broody").default(false).notNull(),
   clutchSize: integer("clutch_size").default(0),
+  acquisitionId: uuid("acquisition_id").references(() => birdAcquisitions.id),
+  acquisitionCost: decimal("acquisition_cost", { precision: 10, scale: 2 }),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
@@ -175,6 +186,8 @@ export const roosters = pgTable("roosters", {
   status: roosterStatusEnum("status").default("activo").notNull(),
   weight: decimal("weight", { precision: 6, scale: 2 }),
   notes: text("notes"),
+  acquisitionId: uuid("acquisition_id").references(() => birdAcquisitions.id),
+  acquisitionCost: decimal("acquisition_cost", { precision: 10, scale: 2 }),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
@@ -192,6 +205,8 @@ export const broilerBatches = pgTable("broiler_batches", {
   avgWeightKg: decimal("avg_weight_kg", { precision: 6, scale: 2 }),
   status: broilerBatchStatusEnum("status").default("activo").notNull(),
   notes: text("notes"),
+  acquisitionId: uuid("acquisition_id").references(() => birdAcquisitions.id),
+  totalProductionCost: decimal("total_production_cost", { precision: 12, scale: 2 }),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
@@ -263,6 +278,7 @@ export const transactions = pgTable("transactions", {
   presentation: varchar("presentation", { length: 100 }),
   sourceType: varchar("source_type", { length: 50 }),
   sourceId: uuid("source_id"),
+  isCredit: boolean("is_credit").default(false).notNull(),
   notes: text("notes"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
@@ -392,5 +408,215 @@ export const manureAdjustments = pgTable("manure_adjustments", {
   date: date("date").notNull(),
   deltaKg: decimal("delta_kg", { precision: 10, scale: 2 }).notNull(), // + agrega, - retira
   reason: text("reason").notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+// ─── Adquisición de aves (compra, donación, pollitos) ───
+export const birdAcquisitions = pgTable("bird_acquisitions", {
+  id: uuid("id").defaultRandom().primaryKey(),
+  date: date("date").notNull(),
+  acquisitionType: varchar("acquisition_type", { length: 50 }).notNull(), // compra, donacion, pollito_comprado
+  birdType: varchar("bird_type", { length: 50 }).notNull(), // gallina, gallo, lote_pollos
+  quantity: integer("quantity").notNull(),
+  unitCost: decimal("unit_cost", { precision: 12, scale: 2 }),
+  totalCost: decimal("total_cost", { precision: 12, scale: 2 }),
+  supplier: varchar("supplier", { length: 200 }),
+  breed: varchar("breed", { length: 100 }),
+  birthDate: date("birth_date"),
+  notes: text("notes"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+// ─── Registros de mortalidad ───
+export const mortalityRecords = pgTable("mortality_records", {
+  id: uuid("id").defaultRandom().primaryKey(),
+  date: date("date").notNull(),
+  birdType: varchar("bird_type", { length: 50 }).notNull(),
+  quantity: integer("quantity").notNull(),
+  cause: mortalityCauseEnum("cause").notNull(),
+  henId: uuid("hen_id").references(() => hens.id),
+  roosterId: uuid("rooster_id").references(() => roosters.id),
+  batchId: uuid("batch_id").references(() => broilerBatches.id),
+  healthControlId: uuid("health_control_id").references(() => healthControl.id),
+  description: text("description"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+// ─── Pérdidas de huevo post-cosecha ───
+export const eggLosses = pgTable("egg_losses", {
+  id: uuid("id").defaultRandom().primaryKey(),
+  date: date("date").notNull(),
+  quantity: integer("quantity").notNull(),
+  size: varchar("size", { length: 50 }),
+  reason: varchar("reason", { length: 50 }).notNull(),
+  notes: text("notes"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+// ─── Insumos no alimenticios (Fase 3) ───
+export const supplyInventory = pgTable("supply_inventory", {
+  id: uuid("id").defaultRandom().primaryKey(),
+  name: varchar("name", { length: 200 }).notNull(),
+  category: varchar("category", { length: 50 }).notNull(),
+  unit: varchar("unit", { length: 30 }).notNull(),
+  currentStock: decimal("current_stock", { precision: 10, scale: 2 }).default("0").notNull(),
+  minStock: decimal("min_stock", { precision: 10, scale: 2 }).default("0").notNull(),
+  costPerUnit: decimal("cost_per_unit", { precision: 10, scale: 2 }).default("0").notNull(),
+  supplier: varchar("supplier", { length: 200 }),
+  expiryDate: date("expiry_date"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
+export const supplyMovements = pgTable("supply_movements", {
+  id: uuid("id").defaultRandom().primaryKey(),
+  supplyId: uuid("supply_id").references(() => supplyInventory.id).notNull(),
+  quantity: decimal("quantity", { precision: 10, scale: 2 }).notNull(),
+  isEntry: boolean("is_entry").notNull(),
+  movementType: varchar("movement_type", { length: 50 }).notNull(),
+  date: date("date").notNull(),
+  healthControlId: uuid("health_control_id").references(() => healthControl.id),
+  maintenanceId: uuid("maintenance_id").references(() => maintenance.id),
+  notes: text("notes"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+export const meatInventory = pgTable("meat_inventory", {
+  id: uuid("id").defaultRandom().primaryKey(),
+  date: date("date").notNull(),
+  source: varchar("source", { length: 50 }).notNull(),
+  slaughterId: uuid("slaughter_id").references(() => slaughter.id),
+  birdType: varchar("bird_type", { length: 50 }),
+  quantityKg: decimal("quantity_kg", { precision: 8, scale: 2 }).notNull(),
+  availableKg: decimal("available_kg", { precision: 8, scale: 2 }).notNull(),
+  costPerKg: decimal("cost_per_kg", { precision: 10, scale: 2 }).default("0"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+// ─── Categorías financieras jerárquicas (Fase 5) ───
+export const financialCategories = pgTable("financial_categories", {
+  id: uuid("id").defaultRandom().primaryKey(),
+  name: varchar("name", { length: 100 }).notNull(),
+  parentId: uuid("parent_id"),
+  type: varchar("type", { length: 20 }).notNull(),
+  sortOrder: integer("sort_order").default(0).notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+// ─── Presupuestos (Fase 6) ───
+export const budgets = pgTable("budgets", {
+  id: uuid("id").defaultRandom().primaryKey(),
+  name: varchar("name", { length: 200 }).notNull(),
+  periodStart: date("period_start").notNull(),
+  periodEnd: date("period_end").notNull(),
+  type: varchar("type", { length: 50 }).notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
+export const budgetItems = pgTable("budget_items", {
+  id: uuid("id").defaultRandom().primaryKey(),
+  budgetId: uuid("budget_id").references(() => budgets.id, { onDelete: "cascade" }).notNull(),
+  category: varchar("category", { length: 100 }).notNull(),
+  description: varchar("description", { length: 200 }),
+  monthlyTarget: decimal("monthly_target", { precision: 12, scale: 2 }).notNull(),
+  unit: varchar("unit", { length: 30 }),
+  notes: text("notes"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
+export const cashflowProjections = pgTable("cashflow_projections", {
+  id: uuid("id").defaultRandom().primaryKey(),
+  month: date("month").notNull(),
+  projectedIncome: decimal("projected_income", { precision: 12, scale: 2 }),
+  projectedExpense: decimal("projected_expense", { precision: 12, scale: 2 }),
+  actualIncome: decimal("actual_income", { precision: 12, scale: 2 }),
+  actualExpense: decimal("actual_expense", { precision: 12, scale: 2 }),
+  notes: text("notes"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
+// ─── Cuentas por cobrar/pagar (Fase 7) ───
+export const accountsReceivable = pgTable("accounts_receivable", {
+  id: uuid("id").defaultRandom().primaryKey(),
+  transactionId: uuid("transaction_id").references(() => transactions.id).notNull(),
+  buyer: varchar("buyer", { length: 200 }).notNull(),
+  totalAmount: decimal("total_amount", { precision: 12, scale: 2 }).notNull(),
+  paidAmount: decimal("paid_amount", { precision: 12, scale: 2 }).default("0").notNull(),
+  pendingAmount: decimal("pending_amount", { precision: 12, scale: 2 }).notNull(),
+  dueDate: date("due_date"),
+  status: varchar("status", { length: 20 }).default("pendiente").notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
+export const accountsPayable = pgTable("accounts_payable", {
+  id: uuid("id").defaultRandom().primaryKey(),
+  transactionId: uuid("transaction_id").references(() => transactions.id).notNull(),
+  supplier: varchar("supplier", { length: 200 }).notNull(),
+  totalAmount: decimal("total_amount", { precision: 12, scale: 2 }).notNull(),
+  paidAmount: decimal("paid_amount", { precision: 12, scale: 2 }).default("0").notNull(),
+  pendingAmount: decimal("pending_amount", { precision: 12, scale: 2 }).notNull(),
+  dueDate: date("due_date"),
+  status: varchar("status", { length: 20 }).default("pendiente").notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
+export const payments = pgTable("payments", {
+  id: uuid("id").defaultRandom().primaryKey(),
+  date: date("date").notNull(),
+  type: varchar("type", { length: 20 }).notNull(),
+  receivableId: uuid("receivable_id").references(() => accountsReceivable.id),
+  payableId: uuid("payable_id").references(() => accountsPayable.id),
+  amount: decimal("amount", { precision: 12, scale: 2 }).notNull(),
+  method: varchar("method", { length: 50 }),
+  reference: varchar("reference", { length: 100 }),
+  notes: text("notes"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+// ─── Calendario sanitario y plan de parvada (Fase 8) ───
+export const sanitaryCalendar = pgTable("sanitary_calendar", {
+  id: uuid("id").defaultRandom().primaryKey(),
+  type: varchar("type", { length: 50 }).notNull(),
+  name: varchar("name", { length: 200 }).notNull(),
+  description: text("description"),
+  targetBirds: varchar("target_birds", { length: 50 }).default("todas"),
+  targetStageId: uuid("target_stage_id").references(() => catalogos.id),
+  frequencyDays: integer("frequency_days"),
+  nextDueDate: date("next_due_date").notNull(),
+  withdrawalDays: integer("withdrawal_days"),
+  lastHealthControlId: uuid("last_health_control_id").references(() => healthControl.id),
+  isActive: boolean("is_active").default(true).notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
+export const flockPlans = pgTable("flock_plans", {
+  id: uuid("id").defaultRandom().primaryKey(),
+  name: varchar("name", { length: 200 }).notNull(),
+  startDate: date("start_date").notNull(),
+  targetHenCount: integer("target_hen_count").notNull(),
+  targetRoosterCount: integer("target_rooster_count"),
+  replacementDate: date("replacement_date"),
+  currentPhase: varchar("current_phase", { length: 50 }),
+  status: varchar("status", { length: 20 }).default("activo").notNull(),
+  notes: text("notes"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
+export const flockPlanMilestones = pgTable("flock_plan_milestones", {
+  id: uuid("id").defaultRandom().primaryKey(),
+  planId: uuid("plan_id").references(() => flockPlans.id, { onDelete: "cascade" }).notNull(),
+  weekNumber: integer("week_number").notNull(),
+  expectedHens: integer("expected_hens"),
+  expectedEggsPerWeek: integer("expected_eggs_per_week"),
+  expectedFeedKgPerWeek: decimal("expected_feed_kg_per_week", { precision: 10, scale: 2 }),
+  actualHens: integer("actual_hens"),
+  actualEggsPerWeek: integer("actual_eggs_per_week"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });

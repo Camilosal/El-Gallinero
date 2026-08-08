@@ -76,50 +76,55 @@ export async function POST(req: NextRequest) {
     ? (pricePerUnit * weightKg).toFixed(2)
     : (pricePerUnit * qty).toFixed(2);
 
-  const [created] = await db.insert(chickenSales).values({
-    date: body.date,
-    birdType: body.birdType,
-    quantity: qty,
-    weightKg: weightKg ? String(weightKg) : null,
-    pricePerUnit: String(pricePerUnit),
-    priceMode,
-    totalAmount,
-    buyer: body.buyer || null,
-    presentation: body.presentation || null,
-    henId: body.henId || null,
-    roosterId: body.roosterId || null,
-    batchId: body.batchId || null,
-    notes: body.notes || null,
-  }).returning();
+  const created = await db.transaction(async (tx) => {
+    const [inserted] = await tx.insert(chickenSales).values({
+      date: body.date,
+      birdType: body.birdType,
+      quantity: qty,
+      weightKg: weightKg ? String(weightKg) : null,
+      pricePerUnit: String(pricePerUnit),
+      priceMode,
+      totalAmount,
+      buyer: body.buyer || null,
+      presentation: body.presentation || null,
+      henId: body.henId || null,
+      roosterId: body.roosterId || null,
+      batchId: body.batchId || null,
+      notes: body.notes || null,
+    }).returning();
 
-  // Change hen status to "vendida" if linked
-  if (body.henId) {
-    await db.update(hens).set({ status: "vendida" }).where(eq(hens.id, body.henId));
-  }
-  // Change rooster status to "vendido" if linked
-  if (body.roosterId) {
-    await applyRoosterExit(body.roosterId, "venta");
-  }
-  // Discount batch quantity if linked
-  if (body.batchId) {
-    await applyBatchExit(body.batchId, qty, "venta");
-  }
+    // Change hen status to "vendida" if linked
+    if (body.henId) {
+      await tx.update(hens).set({ status: "vendida" }).where(eq(hens.id, body.henId));
+    }
 
-  // Create linked income transaction
-  const birdLabel = body.birdType.replace(/_/g, " ");
-  const weightDesc = weightKg ? ` (${weightKg} kg)` : "";
-  await db.insert(transactions).values({
-    date: body.date,
-    type: "ingreso",
-    category: "Venta de aves",
-    description: `Venta de ${qty} ${birdLabel}${weightDesc}${body.buyer ? ` a ${body.buyer}` : ""}`,
-    amount: totalAmount,
-    quantity: String(qty),
-    unitPrice: String(pricePerUnit),
-    unit: priceMode === "por_kg" ? "kg" : "aves",
-    counterparty: body.buyer || null,
-    sourceType: "venta_ave",
-    sourceId: created.id,
+    // Create linked income transaction
+    const birdLabel = body.birdType.replace(/_/g, " ");
+    const weightDesc = weightKg ? ` (${weightKg} kg)` : "";
+    await tx.insert(transactions).values({
+      date: body.date,
+      type: "ingreso",
+      category: "Venta de aves",
+      description: `Venta de ${qty} ${birdLabel}${weightDesc}${body.buyer ? ` a ${body.buyer}` : ""}`,
+      amount: totalAmount,
+      quantity: String(qty),
+      unitPrice: String(pricePerUnit),
+      unit: priceMode === "por_kg" ? "kg" : "aves",
+      counterparty: body.buyer || null,
+      sourceType: "venta_ave",
+      sourceId: inserted.id,
+    });
+
+    // Change rooster status to "vendido" if linked
+    if (body.roosterId) {
+      await applyRoosterExit(body.roosterId, "venta", tx);
+    }
+    // Discount batch quantity if linked
+    if (body.batchId) {
+      await applyBatchExit(body.batchId, qty, "venta", tx);
+    }
+
+    return inserted;
   });
 
   return NextResponse.json(created, { status: 201 });
@@ -155,87 +160,96 @@ export async function PUT(req: NextRequest) {
   }
 
   // Validate new rooster/batch if changed (revertir el anterior para validar stock real)
-  if (existing.batchId) await restoreBatchExit(existing.batchId, existing.quantity);
-  if (body.roosterId && body.roosterId !== existing.roosterId) {
-    const err = await validateRoosterForExit(body.roosterId);
-    if (err) {
-      if (existing.batchId) await applyBatchExit(existing.batchId, existing.quantity, "venta");
-      return NextResponse.json({ error: err }, { status: err === "Gallo no encontrado" ? 404 : 400 });
-    }
-  }
-  if (body.batchId) {
-    const err = await validateBatchForExit(body.batchId, qty);
-    if (err) {
-      if (existing.batchId) await applyBatchExit(existing.batchId, existing.quantity, "venta");
-      return NextResponse.json({ error: err }, { status: err === "Lote no encontrado" ? 404 : 400 });
-    }
-  }
-
   const priceMode = body.priceMode || "por_ave";
   const weightKg = body.weightKg ? Number(body.weightKg) : null;
   const totalAmount = priceMode === "por_kg" && weightKg
     ? (pricePerUnit * weightKg).toFixed(2)
     : (pricePerUnit * qty).toFixed(2);
 
-  const [updated] = await db.update(chickenSales).set({
-    date: body.date,
-    birdType: body.birdType,
-    quantity: qty,
-    weightKg: weightKg ? String(weightKg) : null,
-    pricePerUnit: String(pricePerUnit),
-    priceMode,
-    totalAmount,
-    buyer: body.buyer || null,
-    presentation: body.presentation || null,
-    henId: body.henId || null,
-    roosterId: body.roosterId || null,
-    batchId: body.batchId || null,
-    notes: body.notes || null,
-  }).where(eq(chickenSales.id, body.id)).returning();
+  try {
+    await db.transaction(async (tx) => {
+      // Validate new rooster/batch inside transaction for consistency
+      if (body.roosterId && body.roosterId !== existing.roosterId) {
+        const err = await validateRoosterForExit(body.roosterId);
+        if (err) throw new Error(err);
+      }
+      if (body.batchId) {
+        const err = await validateBatchForExit(body.batchId, qty);
+        if (err) throw new Error(err);
+      }
+      // Restore old batch exit if batch changed
+      if (existing.batchId && existing.batchId !== body.batchId) {
+        await restoreBatchExit(existing.batchId, existing.quantity, tx);
+      }
 
-  // Update hen statuses
-  // Restore old hen to "activa" if it was linked
-  if (existing.henId && existing.henId !== body.henId) {
-    await db.update(hens).set({ status: "activa" }).where(eq(hens.id, existing.henId));
-  }
-  // Set new hen to "vendida" if linked
-  if (body.henId && body.henId !== existing.henId) {
-    await db.update(hens).set({ status: "vendida" }).where(eq(hens.id, body.henId));
+      await tx.update(chickenSales).set({
+        date: body.date,
+        birdType: body.birdType,
+        quantity: qty,
+        weightKg: weightKg ? String(weightKg) : null,
+        pricePerUnit: String(pricePerUnit),
+        priceMode,
+        totalAmount,
+        buyer: body.buyer || null,
+        presentation: body.presentation || null,
+        henId: body.henId || null,
+        roosterId: body.roosterId || null,
+        batchId: body.batchId || null,
+        notes: body.notes || null,
+      }).where(eq(chickenSales.id, body.id));
+
+      // Update hen statuses
+      // Restore old hen to "activa" if it was linked
+      if (existing.henId && existing.henId !== body.henId) {
+        await tx.update(hens).set({ status: "activa" }).where(eq(hens.id, existing.henId));
+      }
+      // Set new hen to "vendida" if linked
+      if (body.henId && body.henId !== existing.henId) {
+        await tx.update(hens).set({ status: "vendida" }).where(eq(hens.id, body.henId));
+      }
+
+      // Sync linked income transaction
+      const [existingTx] = await tx.select().from(transactions)
+        .where(and(eq(transactions.sourceType, "venta_ave"), eq(transactions.sourceId, body.id)));
+
+      const birdLabel = body.birdType.replace(/_/g, " ");
+      const weightDesc = weightKg ? ` (${weightKg} kg)` : "";
+      const values = {
+        date: body.date,
+        description: `Venta de ${qty} ${birdLabel}${weightDesc}${body.buyer ? ` a ${body.buyer}` : ""}`,
+        amount: totalAmount,
+        quantity: String(qty),
+        unitPrice: String(pricePerUnit),
+        unit: priceMode === "por_kg" ? "kg" : "aves",
+        counterparty: body.buyer || null,
+      };
+
+      if (existingTx) {
+        await tx.update(transactions).set(values).where(eq(transactions.id, existingTx.id));
+      } else {
+        await tx.insert(transactions).values({ ...values, type: "ingreso", category: "Venta de aves", sourceType: "venta_ave", sourceId: body.id });
+      }
+
+      // Update rooster statuses
+      if (existing.roosterId && existing.roosterId !== body.roosterId) {
+        await restoreRoosterExit(existing.roosterId, tx);
+      }
+      if (body.roosterId && body.roosterId !== existing.roosterId) {
+        await applyRoosterExit(body.roosterId, "venta", tx);
+      }
+      // Apply batch exit
+      if (body.batchId) {
+        await applyBatchExit(body.batchId, qty, "venta", tx);
+      }
+    });
+  } catch (e: any) {
+    const msg = e.message || "";
+    if (msg === "Gallo no encontrado") return NextResponse.json({ error: msg }, { status: 404 });
+    if (msg === "Lote no encontrado" || msg.startsWith("Stock insuficiente")) return NextResponse.json({ error: msg }, { status: 400 });
+    throw e; // re-throw unexpected errors
   }
 
-  // Update rooster statuses (el lote ya fue restaurado arriba para validar)
-  if (existing.roosterId && existing.roosterId !== body.roosterId) {
-    await restoreRoosterExit(existing.roosterId);
-  }
-  if (body.roosterId && body.roosterId !== existing.roosterId) {
-    await applyRoosterExit(body.roosterId, "venta");
-  }
-  if (body.batchId) {
-    await applyBatchExit(body.batchId, qty, "venta");
-  }
-
-  // Sync linked income transaction
-  const [existingTx] = await db.select().from(transactions)
-    .where(and(eq(transactions.sourceType, "venta_ave"), eq(transactions.sourceId, body.id)));
-
-  const birdLabel = body.birdType.replace(/_/g, " ");
-  const weightDesc = weightKg ? ` (${weightKg} kg)` : "";
-  const values = {
-    date: body.date,
-    description: `Venta de ${qty} ${birdLabel}${weightDesc}${body.buyer ? ` a ${body.buyer}` : ""}`,
-    amount: totalAmount,
-    quantity: String(qty),
-    unitPrice: String(pricePerUnit),
-    unit: priceMode === "por_kg" ? "kg" : "aves",
-    counterparty: body.buyer || null,
-  };
-
-  if (existingTx) {
-    await db.update(transactions).set(values).where(eq(transactions.id, existingTx.id));
-  } else {
-    await db.insert(transactions).values({ ...values, type: "ingreso", category: "Venta de aves", sourceType: "venta_ave", sourceId: body.id });
-  }
-
+  const [updated] = await db.select().from(chickenSales).where(eq(chickenSales.id, body.id));
   return NextResponse.json(updated);
 }
 
@@ -248,20 +262,23 @@ export async function DELETE(req: NextRequest) {
   // Get record to check henId
   const [record] = await db.select().from(chickenSales).where(eq(chickenSales.id, id));
   
-  // Restore hen status to "activa" if linked
-  if (record?.henId) {
-    await db.update(hens).set({ status: "activa" }).where(eq(hens.id, record.henId));
-  }
-  // Restore rooster status if linked
-  if (record?.roosterId) {
-    await restoreRoosterExit(record.roosterId);
-  }
-  // Return quantity to batch if linked
-  if (record?.batchId) {
-    await restoreBatchExit(record.batchId, record.quantity);
-  }
+  await db.transaction(async (tx) => {
+    // Restore hen status to "activa" if linked
+    if (record?.henId) {
+      await tx.update(hens).set({ status: "activa" }).where(eq(hens.id, record.henId));
+    }
+    // Restore rooster status if linked
+    if (record?.roosterId) {
+      await restoreRoosterExit(record.roosterId, tx);
+    }
+    // Return quantity to batch if linked
+    if (record?.batchId) {
+      await restoreBatchExit(record.batchId, record.quantity, tx);
+    }
 
-  await db.delete(transactions).where(and(eq(transactions.sourceType, "venta_ave"), eq(transactions.sourceId, id)));
-  await db.delete(chickenSales).where(eq(chickenSales.id, id));
+    await tx.delete(transactions).where(and(eq(transactions.sourceType, "venta_ave"), eq(transactions.sourceId, id)));
+    await tx.delete(chickenSales).where(eq(chickenSales.id, id));
+  });
+
   return NextResponse.json({ ok: true });
 }

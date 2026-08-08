@@ -54,6 +54,9 @@ interface DashboardData {
   fcr: FcrData;
   feedChartData: FeedChartPoint[];
   manure: { currentStockKg: number; totalKgPerDay: number };
+  mortality: { total30d: number; rate: number; byCause: Record<string, number> };
+  sanitaryAlerts: number;
+  supplyAlerts: number;
 }
 
 const stageColors: Record<string, string> = {
@@ -176,7 +179,36 @@ export default function Dashboard() {
           <p className="text-lg font-bold mt-1">{data.manure.currentStockKg} kg</p>
           <p className="text-xs text-slate-500">Gallinaza (+{data.manure.totalKgPerDay} kg/día)</p>
         </Card>
+        <Card className={`text-center ${data.mortality.total30d > 0 ? "border-red-200 bg-red-50" : ""}`}>
+          <p className="text-2xl">💀</p>
+          <p className={`text-lg font-bold mt-1 ${data.mortality.total30d > 0 ? "text-red-600" : ""}`}>{data.mortality.total30d}</p>
+          <p className="text-xs text-slate-500">Mortalidad 30d ({data.mortality.rate}% tasa)</p>
+        </Card>
+        <Card className={`text-center ${data.sanitaryAlerts > 0 ? "border-yellow-200 bg-yellow-50" : ""}`}>
+          <p className="text-2xl">🏥</p>
+          <p className={`text-lg font-bold mt-1 ${data.sanitaryAlerts > 0 ? "text-yellow-600" : ""}`}>{data.sanitaryAlerts}</p>
+          <p className="text-xs text-slate-500">Alertas Sanitarias</p>
+        </Card>
+        <Card className={`text-center ${data.supplyAlerts > 0 ? "border-yellow-200 bg-yellow-50" : ""}`}>
+          <p className="text-2xl">📦</p>
+          <p className={`text-lg font-bold mt-1 ${data.supplyAlerts > 0 ? "text-yellow-600" : ""}`}>{data.supplyAlerts}</p>
+          <p className="text-xs text-slate-500">Alertas Insumos</p>
+        </Card>
       </div>
+
+      {/* Mortality by Cause */}
+      {data.mortality.total30d > 0 && (
+        <div className="bg-white rounded-xl shadow p-4 mb-6">
+          <h3 className="font-semibold text-gray-700 mb-2">Mortalidad por Causa (30 días)</h3>
+          <div className="flex flex-wrap gap-2">
+            {Object.entries(data.mortality.byCause).map(([cause, count]) => (
+              <span key={cause} className="px-3 py-1 bg-red-50 text-red-700 rounded-full text-sm">
+                {cause.replace(/_/g, ' ')}: {count}
+              </span>
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* ─── FCR: Conversión Alimenticia ─── */}
       <div className="mb-6">

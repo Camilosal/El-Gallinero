@@ -1,5 +1,5 @@
 import { db } from "@/db";
-import { roosters, hens } from "@/db/schema";
+import { roosters, hens, chickenSales, slaughter, mortalityRecords } from "@/db/schema";
 import { eq, desc, sql } from "drizzle-orm";
 import { NextRequest, NextResponse } from "next/server";
 import { ageInWeeks, isAvailableForExit } from "@/lib/lifecycle";
@@ -19,8 +19,13 @@ async function getBalance() {
 
 /** Autogenera el siguiente código con prefijo dado (GA-001, GA-002...) */
 async function nextCode(prefix: string): Promise<string> {
-  const [row] = await db.select({ count: sql<number>`count(*)::int` }).from(roosters);
-  return `${prefix}-${String((row?.count || 0) + 1).padStart(3, "0")}`;
+  const [maxRow] = await db.select({ maxCode: sql<string>`max(${roosters.code})` }).from(roosters);
+  let max = 0;
+  if (maxRow?.maxCode) {
+    const m = String(maxRow.maxCode).match(/^GA-(\d+)$/);
+    if (m) max = Number(m[1]);
+  }
+  return `${prefix}-${String(max + 1).padStart(3, "0")}`;
 }
 
 export async function GET() {
@@ -70,6 +75,11 @@ export async function DELETE(req: NextRequest) {
   const { searchParams } = new URL(req.url);
   const id = searchParams.get("id");
   if (!id) return NextResponse.json({ error: "ID requerido" }, { status: 400 });
-  await db.delete(roosters).where(eq(roosters.id, id));
+  await db.transaction(async (tx) => {
+    await tx.delete(chickenSales).where(eq(chickenSales.roosterId, id));
+    await tx.delete(slaughter).where(eq(slaughter.roosterId, id));
+    await tx.delete(mortalityRecords).where(eq(mortalityRecords.roosterId, id));
+    await tx.delete(roosters).where(eq(roosters.id, id));
+  });
   return NextResponse.json({ ok: true });
 }

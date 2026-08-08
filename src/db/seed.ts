@@ -2,7 +2,7 @@ import { config } from "dotenv";
 config({ path: ".env.local" });
 
 import { db, pool } from "./index";
-import { hens, feedInventory, feedMovements, feedPrograms, eggProduction, eggProductionDetails, eggSales, eggSalesItems, transactions, maintenance, healthControl, incubation, users, sessions, catalogos, chickenSales, slaughter, roosters, broilerBatches, manureFactors, manureInventory, manureSales, manureAdjustments } from "./schema";
+import { hens, feedInventory, feedMovements, feedPrograms, eggProduction, eggProductionDetails, eggSales, eggSalesItems, transactions, maintenance, healthControl, incubation, users, sessions, catalogos, chickenSales, slaughter, roosters, broilerBatches, manureFactors, manureInventory, manureSales, manureAdjustments, birdAcquisitions, mortalityRecords, eggLosses, supplyInventory, supplyMovements, meatInventory, budgets, budgetItems, accountsReceivable, accountsPayable, payments, sanitaryCalendar, flockPlans, flockPlanMilestones } from "./schema";
 import { eq, sql } from "drizzle-orm";
 import { hashPassword } from "@/lib/auth";
 
@@ -10,6 +10,20 @@ async function main() {
   console.log("🌱 Sembrando datos de ejemplo...");
 
   // Limpia datos previos (seed idempotente, orden por FK)
+  await db.delete(flockPlanMilestones);
+  await db.delete(flockPlans);
+  await db.delete(sanitaryCalendar);
+  await db.delete(payments);
+  await db.delete(accountsReceivable);
+  await db.delete(accountsPayable);
+  await db.delete(budgetItems);
+  await db.delete(budgets);
+  await db.delete(meatInventory);
+  await db.delete(supplyMovements);
+  await db.delete(supplyInventory);
+  await db.delete(eggLosses);
+  await db.delete(mortalityRecords);
+  await db.delete(birdAcquisitions);
   await db.delete(slaughter);
   await db.delete(chickenSales);
   await db.delete(sessions);
@@ -557,6 +571,106 @@ async function main() {
     { date: daysAgo(20), type: "vacunacion", description: "Vacuna Newcastle viva - lote completo (30 gallinas)", affectedHens: "todas", product: "Newcastle B1", cost: "80000", nextScheduled: daysAgo(-40) },
     { date: daysAgo(3), type: "tratamiento", description: "Tratamiento para G-030 (síntomas respiratorios)", affectedHens: "G-030", product: "Antibiótico enológico", cost: "12000", nextScheduled: daysAgo(4) },
     { date: daysAgo(7), type: "desparasitacion", description: "Desparasitación preventiva - pollitos y juveniles", affectedHens: "G-001,G-002,G-003,G-004,G-005,G-006,G-007,G-008,G-009,G-010,G-011,G-012", product: "Levamisol", cost: "15000", nextScheduled: daysAgo(-30) },
+  ]);
+
+  // ——— Adquisiciones de aves ———
+  await db.insert(birdAcquisitions).values([
+    { date: daysAgo(60), acquisitionType: "compra", birdType: "gallina", quantity: 5, unitCost: "25000", totalCost: "125000", supplier: "Granja La Esperanza", breed: "Rhode Island Red", birthDate: daysAgo(90), notes: "Compra inicial de gallinas ponedoras" },
+    { date: daysAgo(45), acquisitionType: "donacion", birdType: "gallo", quantity: 2, unitCost: "0", totalCost: "0", supplier: "Don José", breed: "Criolla", birthDate: daysAgo(120), notes: "Donación de gallos reproductores" },
+    { date: daysAgo(35), acquisitionType: "pollito_comprado", birdType: "lote_pollos", quantity: 20, unitCost: "3000", totalCost: "60000", supplier: "Incubadora El Valle", breed: "Cobb 500", notes: "Lote de pollos de engorde" },
+  ]);
+
+  // ——— Registros de mortalidad ———
+  await db.insert(mortalityRecords).values([
+    { date: daysAgo(15), birdType: "gallina", quantity: 1, cause: "enfermedad", description: "Gallina G-018 encontrada muerta - síntomas respiratorios" },
+    { date: daysAgo(8), birdType: "gallina", quantity: 1, cause: "depredador", description: "Gallina G-022 atacada por zarigüeya" },
+    { date: daysAgo(3), birdType: "pollo_lote", quantity: 2, cause: "causa_natural", description: "2 pollitos del lote L-001 murieron por golpe de calor" },
+  ]);
+
+  // ——— Pérdidas de huevo ———
+  await db.insert(eggLosses).values([
+    { date: daysAgo(5), quantity: 3, size: "Extra", reason: "roto", notes: "Huevos rotos durante recolección" },
+    { date: daysAgo(2), quantity: 2, size: "Mediano", reason: "contaminado", notes: "Huevos con cáscara sucia, no aptos para venta" },
+    { date: daysAgo(1), quantity: 1, size: "Grande", reason: "deteriorado", notes: "Huevo deteriorado en almacenamiento" },
+  ]);
+
+  // ——— Inventario de insumos ———
+  await db.insert(supplyInventory).values([
+    { name: "Vacuna Newcastle B1", category: "vacuna", unit: "dosis", currentStock: "50", minStock: "20", costPerUnit: "1500", supplier: "VetMarket", expiryDate: daysAgo(-180) },
+    { name: "Levamisol 10%", category: "medicina", unit: "ml", currentStock: "200", minStock: "100", costPerUnit: "80", supplier: "VetMarket", expiryDate: daysAgo(-90) },
+    { name: "Desinfectante Amonio Cuaternario", category: "material", unit: "litros", currentStock: "5", minStock: "3", costPerUnit: "12000", supplier: "AgroLimpios" },
+    { name: "Viruta para cama", category: "material", unit: "bultos", currentStock: "8", minStock: "5", costPerUnit: "8000", supplier: "Maderas del Valle" },
+  ]);
+  const [supply1] = await db.select({ id: supplyInventory.id }).from(supplyInventory).limit(1);
+
+  // ——— Movimientos de insumos ———
+  await db.insert(supplyMovements).values([
+    { supplyId: supply1.id, quantity: "50", isEntry: true, movementType: "compra", date: daysAgo(30), notes: "Compra inicial de vacunas" },
+    { supplyId: supply1.id, quantity: "30", isEntry: false, movementType: "uso", date: daysAgo(20), notes: "Aplicación en vacunación Newcastle" },
+  ]);
+
+  // ——— Inventario de carne ———
+  await db.insert(meatInventory).values([
+    { date: daysAgo(10), source: "sacrificio", birdType: "gallina", quantityKg: "2.5", availableKg: "1.8", costPerKg: "0" },
+    { date: daysAgo(5), source: "sacrificio", birdType: "pollo_engorde", quantityKg: "3.2", availableKg: "3.2", costPerKg: "0" },
+  ]);
+
+  // ——— Presupuestos ———
+  await db.insert(budgets).values({
+    name: "Presupuesto Mensual Agosto",
+    periodStart: "2026-08-01",
+    periodEnd: "2026-08-31",
+    type: "general",
+  });
+  const [budgetRow] = await db.select({ id: budgets.id }).from(budgets).limit(1);
+  const budgetId = budgetRow?.id || "";
+
+  await db.insert(budgetItems).values([
+    { budgetId, category: "Venta de huevos", description: "Ingreso mensual esperado", monthlyTarget: "500000", unit: "COP" },
+    { budgetId, category: "Compra de alimento", description: "Gasto en alimento", monthlyTarget: "200000", unit: "COP" },
+    { budgetId, category: "Control sanitario", description: "Vacunas y medicamentos", monthlyTarget: "50000", unit: "COP" },
+    { budgetId, category: "Mantenimiento", description: "Reparaciones e insumos", monthlyTarget: "30000", unit: "COP" },
+  ]);
+
+  // ——— Cuentas por cobrar ———
+  const [anyTx] = await db.select({ id: transactions.id }).from(transactions).limit(1);
+  if (anyTx) {
+    await db.update(transactions).set({ isCredit: true }).where(eq(transactions.id, anyTx.id));
+    await db.insert(accountsReceivable).values({
+      transactionId: anyTx.id,
+      buyer: "Tienda La Esquina",
+      totalAmount: "85000",
+      paidAmount: "0",
+      pendingAmount: "85000",
+      dueDate: daysAgo(-15),
+      status: "pendiente",
+    });
+  }
+
+  // ——— Calendario sanitario ———
+  await db.insert(sanitaryCalendar).values([
+    { type: "vacunacion", name: "Vacunación Newcastle", description: "Vacunación contra Newcastle cada 90 días", targetBirds: "todas", frequencyDays: 90, nextDueDate: daysAgo(-20), withdrawalDays: 7, isActive: true },
+    { type: "desparasitacion", name: "Desparasitación Interna", description: "Desparasitación preventiva cada 180 días", targetBirds: "todas", frequencyDays: 180, nextDueDate: daysAgo(-10), withdrawalDays: 14, isActive: true },
+    { type: "inspeccion", name: "Inspección Sanitaria General", description: "Revisión general mensual", targetBirds: "todas", frequencyDays: 30, nextDueDate: daysAgo(-3), withdrawalDays: 0, isActive: true },
+  ]);
+
+  // ——— Plan de parvada ———
+  await db.insert(flockPlans).values({
+    name: "Parvada 2026",
+    startDate: "2026-01-01",
+    targetHenCount: 30,
+    targetRoosterCount: 3,
+    replacementDate: "2027-01-01",
+    currentPhase: "postura",
+    status: "activo",
+  });
+  const [planRow] = await db.select({ id: flockPlans.id }).from(flockPlans).limit(1);
+  const planId = planRow?.id || "";
+
+  await db.insert(flockPlanMilestones).values([
+    { planId, weekNumber: 20, expectedHens: 30, expectedEggsPerWeek: 140, expectedFeedKgPerWeek: "42" },
+    { planId, weekNumber: 30, expectedHens: 29, expectedEggsPerWeek: 150, expectedFeedKgPerWeek: "43.5" },
+    { planId, weekNumber: 40, expectedHens: 28, expectedEggsPerWeek: 145, expectedFeedKgPerWeek: "42" },
   ]);
 
   console.log("✅ Datos de ejemplo insertados correctamente.");

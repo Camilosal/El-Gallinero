@@ -1,5 +1,5 @@
 import { db } from "@/db";
-import { slaughter, transactions, hens, roosters, broilerBatches } from "@/db/schema";
+import { slaughter, transactions, hens, roosters, broilerBatches, meatInventory } from "@/db/schema";
 import { eq, desc, and } from "drizzle-orm";
 import { NextRequest, NextResponse } from "next/server";
 import { isAvailableForExit } from "@/lib/lifecycle";
@@ -74,49 +74,66 @@ export async function POST(req: NextRequest) {
   const pricePerKg = body.pricePerKg ? Number(body.pricePerKg) : null;
   const totalAmount = destination === "venta" && pricePerKg ? (pricePerKg * weightKg).toFixed(2) : null;
 
-  const [created] = await db.insert(slaughter).values({
-    date: body.date,
-    birdType: body.birdType,
-    quantity: qty,
-    weightKg: String(weightKg),
-    destination,
-    pricePerKg: pricePerKg ? String(pricePerKg) : null,
-    totalAmount,
-    henId: body.henId || null,
-    roosterId: body.roosterId || null,
-    batchId: body.batchId || null,
-    notes: body.notes || null,
-  }).returning();
-
-  // Change hen status to "faena" if linked
-  if (body.henId) {
-    await db.update(hens).set({ status: "faena" }).where(eq(hens.id, body.henId));
-  }
-  // Change rooster status to "faena" if linked
-  if (body.roosterId) {
-    await applyRoosterExit(body.roosterId, "sacrificio");
-  }
-  // Discount batch quantity if linked
-  if (body.batchId) {
-    await applyBatchExit(body.batchId, qty, "sacrificio");
-  }
-
-  // If destination is "venta", create income transaction
-  if (destination === "venta" && totalAmount && pricePerKg) {
-    const birdLabel = body.birdType.replace(/_/g, " ");
-    await db.insert(transactions).values({
+  const created = await db.transaction(async (tx) => {
+    const [inserted] = await tx.insert(slaughter).values({
       date: body.date,
-      type: "ingreso",
-      category: "Venta de carne",
-      description: `Venta de ${weightKg} kg carne de ${birdLabel} (${qty} ave${qty > 1 ? "s" : ""})`,
-      amount: totalAmount,
-      quantity: String(weightKg),
-      unitPrice: String(pricePerKg),
-      unit: "kg",
-      sourceType: "sacrificio",
-      sourceId: created.id,
-    });
-  }
+      birdType: body.birdType,
+      quantity: qty,
+      weightKg: String(weightKg),
+      destination,
+      pricePerKg: pricePerKg ? String(pricePerKg) : null,
+      totalAmount,
+      henId: body.henId || null,
+      roosterId: body.roosterId || null,
+      batchId: body.batchId || null,
+      notes: body.notes || null,
+    }).returning();
+
+    // Change hen status to "faena" if linked
+    if (body.henId) {
+      await tx.update(hens).set({ status: "faena" }).where(eq(hens.id, body.henId));
+    }
+    // Change rooster status to "faena" if linked (uses db internally)
+    if (body.roosterId) {
+      await applyRoosterExit(body.roosterId, "sacrificio", tx);
+    }
+    // Discount batch quantity if linked (uses db internally)
+    if (body.batchId) {
+      await applyBatchExit(body.batchId, qty, "sacrificio", tx);
+    }
+
+    // If destination is NOT "venta", record in meat inventory
+    if (destination !== "venta") {
+      await tx.insert(meatInventory).values({
+        date: body.date,
+        source: "sacrificio",
+        slaughterId: inserted.id,
+        birdType: body.birdType,
+        quantityKg: String(weightKg),
+        availableKg: String(weightKg),
+        costPerKg: "0",
+      });
+    }
+
+    // If destination is "venta", create income transaction
+    if (destination === "venta" && totalAmount && pricePerKg) {
+      const birdLabel = body.birdType.replace(/_/g, " ");
+      await tx.insert(transactions).values({
+        date: body.date,
+        type: "ingreso",
+        category: "Venta de carne",
+        description: `Venta de ${weightKg} kg carne de ${birdLabel} (${qty} ave${qty > 1 ? "s" : ""})`,
+        amount: totalAmount,
+        quantity: String(weightKg),
+        unitPrice: String(pricePerKg),
+        unit: "kg",
+        sourceType: "sacrificio",
+        sourceId: inserted.id,
+      });
+    }
+
+    return inserted;
+  });
 
   return NextResponse.json(created, { status: 201 });
 }
@@ -145,83 +162,120 @@ export async function PUT(req: NextRequest) {
   }
 
   // Validate new rooster/batch if changed (revertir el anterior para validar stock real)
-  if (existing.batchId) await restoreBatchExit(existing.batchId, existing.quantity);
-  if (body.roosterId && body.roosterId !== existing.roosterId) {
-    const err = await validateRoosterForExit(body.roosterId);
-    if (err) {
-      if (existing.batchId) await applyBatchExit(existing.batchId, existing.quantity, "sacrificio");
-      return NextResponse.json({ error: err }, { status: err === "Gallo no encontrado" ? 404 : 400 });
-    }
-  }
-  if (body.batchId) {
-    const err = await validateBatchForExit(body.batchId, qty);
-    if (err) {
-      if (existing.batchId) await applyBatchExit(existing.batchId, existing.quantity, "sacrificio");
-      return NextResponse.json({ error: err }, { status: err === "Lote no encontrado" ? 404 : 400 });
-    }
-  }
-
   const destination = body.destination || "consumo_propio";
   const pricePerKg = body.pricePerKg ? Number(body.pricePerKg) : null;
   const totalAmount = destination === "venta" && pricePerKg ? (pricePerKg * weightKg).toFixed(2) : null;
 
-  const [updated] = await db.update(slaughter).set({
-    date: body.date,
-    birdType: body.birdType,
-    quantity: qty,
-    weightKg: String(weightKg),
-    destination,
-    pricePerKg: pricePerKg ? String(pricePerKg) : null,
-    totalAmount,
-    henId: body.henId || null,
-    roosterId: body.roosterId || null,
-    batchId: body.batchId || null,
-    notes: body.notes || null,
-  }).where(eq(slaughter.id, body.id)).returning();
+  let updated;
+  try {
+    updated = await db.transaction(async (tx) => {
+      // Validate new rooster/batch inside transaction for consistency
+      if (body.roosterId && body.roosterId !== existing.roosterId) {
+        const err = await validateRoosterForExit(body.roosterId);
+        if (err) throw new Error(err);
+      }
+      if (body.batchId) {
+        const err = await validateBatchForExit(body.batchId, qty);
+        if (err) throw new Error(err);
+      }
+      // Restore old batch exit if batch changed
+      if (existing.batchId && existing.batchId !== body.batchId) {
+        await restoreBatchExit(existing.batchId, existing.quantity, tx);
+      }
 
-  // Update hen statuses
-  // Restore old hen to "activa" if it was linked
-  if (existing.henId && existing.henId !== body.henId) {
-    await db.update(hens).set({ status: "activa" }).where(eq(hens.id, existing.henId));
-  }
-  // Set new hen to "faena" if linked
-  if (body.henId && body.henId !== existing.henId) {
-    await db.update(hens).set({ status: "faena" }).where(eq(hens.id, body.henId));
-  }
+      const [upd] = await tx.update(slaughter).set({
+        date: body.date,
+        birdType: body.birdType,
+        quantity: qty,
+        weightKg: String(weightKg),
+        destination,
+        pricePerKg: pricePerKg ? String(pricePerKg) : null,
+        totalAmount,
+        henId: body.henId || null,
+        roosterId: body.roosterId || null,
+        batchId: body.batchId || null,
+        notes: body.notes || null,
+      }).where(eq(slaughter.id, body.id)).returning();
 
-  // Update rooster/batch statuses (el lote ya fue restaurado arriba para validar)
-  if (existing.roosterId && existing.roosterId !== body.roosterId) {
-    await restoreRoosterExit(existing.roosterId);
-  }
-  if (body.roosterId && body.roosterId !== existing.roosterId) {
-    await applyRoosterExit(body.roosterId, "sacrificio");
-  }
-  if (body.batchId) {
-    await applyBatchExit(body.batchId, qty, "sacrificio");
-  }
+      // Update hen statuses
+      // Restore old hen to "activa" if it was linked
+      if (existing.henId && existing.henId !== body.henId) {
+        await tx.update(hens).set({ status: "activa" }).where(eq(hens.id, existing.henId));
+      }
+      // Set new hen to "faena" if linked
+      if (body.henId && body.henId !== existing.henId) {
+        await tx.update(hens).set({ status: "faena" }).where(eq(hens.id, body.henId));
+      }
 
-  // Sync transaction
-  const [existingTx] = await db.select().from(transactions)
-    .where(and(eq(transactions.sourceType, "sacrificio"), eq(transactions.sourceId, body.id)));
+      // Update rooster/batch statuses
+      if (existing.roosterId && existing.roosterId !== body.roosterId) {
+        await restoreRoosterExit(existing.roosterId, tx);
+      }
+      if (body.roosterId && body.roosterId !== existing.roosterId) {
+        await applyRoosterExit(body.roosterId, "sacrificio", tx);
+      }
+      if (body.batchId) {
+        await applyBatchExit(body.batchId, qty, "sacrificio", tx);
+      }
 
-  if (destination === "venta" && totalAmount && pricePerKg) {
-    const birdLabel = body.birdType.replace(/_/g, " ");
-    const values = {
-      date: body.date,
-      description: `Venta de ${weightKg} kg carne de ${birdLabel} (${qty} ave${qty > 1 ? "s" : ""})`,
-      amount: totalAmount,
-      quantity: String(weightKg),
-      unitPrice: String(pricePerKg),
-      unit: "kg",
-    };
-    if (existingTx) {
-      await db.update(transactions).set(values).where(eq(transactions.id, existingTx.id));
-    } else {
-      await db.insert(transactions).values({ ...values, type: "ingreso", category: "Venta de carne", sourceType: "sacrificio", sourceId: body.id });
-    }
-  } else if (existingTx) {
-    // No longer a sale — remove transaction
-    await db.delete(transactions).where(eq(transactions.id, existingTx.id));
+      // Sync transaction
+      const [existingTx] = await tx.select().from(transactions)
+        .where(and(eq(transactions.sourceType, "sacrificio"), eq(transactions.sourceId, body.id)));
+
+      if (destination === "venta" && totalAmount && pricePerKg) {
+        const birdLabel = body.birdType.replace(/_/g, " ");
+        const values = {
+          date: body.date,
+          description: `Venta de ${weightKg} kg carne de ${birdLabel} (${qty} ave${qty > 1 ? "s" : ""})`,
+          amount: totalAmount,
+          quantity: String(weightKg),
+          unitPrice: String(pricePerKg),
+          unit: "kg",
+        };
+        if (existingTx) {
+          await tx.update(transactions).set(values).where(eq(transactions.id, existingTx.id));
+        } else {
+          await tx.insert(transactions).values({ ...values, type: "ingreso", category: "Venta de carne", sourceType: "sacrificio", sourceId: body.id });
+        }
+      } else if (existingTx) {
+        // No longer a sale — remove transaction
+        await tx.delete(transactions).where(eq(transactions.id, existingTx.id));
+      }
+
+      // Sync meat inventory
+      const [existingMeat] = await tx.select().from(meatInventory).where(eq(meatInventory.slaughterId, body.id));
+
+      if (destination !== "venta") {
+        if (existingMeat) {
+          await tx.update(meatInventory).set({
+            date: body.date,
+            birdType: body.birdType,
+            quantityKg: String(weightKg),
+            availableKg: String(weightKg),
+          }).where(eq(meatInventory.id, existingMeat.id));
+        } else {
+          await tx.insert(meatInventory).values({
+            date: body.date,
+            source: "sacrificio",
+            slaughterId: body.id,
+            birdType: body.birdType,
+            quantityKg: String(weightKg),
+            availableKg: String(weightKg),
+            costPerKg: "0",
+          });
+        }
+      } else if (existingMeat) {
+        // Changed from consumo_propio to venta — remove meat inventory
+        await tx.delete(meatInventory).where(eq(meatInventory.id, existingMeat.id));
+      }
+
+      return upd;
+    });
+  } catch (e: any) {
+    const msg = e.message || "";
+    if (msg === "Gallo no encontrado") return NextResponse.json({ error: msg }, { status: 404 });
+    if (msg === "Lote no encontrado" || msg.startsWith("Stock insuficiente")) return NextResponse.json({ error: msg }, { status: 400 });
+    throw e; // re-throw unexpected errors
   }
 
   return NextResponse.json(updated);
@@ -236,20 +290,24 @@ export async function DELETE(req: NextRequest) {
   // Get record to check henId
   const [record] = await db.select().from(slaughter).where(eq(slaughter.id, id));
   
-  // Restore hen status to "activa" if linked
-  if (record?.henId) {
-    await db.update(hens).set({ status: "activa" }).where(eq(hens.id, record.henId));
-  }
-  // Restore rooster status if linked
-  if (record?.roosterId) {
-    await restoreRoosterExit(record.roosterId);
-  }
-  // Return quantity to batch if linked
-  if (record?.batchId) {
-    await restoreBatchExit(record.batchId, record.quantity);
-  }
+  await db.transaction(async (tx) => {
+    // Restore hen status to "activa" if linked
+    if (record?.henId) {
+      await tx.update(hens).set({ status: "activa" }).where(eq(hens.id, record.henId));
+    }
+    // Restore rooster status if linked (uses db internally)
+    if (record?.roosterId) {
+      await restoreRoosterExit(record.roosterId, tx);
+    }
+    // Return quantity to batch if linked (uses db internally)
+    if (record?.batchId) {
+      await restoreBatchExit(record.batchId, record.quantity, tx);
+    }
 
-  await db.delete(transactions).where(and(eq(transactions.sourceType, "sacrificio"), eq(transactions.sourceId, id)));
-  await db.delete(slaughter).where(eq(slaughter.id, id));
+    await tx.delete(transactions).where(and(eq(transactions.sourceType, "sacrificio"), eq(transactions.sourceId, id)));
+    await tx.delete(meatInventory).where(eq(meatInventory.slaughterId, id));
+    await tx.delete(slaughter).where(eq(slaughter.id, id));
+  });
+
   return NextResponse.json({ ok: true });
 }

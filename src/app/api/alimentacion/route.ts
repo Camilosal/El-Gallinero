@@ -48,14 +48,16 @@ export async function DELETE(req: NextRequest) {
   const id = searchParams.get("id");
   if (!id) return NextResponse.json({ error: "ID requerido" }, { status: 400 });
 
-  // Remove linked expense transactions of its movements
-  const movs = await db.select({ id: feedMovements.id }).from(feedMovements).where(eq(feedMovements.feedId, id));
-  const movIds = movs.map((m) => m.id);
-  if (movIds.length > 0) {
-    await db.delete(transactions).where(inArray(transactions.sourceId, movIds));
-  }
+  await db.transaction(async (tx) => {
+    // Remove linked expense transactions of its movements
+    const movs = await tx.select({ id: feedMovements.id }).from(feedMovements).where(eq(feedMovements.feedId, id));
+    const movIds = movs.map((m) => m.id);
+    if (movIds.length > 0) {
+      await tx.delete(transactions).where(inArray(transactions.sourceId, movIds));
+    }
 
-  await db.delete(feedMovements).where(eq(feedMovements.feedId, id));
-  await db.delete(feedInventory).where(eq(feedInventory.id, id));
+    await tx.delete(feedMovements).where(eq(feedMovements.feedId, id));
+    await tx.delete(feedInventory).where(eq(feedInventory.id, id));
+  });
   return NextResponse.json({ ok: true });
 }

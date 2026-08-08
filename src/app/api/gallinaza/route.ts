@@ -250,13 +250,15 @@ export async function DELETE(req: NextRequest) {
       const [sale] = await db.select().from(manureSales).where(eq(manureSales.id, saleId));
       if (!sale) return NextResponse.json({ error: "Venta no encontrada" }, { status: 404 });
 
-      const inv = await getInventoryRow();
-      await db.update(manureInventory).set({
-        currentStockKg: (Number(inv.currentStockKg) + Number(sale.quantityKg)).toFixed(2),
-        updatedAt: new Date(),
-      }).where(eq(manureInventory.id, inv.id));
-      await db.delete(transactions).where(and(eq(transactions.sourceType, "gallinaza"), eq(transactions.sourceId, saleId)));
-      await db.delete(manureSales).where(eq(manureSales.id, saleId));
+      await db.transaction(async (tx) => {
+        const [inv] = await tx.select().from(manureInventory);
+        await tx.update(manureInventory).set({
+          currentStockKg: (Number(inv.currentStockKg) + Number(sale.quantityKg)).toFixed(2),
+          updatedAt: new Date(),
+        }).where(eq(manureInventory.id, inv.id));
+        await tx.delete(transactions).where(and(eq(transactions.sourceType, "gallinaza"), eq(transactions.sourceId, saleId)));
+        await tx.delete(manureSales).where(eq(manureSales.id, saleId));
+      });
       return NextResponse.json({ ok: true });
     }
 
@@ -264,13 +266,15 @@ export async function DELETE(req: NextRequest) {
       const [adjustment] = await db.select().from(manureAdjustments).where(eq(manureAdjustments.id, adjustId));
       if (!adjustment) return NextResponse.json({ error: "Ajuste no encontrado" }, { status: 404 });
 
-      const inv = await getInventoryRow();
-      const newStock = Math.max(0, Number(inv.currentStockKg) - Number(adjustment.deltaKg));
-      await db.update(manureInventory).set({
-        currentStockKg: newStock.toFixed(2),
-        updatedAt: new Date(),
-      }).where(eq(manureInventory.id, inv.id));
-      await db.delete(manureAdjustments).where(eq(manureAdjustments.id, adjustId));
+      await db.transaction(async (tx) => {
+        const [inv] = await tx.select().from(manureInventory);
+        const newStock = Math.max(0, Number(inv.currentStockKg) - Number(adjustment.deltaKg));
+        await tx.update(manureInventory).set({
+          currentStockKg: newStock.toFixed(2),
+          updatedAt: new Date(),
+        }).where(eq(manureInventory.id, inv.id));
+        await tx.delete(manureAdjustments).where(eq(manureAdjustments.id, adjustId));
+      });
       return NextResponse.json({ ok: true });
     }
 

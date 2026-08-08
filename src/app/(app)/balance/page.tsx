@@ -18,6 +18,30 @@ interface FoodItem {
   isLow: boolean;
 }
 
+interface SupplyItem {
+  supplyId: string;
+  name: string;
+  category: string;
+  unit: string;
+  currentStock: number;
+  minStock: number;
+  costPerUnit: number;
+  estimatedValue: number;
+  isLow: boolean;
+  supplier: string | null;
+  expiryDate: string | null;
+}
+
+interface MeatItem {
+  id: string;
+  date: string;
+  source: string;
+  birdType: string;
+  quantityKg: number;
+  availableKg: number;
+  costPerKg: number;
+}
+
 interface EggSize {
   size: string;
   price: number | null;
@@ -55,10 +79,19 @@ interface ConsolidatedData {
     foodValue: number;
     eggValue: number;
     birdsValue: number;
+    totalSupplies: number;
+    lowStockSupplies: number;
+    totalMeatKg: number;
+    suppliesValue: number;
+    meatValue: number;
+    totalDeaths: number;
   };
   foods: FoodItem[];
   eggs: EggSize[];
   birds: BirdsData;
+  supplies: SupplyItem[];
+  meat: MeatItem[];
+  mortality: { byCause: Record<string, number>; totalDeaths: number };
   manure: { currentStockKg: number; lastAccumulatedDate: string | null };
   movements: {
     entriesByType: Record<string, number>;
@@ -195,6 +228,34 @@ export default function BalancePage() {
             )}
           </Card>
 
+          {/* Insumos */}
+          <div className="bg-white rounded-xl shadow p-5">
+            <h2 className="text-lg font-bold text-gray-800 mb-3">🧰 Insumos</h2>
+            <div className="flex gap-4 mb-3 text-sm">
+              <span className="px-3 py-1 bg-blue-50 text-blue-700 rounded-full">{data.supplies.length} items</span>
+              <span className="px-3 py-1 bg-green-50 text-green-700 rounded-full">Valor: ${data.summary.suppliesValue?.toLocaleString()}</span>
+              {data.summary.lowStockSupplies > 0 && (
+                <span className="px-3 py-1 bg-red-50 text-red-700 rounded-full">⚠ {data.summary.lowStockSupplies} stock bajo</span>
+              )}
+            </div>
+            <table className="w-full text-sm">
+              <thead><tr className="border-b text-left text-gray-500">
+                <th className="py-2">Nombre</th><th>Categoría</th><th>Stock</th><th>Mínimo</th><th>Valor</th>
+              </tr></thead>
+              <tbody>
+                {data.supplies.map((s) => (
+                  <tr key={s.supplyId} className={`border-b ${s.isLow ? 'bg-red-50' : ''}`}>
+                    <td className="py-2 font-medium">{s.name}</td>
+                    <td>{s.category}</td>
+                    <td>{s.currentStock} {s.unit}</td>
+                    <td>{s.minStock}</td>
+                    <td>${s.estimatedValue.toLocaleString()}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+
           {/* Huevos */}
           <Card>
             <h3 className="font-semibold text-slate-700 mb-3">🥚 Huevos Disponibles por Tamaño (PEPS)</h3>
@@ -228,6 +289,16 @@ export default function BalancePage() {
                 <div className="p-3 bg-blue-50 rounded-lg"><p className="text-slate-500 text-xs">Gallos activos</p><p className="text-xl font-bold text-blue-700">{data.birds.roosters.active}</p></div>
                 <div className="p-3 bg-purple-50 rounded-lg"><p className="text-slate-500 text-xs">Aves en producción</p><p className="text-xl font-bold text-purple-700">{data.birds.totalBirdsInProduction}</p></div>
               </div>
+              {data.mortality.totalDeaths > 0 && (
+                <div className="mt-3 p-3 bg-red-50 rounded-lg">
+                  <span className="font-semibold text-red-700">📉 Mortalidad: {data.mortality.totalDeaths} muertes</span>
+                  <div className="flex flex-wrap gap-2 mt-1">
+                    {Object.entries(data.mortality.byCause).map(([cause, count]) => (
+                      <span key={cause} className="text-xs text-red-600">{cause.replace(/_/g, ' ')}: {count}</span>
+                    ))}
+                  </div>
+                </div>
+              )}
               {data.birds.batches.length > 0 && (
                 <div className="mt-4">
                   <p className="text-sm font-medium text-slate-600 mb-2">📦 Lotes de engorde activos</p>
@@ -261,6 +332,32 @@ export default function BalancePage() {
               </div>
             </Card>
           </div>
+
+          {/* Carne */}
+          {data.meat.length > 0 && (
+            <div className="bg-white rounded-xl shadow p-5">
+              <h2 className="text-lg font-bold text-gray-800 mb-3">🍗 Inventario de Carne</h2>
+              <div className="flex gap-4 mb-3 text-sm">
+                <span className="px-3 py-1 bg-amber-50 text-amber-700 rounded-full">{data.summary.totalMeatKg} kg disponibles</span>
+              </div>
+              <table className="w-full text-sm">
+                <thead><tr className="border-b text-left text-gray-500">
+                  <th className="py-2">Fecha</th><th>Origen</th><th>Tipo Ave</th><th>Kg</th><th>Disponible</th>
+                </tr></thead>
+                <tbody>
+                  {data.meat.map((m) => (
+                    <tr key={m.id} className="border-b">
+                      <td className="py-2">{m.date}</td>
+                      <td>{m.source}</td>
+                      <td>{m.birdType}</td>
+                      <td>{m.quantityKg} kg</td>
+                      <td>{m.availableKg} kg</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
 
           {/* Movimientos por motivo */}
           <Card>

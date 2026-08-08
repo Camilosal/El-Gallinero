@@ -1,13 +1,13 @@
 import { db } from "@/db";
-import { eggSales, eggSalesItems, transactions, eggProductionDetails } from "@/db/schema";
-import { eq, desc, sql, and, ne, inArray, notInArray } from "drizzle-orm";
+import { eggSales, eggSalesItems, transactions, eggProductionDetails, eggProduction, accountsReceivable } from "@/db/schema";
+import { eq, desc, sql, and, notInArray } from "drizzle-orm";
 import { NextRequest, NextResponse } from "next/server";
 
 export const dynamic = "force-dynamic";
 
-// Huevos disponibles por tamaño (producción por tamaño - ventas ya registradas)
+// Huevos disponibles por tamaño (producción por tamaño - ventas ya registradas - huevos reservados para incubación)
 async function getAvailableEggsBySize(excludeSaleIds?: string[]): Promise<Map<string, number>> {
-  const [prod, sold] = await Promise.all([
+  const [prod, sold, incubation] = await Promise.all([
     db.select({
       size: eggProductionDetails.size,
       total: sql<number>`coalesce(sum(${eggProductionDetails.quantity}), 0)::int`,
@@ -18,27 +18,19 @@ async function getAvailableEggsBySize(excludeSaleIds?: string[]): Promise<Map<st
     }).from(eggSalesItems)
       .where(excludeSaleIds?.length ? notInArray(eggSalesItems.saleId, excludeSaleIds) : undefined)
       .groupBy(eggSalesItems.size),
+    db.select({
+      size: eggProductionDetails.size,
+      total: sql<number>`coalesce(sum(round(${eggProductionDetails.quantity}::float * ${eggProduction.forIncubation} / nullif(${eggProduction.totalCollected}, 0))::int), 0)::int`,
+    }).from(eggProductionDetails)
+      .innerJoin(eggProduction, eq(eggProductionDetails.productionId, eggProduction.id))
+      .groupBy(eggProductionDetails.size),
   ]);
 
   const map = new Map<string, number>();
   for (const p of prod) if (p.size) map.set(p.size, p.total);
   for (const s of sold) if (s.size) map.set(s.size, (map.get(s.size) || 0) - s.total);
+  for (const i of incubation) if (i.size) map.set(i.size, (map.get(i.size) || 0) - i.total);
   return map;
-}
-
-// Huevos disponibles de un tamaño específico
-async function getAvailableEggs(size: string, excludeId?: string): Promise<number> {
-  const [prod, sold] = await Promise.all([
-    db.select({
-      total: sql<number>`coalesce(sum(${eggProductionDetails.quantity}), 0)::int`,
-    }).from(eggProductionDetails).where(eq(eggProductionDetails.size, size)),
-    db.select({
-      total: sql<number>`coalesce(sum(${eggSalesItems.quantity}), 0)::int`,
-    }).from(eggSalesItems)
-      .where(and(eq(eggSalesItems.size, size), excludeId ? ne(eggSalesItems.saleId, excludeId) : undefined)),
-  ]);
-
-  return (prod[0]?.total || 0) - (sold[0]?.total || 0);
 }
 
 // GET /api/ventas — lista de ventas
@@ -93,51 +85,68 @@ export async function POST(req: NextRequest) {
   const totalQuantity = items.reduce((sum, item) => sum + item.quantity, 0);
 
   // Create the parent sale record (summary)
-  const [created] = await db.insert(eggSales).values({
-    date: body.date,
-    quantity: totalQuantity,
-    pricePerUnit: "0",
-    totalAmount: grandTotal.toFixed(2),
-    size: items.length === 1 ? items[0].size : null,
-    presentation: items.length === 1 ? (items[0].presentation || null) : null,
-    buyer: body.buyer || null,
-    notes: body.notes || null,
-  }).returning();
+  const result = await db.transaction(async (tx) => {
+    const [created] = await tx.insert(eggSales).values({
+      date: body.date,
+      quantity: totalQuantity,
+      pricePerUnit: "0",
+      totalAmount: grandTotal.toFixed(2),
+      size: items.length === 1 ? items[0].size : null,
+      presentation: items.length === 1 ? (items[0].presentation || null) : null,
+      buyer: body.buyer || null,
+      notes: body.notes || null,
+    }).returning();
 
-  // Create sale items
-  const createdItems = await db.insert(eggSalesItems).values(
-    items.map((item) => {
-      const presentations = item.presentations || item.quantity;
-      return {
-        saleId: created.id,
-        size: item.size,
-        quantity: item.quantity,
-        pricePerUnit: String(item.pricePerUnit),
-        totalAmount: (presentations * Number(item.pricePerUnit)).toFixed(2),
-        presentation: item.presentation || null,
-      };
-    })
-  ).returning();
+    // Create sale items
+    const createdItems = await tx.insert(eggSalesItems).values(
+      items.map((item) => {
+        const presentations = item.presentations || item.quantity;
+        return {
+          saleId: created.id,
+          size: item.size,
+          quantity: item.quantity,
+          pricePerUnit: String(item.pricePerUnit),
+          totalAmount: (presentations * Number(item.pricePerUnit)).toFixed(2),
+          presentation: item.presentation || null,
+        };
+      })
+    ).returning();
 
-  // Create linked income transaction
-  const sizeDesc = items.length === 1
-    ? items[0].size
-    : items.map((i) => `${i.quantity} ${i.size}`).join(", ");
-  await db.insert(transactions).values({
-    date: body.date,
-    type: "ingreso",
-    category: "Venta de huevos",
-    description: `Venta de ${sizeDesc}${body.buyer ? ` a ${body.buyer}` : ""}`,
-    amount: grandTotal.toFixed(2),
-    quantity: String(totalQuantity),
-    unitPrice: items.length === 1 ? String(items[0].pricePerUnit) : null,
-    unit: "unidades",
-    counterparty: body.buyer || null,
-    sourceType: "venta",
-    sourceId: created.id,
+    // Create linked income transaction
+    const sizeDesc = items.length === 1
+      ? items[0].size
+      : items.map((i) => `${i.quantity} ${i.size}`).join(", ");
+    const [txRow] = await tx.insert(transactions).values({
+      date: body.date,
+      type: "ingreso",
+      category: "Venta de huevos",
+      description: `Venta de ${sizeDesc}${body.buyer ? ` a ${body.buyer}` : ""}`,
+      amount: grandTotal.toFixed(2),
+      quantity: String(totalQuantity),
+      unitPrice: items.length === 1 ? String(items[0].pricePerUnit) : null,
+      unit: "unidades",
+      counterparty: body.buyer || null,
+      sourceType: "venta",
+      sourceId: created.id,
+    }).returning();
+
+    // Handle credit sale
+    if (body.isCredit) {
+      await tx.update(transactions).set({ isCredit: true }).where(eq(transactions.id, txRow.id));
+      await tx.insert(accountsReceivable).values({
+        transactionId: txRow.id,
+        buyer: body.buyer || "Sin nombre",
+        totalAmount: String(grandTotal),
+        paidAmount: "0",
+        pendingAmount: String(grandTotal),
+        dueDate: body.dueDate || undefined,
+        status: "pendiente",
+      });
+    }
+
+    return { ...created, items: createdItems };
   });
-
-  return NextResponse.json({ ...created, items: createdItems }, { status: 201 });
+  return NextResponse.json(result, { status: 201 });
 }
 
 // PUT /api/ventas — actualizar venta
@@ -173,56 +182,100 @@ export async function PUT(req: NextRequest) {
   const totalQuantity = items.reduce((sum, item) => sum + item.quantity, 0);
 
   // Update parent sale
-  const [updated] = await db.update(eggSales).set({
-    date: body.date,
-    quantity: totalQuantity,
-    totalAmount: grandTotal.toFixed(2),
-    size: items.length === 1 ? items[0].size : null,
-    presentation: items.length === 1 ? (items[0].presentation || null) : null,
-    buyer: body.buyer || null,
-    notes: body.notes || null,
-  }).where(eq(eggSales.id, body.id)).returning();
+  const result = await db.transaction(async (tx) => {
+    const [updated] = await tx.update(eggSales).set({
+      date: body.date,
+      quantity: totalQuantity,
+      totalAmount: grandTotal.toFixed(2),
+      size: items.length === 1 ? items[0].size : null,
+      presentation: items.length === 1 ? (items[0].presentation || null) : null,
+      buyer: body.buyer || null,
+      notes: body.notes || null,
+    }).where(eq(eggSales.id, body.id)).returning();
 
-  // Replace items: delete old, insert new
-  await db.delete(eggSalesItems).where(eq(eggSalesItems.saleId, body.id));
-  const createdItems = await db.insert(eggSalesItems).values(
-    items.map((item) => {
-      const presentations = item.presentations || item.quantity;
-      return {
-        saleId: body.id,
-        size: item.size,
-        quantity: item.quantity,
-        pricePerUnit: String(item.pricePerUnit),
-        totalAmount: (presentations * Number(item.pricePerUnit)).toFixed(2),
-        presentation: item.presentation || null,
-      };
-    })
-  ).returning();
+    // Replace items: delete old, insert new
+    await tx.delete(eggSalesItems).where(eq(eggSalesItems.saleId, body.id));
+    const createdItems = await tx.insert(eggSalesItems).values(
+      items.map((item) => {
+        const presentations = item.presentations || item.quantity;
+        return {
+          saleId: body.id,
+          size: item.size,
+          quantity: item.quantity,
+          pricePerUnit: String(item.pricePerUnit),
+          totalAmount: (presentations * Number(item.pricePerUnit)).toFixed(2),
+          presentation: item.presentation || null,
+        };
+      })
+    ).returning();
 
-  // Sync linked income transaction
-  const [existing] = await db.select().from(transactions)
-    .where(and(eq(transactions.sourceType, "venta"), eq(transactions.sourceId, body.id)));
+    // Sync linked income transaction
+    const [existing] = await tx.select().from(transactions)
+      .where(and(eq(transactions.sourceType, "venta"), eq(transactions.sourceId, body.id)));
 
-  const sizeDesc = items.length === 1
-    ? items[0].size
-    : items.map((i) => `${i.quantity} ${i.size}`).join(", ");
-  const values = {
-    date: body.date,
-    description: `Venta de ${sizeDesc}${body.buyer ? ` a ${body.buyer}` : ""}`,
-    amount: grandTotal.toFixed(2),
-    quantity: String(totalQuantity),
-    unitPrice: items.length === 1 ? String(items[0].pricePerUnit) : null,
-    unit: "unidades",
-    counterparty: body.buyer || null,
-  };
+    const sizeDesc = items.length === 1
+      ? items[0].size
+      : items.map((i) => `${i.quantity} ${i.size}`).join(", ");
+    const values = {
+      date: body.date,
+      description: `Venta de ${sizeDesc}${body.buyer ? ` a ${body.buyer}` : ""}`,
+      amount: grandTotal.toFixed(2),
+      quantity: String(totalQuantity),
+      unitPrice: items.length === 1 ? String(items[0].pricePerUnit) : null,
+      unit: "unidades",
+      counterparty: body.buyer || null,
+    };
 
-  if (existing) {
-    await db.update(transactions).set(values).where(eq(transactions.id, existing.id));
-  } else {
-    await db.insert(transactions).values({ ...values, type: "ingreso", category: "Venta de huevos", sourceType: "venta", sourceId: body.id });
-  }
+    if (existing) {
+      await tx.update(transactions).set(values).where(eq(transactions.id, existing.id));
+    } else {
+      await tx.insert(transactions).values({ ...values, type: "ingreso", category: "Venta de huevos", sourceType: "venta", sourceId: body.id });
+    }
 
-  return NextResponse.json({ ...updated, items: createdItems });
+    // Sync accounts receivable for credit sales
+    const [currentTx] = await tx.select().from(transactions)
+      .where(and(eq(transactions.sourceType, "venta"), eq(transactions.sourceId, body.id)));
+
+    const [existingReceivable] = currentTx
+      ? await tx.select().from(accountsReceivable).where(eq(accountsReceivable.transactionId, currentTx.id))
+      : [undefined];
+
+    if (body.isCredit) {
+      // Mark transaction as credit
+      if (currentTx) {
+        await tx.update(transactions).set({ isCredit: true }).where(eq(transactions.id, currentTx.id));
+      }
+
+      if (existingReceivable) {
+        await tx.update(accountsReceivable).set({
+          totalAmount: String(grandTotal),
+          pendingAmount: String(grandTotal - Number(existingReceivable.paidAmount)),
+          dueDate: body.dueDate || existingReceivable.dueDate,
+          buyer: body.buyer || existingReceivable.buyer,
+          updatedAt: new Date(),
+        }).where(eq(accountsReceivable.id, existingReceivable.id));
+      } else if (currentTx) {
+        await tx.insert(accountsReceivable).values({
+          transactionId: currentTx.id,
+          buyer: body.buyer || "Sin nombre",
+          totalAmount: String(grandTotal),
+          paidAmount: "0",
+          pendingAmount: String(grandTotal),
+          dueDate: body.dueDate || undefined,
+          status: "pendiente",
+        });
+      }
+    } else if (existingReceivable) {
+      // Remove credit — delete receivable, unmark transaction
+      await tx.delete(accountsReceivable).where(eq(accountsReceivable.id, existingReceivable.id));
+      if (currentTx) {
+        await tx.update(transactions).set({ isCredit: false }).where(eq(transactions.id, currentTx.id));
+      }
+    }
+
+    return { ...updated, items: createdItems };
+  });
+  return NextResponse.json(result);
 }
 
 // DELETE /api/ventas — eliminar venta
@@ -231,8 +284,17 @@ export async function DELETE(req: NextRequest) {
   const id = searchParams.get("id");
   if (!id) return NextResponse.json({ error: "ID requerido" }, { status: 400 });
 
-  await db.delete(transactions).where(and(eq(transactions.sourceType, "venta"), eq(transactions.sourceId, id)));
-  await db.delete(eggSalesItems).where(eq(eggSalesItems.saleId, id));
-  await db.delete(eggSales).where(eq(eggSales.id, id));
+  await db.transaction(async (tx) => {
+    // Delete linked accounts receivable
+    const [linkedTx] = await tx.select().from(transactions)
+      .where(and(eq(transactions.sourceType, "venta"), eq(transactions.sourceId, id)));
+    if (linkedTx) {
+      await tx.delete(accountsReceivable).where(eq(accountsReceivable.transactionId, linkedTx.id));
+    }
+
+    await tx.delete(transactions).where(and(eq(transactions.sourceType, "venta"), eq(transactions.sourceId, id)));
+    await tx.delete(eggSalesItems).where(eq(eggSalesItems.saleId, id));
+    await tx.delete(eggSales).where(eq(eggSales.id, id));
+  });
   return NextResponse.json({ ok: true });
 }

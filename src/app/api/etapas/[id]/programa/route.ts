@@ -53,20 +53,22 @@ export async function POST(
   }
 
   // Upsert: eliminar entradas existentes para esta etapa y re-insertar
-  await db.delete(feedPrograms).where(eq(feedPrograms.stageCatalogoId, stageCatalogoId));
+  const inserted = await db.transaction(async (tx) => {
+    await tx.delete(feedPrograms).where(eq(feedPrograms.stageCatalogoId, stageCatalogoId));
 
-  const inserted = await db
-    .insert(feedPrograms)
-    .values(
-      entries.map((e) => ({
-        stageCatalogoId,
-        feedId: e.feedId,
-        percentage: e.percentage,
-        dailyAmountPerHen: e.dailyAmountPerHen,
-        updatedAt: new Date(),
-      }))
-    )
-    .returning();
+    return tx
+      .insert(feedPrograms)
+      .values(
+        entries.map((e) => ({
+          stageCatalogoId,
+          feedId: e.feedId,
+          percentage: e.percentage,
+          dailyAmountPerHen: e.dailyAmountPerHen,
+          updatedAt: new Date(),
+        }))
+      )
+      .returning();
+  });
 
   return NextResponse.json(inserted, { status: 201 });
 }

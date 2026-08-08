@@ -115,36 +115,44 @@ async function handleSave(req: NextRequest, isUpdate: boolean) {
   }
 
   if (isUpdate) {
-    const [updated] = await db.update(eggProduction).set({
+    const updated = await db.transaction(async (tx) => {
+      const [row] = await tx.update(eggProduction).set({
+        date: body.date,
+        totalCollected,
+        broken,
+        forIncubation,
+        notes: body.notes || null,
+      }).where(eq(eggProduction.id, body.id)).returning();
+
+      await tx.delete(eggProductionDetails).where(eq(eggProductionDetails.productionId, body.id));
+      if (sizes.length) {
+        await tx.insert(eggProductionDetails).values(
+          sizes.map((x) => ({ productionId: row.id, size: x.size, quantity: x.quantity }))
+        );
+      }
+      return row;
+    });
+
+    return NextResponse.json(updated);
+  }
+
+  const created = await db.transaction(async (tx) => {
+    const [row] = await tx.insert(eggProduction).values({
       date: body.date,
       totalCollected,
       broken,
       forIncubation,
       notes: body.notes || null,
-    }).where(eq(eggProduction.id, body.id)).returning();
+    }).returning();
 
-    await db.delete(eggProductionDetails).where(eq(eggProductionDetails.productionId, body.id));
     if (sizes.length) {
-      await db.insert(eggProductionDetails).values(
-        sizes.map((x) => ({ productionId: updated.id, size: x.size, quantity: x.quantity }))
+      await tx.insert(eggProductionDetails).values(
+        sizes.map((x) => ({ productionId: row.id, size: x.size, quantity: x.quantity }))
       );
     }
-    return NextResponse.json(updated);
-  }
 
-  const [created] = await db.insert(eggProduction).values({
-    date: body.date,
-    totalCollected,
-    broken,
-    forIncubation,
-    notes: body.notes || null,
-  }).returning();
-
-  if (sizes.length) {
-    await db.insert(eggProductionDetails).values(
-      sizes.map((x) => ({ productionId: created.id, size: x.size, quantity: x.quantity }))
-    );
-  }
+    return row;
+  });
 
   return NextResponse.json(created, { status: 201 });
 }
@@ -161,6 +169,9 @@ export async function DELETE(req: NextRequest) {
   const { searchParams } = new URL(req.url);
   const id = searchParams.get("id");
   if (!id) return NextResponse.json({ error: "ID requerido" }, { status: 400 });
-  await db.delete(eggProduction).where(eq(eggProduction.id, id));
+  await db.transaction(async (tx) => {
+    await tx.delete(eggProductionDetails).where(eq(eggProductionDetails.productionId, id));
+    await tx.delete(eggProduction).where(eq(eggProduction.id, id));
+  });
   return NextResponse.json({ ok: true });
 }

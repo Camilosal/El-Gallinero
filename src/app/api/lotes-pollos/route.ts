@@ -1,5 +1,5 @@
 import { db } from "@/db";
-import { broilerBatches } from "@/db/schema";
+import { broilerBatches, chickenSales, slaughter, mortalityRecords } from "@/db/schema";
 import { eq, desc, sql, inArray } from "drizzle-orm";
 import { NextRequest, NextResponse } from "next/server";
 import { batchReadiness } from "@/lib/flock";
@@ -8,8 +8,13 @@ export const dynamic = "force-dynamic";
 
 /** Autogenera el siguiente código de lote (L-001, L-002...) */
 async function nextBatchCode(): Promise<string> {
-  const [row] = await db.select({ count: sql<number>`count(*)::int` }).from(broilerBatches);
-  return `L-${String((row?.count || 0) + 1).padStart(3, "0")}`;
+  const [maxRow] = await db.select({ maxCode: sql<string>`max(${broilerBatches.code})` }).from(broilerBatches);
+  let max = 0;
+  if (maxRow?.maxCode) {
+    const m = String(maxRow.maxCode).match(/^L-(\d+)$/);
+    if (m) max = Number(m[1]);
+  }
+  return `L-${String(max + 1).padStart(3, "0")}`;
 }
 
 export async function GET() {
@@ -91,6 +96,11 @@ export async function DELETE(req: NextRequest) {
   const { searchParams } = new URL(req.url);
   const id = searchParams.get("id");
   if (!id) return NextResponse.json({ error: "ID requerido" }, { status: 400 });
-  await db.delete(broilerBatches).where(eq(broilerBatches.id, id));
+  await db.transaction(async (tx) => {
+    await tx.delete(chickenSales).where(eq(chickenSales.batchId, id));
+    await tx.delete(slaughter).where(eq(slaughter.batchId, id));
+    await tx.delete(mortalityRecords).where(eq(mortalityRecords.batchId, id));
+    await tx.delete(broilerBatches).where(eq(broilerBatches.id, id));
+  });
   return NextResponse.json({ ok: true });
 }

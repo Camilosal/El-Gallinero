@@ -183,7 +183,7 @@ export default function CatalogosPage() {
             onChange={(e) => setPrice(e.target.value)}
             placeholder="Ej: 600"
           />
-          {activeCat === "presentacion" && (
+          {activeCat === "presentacion_venta" && (
             <Input
               label="Unidades por presentación"
               type="number"

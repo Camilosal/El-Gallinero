@@ -23,8 +23,8 @@ function addDays(dateStrValue: string, days: number): string {
  * la ejecución histórica del programa respete cuántas gallinas había en cada
  * etapa en cada día (según su fecha de nacimiento).
  */
-export async function countHensByStageForDate(asOf: Date): Promise<Record<string, number>> {
-  const stages = await db
+export async function countHensByStageForDate(asOf: Date, client: any = db): Promise<Record<string, number>> {
+  const stages = await client
     .select()
     .from(catalogos)
     .where(and(eq(catalogos.category, "etapa_crecimiento"), eq(catalogos.isActive, true)));
@@ -38,7 +38,7 @@ export async function countHensByStageForDate(asOf: Date): Promise<Record<string
 
     let countResult;
     if (maxWeeks === null) {
-      countResult = await db
+      countResult = await client
         .select({ count: sql<number>`count(*)::int` })
         .from(hens)
         .where(
@@ -50,7 +50,7 @@ export async function countHensByStageForDate(asOf: Date): Promise<Record<string
     } else {
       const maxDate = new Date(asOf);
       maxDate.setDate(maxDate.getDate() - maxWeeks * 7);
-      countResult = await db
+      countResult = await client
         .select({ count: sql<number>`count(*)::int` })
         .from(hens)
         .where(
@@ -125,7 +125,7 @@ export async function runFeedProgramCatchup(asOf?: Date): Promise<void> {
     let cur = startStr;
     while (cur <= asOfStr) {
       const dayDate = new Date(cur + "T12:00:00");
-      const henCounts = await countHensByStageForDate(dayDate);
+      const henCounts = await countHensByStageForDate(dayDate, tx);
 
       for (const [stageId, entries] of programByStage) {
         const henCount = henCounts[stageId] ?? 0;

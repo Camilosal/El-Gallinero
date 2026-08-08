@@ -3,6 +3,7 @@
 import { useEffect, useState, useCallback } from "react";
 import { PageHeader, Button, Card, Table, Badge, Modal, Input, Select, Textarea, EmptyState, StatCard } from "@/components/ui";
 import { useCatalog } from "@/lib/useCatalog";
+import { apiFetch } from "@/lib/fetch";
 
 interface Maintenance {
   id: string;
@@ -42,7 +43,7 @@ export default function MantenimientoPage() {
   const { values: taskOptions } = useCatalog("tipo_mantenimiento", taskTemplates);
 
   const load = useCallback(() => {
-    fetch("/api/mantenimiento").then((r) => r.json()).then(setTasks).finally(() => setLoading(false));
+    apiFetch("/api/mantenimiento").then((r) => r.json()).then(setTasks).finally(() => setLoading(false));
   }, []);
 
   useEffect(() => { load(); }, [load]);
@@ -62,14 +63,14 @@ export default function MantenimientoPage() {
   const save = async () => {
     const method = editing ? "PUT" : "POST";
     const body = editing ? { ...form, id: editing.id } : form;
-    await fetch("/api/mantenimiento", { method, headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
+    await apiFetch("/api/mantenimiento", { method, headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
     setModalOpen(false);
     load();
   };
 
   const remove = async (id: string) => {
     if (!confirm("¿Eliminar esta tarea?")) return;
-    await fetch(`/api/mantenimiento?id=${id}`, { method: "DELETE" });
+    await apiFetch(`/api/mantenimiento?id=${id}`, { method: "DELETE" });
     load();
   };
 

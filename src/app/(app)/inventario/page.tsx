@@ -19,6 +19,7 @@ interface SizeSummary {
   price: number | null;
   produced: number;
   sold: number;
+  lost: number;
   available: number;
   value: number;
 }
@@ -27,6 +28,7 @@ interface InventoryData {
   summary: {
     produced: number;
     sold: number;
+    lost: number;
     available: number;
     sizes: SizeSummary[];
   };
@@ -62,6 +64,11 @@ export default function InventarioPage() {
         <StatCard icon="📦" label="Disponibles" value={data?.summary.available ?? 0} color="green" />
         <StatCard icon="⏱️" label="Valor Estimado" value={`$${(data?.estimatedValue ?? 0).toLocaleString()}`} color="yellow" />
       </div>
+      {(data?.summary.lost ?? 0) > 0 && (
+        <div className="mb-6">
+          <StatCard icon="🗑️" label="Huevos Perdidos" value={data?.summary.lost ?? 0} color="red" />
+        </div>
+      )}
 
       {loading ? (
         <Card><p className="text-center py-8 text-slate-400">Cargando...</p></Card>
@@ -102,13 +109,14 @@ export default function InventarioPage() {
 
           <Card className="mb-6">
             <h3 className="font-semibold text-slate-700 mb-4">📊 Resumen por Tamaño</h3>
-            <Table headers={["Tamaño", "Precio", "Producido", "Vendido", "Disponible", "Valor"]}>
+            <Table headers={["Tamaño", "Precio", "Producido", "Vendido", "Perdido", "Disponible", "Valor"]}>
               {data.summary.sizes.map((s) => (
                 <tr key={s.size} className="hover:bg-slate-50">
                   <td className="px-4 py-3"><Badge color="green">{s.size}</Badge></td>
                   <td className="px-4 py-3">{s.price != null ? `$${s.price.toLocaleString()}` : "—"}</td>
                   <td className="px-4 py-3">{s.produced}</td>
                   <td className="px-4 py-3">{s.sold}</td>
+                  <td className="px-4 py-3 text-red-600">{s.lost}</td>
                   <td className="px-4 py-3 font-bold text-green-600">{s.available}</td>
                   <td className="px-4 py-3">${s.value.toLocaleString()}</td>
                 </tr>
