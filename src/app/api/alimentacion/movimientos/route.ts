@@ -1,0 +1,103 @@
+import { db } from "@/db";
+import { feedMovements, feedInventory, transactions, catalogos } from "@/db/schema";
+import { eq, desc, sql, and } from "drizzle-orm";
+import { NextRequest, NextResponse } from "next/server";
+
+export const dynamic = "force-dynamic";
+
+export async function GET() {
+  const data = await db
+    .select({
+      id: feedMovements.id,
+      feedId: feedMovements.feedId,
+      feedName: feedInventory.name,
+      feedUnit: feedInventory.unit,
+      quantity: feedMovements.quantity,
+      isEntry: feedMovements.isEntry,
+      stageCatalogoId: feedMovements.stageCatalogoId,
+      stageName: catalogos.value,
+      henCount: feedMovements.henCount,
+      date: feedMovements.date,
+      notes: feedMovements.notes,
+      createdAt: feedMovements.createdAt,
+    })
+    .from(feedMovements)
+    .leftJoin(feedInventory, eq(feedMovements.feedId, feedInventory.id))
+    .leftJoin(catalogos, eq(feedMovements.stageCatalogoId, catalogos.id))
+    .orderBy(desc(feedMovements.createdAt))
+    .limit(100);
+  return NextResponse.json(data);
+}
+
+export async function POST(req: NextRequest) {
+  const body = await req.json();
+  const qty = Number(body.quantity);
+
+  const [feed] = await db.select().from(feedInventory).where(eq(feedInventory.id, body.feedId));
+  if (!feed) {
+    return NextResponse.json({ error: "Alimento no encontrado" }, { status: 404 });
+  }
+
+  // Prevent negative stock on consumption
+  if (!body.isEntry && qty > Number(feed.currentStock)) {
+    return NextResponse.json(
+      { error: `Stock insuficiente: ${feed.name} solo tiene ${feed.currentStock} ${feed.unit}` },
+      { status: 400 }
+    );
+  }
+
+  const [created] = await db.insert(feedMovements).values({
+    feedId: body.feedId,
+    quantity: body.quantity,
+    isEntry: body.isEntry,
+    stageCatalogoId: body.stageCatalogoId || null,
+    henCount: body.henCount || null,
+    date: body.date,
+    notes: body.notes || null,
+  }).returning();
+
+  // Update stock
+  const modifier = body.isEntry ? "+" : "-";
+  await db.update(feedInventory).set({
+    currentStock: sql`(${feedInventory.currentStock}::numeric ${sql.raw(modifier)} ${qty})`,
+    updatedAt: new Date(),
+  }).where(eq(feedInventory.id, body.feedId));
+
+  // Purchased (suplementario) feed entry registers an expense in finances
+  if (body.isEntry && feed.category === "suplementario" && Number(feed.costPerUnit) > 0) {
+    const amount = (qty * Number(feed.costPerUnit)).toFixed(2);
+    await db.insert(transactions).values({
+      date: body.date,
+      type: "egreso",
+      category: "Compra de alimento",
+      description: `Compra de ${body.quantity} ${feed.unit} de ${feed.name}`,
+      amount,
+      quantity: body.quantity,
+      unitPrice: feed.costPerUnit,
+      unit: feed.unit,
+      counterparty: feed.supplier || null,
+      sourceType: "alimento",
+      sourceId: created.id,
+    });
+  }
+
+  return NextResponse.json(created, { status: 201 });
+}
+
+export async function DELETE(req: NextRequest) {
+  const { searchParams } = new URL(req.url);
+  const id = searchParams.get("id");
+  if (!id) return NextResponse.json({ error: "ID requerido" }, { status: 400 });
+  const [mov] = await db.select().from(feedMovements).where(eq(feedMovements.id, id));
+  if (mov) {
+    // Reverse stock change
+    const modifier = mov.isEntry ? "-" : "+";
+    await db.update(feedInventory).set({
+      currentStock: sql`(${feedInventory.currentStock}::numeric ${sql.raw(modifier)} ${Number(mov.quantity)})`,
+      updatedAt: new Date(),
+    }).where(eq(feedInventory.id, mov.feedId));
+    await db.delete(transactions).where(and(eq(transactions.sourceType, "alimento"), eq(transactions.sourceId, id)));
+  }
+  await db.delete(feedMovements).where(eq(feedMovements.id, id));
+  return NextResponse.json({ ok: true });
+}

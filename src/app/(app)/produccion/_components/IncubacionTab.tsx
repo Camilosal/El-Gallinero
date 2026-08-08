@@ -1,0 +1,227 @@
+"use client";
+
+import { useEffect, useState, useCallback } from "react";
+import { PageHeader, Button, Card, Table, Badge, Modal, Input, Select, Textarea, EmptyState, StatCard } from "@/components/ui";
+
+interface Hen { id: string; code: string; status: string; }
+interface Incubation {
+  id: string;
+  henId: string | null;
+  henCode: string | null;
+  startDate: string;
+  expectedHatchDate: string;
+  eggsSet: number;
+  eggsHatched: number | null;
+  malesHatched: number | null;
+  femalesHatched: number | null;
+  isComplete: boolean;
+  notes: string | null;
+}
+
+export default function IncubacionPage() {
+  const [incubations, setIncubations] = useState<Incubation[]>([]);
+  const [hens, setHens] = useState<Hen[]>([]);
+  const [today, setToday] = useState(0);
+  const [loading, setLoading] = useState(true);
+  const [modalOpen, setModalOpen] = useState(false);
+  const [completeModal, setCompleteModal] = useState<Incubation | null>(null);
+  const [form, setForm] = useState({ henId: "", startDate: new Date().toISOString().split("T")[0], eggsSet: 10, notes: "" });
+  const [hatchForm, setHatchForm] = useState({ eggsHatched: 0, femalesHatched: 0, malesHatched: 0, notes: "" });
+  const [assignmentMsg, setAssignmentMsg] = useState("");
+
+  const load = useCallback(() => {
+    Promise.all([
+      fetch("/api/incubacion").then((r) => r.json()),
+      fetch("/api/gallinas").then((r) => r.json()),
+    ]).then(([i, h]) => {
+      setIncubations(i);
+      setHens(h);
+      setToday(Date.now());
+    }).finally(() => setLoading(false));
+  }, []);
+
+  useEffect(() => { load(); }, [load]);
+
+  const save = async () => {
+    await fetch("/api/incubacion", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(form),
+    });
+    setModalOpen(false);
+    load();
+  };
+
+  const complete = async () => {
+    if (!completeModal) return;
+    const res = await fetch("/api/incubacion", {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ id: completeModal.id, eggsHatched: hatchForm.eggsHatched, femalesHatched: hatchForm.femalesHatched, malesHatched: hatchForm.malesHatched, isComplete: true, notes: hatchForm.notes || completeModal.notes }),
+    });
+    const data = await res.json().catch(() => ({}));
+    const a = data.assignment;
+    if (a) {
+      const parts: string[] = [];
+      if (a.hensCreated) parts.push(`${a.hensCreated} gallina${a.hensCreated > 1 ? "s" : ""} nuevas`);
+      if (a.roostersCreated) parts.push(`${a.roostersCreated} gallo${a.roostersCreated > 1 ? "s" : ""} reproductor${a.roostersCreated > 1 ? "es" : ""}`);
+      if (a.batchCode) parts.push(`resto al lote de engorde ${a.batchCode}`);
+      setAssignmentMsg(parts.length > 0 ? `Asignación automática: ${parts.join(", ")}.` : "Incubación completada sin asignación de aves.");
+    } else {
+      setAssignmentMsg("");
+    }
+    setCompleteModal(null);
+    load();
+  };
+
+  const activeInc = incubations.filter((i) => !i.isComplete);
+  const completedInc = incubations.filter((i) => i.isComplete);
+  const totalHatched = incubations.reduce((s, i) => s + (i.eggsHatched || 0), 0);
+  const totalSet = incubations.reduce((s, i) => s + i.eggsSet, 0);
+  const hatchRate = totalSet > 0 ? Math.round((totalHatched / totalSet) * 100) : 0;
+  const availableHens = hens.filter((h) => h.status === "activa");
+
+  const getDaysRemaining = (expected: string) => {
+    const diff = Math.ceil((new Date(expected + "T12:00:00").getTime() - today) / (1000 * 60 * 60 * 24));
+    return diff;
+  };
+
+  return (
+    <div>
+      <PageHeader
+        title="🐣 Incubación y Reproducción"
+        description="Gestión de gallinas cluecas, empollamiento natural y eclosión de pollitos"
+        actions={<Button onClick={() => { setForm({ henId: availableHens[0]?.id || "", startDate: new Date().toISOString().split("T")[0], eggsSet: 10, notes: "" }); setModalOpen(true); }}>+ Nueva Incubación</Button>}
+      />
+
+      {assignmentMsg && (
+        <div className="p-4 rounded-xl mb-6 text-sm font-medium bg-green-50 border border-green-200 text-green-800 flex justify-between items-center">
+          <span>🐣 {assignmentMsg}</span>
+          <button onClick={() => setAssignmentMsg("")} className="text-green-700 hover:underline text-xs">Cerrar</button>
+        </div>
+      )}
+
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+        <StatCard icon="🪺" label="Incubaciones Activas" value={activeInc.length} color="purple" />
+        <StatCard icon="🐣" label="Pollitos Nacidos (total)" value={totalHatched} color="yellow" />
+        <StatCard icon="📊" label="Tasa de Eclosión" value={`${hatchRate}%`} color="green" />
+        <StatCard icon="🐔" label="Gallinas Disponibles" value={availableHens.length} color="blue" />
+      </div>
+
+      {/* Active Incubations */}
+      <h2 className="text-lg font-semibold mb-3">🔥 Incubaciones Activas</h2>
+      {activeInc.length === 0 ? (
+        <Card className="mb-6"><EmptyState icon="🪺" message="No hay incubaciones activas" /></Card>
+      ) : (
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mb-6">
+          {activeInc.map((inc) => {
+            const days = getDaysRemaining(inc.expectedHatchDate);
+            return (
+              <Card key={inc.id} className="border-l-4 border-purple-400">
+                <div className="flex justify-between items-start mb-3">
+                  <div>
+                    <p className="font-semibold">🐔 {inc.henCode || "Sin gallina asignada"}</p>
+                    <p className="text-sm text-slate-500">Inicio: {new Date(inc.startDate + "T12:00:00").toLocaleDateString("es")}</p>
+                  </div>
+                  <Badge color={days <= 3 ? "red" : days <= 7 ? "yellow" : "purple"}>
+                    {days > 0 ? `${days} días restantes` : "¡Hoy eclosiona!"}
+                  </Badge>
+                </div>
+                <div className="grid grid-cols-2 gap-2 text-sm mb-3">
+                  <div><span className="text-slate-500">Huevos:</span> <strong>{inc.eggsSet}</strong></div>
+                  <div><span className="text-slate-500">Eclosión esperada:</span> <strong>{new Date(inc.expectedHatchDate + "T12:00:00").toLocaleDateString("es")}</strong></div>
+                </div>
+                {inc.notes && <p className="text-xs text-slate-400 mb-3">{inc.notes}</p>}
+                <Button variant="success" className="w-full" onClick={() => { setCompleteModal(inc); setHatchForm({ eggsHatched: 0, femalesHatched: 0, malesHatched: 0, notes: inc.notes || "" }); }}>
+                  ✅ Registrar Eclosión
+                </Button>
+              </Card>
+            );
+          })}
+        </div>
+      )}
+
+      {/* Completed */}
+      <h2 className="text-lg font-semibold mb-3">📋 Historial de Incubaciones</h2>
+      <Card>
+        {completedInc.length === 0 ? (
+          <EmptyState icon="📋" message="No hay incubaciones completadas" />
+        ) : (
+          <Table headers={["Gallina", "Inicio", "Eclosión", "Huevos", "Nacidos", "Tasa", "Notas"]}>
+            {completedInc.map((inc) => (
+              <tr key={inc.id} className="hover:bg-slate-50">
+                <td className="px-4 py-3 font-medium">{inc.henCode || "—"}</td>
+                <td className="px-4 py-3">{new Date(inc.startDate + "T12:00:00").toLocaleDateString("es")}</td>
+                <td className="px-4 py-3">{new Date(inc.expectedHatchDate + "T12:00:00").toLocaleDateString("es")}</td>
+                <td className="px-4 py-3">{inc.eggsSet}</td>
+                <td className="px-4 py-3 font-bold text-green-600">
+                  {inc.eggsHatched}
+                  {inc.malesHatched != null && inc.femalesHatched != null && (
+                    <span className="block text-xs font-normal text-slate-500">♀ {inc.femalesHatched} · ♂ {inc.malesHatched}</span>
+                  )}
+                </td>
+                <td className="px-4 py-3">
+                  <Badge color={((inc.eggsHatched || 0) / inc.eggsSet) >= 0.7 ? "green" : "yellow"}>
+                    {Math.round(((inc.eggsHatched || 0) / inc.eggsSet) * 100)}%
+                  </Badge>
+                </td>
+                <td className="px-4 py-3 text-sm text-slate-500">{inc.notes || "—"}</td>
+              </tr>
+            ))}
+          </Table>
+        )}
+      </Card>
+
+      {/* New Incubation Modal */}
+      <Modal open={modalOpen} onClose={() => setModalOpen(false)} title="🐣 Nueva Incubación">
+        <div className="space-y-4">
+          <Select label="Gallina Clueca (opcional)" value={form.henId} onChange={(e) => setForm({ ...form, henId: e.target.value })}>
+            <option value="">Sin asignar</option>
+            {availableHens.map((h) => <option key={h.id} value={h.id}>{h.code}</option>)}
+          </Select>
+          <Input label="Fecha de Inicio" type="date" value={form.startDate} onChange={(e) => setForm({ ...form, startDate: e.target.value })} />
+          <Input label="Número de Huevos" type="number" min="1" value={form.eggsSet} onChange={(e) => setForm({ ...form, eggsSet: parseInt(e.target.value) || 0 })} />
+          <div className="p-3 bg-purple-50 rounded-lg text-sm text-purple-700">
+            <p>📅 Eclosión estimada: <strong>{new Date(new Date(form.startDate).getTime() + 21 * 24 * 60 * 60 * 1000).toLocaleDateString("es")}</strong> (21 días)</p>
+          </div>
+          <Textarea label="Notas" value={form.notes} onChange={(e) => setForm({ ...form, notes: e.target.value })} />
+          <div className="flex gap-3">
+            <Button onClick={save} disabled={form.eggsSet < 1}>Iniciar Incubación</Button>
+            <Button variant="secondary" onClick={() => setModalOpen(false)}>Cancelar</Button>
+          </div>
+        </div>
+      </Modal>
+
+      {/* Complete Incubation Modal */}
+      <Modal open={!!completeModal} onClose={() => setCompleteModal(null)} title="✅ Registrar Eclosión">
+        <div className="space-y-4">
+          {completeModal && (
+            <>
+              <div className="p-3 bg-green-50 rounded-lg text-sm">
+                <p>🐔 Gallina: <strong>{completeModal.henCode || "N/A"}</strong></p>
+                <p>🥚 Huevos incubados: <strong>{completeModal.eggsSet}</strong></p>
+              </div>
+              <Input label="Pollitos Nacidos" type="number" min="0" max={completeModal.eggsSet} value={hatchForm.eggsHatched} onChange={(e) => setHatchForm({ ...hatchForm, eggsHatched: parseInt(e.target.value) || 0 })} />
+              <div className="grid grid-cols-2 gap-3">
+                <Input label="Hembras nacidas" type="number" min="0" value={hatchForm.femalesHatched} onChange={(e) => setHatchForm({ ...hatchForm, femalesHatched: parseInt(e.target.value) || 0 })} />
+                <Input label="Machos nacidos" type="number" min="0" value={hatchForm.malesHatched} onChange={(e) => setHatchForm({ ...hatchForm, malesHatched: parseInt(e.target.value) || 0 })} />
+              </div>
+              <div className="p-3 bg-blue-50 rounded-lg text-xs text-blue-700">
+                <p>♀ Las hembras se registrarán como gallinas nuevas.</p>
+                <p>♂ Los machos se asignan automáticamente: gallos reproductores según el balance (1 por cada 10 gallinas) y el resto a un lote de engorde.</p>
+                {hatchForm.femalesHatched + hatchForm.malesHatched !== hatchForm.eggsHatched && (
+                  <p className="mt-1 text-orange-600">⚠️ Hembras + machos ({hatchForm.femalesHatched + hatchForm.malesHatched}) no coincide con los nacidos ({hatchForm.eggsHatched}).</p>
+                )}
+              </div>
+              <Textarea label="Notas finales" value={hatchForm.notes} onChange={(e) => setHatchForm({ ...hatchForm, notes: e.target.value })} />
+              <div className="flex gap-3">
+                <Button variant="success" onClick={complete}>Completar Incubación</Button>
+                <Button variant="secondary" onClick={() => setCompleteModal(null)}>Cancelar</Button>
+              </div>
+            </>
+          )}
+        </div>
+      </Modal>
+    </div>
+  );
+}
