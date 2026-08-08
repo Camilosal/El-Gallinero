@@ -103,7 +103,7 @@ export default function Dashboard() {
   return (
     <div>
       <PageHeader
-        title="🏡 Panel de Control — GalliGranja"
+        title="🏡 Panel de Control — El Gallinero"
         description="Vista general del gallinero y la granja autosustentable"
       />
 

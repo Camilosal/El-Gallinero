@@ -1,6 +1,6 @@
 import { db } from "@/db";
 import { eggSales, eggSalesItems, transactions, eggProductionDetails } from "@/db/schema";
-import { eq, desc, sql, and, ne, inArray } from "drizzle-orm";
+import { eq, desc, sql, and, ne, inArray, notInArray } from "drizzle-orm";
 import { NextRequest, NextResponse } from "next/server";
 
 export const dynamic = "force-dynamic";
@@ -13,11 +13,11 @@ async function getAvailableEggsBySize(excludeSaleIds?: string[]): Promise<Map<st
       total: sql<number>`coalesce(sum(${eggProductionDetails.quantity}), 0)::int`,
     }).from(eggProductionDetails).groupBy(eggProductionDetails.size),
     db.select({
-      size: eggSales.size,
-      total: sql<number>`coalesce(sum(${eggSales.quantity}), 0)::int`,
-    }).from(eggSales)
-      .where(excludeSaleIds?.length ? inArray(eggSales.id, excludeSaleIds) : undefined)
-      .groupBy(eggSales.size),
+      size: eggSalesItems.size,
+      total: sql<number>`coalesce(sum(${eggSalesItems.quantity}), 0)::int`,
+    }).from(eggSalesItems)
+      .where(excludeSaleIds?.length ? notInArray(eggSalesItems.saleId, excludeSaleIds) : undefined)
+      .groupBy(eggSalesItems.size),
   ]);
 
   const map = new Map<string, number>();
@@ -33,9 +33,9 @@ async function getAvailableEggs(size: string, excludeId?: string): Promise<numbe
       total: sql<number>`coalesce(sum(${eggProductionDetails.quantity}), 0)::int`,
     }).from(eggProductionDetails).where(eq(eggProductionDetails.size, size)),
     db.select({
-      total: sql<number>`coalesce(sum(${eggSales.quantity}), 0)::int`,
-    }).from(eggSales)
-      .where(and(eq(eggSales.size, size), excludeId ? ne(eggSales.id, excludeId) : undefined)),
+      total: sql<number>`coalesce(sum(${eggSalesItems.quantity}), 0)::int`,
+    }).from(eggSalesItems)
+      .where(and(eq(eggSalesItems.size, size), excludeId ? ne(eggSalesItems.saleId, excludeId) : undefined)),
   ]);
 
   return (prod[0]?.total || 0) - (sold[0]?.total || 0);

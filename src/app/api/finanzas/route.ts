@@ -226,6 +226,7 @@ export async function POST(req: NextRequest) {
           feedId: body.feedId,
           quantity: String(quantityInBaseUnit),
           isEntry: true,
+          movementType: "compra",
           date: body.date,
           notes: body.notes || `Compra de ${body.description}`,
         }).returning();

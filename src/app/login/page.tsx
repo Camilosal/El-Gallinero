@@ -39,7 +39,7 @@ export default function LoginPage() {
       <div className="w-full max-w-md p-8 bg-white rounded-2xl shadow-2xl">
         <div className="text-center mb-8">
           <span className="text-6xl block mb-3">🐓</span>
-          <h1 className="text-2xl font-bold text-slate-800">GalliGranja</h1>
+          <h1 className="text-2xl font-bold text-slate-800">El Gallinero</h1>
           <p className="text-slate-500 text-sm mt-1">Sistema de Administración de Gallinero</p>
         </div>
 

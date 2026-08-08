@@ -2,10 +2,12 @@ import { db } from "@/db";
 import { feedInventory, feedMovements, transactions } from "@/db/schema";
 import { eq, desc, inArray } from "drizzle-orm";
 import { NextRequest, NextResponse } from "next/server";
+import { runFeedProgramCatchup } from "@/lib/feeding/runProgram";
 
 export const dynamic = "force-dynamic";
 
 export async function GET() {
+  await runFeedProgramCatchup();
   const inventory = await db.select().from(feedInventory).orderBy(desc(feedInventory.createdAt));
   return NextResponse.json(inventory);
 }

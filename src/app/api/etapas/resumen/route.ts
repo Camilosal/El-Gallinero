@@ -2,6 +2,7 @@ import { db } from "@/db";
 import { catalogos, hens, feedPrograms, feedInventory, feedMovements } from "@/db/schema";
 import { eq, and, sql, or, desc } from "drizzle-orm";
 import { NextRequest, NextResponse } from "next/server";
+import { runFeedProgramCatchup } from "@/lib/feeding/runProgram";
 
 export const dynamic = "force-dynamic";
 
@@ -17,6 +18,9 @@ export async function GET(req?: NextRequest) {
   const daysParam = url.searchParams.get("days");
   const stockDays = daysParam ? parseInt(daysParam, 10) : null;
   const today = new Date();
+
+  // Ejecutar el programa hasta hoy para que inventario y consumo estén al día
+  await runFeedProgramCatchup();
 
   // 1. Obtener todas las etapas activas
   const stages = await db

@@ -338,6 +338,7 @@ export default function VentasPage() {
     setBirdError("");
     const qty = Number(birdForm.quantity);
     if (!birdForm.birdType) { setBirdError("Tipo de ave requerido"); return; }
+    if (!birdForm.henId && !birdForm.roosterId && !birdForm.batchId) { setBirdError("Debe seleccionar una gallina, un gallo o un lote para descontar del inventario"); return; }
     if (!qty || qty < 1) { setBirdError("Cantidad inválida"); return; }
     const price = Number(birdForm.pricePerUnit);
     if (!price || price <= 0) { setBirdError("Precio inválido"); return; }
@@ -667,8 +668,8 @@ export default function VentasPage() {
               ))}
             </Select>
           </div>
-          <Select label="Gallina (opcional)" value={birdForm.henId} onChange={(e) => handleBirdHenSelect(e.target.value)}>
-            <option value="">— Sin seleccionar (registro genérico) —</option>
+          <Select label="Gallina" value={birdForm.henId} onChange={(e) => handleBirdHenSelect(e.target.value)}>
+            <option value="">— Sin seleccionar —</option>
             {hens.map((h) => (
               <option key={h.id} value={h.id}>🐔 {h.code} — {h.weight} kg{h.status === "recomendada_sacrificio" ? " ⚠️ Recomendada sacrificio" : ""}</option>
             ))}
@@ -678,18 +679,21 @@ export default function VentasPage() {
               ℹ️ Se seleccionó la gallina <strong>{hens.find((h) => h.id === birdForm.henId)?.code}</strong>. El peso se pre-llenó con su peso actual.
             </div>
           )}
-          <Select label="Gallo (opcional)" value={birdForm.roosterId} onChange={(e) => handleBirdRoosterSelect(e.target.value)}>
+          <Select label="Gallo" value={birdForm.roosterId} onChange={(e) => handleBirdRoosterSelect(e.target.value)}>
             <option value="">— Sin gallo —</option>
             {roosters.map((r) => (
               <option key={r.id} value={r.id}>🐓 {r.code}{r.weight ? ` — ${r.weight} kg` : ""}</option>
             ))}
           </Select>
-          <Select label="Lote de pollos (opcional)" value={birdForm.batchId} onChange={(e) => handleBirdBatchSelect(e.target.value)}>
+          <Select label="Lote de pollos" value={birdForm.batchId} onChange={(e) => handleBirdBatchSelect(e.target.value)}>
             <option value="">— Sin lote —</option>
             {batches.map((b) => (
               <option key={b.id} value={b.id}>🐤 {b.code} — {b.currentQuantity} disponibles{b.status === "listo_sacrificio" ? " ✅ Listo" : ""}</option>
             ))}
           </Select>
+          {!birdForm.henId && !birdForm.roosterId && !birdForm.batchId && (
+            <p className="text-xs text-slate-500">Seleccione una gallina, un gallo o un lote (obligatorio para descontar del inventario).</p>
+          )}
           <div className="grid grid-cols-2 gap-3">
             <Input label="Cantidad (aves)" type="number" min="1" value={birdForm.quantity} onChange={(e) => setBirdForm({ ...birdForm, quantity: e.target.value })} />
             <Input label="Peso total (kg)" type="number" step="0.1" value={birdForm.weightKg} onChange={(e) => setBirdForm({ ...birdForm, weightKg: e.target.value })} placeholder="Opcional" />
@@ -722,7 +726,7 @@ export default function VentasPage() {
 
           <Textarea label="Notas" value={birdForm.notes} onChange={(e) => setBirdForm({ ...birdForm, notes: e.target.value })} />
           <div className="flex gap-3">
-            <Button onClick={saveBirdSale}>
+            <Button onClick={saveBirdSale} disabled={!birdForm.henId && !birdForm.roosterId && !birdForm.batchId}>
               {editingBird ? "Actualizar Venta" : "Registrar Venta"}
             </Button>
             <Button variant="secondary" onClick={() => setBirdModalOpen(false)}>Cancelar</Button>

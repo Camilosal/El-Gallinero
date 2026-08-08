@@ -3,7 +3,7 @@ import type { ReactNode } from "react";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "GalliGranja - Sistema de Administración de Gallinero",
+  title: "El Gallinero - Sistema de Administración de Gallinero",
   description: "Sistema integral de gestión de gallinero para granja autosustentable",
 };
 

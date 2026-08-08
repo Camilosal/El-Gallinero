@@ -108,6 +108,23 @@ describe("Income Flow (Ventas → Transactions)", () => {
     cleanupData = createCleanup();
     const today = new Date().toISOString().split("T")[0];
 
+    // Garantizar stock de "Mediano" independiente del seed (que es aleatorio):
+    // registrar producción propia de 50 huevos para que la actualización a
+    // 24 siempre tenga disponibilidad suficiente.
+    const [testProduction] = await db.insert(eggProduction).values({
+      date: today,
+      totalCollected: 50,
+      broken: 0,
+      forIncubation: 0,
+      notes: "Producción de prueba para PUT /api/ventas",
+    }).returning();
+    cleanupData.productionIds.push(testProduction.id);
+    await db.insert(eggProductionDetails).values({
+      productionId: testProduction.id,
+      size: "Mediano",
+      quantity: 50,
+    });
+
     // Create initial sale: 1 docena (12 eggs) at $7,200/docena
     const createRes = await ventasPOST(mockRequest("http://localhost/api/ventas", {
       method: "POST",

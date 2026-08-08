@@ -3,7 +3,7 @@ config({ path: ".env.local" });
 
 import { db, pool } from "./index";
 import { hens, feedInventory, feedMovements, feedPrograms, eggProduction, eggProductionDetails, eggSales, eggSalesItems, transactions, maintenance, healthControl, incubation, users, sessions, catalogos, chickenSales, slaughter, roosters, broilerBatches, manureFactors, manureInventory, manureSales, manureAdjustments } from "./schema";
-import { eq } from "drizzle-orm";
+import { eq, sql } from "drizzle-orm";
 import { hashPassword } from "@/lib/auth";
 
 async function main() {
@@ -207,21 +207,23 @@ async function main() {
   ]);
 
   // ——— Lote de pollos de engorde (5 semanas de edad, aún no listo) ———
-  await db.insert(broilerBatches).values([
+  const [createdBatch] = await db.insert(broilerBatches).values([
     { code: "L-001", breed: "Cobb 500", startDate: daysAgo(35), initialQuantity: 20, currentQuantity: 20, targetWeeks: 7, targetWeightKg: "2.5", avgWeightKg: "2.1", status: "activo", notes: "Lote de engorde comprado" },
-  ]);
+  ]).returning();
 
-  // ——— Alimentos / Inventario (stocks acordes a 30 gallinas) ———
-  // Consumo diario total estimado:
-  //   Concentrado: ~4.8 kg/día | BSF: ~1.5 kg/día | Pastos: ~3.0 kg/día
-  //   Maíz germinado: ~0.7 kg/día | Bore: ~0.4 kg/día | Maíz comprado: ~1.4 kg/día
+  // ——— Alimentos / Inventario (stock INICIAL antes de los movimientos) ———
+  // Los movimientos (compras y consumos) se insertan después y el stock final
+  // se recalcula como: stock_inicial + entradas − consumos.
+  // Consumo diario total estimado (acorde a 30 gallinas):
+  //   Concentrado: ~0.94 kg/día | BSF: ~0.35 kg/día | Pastos: ~0.45 kg/día
+  //   Maíz germinado: ~0.23 kg/día | Bore: ~0.09 kg/día | Maíz comprado: ~0.26 kg/día
   await db.insert(feedInventory).values([
-    { name: "Larvas de BSF deshidratadas", category: "granja_procesado", feedType: "mosca_soldado", unit: "kg", currentStock: "22", minStock: "20", costPerUnit: "8000", supplier: null },
-    { name: "Maíz germinado", category: "granja_procesado", feedType: "maiz_germinado", unit: "kg", currentStock: "10", minStock: "8", costPerUnit: "3000", supplier: null },
-    { name: "Pastos y gramíneas", category: "granja_fresco", feedType: "pastos_gramineas", unit: "kg", currentStock: "45", minStock: "40", costPerUnit: "0", supplier: "Producción propia" },
+    { name: "Larvas de BSF deshidratadas", category: "granja_procesado", feedType: "mosca_soldado", unit: "kg", currentStock: "20", minStock: "20", costPerUnit: "8000", supplier: null },
+    { name: "Maíz germinado", category: "granja_procesado", feedType: "maiz_germinado", unit: "kg", currentStock: "15", minStock: "8", costPerUnit: "3000", supplier: null },
+    { name: "Pastos y gramíneas", category: "granja_fresco", feedType: "pastos_gramineas", unit: "kg", currentStock: "35", minStock: "40", costPerUnit: "0", supplier: "Producción propia" },
     { name: "Bore / Raíces", category: "granja_fresco", feedType: "bore_raices", unit: "kg", currentStock: "8", minStock: "5", costPerUnit: "0", supplier: "Producción propia" },
-    { name: "Concentrado comercial", category: "suplementario", feedType: "concentrado_comercial", unit: "kg", currentStock: "65", minStock: "60", costPerUnit: "9500", supplier: "Agrosupply" },
-    { name: "Maíz comprado", category: "suplementario", feedType: "maiz_comprado", unit: "kg", currentStock: "20", minStock: "18", costPerUnit: "4500", supplier: "Mercado local" },
+    { name: "Concentrado comercial", category: "suplementario", feedType: "concentrado_comercial", unit: "kg", currentStock: "40", minStock: "60", costPerUnit: "9500", supplier: "Agrosupply" },
+    { name: "Maíz comprado", category: "suplementario", feedType: "maiz_comprado", unit: "kg", currentStock: "12", minStock: "18", costPerUnit: "4500", supplier: "Mercado local" },
   ]);
 
   // ——— Programas de alimentación por etapa ———
@@ -239,28 +241,27 @@ async function main() {
   const postura = createdStages.find((s) => s.value === "Postura")!;
 
   await db.insert(feedPrograms).values([
-    // Pollito (0-6 sem): alto en proteína, ración pequeña
-    { stageCatalogoId: pollito.id, feedId: concentrado.id, percentage: "50", dailyAmountPerHen: "30" },
-    { stageCatalogoId: pollito.id, feedId: bsf.id, percentage: "20", dailyAmountPerHen: "12" },
-    { stageCatalogoId: pollito.id, feedId: maizGerminado.id, percentage: "15", dailyAmountPerHen: "9" },
-    { stageCatalogoId: pollito.id, feedId: pastos.id, percentage: "15", dailyAmountPerHen: "9" },
-    // Juvenil (6-18 sem): equilibrio, ración media
-    { stageCatalogoId: juvenil.id, feedId: concentrado.id, percentage: "35", dailyAmountPerHen: "50" },
-    { stageCatalogoId: juvenil.id, feedId: pastos.id, percentage: "25", dailyAmountPerHen: "36" },
-    { stageCatalogoId: juvenil.id, feedId: bsf.id, percentage: "20", dailyAmountPerHen: "29" },
-    { stageCatalogoId: juvenil.id, feedId: maizGerminado.id, percentage: "10", dailyAmountPerHen: "14" },
-    { stageCatalogoId: juvenil.id, feedId: bore.id, percentage: "10", dailyAmountPerHen: "14" },
-    // Pre-postura (18-20 sem): más calcio y energía
-    { stageCatalogoId: prePostura.id, feedId: concentrado.id, percentage: "40", dailyAmountPerHen: "70" },
-    { stageCatalogoId: prePostura.id, feedId: pastos.id, percentage: "25", dailyAmountPerHen: "44" },
-    { stageCatalogoId: prePostura.id, feedId: bsf.id, percentage: "20", dailyAmountPerHen: "35" },
-    { stageCatalogoId: prePostura.id, feedId: maizComprado.id, percentage: "15", dailyAmountPerHen: "26" },
-    // Postura (20+ sem): máximo consumo, dieta de producción
-    { stageCatalogoId: postura.id, feedId: concentrado.id, percentage: "40", dailyAmountPerHen: "80" },
-    { stageCatalogoId: postura.id, feedId: pastos.id, percentage: "20", dailyAmountPerHen: "40" },
-    { stageCatalogoId: postura.id, feedId: bsf.id, percentage: "20", dailyAmountPerHen: "40" },
-    { stageCatalogoId: postura.id, feedId: maizComprado.id, percentage: "10", dailyAmountPerHen: "20" },
-    { stageCatalogoId: postura.id, feedId: maizGerminado.id, percentage: "10", dailyAmountPerHen: "20" },
+    // Pollito (0-6 sem): SOLO concentrado comercial, alta proteína, ración pequeña
+    { stageCatalogoId: pollito.id, feedId: concentrado.id, percentage: "100", dailyAmountPerHen: "30" },
+    // Juvenil (6-18 sem): se introducen pastos, BSF y maíz germinado de forma progresiva
+    { stageCatalogoId: juvenil.id, feedId: concentrado.id, percentage: "40", dailyAmountPerHen: "24" },
+    { stageCatalogoId: juvenil.id, feedId: pastos.id, percentage: "25", dailyAmountPerHen: "15" },
+    { stageCatalogoId: juvenil.id, feedId: bsf.id, percentage: "20", dailyAmountPerHen: "12" },
+    { stageCatalogoId: juvenil.id, feedId: maizGerminado.id, percentage: "15", dailyAmountPerHen: "9" },
+    // Pre-postura (18-20 sem): dieta completa pre-puesta (se suma maíz comprado y bore)
+    { stageCatalogoId: prePostura.id, feedId: concentrado.id, percentage: "40", dailyAmountPerHen: "32" },
+    { stageCatalogoId: prePostura.id, feedId: pastos.id, percentage: "20", dailyAmountPerHen: "16" },
+    { stageCatalogoId: prePostura.id, feedId: bsf.id, percentage: "15", dailyAmountPerHen: "12" },
+    { stageCatalogoId: prePostura.id, feedId: maizComprado.id, percentage: "15", dailyAmountPerHen: "12" },
+    { stageCatalogoId: prePostura.id, feedId: maizGerminado.id, percentage: "5", dailyAmountPerHen: "4" },
+    { stageCatalogoId: prePostura.id, feedId: bore.id, percentage: "5", dailyAmountPerHen: "4" },
+    // Postura (20+ sem): come de todo, máximo consumo, dieta de producción
+    { stageCatalogoId: postura.id, feedId: concentrado.id, percentage: "35", dailyAmountPerHen: "35" },
+    { stageCatalogoId: postura.id, feedId: pastos.id, percentage: "20", dailyAmountPerHen: "20" },
+    { stageCatalogoId: postura.id, feedId: bsf.id, percentage: "15", dailyAmountPerHen: "15" },
+    { stageCatalogoId: postura.id, feedId: maizComprado.id, percentage: "15", dailyAmountPerHen: "15" },
+    { stageCatalogoId: postura.id, feedId: maizGerminado.id, percentage: "10", dailyAmountPerHen: "10" },
+    { stageCatalogoId: postura.id, feedId: bore.id, percentage: "5", dailyAmountPerHen: "5" },
   ]);
 
   // ——— Gallinaza: factores de producción (kg/ave/día, editables desde la UI) ———
@@ -312,20 +313,32 @@ async function main() {
 
   // ——— Movimientos de alimento (últimos 30 días, acordes a 30 gallinas) ———
   // Distribución por etapa: Pollito=5, Juvenil=7, Pre-postura=3, Postura=15
+  // La dieta replica los programas: Pollito solo concentrado; el resto progresa
+  // hasta que Pre-postura y Postura comen de todos los alimentos.
   const feedIds = await db.select().from(feedInventory);
   const movData = [];
   for (let d = 29; d >= 1; d--) {
     const date = daysAgo(d);
-    // Consumo Postura (15 gallinas)
-    movData.push({ feedId: concentrado.id, quantity: "1.2", isEntry: false, stageCatalogoId: postura.id, henCount: 15, date, notes: "Consumo diario postura" });
-    movData.push({ feedId: pastos.id, quantity: "0.6", isEntry: false, stageCatalogoId: postura.id, henCount: 15, date, notes: "Pastos postura" });
-    movData.push({ feedId: bsf.id, quantity: "0.6", isEntry: false, stageCatalogoId: postura.id, henCount: 15, date, notes: "BSF postura" });
-    // Consumo Pre-postura (3 gallinas)
-    movData.push({ feedId: concentrado.id, quantity: "0.21", isEntry: false, stageCatalogoId: prePostura.id, henCount: 3, date, notes: "Consumo pre-postura" });
-    // Consumo Juvenil (7 gallinas)
-    movData.push({ feedId: concentrado.id, quantity: "0.35", isEntry: false, stageCatalogoId: juvenil.id, henCount: 7, date, notes: "Consumo juvenil" });
-    movData.push({ feedId: pastos.id, quantity: "0.25", isEntry: false, stageCatalogoId: juvenil.id, henCount: 7, date, notes: "Pastos juvenil" });
-    // Consumo Pollito (5 gallinas)
+    // Consumo Postura (15 gallinas, come de todo)
+    movData.push({ feedId: concentrado.id, quantity: "0.525", isEntry: false, stageCatalogoId: postura.id, henCount: 15, date, notes: "Consumo diario postura" });
+    movData.push({ feedId: pastos.id, quantity: "0.30", isEntry: false, stageCatalogoId: postura.id, henCount: 15, date, notes: "Pastos postura" });
+    movData.push({ feedId: bsf.id, quantity: "0.225", isEntry: false, stageCatalogoId: postura.id, henCount: 15, date, notes: "BSF postura" });
+    movData.push({ feedId: maizComprado.id, quantity: "0.225", isEntry: false, stageCatalogoId: postura.id, henCount: 15, date, notes: "Maíz comprado postura" });
+    movData.push({ feedId: maizGerminado.id, quantity: "0.15", isEntry: false, stageCatalogoId: postura.id, henCount: 15, date, notes: "Maíz germinado postura" });
+    movData.push({ feedId: bore.id, quantity: "0.075", isEntry: false, stageCatalogoId: postura.id, henCount: 15, date, notes: "Bore postura" });
+    // Consumo Pre-postura (3 gallinas, come de todo en menor cantidad)
+    movData.push({ feedId: concentrado.id, quantity: "0.096", isEntry: false, stageCatalogoId: prePostura.id, henCount: 3, date, notes: "Consumo pre-postura" });
+    movData.push({ feedId: pastos.id, quantity: "0.048", isEntry: false, stageCatalogoId: prePostura.id, henCount: 3, date, notes: "Pastos pre-postura" });
+    movData.push({ feedId: bsf.id, quantity: "0.036", isEntry: false, stageCatalogoId: prePostura.id, henCount: 3, date, notes: "BSF pre-postura" });
+    movData.push({ feedId: maizComprado.id, quantity: "0.036", isEntry: false, stageCatalogoId: prePostura.id, henCount: 3, date, notes: "Maíz comprado pre-postura" });
+    movData.push({ feedId: maizGerminado.id, quantity: "0.012", isEntry: false, stageCatalogoId: prePostura.id, henCount: 3, date, notes: "Maíz germinado pre-postura" });
+    movData.push({ feedId: bore.id, quantity: "0.012", isEntry: false, stageCatalogoId: prePostura.id, henCount: 3, date, notes: "Bore pre-postura" });
+    // Consumo Juvenil (7 gallinas: pastos, BSF y maíz germinado introducidos)
+    movData.push({ feedId: concentrado.id, quantity: "0.168", isEntry: false, stageCatalogoId: juvenil.id, henCount: 7, date, notes: "Consumo juvenil" });
+    movData.push({ feedId: pastos.id, quantity: "0.105", isEntry: false, stageCatalogoId: juvenil.id, henCount: 7, date, notes: "Pastos juvenil" });
+    movData.push({ feedId: bsf.id, quantity: "0.084", isEntry: false, stageCatalogoId: juvenil.id, henCount: 7, date, notes: "BSF juvenil" });
+    movData.push({ feedId: maizGerminado.id, quantity: "0.063", isEntry: false, stageCatalogoId: juvenil.id, henCount: 7, date, notes: "Maíz germinado juvenil" });
+    // Consumo Pollito (5 gallinas: SOLO concentrado)
     movData.push({ feedId: concentrado.id, quantity: "0.15", isEntry: false, stageCatalogoId: pollito.id, henCount: 5, date, notes: "Consumo pollito" });
   }
   // Entradas de compra (reposición de stock)
@@ -333,7 +346,27 @@ async function main() {
   movData.push({ feedId: maizComprado.id, quantity: "40", isEntry: true, date: daysAgo(15), notes: "Compra de maíz" });
   movData.push({ feedId: bsf.id, quantity: "10", isEntry: true, date: daysAgo(8), notes: "Compra de larvas BSF" });
   movData.push({ feedId: pastos.id, quantity: "30", isEntry: true, date: daysAgo(5), notes: "Recolección de pastos" });
-  await db.insert(feedMovements).values(movData as any).returning();
+
+  // Los consumos del seed simulan la ejecución del programa: se marcan autoGenerated
+  // y el motivo queda clasificado (consumo_programa para salidas, compra para entradas).
+  const seededMovements = movData.map((m) => ({
+    ...m,
+    movementType: m.isEntry ? "compra" : "consumo_programa",
+    autoGenerated: m.isEntry ? false : true,
+  }));
+  await db.insert(feedMovements).values(seededMovements as any).returning();
+
+  // ——— Recalcular stock final = stock_inicial + entradas − consumos ———
+  // La suma de movimientos por alimento define el inventario real (misma regla
+  // que /api/alimentacion/movimientos). Los stocks del seed ya incluían
+  // movimientos previos; aquí se recalcula para que queden consistentes.
+  for (const f of feedIds) {
+    const [agg] = await db.select({
+      net: sql`COALESCE(SUM(CASE WHEN is_entry THEN quantity::numeric ELSE -quantity::numeric END), 0)`,
+    }).from(feedMovements).where(eq(feedMovements.feedId, f.id));
+    const final = (Number(f.currentStock) + Number(agg?.net ?? 0)).toFixed(2);
+    await db.update(feedInventory).set({ currentStock: final, updatedAt: new Date() }).where(eq(feedInventory.id, f.id));
+  }
 
   // Registrar las entradas de compra como egresos vinculados (misma regla que /api/alimentacion/movimientos):
   // solo alimentos "suplementario" con costo > 0 generan transacción
@@ -423,17 +456,25 @@ async function main() {
 
   // ——— Sacrificio / Producción de carne ———
   const createdSlaughter = await db.insert(slaughter).values([
-    { date: daysAgo(3), birdType: "pollo", quantity: 3, weightKg: "6.5", destination: "consumo_propio", notes: "Pollos para consumo de la familia" },
+    { date: daysAgo(3), birdType: "pollo", quantity: 3, weightKg: "6.5", destination: "consumo_propio", batchId: createdBatch.id, notes: "Pollos del lote L-001 para consumo de la familia" },
     { date: daysAgo(10), birdType: "gallina_descarte", quantity: 1, weightKg: "2.2", destination: "venta", pricePerKg: "12000", totalAmount: "26400", henId: createdHens[23]?.id, notes: "Gallina G-024 vendida en canal" },
-    { date: daysAgo(18), birdType: "pollo", quantity: 5, weightKg: "11.0", destination: "venta", pricePerKg: "10000", totalAmount: "110000", notes: "Lote de pollos vendidos" },
+    { date: daysAgo(18), birdType: "pollo", quantity: 5, weightKg: "11.0", destination: "venta", pricePerKg: "10000", totalAmount: "110000", batchId: createdBatch.id, notes: "Pollos del lote L-001 vendidos" },
   ]).returning();
 
   // ——— Ventas de aves ———
   const createdChickenSales = await db.insert(chickenSales).values([
-    { date: daysAgo(5), birdType: "gallina_descarte", quantity: 2, weightKg: "5.6", pricePerUnit: "25000", priceMode: "por_ave", totalAmount: "50000", buyer: "Mercado Don Juan", henId: createdHens[22]?.id, notes: "Gallina G-023 vendida en descarte" },
-    { date: daysAgo(12), birdType: "pollo", quantity: 5, weightKg: "12.5", pricePerUnit: "8000", priceMode: "por_kg", totalAmount: "100000", buyer: "Restaurante La Granja", notes: "Pollos para asado" },
+    { date: daysAgo(5), birdType: "gallina_descarte", quantity: 1, weightKg: "2.8", pricePerUnit: "25000", priceMode: "por_ave", totalAmount: "25000", buyer: "Mercado Don Juan", henId: createdHens[22]?.id, notes: "Gallina G-023 vendida en descarte" },
+    { date: daysAgo(12), birdType: "pollo", quantity: 5, weightKg: "12.5", pricePerUnit: "8000", priceMode: "por_kg", totalAmount: "100000", buyer: "Restaurante La Granja", batchId: createdBatch.id, notes: "Pollos del lote L-001 para asado" },
     { date: daysAgo(20), birdType: "gallina_descarte", quantity: 1, weightKg: "2.8", pricePerUnit: "22000", priceMode: "por_ave", totalAmount: "22000", buyer: null, henId: createdHens[21]?.id, notes: "Gallina G-022 vendida" },
   ]).returning();
+
+  // Aplicar descuentos de inventario de aves (consistente con la API):
+  // - Gallinas vendidas/sacrificadas pasan a estado terminal
+  // - El lote L-001 descuenta las salidas de pollo registradas
+  await db.update(hens).set({ status: "vendida", updatedAt: new Date() }).where(eq(hens.id, createdHens[21]!.id)); // G-022
+  await db.update(hens).set({ status: "vendida", updatedAt: new Date() }).where(eq(hens.id, createdHens[22]!.id)); // G-023
+  await db.update(hens).set({ status: "faena", updatedAt: new Date() }).where(eq(hens.id, createdHens[23]!.id)); // G-024
+  await db.update(broilerBatches).set({ currentQuantity: 20 - (3 + 5 + 5), updatedAt: new Date() }).where(eq(broilerBatches.id, createdBatch.id));
 
   // ——— Finanzas ———
   // Todas las transacciones vinculadas a sus registros de origen (sourceType/sourceId),

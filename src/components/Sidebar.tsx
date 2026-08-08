@@ -10,6 +10,7 @@ const menuItems = [
   { href: "/alimentacion", label: "Alimentación", icon: "🌾" },
   { href: "/huevos", label: "Producción Huevos", icon: "🥚" },
   { href: "/inventario", label: "Inventario Huevos", icon: "📦" },
+  { href: "/balance", label: "Balance de Inventario", icon: "⚖️" },
   { href: "/incubacion", label: "Incubación", icon: "🐣" },
   { href: "/gallinaza", label: "Gallinaza", icon: "🌱" },
   { href: "/ventas", label: "Ventas", icon: "💰" },
@@ -36,7 +37,7 @@ export default function Sidebar() {
       <div className="p-5 border-b border-green-700">
         <h1 className="text-xl font-bold flex items-center gap-2">
           <span className="text-3xl">🐓</span>
-          <span>GalliGranja</span>
+          <span>El Gallinero</span>
         </h1>
         <p className="text-green-300 text-xs mt-1">Granja Autosustentable</p>
       </div>

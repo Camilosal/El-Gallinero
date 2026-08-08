@@ -134,7 +134,19 @@ export default function EgresosPage() {
   useEffect(() => {
     if (isFeedPurchase && modalOpen) {
       apiFetch("/api/alimentacion").then((r) => r.json()).then((data) => {
-        setFeeds(Array.isArray(data) ? data : []);
+        const list = Array.isArray(data) ? data : [];
+        setFeeds(list);
+        // Si hay un feed ya seleccionado (ej: al editar), sincronizar la presentación
+        // con las opciones de su unidad una vez que los feeds están cargados.
+        setForm((f) => {
+          if (!f.feedId) return f;
+          const feed = list.find((x) => x.id === f.feedId);
+          const presOptions = feed ? getPresentationsForUnit(feed.unit) : getPresentationsForUnit("unidades");
+          const currentValid = presOptions.some((p) => p.label === f.presentation);
+          if (currentValid && f.presentation) return f;
+          const first = presOptions[0];
+          return { ...f, presentation: first?.label || "", factor: first ? String(first.factor) : "" };
+        });
       }).catch(() => setFeeds([]));
     }
   }, [isFeedPurchase, modalOpen]);
@@ -153,18 +165,6 @@ export default function EgresosPage() {
     }
     return [];
   }, [isFeedPurchase, selectedFeed, isPurchase]);
-
-  // Auto-set/reset presentation when available options change
-  useEffect(() => {
-    if (isPurchase && availablePresentations.length > 0) {
-      // If current presentation is not in available list, reset to first
-      const currentValid = availablePresentations.some((p) => p.label === form.presentation);
-      if (!currentValid || !form.presentation) {
-        const first = availablePresentations[0];
-        setForm((f) => ({ ...f, presentation: first.label, factor: String(first.factor) }));
-      }
-    }
-  }, [isPurchase, availablePresentations]);
 
   // When presentation changes, update factor
   const onPresentationChange = (value: string) => {
@@ -214,7 +214,9 @@ export default function EgresosPage() {
   const openNew = () => {
     setEditing(null);
     setError("");
-    setForm(defaultForm());
+    // Preseleccionar la primera presentación (la categoría por defecto es de compra)
+    const first = getPresentationsForUnit("unidades")[0];
+    setForm({ ...defaultForm(), presentation: first?.label || "", factor: first ? String(first.factor) : "" });
     setModalOpen(true);
   };
 
@@ -265,15 +267,18 @@ export default function EgresosPage() {
   const onCategoryChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
     const category = e.target.value;
     const isPurch = purchaseCategories.includes(category);
+    // Si la categoría es de compra, preseleccionar la primera presentación
+    const presOptions = isPurch ? getPresentationsForUnit("unidades") : [];
+    const first = presOptions[0];
     setForm((f) => ({
       ...f,
       category,
       // Reset purchase-specific fields when switching
       feedId: "",
-      presentation: "",
+      presentation: first?.label || "",
       presentations: "",
       pricePerPresentation: "",
-      factor: "",
+      factor: first ? String(first.factor) : "",
       // Reset legacy fields
       quantity: "",
       unitPrice: "",

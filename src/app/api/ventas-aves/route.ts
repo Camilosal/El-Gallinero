@@ -44,6 +44,11 @@ export async function POST(req: NextRequest) {
   const pricePerUnit = Number(body.pricePerUnit);
   if (!pricePerUnit || pricePerUnit <= 0) return NextResponse.json({ error: "Precio inválido" }, { status: 400 });
 
+  // Se requiere vincular un ave: gallina, gallo o lote
+  if (!body.henId && !body.roosterId && !body.batchId) {
+    return NextResponse.json({ error: "Debe seleccionar una gallina, un gallo o un lote" }, { status: 400 });
+  }
+
   // Validate hen exists and is active if henId provided
   if (body.henId) {
     const [hen] = await db.select().from(hens).where(eq(hens.id, body.henId));
@@ -130,6 +135,11 @@ export async function PUT(req: NextRequest) {
 
   const pricePerUnit = Number(body.pricePerUnit);
   if (!pricePerUnit || pricePerUnit <= 0) return NextResponse.json({ error: "Precio inválido" }, { status: 400 });
+
+  // Se requiere vincular un ave: gallina, gallo o lote
+  if (!body.henId && !body.roosterId && !body.batchId) {
+    return NextResponse.json({ error: "Debe seleccionar una gallina, un gallo o un lote" }, { status: 400 });
+  }
 
   // Get existing record to check old henId
   const [existing] = await db.select().from(chickenSales).where(eq(chickenSales.id, body.id));

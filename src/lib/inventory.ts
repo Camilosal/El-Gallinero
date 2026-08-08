@@ -1,5 +1,5 @@
 import { db } from "@/db";
-import { eggProduction, eggProductionDetails, eggSales, catalogos } from "@/db/schema";
+import { eggProduction, eggProductionDetails, eggSales, eggSalesItems, catalogos } from "@/db/schema";
 import { asc, eq } from "drizzle-orm";
 
 export interface EggLot {
@@ -41,12 +41,30 @@ export interface EggInventory {
 
 // Inventario de huevos con consumo PEPS (FIFO): se vende primero el lote más antiguo
 export async function computeEggInventory(): Promise<EggInventory> {
-  const [productions, details, sales, sizeCatalog] = await Promise.all([
+  const [productions, details, sales, saleItems, sizeCatalog] = await Promise.all([
     db.select().from(eggProduction).orderBy(asc(eggProduction.date)),
     db.select().from(eggProductionDetails),
     db.select().from(eggSales).orderBy(asc(eggSales.date)),
+    db.select().from(eggSalesItems),
     db.select().from(catalogos).where(eq(catalogos.category, "tamano_huevo")),
   ]);
+
+  // Ventas efectivas por tamaño: las ventas multi-tamaño tienen egg_sales.size = NULL,
+  // el detalle real vive en egg_sales_items. Construir lista unificada (con fecha de la venta).
+  const saleDateById = new Map(sales.map((s) => [s.id, s.date]));
+  const effectiveSales: { id: string; date: string; size: string; quantity: number }[] = saleItems.map((i) => ({
+    id: i.saleId,
+    date: saleDateById.get(i.saleId) || "",
+    size: i.size,
+    quantity: i.quantity,
+  }));
+  for (const s of sales) {
+    if (!s.size) continue;
+    const hasItem = saleItems.some((i) => i.saleId === s.id);
+    if (hasItem) continue;
+    effectiveSales.push({ id: s.id, date: s.date, size: s.size, quantity: s.quantity });
+  }
+  effectiveSales.sort((a, b) => (a.date === b.date ? 0 : a.date < b.date ? -1 : 1));
 
   const today = new Date();
   today.setHours(0, 0, 0, 0);
@@ -59,7 +77,7 @@ export async function computeEggInventory(): Promise<EggInventory> {
   const sizeOrder: string[] = [...activeSizes.map((c) => c.value)];
   const seen = new Set(sizeOrder);
   for (const d of details) if (!seen.has(d.size)) { seen.add(d.size); sizeOrder.push(d.size); }
-  for (const s of sales) if (s.size && !seen.has(s.size)) { seen.add(s.size); sizeOrder.push(s.size); }
+  for (const s of effectiveSales) if (!seen.has(s.size)) { seen.add(s.size); sizeOrder.push(s.size); }
 
   const producedBySize = new Map<string, number>();
   const producedByKey = new Map<string, number>();
@@ -69,12 +87,12 @@ export async function computeEggInventory(): Promise<EggInventory> {
   }
 
   const soldBySize = new Map<string, number>();
-  for (const s of sales) if (s.size) soldBySize.set(s.size, (soldBySize.get(s.size) || 0) + s.quantity);
+  for (const s of effectiveSales) soldBySize.set(s.size, (soldBySize.get(s.size) || 0) + s.quantity);
 
   const lots: EggLot[] = [];
   for (const size of sizeOrder) {
     // Cola de ventas para consumo FIFO (independiente de la fecha de venta)
-    const salesQueue = sales.filter((s) => s.size === size).map((s) => s.quantity);
+    const salesQueue = effectiveSales.filter((s) => s.size === size).map((s) => s.quantity);
 
     for (const p of productions) {
       const initial = producedByKey.get(`${p.id}::${size}`) || 0;
