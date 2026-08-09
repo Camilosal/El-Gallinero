@@ -1,56 +1,161 @@
 "use client";
 
-import { Suspense } from "react";
-import { useRouter, useSearchParams } from "next/navigation";
-import HuevosTab from "./_components/HuevosTab";
-import CarneTab from "./_components/CarneTab";
-import GallinasTab from "./_components/GallinasTab";
-import PollosTab from "./_components/PollosTab";
-import GallinazaTab from "./_components/GallinazaTab";
-import IncubacionTab from "./_components/IncubacionTab";
-import AlimentacionTab from "./_components/AlimentacionTab";
+import Link from "next/link";
+import { useSearchParams } from "next/navigation";
+import { Suspense, lazy, useEffect, useState } from "react";
 
-const TABS = [
-  { key: "huevos", label: "🥚 Huevos", View: HuevosTab },
-  { key: "carne", label: "🍗 Carne", View: CarneTab },
-  { key: "gallinas", label: "🐔 Gallinas", View: GallinasTab },
-  { key: "pollos", label: "🐓 Pollos y Gallos", View: PollosTab },
-  { key: "gallinaza", label: "🌱 Gallinaza", View: GallinazaTab },
-  { key: "incubacion", label: "🐣 Incubación", View: IncubacionTab },
-  { key: "alimentacion", label: "🌾 Alimentación", View: AlimentacionTab },
+const GallinasTab = lazy(() => import("./_components/GallinasTab"));
+const PollosTab = lazy(() => import("./_components/PollosTab"));
+const AlimentacionTab = lazy(() => import("./_components/AlimentacionTab"));
+const HuevosTab = lazy(() => import("./_components/HuevosTab"));
+const IncubacionTab = lazy(() => import("./_components/IncubacionTab"));
+const CarneTab = lazy(() => import("./_components/CarneTab"));
+const GallinazaTab = lazy(() => import("./_components/GallinazaTab"));
+const InventarioTab = lazy(() => import("./_components/InventarioTab"));
+
+const tabComponents: Record<string, React.ComponentType> = {
+  gallinas: GallinasTab,
+  pollos: PollosTab,
+  alimentacion: AlimentacionTab,
+  huevos: HuevosTab,
+  incubacion: IncubacionTab,
+  carne: CarneTab,
+  gallinaza: GallinazaTab,
+  inventario: InventarioTab,
+};
+
+const secciones = [
+  { href: "/produccion/gallinas", label: "Gallinas", icon: "🐔", desc: "Parvada activa y lotes" },
+  { href: "/produccion/pollos", label: "Pollos y Gallos", icon: "🐓", desc: "Levante y engorde" },
+  { href: "/produccion/adquisiciones", label: "Adquisiciones", icon: "📥", desc: "Entrada de aves" },
+  { href: "/produccion/alimentacion", label: "Alimentación", icon: "🌾", desc: "Consumo y programas" },
+  { href: "/produccion/huevos", label: "Producción Huevos", icon: "🥚", desc: "Recolección diario" },
+  { href: "/produccion/incubacion", label: "Incubación", icon: "🐣", desc: "Nacimientos y fertilidad" },
+  { href: "/produccion/sacrificio", label: "Carne", icon: "🍗", desc: "Procesamiento" },
+  { href: "/produccion?tab=gallinaza", label: "Gallinaza", icon: "🌱", desc: "Producción y ventas" },
+  { href: "/produccion?tab=inventario", label: "Inventario", icon: "📦", desc: "Stock consolidado" },
+  { href: "/produccion/mortalidad", label: "Mortalidad", icon: "💀", desc: "Bajas por lote" },
+  { href: "/produccion/plan-parvada", label: "Plan Parvada", icon: "🏠", desc: "Proyecciones" },
 ];
 
-function ProduccionTabs() {
-  const router = useRouter();
-  const searchParams = useSearchParams();
-  const param = searchParams.get("tab");
-  const active = TABS.find((t) => t.key === param) ?? TABS[0];
-  const ActiveView = active.View;
+interface ResumenProduccion {
+  huevosHoy: number;
+  huevosSemana: number;
+  totalGallinas: number;
+  mortalidadSemana: number;
+  consumoAlimentoSemanal: number;
+}
 
+function TabFallback() {
   return (
-    <div>
-      <div className="flex flex-wrap gap-1 mb-6 bg-slate-100 p-1 rounded-lg w-fit max-w-full">
-        {TABS.map((t) => (
-          <button
-            key={t.key}
-            onClick={() => router.replace(`/produccion?tab=${t.key}`, { scroll: false })}
-            className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${
-              active.key === t.key ? "bg-white text-green-700 shadow-sm" : "text-slate-600 hover:text-slate-800"
-            }`}
-          >
-            {t.label}
-          </button>
+    <div className="p-8">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        {[1, 2, 3, 4].map((i) => (
+          <div key={i} className="bg-white rounded-lg shadow-md p-6 animate-pulse">
+            <div className="h-4 bg-gray-200 rounded w-1/2 mb-2"></div>
+            <div className="h-8 bg-gray-200 rounded"></div>
+          </div>
         ))}
       </div>
-      <ActiveView />
     </div>
   );
 }
 
 export default function ProduccionPage() {
   return (
-    <Suspense fallback={null}>
-      <ProduccionTabs />
+    <Suspense fallback={<TabFallback />}>
+      <ProduccionContent />
     </Suspense>
+  );
+}
+
+function ProduccionContent() {
+  const searchParams = useSearchParams();
+  const tab = searchParams.get("tab");
+  const TabComponent = tab ? tabComponents[tab] : null;
+
+  if (TabComponent) {
+    return (
+      <Suspense fallback={<TabFallback />}>
+        <TabComponent />
+      </Suspense>
+    );
+  }
+
+  return <CategoryView />;
+}
+
+function CategoryView() {
+  const [resumen, setResumen] = useState<ResumenProduccion | null>(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    fetch("/api/produccion/resumen")
+      .then((r) => r.json())
+      .then(setResumen)
+      .catch(console.error)
+      .finally(() => setLoading(false));
+  }, []);
+
+  return (
+    <div className="p-8">
+      <div className="mb-8">
+        <h1 className="text-3xl font-bold flex items-center gap-3">
+          <span className="text-4xl">🐔</span>
+          Producción
+        </h1>
+        <p className="text-gray-600 mt-2">
+          Gestión de procesos productivos: parvada, alimentación, producción de huevos, incubación y sacrificio.
+        </p>
+      </div>
+
+      {loading ? (
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
+          {[1, 2, 3, 4].map((i) => (
+            <div key={i} className="bg-white rounded-lg shadow-md p-6 animate-pulse">
+              <div className="h-4 bg-gray-200 rounded w-1/2 mb-2"></div>
+              <div className="h-8 bg-gray-200 rounded"></div>
+            </div>
+          ))}
+        </div>
+      ) : resumen ? (
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
+          <div className="bg-white rounded-lg shadow-md p-6 border-l-4 border-blue-500">
+            <p className="text-sm text-gray-600 mb-1">🥚 Huevos Hoy</p>
+            <p className="text-3xl font-bold text-gray-900">{resumen.huevosHoy}</p>
+          </div>
+          <div className="bg-white rounded-lg shadow-md p-6 border-l-4 border-green-500">
+            <p className="text-sm text-gray-600 mb-1">🥚 Huevos Semana</p>
+            <p className="text-3xl font-bold text-gray-900">{resumen.huevosSemana}</p>
+          </div>
+          <div className="bg-white rounded-lg shadow-md p-6 border-l-4 border-purple-500">
+            <p className="text-sm text-gray-600 mb-1">🐔 Gallinas Activas</p>
+            <p className="text-3xl font-bold text-gray-900">{resumen.totalGallinas}</p>
+          </div>
+          <div className="bg-white rounded-lg shadow-md p-6 border-l-4 border-red-500">
+            <p className="text-sm text-gray-600 mb-1">💀 Mortalidad Semana</p>
+            <p className="text-3xl font-bold text-gray-900">{resumen.mortalidadSemana}</p>
+          </div>
+        </div>
+      ) : null}
+
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        {secciones.map((sec) => (
+          <Link
+            key={sec.href}
+            href={sec.href}
+            className="bg-white rounded-lg shadow-md p-6 hover:shadow-lg transition-shadow border border-gray-200"
+          >
+            <div className="flex items-start gap-4">
+              <span className="text-4xl">{sec.icon}</span>
+              <div>
+                <h3 className="text-lg font-semibold text-gray-900">{sec.label}</h3>
+                <p className="text-sm text-gray-600 mt-1">{sec.desc}</p>
+              </div>
+            </div>
+          </Link>
+        ))}
+      </div>
+    </div>
   );
 }

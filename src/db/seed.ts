@@ -2,7 +2,7 @@ import { config } from "dotenv";
 config({ path: ".env.local" });
 
 import { db, pool } from "./index";
-import { hens, feedInventory, feedMovements, feedPrograms, eggProduction, eggProductionDetails, eggSales, eggSalesItems, transactions, maintenance, healthControl, incubation, users, sessions, catalogos, chickenSales, slaughter, roosters, broilerBatches, manureFactors, manureInventory, manureSales, manureAdjustments, birdAcquisitions, mortalityRecords, eggLosses, supplyInventory, supplyMovements, meatInventory, budgets, budgetItems, accountsReceivable, accountsPayable, payments, sanitaryCalendar, flockPlans, flockPlanMilestones } from "./schema";
+import { hens, feedInventory, feedMovements, feedPrograms, eggProduction, eggProductionDetails, eggSales, eggSalesItems, transactions, maintenance, healthControl, incubation, users, sessions, catalogos, chickenSales, slaughter, roosters, broilerBatches, manureFactors, manureSales, manureAdjustments, birdAcquisitions, mortalityRecords, eggLosses, supplyInventory, supplyMovements, meatSales, meatLosses, manureProduction, budgets, budgetItems, accountsReceivable, accountsPayable, payments, sanitaryCalendar, flockPlans, flockPlanMilestones, weightLogs, breedWeightStandards } from "./schema";
 import { eq, sql } from "drizzle-orm";
 import { hashPassword } from "@/lib/auth";
 
@@ -18,7 +18,6 @@ async function main() {
   await db.delete(accountsPayable);
   await db.delete(budgetItems);
   await db.delete(budgets);
-  await db.delete(meatInventory);
   await db.delete(supplyMovements);
   await db.delete(supplyInventory);
   await db.delete(eggLosses);
@@ -26,11 +25,13 @@ async function main() {
   await db.delete(birdAcquisitions);
   await db.delete(slaughter);
   await db.delete(chickenSales);
+  await db.delete(meatSales);
+  await db.delete(meatLosses);
+  await db.delete(manureProduction);
   await db.delete(sessions);
   await db.delete(manureSales);
   await db.delete(manureAdjustments);
   await db.delete(manureFactors);
-  await db.delete(manureInventory);
   await db.delete(eggSalesItems);
   await db.delete(feedPrograms);
   await db.delete(feedMovements);
@@ -43,6 +44,8 @@ async function main() {
   await db.delete(eggProduction);
   await db.delete(feedInventory);
   await db.delete(hens);
+  await db.delete(weightLogs);
+  await db.delete(breedWeightStandards);
   await db.delete(roosters);
   await db.delete(broilerBatches);
   await db.delete(catalogos);
@@ -288,12 +291,6 @@ async function main() {
     { birdGroup: "lote", kgPerBirdPerDay: "0.10" },
   ]);
 
-  // ——— Gallinaza: inventario acumulado ———
-  await db.insert(manureInventory).values({
-    currentStockKg: "120",
-    lastAccumulatedDate: new Date().toISOString().split("T")[0],
-  });
-
   // ——— Gallinaza: venta de ejemplo + transacción vinculada ———
   const [manureSale] = await db.insert(manureSales).values({
     date: daysAgo(3),
@@ -372,7 +369,7 @@ async function main() {
 
   // ——— Recalcular stock final = stock_inicial + entradas − consumos ———
   // La suma de movimientos por alimento define el inventario real (misma regla
-  // que /api/alimentacion/movimientos). Los stocks del seed ya incluían
+  // que /api/produccion/alimentacion/movimientos). Los stocks del seed ya incluían
   // movimientos previos; aquí se recalcula para que queden consistentes.
   for (const f of feedIds) {
     const [agg] = await db.select({
@@ -382,7 +379,7 @@ async function main() {
     await db.update(feedInventory).set({ currentStock: final, updatedAt: new Date() }).where(eq(feedInventory.id, f.id));
   }
 
-  // Registrar las entradas de compra como egresos vinculados (misma regla que /api/alimentacion/movimientos):
+  // Registrar las entradas de compra como egresos vinculados (misma regla que /api/produccion/alimentacion/movimientos):
   // solo alimentos "suplementario" con costo > 0 generan transacción
   const createdMovements = await db.select().from(feedMovements);
   const feedById = new Map(feedIds.map((f) => [f.id, f]));
@@ -468,12 +465,38 @@ async function main() {
     }))
   );
 
-  // ——— Sacrificio / Producción de carne ———
+  // ——— Sacrificio / Producción de carne (producción pura, va a inventario) ———
   const createdSlaughter = await db.insert(slaughter).values([
     { date: daysAgo(3), birdType: "pollo", quantity: 3, weightKg: "6.5", destination: "consumo_propio", batchId: createdBatch.id, notes: "Pollos del lote L-001 para consumo de la familia" },
-    { date: daysAgo(10), birdType: "gallina_descarte", quantity: 1, weightKg: "2.2", destination: "venta", pricePerKg: "12000", totalAmount: "26400", henId: createdHens[23]?.id, notes: "Gallina G-024 vendida en canal" },
-    { date: daysAgo(18), birdType: "pollo", quantity: 5, weightKg: "11.0", destination: "venta", pricePerKg: "10000", totalAmount: "110000", batchId: createdBatch.id, notes: "Pollos del lote L-001 vendidos" },
+    { date: daysAgo(10), birdType: "gallina_descarte", quantity: 1, weightKg: "2.2", destination: "consumo_propio", henId: createdHens[23]?.id, notes: "Gallina G-024 sacrificada" },
+    { date: daysAgo(18), birdType: "pollo", quantity: 5, weightKg: "11.0", destination: "consumo_propio", batchId: createdBatch.id, notes: "Pollos del lote L-001 sacrificados" },
   ]).returning();
+
+  // ——— Ventas de carne (desde inventario, separado del sacrificio) ———
+  const createdMeatSales = await db.insert(meatSales).values([
+    { date: daysAgo(7), quantityKg: "6.5", pricePerKg: "10000", totalAmount: "65000", presentation: "Pollo entero", buyer: "Restaurante La Granja", notes: "Venta de carne de pollo" },
+    { date: daysAgo(15), quantityKg: "2.2", pricePerKg: "12000", totalAmount: "26400", presentation: "Gallina entera", buyer: "Mercado Don Juan", notes: "Carne de gallina de descarte" },
+  ]).returning();
+
+  // ——— Pérdidas de carne ———
+  await db.insert(meatLosses).values([
+    { date: daysAgo(5), quantityKg: "0.8", reason: "deterioro", notes: "Carne que no se vendió a tiempo" },
+    { date: daysAgo(12), quantityKg: "0.3", reason: "merma", notes: "Pérdida por procesamiento" },
+  ]);
+
+  // ——— Producción de gallinaza (registros diarios) ———
+  await db.insert(manureProduction).values([
+    { date: daysAgo(1), kgProduced: "4.2", source: "estimado", notes: null },
+    { date: daysAgo(2), kgProduced: "4.1", source: "estimado", notes: null },
+    { date: daysAgo(3), kgProduced: "4.3", source: "estimado", notes: null },
+    { date: daysAgo(4), kgProduced: "4.0", source: "estimado", notes: null },
+    { date: daysAgo(5), kgProduced: "4.2", source: "estimado", notes: null },
+    { date: daysAgo(6), kgProduced: "4.1", source: "estimado", notes: null },
+    { date: daysAgo(7), kgProduced: "4.4", source: "estimado", notes: null },
+    { date: daysAgo(10), kgProduced: "5.0", source: "real", notes: "Medición real de la pila" },
+    { date: daysAgo(14), kgProduced: "4.5", source: "estimado", notes: null },
+    { date: daysAgo(21), kgProduced: "4.3", source: "estimado", notes: null },
+  ]);
 
   // ——— Ventas de aves ———
   const createdChickenSales = await db.insert(chickenSales).values([
@@ -522,22 +545,20 @@ async function main() {
       sourceType: "venta_ave",
       sourceId: s.id,
     })),
-    // Ingresos por venta de carne (sacrificios con destino venta)
-    ...createdSlaughter
-      .filter((s) => s.destination === "venta" && s.totalAmount && s.pricePerKg)
-      .map((s) => ({
-        date: s.date,
-        type: "ingreso" as const,
-        category: "Venta de carne",
-        description: `Venta de ${s.weightKg} kg carne de ${s.birdType.replace(/_/g, " ")} (${s.quantity} ave${s.quantity > 1 ? "s" : ""})`,
-        amount: s.totalAmount!,
-        quantity: s.weightKg,
-        unitPrice: s.pricePerKg!,
-        unit: "kg",
-        counterparty: null,
-        sourceType: "sacrificio",
-        sourceId: s.id,
-      })),
+    // Ingresos por venta de carne (desde meat_sales, separado del sacrificio)
+    ...createdMeatSales.map((s) => ({
+      date: s.date,
+      type: "ingreso" as const,
+      category: "Venta de carne",
+      description: `Venta de ${s.quantityKg} kg de carne${s.buyer ? ` a ${s.buyer}` : ""}`,
+      amount: s.totalAmount,
+      quantity: s.quantityKg,
+      unitPrice: s.pricePerKg,
+      unit: "kg",
+      counterparty: s.buyer || null,
+      sourceType: "venta_carne",
+      sourceId: s.id,
+    })),
     // Egresos por compra de alimento (vinculados a movimientos de entrada)
     ...purchaseTxs,
     // Egresos manuales varios
@@ -607,12 +628,6 @@ async function main() {
   await db.insert(supplyMovements).values([
     { supplyId: supply1.id, quantity: "50", isEntry: true, movementType: "compra", date: daysAgo(30), notes: "Compra inicial de vacunas" },
     { supplyId: supply1.id, quantity: "30", isEntry: false, movementType: "uso", date: daysAgo(20), notes: "Aplicación en vacunación Newcastle" },
-  ]);
-
-  // ——— Inventario de carne ———
-  await db.insert(meatInventory).values([
-    { date: daysAgo(10), source: "sacrificio", birdType: "gallina", quantityKg: "2.5", availableKg: "1.8", costPerKg: "0" },
-    { date: daysAgo(5), source: "sacrificio", birdType: "pollo_engorde", quantityKg: "3.2", availableKg: "3.2", costPerKg: "0" },
   ]);
 
   // ——— Presupuestos ———

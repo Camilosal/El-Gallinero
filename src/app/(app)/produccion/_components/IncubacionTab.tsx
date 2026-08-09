@@ -32,8 +32,8 @@ export default function IncubacionPage() {
 
   const load = useCallback(() => {
     Promise.all([
-      apiFetch("/api/incubacion").then((r) => r.json()),
-      apiFetch("/api/gallinas").then((r) => r.json()),
+      apiFetch("/api/produccion/incubacion").then((r) => r.json()),
+      apiFetch("/api/produccion/gallinas").then((r) => r.json()),
     ]).then(([i, h]) => {
       setIncubations(i);
       setHens(h);
@@ -44,7 +44,7 @@ export default function IncubacionPage() {
   useEffect(() => { load(); }, [load]);
 
   const save = async () => {
-    await apiFetch("/api/incubacion", {
+    await apiFetch("/api/produccion/incubacion", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(form),
@@ -55,7 +55,7 @@ export default function IncubacionPage() {
 
   const complete = async () => {
     if (!completeModal) return;
-    const res = await apiFetch("/api/incubacion", {
+    const res = await apiFetch("/api/produccion/incubacion", {
       method: "PUT",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ id: completeModal.id, eggsHatched: hatchForm.eggsHatched, femalesHatched: hatchForm.femalesHatched, malesHatched: hatchForm.malesHatched, isComplete: true, notes: hatchForm.notes || completeModal.notes }),
@@ -92,6 +92,7 @@ export default function IncubacionPage() {
       <PageHeader
         title="🐣 Incubación y Reproducción"
         description="Gestión de gallinas cluecas, empollamiento natural y eclosión de pollitos"
+        help="Aquí gestionas las incubaciones de huevos.\n\n• Selecciona una gallina clueca que esté empollando e ingresa los huevos que se le asignan.\n• El sistema calcula automáticamente la fecha de eclosión (21 días).\n• Cuando nacen los pollitos, registra la eclosión indicando cuántos nacieron y cuántos son hembras/machos.\n• Asignación automática: las hembras se registran como gallinas nuevas, los machos se asignan como gallos reproductores (según balance) o van a un lote de engorde."
         actions={<Button onClick={() => { setForm({ henId: availableHens[0]?.id || "", startDate: new Date().toISOString().split("T")[0], eggsSet: 10, notes: "" }); setModalOpen(true); }}>+ Nueva Incubación</Button>}
       />
 
@@ -176,16 +177,16 @@ export default function IncubacionPage() {
       {/* New Incubation Modal */}
       <Modal open={modalOpen} onClose={() => setModalOpen(false)} title="🐣 Nueva Incubación">
         <div className="space-y-4">
-          <Select label="Gallina Clueca (opcional)" value={form.henId} onChange={(e) => setForm({ ...form, henId: e.target.value })}>
+          <Select label="Gallina Clueca (opcional)" help="Gallina que está empollando. Si no asignas gallina, los huevos se consideran incubación artificial." value={form.henId} onChange={(e) => setForm({ ...form, henId: e.target.value })}>
             <option value="">Sin asignar</option>
             {availableHens.map((h) => <option key={h.id} value={h.id}>{h.code}</option>)}
           </Select>
-          <Input label="Fecha de Inicio" type="date" value={form.startDate} onChange={(e) => setForm({ ...form, startDate: e.target.value })} />
-          <Input label="Número de Huevos" type="number" min="1" value={form.eggsSet} onChange={(e) => setForm({ ...form, eggsSet: parseInt(e.target.value) || 0 })} />
+          <Input label="Fecha de Inicio" help="Fecha en que iniziaron a incubar los huevos. La eclosión será 21 días después." type="date" value={form.startDate} onChange={(e) => setForm({ ...form, startDate: e.target.value })} />
+          <Input label="Número de Huevos" help="Cantidad de huevos puestos bajo la gallina o en la incubadora." type="number" min="1" value={form.eggsSet} onChange={(e) => setForm({ ...form, eggsSet: parseInt(e.target.value) || 0 })} />
           <div className="p-3 bg-purple-50 rounded-lg text-sm text-purple-700">
             <p>📅 Eclosión estimada: <strong>{new Date(new Date(form.startDate).getTime() + 21 * 24 * 60 * 60 * 1000).toLocaleDateString("es")}</strong> (21 días)</p>
           </div>
-          <Textarea label="Notas" value={form.notes} onChange={(e) => setForm({ ...form, notes: e.target.value })} />
+          <Textarea label="Notas" help="Observaciones sobre esta incubación." value={form.notes} onChange={(e) => setForm({ ...form, notes: e.target.value })} />
           <div className="flex gap-3">
             <Button onClick={save} disabled={form.eggsSet < 1}>Iniciar Incubación</Button>
             <Button variant="secondary" onClick={() => setModalOpen(false)}>Cancelar</Button>
@@ -202,10 +203,10 @@ export default function IncubacionPage() {
                 <p>🐔 Gallina: <strong>{completeModal.henCode || "N/A"}</strong></p>
                 <p>🥚 Huevos incubados: <strong>{completeModal.eggsSet}</strong></p>
               </div>
-              <Input label="Pollitos Nacidos" type="number" min="0" max={completeModal.eggsSet} value={hatchForm.eggsHatched} onChange={(e) => setHatchForm({ ...hatchForm, eggsHatched: parseInt(e.target.value) || 0 })} />
+              <Input label="Pollitos Nacidos" help="Total de pollitos que nacieron de los huevos incubados." type="number" min="0" max={completeModal.eggsSet} value={hatchForm.eggsHatched} onChange={(e) => setHatchForm({ ...hatchForm, eggsHatched: parseInt(e.target.value) || 0 })} />
               <div className="grid grid-cols-2 gap-3">
-                <Input label="Hembras nacidas" type="number" min="0" value={hatchForm.femalesHatched} onChange={(e) => setHatchForm({ ...hatchForm, femalesHatched: parseInt(e.target.value) || 0 })} />
-                <Input label="Machos nacidos" type="number" min="0" value={hatchForm.malesHatched} onChange={(e) => setHatchForm({ ...hatchForm, malesHatched: parseInt(e.target.value) || 0 })} />
+                <Input label="Hembras nacidas" help="Pollitas hembras. Se registrarán como gallinas nuevas." type="number" min="0" value={hatchForm.femalesHatched} onChange={(e) => setHatchForm({ ...hatchForm, femalesHatched: parseInt(e.target.value) || 0 })} />
+                <Input label="Machos nacidos" help="Pollitos machos. Se asignan automáticamente como gallos reproductores o al lote de engorde." type="number" min="0" value={hatchForm.malesHatched} onChange={(e) => setHatchForm({ ...hatchForm, malesHatched: parseInt(e.target.value) || 0 })} />
               </div>
               <div className="p-3 bg-blue-50 rounded-lg text-xs text-blue-700">
                 <p>♀ Las hembras se registrarán como gallinas nuevas.</p>
@@ -214,7 +215,7 @@ export default function IncubacionPage() {
                   <p className="mt-1 text-orange-600">⚠️ Hembras + machos ({hatchForm.femalesHatched + hatchForm.malesHatched}) no coincide con los nacidos ({hatchForm.eggsHatched}).</p>
                 )}
               </div>
-              <Textarea label="Notas finales" value={hatchForm.notes} onChange={(e) => setHatchForm({ ...hatchForm, notes: e.target.value })} />
+              <Textarea label="Notas finales" help="Observaciones finales de esta incubación." value={hatchForm.notes} onChange={(e) => setHatchForm({ ...hatchForm, notes: e.target.value })} />
               <div className="flex gap-3">
                 <Button variant="success" onClick={complete}>Completar Incubación</Button>
                 <Button variant="secondary" onClick={() => setCompleteModal(null)}>Cancelar</Button>

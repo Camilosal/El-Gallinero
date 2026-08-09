@@ -95,8 +95,8 @@ export default function PollosPage() {
 
   const load = useCallback(() => {
     Promise.all([
-      apiFetch("/api/gallos").then((r) => r.json()),
-      apiFetch("/api/lotes-pollos").then((r) => r.json()),
+      apiFetch("/api/produccion/pollos").then((r) => r.json()),
+      apiFetch("/api/produccion/pollos").then((r) => r.json()),
     ]).then(([gallosData, lotesData]) => {
       setRoosters(Array.isArray(gallosData?.roosters) ? gallosData.roosters : []);
       setBalance(gallosData?.balance || null);
@@ -137,7 +137,7 @@ export default function PollosPage() {
     if (editingRooster) payload.id = editingRooster.id;
 
     const method = editingRooster ? "PUT" : "POST";
-    const res = await apiFetch("/api/gallos", { method, headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) });
+    const res = await apiFetch("/api/produccion/pollos", { method, headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) });
     if (!res.ok) { const data = await res.json().catch(() => ({})); setRoosterError(data.error || "Error al guardar"); return; }
     setRoosterModalOpen(false);
     load();
@@ -145,7 +145,7 @@ export default function PollosPage() {
 
   const removeRooster = async (id: string) => {
     if (!confirm("¿Eliminar este gallo?")) return;
-    await apiFetch(`/api/gallos?id=${id}`, { method: "DELETE" });
+    await apiFetch(`/api/produccion/pollos?id=${id}`, { method: "DELETE" });
     load();
   };
 
@@ -192,7 +192,7 @@ export default function PollosPage() {
     if (editingBatch) payload.id = editingBatch.id;
 
     const method = editingBatch ? "PUT" : "POST";
-    const res = await apiFetch("/api/lotes-pollos", { method, headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) });
+    const res = await apiFetch("/api/produccion/pollos", { method, headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) });
     if (!res.ok) { const data = await res.json().catch(() => ({})); setBatchError(data.error || "Error al guardar"); return; }
     setBatchModalOpen(false);
     load();
@@ -200,7 +200,7 @@ export default function PollosPage() {
 
   const removeBatch = async (id: string) => {
     if (!confirm("¿Eliminar este lote?")) return;
-    await apiFetch(`/api/lotes-pollos?id=${id}`, { method: "DELETE" });
+    await apiFetch(`/api/produccion/pollos?id=${id}`, { method: "DELETE" });
     load();
   };
 
@@ -214,6 +214,7 @@ export default function PollosPage() {
       <PageHeader
         title="🐓 Pollos y Gallos"
         description="Gestión de gallos reproductores y lotes de pollos de engorde"
+        help="Aquí gestionas gallos reproductores y lotes de pollos de engorde.\n\n• Gallos: reproductores que mantienen el balance con las gallinas (1 gallo por cada 10 gallinas).\n• Lotes de engorde: pollitos nacidos de incubaciones que se crían para carne. Cuando alcanzan el peso objetivo (~7 sem), están listos para sacrificio.\n• El sistema marca automáticamente los lotes como 'listos para sacrificio' cuando cumplen la edad o peso objetivo."
         actions={
           <div className="flex gap-2">
             {tab === "gallos" && <Button onClick={openNewRooster}>+ Nuevo Gallo</Button>}
@@ -325,19 +326,19 @@ export default function PollosPage() {
         <div className="space-y-4">
           {roosterError && <p className="text-sm text-red-600 bg-red-50 p-3 rounded-lg">{roosterError}</p>}
           <div className="grid grid-cols-2 gap-3">
-            <Input label="Código (opcional)" placeholder="Autogenerado GA-###" value={roosterForm.code} onChange={(e) => setRoosterForm({ ...roosterForm, code: e.target.value })} disabled={!!editingRooster} />
-            <Input label="Raza *" placeholder="Ej: Rhode Island" value={roosterForm.breed} onChange={(e) => setRoosterForm({ ...roosterForm, breed: e.target.value })} />
+            <Input label="Código (opcional)" help="Código del gallo. Si lo dejas vacío se genera automáticamente (GA-###)." placeholder="Autogenerado GA-###" value={roosterForm.code} onChange={(e) => setRoosterForm({ ...roosterForm, code: e.target.value })} disabled={!!editingRooster} />
+            <Input label="Raza *" help="Raza del gallo." placeholder="Ej: Rhode Island" value={roosterForm.breed} onChange={(e) => setRoosterForm({ ...roosterForm, breed: e.target.value })} />
           </div>
           <div className="grid grid-cols-2 gap-3">
-            <Input label="Fecha de nacimiento *" type="date" value={roosterForm.birthDate} onChange={(e) => setRoosterForm({ ...roosterForm, birthDate: e.target.value })} />
-            <Input label="Peso (kg)" type="number" step="0.1" value={roosterForm.weight} onChange={(e) => setRoosterForm({ ...roosterForm, weight: e.target.value })} />
+            <Input label="Fecha de nacimiento *" help="Fecha de nacimiento del gallo." type="date" value={roosterForm.birthDate} onChange={(e) => setRoosterForm({ ...roosterForm, birthDate: e.target.value })} />
+            <Input label="Peso (kg)" help="Peso actual del gallo." type="number" step="0.1" value={roosterForm.weight} onChange={(e) => setRoosterForm({ ...roosterForm, weight: e.target.value })} />
           </div>
-          <Select label="Estado" value={roosterForm.status} onChange={(e) => setRoosterForm({ ...roosterForm, status: e.target.value })}>
+          <Select label="Estado" help="Estado actual del gallo reproductor." value={roosterForm.status} onChange={(e) => setRoosterForm({ ...roosterForm, status: e.target.value })}>
             {Object.entries(roosterStatusLabels).map(([value, { label }]) => (
               <option key={value} value={value}>{label}</option>
             ))}
           </Select>
-          <Textarea label="Notas" value={roosterForm.notes} onChange={(e) => setRoosterForm({ ...roosterForm, notes: e.target.value })} />
+          <Textarea label="Notas" help="Observaciones sobre el gallo." value={roosterForm.notes} onChange={(e) => setRoosterForm({ ...roosterForm, notes: e.target.value })} />
           <div className="flex gap-3">
             <Button onClick={saveRooster}>{editingRooster ? "Actualizar" : "Registrar"}</Button>
             <Button variant="secondary" onClick={() => setRoosterModalOpen(false)}>Cancelar</Button>
@@ -350,29 +351,29 @@ export default function PollosPage() {
         <div className="space-y-4">
           {batchError && <p className="text-sm text-red-600 bg-red-50 p-3 rounded-lg">{batchError}</p>}
           <div className="grid grid-cols-2 gap-3">
-            <Input label="Código (opcional)" placeholder="Autogenerado L-###" value={batchForm.code} onChange={(e) => setBatchForm({ ...batchForm, code: e.target.value })} disabled={!!editingBatch} />
-            <Input label="Raza *" placeholder="Ej: Cobb 500" value={batchForm.breed} onChange={(e) => setBatchForm({ ...batchForm, breed: e.target.value })} />
+            <Input label="Código (opcional)" help="Código del lote. Si lo dejas vacío se genera automáticamente (L-###)." placeholder="Autogenerado L-###" value={batchForm.code} onChange={(e) => setBatchForm({ ...batchForm, code: e.target.value })} disabled={!!editingBatch} />
+            <Input label="Raza *" help="Raza de los pollitos del lote." placeholder="Ej: Cobb 500" value={batchForm.breed} onChange={(e) => setBatchForm({ ...batchForm, breed: e.target.value })} />
           </div>
           <div className="grid grid-cols-2 gap-3">
-            <Input label="Fecha de inicio" type="date" value={batchForm.startDate} onChange={(e) => setBatchForm({ ...batchForm, startDate: e.target.value })} />
-            <Input label="Cantidad inicial *" type="number" min="1" value={batchForm.initialQuantity} onChange={(e) => setBatchForm({ ...batchForm, initialQuantity: e.target.value })} />
+            <Input label="Fecha de inicio" help="Fecha en que iniciaste la crianza del lote." type="date" value={batchForm.startDate} onChange={(e) => setBatchForm({ ...batchForm, startDate: e.target.value })} />
+            <Input label="Cantidad inicial *" help="Número de pollitos al inicio del lote." type="number" min="1" value={batchForm.initialQuantity} onChange={(e) => setBatchForm({ ...batchForm, initialQuantity: e.target.value })} />
           </div>
           {editingBatch && (
-            <Input label="Cantidad actual" type="number" min="0" value={batchForm.currentQuantity} onChange={(e) => setBatchForm({ ...batchForm, currentQuantity: e.target.value })} />
+            <Input label="Cantidad actual" help="Cantidad de pollos vivos actualmente en el lote." type="number" min="0" value={batchForm.currentQuantity} onChange={(e) => setBatchForm({ ...batchForm, currentQuantity: e.target.value })} />
           )}
           <div className="grid grid-cols-3 gap-3">
-            <Input label="Edad objetivo (sem)" type="number" min="1" value={batchForm.targetWeeks} onChange={(e) => setBatchForm({ ...batchForm, targetWeeks: e.target.value })} />
-            <Input label="Peso objetivo (kg)" type="number" step="0.1" value={batchForm.targetWeightKg} onChange={(e) => setBatchForm({ ...batchForm, targetWeightKg: e.target.value })} />
-            <Input label="Peso promedio (kg)" type="number" step="0.1" value={batchForm.avgWeightKg} onChange={(e) => setBatchForm({ ...batchForm, avgWeightKg: e.target.value })} />
+            <Input label="Edad objetivo (sem)" help="Semanas de edad a las que el lote estará listo para sacrificio." type="number" min="1" value={batchForm.targetWeeks} onChange={(e) => setBatchForm({ ...batchForm, targetWeeks: e.target.value })} />
+            <Input label="Peso objetivo (kg)" help="Peso esperado por ave para considerar el lote listo." type="number" step="0.1" value={batchForm.targetWeightKg} onChange={(e) => setBatchForm({ ...batchForm, targetWeightKg: e.target.value })} />
+            <Input label="Peso promedio (kg)" help="Peso promedio actual del lote (opcional, para seguimiento)." type="number" step="0.1" value={batchForm.avgWeightKg} onChange={(e) => setBatchForm({ ...batchForm, avgWeightKg: e.target.value })} />
           </div>
           {editingBatch && (
-            <Select label="Estado" value={batchForm.status} onChange={(e) => setBatchForm({ ...batchForm, status: e.target.value })}>
+            <Select label="Estado" help="Estado actual del lote." value={batchForm.status} onChange={(e) => setBatchForm({ ...batchForm, status: e.target.value })}>
               {Object.entries(batchStatusLabels).map(([value, { label }]) => (
                 <option key={value} value={value}>{label}</option>
               ))}
             </Select>
           )}
-          <Textarea label="Notas" value={batchForm.notes} onChange={(e) => setBatchForm({ ...batchForm, notes: e.target.value })} />
+          <Textarea label="Notas" help="Observaciones sobre el lote." value={batchForm.notes} onChange={(e) => setBatchForm({ ...batchForm, notes: e.target.value })} />
           <div className="flex gap-3">
             <Button onClick={saveBatch}>{editingBatch ? "Actualizar" : "Registrar"}</Button>
             <Button variant="secondary" onClick={() => setBatchModalOpen(false)}>Cancelar</Button>

@@ -13,16 +13,19 @@ export interface CatalogItem {
   isActive: boolean;
 }
 
-// Carga las opciones de un catálogo desde /api/catalogos
+// Carga las opciones de un catálogo desde /api/configuracion/catalogos
 export function useCatalog(category: string, fallback: string[] = []) {
   const [items, setItems] = useState<CatalogItem[]>([]);
   const [values, setValues] = useState<string[]>(fallback);
+  const [reloadKey, setReloadKey] = useState(0);
   const fallbackKey = fallback.join("|");
+
+  const reload = () => setReloadKey((k) => k + 1);
 
   useEffect(() => {
     let active = true;
     const fb = fallbackKey.split("|").filter(Boolean);
-    apiFetch(`/api/catalogos?category=${encodeURIComponent(category)}`)
+    apiFetch(`/api/configuracion/catalogos?category=${encodeURIComponent(category)}`)
       .then((r) => r.json())
       .then((list: CatalogItem[]) => {
         if (!active) return;
@@ -34,7 +37,7 @@ export function useCatalog(category: string, fallback: string[] = []) {
         if (active) setValues(fb);
       });
     return () => { active = false; };
-  }, [category, fallbackKey]);
+  }, [category, fallbackKey, reloadKey]);
 
-  return { items, values };
+  return { items, values, reload };
 }

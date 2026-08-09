@@ -53,7 +53,7 @@ export default function GallinazaPage() {
   const { values: buyerOptions } = useCatalog("comprador");
 
   const load = useCallback(() => {
-    apiFetch("/api/gallinaza").then((r) => r.json()).then((d) => {
+    apiFetch("/api/operaciones/gallinaza").then((r) => r.json()).then((d) => {
       setData(d);
       // Inicializar los campos de edición con los factores actuales
       const edits: Record<string, string> = {};
@@ -69,7 +69,7 @@ export default function GallinazaPage() {
   const saveFactor = async (factorId: string) => {
     const value = Number(factorEdits[factorId]);
     if (isNaN(value) || value < 0) return;
-    const res = await apiFetch("/api/gallinaza", {
+    const res = await apiFetch("/api/operaciones/gallinaza", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ action: "factor", id: factorId, kgPerBirdPerDay: value }),
@@ -84,7 +84,7 @@ export default function GallinazaPage() {
       setError(`Stock insuficiente (disponible: ${data.inventory.currentStockKg.toFixed(2)} kg)`);
       return;
     }
-    const res = await apiFetch("/api/gallinaza", {
+    const res = await apiFetch("/api/operaciones/gallinaza", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ action: "sale", ...saleForm, quantityKg: qty, pricePerKg: Number(saleForm.pricePerKg) }),
@@ -101,7 +101,7 @@ export default function GallinazaPage() {
 
   const saveAdjust = async () => {
     setError("");
-    const res = await apiFetch("/api/gallinaza", {
+    const res = await apiFetch("/api/operaciones/gallinaza", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ action: "adjust", ...adjustForm, deltaKg: Number(adjustForm.deltaKg) }),
@@ -118,13 +118,13 @@ export default function GallinazaPage() {
 
   const removeSale = async (id: string) => {
     if (!confirm("¿Eliminar esta venta? Se repondrá el stock y se eliminará el ingreso en finanzas.")) return;
-    await apiFetch(`/api/gallinaza?saleId=${id}`, { method: "DELETE" });
+    await apiFetch(`/api/operaciones/gallinaza?saleId=${id}`, { method: "DELETE" });
     load();
   };
 
   const removeAdjust = async (id: string) => {
     if (!confirm("¿Eliminar este ajuste? Se revertirá su efecto en el stock.")) return;
-    await apiFetch(`/api/gallinaza?adjustId=${id}`, { method: "DELETE" });
+    await apiFetch(`/api/operaciones/gallinaza?adjustId=${id}`, { method: "DELETE" });
     load();
   };
 
@@ -147,6 +147,7 @@ export default function GallinazaPage() {
       <PageHeader
         title="🌱 Producción de Gallinaza"
         description="Estimación según aves y etapa, inventario de abono y ventas integradas con finanzas"
+        help="Gestiona la producción y venta de gallinaza (abono).\n\n• La estimación se calcula automáticamente según las aves por etapa y los factores de producción (kg/ave/día).\n• Puedes ajustar los factores según tus mediciones reales.\n• Usa 'Ajustes' para corregir el stock cuando haces mediciones reales de la pila de compostaje.\n• Registra ventas de gallinaza y el ingreso se refleja automáticamente en finanzas."
         actions={
           <div className="flex gap-2">
             <Button variant="secondary" onClick={() => { setError(""); setAdjustModal(true); }}>± Ajuste</Button>
@@ -263,22 +264,22 @@ export default function GallinazaPage() {
       <Modal open={saleModal} onClose={() => setSaleModal(false)} title="💰 Registrar Venta de Gallinaza">
         <div className="space-y-4">
           {error && <p className="text-sm text-red-600 bg-red-50 p-3 rounded-lg">{error}</p>}
-          <Input label="Fecha" type="date" value={saleForm.date} onChange={(e) => setSaleForm({ ...saleForm, date: e.target.value })} />
+          <Input label="Fecha" help="Fecha de la venta." type="date" value={saleForm.date} onChange={(e) => setSaleForm({ ...saleForm, date: e.target.value })} />
           <div className="grid grid-cols-2 gap-3">
-            <Input label="Cantidad (kg)" type="number" step="0.01" min="0" value={saleForm.quantityKg} onChange={(e) => setSaleForm({ ...saleForm, quantityKg: e.target.value })} placeholder={`Disp: ${data.inventory.currentStockKg.toFixed(2)} kg`} />
-            <Input label="Precio por kg ($)" type="number" step="0.01" min="0" value={saleForm.pricePerKg} onChange={(e) => setSaleForm({ ...saleForm, pricePerKg: e.target.value })} placeholder="Ej: 800" />
+            <Input label="Cantidad (kg)" help={`Cantidad de gallinaza vendida en kg. Stock disponible: ${data.inventory.currentStockKg.toFixed(2)} kg.`} type="number" step="0.01" min="0" value={saleForm.quantityKg} onChange={(e) => setSaleForm({ ...saleForm, quantityKg: e.target.value })} placeholder={`Disp: ${data.inventory.currentStockKg.toFixed(2)} kg`} />
+            <Input label="Precio por kg ($)" help="Precio de venta por kilogramo de gallinaza." type="number" step="0.01" min="0" value={saleForm.pricePerKg} onChange={(e) => setSaleForm({ ...saleForm, pricePerKg: e.target.value })} placeholder="Ej: 800" />
           </div>
-          <Input label="Presentación" value={saleForm.presentation} onChange={(e) => setSaleForm({ ...saleForm, presentation: e.target.value })} placeholder="Ej: Bulto 25 kg" list="gallinaza-presentaciones" />
+          <Input label="Presentación" help="Cómo se presenta la gallinaza: bulto, costal, granel, etc." value={saleForm.presentation} onChange={(e) => setSaleForm({ ...saleForm, presentation: e.target.value })} placeholder="Ej: Bulto 25 kg" list="gallinaza-presentaciones" />
           <datalist id="gallinaza-presentaciones">
             <option value="Bulto 25 kg" />
             <option value="Costal 50 kg" />
             <option value="Granel" />
           </datalist>
-          <Input label="Comprador" value={saleForm.buyer} onChange={(e) => setSaleForm({ ...saleForm, buyer: e.target.value })} placeholder="Nombre del comprador" list="gallinaza-compradores" />
+          <Input label="Comprador" help="Persona que compra la gallinaza." value={saleForm.buyer} onChange={(e) => setSaleForm({ ...saleForm, buyer: e.target.value })} placeholder="Nombre del comprador" list="gallinaza-compradores" />
           <datalist id="gallinaza-compradores">
             {buyerOptions.map((b) => <option key={b} value={b} />)}
           </datalist>
-          <Textarea label="Notas" value={saleForm.notes} onChange={(e) => setSaleForm({ ...saleForm, notes: e.target.value })} />
+          <Textarea label="Notas" help="Observaciones sobre esta venta." value={saleForm.notes} onChange={(e) => setSaleForm({ ...saleForm, notes: e.target.value })} />
           {saleTotal && (
             <div className="p-3 bg-green-50 rounded-lg text-sm text-green-700">
               🧮 Total: <strong className="text-xl">${Number(saleTotal).toLocaleString()}</strong> ({saleForm.quantityKg} kg × ${Number(saleForm.pricePerKg).toLocaleString()})
@@ -295,9 +296,9 @@ export default function GallinazaPage() {
       <Modal open={adjustModal} onClose={() => setAdjustModal(false)} title="⚖️ Ajuste de Inventario">
         <div className="space-y-4">
           {error && <p className="text-sm text-red-600 bg-red-50 p-3 rounded-lg">{error}</p>}
-          <Input label="Fecha" type="date" value={adjustForm.date} onChange={(e) => setAdjustForm({ ...adjustForm, date: e.target.value })} />
-          <Input label="Ajuste en kg (usa negativo para retirar)" type="number" step="0.01" value={adjustForm.deltaKg} onChange={(e) => setAdjustForm({ ...adjustForm, deltaKg: e.target.value })} placeholder="Ej: 15 o -5" />
-          <Textarea label="Motivo" value={adjustForm.reason} onChange={(e) => setAdjustForm({ ...adjustForm, reason: e.target.value })} placeholder="Ej: Medición real de la pila de compostaje" required />
+          <Input label="Fecha" help="Fecha del ajuste." type="date" value={adjustForm.date} onChange={(e) => setAdjustForm({ ...adjustForm, date: e.target.value })} />
+          <Input label="Ajuste en kg (usa negativo para retirar)" help="Cantidad a ajustar: positivo para agregar stock, negativo para retirar." type="number" step="0.01" value={adjustForm.deltaKg} onChange={(e) => setAdjustForm({ ...adjustForm, deltaKg: e.target.value })} placeholder="Ej: 15 o -5" />
+          <Textarea label="Motivo" help="Razón del ajuste. Ej: 'Medición real de la pila de compostaje'." value={adjustForm.reason} onChange={(e) => setAdjustForm({ ...adjustForm, reason: e.target.value })} placeholder="Ej: Medición real de la pila de compostaje" required />
           <div className="flex gap-3">
             <Button onClick={saveAdjust} disabled={!adjustForm.deltaKg || Number(adjustForm.deltaKg) === 0 || !adjustForm.reason}>Aplicar Ajuste</Button>
             <Button variant="secondary" onClick={() => setAdjustModal(false)}>Cancelar</Button>

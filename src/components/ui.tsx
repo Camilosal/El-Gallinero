@@ -1,6 +1,33 @@
 "use client";
 
-import { ReactNode, ButtonHTMLAttributes, InputHTMLAttributes, SelectHTMLAttributes, TextareaHTMLAttributes } from "react";
+import { ReactNode, useState, ButtonHTMLAttributes, InputHTMLAttributes, SelectHTMLAttributes, TextareaHTMLAttributes } from "react";
+
+// ─── Tooltip ───
+export function Tooltip({ text, children }: { text: string; children?: ReactNode }) {
+  if (!text) return <>{children}</>;
+  return (
+    <span className="relative inline-flex items-center group">
+      {children || (
+        <span className="ml-1 inline-flex items-center justify-center w-4 h-4 rounded-full bg-slate-200 text-slate-500 text-[10px] font-bold cursor-help select-none">?</span>
+      )}
+      <span className="pointer-events-none absolute bottom-full left-1/2 -translate-x-1/2 mb-2 z-50 opacity-0 group-hover:opacity-100 transition-opacity duration-150">
+        <span className="block w-56 px-3 py-2 rounded-lg bg-slate-800 text-white text-xs font-normal leading-relaxed shadow-lg text-left">
+          {text}
+          <span className="absolute top-full left-1/2 -translate-x-1/2 border-4 border-transparent border-t-slate-800" />
+        </span>
+      </span>
+    </span>
+  );
+}
+
+function FieldLabel({ label, help }: { label: string; help?: string }) {
+  return (
+    <span className="inline-flex items-center gap-1">
+      <span>{label}</span>
+      {help && <Tooltip text={help} />}
+    </span>
+  );
+}
 
 export function Card({ children, className = "" }: { children: ReactNode; className?: string }) {
   return (
@@ -32,14 +59,37 @@ export function StatCard({ label, value, icon, color = "green" }: { label: strin
   );
 }
 
-export function PageHeader({ title, description, actions }: { title: string; description?: string; actions?: ReactNode }) {
+export function PageHeader({ title, description, actions, help }: { title: string; description?: string; actions?: ReactNode; help?: string }) {
+  const [helpOpen, setHelpOpen] = useState(false);
   return (
-    <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
-      <div>
-        <h1 className="text-2xl font-bold text-slate-800">{title}</h1>
-        {description && <p className="text-slate-500 mt-1">{description}</p>}
+    <div className="mb-6">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+        <div>
+          <h1 className="text-2xl font-bold text-slate-800">{title}</h1>
+          {description && <p className="text-slate-500 mt-1">{description}</p>}
+        </div>
+        <div className="flex items-center gap-2">
+          {help && (
+            <button
+              onClick={() => setHelpOpen(!helpOpen)}
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-lg border transition-colors bg-blue-50 border-blue-200 text-blue-700 hover:bg-blue-100"
+            >
+              <span>❓</span>
+              <span>{helpOpen ? "Ocultar ayuda" : "Ayuda"}</span>
+            </button>
+          )}
+          {actions && <div className="flex gap-2">{actions}</div>}
+        </div>
       </div>
-      {actions && <div className="flex gap-2">{actions}</div>}
+      {help && helpOpen && (
+        <div className="mt-3 p-4 bg-blue-50 border border-blue-200 rounded-xl text-sm text-blue-800 leading-relaxed">
+          <div className="flex gap-2">
+            <span className="text-lg flex-shrink-0">💡</span>
+            <div className="whitespace-pre-line">{help}</div>
+          </div>
+          <button onClick={() => setHelpOpen(false)} className="mt-2 text-xs text-blue-500 hover:text-blue-700 font-medium">Cerrar ✕</button>
+        </div>
+      )}
     </div>
   );
 }
@@ -61,10 +111,10 @@ export function Button({ children, variant = "primary", className = "", ...props
   );
 }
 
-export function Input({ label, className = "", ...props }: InputHTMLAttributes<HTMLInputElement> & { label?: string }) {
+export function Input({ label, help, className = "", ...props }: InputHTMLAttributes<HTMLInputElement> & { label?: string; help?: string }) {
   return (
     <div className={className}>
-      {label && <label className="block text-sm font-medium text-slate-700 mb-1">{label}</label>}
+      {label && <label className="block text-sm font-medium text-slate-700 mb-1"><FieldLabel label={label} help={help} /></label>}
       <input
         className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent"
         {...props}
@@ -73,10 +123,10 @@ export function Input({ label, className = "", ...props }: InputHTMLAttributes<H
   );
 }
 
-export function Select({ label, children, className = "", ...props }: SelectHTMLAttributes<HTMLSelectElement> & { label?: string }) {
+export function Select({ label, help, children, className = "", ...props }: SelectHTMLAttributes<HTMLSelectElement> & { label?: string; help?: string }) {
   return (
     <div className={className}>
-      {label && <label className="block text-sm font-medium text-slate-700 mb-1">{label}</label>}
+      {label && <label className="block text-sm font-medium text-slate-700 mb-1"><FieldLabel label={label} help={help} /></label>}
       <select
         className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent bg-white"
         {...props}
@@ -87,10 +137,10 @@ export function Select({ label, children, className = "", ...props }: SelectHTML
   );
 }
 
-export function Textarea({ label, className = "", ...props }: TextareaHTMLAttributes<HTMLTextAreaElement> & { label?: string }) {
+export function Textarea({ label, help, className = "", ...props }: TextareaHTMLAttributes<HTMLTextAreaElement> & { label?: string; help?: string }) {
   return (
     <div className={className}>
-      {label && <label className="block text-sm font-medium text-slate-700 mb-1">{label}</label>}
+      {label && <label className="block text-sm font-medium text-slate-700 mb-1"><FieldLabel label={label} help={help} /></label>}
       <textarea
         className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent"
         rows={3}

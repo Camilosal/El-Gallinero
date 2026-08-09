@@ -207,12 +207,12 @@ export default function AlimentacionPage() {
 
   const load = useCallback(() => {
     Promise.all([
-      apiFetch("/api/alimentacion").then((r) => r.json()),
-      apiFetch("/api/alimentacion/movimientos").then((r) => r.json()),
-      apiFetch("/api/etapas").then((r) => r.json()),
-      apiFetch(`/api/etapas/resumen?days=${stockDays}`).then((r) => r.json()),
-      apiFetch(`/api/alimentacion/comparativo?days=${comparativoDays}`).then((r) => r.json()),
-      apiFetch(`/api/alimentacion/prediccion?days=${prediccionDays}`).then((r) => r.json()),
+      apiFetch("/api/produccion/alimentacion").then((r) => r.json()),
+      apiFetch("/api/produccion/alimentacion/movimientos").then((r) => r.json()),
+      apiFetch("/api/produccion/etapas").then((r) => r.json()),
+      apiFetch(`/api/produccion/etapas/resumen?days=${stockDays}`).then((r) => r.json()),
+      apiFetch(`/api/produccion/alimentacion/comparativo?days=${comparativoDays}`).then((r) => r.json()),
+      apiFetch(`/api/produccion/alimentacion/prediccion?days=${prediccionDays}`).then((r) => r.json()),
     ]).then(([f, m, s, r, comp, pred]) => {
       setFeeds(f);
       setMovements(m);
@@ -241,14 +241,14 @@ export default function AlimentacionPage() {
   const saveFeed = async () => {
     const method = editing ? "PUT" : "POST";
     const body = editing ? { ...form, id: editing.id } : form;
-    await apiFetch("/api/alimentacion", { method, headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
+    await apiFetch("/api/produccion/alimentacion", { method, headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
     setModalOpen(false);
     load();
   };
 
   const removeFeed = async (id: string) => {
     if (!confirm("¿Eliminar este alimento y sus movimientos?")) return;
-    await apiFetch(`/api/alimentacion?id=${id}`, { method: "DELETE" });
+    await apiFetch(`/api/produccion/alimentacion?id=${id}`, { method: "DELETE" });
     load();
   };
 
@@ -261,7 +261,7 @@ export default function AlimentacionPage() {
     const payload: Record<string, unknown> = { ...movForm };
     delete payload.stageCatalogoId;
     delete payload.henCount;
-    await apiFetch("/api/alimentacion/movimientos", {
+    await apiFetch("/api/produccion/alimentacion/movimientos", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(payload),
@@ -297,7 +297,7 @@ export default function AlimentacionPage() {
 
   const saveProgram = async () => {
     if (!editingStage) return;
-    await apiFetch(`/api/etapas/${editingStage.id}/programa`, {
+    await apiFetch(`/api/produccion/etapas/${editingStage.id}/programa`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ entries: programEntries.map(({ feedId, percentage, dailyAmountPerHen }) => ({ feedId, percentage, dailyAmountPerHen })) }),
@@ -316,6 +316,7 @@ export default function AlimentacionPage() {
       <PageHeader
         title="🌾 Gestión de Alimentación"
         description="Alimentos, etapas de crecimiento y programas de alimentación por etapa"
+        help="Gestiona los alimentos de tus gallinas y su consumo.\n\n• Inventario: registra los alimentos que tienes (de granja o comprados), su stock y costo.\n• Movimientos: registra entradas (compras, donaciones) y salidas manuales. El consumo diario por programa se calcula automáticamente.\n• Etapas y Programas: define qué come cada grupo de gallinas según su etapa de crecimiento. El sistema calcula el consumo automático diario.\n• Planificado vs Real: compara lo que debieron comer vs lo que realmente consumieron.\n• Predicción de Stock: proyecta cuándo se agotará cada alimento según el consumo actual."
         actions={
           <div className="flex gap-2">
             <Button onClick={openNewFeed}>+ Nuevo Alimento</Button>
@@ -543,7 +544,7 @@ export default function AlimentacionPage() {
                             onClick={async () => {
                               const feed = feeds.find((f) => f.id === item.feedId);
                               if (!feed) return;
-                              await apiFetch("/api/alimentacion", {
+                              await apiFetch("/api/produccion/alimentacion", {
                                 method: "PUT",
                                 headers: { "Content-Type": "application/json" },
                                 body: JSON.stringify({ id: item.feedId, minStock: String(calcMin) }),
@@ -809,24 +810,24 @@ export default function AlimentacionPage() {
       {/* New/Edit Feed Modal */}
       <Modal open={modalOpen} onClose={() => setModalOpen(false)} title={editing ? "Editar Alimento" : "Nuevo Alimento"}>
         <div className="space-y-4">
-          <Input label="Nombre del Alimento" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} placeholder="Ej: Larvas de BSF deshidratadas" required />
-          <Select label="Categoría" value={form.category} onChange={(e) => setForm({ ...form, category: e.target.value })}>
+          <Input label="Nombre del Alimento" help="Nombre descriptivo del alimento. Ej: 'Larvas de BSF', 'Maíz molido', 'Concentrado postura'." value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} placeholder="Ej: Larvas de BSF deshidratadas" required />
+          <Select label="Categoría" help="Clasificación del alimento: de granja (producido por ti) o suplementario (comprado)." value={form.category} onChange={(e) => setForm({ ...form, category: e.target.value })}>
             {categoryOptions.map((c) => <option key={c} value={c}>{categoryLabels[c] || c}</option>)}
           </Select>
-          <Select label="Tipo de Alimento" value={form.feedType} onChange={(e) => setForm({ ...form, feedType: e.target.value })}>
+          <Select label="Tipo de Alimento" help="Tipo específico de alimento según su origen o composición." value={form.feedType} onChange={(e) => setForm({ ...form, feedType: e.target.value })}>
             {feedTypeOptions.map((t) => <option key={t} value={t}>{feedTypeLabels[t] || t}</option>)}
           </Select>
           <div className="grid grid-cols-2 gap-3">
-            <Select label="Unidad de medida" value={form.unit} onChange={(e) => setForm({ ...form, unit: e.target.value })}>
+            <Select label="Unidad de medida" help="Unidad en que se mide este alimento (kg, libras, litros, etc.)." value={form.unit} onChange={(e) => setForm({ ...form, unit: e.target.value })}>
               {unitOptions.map((u) => <option key={u} value={u}>{u}</option>)}
             </Select>
-            <Input label="Stock actual" type="number" step="0.01" value={form.currentStock} onChange={(e) => setForm({ ...form, currentStock: e.target.value })} />
+            <Input label="Stock actual" help="Cantidad actual disponible de este alimento." type="number" step="0.01" value={form.currentStock} onChange={(e) => setForm({ ...form, currentStock: e.target.value })} />
           </div>
           <div className="grid grid-cols-2 gap-3">
-            <Input label="Stock mínimo" type="number" step="0.01" value={form.minStock} onChange={(e) => setForm({ ...form, minStock: e.target.value })} />
-            <Input label="Costo por unidad ($)" type="number" step="0.01" value={form.costPerUnit} onChange={(e) => setForm({ ...form, costPerUnit: e.target.value })} />
+            <Input label="Stock mínimo" help="Cantidad mínima antes de generar alerta de stock bajo. El sistema puede sugerir un valor automático." type="number" step="0.01" value={form.minStock} onChange={(e) => setForm({ ...form, minStock: e.target.value })} />
+            <Input label="Costo por unidad ($)" help="Costo de cada unidad de este alimento. Se usa para calcular gastos." type="number" step="0.01" value={form.costPerUnit} onChange={(e) => setForm({ ...form, costPerUnit: e.target.value })} />
           </div>
-          <Input label="Proveedor (vacío si es producción propia)" value={form.supplier} onChange={(e) => setForm({ ...form, supplier: e.target.value })} placeholder="Nombre del proveedor" list="catalog-proveedores" />
+          <Input label="Proveedor (vacío si es producción propia)" help="Nombre del proveedor de este alimento. Déjalo vacío si lo produces tú mismo." value={form.supplier} onChange={(e) => setForm({ ...form, supplier: e.target.value })} placeholder="Nombre del proveedor" list="catalog-proveedores" />
           <datalist id="catalog-proveedores">
             {supplierOptions.map((s) => <option key={s} value={s} />)}
           </datalist>
@@ -860,17 +861,17 @@ export default function AlimentacionPage() {
             💡 El consumo diario por programa se registra automáticamente. Aquí registras compras,
             donaciones, traslados, producción propia (entradas) y salidas manuales como uso interno o merma.
           </p>
-          <Select label="Alimento" value={movForm.feedId} onChange={(e) => setMovForm({ ...movForm, feedId: e.target.value })}>
+          <Select label="Alimento" help="Selecciona el alimento al que aplica este movimiento." value={movForm.feedId} onChange={(e) => setMovForm({ ...movForm, feedId: e.target.value })}>
             {feeds.map((f) => <option key={f.id} value={f.id}>{f.name} ({f.currentStock} {f.unit})</option>)}
           </Select>
-          <Select label="Motivo" value={movForm.movementType} onChange={(e) => setMovForm({ ...movForm, movementType: e.target.value })}>
+          <Select label="Motivo" help="Razón del movimiento: compra, donación, consumo manual, merma, etc." value={movForm.movementType} onChange={(e) => setMovForm({ ...movForm, movementType: e.target.value })}>
             {(movForm.isEntry ? entryMovementTypes : exitMovementTypes).map((mt) => (
               <option key={mt} value={mt}>{movementTypeLabels[mt] || mt}</option>
             ))}
           </Select>
-          <Input label="Cantidad" type="number" step="0.01" value={movForm.quantity} onChange={(e) => setMovForm({ ...movForm, quantity: e.target.value })} placeholder="Ej: 5.5" />
-          <Input label="Fecha" type="date" value={movForm.date} onChange={(e) => setMovForm({ ...movForm, date: e.target.value })} />
-          <Textarea label="Notas" value={movForm.notes} onChange={(e) => setMovForm({ ...movForm, notes: e.target.value })} placeholder="Detalles del movimiento..." />
+          <Input label="Cantidad" help="Cantidad de alimento que entra o sale, en la unidad del alimento." type="number" step="0.01" value={movForm.quantity} onChange={(e) => setMovForm({ ...movForm, quantity: e.target.value })} placeholder="Ej: 5.5" />
+          <Input label="Fecha" help="Fecha del movimiento." type="date" value={movForm.date} onChange={(e) => setMovForm({ ...movForm, date: e.target.value })} />
+          <Textarea label="Notas" help="Detalles opcionales del movimiento: factura, observaciones, etc." value={movForm.notes} onChange={(e) => setMovForm({ ...movForm, notes: e.target.value })} placeholder="Detalles del movimiento..." />
           <div className="flex gap-3">
             <Button onClick={saveMovement} disabled={!movForm.feedId || !movForm.quantity}>
               {movForm.isEntry ? "Registrar Entrada" : "Registrar Salida"}

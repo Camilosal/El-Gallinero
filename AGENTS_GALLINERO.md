@@ -17,6 +17,174 @@ Sistema de gestión para gallineros pequeños y medianos. Control integral del c
 1.  **Completitud:** Si modificas una función o archivo, devuelve el código completo y funcional.
 2.  **Calidad sobre Velocidad:** Es preferible consumir más tokens y entregar un archivo 100% listo para producción que un boceto incompleto.
 
+## 🚨 PRÁCTICAS CRÍTICAS (LEER ANTES DE CUALQUIER CAMBIO)
+
+### 1. Reconstrucción de Contenedores Docker
+
+**PROBLEMA FRECUENTE:** Después de modificar código fuente, hacer `docker compose restart` NO aplica los cambios. El contenedor sigue usando el código antiguo.
+
+**SOLUCIÓN CORRECTA:**
+```bash
+# ❌ INCORRECTO (no aplica cambios de código)
+docker compose restart gallinero_app
+
+# ✅ CORRECTO (reconstruye y recrea el contenedor)
+docker compose down gallinero_app
+docker compose build --no-cache gallinero_app
+docker compose up -d gallinero_app
+```
+
+**VERIFICAR QUE LOS CAMBIOS SE APLICARON:**
+```bash
+# Entrar al contenedor y verificar el código fuente
+docker exec gallinero_web cat /app/src/app/\(app\)/page.tsx | grep "texto_que_cambiaste"
+
+# Si no aparece el cambio, el contenedor no se actualizó correctamente
+```
+
+**POR QUÉ FALLA:**
+- `restart` solo reinicia el contenedor existente con la imagen antigua
+- `build` crea una nueva imagen pero no actualiza el contenedor en ejecución
+- `down` + `up -d` asegura que el contenedor se recrea con la nueva imagen
+
+### 2. Configuración de Red y Contenedores
+
+**RED DOCKER UNIFICADA:**
+- Todos los contenedores están en la red `negocio_negocio_default`
+- Los contenedores se comunican entre sí usando nombres de servicio (no IPs)
+- La base de datos `sostenibilidad_db` es accesible desde cualquier contenedor en la red
+
+**NOMBRES Y PUERTOS CLAVE:**
+
+| Servicio | Nombre Contenedor | Puerto Host | Puerto Contenedor | Red |
+|:---|:---|:---|:---|:---|
+| **Gallinero App** | `gallinero_web` | `127.0.0.1:4327` | `3000` | `negocio_negocio_default` |
+| **Base de Datos** | `sostenibilidad_db` | `127.0.0.1:5432` | `5432` | `negocio_negocio_default` |
+| **Strapi (Marca Personal)** | `marca_personal_strapi` | `127.0.0.1:1337` | `1337` | `negocio_negocio_default` |
+| **Redis** | `redis_app` | `127.0.0.1:6379` | `6379` | `negocio_negocio_default` |
+
+**COMUNICACIÓN ENTRE CONTENEDORES:**
+```bash
+# Desde gallinero_web a sostenibilidad_db
+DATABASE_URL=postgresql://admin:password@sostenibilidad_db:5432/el_gallinero
+# ✅ Usa el nombre del servicio, NO la IP
+
+# Desde gallinero_web a redis_app
+REDIS_URL=redis://redis_app:6379
+# ✅ Usa el nombre del servicio, NO localhost
+```
+
+### 3. Túnel Cloudflare
+
+**CONFIGURACIÓN:**
+- Dominio público: `https://gallinero.iwage.co`
+- Túnel Cloudflare apunta a: `http://127.0.0.1:4327`
+- El túnel se gestiona con `systemd cloudflared` usando token
+- Configuración en: Zero Trust → Networks → Tunnels → Public Hostnames
+
+**ACCESO:**
+- **Producción:** `https://gallinero.iwage.co` (a través del túnel)
+- **Local (pruebas):** `http://127.0.0.1:4327` (directo al host)
+- **Desde otros contenedores:** `http://gallinero_web:3000` (red Docker interna)
+
+**IMPORTANTE:**
+- El túnel NO expone otros puertos, solo el 4327
+- Para acceder a la base de datos desde fuera, usar el puerto 5432 del host
+- Los cambios en el túnel se hacen en el dashboard de Cloudflare, no en el servidor
+
+### 4. Base de Datos
+
+**CONEXIÓN DESDE EL HOST:**
+```bash
+PGPASSWORD='Pr@yectos123' psql -h 127.0.0.1 -U admin -d el_gallinero
+```
+
+**CONEXIÓN DESDE DENTRO DEL CONTENEDOR GALLINERO:**
+```bash
+docker exec -it gallinero_web sh
+# Dentro del contenedor:
+PGPASSWORD='Pr@yectos123' psql -h sostenibilidad_db -U admin -d el_gallinero
+```
+
+**CONEXIÓN DESDE OTROS CONTENEDORES EN LA RED:**
+```bash
+postgresql://admin:Pr%40yectos123@sostenibilidad_db:5432/el_gallinero
+# Nota: @ en password se codifica como %40
+```
+
+### 5. Strapi (CMS de Marca Personal)
+
+**CONFIGURACIÓN:**
+- Contenedor: `marca_personal_strapi`
+- Puerto: `127.0.0.1:1337`
+- Base de datos: `marca_personal` (en `sostenibilidad_db`)
+- Directorio: `/home/ubuntu/negocio/data/app_marca_personal/strapi`
+
+**ACCESO:**
+- Admin: `http://127.0.0.1:1337/admin`
+- API: `http://127.0.0.1:1337/api`
+
+**RECONSTRUIR STRAPI:**
+```bash
+docker compose down marca_personal_strapi
+docker compose build --no-cache marca_personal_strapi
+docker compose up -d marca_personal_strapi
+```
+
+### 6. Comandos Docker Esenciales
+
+**VER ESTADO DE CONTENEDORES:**
+```bash
+docker compose ps
+docker ps | grep gallinero
+```
+
+**VER LOGS EN TIEMPO REAL:**
+```bash
+docker compose logs -f gallinero_app
+docker logs -f gallinero_web
+```
+
+**EJECUTAR COMANDOS DENTRO DEL CONTENEDOR:**
+```bash
+docker exec -it gallinero_web sh
+# Luego puedes ejecutar: npm run, node, etc.
+```
+
+**INSPECCIONAR RED:**
+```bash
+docker network inspect negocio_negocio_default
+```
+
+**LIMPIAR CACHE DE BUILD:**
+```bash
+docker builder prune -a
+# Libera espacio de imágenes antiguas
+```
+
+### 7. Flujo de Trabajo Correcto para Cambios de Código
+
+1. **Modificar código fuente** en `/home/ubuntu/negocio/data/app_gallinero/src/`
+2. **Verificar localmente** (opcional): `npm run build`
+3. **Reconstruir contenedor:**
+   ```bash
+   cd /home/ubuntu/negocio
+   docker compose down gallinero_app
+   docker compose build --no-cache gallinero_app
+   docker compose up -d gallinero_app
+   ```
+4. **Verificar que los cambios se aplicaron:**
+   ```bash
+   docker exec gallinero_web grep "cambio_clave" /app/src/app/archivo.tsx
+   ```
+5. **Probar en el navegador** (hacer refresh duro: Ctrl+Shift+R)
+
+**SI LOS CAMBIOS NO SE VEN:**
+- Verificar que el archivo fuente local tiene los cambios
+- Verificar que el contenedor tiene los cambios (paso 4)
+- Si el contenedor no tiene los cambios, repetir desde el paso 3
+- Limpiar caché del navegador o usar ventana incógnito
+
 ## 🔧 Stack y Despliegue
 
 - **Runtime:** Node.js 22 (contenedor), desarrollado con Node 22/24

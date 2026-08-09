@@ -1,6 +1,6 @@
 import { db } from "@/db";
-import { eggProduction, eggProductionDetails, eggSales, eggSalesItems, eggLosses, catalogos } from "@/db/schema";
-import { asc, eq } from "drizzle-orm";
+import { eggProduction, eggProductionDetails, eggSales, eggSalesItems, eggLosses, catalogos, slaughter, meatSales, meatLosses, manureProduction, manureSales, manureAdjustments } from "@/db/schema";
+import { asc, desc, eq } from "drizzle-orm";
 
 export interface EggLot {
   id: string;
@@ -8,6 +8,7 @@ export interface EggLot {
   size: string;
   initial: number;
   sold: number;
+  lost: number;
   remaining: number;
   ageDays: number;
 }
@@ -99,8 +100,9 @@ export async function computeEggInventory(): Promise<EggInventory> {
 
   const lots: EggLot[] = [];
   for (const size of sizeOrder) {
-    // Cola de ventas para consumo FIFO (independiente de la fecha de venta)
+    // Colas FIFO para ventas y pérdidas (independientes de la fecha)
     const salesQueue = effectiveSales.filter((s) => s.size === size).map((s) => s.quantity);
+    const lossesQueue = losses.filter((l) => l.size === size).map((l) => l.quantity);
 
     for (const p of productions) {
       const initial = producedByKey.get(`${p.id}::${size}`) || 0;
@@ -115,6 +117,15 @@ export async function computeEggInventory(): Promise<EggInventory> {
         if (salesQueue[0] === 0) salesQueue.shift();
       }
 
+      // Consumir este lote con las pérdidas más antiguas en cola
+      let lostThisLot = 0;
+      while (lossesQueue.length && lostThisLot < initial - soldThisLot) {
+        const take = Math.min(lossesQueue[0], initial - soldThisLot - lostThisLot);
+        lostThisLot += take;
+        lossesQueue[0] -= take;
+        if (lossesQueue[0] === 0) lossesQueue.shift();
+      }
+
       const lotDate = new Date(p.date + "T12:00:00");
       lotDate.setHours(0, 0, 0, 0);
       const ageDays = Math.max(0, Math.floor((today.getTime() - lotDate.getTime()) / 86400000));
@@ -125,7 +136,8 @@ export async function computeEggInventory(): Promise<EggInventory> {
         size,
         initial,
         sold: soldThisLot,
-        remaining: initial - soldThisLot,
+        lost: lostThisLot,
+        remaining: initial - soldThisLot - lostThisLot,
         ageDays,
       });
     }
@@ -174,5 +186,155 @@ export async function computeEggInventory(): Promise<EggInventory> {
     aging,
     oldestLot,
     estimatedValue,
+  };
+}
+
+// ─── Inventario de carne: producido (sacrificio) - vendido - perdido ───
+
+export interface MeatLot {
+  id: string;
+  date: string;
+  birdType: string;
+  quantityKg: number;
+  soldKg: number;
+  lostKg: number;
+  remainingKg: number;
+  ageDays: number;
+}
+
+export interface MeatInventory {
+  summary: {
+    produced: number;
+    sold: number;
+    lost: number;
+    available: number;
+    value: number;
+  };
+  lots: MeatLot[];
+  oldestLot: MeatLot | null;
+  estimatedValue: number;
+}
+
+export async function computeMeatInventory(): Promise<MeatInventory> {
+  const [productions, sales, losses] = await Promise.all([
+    db.select().from(slaughter).orderBy(asc(slaughter.date)),
+    db.select().from(meatSales).orderBy(asc(meatSales.date)),
+    db.select().from(meatLosses).orderBy(asc(meatLosses.date)),
+  ]);
+
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+
+  const totalProducedKg = productions.reduce((s, p) => s + Number(p.weightKg), 0);
+  const totalSoldKg = sales.reduce((s, v) => s + Number(v.quantityKg), 0);
+  const totalLostKg = losses.reduce((s, l) => s + Number(l.quantityKg), 0);
+
+  // Distribuir ventas y pérdidas FIFO sobre los lotes de sacrificio
+  let remainingSales = sales.map((v) => Number(v.quantityKg));
+  let remainingLosses = losses.map((l) => Number(l.quantityKg));
+
+  const lots: MeatLot[] = [];
+  for (const p of productions) {
+    const initialKg = Number(p.weightKg);
+    let soldThisLot = 0;
+    let lostThisLot = 0;
+
+    // Consumir ventas FIFO
+    for (let i = 0; i < remainingSales.length && soldThisLot < initialKg; i++) {
+      const take = Math.min(remainingSales[i], initialKg - soldThisLot);
+      soldThisLot += take;
+      remainingSales[i] -= take;
+    }
+
+    // Consumir pérdidas FIFO
+    for (let i = 0; i < remainingLosses.length && lostThisLot < initialKg - soldThisLot; i++) {
+      const take = Math.min(remainingLosses[i], initialKg - soldThisLot - lostThisLot);
+      lostThisLot += take;
+      remainingLosses[i] -= take;
+    }
+
+    const lotDate = new Date(p.date + "T12:00:00");
+    lotDate.setHours(0, 0, 0, 0);
+    const ageDays = Math.max(0, Math.floor((today.getTime() - lotDate.getTime()) / 86400000));
+
+    lots.push({
+      id: p.id,
+      date: p.date,
+      birdType: p.birdType,
+      quantityKg: initialKg,
+      soldKg: soldThisLot,
+      lostKg: lostThisLot,
+      remainingKg: initialKg - soldThisLot - lostThisLot,
+      ageDays,
+    });
+  }
+
+  const availableLots = lots.filter((l) => l.remainingKg > 0);
+  const oldestLot = availableLots.length > 0
+    ? availableLots.reduce((a, b) => (b.ageDays > a.ageDays ? b : a))
+    : null;
+
+  const totalAvailable = totalProducedKg - totalSoldKg - totalLostKg;
+
+  return {
+    summary: {
+      produced: totalProducedKg,
+      sold: totalSoldKg,
+      lost: totalLostKg,
+      available: Math.round(totalAvailable * 100) / 100,
+      value: 0,
+    },
+    lots,
+    oldestLot,
+    estimatedValue: 0,
+  };
+}
+
+// ─── Inventario de gallinaza: producido + ajustes - vendido ───
+
+export interface ManureInventory {
+  summary: {
+    produced: number;
+    sold: number;
+    adjusted: number;
+    available: number;
+    value: number;
+  };
+  productionHistory: { date: string; kgProduced: number; source: string }[];
+  salesHistory: { date: string; quantityKg: number; totalAmount: number }[];
+  estimatedDailyKg: number;
+}
+
+export async function computeManureInventory(estimatedDailyKg: number = 0): Promise<ManureInventory> {
+  const [productions, sales, adjustments] = await Promise.all([
+    db.select().from(manureProduction).orderBy(asc(manureProduction.date)),
+    db.select().from(manureSales).orderBy(asc(manureSales.date)),
+    db.select().from(manureAdjustments).orderBy(asc(manureAdjustments.date)),
+  ]);
+
+  const totalProduced = productions.reduce((s, p) => s + Number(p.kgProduced), 0);
+  const totalSold = sales.reduce((s, v) => s + Number(v.quantityKg), 0);
+  const totalAdjusted = adjustments.reduce((s, a) => s + Number(a.deltaKg), 0);
+  const available = totalProduced + totalAdjusted - totalSold;
+
+  return {
+    summary: {
+      produced: Math.round(totalProduced * 100) / 100,
+      sold: Math.round(totalSold * 100) / 100,
+      adjusted: Math.round(totalAdjusted * 100) / 100,
+      available: Math.round(available * 100) / 100,
+      value: 0,
+    },
+    productionHistory: productions.map((p) => ({
+      date: p.date,
+      kgProduced: Number(p.kgProduced),
+      source: p.source,
+    })),
+    salesHistory: sales.map((v) => ({
+      date: v.date,
+      quantityKg: Number(v.quantityKg),
+      totalAmount: Number(v.totalAmount),
+    })),
+    estimatedDailyKg,
   };
 }

@@ -381,14 +381,6 @@ export const manureFactors = pgTable("manure_factors", {
   uniqueIndex("manure_factor_stage_group_idx").on(t.stageCatalogoId, t.birdGroup),
 ]);
 
-// ─── Gallinaza: inventario (fila única) ───
-export const manureInventory = pgTable("manure_inventory", {
-  id: uuid("id").defaultRandom().primaryKey(),
-  currentStockKg: decimal("current_stock_kg", { precision: 12, scale: 2 }).default("0").notNull(),
-  lastAccumulatedDate: date("last_accumulated_date").notNull(),
-  updatedAt: timestamp("updated_at").defaultNow().notNull(),
-});
-
 // ─── Gallinaza: ventas ───
 export const manureSales = pgTable("manure_sales", {
   id: uuid("id").defaultRandom().primaryKey(),
@@ -408,6 +400,16 @@ export const manureAdjustments = pgTable("manure_adjustments", {
   date: date("date").notNull(),
   deltaKg: decimal("delta_kg", { precision: 10, scale: 2 }).notNull(), // + agrega, - retira
   reason: text("reason").notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+// ─── Gallinaza: producción diaria registrada ───
+export const manureProduction = pgTable("manure_production", {
+  id: uuid("id").defaultRandom().primaryKey(),
+  date: date("date").notNull(),
+  kgProduced: decimal("kg_produced", { precision: 10, scale: 2 }).notNull(),
+  source: varchar("source", { length: 20 }).notNull().default("estimado"),
+  notes: text("notes"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
@@ -481,15 +483,26 @@ export const supplyMovements = pgTable("supply_movements", {
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
-export const meatInventory = pgTable("meat_inventory", {
+// ─── Ventas de carne (separado de sacrificio) ───
+export const meatSales = pgTable("meat_sales", {
   id: uuid("id").defaultRandom().primaryKey(),
   date: date("date").notNull(),
-  source: varchar("source", { length: 50 }).notNull(),
-  slaughterId: uuid("slaughter_id").references(() => slaughter.id),
-  birdType: varchar("bird_type", { length: 50 }),
   quantityKg: decimal("quantity_kg", { precision: 8, scale: 2 }).notNull(),
-  availableKg: decimal("available_kg", { precision: 8, scale: 2 }).notNull(),
-  costPerKg: decimal("cost_per_kg", { precision: 10, scale: 2 }).default("0"),
+  pricePerKg: decimal("price_per_kg", { precision: 10, scale: 2 }).notNull(),
+  totalAmount: decimal("total_amount", { precision: 12, scale: 2 }).notNull(),
+  presentation: varchar("presentation", { length: 100 }),
+  buyer: varchar("buyer", { length: 200 }),
+  notes: text("notes"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+// ─── Pérdidas de carne post-sacrificio ───
+export const meatLosses = pgTable("meat_losses", {
+  id: uuid("id").defaultRandom().primaryKey(),
+  date: date("date").notNull(),
+  quantityKg: decimal("quantity_kg", { precision: 8, scale: 2 }).notNull(),
+  reason: varchar("reason", { length: 50 }).notNull(),
+  notes: text("notes"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
@@ -619,4 +632,47 @@ export const flockPlanMilestones = pgTable("flock_plan_milestones", {
   actualHens: integer("actual_hens"),
   actualEggsPerWeek: integer("actual_eggs_per_week"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+// ─── Estándares de peso por raza (curvas de referencia) ───
+export const breedWeightStandards = pgTable("breed_weight_standards", {
+  id: uuid("id").defaultRandom().primaryKey(),
+  breed: varchar("breed", { length: 100 }).notNull(),
+  gender: varchar("gender", { length: 20 }).default("hembra").notNull(),
+  weekNumber: integer("week_number").notNull(),
+  targetWeightG: decimal("target_weight_g", { precision: 8, scale: 1 }).notNull(),
+  minWeightG: decimal("min_weight_g", { precision: 8, scale: 1 }),
+  maxWeightG: decimal("max_weight_g", { precision: 8, scale: 1 }),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+}, (t) => [
+  uniqueIndex("breed_weight_breed_week_idx").on(t.breed, t.gender, t.weekNumber),
+]);
+
+// ─── Registros de peso (weight logs) ───
+export const weightLogs = pgTable("weight_logs", {
+  id: uuid("id").defaultRandom().primaryKey(),
+  date: date("date").notNull(),
+  batchId: uuid("batch_id").references(() => broilerBatches.id),
+  henGroup: text("hen_group"),
+  breed: text("breed"),
+  weekNumber: integer("week_number"),
+  avgWeightKg: text("avg_weight_kg"),
+  sampleSize: integer("sample_size").default(1),
+  notes: text("notes"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+// ─── Productos de compra frecuente (Egresos rápidos) ───
+export const purchaseProducts = pgTable("purchase_products", {
+  id: uuid("id").defaultRandom().primaryKey(),
+  name: varchar("name", { length: 200 }).notNull(),
+  expenseCategory: varchar("expense_category", { length: 100 }).notNull(),
+  defaultPresentation: varchar("default_presentation", { length: 100 }),
+  defaultUnit: varchar("default_unit", { length: 30 }).notNull().default("unidades"),
+  lastPricePerPresentation: decimal("last_price_per_presentation", { precision: 12, scale: 2 }),
+  defaultSupplier: varchar("default_supplier", { length: 200 }),
+  notes: text("notes"),
+  isActive: boolean("is_active").default(true).notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });

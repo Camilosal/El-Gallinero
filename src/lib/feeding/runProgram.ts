@@ -19,7 +19,7 @@ function addDays(dateStrValue: string, days: number): string {
 
 /**
  * Cuenta gallinas activas por etapa con corte a una fecha concreta.
- * Misma lógica que GET /api/etapas pero parametrizada por fecha, de modo que
+ * Misma lógica que GET /api/produccion/etapas pero parametrizada por fecha, de modo que
  * la ejecución histórica del programa respete cuántas gallinas había en cada
  * etapa en cada día (según su fecha de nacimiento).
  */

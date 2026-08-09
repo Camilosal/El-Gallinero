@@ -8,19 +8,19 @@ import {
 import { transactions, eggSales, eggSalesItems, feedInventory, feedMovements, eggProduction, eggProductionDetails, hens, roosters, broilerBatches } from "@/db/schema";
 
 // Import route handlers
-import { POST as ventasPOST, PUT as ventasPUT, DELETE as ventasDELETE } from "@/app/api/ventas/route";
-import { POST as movimientosPOST, DELETE as movimientosDELETE } from "@/app/api/alimentacion/movimientos/route";
-import { POST as huevosPOST, PUT as huevosPUT, DELETE as huevosDELETE, GET as huevosGET } from "@/app/api/huevos/route";
+import { POST as ventasPOST, PUT as ventasPUT, DELETE as ventasDELETE } from "@/app/api/finanzas/finanzas/ventas/route";
+import { POST as movimientosPOST, DELETE as movimientosDELETE } from "@/app/api/produccion/alimentacion/movimientos/route";
+import { POST as huevosPOST, PUT as huevosPUT, DELETE as huevosDELETE, GET as huevosGET } from "@/app/api/produccion/huevos/route";
 import { GET as dashboardGET } from "@/app/api/dashboard/route";
-import { GET as resumenGET } from "@/app/api/etapas/resumen/route";
-import { POST as finanzasPOST, DELETE as finanzasDELETE } from "@/app/api/finanzas/route";
-import { GET as gallinasGET, POST as gallinasPOST, PUT as gallinasPUT } from "@/app/api/gallinas/route";
+import { GET as resumenGET } from "@/app/api/produccion/etapas/resumen/route";
+import { POST as finanzasPOST, DELETE as finanzasDELETE } from "@/app/api/finanzas/finanzas/route";
+import { GET as gallinasGET, POST as gallinasPOST, PUT as gallinasPUT } from "@/app/api/produccion/gallinas/route";
 import { requiredRoosters, assignMales, batchReadiness, flockBalance } from "@/lib/flock";
-import { POST as incubacionPOST, PUT as incubacionPUT, DELETE as incubacionDELETE } from "@/app/api/incubacion/route";
-import { GET as gallosGET } from "@/app/api/gallos/route";
-import { GET as lotesGET, POST as lotesPOST } from "@/app/api/lotes-pollos/route";
-import { POST as sacrificioPOST, DELETE as sacrificioDELETE } from "@/app/api/sacrificio/route";
-import { GET as gallinazaGET, POST as gallinazaPOST, DELETE as gallinazaDELETE } from "@/app/api/gallinaza/route";
+import { POST as incubacionPOST, PUT as incubacionPUT, DELETE as incubacionDELETE } from "@/app/api/produccion/incubacion/route";
+import { GET as gallosGET } from "@/app/api/produccion/pollos/route";
+import { GET as lotesGET, POST as lotesPOST } from "@/app/api/produccion/pollos/route";
+import { POST as sacrificioPOST, DELETE as sacrificioDELETE } from "@/app/api/produccion/sacrificio/route";
+import { GET as gallinazaGET, POST as gallinazaPOST, DELETE as gallinazaDELETE } from "@/app/api/operaciones/gallinaza/route";
 
 let cleanupData: TestCleanup & { productionDetailIds?: string[] };
 

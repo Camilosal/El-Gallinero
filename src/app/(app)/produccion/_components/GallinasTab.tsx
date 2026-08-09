@@ -4,6 +4,7 @@ import { useEffect, useState, useCallback, useMemo } from "react";
 import { PageHeader, Button, Card, Table, Badge, Modal, Input, Select, Textarea, EmptyState } from "@/components/ui";
 import { useCatalog } from "@/lib/useCatalog";
 import { apiFetch } from "@/lib/fetch";
+import { QrGeneratorButton } from "./QrGenerator";
 
 interface Hen {
   id: string;
@@ -94,8 +95,8 @@ export default function GallinasPage() {
 
   const load = useCallback(() => {
     Promise.all([
-      apiFetch("/api/gallinas").then((r) => r.json()),
-      apiFetch("/api/etapas").then((r) => r.json()),
+      apiFetch("/api/produccion/gallinas").then((r) => r.json()),
+      apiFetch("/api/produccion/etapas").then((r) => r.json()),
     ]).then(([h, s]) => {
       setHens(h);
       setStages(s.map((st: { id: string; value: string; minWeeks: number | null; maxWeeks: number | null }) => ({
@@ -124,14 +125,14 @@ export default function GallinasPage() {
   const save = async () => {
     const method = editing ? "PUT" : "POST";
     const body = editing ? { ...form, id: editing.id } : form;
-    await apiFetch("/api/gallinas", { method, headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
+    await apiFetch("/api/produccion/gallinas", { method, headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
     setModalOpen(false);
     load();
   };
 
   const remove = async (id: string) => {
     if (!confirm("¿Eliminar esta gallina?")) return;
-    await apiFetch(`/api/gallinas?id=${id}`, { method: "DELETE" });
+    await apiFetch(`/api/produccion/gallinas?id=${id}`, { method: "DELETE" });
     load();
   };
 
@@ -155,7 +156,13 @@ export default function GallinasPage() {
       <PageHeader
         title="🐔 Gestión de Gallinas"
         description="Registro, seguimiento y estado de todas las gallinas del gallinero"
-        actions={<Button onClick={openNew}>+ Nueva Gallina</Button>}
+        help="Aquí registras cada gallina del gallinero con su código, raza, fecha de nacimiento y estado.\n\n• El sistema calcula automáticamente la etapa de crecimiento y cambia el estado según la edad y condición.\n• Las gallinas marcadas como 'recomendada sacrificio' son candidatos para venta o faena según su rendimiento.\n• Usa el botón 'Etiquetas QR' para generar códigos QR que puedes imprimir y pegar en bandas de pata. Luego escanéalo con tu celular para acceder rápido a cada ave.\n• Filtra por estado o etapa para encontrar gallinas específicas."
+        actions={
+          <div className="flex gap-2">
+            <QrGeneratorButton hens={hens} />
+            <Button onClick={openNew}>+ Nueva Gallina</Button>
+          </div>
+        }
       />
 
       {/* Alerta de gallinas recomendadas para sacrificio */}
@@ -239,16 +246,16 @@ export default function GallinasPage() {
 
       <Modal open={modalOpen} onClose={() => setModalOpen(false)} title={editing ? "Editar Gallina" : "Nueva Gallina"}>
         <div className="space-y-4">
-          <Input label="Código / Identificación" value={form.code} onChange={(e) => setForm({ ...form, code: e.target.value })} placeholder="Ej: G-001" required />
-          <Select label="Raza" value={form.breed} onChange={(e) => setForm({ ...form, breed: e.target.value })}>
+          <Input label="Código / Identificación" help="Código único para identificar a esta gallina. Ej: G-001, A-012. Debe ser único." value={form.code} onChange={(e) => setForm({ ...form, code: e.target.value })} placeholder="Ej: G-001" required />
+          <Select label="Raza" help="Raza de la gallina. Cada raza tiene diferentes niveles de postura, peso y comportamiento." value={form.breed} onChange={(e) => setForm({ ...form, breed: e.target.value })}>
             {breedOptions.map((b) => <option key={b} value={b}>{b}</option>)}
           </Select>
-          <Input label="Fecha de Nacimiento" type="date" value={form.birthDate} onChange={(e) => setForm({ ...form, birthDate: e.target.value })} />
-          <Select label="Estado" value={form.status} onChange={(e) => setForm({ ...form, status: e.target.value })}>
+          <Input label="Fecha de Nacimiento" help="Fecha de nacimiento de la gallina. El sistema calcula automáticamente su edad y etapa de crecimiento." type="date" value={form.birthDate} onChange={(e) => setForm({ ...form, birthDate: e.target.value })} />
+          <Select label="Estado" help="Estado actual de la gallina. 'Activa' es el estado normal. 'Empollando' si está incubando. 'Enferma' si necesita atención. El sistema puede sugerir 'recomendada sacrificio' automáticamente." value={form.status} onChange={(e) => setForm({ ...form, status: e.target.value })}>
             {statusOptions.map((s) => <option key={s} value={s}>{statusLabels[s] || s.charAt(0).toUpperCase() + s.slice(1)}</option>)}
           </Select>
-          <Input label="Peso (kg)" type="number" step="0.01" value={form.weight} onChange={(e) => setForm({ ...form, weight: e.target.value })} placeholder="Ej: 2.5" />
-          <Textarea label="Notas" value={form.notes} onChange={(e) => setForm({ ...form, notes: e.target.value })} placeholder="Observaciones sobre la gallina..." />
+          <Input label="Peso (kg)" help="Peso actual de la gallina en kilogramos. Importante para monitorear salud y rendimiento." type="number" step="0.01" value={form.weight} onChange={(e) => setForm({ ...form, weight: e.target.value })} placeholder="Ej: 2.5" />
+          <Textarea label="Notas" help="Observaciones sobre la gallina: comportamiento, salud, tratamientos, etc." value={form.notes} onChange={(e) => setForm({ ...form, notes: e.target.value })} placeholder="Observaciones sobre la gallina..." />
           <div className="flex gap-3">
             <Button onClick={save} disabled={!form.code || !form.breed}>{editing ? "Actualizar" : "Registrar"}</Button>
             <Button variant="secondary" onClick={() => setModalOpen(false)}>Cancelar</Button>

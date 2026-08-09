@@ -1,10 +1,11 @@
 import { db } from "@/db";
-import { hens, eggProduction, eggSales, feedInventory, transactions, incubation, maintenance, catalogos, feedPrograms, feedMovements, chickenSales, slaughter, roosters, broilerBatches, manureFactors, manureInventory, mortalityRecords, sanitaryCalendar, supplyInventory } from "@/db/schema";
+import { hens, eggProduction, eggSales, feedInventory, transactions, incubation, maintenance, catalogos, feedPrograms, feedMovements, chickenSales, slaughter, roosters, broilerBatches, manureFactors, mortalityRecords, sanitaryCalendar, supplyInventory, manureSales, meatSales } from "@/db/schema";
 import { eq, sql, desc, and, gte, or } from "drizzle-orm";
 import { NextResponse } from "next/server";
 import { ageInWeeks, isAvailableForExit, stageForAge } from "@/lib/lifecycle";
 import { flockBalance } from "@/lib/flock";
 import { totalEstimatedKgPerDay } from "@/lib/manure";
+import { computeManureInventory, computeEggInventory } from "@/lib/inventory";
 
 export const dynamic = "force-dynamic";
 
@@ -28,6 +29,7 @@ export async function GET() {
       mortalityRows,
       sanitaryAlerts,
       supplyAlerts,
+      eggInventory,
     ] = await Promise.all([
       db.select({
         status: hens.status,
@@ -87,6 +89,9 @@ export async function GET() {
       // Supply alerts (low stock)
       db.select({ count: sql<number>`count(*)::int` }).from(supplyInventory)
         .where(sql`${supplyInventory.currentStock}::numeric <= ${supplyInventory.minStock}::numeric`),
+
+      // Egg inventory (real data from details)
+      computeEggInventory(),
     ]);
 
     const totalHens = henStats.reduce((sum, s) => sum + s.count, 0);
@@ -199,6 +204,18 @@ export async function GET() {
       totalRevenue: sql<string>`coalesce(sum(${slaughter.totalAmount}), 0)::text`,
     }).from(slaughter).where(gte(slaughter.date, dateStr));
 
+    // Meat sales (processed meat) in last 30 days
+    const [meatSalesStats] = await db.select({
+      totalKg: sql<string>`coalesce(sum(${meatSales.quantityKg}), 0)::text`,
+      totalRevenue: sql<string>`coalesce(sum(${meatSales.totalAmount}), 0)::text`,
+    }).from(meatSales).where(gte(meatSales.date, dateStr));
+
+    // Manure sales (gallinaza) in last 30 days
+    const [manureSalesStats] = await db.select({
+      totalKg: sql<string>`coalesce(sum(${manureSales.quantityKg}), 0)::text`,
+      totalRevenue: sql<string>`coalesce(sum(${manureSales.totalAmount}), 0)::text`,
+    }).from(manureSales).where(gte(manureSales.date, dateStr));
+
     // ─── Parvada: gallos reproductores y lotes de engorde ───
     const [roosterCount, readyBatchCount] = await Promise.all([
       db.select({ count: sql<number>`count(*)::int` }).from(roosters).where(eq(roosters.status, "activo")),
@@ -208,9 +225,9 @@ export async function GET() {
     const roosterBalance = flockBalance(hensInCoop, roosterCount[0]?.count || 0);
 
     // ─── Gallinaza: stock y estimación (solo lectura, sin lazy-sync) ───
-    const [manureFactorRows, manureInvRow] = await Promise.all([
+    const [manureFactorRows, manureInventoryData] = await Promise.all([
       db.select().from(manureFactors),
-      db.select().from(manureInventory).limit(1),
+      computeManureInventory(),
     ]);
     const stageRangeList = stages.map((s) => ({ id: s.id, value: s.value, minWeeks: s.minWeeks ?? 0, maxWeeks: s.maxWeeks }));
     const hensPerStage = new Map<string, number>();
@@ -229,7 +246,7 @@ export async function GET() {
       { key: "lote", label: "Lotes", count: batchQty[0]?.total || 0, kgPerBirdPerDay: factorOf(undefined, "lote") },
     ];
     const manure = {
-      currentStockKg: manureInvRow[0] ? Math.round(Number(manureInvRow[0].currentStockKg) * 100) / 100 : 0,
+      currentStockKg: Math.round(manureInventoryData.summary.available * 100) / 100,
       totalKgPerDay: totalEstimatedKgPerDay(manureGroups),
     };
 
@@ -244,12 +261,16 @@ export async function GET() {
     const totalFlock = totalHens + (roosterCount[0]?.count || 0) + (batchQty[0]?.total || 0);
     const mortalityRate = totalFlock > 0 ? Math.round((totalDeaths30d / totalFlock) * 10000) / 100 : 0;
 
-    const totalEggs30 = eggStats[0]?.total || 0;
+    const totalEggs30 = eggInventory.summary.produced;
     const totalHatched = incubationStats?.totalHatched || 0;
-    // Combine chickenSales + slaughter for total meat
-    const totalMeatKg = Number(meatStats?.totalWeightKg || 0) + Number(slaughterStats?.totalWeightKg || 0);
-    const totalMeatRevenue = (Number(meatStats?.totalRevenue || 0) + Number(slaughterStats?.totalRevenue || 0)).toFixed(2);
+    // Combine chickenSales + slaughter + meatSales for total meat
+    const totalMeatKg = Number(meatStats?.totalWeightKg || 0) + Number(slaughterStats?.totalWeightKg || 0) + Number(meatSalesStats?.totalKg || 0);
+    const totalMeatRevenue = (Number(meatStats?.totalRevenue || 0) + Number(slaughterStats?.totalRevenue || 0) + Number(meatSalesStats?.totalRevenue || 0)).toFixed(2);
     const totalBirdsMeat = (meatStats?.totalBirds || 0) + (slaughterStats?.totalBirds || 0);
+
+    // Manure sales stats
+    const totalManureKg = Number(manureSalesStats?.totalKg || 0);
+    const totalManureRevenue = Number(manureSalesStats?.totalRevenue || 0).toFixed(2);
 
     // FCR calculations (kg feed per unit of output)
     const fcrEggs = totalEggs30 > 0 ? Math.round((totalFeedConsumedKg / totalEggs30) * 100) / 100 : 0;
@@ -282,7 +303,16 @@ export async function GET() {
       hens: { total: totalHens, active: activeHens, broody: broodyHens, sick: sickHens, recommendedForSlaughter: recommendedHens, byStatus: henStats },
       roosters: roosterBalance,
       readyBatches: readyBatchCount[0]?.count || 0,
-      eggs: { totalLast30: totalEggs30, avgDaily: eggStats[0]?.avgDaily || 0 },
+      eggs: { 
+        totalLast30: totalEggs30, 
+        avgDaily: eggStats[0]?.avgDaily || 0,
+        inventory: {
+          produced: eggInventory.summary.produced,
+          sold: eggInventory.summary.sold,
+          lost: eggInventory.summary.lost,
+          available: eggInventory.summary.available,
+        }
+      },
       sales: { totalSold: salesStats[0]?.totalSold || 0, totalRevenue: salesStats[0]?.totalRevenue || "0" },
       feedAlerts: feedAlerts[0]?.count || 0,
       activeIncubations: activeIncubations[0]?.count || 0,
@@ -304,7 +334,13 @@ export async function GET() {
         totalBirdsSold: totalBirdsMeat,
       },
       feedChartData,
-      manure,
+      manure: {
+        ...manure,
+        salesLast30d: {
+          totalKg: Math.round(totalManureKg * 100) / 100,
+          totalRevenue: totalManureRevenue,
+        },
+      },
       mortality: {
         total30d: totalDeaths30d,
         rate: mortalityRate,
