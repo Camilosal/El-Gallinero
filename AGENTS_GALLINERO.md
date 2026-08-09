@@ -5,9 +5,9 @@ Sistema de gestión para gallineros pequeños y medianos. Control integral del c
 ## 🏛️ Política de Infraestructura
 
 1.  **Configuración Centralizada:**
-    - El archivo [`docker-compose.yml`](../../docker-compose.yml) en la raíz del servidor es la fuente de verdad. El servicio es `gallinero_app` → contenedor `gallinero_web`.
-    - El archivo [`.env`](../../.env) centraliza credenciales globales.
-    - El archivo [`.env.local`](./.env.local) (excluido del repo) contiene la `DATABASE_URL` local del proyecto.
+    - El archivo [`docker-compose.yml`](../../docker-compose.yml) en la raíz del repositorio está pensado para usuarios que descargan el proyecto y desean desplegar rápidamente en su entorno local. Para operaciones internas del servidor (despliegue, pruebas y desarrollo en el entorno de producción interna), se utiliza el `docker-compose.yml` del sistema general ubicado en `/home/ubuntu/negocio/docker-compose.yml`. Ese archivo define servicios como `gallinero_app`, `sostenibilidad_db`, etc., en la red Docker unificada.
+    - El archivo [`.env`](../../.env) centraliza credenciales globales para el entorno interno.
+    - El archivo [`.env.local`](./.env.local) (excluido del repo) contiene la `DATABASE_URL` local del proyecto para desarrollo individual.
 2.  **Uso de Skills:** Consultar prioritariamente [`.agent/skills/`](../../.agent/skills/) antes de tareas complejas.
 3.  **Aislamiento de Cambios:** Trabajar dentro de `data/app_gallinero/`. No modificar infraestructura global sin consulta previa.
 4.  **Preservación Estricta (Append-Only):** Al expandir archivos de código o conocimiento, inyectar subsecciones puntuales. No reescribir, resumir o eliminar bloques existentes a menos que se ordene explícitamente.
