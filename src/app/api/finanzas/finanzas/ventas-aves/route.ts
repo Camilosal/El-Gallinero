@@ -217,7 +217,7 @@ export async function PUT(req: NextRequest) {
       if (body.roosterId && body.roosterId !== existing.roosterId) {
         await applyRoosterExit(body.roosterId, "venta", tx);
       }
-      if (body.batchId) {
+      if (body.batchId && body.batchId !== existing.batchId) {
         await applyBatchExit(body.batchId, qty, "venta", tx);
       }
     });

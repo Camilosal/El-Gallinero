@@ -467,7 +467,7 @@ export default function HuevosPage() {
           </div>
           <p className="text-xs text-green-700 mb-3">¿Quieres registrar una venta?</p>
           <div className="flex gap-2">
-            <Link href="/finanzas/ventas?quick=1">
+            <Link href="/dashboard/finanzas/ventas?quick=1">
               <Button variant="success">Vender ahora</Button>
             </Link>
             <Button variant="secondary" onClick={() => setShowSaleSuggestion(false)}>Ahora no</Button>

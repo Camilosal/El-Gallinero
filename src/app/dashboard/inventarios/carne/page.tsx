@@ -53,7 +53,7 @@ export default function InventarioCarnePage() {
         help="Inventario de carne disponible proveniente de sacrificios. Se muestra lo producido, vendido, perdido y restante por lote. Usa consumo FIFO (First In, First Out). Desde aquí puedes registrar ventas directamente o ver el historial de lotes. El valor estimado se calcula con el costo de producción."
         actions={
           <div className="flex gap-2">
-            <Link href="/finanzas/ventas?tab=carne"><Button>+ Registrar Venta</Button></Link>
+            <Link href="/dashboard/finanzas/ventas?tab=carne"><Button>+ Registrar Venta</Button></Link>
           </div>
         }
       />

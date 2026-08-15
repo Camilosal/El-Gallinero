@@ -38,7 +38,7 @@ export default function InventarioGallinazaPage() {
         help="Controla el inventario de gallinaza (abono orgánico). La producción se estima automáticamente según el número de aves y factores de conversión. Se pueden hacer ajustes manuales (por limpieza, humedad, etc.) y registrar ventas. Muestra historial de producción y ventas, stock disponible y valor estimado. Desde aquí puedes ir a 'Factores y Ajustes' para configurar los parámetros de estimación."
         actions={
           <div className="flex gap-2">
-            <Link href="/operaciones/gallinaza"><Button>Factores y Ajustes</Button></Link>
+            <Link href="/dashboard/operaciones/gallinaza"><Button>Factores y Ajustes</Button></Link>
           </div>
         }
       />

@@ -184,9 +184,9 @@ export default function CarneTab() {
         <div className="bg-white rounded-lg shadow-md p-6 border-l-4 border-blue-500">
           <p className="text-sm text-slate-500 mb-1">📦 Inventario y Ventas</p>
           <div className="flex gap-2 mt-2">
-            <Link href="/inventarios/carne" className="text-xs text-blue-600 hover:underline">Ver inventario</Link>
+            <Link href="/dashboard/inventarios/carne" className="text-xs text-blue-600 hover:underline">Ver inventario</Link>
             <span className="text-slate-300">|</span>
-            <Link href="/finanzas/ventas?tab=carne" className="text-xs text-blue-600 hover:underline">Registrar venta</Link>
+            <Link href="/dashboard/finanzas/ventas?tab=carne" className="text-xs text-blue-600 hover:underline">Registrar venta</Link>
           </div>
         </div>
       </div>

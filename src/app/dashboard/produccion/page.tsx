@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { Suspense, lazy, useEffect, useState } from "react";
+import { apiFetch } from "@/lib/fetch";
 
 const GallinasTab = lazy(() => import("./_components/GallinasTab"));
 const PollosTab = lazy(() => import("./_components/PollosTab"));
@@ -90,7 +91,7 @@ function CategoryView() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    fetch("/api/produccion/resumen")
+    apiFetch("/api/produccion/resumen")
       .then((r) => r.json())
       .then(setResumen)
       .catch(console.error)

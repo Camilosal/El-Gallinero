@@ -73,6 +73,8 @@ export async function POST(req: NextRequest) {
 
 export async function PUT(req: NextRequest) {
   const body = await req.json();
+  if (!body.id) return NextResponse.json({ error: "ID requerido" }, { status: 400 });
+
   const stages = await getStages();
 
   // Si el estado enviado es automático, resolverlo según edad/peso
@@ -92,6 +94,8 @@ export async function PUT(req: NextRequest) {
     clutchSize: body.clutchSize,
     updatedAt: new Date(),
   }).where(eq(hens.id, body.id)).returning();
+
+  if (!updated) return NextResponse.json({ error: "No encontrada" }, { status: 404 });
 
   const lc = evaluateLifecycle(updated, stages);
   return NextResponse.json({ ...updated, stage: lc.stage, ageWeeks: lc.ageWeeks, lifecycleReasons: lc.reasons });

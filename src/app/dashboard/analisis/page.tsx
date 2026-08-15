@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useState } from "react";
+import { apiFetch } from "@/lib/fetch";
 
 const secciones = [
   { href: "/analisis/kpis", label: "KPIs", icon: "🎯", desc: "Productividad, mortalidad, conversión" },
@@ -21,7 +22,7 @@ export default function AnalisisPage() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    fetch("/api/analisis/resumen")
+    apiFetch("/api/analisis/resumen")
       .then((r) => r.json())
       .then(setResumen)
       .catch(console.error)

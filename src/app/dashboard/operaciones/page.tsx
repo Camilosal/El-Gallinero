@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useState } from "react";
+import { apiFetch } from "@/lib/fetch";
 
 const secciones = [
   { href: "/operaciones/mantenimiento", label: "Mantenimiento", icon: "🔧", desc: "Equipos e instalaciones" },
@@ -20,7 +21,7 @@ export default function OperacionesPage() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    fetch("/api/operaciones/resumen")
+    apiFetch("/api/operaciones/resumen")
       .then((r) => r.json())
       .then(setResumen)
       .catch(console.error)

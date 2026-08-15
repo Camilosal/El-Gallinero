@@ -28,10 +28,18 @@ export async function POST(req: NextRequest) {
   if (type === "pago" && !payableId) {
     return NextResponse.json({ error: "payableId requerido para pagos" }, { status: 400 });
   }
+  if (type !== "cobro" && type !== "pago") {
+    return NextResponse.json({ error: "Tipo inválido (debe ser 'cobro' o 'pago')" }, { status: 400 });
+  }
 
   const paymentAmount = Number(amount);
+  if (isNaN(paymentAmount) || paymentAmount <= 0) {
+    return NextResponse.json({ error: "Monto inválido" }, { status: 400 });
+  }
 
-  const result = await db.transaction(async (tx) => {
+  let result;
+  try {
+    result = await db.transaction(async (tx) => {
     const [payment] = await tx
       .insert(payments)
       .values({
@@ -105,7 +113,17 @@ export async function POST(req: NextRequest) {
     }
 
     return payment;
-  });
+    });
+  } catch (e: any) {
+    const msg = e.message || "";
+    if (msg.includes("no encontrada")) {
+      return NextResponse.json({ error: msg }, { status: 404 });
+    }
+    if (msg.includes("excede saldo")) {
+      return NextResponse.json({ error: msg }, { status: 400 });
+    }
+    throw e;
+  }
 
   return NextResponse.json(result, { status: 201 });
 }

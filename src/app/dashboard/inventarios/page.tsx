@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useState } from "react";
+import { apiFetch } from "@/lib/fetch";
 
 const secciones = [
   { href: "/inventarios/huevos", label: "Inventario Huevos", icon: "📦", desc: "Stock por tipo y edad" },
@@ -24,7 +25,7 @@ export default function InventariosPage() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    fetch("/api/inventarios/resumen")
+    apiFetch("/api/inventarios/resumen")
       .then((r) => r.json())
       .then(setResumen)
       .catch(console.error)

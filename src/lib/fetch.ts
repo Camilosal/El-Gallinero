@@ -1,5 +1,5 @@
 export async function apiFetch(url: string, options?: RequestInit) {
-  const res = await fetch(url, options);
+  const res = await fetch(url, { cache: "no-store", ...options });
   if (res.status === 401) {
     if (typeof window !== "undefined") {
       window.location.href = "/login";

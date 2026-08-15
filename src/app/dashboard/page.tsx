@@ -137,7 +137,7 @@ export default function Dashboard() {
       id: "feed-critical",
       icon: "🌾",
       message: `${criticalFeeds.length} alimento${criticalFeeds.length > 1 ? "s" : ""} con stock crítico (${criticalFeeds.map((f) => f.feedName).join(", ")})`,
-      href: "/produccion?tab=alimentacion",
+      href: "/dashboard/produccion?tab=alimentacion",
       severity: "critical",
     });
   }
@@ -148,7 +148,7 @@ export default function Dashboard() {
       id: "sanitary",
       icon: "💊",
       message: `${data.sanitaryAlerts} vacuna${data.sanitaryAlerts > 1 ? "s" : ""} o tratamiento${data.sanitaryAlerts > 1 ? "s" : ""} pendiente${data.sanitaryAlerts > 1 ? "s" : ""}`,
-      href: "/sanidad/calendario",
+      href: "/dashboard/sanidad/calendario",
       severity: "critical",
     });
   }
@@ -159,7 +159,7 @@ export default function Dashboard() {
       id: "eggs-expiring",
       icon: "🥚",
       message: `${data.eggs.inventory.available} huevos en inventario — priorizar venta`,
-      href: "/produccion?tab=inventario",
+      href: "/dashboard/produccion?tab=inventario",
       severity: "warning",
     });
   }
@@ -170,7 +170,7 @@ export default function Dashboard() {
       id: "slaughter-rec",
       icon: "⚠️",
       message: `${data.hens.recommendedForSlaughter} gallina${data.hens.recommendedForSlaughter > 1 ? "s" : ""} recomendada${data.hens.recommendedForSlaughter > 1 ? "s" : ""} para sacrificio`,
-      href: "/produccion?tab=gallinas",
+      href: "/dashboard/produccion?tab=gallinas",
       severity: "warning",
     });
   }
@@ -181,7 +181,7 @@ export default function Dashboard() {
       id: "batches-ready",
       icon: "🍗",
       message: `${data.readyBatches} lote${data.readyBatches > 1 ? "s" : ""} listo${data.readyBatches > 1 ? "s" : ""} para sacrificio`,
-      href: "/produccion?tab=carne",
+      href: "/dashboard/produccion?tab=carne",
       severity: "warning",
     });
   }
@@ -192,7 +192,7 @@ export default function Dashboard() {
       id: "maintenance",
       icon: "🔧",
       message: `${data.pendingMaintenance} mantenimiento${data.pendingMaintenance > 1 ? "s" : ""} pendiente${data.pendingMaintenance > 1 ? "s" : ""}`,
-      href: "/operaciones/mantenimiento",
+      href: "/dashboard/operaciones/mantenimiento",
       severity: "warning",
     });
   }
@@ -203,7 +203,7 @@ export default function Dashboard() {
       id: "supplies",
       icon: "🧰",
       message: `${data.supplyAlerts} insumo${data.supplyAlerts > 1 ? "s" : ""} con stock bajo`,
-      href: "/inventarios/insumos",
+      href: "/dashboard/inventarios/insumos",
       severity: "warning",
     });
   }
@@ -275,7 +275,7 @@ export default function Dashboard() {
               <div className="flex items-center gap-3 p-4 bg-yellow-50 border border-yellow-200 rounded-xl">
                 <span className="text-2xl">🥚</span>
                 <span className="flex-1 text-sm font-medium text-yellow-700">¿Ya recogiste huevos hoy?</span>
-                <a href="/produccion?tab=huevos" className="px-3 py-1.5 bg-yellow-600 text-white text-xs font-medium rounded-lg hover:bg-yellow-700">
+                <a href="/dashboard/produccion?tab=huevos" className="px-3 py-1.5 bg-yellow-600 text-white text-xs font-medium rounded-lg hover:bg-yellow-700">
                   Recoger ahora
                 </a>
               </div>
@@ -284,7 +284,7 @@ export default function Dashboard() {
               <div className="flex items-center gap-3 p-4 bg-amber-50 border border-amber-200 rounded-xl">
                 <span className="text-2xl">🌾</span>
                 <span className="flex-1 text-sm font-medium text-amber-700">No hay registro de alimentación hoy</span>
-                <a href="/produccion?tab=alimentacion" className="px-3 py-1.5 bg-amber-600 text-white text-xs font-medium rounded-lg hover:bg-amber-700">
+                <a href="/dashboard/produccion?tab=alimentacion" className="px-3 py-1.5 bg-amber-600 text-white text-xs font-medium rounded-lg hover:bg-amber-700">
                   Ver alimentación
                 </a>
               </div>
@@ -295,7 +295,7 @@ export default function Dashboard() {
                 <span className={`flex-1 text-sm font-medium ${tareas.pendingSanitary.isOverdue ? "text-red-700" : "text-blue-700"}`}>
                   {tareas.pendingSanitary.isOverdue ? "Vencido: " : "Pendiente: "}{tareas.pendingSanitary.name}
                 </span>
-                <a href={`/sanidad/control?pendiente=${tareas.pendingSanitary.id}`} className={`px-3 py-1.5 text-white text-xs font-medium rounded-lg ${tareas.pendingSanitary.isOverdue ? "bg-red-600 hover:bg-red-700" : "bg-blue-600 hover:bg-blue-700"}`}>
+                <a href={`/dashboard/sanidad/control?pendiente=${tareas.pendingSanitary.id}`} className={`px-3 py-1.5 text-white text-xs font-medium rounded-lg ${tareas.pendingSanitary.isOverdue ? "bg-red-600 hover:bg-red-700" : "bg-blue-600 hover:bg-blue-700"}`}>
                   Aplicar
                 </a>
               </div>
@@ -309,7 +309,7 @@ export default function Dashboard() {
         <h2 className="text-sm font-semibold text-slate-500 uppercase tracking-wide mb-3">Tareas del día</h2>
         <div className="grid grid-cols-2 lg:grid-cols-5 gap-4">
           <a
-            href="/produccion?tab=huevos"
+            href="/dashboard/produccion?tab=huevos"
             className="flex flex-col items-center gap-3 p-6 bg-yellow-50 border-2 border-yellow-200 rounded-2xl hover:bg-yellow-100 hover:border-yellow-300 transition-all"
           >
             <span className="text-4xl">🥚</span>
@@ -317,7 +317,7 @@ export default function Dashboard() {
             <span className="text-xs text-yellow-600">{data.eggs.avgDaily} prom/día</span>
           </a>
           <a
-            href="/produccion?tab=alimentacion"
+            href="/dashboard/produccion?tab=alimentacion"
             className="flex flex-col items-center gap-3 p-6 bg-amber-50 border-2 border-amber-200 rounded-2xl hover:bg-amber-100 hover:border-amber-300 transition-all"
           >
             <span className="text-4xl">🌾</span>
@@ -336,7 +336,7 @@ export default function Dashboard() {
             <span className="text-xs text-green-600">${Number(data.sales.totalRevenue).toLocaleString()} este mes</span>
           </a>
           <a
-            href="/sanidad/control"
+            href="/dashboard/sanidad/control"
             className="flex flex-col items-center gap-3 p-6 bg-blue-50 border-2 border-blue-200 rounded-2xl hover:bg-blue-100 hover:border-blue-300 transition-all"
           >
             <span className="text-4xl">💊</span>
@@ -346,7 +346,7 @@ export default function Dashboard() {
             </span>
           </a>
           <a
-            href="/escanear"
+            href="/dashboard/escanear"
             className="flex flex-col items-center gap-3 p-6 bg-indigo-50 border-2 border-indigo-200 rounded-2xl hover:bg-indigo-100 hover:border-indigo-300 transition-all"
           >
             <span className="text-4xl">📷</span>
@@ -615,7 +615,7 @@ export default function Dashboard() {
                 </Button>
                 <Button variant="secondary" onClick={() => setQuickSaleOpen(false)}>Cancelar</Button>
               </div>
-              <p className="text-xs text-slate-400 text-center">¿Necesitas más opciones? Usa el <a href="/finanzas/ventas" className="text-green-600 hover:underline">formulario completo</a></p>
+              <p className="text-xs text-slate-400 text-center">¿Necesitas más opciones? Usa el <a href="/dashboard/finanzas/ventas" className="text-green-600 hover:underline">formulario completo</a></p>
             </>
           )}
         </div>

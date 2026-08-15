@@ -132,8 +132,11 @@ export async function POST(req: NextRequest) {
 
 export async function PUT(req: NextRequest) {
   const body = await req.json();
+  if (!body.id) return NextResponse.json({ error: "ID requerido" }, { status: 400 });
 
-  const updated = await db.transaction(async (tx) => {
+  let updated;
+  try {
+    updated = await db.transaction(async (tx) => {
     // 1. Update health control record
     const [record] = await tx.update(healthControl).set({
       date: body.date,
@@ -145,6 +148,8 @@ export async function PUT(req: NextRequest) {
       nextScheduled: body.nextScheduled || null,
       notes: body.notes || null,
     }).where(eq(healthControl.id, body.id)).returning();
+
+    if (!record) throw new Error("No encontrado");
 
     // 2. Sync linked expense transaction (delete + reinsert)
     await tx.delete(transactions).where(and(eq(transactions.sourceType, "sanidad"), eq(transactions.sourceId, body.id)));
@@ -219,7 +224,13 @@ export async function PUT(req: NextRequest) {
     }
 
     return record;
-  });
+    });
+  } catch (e: any) {
+    if (e.message === "No encontrado") {
+      return NextResponse.json({ error: "No encontrado" }, { status: 404 });
+    }
+    throw e;
+  }
 
   return NextResponse.json(updated);
 }

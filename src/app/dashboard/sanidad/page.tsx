@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useState } from "react";
+import { apiFetch } from "@/lib/fetch";
 
 const secciones = [
   { href: "/sanidad/control", label: "Control Sanitario", icon: "💊", desc: "Tratamientos y aplicaciones" },
@@ -21,7 +22,7 @@ export default function SanidadPage() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    fetch("/api/sanidad/resumen")
+    apiFetch("/api/sanidad/resumen")
       .then((r) => r.json())
       .then(setResumen)
       .catch(console.error)

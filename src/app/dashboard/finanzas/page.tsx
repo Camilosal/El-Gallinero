@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useState } from "react";
+import { apiFetch } from "@/lib/fetch";
 
 const secciones = [
   { href: "/finanzas/ventas", label: "Ventas", icon: "💰", desc: "Facturación" },
@@ -23,7 +24,7 @@ export default function FinanzasPage() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    fetch("/api/finanzas/resumen")
+    apiFetch("/api/finanzas/resumen")
       .then((r) => r.json())
       .then(setResumen)
       .catch(console.error)

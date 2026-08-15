@@ -24,8 +24,11 @@ export async function POST(req: NextRequest) {
 
 export async function PUT(req: NextRequest) {
   const body = await req.json();
+  if (!body.id) return NextResponse.json({ error: "ID requerido" }, { status: 400 });
 
-  const result = await db.transaction(async (tx) => {
+  let result;
+  try {
+    result = await db.transaction(async (tx) => {
     const [updated] = await tx.update(maintenance).set({
       title: body.title,
       description: body.description,
@@ -34,6 +37,8 @@ export async function PUT(req: NextRequest) {
       status: body.status,
       cost: body.cost,
     }).where(eq(maintenance.id, body.id)).returning();
+
+    if (!updated) throw new Error("No encontrado");
 
     // Remove any previous auto-generated expense for this task (avoid duplicates)
     await tx.delete(transactions).where(and(eq(transactions.sourceType, "mantenimiento"), eq(transactions.sourceId, body.id)));
@@ -52,7 +57,13 @@ export async function PUT(req: NextRequest) {
     }
 
     return updated;
-  });
+    });
+  } catch (e: any) {
+    if (e.message === "No encontrado") {
+      return NextResponse.json({ error: "No encontrado" }, { status: 404 });
+    }
+    throw e;
+  }
 
   return NextResponse.json(result);
 }

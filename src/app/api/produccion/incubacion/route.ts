@@ -68,7 +68,11 @@ function nextCodes(existingCodes: string[], prefix: string, count: number): stri
 
 export async function PUT(req: NextRequest) {
   const body = await req.json();
-  const result = await db.transaction(async (tx) => {
+  if (!body.id) return NextResponse.json({ error: "ID requerido" }, { status: 400 });
+
+  let result;
+  try {
+    result = await db.transaction(async (tx) => {
     const [updated] = await tx.update(incubation).set({
       eggsHatched: body.eggsHatched,
       malesHatched: body.malesHatched ?? null,
@@ -76,6 +80,8 @@ export async function PUT(req: NextRequest) {
       isComplete: body.isComplete,
       notes: body.notes,
     }).where(eq(incubation.id, body.id)).returning();
+
+    if (!updated) throw new Error("No encontrado");
 
     // If complete, update hen status back
     if (body.isComplete && updated.henId) {
@@ -144,7 +150,13 @@ export async function PUT(req: NextRequest) {
     }
 
     return { ...updated, assignment };
-  });
+    });
+  } catch (e: any) {
+    if (e.message === "No encontrado") {
+      return NextResponse.json({ error: "No encontrado" }, { status: 404 });
+    }
+    throw e;
+  }
 
   return NextResponse.json(result);
 }

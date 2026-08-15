@@ -29,6 +29,8 @@ export async function POST(req: NextRequest) {
 
 export async function PUT(req: NextRequest) {
   const body = await req.json();
+  if (!body.id) return NextResponse.json({ error: "ID requerido" }, { status: 400 });
+
   const [updated] = await db.update(feedInventory).set({
     name: body.name,
     category: body.category,
@@ -40,6 +42,9 @@ export async function PUT(req: NextRequest) {
     supplier: body.supplier,
     updatedAt: new Date(),
   }).where(eq(feedInventory.id, body.id)).returning();
+
+  if (!updated) return NextResponse.json({ error: "No encontrado" }, { status: 404 });
+
   return NextResponse.json(updated);
 }
 

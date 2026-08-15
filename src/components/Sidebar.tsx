@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 
 interface MenuItem {
   href: string;
@@ -24,34 +24,41 @@ const simpleGroups: MenuGroup[] = [
     id: "granja",
     label: "Granja",
     icon: "🐔",
-    indexHref: "/produccion",
+    indexHref: "/dashboard/produccion",
     items: [
-      { href: "/produccion?tab=huevos", label: "Huevos", icon: "🥚" },
-      { href: "/produccion?tab=gallinas", label: "Gallinas", icon: "🐔" },
-      { href: "/produccion?tab=pollos", label: "Pollos", icon: "🐓" },
-      { href: "/produccion?tab=alimentacion", label: "Alimentación", icon: "🌾" },
-      { href: "/produccion?tab=incubacion", label: "Incubación", icon: "🐣" },
-      { href: "/produccion?tab=carne", label: "Carne", icon: "🍗" },
-      { href: "/produccion?tab=gallinaza", label: "Gallinaza", icon: "🌱" },
-      { href: "/produccion?tab=inventario", label: "Inventario", icon: "📦" },
+      { href: "/dashboard/produccion?tab=huevos", label: "Huevos", icon: "🥚" },
+      { href: "/dashboard/produccion?tab=gallinas", label: "Gallinas", icon: "🐔" },
+      { href: "/dashboard/produccion?tab=pollos", label: "Pollos", icon: "🐓" },
+      { href: "/dashboard/produccion?tab=alimentacion", label: "Alimentación", icon: "🌾" },
+      { href: "/dashboard/produccion?tab=incubacion", label: "Incubación", icon: "🐣" },
+      { href: "/dashboard/produccion?tab=carne", label: "Carne", icon: "🍗" },
+      { href: "/dashboard/produccion?tab=gallinaza", label: "Gallinaza", icon: "🌱" },
+      { href: "/dashboard/produccion?tab=inventario", label: "Inventario", icon: "📦" },
     ],
   },
   {
     id: "ventas",
     label: "Ventas",
     icon: "💰",
-    indexHref: "/finanzas/ventas",
+    indexHref: "/dashboard/finanzas/ventas",
+    items: [],
+  },
+  {
+    id: "egresos",
+    label: "Egresos",
+    icon: "📤",
+    indexHref: "/dashboard/finanzas/egresos",
     items: [],
   },
   {
     id: "sanidad",
     label: "Sanidad",
     icon: "💊",
-    indexHref: "/sanidad",
+    indexHref: "/dashboard/sanidad",
     items: [
-      { href: "/sanidad/control", label: "Control", icon: "💊" },
-      { href: "/sanidad/calendario", label: "Calendario", icon: "📅" },
-      { href: "/sanidad/alertas", label: "Alertas", icon: "🔔" },
+      { href: "/dashboard/sanidad/control", label: "Control", icon: "💊" },
+      { href: "/dashboard/sanidad/calendario", label: "Calendario", icon: "📅" },
+      { href: "/dashboard/sanidad/alertas", label: "Alertas", icon: "🔔" },
     ],
   },
 ];
@@ -62,60 +69,61 @@ const advancedGroups: MenuGroup[] = [
     id: "analisis",
     label: "Análisis",
     icon: "📊",
-    indexHref: "/analisis",
+    indexHref: "/dashboard/analisis",
     items: [
-      { href: "/analisis/kpis", label: "KPIs", icon: "🎯" },
-      { href: "/analisis/reportes", label: "Reportes", icon: "📋" },
-      { href: "/analisis/razas", label: "Estándares de Raza", icon: "🧬" },
+      { href: "/dashboard/analisis/kpis", label: "KPIs", icon: "🎯" },
+      { href: "/dashboard/analisis/reportes", label: "Reportes", icon: "📋" },
+      { href: "/dashboard/analisis/razas", label: "Estándares de Raza", icon: "🧬" },
     ],
   },
   {
     id: "finanzas",
     label: "Finanzas",
     icon: "💰",
-    indexHref: "/finanzas",
+    indexHref: "/dashboard/finanzas",
     items: [
-      { href: "/finanzas/ventas", label: "Ventas", icon: "💰" },
-      { href: "/finanzas/egresos", label: "Egresos", icon: "📤" },
-      { href: "/finanzas/finanzas", label: "Balance", icon: "📈" },
-      { href: "/finanzas/presupuestos", label: "Presupuestos", icon: "💵" },
-      { href: "/finanzas/cuentas", label: "Cuentas", icon: "💳" },
+      { href: "/dashboard/finanzas/ventas", label: "Ventas", icon: "💰" },
+      { href: "/dashboard/finanzas/egresos", label: "Egresos", icon: "📤" },
+      { href: "/dashboard/finanzas/finanzas", label: "Balance", icon: "📈" },
+      { href: "/dashboard/finanzas/presupuestos", label: "Presupuestos", icon: "💵" },
+      { href: "/dashboard/finanzas/cuentas", label: "Cuentas", icon: "💳" },
     ],
   },
   {
     id: "operaciones",
     label: "Operaciones",
     icon: "🔧",
-    indexHref: "/operaciones",
+    indexHref: "/dashboard/operaciones",
     items: [
-      { href: "/operaciones/mantenimiento", label: "Mantenimiento", icon: "🔧" },
-      { href: "/operaciones/gallinaza", label: "Gallinaza", icon: "🌱" },
+      { href: "/dashboard/operaciones/mantenimiento", label: "Mantenimiento", icon: "🔧" },
+      { href: "/dashboard/operaciones/gallinaza", label: "Gallinaza", icon: "🌱" },
     ],
   },
   {
     id: "inventarios",
     label: "Inventarios",
     icon: "📦",
-    indexHref: "/inventarios",
+    indexHref: "/dashboard/inventarios",
     items: [
-      { href: "/inventarios/huevos", label: "Huevos", icon: "📦" },
-      { href: "/inventarios/carne", label: "Carne", icon: "🍗" },
-      { href: "/inventarios/gallinaza", label: "Gallinaza", icon: "🌱" },
-      { href: "/inventarios/balance", label: "Balance", icon: "⚖️" },
-      { href: "/inventarios/insumos", label: "Insumos", icon: "🧰" },
+      { href: "/dashboard/inventarios/huevos", label: "Huevos", icon: "📦" },
+      { href: "/dashboard/inventarios/carne", label: "Carne", icon: "🍗" },
+      { href: "/dashboard/inventarios/gallinaza", label: "Gallinaza", icon: "🌱" },
+      { href: "/dashboard/inventarios/balance", label: "Balance", icon: "⚖️" },
+      { href: "/dashboard/inventarios/insumos", label: "Insumos", icon: "🧰" },
     ],
   },
   {
     id: "configuracion",
     label: "Configuración",
     icon: "🗂️",
-    indexHref: "/configuracion",
-    items: [{ href: "/configuracion/catalogos", label: "Catálogos", icon: "🗂️" }],
+    indexHref: "/dashboard/configuracion",
+    items: [{ href: "/dashboard/configuracion/catalogos", label: "Catálogos", icon: "🗂️" }],
   },
 ];
 
 const STORAGE_KEY = "sidebar-expanded-groups";
 const ADVANCED_KEY = "sidebar-advanced-mode";
+const COLLAPSED_KEY = "sidebar-collapsed";
 
 export default function Sidebar() {
   const pathname = usePathname();
@@ -123,6 +131,7 @@ export default function Sidebar() {
   const [expandedGroups, setExpandedGroups] = useState<Set<string>>(new Set());
   const [mobileOpen, setMobileOpen] = useState(false);
   const [advancedMode, setAdvancedMode] = useState(false);
+  const [collapsed, setCollapsed] = useState(false);
 
   // Close mobile sidebar on route change
   useEffect(() => {
@@ -148,12 +157,23 @@ export default function Sidebar() {
   }, []);
 
   useEffect(() => {
+    const col = localStorage.getItem(COLLAPSED_KEY);
+    setCollapsed(col === "true");
+  }, []);
+
+  useEffect(() => {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(Array.from(expandedGroups)));
   }, [expandedGroups]);
 
   useEffect(() => {
     localStorage.setItem(ADVANCED_KEY, String(advancedMode));
   }, [advancedMode]);
+
+  useEffect(() => {
+    localStorage.setItem(COLLAPSED_KEY, String(collapsed));
+    // Dispatch custom event so layout can react
+    window.dispatchEvent(new CustomEvent("sidebar-toggle", { detail: { collapsed } }));
+  }, [collapsed]);
 
   const toggleGroup = (groupId: string) => {
     setExpandedGroups((prev) => {
@@ -182,7 +202,7 @@ export default function Sidebar() {
     return group.items.some((item) => isItemActive(item.href));
   };
 
-  const allGroups = advancedMode ? [...simpleGroups, ...advancedGroups] : simpleGroups;
+  const sidebarWidth = collapsed ? "w-16" : "w-64";
 
   return (
     <>
@@ -207,7 +227,7 @@ export default function Sidebar() {
 
       {/* Sidebar */}
       <aside
-        className={`fixed left-0 top-0 h-screen w-64 bg-green-900 text-white flex flex-col z-50 shadow-xl transition-transform duration-300 ${
+        className={`fixed left-0 top-0 h-screen ${sidebarWidth} bg-green-900 text-white flex flex-col z-50 shadow-xl transition-all duration-300 ${
           mobileOpen ? "translate-x-0" : "-translate-x-full"
         } md:translate-x-0`}
       >
@@ -222,34 +242,60 @@ export default function Sidebar() {
           </svg>
         </button>
 
-        <div className="p-5 border-b border-green-700">
-          <h1 className="text-xl font-bold flex items-center gap-2">
-            <span className="text-3xl">🐓</span>
-            <span>El Gallinero</span>
-          </h1>
-          <p className="text-green-300 text-xs mt-1">Granja Autosustentable</p>
+        {/* Header */}
+        <div className={`border-b border-green-700 ${collapsed ? "px-2 py-4" : "p-5"}`}>
+          {collapsed ? (
+            <div className="flex flex-col items-center">
+              <span className="text-2xl">🐓</span>
+            </div>
+          ) : (
+            <>
+              <h1 className="text-xl font-bold flex items-center gap-2">
+                <span className="text-3xl">🐓</span>
+                <span>El Gallinero</span>
+              </h1>
+              <p className="text-green-300 text-xs mt-1">Granja Autosustentable</p>
+            </>
+          )}
         </div>
-        <nav className="flex-1 overflow-y-auto py-4">
+
+        {/* Collapse toggle - desktop only */}
+        <button
+          onClick={() => setCollapsed(!collapsed)}
+          className="hidden md:flex items-center justify-center absolute -right-4 top-7 w-8 h-8 bg-green-600 hover:bg-green-500 border-2 border-green-900 rounded-full text-white text-sm font-bold shadow-lg transition-all z-10 hover:scale-110"
+          aria-label={collapsed ? "Expandir menú" : "Colapsar menú"}
+          title={collapsed ? "Expandir menú" : "Colapsar menú"}
+        >
+          {collapsed ? "›" : "‹"}
+        </button>
+
+        <nav className="flex-1 overflow-y-auto overflow-x-hidden py-4">
           {/* Dashboard link */}
           <Link
-            href="/"
-            className={`flex items-center gap-3 px-5 py-3 text-sm transition-all hover:bg-green-800 ${
-              pathname === "/" ? "bg-green-700 border-r-4 border-farm-400 font-semibold" : ""
-            }`}
+            href="/dashboard"
+            className={`flex items-center gap-3 py-3 text-sm transition-all hover:bg-green-800 ${
+              collapsed ? "justify-center px-2" : "px-5"
+            } ${pathname === "/dashboard" ? "bg-green-700 border-r-4 border-farm-400 font-semibold" : ""}`}
+            title={collapsed ? "Inicio" : undefined}
           >
-            <span className="text-lg">📊</span>
-            <span>Inicio</span>
+            <span className="text-lg flex-shrink-0">📊</span>
+            {!collapsed && <span>Inicio</span>}
           </Link>
 
           {/* QR Scanner */}
           <Link
-            href="/escanear"
-            className={`flex items-center gap-3 px-5 py-3 text-sm transition-all hover:bg-green-800 ${
-              pathname === "/escanear" || pathname.startsWith("/escanear") ? "bg-green-700 border-r-4 border-farm-400 font-semibold" : ""
+            href="/dashboard/escanear"
+            className={`flex items-center gap-3 py-3 text-sm transition-all hover:bg-green-800 ${
+              collapsed ? "justify-center px-2" : "px-5"
+            } ${
+              pathname === "/dashboard/escanear" || pathname.startsWith("/dashboard/escanear")
+                ? "bg-green-700 border-r-4 border-farm-400 font-semibold"
+                : ""
             }`}
+            title={collapsed ? "Escanear Ave" : undefined}
           >
-            <span className="text-lg">📷</span>
-            <span>Escanear Ave</span>
+            <span className="text-lg flex-shrink-0">📷</span>
+            {!collapsed && <span>Escanear Ave</span>}
           </Link>
 
           {/* Simple groups */}
@@ -262,16 +308,19 @@ export default function Sidebar() {
               toggleGroup={toggleGroup}
               isItemActive={isItemActive}
               isGroupActive={isGroupActive}
+              collapsed={collapsed}
             />
           ))}
 
           {/* Advanced mode divider + groups */}
           {advancedMode && (
             <>
-              <div className="my-3 mx-5 border-t border-green-700" />
-              <p className="px-5 py-1 text-[10px] uppercase tracking-wider text-green-500 font-semibold">
-                Avanzado
-              </p>
+              <div className={`my-3 border-t border-green-700 ${collapsed ? "mx-2" : "mx-5"}`} />
+              {!collapsed && (
+                <p className="px-5 py-1 text-[10px] uppercase tracking-wider text-green-500 font-semibold">
+                  Avanzado
+                </p>
+              )}
               {advancedGroups.map((group) => (
                 <GroupItem
                   key={group.id}
@@ -281,26 +330,47 @@ export default function Sidebar() {
                   toggleGroup={toggleGroup}
                   isItemActive={isItemActive}
                   isGroupActive={isGroupActive}
+                  collapsed={collapsed}
                 />
               ))}
             </>
           )}
         </nav>
 
-        {/* Footer: mode toggle + logout */}
-        <div className="p-4 border-t border-green-700 space-y-2">
-          <button
-            onClick={() => setAdvancedMode(!advancedMode)}
-            className="w-full py-1.5 rounded-lg bg-green-800 hover:bg-green-700 text-green-200 text-xs font-medium transition-colors flex items-center justify-center gap-2"
+        {/* Footer: guide + mode toggle + logout */}
+        <div className={`border-t border-green-700 space-y-2 ${collapsed ? "p-2" : "p-4"}`}>
+          <Link
+            href="/dashboard/guia"
+            className={`w-full py-1.5 rounded-lg text-xs font-medium transition-colors flex items-center justify-center gap-2 ${
+              collapsed ? "px-1" : ""
+            } ${
+              pathname.startsWith("/dashboard/guia")
+                ? "bg-green-600 text-white"
+                : "bg-green-800 hover:bg-green-700 text-green-200"
+            }`}
+            title={collapsed ? "Guía de Usuario" : undefined}
           >
-            <span>{advancedMode ? "▲" : "▼"}</span>
-            <span>{advancedMode ? "Modo Simple" : "Modo Avanzado"}</span>
-          </button>
+            <span>📖</span>
+            {!collapsed && <span>Guía de Usuario</span>}
+          </Link>
+          {!collapsed && (
+            <button
+              onClick={() => setAdvancedMode(!advancedMode)}
+              className="w-full py-1.5 rounded-lg bg-green-800 hover:bg-green-700 text-green-200 text-xs font-medium transition-colors flex items-center justify-center gap-2"
+            >
+              <span>{advancedMode ? "▲" : "▼"}</span>
+              <span>{advancedMode ? "Modo Simple" : "Modo Avanzado"}</span>
+            </button>
+          )}
           <button
             onClick={logout}
-            className="w-full py-1.5 rounded-lg bg-green-700 hover:bg-green-600 text-green-100 text-xs font-medium transition-colors"
+            className={`w-full py-1.5 rounded-lg bg-green-700 hover:bg-green-600 text-green-100 text-xs font-medium transition-colors flex items-center justify-center gap-2 ${
+              collapsed ? "px-1" : ""
+            }`}
+            title={collapsed ? "Cerrar Sesión" : undefined}
           >
-            ⏻ Cerrar Sesión
+            <span>⏻</span>
+            {!collapsed && <span>Cerrar Sesión</span>}
           </button>
         </div>
       </aside>
@@ -316,6 +386,7 @@ function GroupItem({
   toggleGroup,
   isItemActive,
   isGroupActive,
+  collapsed,
 }: {
   group: MenuGroup;
   pathname: string;
@@ -323,11 +394,29 @@ function GroupItem({
   toggleGroup: (id: string) => void;
   isItemActive: (href: string) => boolean;
   isGroupActive: (g: MenuGroup) => boolean;
+  collapsed: boolean;
 }) {
   const isExpanded = expandedGroups.has(group.id);
   const groupActive = isGroupActive(group);
   const isIndexActive = pathname === group.indexHref;
   const hasItems = group.items.length > 0;
+
+  if (collapsed) {
+    // Collapsed: show only icon, tooltip with group name
+    return (
+      <Link
+        href={group.indexHref}
+        className={`flex items-center justify-center py-3 text-sm transition-all hover:bg-green-800 ${
+          isIndexActive || groupActive
+            ? "bg-green-700 border-r-4 border-farm-400"
+            : ""
+        }`}
+        title={group.label}
+      >
+        <span className="text-lg">{group.icon}</span>
+      </Link>
+    );
+  }
 
   return (
     <div key={group.id}>

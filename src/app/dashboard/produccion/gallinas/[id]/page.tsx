@@ -213,7 +213,7 @@ export default function HenDetailPage() {
     <div className="max-w-2xl mx-auto">
       {/* Header */}
       <div className="mb-6">
-        <Link href="/escanear" className="text-sm text-green-600 hover:text-green-700 mb-2 inline-block">
+        <Link href="/dashboard/escanear" className="text-sm text-green-600 hover:text-green-700 mb-2 inline-block">
           ← Volver al escáner
         </Link>
         <div className="flex items-start gap-4">

@@ -118,10 +118,10 @@ export default function InventarioTab() {
           <p className="text-sm text-slate-500">Vista rápida de todos los stocks. Para gestión detallada, usa los enlaces de abajo.</p>
         </div>
         <div className="flex gap-2 flex-wrap">
-          <Link href="/inventarios/huevos" className="text-xs px-3 py-1.5 bg-yellow-50 text-yellow-700 rounded-lg hover:bg-yellow-100 transition-colors">
+          <Link href="/dashboard/inventarios/huevos" className="text-xs px-3 py-1.5 bg-yellow-50 text-yellow-700 rounded-lg hover:bg-yellow-100 transition-colors">
             Detalle Huevos →
           </Link>
-          <Link href="/inventarios/balance" className="text-xs px-3 py-1.5 bg-blue-50 text-blue-700 rounded-lg hover:bg-blue-100 transition-colors">
+          <Link href="/dashboard/inventarios/balance" className="text-xs px-3 py-1.5 bg-blue-50 text-blue-700 rounded-lg hover:bg-blue-100 transition-colors">
             Balance Completo →
           </Link>
         </div>
@@ -176,7 +176,7 @@ export default function InventarioTab() {
         <Card>
           <div className="flex items-center justify-between mb-3">
             <h3 className="font-semibold text-slate-700">🥚 Huevos por Tamaño</h3>
-            <Link href="/inventarios/huevos" className="text-xs text-blue-600 hover:underline">Ver todo →</Link>
+            <Link href="/dashboard/inventarios/huevos" className="text-xs text-blue-600 hover:underline">Ver todo →</Link>
           </div>
           {eggData && eggData.summary.available > 0 ? (
             <div className="space-y-2">
@@ -205,7 +205,7 @@ export default function InventarioTab() {
         <Card>
           <div className="flex items-center justify-between mb-3">
             <h3 className="font-semibold text-slate-700">🌾 Alimento</h3>
-            <Link href="/inventarios/balance" className="text-xs text-blue-600 hover:underline">Ver todo →</Link>
+            <Link href="/dashboard/inventarios/balance" className="text-xs text-blue-600 hover:underline">Ver todo →</Link>
           </div>
           {balanceData && balanceData.foods.length > 0 ? (
             <div className="space-y-2">
@@ -233,7 +233,7 @@ export default function InventarioTab() {
         <Card>
           <div className="flex items-center justify-between mb-3">
             <h3 className="font-semibold text-slate-700">🍗 Carne</h3>
-            <Link href="/inventarios/carne" className="text-xs text-blue-600 hover:underline">Ver todo →</Link>
+            <Link href="/dashboard/inventarios/carne" className="text-xs text-blue-600 hover:underline">Ver todo →</Link>
           </div>
           {meatData && meatData.summary.available > 0 ? (
             <div className="space-y-2">
@@ -262,7 +262,7 @@ export default function InventarioTab() {
         <Card>
           <div className="flex items-center justify-between mb-3">
             <h3 className="font-semibold text-slate-700">🌱 Gallinaza</h3>
-            <Link href="/inventarios/gallinaza" className="text-xs text-blue-600 hover:underline">Ver todo →</Link>
+            <Link href="/dashboard/inventarios/gallinaza" className="text-xs text-blue-600 hover:underline">Ver todo →</Link>
           </div>
           {manureData && (manureData.summary.available > 0 || manureData.summary.produced > 0) ? (
             <div className="space-y-2">
@@ -303,7 +303,7 @@ export default function InventarioTab() {
               </div>
             ))}
           </div>
-          <Link href="/inventarios/insumos" className="text-xs text-blue-600 hover:underline mt-3 inline-block">
+          <Link href="/dashboard/inventarios/insumos" className="text-xs text-blue-600 hover:underline mt-3 inline-block">
             Gestionar insumos →
           </Link>
         </Card>
