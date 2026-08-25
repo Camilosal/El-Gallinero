@@ -3,6 +3,7 @@ import { catalogos, hens, feedPrograms, feedInventory, feedMovements } from "@/d
 import { eq, and, sql, or, gte } from "drizzle-orm";
 import { NextRequest, NextResponse } from "next/server";
 import { runFeedProgramCatchup, countHensByStageForDate } from "@/lib/feeding/runProgram";
+import { withApiHandler, safeParseJson } from "@/lib/api-handler";
 
 export const dynamic = "force-dynamic";
 
@@ -32,7 +33,7 @@ function addDays(dateStrValue: string, days: number): string {
  * - suggestedOrderQty: compra sugerida (14 días de consumo)
  * - reorderDate: fecha sugerida para reponer antes de llegar al mínimo
  */
-export async function GET(req: NextRequest) {
+export const GET = withApiHandler(async (req: NextRequest) => {
   const { searchParams } = new URL(req.url);
   const horizonDays = parseInt(searchParams.get("days") || "30", 10);
   const safeHorizon = Math.min(Math.max(horizonDays, 1), 365);
@@ -221,4 +222,4 @@ export async function GET(req: NextRequest) {
     predictions,
     dailyProjection,
   });
-}
+});

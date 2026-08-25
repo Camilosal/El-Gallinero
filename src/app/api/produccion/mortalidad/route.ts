@@ -1,12 +1,13 @@
 import { db } from "@/db";
-import { mortalityRecords, hens, roosters, broilerBatches } from "@/db/schema";
+import { mortalityRecords, hens, roosters, broilerBatches, slaughter, chickenSales } from "@/db/schema";
 import { eq, desc, and, gte, sql } from "drizzle-orm";
 import { NextRequest, NextResponse } from "next/server";
 import { isAvailableForExit } from "@/lib/lifecycle";
+import { withApiHandler, safeParseJson } from "@/lib/api-handler";
 
 export const dynamic = "force-dynamic";
 
-export async function GET(req: NextRequest) {
+export const GET = withApiHandler(async (req: NextRequest) => {
   const { searchParams } = new URL(req.url);
   const period = Number(searchParams.get("period")) || 30;
 
@@ -54,10 +55,10 @@ export async function GET(req: NextRequest) {
     .groupBy(mortalityRecords.cause);
 
   return NextResponse.json({ records, mortalityRate: Number(mortalityRate), totalDeaths, totalFlock, byCause, periodDays: period });
-}
+});
 
-export async function POST(req: NextRequest) {
-  const body = await req.json();
+export const POST = withApiHandler(async (req: NextRequest) => {
+  const body = await safeParseJson(req);
   const { date, birdType, cause, henId, roosterId, batchId, quantity, description } = body;
 
   if (!date || !birdType || !cause) {
@@ -67,7 +68,7 @@ export async function POST(req: NextRequest) {
   const qty = birdType === "lote_pollos" ? Number(quantity || 1) : 1;
 
   try {
-    await db.transaction(async (tx) => {
+    const result = await db.transaction(async (tx) => {
       if (birdType === "gallina" && henId) {
         const [hen] = await tx.select().from(hens).where(eq(hens.id, henId));
         if (!hen) throw new Error("Gallina no encontrada");
@@ -97,7 +98,7 @@ export async function POST(req: NextRequest) {
         }).where(eq(broilerBatches.id, batchId));
       }
 
-      await tx.insert(mortalityRecords).values({
+      const [created] = await tx.insert(mortalityRecords).values({
         date,
         birdType,
         quantity: qty,
@@ -106,8 +107,12 @@ export async function POST(req: NextRequest) {
         roosterId: roosterId || null,
         batchId: batchId || null,
         description: description || null,
-      });
+      }).returning();
+
+      return created;
     });
+
+    return NextResponse.json(result, { status: 201 });
   } catch (err: any) {
     const msg = err.message || "Error al registrar mortalidad";
     if (msg.includes("no encontrad")) {
@@ -115,11 +120,9 @@ export async function POST(req: NextRequest) {
     }
     return NextResponse.json({ error: msg }, { status: 400 });
   }
+});
 
-  return NextResponse.json({ ok: true }, { status: 201 });
-}
-
-export async function DELETE(req: NextRequest) {
+export const DELETE = withApiHandler(async (req: NextRequest) => {
   const { searchParams } = new URL(req.url);
   const id = searchParams.get("id");
   if (!id) return NextResponse.json({ error: "ID requerido" }, { status: 400 });
@@ -129,10 +132,28 @@ export async function DELETE(req: NextRequest) {
 
   await db.transaction(async (tx) => {
     if (record.henId) {
-      await tx.update(hens).set({ status: "activa", updatedAt: new Date() }).where(eq(hens.id, record.henId));
+      // Only restore hen if no other exit records exist
+      const [hasSlaughter] = await tx.select({ id: slaughter.id })
+        .from(slaughter).where(eq(slaughter.henId, record.henId)).limit(1);
+      const [hasSale] = await tx.select({ id: chickenSales.id })
+        .from(chickenSales).where(eq(chickenSales.henId, record.henId)).limit(1);
+      const [otherMortality] = await tx.select({ id: mortalityRecords.id })
+        .from(mortalityRecords)
+        .where(and(eq(mortalityRecords.henId, record.henId), sql`${mortalityRecords.id} != ${record.id}`))
+        .limit(1);
+      if (!hasSlaughter && !hasSale && !otherMortality) {
+        await tx.update(hens).set({ status: "activa", updatedAt: new Date() }).where(eq(hens.id, record.henId));
+      }
     }
     if (record.roosterId) {
-      await tx.update(roosters).set({ status: "activo", updatedAt: new Date() }).where(eq(roosters.id, record.roosterId));
+      // Only restore rooster if no other exit records exist
+      const [otherMortality] = await tx.select({ id: mortalityRecords.id })
+        .from(mortalityRecords)
+        .where(and(eq(mortalityRecords.roosterId, record.roosterId), sql`${mortalityRecords.id} != ${record.id}`))
+        .limit(1);
+      if (!otherMortality) {
+        await tx.update(roosters).set({ status: "activo", updatedAt: new Date() }).where(eq(roosters.id, record.roosterId));
+      }
     }
     if (record.batchId) {
       const [batch] = await tx.select().from(broilerBatches).where(eq(broilerBatches.id, record.batchId));
@@ -149,10 +170,10 @@ export async function DELETE(req: NextRequest) {
   });
 
   return NextResponse.json({ ok: true });
-}
+});
 
-export async function PUT(req: NextRequest) {
-  const body = await req.json();
+export const PUT = withApiHandler(async (req: NextRequest) => {
+  const body = await safeParseJson(req);
   if (!body.id) return NextResponse.json({ error: "ID requerido" }, { status: 400 });
 
   const { date, birdType, cause, description } = body;
@@ -165,9 +186,15 @@ export async function PUT(req: NextRequest) {
 
   try {
     await db.transaction(async (tx) => {
-      // Restore old bird status if it was linked
+      // Restore old bird status only if no other exit records exist
       if (existing.henId) {
-        await tx.update(hens).set({ status: "activa", updatedAt: new Date() }).where(eq(hens.id, existing.henId));
+        const [hasSlaughter] = await tx.select({ id: slaughter.id })
+          .from(slaughter).where(eq(slaughter.henId, existing.henId)).limit(1);
+        const [hasSale] = await tx.select({ id: chickenSales.id })
+          .from(chickenSales).where(eq(chickenSales.henId, existing.henId)).limit(1);
+        if (!hasSlaughter && !hasSale) {
+          await tx.update(hens).set({ status: "activa", updatedAt: new Date() }).where(eq(hens.id, existing.henId));
+        }
       }
       if (existing.roosterId) {
         await tx.update(roosters).set({ status: "activo", updatedAt: new Date() }).where(eq(roosters.id, existing.roosterId));
@@ -192,9 +219,15 @@ export async function PUT(req: NextRequest) {
         description: description || null,
       }).where(eq(mortalityRecords.id, body.id));
 
-      // Apply new bird status (same bird, just re-mark as dead)
+      // Apply new bird status — only if not already exited by another record
       if (existing.henId) {
-        await tx.update(hens).set({ status: "muerta", updatedAt: new Date() }).where(eq(hens.id, existing.henId));
+        const [hasSlaughter] = await tx.select({ id: slaughter.id })
+          .from(slaughter).where(eq(slaughter.henId, existing.henId)).limit(1);
+        const [hasSale] = await tx.select({ id: chickenSales.id })
+          .from(chickenSales).where(eq(chickenSales.henId, existing.henId)).limit(1);
+        if (!hasSlaughter && !hasSale) {
+          await tx.update(hens).set({ status: "muerta", updatedAt: new Date() }).where(eq(hens.id, existing.henId));
+        }
       }
       if (existing.roosterId) {
         await tx.update(roosters).set({ status: "muerto", updatedAt: new Date() }).where(eq(roosters.id, existing.roosterId));
@@ -217,4 +250,4 @@ export async function PUT(req: NextRequest) {
 
   const [updated] = await db.select().from(mortalityRecords).where(eq(mortalityRecords.id, body.id));
   return NextResponse.json(updated);
-}
+});

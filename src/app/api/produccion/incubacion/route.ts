@@ -4,10 +4,11 @@ import { eq, desc, sql } from "drizzle-orm";
 import { NextRequest, NextResponse } from "next/server";
 import { isAvailableForExit } from "@/lib/lifecycle";
 import { assignMales, requiredRoosters, FLOCK_RULES } from "@/lib/flock";
+import { withApiHandler, safeParseJson } from "@/lib/api-handler";
 
 export const dynamic = "force-dynamic";
 
-export async function GET() {
+export const GET = withApiHandler(async () => {
   const data = await db
     .select({
       id: incubation.id,
@@ -27,11 +28,14 @@ export async function GET() {
     .leftJoin(hens, eq(incubation.henId, hens.id))
     .orderBy(desc(incubation.createdAt));
   return NextResponse.json(data);
-}
+});
 
-export async function POST(req: NextRequest) {
-  const body = await req.json();
+export const POST = withApiHandler(async (req: NextRequest) => {
+  const body = await safeParseJson(req);
   const startDate = new Date(body.startDate);
+  if (isNaN(startDate.getTime())) {
+    return NextResponse.json({ error: "Fecha de inicio inválida" }, { status: 400 });
+  }
   const expectedHatch = new Date(startDate);
   expectedHatch.setDate(expectedHatch.getDate() + 21); // 21 days incubation
 
@@ -53,10 +57,11 @@ export async function POST(req: NextRequest) {
   });
 
   return NextResponse.json(created, { status: 201 });
-}
+});
 
-/** Siguiente código secuencial con formato prefijo-### a partir de códigos existentes */
-function nextCodes(existingCodes: string[], prefix: string, count: number): string[] {
+/** Siguiente código secuencial con formato prefijo-### — debe llamarse DENTRO de una transacción */
+async function nextCodesInTx(tx: any, table: any, prefix: string, count: number): Promise<string[]> {
+  const existingCodes = (await tx.select({ code: table.code }).from(table)).map((r: any) => r.code);
   let max = 0;
   const re = new RegExp(`^${prefix}-(\\d+)$`);
   for (const code of existingCodes) {
@@ -66,13 +71,16 @@ function nextCodes(existingCodes: string[], prefix: string, count: number): stri
   return Array.from({ length: count }, (_, i) => `${prefix}-${String(max + i + 1).padStart(3, "0")}`);
 }
 
-export async function PUT(req: NextRequest) {
-  const body = await req.json();
+export const PUT = withApiHandler(async (req: NextRequest) => {
+  const body = await safeParseJson(req);
   if (!body.id) return NextResponse.json({ error: "ID requerido" }, { status: 400 });
 
-  let result;
-  try {
-    result = await db.transaction(async (tx) => {
+  const result = await db.transaction(async (tx) => {
+    // Read existing record to detect idempotency (avoid re-creating birds on re-submit)
+    const [before] = await tx.select().from(incubation).where(eq(incubation.id, body.id));
+    if (!before) throw new Error("No encontrado");
+    const wasAlreadyComplete = !!before.isComplete;
+
     const [updated] = await tx.update(incubation).set({
       eggsHatched: body.eggsHatched,
       malesHatched: body.malesHatched ?? null,
@@ -83,14 +91,14 @@ export async function PUT(req: NextRequest) {
 
     if (!updated) throw new Error("No encontrado");
 
-    // If complete, update hen status back
-    if (body.isComplete && updated.henId) {
+    // If complete, update hen status back (only on first completion)
+    if (body.isComplete && !wasAlreadyComplete && updated.henId) {
       await tx.update(hens).set({ status: "activa", isBroody: false, updatedAt: new Date() }).where(eq(hens.id, updated.henId));
     }
 
-    // ─── Asignación automática de pollitos nacidos ───
+    // ─── Asignación automática de pollitos nacidos (solo en la primera completion) ───
     const assignment = { hensCreated: 0, roostersCreated: 0, batchCode: null as string | null };
-    if (body.isComplete) {
+    if (body.isComplete && !wasAlreadyComplete) {
       const females = Number(body.femalesHatched) || 0;
       const males = Number(body.malesHatched) || 0;
 
@@ -104,8 +112,7 @@ export async function PUT(req: NextRequest) {
       const today = new Date().toISOString().split("T")[0];
 
       if (females > 0) {
-        const existingCodes = (await tx.select({ code: hens.code }).from(hens)).map((h) => h.code);
-        const codes = nextCodes(existingCodes, "G", females);
+        const codes = await nextCodesInTx(tx, hens, "G", females);
         await tx.insert(hens).values(
           codes.map((code) => ({ code, breed, birthDate: today, status: "activa" as const, isBroody: false }))
         );
@@ -122,8 +129,7 @@ export async function PUT(req: NextRequest) {
         const { toRoosters, toSlaughter } = assignMales(males, roosterRows.length, requiredRoosters(hensInCoop));
 
         if (toRoosters > 0) {
-          const existingCodes = (await tx.select({ code: roosters.code }).from(roosters)).map((r) => r.code);
-          const codes = nextCodes(existingCodes, "GA", toRoosters);
+          const codes = await nextCodesInTx(tx, roosters, "GA", toRoosters);
           await tx.insert(roosters).values(
             codes.map((code) => ({ code, breed, birthDate: today, status: "activo" as const }))
           );
@@ -131,6 +137,8 @@ export async function PUT(req: NextRequest) {
         }
 
         if (toSlaughter > 0) {
+          // Lock to prevent concurrent batch code generation
+          await tx.execute(sql`LOCK TABLE ${broilerBatches} IN EXCLUSIVE MODE`);
           const [maxRow] = await tx.select({ maxCode: sql<string>`max(${broilerBatches.code})` }).from(broilerBatches);
           const nextNum = maxRow?.maxCode ? parseInt(maxRow.maxCode.split("-")[1], 10) + 1 : 1;
           const code = `L-${String(nextNum).padStart(3, "0")}`;
@@ -150,18 +158,12 @@ export async function PUT(req: NextRequest) {
     }
 
     return { ...updated, assignment };
-    });
-  } catch (e: any) {
-    if (e.message === "No encontrado") {
-      return NextResponse.json({ error: "No encontrado" }, { status: 404 });
-    }
-    throw e;
-  }
+  });
 
   return NextResponse.json(result);
-}
+});
 
-export async function DELETE(req: NextRequest) {
+export const DELETE = withApiHandler(async (req: NextRequest) => {
   const { searchParams } = new URL(req.url);
   const id = searchParams.get("id");
   if (!id) return NextResponse.json({ error: "ID requerido" }, { status: 400 });
@@ -176,4 +178,4 @@ export async function DELETE(req: NextRequest) {
     await tx.delete(incubation).where(eq(incubation.id, id));
   });
   return NextResponse.json({ ok: true });
-}
+});

@@ -2,20 +2,21 @@ import { db } from "@/db";
 import { payments, accountsReceivable, accountsPayable } from "@/db/schema";
 import { eq, desc, sql } from "drizzle-orm";
 import { NextRequest, NextResponse } from "next/server";
+import { withApiHandler, safeParseJson } from "@/lib/api-handler";
 
 export const dynamic = "force-dynamic";
 
-export async function GET() {
+export const GET = withApiHandler(async () => {
   const allPayments = await db
     .select()
     .from(payments)
     .orderBy(desc(payments.createdAt));
 
   return NextResponse.json(allPayments);
-}
+});
 
-export async function POST(req: NextRequest) {
-  const body = await req.json();
+export const POST = withApiHandler(async (req: NextRequest) => {
+  const body = await safeParseJson(req);
   const { date, type, receivableId, payableId, amount, method, reference, notes } = body;
 
   if (!date || !type || !amount) {
@@ -126,9 +127,9 @@ export async function POST(req: NextRequest) {
   }
 
   return NextResponse.json(result, { status: 201 });
-}
+});
 
-export async function DELETE(req: NextRequest) {
+export const DELETE = withApiHandler(async (req: NextRequest) => {
   const { searchParams } = new URL(req.url);
   const id = searchParams.get("id");
   if (!id) return NextResponse.json({ error: "ID requerido" }, { status: 400 });
@@ -190,4 +191,4 @@ export async function DELETE(req: NextRequest) {
   });
 
   return NextResponse.json({ ok: true });
-}
+});

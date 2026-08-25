@@ -3,17 +3,18 @@ import { feedInventory, feedMovements, transactions } from "@/db/schema";
 import { eq, desc, inArray } from "drizzle-orm";
 import { NextRequest, NextResponse } from "next/server";
 import { runFeedProgramCatchup } from "@/lib/feeding/runProgram";
+import { withApiHandler, safeParseJson } from "@/lib/api-handler";
 
 export const dynamic = "force-dynamic";
 
-export async function GET() {
+export const GET = withApiHandler(async () => {
   await runFeedProgramCatchup();
   const inventory = await db.select().from(feedInventory).orderBy(desc(feedInventory.createdAt));
   return NextResponse.json(inventory);
-}
+});
 
-export async function POST(req: NextRequest) {
-  const body = await req.json();
+export const POST = withApiHandler(async (req: NextRequest) => {
+  const body = await safeParseJson(req);
   const [created] = await db.insert(feedInventory).values({
     name: body.name,
     category: body.category,
@@ -25,10 +26,10 @@ export async function POST(req: NextRequest) {
     supplier: body.supplier || null,
   }).returning();
   return NextResponse.json(created, { status: 201 });
-}
+});
 
-export async function PUT(req: NextRequest) {
-  const body = await req.json();
+export const PUT = withApiHandler(async (req: NextRequest) => {
+  const body = await safeParseJson(req);
   if (!body.id) return NextResponse.json({ error: "ID requerido" }, { status: 400 });
 
   const [updated] = await db.update(feedInventory).set({
@@ -46,9 +47,9 @@ export async function PUT(req: NextRequest) {
   if (!updated) return NextResponse.json({ error: "No encontrado" }, { status: 404 });
 
   return NextResponse.json(updated);
-}
+});
 
-export async function DELETE(req: NextRequest) {
+export const DELETE = withApiHandler(async (req: NextRequest) => {
   const { searchParams } = new URL(req.url);
   const id = searchParams.get("id");
   if (!id) return NextResponse.json({ error: "ID requerido" }, { status: 400 });
@@ -65,4 +66,4 @@ export async function DELETE(req: NextRequest) {
     await tx.delete(feedInventory).where(eq(feedInventory.id, id));
   });
   return NextResponse.json({ ok: true });
-}
+});

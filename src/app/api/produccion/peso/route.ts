@@ -2,10 +2,11 @@ import { db } from "@/db";
 import { breedWeightStandards, weightLogs } from "@/db/schema";
 import { eq, and, desc } from "drizzle-orm";
 import { NextRequest, NextResponse } from "next/server";
+import { withApiHandler, safeParseJson } from "@/lib/api-handler";
 
 export const dynamic = "force-dynamic";
 
-export async function GET(req: NextRequest) {
+export const GET = withApiHandler(async (req: NextRequest) => {
   const { searchParams } = new URL(req.url);
   const breed = searchParams.get("breed");
   const gender = searchParams.get("gender") || "hembra";
@@ -26,14 +27,18 @@ export async function GET(req: NextRequest) {
     .limit(200);
 
   return NextResponse.json({ standards, logs });
-}
+});
 
-export async function POST(req: NextRequest) {
-  const body = await req.json();
+export const POST = withApiHandler(async (req: NextRequest) => {
+  const body = await safeParseJson(req);
   const { date, batchId, henGroup, breed, weekNumber, avgWeightKg, sampleSize, notes } = body;
 
   if (!date || !avgWeightKg) {
     return NextResponse.json({ error: "date and avgWeightKg are required" }, { status: 400 });
+  }
+  const weightNum = Number(avgWeightKg);
+  if (isNaN(weightNum) || weightNum <= 0) {
+    return NextResponse.json({ error: "avgWeightKg must be a positive number" }, { status: 400 });
   }
 
   const [row] = await db
@@ -51,9 +56,9 @@ export async function POST(req: NextRequest) {
     .returning();
 
   return NextResponse.json(row, { status: 201 });
-}
+});
 
-export async function DELETE(req: NextRequest) {
+export const DELETE = withApiHandler(async (req: NextRequest) => {
   const { searchParams } = new URL(req.url);
   const id = searchParams.get("id");
   if (!id) {
@@ -62,4 +67,4 @@ export async function DELETE(req: NextRequest) {
 
   await db.delete(weightLogs).where(eq(weightLogs.id, id));
   return NextResponse.json({ ok: true });
-}
+});

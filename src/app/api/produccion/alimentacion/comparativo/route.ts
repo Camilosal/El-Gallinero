@@ -3,6 +3,7 @@ import { catalogos, hens, feedPrograms, feedInventory, feedMovements } from "@/d
 import { eq, and, sql, or, desc, gte } from "drizzle-orm";
 import { NextRequest, NextResponse } from "next/server";
 import { runFeedProgramCatchup } from "@/lib/feeding/runProgram";
+import { withApiHandler, safeParseJson } from "@/lib/api-handler";
 
 export const dynamic = "force-dynamic";
 
@@ -14,7 +15,7 @@ export const dynamic = "force-dynamic";
  * Query params:
  * - days: número de días hacia atrás (default: 14)
  */
-export async function GET(req: NextRequest) {
+export const GET = withApiHandler(async (req: NextRequest) => {
   const { searchParams } = new URL(req.url);
   const daysParam = searchParams.get("days") || "14";
   const days = parseInt(daysParam, 10);
@@ -197,4 +198,4 @@ export async function GET(req: NextRequest) {
     comparativo: comparativo.reverse(),
     dailyData: dailyData.reverse(),
   });
-}
+});

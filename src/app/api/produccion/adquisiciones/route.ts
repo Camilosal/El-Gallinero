@@ -2,10 +2,13 @@ import { db } from "@/db";
 import { birdAcquisitions, hens, roosters, broilerBatches, transactions } from "@/db/schema";
 import { eq, desc, sql } from "drizzle-orm";
 import { NextRequest, NextResponse } from "next/server";
+import { withApiHandler, safeParseJson } from "@/lib/api-handler";
 
 export const dynamic = "force-dynamic";
 
-function nextCodes(existingCodes: string[], prefix: string, count: number): string[] {
+/** Generate next sequential codes inside a transaction */
+async function nextCodesInTx(tx: any, table: any, prefix: string, count: number): Promise<string[]> {
+  const existingCodes = (await tx.select({ code: table.code }).from(table)).map((r: any) => r.code);
   let max = 0;
   const re = new RegExp(`^${prefix}-(\\d+)$`);
   for (const code of existingCodes) {
@@ -15,13 +18,13 @@ function nextCodes(existingCodes: string[], prefix: string, count: number): stri
   return Array.from({ length: count }, (_, i) => `${prefix}-${String(max + i + 1).padStart(3, "0")}`);
 }
 
-export async function GET() {
+export const GET = withApiHandler(async () => {
   const data = await db.select().from(birdAcquisitions).orderBy(desc(birdAcquisitions.createdAt));
   return NextResponse.json(data);
-}
+});
 
-export async function POST(req: NextRequest) {
-  const body = await req.json();
+export const POST = withApiHandler(async (req: NextRequest) => {
+  const body = await safeParseJson(req);
   const { date, acquisitionType, birdType, quantity, unitCost, supplier, breed, birthDate, notes } = body;
 
   if (!date || !acquisitionType || !birdType || !quantity || quantity < 1) {
@@ -48,8 +51,7 @@ export async function POST(req: NextRequest) {
     let createdBirdIds: string[] = [];
 
     if (birdType === "gallina") {
-      const existingCodes = (await tx.select({ code: hens.code }).from(hens)).map((h) => h.code);
-      const codes = nextCodes(existingCodes, "G", Number(quantity));
+      const codes = await nextCodesInTx(tx, hens, "G", Number(quantity));
       const inserted = await tx.insert(hens).values(
         codes.map((code) => ({
           code,
@@ -62,8 +64,7 @@ export async function POST(req: NextRequest) {
       ).returning();
       createdBirdIds = inserted.map((h) => h.id);
     } else if (birdType === "gallo") {
-      const existingCodes = (await tx.select({ code: roosters.code }).from(roosters)).map((r) => r.code);
-      const codes = nextCodes(existingCodes, "GA", Number(quantity));
+      const codes = await nextCodesInTx(tx, roosters, "GA", Number(quantity));
       const inserted = await tx.insert(roosters).values(
         codes.map((code) => ({
           code,
@@ -75,6 +76,8 @@ export async function POST(req: NextRequest) {
       ).returning();
       createdBirdIds = inserted.map((r) => r.id);
     } else if (birdType === "lote_pollos") {
+      // Lock to prevent concurrent batch code generation
+      await tx.execute(sql`LOCK TABLE ${broilerBatches} IN EXCLUSIVE MODE`);
       const [maxRow] = await tx.select({ maxCode: sql<string>`max(${broilerBatches.code})` }).from(broilerBatches);
       let max = 0;
       if (maxRow?.maxCode) {
@@ -116,10 +119,10 @@ export async function POST(req: NextRequest) {
   });
 
   return NextResponse.json(result, { status: 201 });
-}
+});
 
-export async function PUT(req: NextRequest) {
-  const body = await req.json();
+export const PUT = withApiHandler(async (req: NextRequest) => {
+  const body = await safeParseJson(req);
   if (!body.id) return NextResponse.json({ error: "ID requerido" }, { status: 400 });
 
   const [existing] = await db.select().from(birdAcquisitions).where(eq(birdAcquisitions.id, body.id));
@@ -135,9 +138,9 @@ export async function PUT(req: NextRequest) {
   }).where(eq(birdAcquisitions.id, body.id)).returning();
 
   return NextResponse.json(updated);
-}
+});
 
-export async function DELETE(req: NextRequest) {
+export const DELETE = withApiHandler(async (req: NextRequest) => {
   const { searchParams } = new URL(req.url);
   const id = searchParams.get("id");
   if (!id) return NextResponse.json({ error: "ID requerido" }, { status: 400 });
@@ -164,4 +167,4 @@ export async function DELETE(req: NextRequest) {
   });
 
   return NextResponse.json({ ok: true });
-}
+});

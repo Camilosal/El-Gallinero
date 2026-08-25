@@ -1,412 +1,501 @@
 import Link from "next/link";
-import { 
-  Egg, 
-  DollarSign, 
-  BarChart3, 
-  Package, 
-  Heart, 
-  Wheat,
-  CheckCircle2,
-  ArrowRight,
-  Leaf,
-  Shield,
-  Zap
-} from "lucide-react";
+import Image from "next/image";
+import ScrollReveal from "@/components/ScrollReveal";
+import MobileNav from "@/components/MobileNav";
+
+const jsonLd = {
+  "@context": "https://schema.org",
+  "@graph": [
+    {
+      "@type": "WebPage",
+      "@id": "https://iwage.co/granja/gallinero#webpage",
+      url: "https://iwage.co/granja/gallinero",
+      name: "El Gallinero — Iwagé Granja",
+      description:
+        "Software abierto que gestiona la parvada real de Iwagé Granja en la vereda Ambalá: identidad individual por ave, trazabilidad financiera automática y modo simple/avanzado para el registro diario.",
+      inLanguage: "es-CO",
+      isPartOf: { "@id": "https://iwage.co#website" },
+      about: { "@id": "https://iwage.co/granja/gallinero#software" },
+      breadcrumb: { "@id": "https://iwage.co/granja/gallinero#breadcrumb" },
+    },
+    {
+      "@type": "BreadcrumbList",
+      "@id": "https://iwage.co/granja/gallinero#breadcrumb",
+      itemListElement: [
+        { "@type": "ListItem", position: 1, name: "Iwagé", item: "https://iwage.co" },
+        { "@type": "ListItem", position: 2, name: "Granja", item: "https://iwage.co/granja" },
+        { "@type": "ListItem", position: 3, name: "El Gallinero", item: "https://iwage.co/granja/gallinero" },
+      ],
+    },
+    {
+      "@type": "SoftwareApplication",
+      "@id": "https://iwage.co/granja/gallinero#software",
+      name: "El Gallinero",
+      description:
+        "Sistema de gestión avícola de código abierto: identidad individual por ave, trazabilidad financiera automática (PEPS por talla de huevo), sanidad, inventarios y modo simple/avanzado. En producción real en Iwagé Granja, Ambalá, Colombia.",
+      applicationCategory: "BusinessApplication",
+      applicationSubCategory: "Farm Management Software",
+      operatingSystem: "Web, PWA",
+      softwareRequirements: "Navegador web moderno",
+      programmingLanguage: ["TypeScript", "React"],
+      codeRepository: "https://github.com/Camilosal/El-Gallinero",
+      license: "https://github.com/Camilosal/El-Gallinero/blob/main/LICENSE",
+      url: "https://iwage.co/granja/gallinero",
+      sameAs: ["https://github.com/Camilosal/El-Gallinero"],
+      offers: { "@type": "Offer", price: "0", priceCurrency: "USD" },
+      creator: { "@id": "https://iwage.co#organization" },
+      isPartOf: { "@id": "https://iwage.co/granja#project" },
+    },
+    {
+      "@type": "Organization",
+      "@id": "https://iwage.co#organization",
+      name: "Iwagé",
+      url: "https://iwage.co",
+      description:
+        "Granja autosustentable y meliponario en la vereda Ambalá, Ibagué, Tolima, Colombia.",
+    },
+  ],
+};
 
 export default function LandingPage() {
   return (
-    <div className="min-h-screen bg-gradient-to-b from-earth-50 to-white text-slate-900">
-      {/* Hero Section */}
-      <section className="relative overflow-hidden">
-        <div className="absolute inset-0 bg-gradient-to-br from-earth-100/50 via-transparent to-earth-100/30" />
-        <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-24 sm:py-32">
-          <div className="text-center">
-            <div className="inline-flex items-center gap-2 px-4 py-2 bg-earth-100 rounded-full text-earth-700 text-sm font-medium mb-6">
-              <Leaf className="w-4 h-4" />
-              <span>Granja Autosustentable Iwagé</span>
+    <ScrollReveal>
+      <div style={{ background: "var(--cream)", color: "var(--ink)", fontFamily: "var(--font-inter, 'Inter'), sans-serif", lineHeight: 1.6, WebkitFontSmoothing: "antialiased" }}>
+        {/* Structured Data */}
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
+        />
+
+        {/* ── NAV ── */}
+        <nav className="land-nav">
+          <div className="land-wrap">
+            <div className="land-brandmark">
+              <span className="dot" />
+              El Gallinero <small>&nbsp;· IWAGÉ GRANJA</small>
             </div>
-            
-            <h1 className="text-5xl sm:text-6xl lg:text-7xl font-bold text-earth-900 mb-6 leading-tight">
-              El Gallinero
-            </h1>
-            
-            <p className="text-xl sm:text-2xl text-earth-600 max-w-3xl mx-auto mb-4 leading-relaxed">
-              Sistema integral de gestión avícola para una granja sustentable
-            </p>
-            
-            <p className="text-lg text-earth-500 max-w-2xl mx-auto mb-10">
-              Controla producción, finanzas, inventarios y sanidad en una sola plataforma diseñada específicamente para gallineros.
-            </p>
-            
-            <div className="flex flex-col sm:flex-row gap-4 justify-center items-center">
-              <Link
-                href="/login"
-                className="group px-8 py-4 bg-earth-600 text-white rounded-xl hover:bg-earth-700 transition-all font-semibold text-lg shadow-lg hover:shadow-xl flex items-center gap-2"
-              >
-                Iniciar Sesión
-                <ArrowRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" />
+            <div className="land-navlinks">
+              <a href="#historia">Historia</a>
+              <a href="#funcionalidades">Funcionalidades</a>
+              <a href="#caminos">Probarlo</a>
+              <a href="#cierre">Sobre el criterio</a>
+            </div>
+            <MobileNav />
+          </div>
+        </nav>
+
+        {/* ── HERO ── */}
+        <header className="land-hero">
+          <div className="land-wrap land-hero-grid">
+            <div>
+              <div className="land-eyebrow">
+                Agroecosistema productivo — producción animal integrada
+              </div>
+              <h1 className="land-h1">
+                Un gallinero real,
+                <br />
+                trazado <em>día a día</em>.
+              </h1>
+              <p className="lede">
+                Software abierto que gestiona la parvada de la granja de Ambalá
+                desde 2026 — cada ave, cada huevo y cada peso, con trazabilidad
+                completa. No es una demo: es la herramienta con la que se lleva
+                el gallinero.
+              </p>
+              <div className="land-cta-row">
+                <Link href="/login" className="land-btn land-btn-primary">
+                  Ingresar a la app →
+                </Link>
+                <a
+                  href="https://github.com/Camilosal/El-Gallinero"
+                  className="land-btn land-btn-ghost"
+                >
+                  Ver el código en GitHub
+                </a>
+              </div>
+            </div>
+
+            <div className="land-logcard">
+              <div className="stamp">HOY EN EL GALLINERO</div>
+              <h3>Bitácora — corredor Ambalá</h3>
+              <div className="land-logrow">
+                <div className="land-logstat">
+                  <div className="n">26</div>
+                  <div className="l">gallinas activas</div>
+                </div>
+                <div className="land-logstat">
+                  <div className="n">13</div>
+                  <div className="l">huevos / día (prom.)</div>
+                </div>
+                <div className="land-logstat">
+                  <div className="n">28d</div>
+                  <div className="l">stock de alimento</div>
+                </div>
+                <div className="land-logstat">
+                  <div className="n">7</div>
+                  <div className="l">módulos conectados</div>
+                </div>
+              </div>
+              <div className="land-logfoot">
+                <span>fuente: el-gallinero, prod.</span>
+                <span>PEPS · trazabilidad automática</span>
+              </div>
+            </div>
+          </div>
+
+          <div className="land-wrap">
+            <div className="land-microstrip land-reveal">
+              <span>
+                <strong>7</strong> módulos conectados
+              </span>
+              <span className="sep">·</span>
+              <span>Auto-registro financiero</span>
+              <span className="sep">·</span>
+              <span>Funciona sin conexión (PWA)</span>
+              <span className="sep">·</span>
+              <span>Código abierto — MIT</span>
+            </div>
+          </div>
+
+          {/* Hero illustration */}
+          <div className="land-wrap land-hero-illust land-reveal">
+            <Image
+              src="/hero-illustration.png"
+              alt="Ilustración del gallinero de Ambalá con gallinas de diferentes razas en el corredor"
+              width={1080}
+              height={810}
+              style={{ objectFit: "cover" }}
+            />
+          </div>
+        </header>
+
+        {/* ── HISTORIA ── */}
+        <section className="land-section land-historia" id="historia">
+          <div className="land-wrap">
+            <div className="land-eyebrow">Por qué existe</div>
+            <h2 className="land-h2 land-reveal">
+              Nació de una pregunta operativa, no de una idea de producto.
+            </h2>
+            <div className="land-historia-grid">
+              <p className="land-pull land-reveal">
+                «¿Cuánto cuesta realmente una docena de huevos en Ambalá — y
+                cuánto se gana vendiéndola?»
+              </p>
+              <div className="land-factline-list">
+                <div className="land-factline land-reveal">
+                  <span className="k">Identidad</span>
+                  <span className="v">
+                    Cada gallina con raza, edad y etapa — no un número en un
+                    lote.
+                  </span>
+                </div>
+                <div className="land-factline land-reveal">
+                  <span className="k">Trazabilidad</span>
+                  <span className="v">
+                    Cada huevo rastreable hasta su venta.
+                  </span>
+                </div>
+                <div className="land-factline land-reveal">
+                  <span className="k">Costo real</span>
+                  <span className="v">
+                    Cada peso de alimento o vacuna, conectado al evento que lo
+                    generó.
+                  </span>
+                </div>
+                <div className="land-factline end land-reveal">
+                  <span className="k">Hoy</span>
+                  <span className="v">
+                    26 aves activas, trazabilidad financiera automática, cero
+                    cuaderno.
+                  </span>
+                </div>
+              </div>
+            </div>
+
+            {/* Traceability flow illustration */}
+            <div className="land-trace-illust land-reveal">
+              <Image
+                src="/traceability-flow.png"
+                alt="Diagrama de trazabilidad: gallina pone huevo, se clasifica por tamaño, y se genera transacción financiera automática"
+                width={1080}
+                height={617}
+                style={{ objectFit: "cover" }}
+              />
+            </div>
+          </div>
+        </section>
+
+        {/* ── FUNCIONALIDADES ── */}
+        <section className="land-section land-func" id="funcionalidades">
+          <div className="land-wrap">
+            <div className="land-func-head">
+              <div className="land-eyebrow">Qué hace El Gallinero</div>
+              <h2 className="land-h2 land-reveal">
+                Siete módulos que cubren todo lo que pasa en el gallinero.
+              </h2>
+              <p className="land-reveal">
+                Cada módulo se conecta automáticamente con el financiero: no hay
+                que registrar dos veces lo mismo. Lo que operas se traza, se
+                cuenta y se reporta solo.
+              </p>
+            </div>
+
+            <div className="land-func-grid">
+              <div className="land-func-card land-reveal">
+                <div className="ficon">🐔</div>
+                <h3>Producción</h3>
+                <p>
+                  Parvada individual con código, raza, edad y etapa. Ciclo de
+                  vida automático de 8 estados. Lotes de engorde, incubación,
+                  sacrificios y mortalidad con trazabilidad completa.
+                </p>
+                <div className="ftags">
+                  <span className="ftag">gallinas</span>
+                  <span className="ftag">pollos</span>
+                  <span className="ftag">incubación</span>
+                  <span className="ftag">mortalidad</span>
+                </div>
+              </div>
+
+              <div className="land-func-card land-reveal">
+                <div className="ficon">🥚</div>
+                <h3>Inventarios</h3>
+                <p>
+                  Huevos con PEPS por talla y alerta de envejecimiento. Stock de
+                  aves, insumos y gallinaza. Balance consolidado con valor total
+                  del inventario en tiempo real.
+                </p>
+                <div className="ftags">
+                  <span className="ftag">huevos PEPS</span>
+                  <span className="ftag">aves</span>
+                  <span className="ftag">insumos</span>
+                  <span className="ftag">gallinaza</span>
+                </div>
+              </div>
+
+              <div className="land-func-card land-reveal">
+                <div className="ficon">💊</div>
+                <h3>Sanidad</h3>
+                <p>
+                  Control sanitario con eventos de vacunación, desparasitación y
+                  tratamiento. Calendario preventivo con recordatorios y días de
+                  retiro. Trazabilidad por ave o lote.
+                </p>
+                <div className="ftags">
+                  <span className="ftag">vacunas</span>
+                  <span className="ftag">calendario</span>
+                  <span className="ftag">tratamientos</span>
+                </div>
+              </div>
+
+              <div className="land-func-card land-reveal">
+                <div className="ficon">🔧</div>
+                <h3>Operaciones</h3>
+                <p>
+                  Tareas de mantenimiento con estado, costo y plantillas rápidas.
+                  Gallinaza con factores de producción por grupo, ajustes
+                  manuales y ventas con ingreso automático.
+                </p>
+                <div className="ftags">
+                  <span className="ftag">mantenimiento</span>
+                  <span className="ftag">gallinaza</span>
+                  <span className="ftag">tareas</span>
+                </div>
+              </div>
+
+              <div className="land-func-card land-reveal">
+                <div className="ficon">💰</div>
+                <h3>Finanzas</h3>
+                <p>
+                  Cada venta, compra o evento sanitario genera su transacción
+                  automática. KPIs, presupuestos, cuentas por cobrar y pagar, y
+                  gráficos de evolución financiera.
+                </p>
+                <div className="ftags">
+                  <span className="ftag">ventas</span>
+                  <span className="ftag">egresos</span>
+                  <span className="ftag">presupuestos</span>
+                  <span className="ftag">CxC / CxP</span>
+                </div>
+              </div>
+
+              <div className="land-func-card land-reveal">
+                <div className="ficon">📊</div>
+                <h3>Análisis</h3>
+                <p>
+                  KPIs de productividad, mortalidad, conversión alimenticia y
+                  rentabilidad. Reportes exportables por período. Alertas de
+                  desviaciones en indicadores clave.
+                </p>
+                <div className="ftags">
+                  <span className="ftag">KPIs</span>
+                  <span className="ftag">reportes</span>
+                  <span className="ftag">tendencias</span>
+                </div>
+              </div>
+
+              <div className="land-func-card land-reveal">
+                <div className="ficon">⚙️</div>
+                <h3>Configuración</h3>
+                <p>
+                  Catálogos maestros: tamaños de huevo, razas, compradores,
+                  proveedores, categorías y unidades de medida. Todo parametrizable
+                  sin tocar código.
+                </p>
+                <div className="ftags">
+                  <span className="ftag">catálogos</span>
+                  <span className="ftag">razas</span>
+                  <span className="ftag">proveedores</span>
+                </div>
+              </div>
+            </div>
+
+            {/* Modules diagram illustration */}
+            <div className="land-modules-illust land-reveal">
+              <Image
+                src="/modules-diagram.png"
+                alt="Diagrama de los 7 módulos conectados de El Gallinero: Producción, Inventarios, Sanidad, Operaciones, Finanzas, Análisis y Configuración"
+                width={520}
+                height={520}
+                style={{ objectFit: "contain" }}
+              />
+            </div>
+
+            {/* ── Manual de usuario banner ── */}
+            <div className="land-manual land-reveal">
+              <div className="land-manual-text">
+                <div className="land-eyebrow">Documentación</div>
+                <h3>Manual de usuario</h3>
+                <p>
+                  Guía paso a paso para configurar tu gallinero, registrar la
+                  producción diaria y aprovechar cada módulo. Incluye primeros
+                  pasos, flujos operativos y preguntas frecuentes.
+                </p>
+              </div>
+              <Link href="/dashboard/guia" className="land-manual-btn">
+                Abrir el manual →
               </Link>
-              <a
-                href="#caracteristicas"
-                className="px-8 py-4 border-2 border-earth-300 text-earth-700 rounded-xl hover:bg-earth-50 transition-all font-semibold text-lg"
-              >
-                Conocer Más
-              </a>
             </div>
           </div>
-        </div>
-      </section>
+        </section>
 
-      {/* Stats Section */}
-      <section className="py-16 bg-white border-y border-earth-100">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="grid grid-cols-2 lg:grid-cols-4 gap-8">
-            <div className="text-center">
-              <div className="text-4xl font-bold text-earth-600 mb-2">100%</div>
-              <div className="text-earth-500 font-medium">Trazabilidad</div>
+        {/* ── CAMINOS ── */}
+        <section className="land-section" id="caminos">
+          <div className="land-wrap">
+            <div className="land-caminos-head">
+              <div className="land-eyebrow">Dos formas de entrar</div>
+              <h2 className="land-h2 land-reveal">
+                Elige tu camino según lo que necesitas resolver.
+              </h2>
             </div>
-            <div className="text-center">
-              <div className="text-4xl font-bold text-earth-600 mb-2">24/7</div>
-              <div className="text-earth-500 font-medium">Monitoreo</div>
-            </div>
-            <div className="text-center">
-              <div className="text-4xl font-bold text-earth-600 mb-2">Auto</div>
-              <div className="text-earth-500 font-medium">Registro</div>
-            </div>
-            <div className="text-center">
-              <div className="text-4xl font-bold text-earth-600 mb-2">PWA</div>
-              <div className="text-earth-500 font-medium">Offline Ready</div>
+            <div className="land-paths">
+              <div className="land-path land-reveal">
+                <div className="tag">Para quien lleva un gallinero</div>
+                <h3 className="land-h3">Pruébalo antes de instalar nada</h3>
+                <p>
+                  La demo pública corre con meses de historial simulado — huevos,
+                  ventas, alimento, sanidad — para explorar el sistema completo
+                  sin tocar tus propios datos.
+                </p>
+                <ul>
+                  <li>Cada ave con ficha propia: código, raza, edad, etapa</li>
+                  <li>Vista de acceso rápido para el registro diario</li>
+                  <li>Modo simple y modo avanzado, sin abrumar desde el día uno</li>
+                  <li>Cada venta o tratamiento genera su transacción automáticamente</li>
+                  <li>Funciona sin conexión — registra en el gallinero aunque no haya señal</li>
+                </ul>
+                <Link href="/login" className="go">
+                  Ingresar a la app →
+                </Link>
+              </div>
+              <div className="land-path land-reveal">
+                <div className="tag">Para quien desarrolla o gestiona sistemas</div>
+                <h3 className="land-h3">La ficha técnica</h3>
+                <p>
+                  Software libre publicado en GitHub bajo licencia abierta,
+                  pensado para que cualquier gallinero pequeño o mediano lo
+                  despliegue con su propia base de datos.
+                </p>
+                <ul>
+                  <li>Next.js 16 + React 19 · Drizzle ORM sobre PostgreSQL · Tailwind CSS 4</li>
+                  <li>7 módulos, 25 tablas, reglas de negocio explícitas</li>
+                  <li>
+                    <code style={{ fontFamily: "var(--font-mono, 'IBM Plex Mono'), monospace" }}>
+                      docker compose up
+                    </code>{" "}
+                    levanta app y base de datos en un paso
+                  </li>
+                  <li>README con arquitectura, diccionario de datos y guía de contribución</li>
+                </ul>
+                <a
+                  href="https://github.com/Camilosal/El-Gallinero"
+                  className="go"
+                >
+                  Ver el repositorio →
+                </a>
+              </div>
             </div>
           </div>
-        </div>
-      </section>
+        </section>
 
-      {/* Features Section */}
-      <section id="caracteristicas" className="py-20 bg-earth-50/50">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="text-center mb-16">
-            <h2 className="text-4xl font-bold text-earth-800 mb-4">
-              Todo lo que necesitas para gestionar tu gallinero
-            </h2>
-            <p className="text-xl text-earth-600 max-w-2xl mx-auto">
-              Herramientas especializadas para cada aspecto de la producción avícola
-            </p>
-          </div>
-          
-          <div className="grid gap-8 md:grid-cols-2 lg:grid-cols-3">
-            {/* Producción */}
-            <div className="group bg-white rounded-2xl shadow-sm hover:shadow-lg transition-all p-8 border border-earth-100">
-              <div className="w-14 h-14 bg-earth-100 rounded-xl flex items-center justify-center mb-6 group-hover:scale-110 transition-transform">
-                <Egg className="w-7 h-7 text-earth-600" />
-              </div>
-              <h3 className="text-2xl font-bold text-earth-800 mb-3">Producción</h3>
-              <ul className="space-y-2 text-earth-600">
-                <li className="flex items-start gap-2">
-                  <CheckCircle2 className="w-5 h-5 text-earth-500 mt-0.5 flex-shrink-0" />
-                  <span>Gestión de gallinas y pollos</span>
-                </li>
-                <li className="flex items-start gap-2">
-                  <CheckCircle2 className="w-5 h-5 text-earth-500 mt-0.5 flex-shrink-0" />
-                  <span>Registro de postura diario</span>
-                </li>
-                <li className="flex items-start gap-2">
-                  <CheckCircle2 className="w-5 h-5 text-earth-500 mt-0.5 flex-shrink-0" />
-                  <span>Control de incubación</span>
-                </li>
-                <li className="flex items-start gap-2">
-                  <CheckCircle2 className="w-5 h-5 text-earth-500 mt-0.5 flex-shrink-0" />
-                  <span>Ciclo de vida automático</span>
-                </li>
-              </ul>
-            </div>
-
-            {/* Finanzas */}
-            <div className="group bg-white rounded-2xl shadow-sm hover:shadow-lg transition-all p-8 border border-earth-100">
-              <div className="w-14 h-14 bg-green-100 rounded-xl flex items-center justify-center mb-6 group-hover:scale-110 transition-transform">
-                <DollarSign className="w-7 h-7 text-green-600" />
-              </div>
-              <h3 className="text-2xl font-bold text-earth-800 mb-3">Finanzas</h3>
-              <ul className="space-y-2 text-earth-600">
-                <li className="flex items-start gap-2">
-                  <CheckCircle2 className="w-5 h-5 text-green-500 mt-0.5 flex-shrink-0" />
-                  <span>Ingresos y egresos automáticos</span>
-                </li>
-                <li className="flex items-start gap-2">
-                  <CheckCircle2 className="w-5 h-5 text-green-500 mt-0.5 flex-shrink-0" />
-                  <span>Cálculo de costos por lote</span>
-                </li>
-                <li className="flex items-start gap-2">
-                  <CheckCircle2 className="w-5 h-5 text-green-500 mt-0.5 flex-shrink-0" />
-                  <span>Balance en tiempo real</span>
-                </li>
-                <li className="flex items-start gap-2">
-                  <CheckCircle2 className="w-5 h-5 text-green-500 mt-0.5 flex-shrink-0" />
-                  <span>Catálogo de productos</span>
-                </li>
-              </ul>
-            </div>
-
-            {/* Inventarios */}
-            <div className="group bg-white rounded-2xl shadow-sm hover:shadow-lg transition-all p-8 border border-earth-100">
-              <div className="w-14 h-14 bg-amber-100 rounded-xl flex items-center justify-center mb-6 group-hover:scale-110 transition-transform">
-                <Package className="w-7 h-7 text-amber-600" />
-              </div>
-              <h3 className="text-2xl font-bold text-earth-800 mb-3">Inventarios</h3>
-              <ul className="space-y-2 text-earth-600">
-                <li className="flex items-start gap-2">
-                  <CheckCircle2 className="w-5 h-5 text-amber-500 mt-0.5 flex-shrink-0" />
-                  <span>Control de stock automático</span>
-                </li>
-                <li className="flex items-start gap-2">
-                  <CheckCircle2 className="w-5 h-5 text-amber-500 mt-0.5 flex-shrink-0" />
-                  <span>Alertas de stock bajo</span>
-                </li>
-                <li className="flex items-start gap-2">
-                  <CheckCircle2 className="w-5 h-5 text-amber-500 mt-0.5 flex-shrink-0" />
-                  <span>Movimientos registrados</span>
-                </li>
-                <li className="flex items-start gap-2">
-                  <CheckCircle2 className="w-5 h-5 text-amber-500 mt-0.5 flex-shrink-0" />
-                  <span>Inventario físico</span>
-                </li>
-              </ul>
-            </div>
-
-            {/* Sanidad */}
-            <div className="group bg-white rounded-2xl shadow-sm hover:shadow-lg transition-all p-8 border border-earth-100">
-              <div className="w-14 h-14 bg-red-100 rounded-xl flex items-center justify-center mb-6 group-hover:scale-110 transition-transform">
-                <Heart className="w-7 h-7 text-red-600" />
-              </div>
-              <h3 className="text-2xl font-bold text-earth-800 mb-3">Sanidad</h3>
-              <ul className="space-y-2 text-earth-600">
-                <li className="flex items-start gap-2">
-                  <CheckCircle2 className="w-5 h-5 text-red-500 mt-0.5 flex-shrink-0" />
-                  <span>Registro de tratamientos</span>
-                </li>
-                <li className="flex items-start gap-2">
-                  <CheckCircle2 className="w-5 h-5 text-red-500 mt-0.5 flex-shrink-0" />
-                  <span>Control de vacunación</span>
-                </li>
-                <li className="flex items-start gap-2">
-                  <CheckCircle2 className="w-5 h-5 text-red-500 mt-0.5 flex-shrink-0" />
-                  <span>Mortalidad y causas</span>
-                </li>
-                <li className="flex items-start gap-2">
-                  <CheckCircle2 className="w-5 h-5 text-red-500 mt-0.5 flex-shrink-0" />
-                  <span>Alertas sanitarias</span>
-                </li>
-              </ul>
-            </div>
-
-            {/* Análisis */}
-            <div className="group bg-white rounded-2xl shadow-sm hover:shadow-lg transition-all p-8 border border-earth-100">
-              <div className="w-14 h-14 bg-blue-100 rounded-xl flex items-center justify-center mb-6 group-hover:scale-110 transition-transform">
-                <BarChart3 className="w-7 h-7 text-blue-600" />
-              </div>
-              <h3 className="text-2xl font-bold text-earth-800 mb-3">Análisis</h3>
-              <ul className="space-y-2 text-earth-600">
-                <li className="flex items-start gap-2">
-                  <CheckCircle2 className="w-5 h-5 text-blue-500 mt-0.5 flex-shrink-0" />
-                  <span>KPIs en tiempo real</span>
-                </li>
-                <li className="flex items-start gap-2">
-                  <CheckCircle2 className="w-5 h-5 text-blue-500 mt-0.5 flex-shrink-0" />
-                  <span>Gráficos de tendencias</span>
-                </li>
-                <li className="flex items-start gap-2">
-                  <CheckCircle2 className="w-5 h-5 text-blue-500 mt-0.5 flex-shrink-0" />
-                  <span>Reportes exportables</span>
-                </li>
-                <li className="flex items-start gap-2">
-                  <CheckCircle2 className="w-5 h-5 text-blue-500 mt-0.5 flex-shrink-0" />
-                  <span>Análisis de rentabilidad</span>
-                </li>
-              </ul>
-            </div>
-
-            {/* Alimentación */}
-            <div className="group bg-white rounded-2xl shadow-sm hover:shadow-lg transition-all p-8 border border-earth-100">
-              <div className="w-14 h-14 bg-yellow-100 rounded-xl flex items-center justify-center mb-6 group-hover:scale-110 transition-transform">
-                <Wheat className="w-7 h-7 text-yellow-600" />
-              </div>
-              <h3 className="text-2xl font-bold text-earth-800 mb-3">Alimentación</h3>
-              <ul className="space-y-2 text-earth-600">
-                <li className="flex items-start gap-2">
-                  <CheckCircle2 className="w-5 h-5 text-yellow-500 mt-0.5 flex-shrink-0" />
-                  <span>Programas alimenticios</span>
-                </li>
-                <li className="flex items-start gap-2">
-                  <CheckCircle2 className="w-5 h-5 text-yellow-500 mt-0.5 flex-shrink-0" />
-                  <span>Formulación de alimentos</span>
-                </li>
-                <li className="flex items-start gap-2">
-                  <CheckCircle2 className="w-5 h-5 text-yellow-500 mt-0.5 flex-shrink-0" />
-                  <span>Consumo automático</span>
-                </li>
-                <li className="flex items-start gap-2">
-                  <CheckCircle2 className="w-5 h-5 text-yellow-500 mt-0.5 flex-shrink-0" />
-                  <span>Control de costos</span>
-                </li>
-              </ul>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      {/* Benefits Section */}
-      <section className="py-20 bg-white">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="text-center mb-16">
-            <h2 className="text-4xl font-bold text-earth-800 mb-4">
-              ¿Por qué El Gallinero?
-            </h2>
-            <p className="text-xl text-earth-600 max-w-2xl mx-auto">
-              Diseñado específicamente para las necesidades de un gallinero autosustentable
-            </p>
-          </div>
-          
-          <div className="grid gap-12 md:grid-cols-3">
-            <div className="text-center">
-              <div className="w-16 h-16 bg-earth-100 rounded-2xl flex items-center justify-center mx-auto mb-6">
-                <Shield className="w-8 h-8 text-earth-600" />
-              </div>
-              <h3 className="text-xl font-bold text-earth-800 mb-3">Datos Seguros</h3>
-              <p className="text-earth-600">
-                Base de datos PostgreSQL con respaldos automáticos. Tu información siempre está protegida.
-              </p>
-            </div>
-            
-            <div className="text-center">
-              <div className="w-16 h-16 bg-earth-100 rounded-2xl flex items-center justify-center mx-auto mb-6">
-                <Zap className="w-8 h-8 text-earth-600" />
-              </div>
-              <h3 className="text-xl font-bold text-earth-800 mb-3">Automatización Total</h3>
-              <p className="text-earth-600">
-                Los registros se generan automáticamente desde las operaciones diarias. Menos trabajo manual.
-              </p>
-            </div>
-            
-            <div className="text-center">
-              <div className="w-16 h-16 bg-earth-100 rounded-2xl flex items-center justify-center mx-auto mb-6">
-                <Leaf className="w-8 h-8 text-earth-600" />
-              </div>
-              <h3 className="text-xl font-bold text-earth-800 mb-3">Enfoque Sustentable</h3>
-              <p className="text-earth-600">
-                Diseñado para granjas autosustentables. Control de recursos y optimización de ciclos.
-              </p>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      {/* Tech Stack Section */}
-      <section className="py-20 bg-earth-50">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="text-center mb-16">
-            <h2 className="text-4xl font-bold text-earth-800 mb-4">
-              Tecnología Moderna
-            </h2>
-            <p className="text-xl text-earth-600 max-w-2xl mx-auto">
-              Construido con las mejores tecnologías para garantizar rendimiento y confiabilidad
-            </p>
-          </div>
-          
-          <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
-            <div className="bg-white rounded-xl shadow-sm p-6 text-center border border-earth-100">
-              <div className="text-3xl font-bold text-earth-700 mb-2">Next.js 16</div>
-              <p className="text-earth-500 text-sm">Framework React de última generación</p>
-            </div>
-            <div className="bg-white rounded-xl shadow-sm p-6 text-center border border-earth-100">
-              <div className="text-3xl font-bold text-earth-700 mb-2">PostgreSQL</div>
-              <p className="text-earth-500 text-sm">Base de datos robusta y confiable</p>
-            </div>
-            <div className="bg-white rounded-xl shadow-sm p-6 text-center border border-earth-100">
-              <div className="text-3xl font-bold text-earth-700 mb-2">TypeScript</div>
-              <p className="text-earth-500 text-sm">Código seguro y mantenible</p>
-            </div>
-            <div className="bg-white rounded-xl shadow-sm p-6 text-center border border-earth-100">
-              <div className="text-3xl font-bold text-earth-700 mb-2">Tailwind CSS</div>
-              <p className="text-earth-500 text-sm">Diseño responsivo y moderno</p>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      {/* CTA Section */}
-      <section className="py-24 bg-gradient-to-br from-earth-600 to-earth-700 text-white">
-        <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
-          <h2 className="text-4xl font-bold mb-6">
-            Comienza a gestionar tu gallinero hoy
-          </h2>
-          <p className="text-xl text-earth-100 mb-10 max-w-2xl mx-auto">
-            Accede al sistema completo de gestión avícola diseñado para la granja autosustentable Iwagé
-          </p>
-          <div className="flex flex-col sm:flex-row gap-4 justify-center">
-            <Link
-              href="/login"
-              className="group px-8 py-4 bg-white text-earth-700 rounded-xl hover:bg-earth-50 transition-all font-semibold text-lg shadow-lg hover:shadow-xl flex items-center justify-center gap-2"
-            >
-              Iniciar Sesión
-              <ArrowRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" />
-            </Link>
-            <Link
-              href="/dashboard"
-              className="px-8 py-4 border-2 border-white text-white rounded-xl hover:bg-white/10 transition-all font-semibold text-lg"
-            >
-              Ir al Dashboard
-            </Link>
-            <Link
-              href="/dashboard/guia"
-              className="px-8 py-4 border-2 border-white/50 text-earth-200 rounded-xl hover:bg-white/10 transition-all font-semibold text-lg flex items-center justify-center gap-2"
-            >
-              📖 Guía de Usuario
-            </Link>
-          </div>
-        </div>
-      </section>
-
-      {/* Footer */}
-      <footer className="py-12 bg-earth-900 text-earth-300">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="grid gap-8 md:grid-cols-3 mb-8">
+        {/* ── CIERRE ── */}
+        <section className="land-section land-cierre" id="cierre">
+          <div className="land-wrap land-cierre-grid">
             <div>
-              <h3 className="text-white font-bold text-lg mb-4 flex items-center gap-2">
-                <span className="text-2xl">🐓</span>
-                El Gallinero
-              </h3>
-              <p className="text-earth-400 text-sm">
-                Sistema integral de gestión avícola para la granja autosustentable Iwagé.
+              <div className="land-eyebrow">El criterio de fondo</div>
+              <h2 className="land-h2 land-reveal">
+                La misma disciplina que se aplica a cualquier sistema.
+              </h2>
+              <p className="land-lead-short land-reveal">
+                No es un caso aislado. Es evidencia de que el criterio se
+                sostiene fuera de una presentación.
               </p>
-            </div>
-            <div>
-              <h4 className="text-white font-semibold mb-4">Enlaces</h4>
-              <ul className="space-y-2 text-sm">
-                <li><Link href="/login" className="hover:text-white transition-colors">Iniciar Sesión</Link></li>
-                <li><Link href="/dashboard" className="hover:text-white transition-colors">Dashboard</Link></li>
-                <li><Link href="/dashboard/guia" className="hover:text-white transition-colors">Guía de Usuario</Link></li>
+              <ul className="land-chiplist land-reveal">
+                <li>Modelar el proceso real antes que la pantalla</li>
+                <li>Conectar cada operación con su impacto financiero</li>
+                <li>Trazabilidad completa, sin reportes reconstruidos a mano</li>
               </ul>
             </div>
-            <div>
-              <h4 className="text-white font-semibold mb-4">Proyecto</h4>
-              <ul className="space-y-2 text-sm">
-                <li>
-                  <a href="https://github.com/Camilosal/El-Gallinero" target="_blank" rel="noopener noreferrer" className="hover:text-white transition-colors">
-                    GitHub
-                  </a>
-                </li>
-                <li>
-                  <a href="https://iwage.com.mx" target="_blank" rel="noopener noreferrer" className="hover:text-white transition-colors">
-                    Iwagé
-                  </a>
-                </li>
-              </ul>
+            <div className="land-cierre-card land-reveal">
+              <div className="row">
+                <span>Sistema</span>
+                <span>Agroecosistema productivo</span>
+              </div>
+              <div className="row">
+                <span>Línea</span>
+                <span>Producción animal integrada</span>
+              </div>
+              <div className="row">
+                <span>Territorio</span>
+                <span>Vereda Ambalá</span>
+              </div>
+              <div className="row">
+                <span>Licencia</span>
+                <span>Código abierto</span>
+              </div>
+              <div className="row">
+                <span>Estado</span>
+                <span>En producción</span>
+              </div>
             </div>
           </div>
-          <div className="pt-8 border-t border-earth-800 text-center text-sm text-earth-500">
-            <p>&copy; {new Date().getFullYear()} El Gallinero — Iwagé Granja Autosustentable. Código abierto bajo licencia MIT.</p>
+        </section>
+
+        {/* ── FOOTER ── */}
+        <footer className="land-footer">
+          <div className="land-wrap land-foot-grid">
+            <div className="eco">
+              El Gallinero es parte del sistema Agroecosistema productivo de
+              Iwagé Granja, dentro del Ecosistema Iwagé.
+            </div>
+            <nav className="foot-links">
+              <a href="https://iwage.co">iwage.co</a>
+              <a href="https://iwage.co/granja">granja/bitácora</a>
+              <a href="https://github.com/Camilosal/El-Gallinero">GitHub</a>
+            </nav>
           </div>
-        </div>
-      </footer>
-    </div>
+        </footer>
+      </div>
+    </ScrollReveal>
   );
 }

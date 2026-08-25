@@ -2,8 +2,9 @@ import { NextResponse } from "next/server";
 import { db } from "@/db";
 import { eggProduction, mortalityRecords, feedMovements, hens } from "@/db/schema";
 import { sql, eq, and, gte, desc, lt } from "drizzle-orm";
+import { withApiHandler, safeParseJson } from "@/lib/api-handler";
 
-export async function GET() {
+export const GET = withApiHandler(async () => {
   try {
     const hace30Dias = new Date();
     hace30Dias.setDate(hace30Dias.getDate() - 30);
@@ -46,4 +47,4 @@ export async function GET() {
       { status: 500 }
     );
   }
-}
+});

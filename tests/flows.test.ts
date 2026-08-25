@@ -1,11 +1,13 @@
 import { describe, it, expect, beforeAll, afterAll, afterEach } from "vitest";
-import { eq, and } from "drizzle-orm";
+import { eq, and, sql } from "drizzle-orm";
 import {
   db, pool, mockRequest, parseJson, createCleanup, cleanup,
-  createTestFeed, getSeedFeed, getSeedStage,
+  createTestFeed, getSeedFeed, getSeedStage, purgeManureData,
   type TestCleanup,
 } from "./helpers";
-import { transactions, eggSales, eggSalesItems, feedInventory, feedMovements, eggProduction, eggProductionDetails, hens, roosters, broilerBatches } from "@/db/schema";
+import { transactions, eggSales, eggSalesItems, feedInventory, feedMovements, eggProduction, eggProductionDetails, hens, roosters, broilerBatches, manureSales, manureAdjustments, manureProduction } from "@/db/schema";
+import { requiredRoosters, assignMales, batchReadiness, flockBalance } from "@/lib/flock";
+import { isAvailableForExit } from "@/lib/lifecycle";
 
 // Import route handlers
 import { POST as ventasPOST, PUT as ventasPUT, DELETE as ventasDELETE } from "@/app/api/finanzas/finanzas/ventas/route";
@@ -15,19 +17,56 @@ import { GET as dashboardGET } from "@/app/api/dashboard/route";
 import { GET as resumenGET } from "@/app/api/produccion/etapas/resumen/route";
 import { POST as finanzasPOST, DELETE as finanzasDELETE } from "@/app/api/finanzas/finanzas/route";
 import { GET as gallinasGET, POST as gallinasPOST, PUT as gallinasPUT } from "@/app/api/produccion/gallinas/route";
-import { requiredRoosters, assignMales, batchReadiness, flockBalance } from "@/lib/flock";
 import { POST as incubacionPOST, PUT as incubacionPUT, DELETE as incubacionDELETE } from "@/app/api/produccion/incubacion/route";
-import { GET as gallosGET } from "@/app/api/produccion/pollos/route";
 import { GET as lotesGET, POST as lotesPOST } from "@/app/api/produccion/pollos/route";
 import { POST as sacrificioPOST, DELETE as sacrificioDELETE } from "@/app/api/produccion/sacrificio/route";
 import { GET as gallinazaGET, POST as gallinazaPOST, DELETE as gallinazaDELETE } from "@/app/api/operaciones/gallinaza/route";
 
 let cleanupData: TestCleanup & { productionDetailIds?: string[] };
 
+/** Call a GET route handler that does not need request parameters */
+function callGET(handler: (...a: any[]) => any) {
+  return handler(mockRequest("http://localhost/api", { method: "GET" }));
+}
+
 beforeAll(async () => {
   // Ensure DB connection is alive
   await db.select().from(eggProduction).limit(1);
+
+  // Purge stale manure data from previous test runs and re-seed clean baseline
+  await purgeManureData();
+  await db.insert(manureProduction).values([
+    { date: daysAgoStr(1), kgProduced: "4.2", source: "estimado" },
+    { date: daysAgoStr(2), kgProduced: "4.1", source: "estimado" },
+    { date: daysAgoStr(3), kgProduced: "4.3", source: "estimado" },
+    { date: daysAgoStr(4), kgProduced: "4.0", source: "estimado" },
+    { date: daysAgoStr(5), kgProduced: "4.2", source: "estimado" },
+    { date: daysAgoStr(6), kgProduced: "4.1", source: "estimado" },
+    { date: daysAgoStr(7), kgProduced: "4.4", source: "estimado" },
+    { date: daysAgoStr(10), kgProduced: "5.0", source: "real" },
+    { date: daysAgoStr(14), kgProduced: "4.5", source: "estimado" },
+    { date: daysAgoStr(21), kgProduced: "4.3", source: "estimado" },
+  ]);
+  const [mSale] = await db.insert(manureSales).values({
+    date: daysAgoStr(3), quantityKg: "25", pricePerKg: "800", totalAmount: "20000",
+    presentation: "Bulto 25 kg", buyer: "Finca La Esperanza",
+  }).returning();
+  await db.insert(transactions).values({
+    date: daysAgoStr(3), type: "ingreso", category: "Venta de abono/gallinaza",
+    description: "Venta de gallinaza (25 kg)", counterparty: "Finca La Esperanza",
+    amount: "20000", quantity: "25", unitPrice: "800", unit: "kg",
+    sourceType: "gallinaza", sourceId: mSale.id,
+  });
+  await db.insert(manureAdjustments).values({
+    date: daysAgoStr(2), deltaKg: "5", reason: "Medición real de la pila de compostaje",
+  });
 });
+
+function daysAgoStr(d: number): string {
+  const dt = new Date();
+  dt.setDate(dt.getDate() - d);
+  return dt.toISOString().split("T")[0];
+}
 
 afterAll(async () => {
   await pool.end();
@@ -153,12 +192,24 @@ describe("Income Flow (Ventas → Transactions)", () => {
     cleanupData = createCleanup();
     const today = new Date().toISOString().split("T")[0];
 
+    // Create own production to guarantee Pequeño stock regardless of seed state
+    const [testProd] = await db.insert(eggProduction).values({
+      date: today, totalCollected: 20, broken: 0, forIncubation: 0,
+      notes: "Test stock for DELETE ventas",
+    }).returning();
+    cleanupData.productionIds.push(testProd.id);
+    await db.insert(eggProductionDetails).values({
+      productionId: testProd.id, size: "Pequeño", quantity: 20,
+    });
+
     // Create a sale
     const createRes = await ventasPOST(mockRequest("http://localhost/api/ventas", {
       method: "POST",
       body: { date: today, items: [{ size: "Pequeño", quantity: 10, pricePerUnit: 400 }] },
     }));
+    expect(createRes.status).toBe(201);
     const sale = await parseJson(createRes);
+    cleanupData.saleIds.push(sale.id);
 
     // Delete it
     const deleteRes = await ventasDELETE(mockRequest(`http://localhost/api/ventas?id=${sale.id}`, {
@@ -495,7 +546,7 @@ describe("Production Flow (Huevos)", () => {
       },
     }));
 
-    const res = await huevosGET();
+    const res = await callGET(huevosGET);
     const records = await parseJson(res);
 
     // The record we just created should be in the list
@@ -542,7 +593,7 @@ describe("Cross-Module Correlations", () => {
   it("Dashboard includes stage distribution and stock projection", async () => {
     cleanupData = createCleanup();
 
-    const res = await dashboardGET();
+    const res = await callGET(dashboardGET);
     expect(res.status).toBe(200);
     const data = await parseJson(res);
 
@@ -575,7 +626,7 @@ describe("Cross-Module Correlations", () => {
   it("Etapas resumen computes stock projection and consumption correlation", async () => {
     cleanupData = createCleanup();
 
-    const res = await resumenGET();
+    const res = await callGET(resumenGET);
     expect(res.status).toBe(200);
     const data = await parseJson(res);
 
@@ -879,7 +930,7 @@ describe("Hen Lifecycle (Estados automáticos)", () => {
     expect(updated.status).toBe("vendida");
 
     // El GET (sincronización automática) no debe revertir el estado terminal
-    const list = await parseJson(await gallinasGET());
+    const list = await parseJson(await callGET(gallinasGET));
     const found = list.find((h: { id: string }) => h.id === hen.id);
     expect(found.status).toBe("vendida");
   });
@@ -941,9 +992,13 @@ describe("Incubación (asignación automática de machos)", () => {
     cleanupData = createCleanup();
     const today = new Date().toISOString().split("T")[0];
 
-    // Estado previo de la parvada
-    const balanceBefore = (await parseJson(await gallosGET())).balance;
-    const expected = assignMales(4, balanceBefore.active, balanceBefore.required);
+    // Estado previo de la parvada (computado directamente desde DB)
+    const [roosterCount] = await db.select({ count: sql<number>`count(*)::int` })
+      .from(roosters).where(eq(roosters.status, "activo"));
+    const henRows = await db.select({ status: hens.status }).from(hens);
+    const activeHens = henRows.filter((h) => isAvailableForExit(h.status)).length;
+    const balBefore = flockBalance(activeHens, roosterCount?.count || 0);
+    const expected = assignMales(4, balBefore.active, balBefore.required);
 
     // Iniciar incubación sin gallina asignada
     const incRes = await incubacionPOST(mockRequest("http://localhost/api/incubacion", {
@@ -1005,7 +1060,7 @@ describe("Lotes de engorde (readiness y sacrificio)", () => {
     cleanupData.batchIds.push(batch.id);
 
     // GET debe persistir el estado listo_sacrificio (lazy-sync)
-    const list = await parseJson(await lotesGET());
+    const list = await parseJson(await callGET(lotesGET));
     const found = list.find((b: { id: string }) => b.id === batch.id);
     expect(found.status).toBe("listo_sacrificio");
     expect(found.readinessReasons.some((r: string) => r.includes("Edad"))).toBe(true);
@@ -1018,13 +1073,13 @@ describe("Lotes de engorde (readiness y sacrificio)", () => {
     expect(sacRes.status).toBe(201);
     const sac = await parseJson(sacRes);
 
-    const afterSac = (await parseJson(await lotesGET())).find((b: { id: string }) => b.id === batch.id);
+    const afterSac = (await parseJson(await callGET(lotesGET))).find((b: { id: string }) => b.id === batch.id);
     expect(afterSac.currentQuantity).toBe(0);
     expect(afterSac.status).toBe("faena");
 
     // DELETE del sacrificio revierte el lote
     await sacrificioDELETE(mockRequest(`http://localhost/api/sacrificio?id=${sac.id}`, { method: "DELETE" }));
-    const afterDel = (await parseJson(await lotesGET())).find((b: { id: string }) => b.id === batch.id);
+    const afterDel = (await parseJson(await callGET(lotesGET))).find((b: { id: string }) => b.id === batch.id);
     expect(afterDel.currentQuantity).toBe(5);
     expect(afterDel.status).not.toBe("faena");
   });
@@ -1053,7 +1108,7 @@ describe("MANURE FLOW: Gallinaza", () => {
   const today = () => new Date().toISOString().split("T")[0];
 
   it("GET /api/gallinaza devuelve estimación e inventario", async () => {
-    const res = await gallinazaGET();
+    const res = await callGET(gallinazaGET);
     expect(res.status).toBe(200);
     const data = await parseJson(res);
     expect(Array.isArray(data.estimation.groups)).toBe(true);
@@ -1067,7 +1122,7 @@ describe("MANURE FLOW: Gallinaza", () => {
   });
 
   it("Ajuste manual suma al stock y su DELETE lo revierte", async () => {
-    const before = (await parseJson(await gallinazaGET())).inventory.currentStockKg;
+    const before = (await parseJson(await callGET(gallinazaGET))).inventory.currentStockKg;
 
     const adjRes = await gallinazaPOST(mockRequest("http://localhost/api/gallinaza", {
       method: "POST",
@@ -1076,12 +1131,12 @@ describe("MANURE FLOW: Gallinaza", () => {
     expect(adjRes.status).toBe(201);
     const adj = await parseJson(adjRes);
 
-    const afterAdd = (await parseJson(await gallinazaGET())).inventory.currentStockKg;
+    const afterAdd = (await parseJson(await callGET(gallinazaGET))).inventory.currentStockKg;
     expect(Math.round((afterAdd - before) * 100) / 100).toBe(10);
 
     const delRes = await gallinazaDELETE(mockRequest(`http://localhost/api/gallinaza?adjustId=${adj.id}`, { method: "DELETE" }));
     expect(delRes.status).toBe(200);
-    const afterDel = (await parseJson(await gallinazaGET())).inventory.currentStockKg;
+    const afterDel = (await parseJson(await callGET(gallinazaGET))).inventory.currentStockKg;
     expect(Math.round((afterDel - before) * 100) / 100).toBe(0);
   });
 
@@ -1094,7 +1149,7 @@ describe("MANURE FLOW: Gallinaza", () => {
       body: { action: "adjust", date: today(), deltaKg: 2, reason: "Test stock inicial" },
     })));
 
-    const before = (await parseJson(await gallinazaGET())).inventory.currentStockKg;
+    const before = (await parseJson(await callGET(gallinazaGET))).inventory.currentStockKg;
 
     const saleRes = await gallinazaPOST(mockRequest("http://localhost/api/gallinaza", {
       method: "POST",
@@ -1104,7 +1159,7 @@ describe("MANURE FLOW: Gallinaza", () => {
     const sale = await parseJson(saleRes);
     expect(Number(sale.totalAmount)).toBe(800);
 
-    const afterSale = (await parseJson(await gallinazaGET())).inventory.currentStockKg;
+    const afterSale = (await parseJson(await callGET(gallinazaGET))).inventory.currentStockKg;
     expect(Math.round((before - afterSale) * 100) / 100).toBe(1);
 
     // La transacción de ingreso quedó vinculada
@@ -1118,7 +1173,7 @@ describe("MANURE FLOW: Gallinaza", () => {
     // DELETE revierte stock y elimina la transacción
     const delRes = await gallinazaDELETE(mockRequest(`http://localhost/api/gallinaza?saleId=${sale.id}`, { method: "DELETE" }));
     expect(delRes.status).toBe(200);
-    const afterDel = (await parseJson(await gallinazaGET())).inventory.currentStockKg;
+    const afterDel = (await parseJson(await callGET(gallinazaGET))).inventory.currentStockKg;
     expect(Math.round((afterDel - before) * 100) / 100).toBe(0);
     const [goneTx] = await db.select().from(transactions).where(eq(transactions.id, linkedTx.id));
     expect(goneTx).toBeUndefined();
@@ -1129,7 +1184,7 @@ describe("MANURE FLOW: Gallinaza", () => {
   });
 
   it("Venta con cantidad mayor al stock es rechazada", async () => {
-    const stock = (await parseJson(await gallinazaGET())).inventory.currentStockKg;
+    const stock = (await parseJson(await callGET(gallinazaGET))).inventory.currentStockKg;
     const res = await gallinazaPOST(mockRequest("http://localhost/api/gallinaza", {
       method: "POST",
       body: { action: "sale", date: today(), quantityKg: stock + 1000, pricePerKg: 800 },
@@ -1140,7 +1195,7 @@ describe("MANURE FLOW: Gallinaza", () => {
   });
 
   it("Factor de producción editable cambia la estimación", async () => {
-    const data = await parseJson(await gallinazaGET());
+    const data = await parseJson(await callGET(gallinazaGET));
     const group = data.estimation.groups.find((g: { factorId: string | null; count: number }) => g.factorId && g.count > 0);
     expect(group).toBeDefined();
     const original = group.kgPerBirdPerDay;
@@ -1151,7 +1206,7 @@ describe("MANURE FLOW: Gallinaza", () => {
     }));
     expect(updRes.status).toBe(200);
 
-    const afterData = await parseJson(await gallinazaGET());
+    const afterData = await parseJson(await callGET(gallinazaGET));
     const afterGroup = afterData.estimation.groups.find((g: { factorId: string }) => g.factorId === group.factorId);
     expect(afterGroup.kgPerBirdPerDay).toBe(0.2);
     expect(afterGroup.kgPerDay).toBe(Math.round(group.count * 0.2 * 100) / 100);

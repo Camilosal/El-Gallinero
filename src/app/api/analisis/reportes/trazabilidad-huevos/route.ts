@@ -2,10 +2,11 @@ import { db } from "@/db";
 import { eggSales, eggSalesItems, eggProductionDetails, eggProduction } from "@/db/schema";
 import { eq, desc, and } from "drizzle-orm";
 import { NextRequest, NextResponse } from "next/server";
+import { withApiHandler, safeParseJson } from "@/lib/api-handler";
 
 export const dynamic = "force-dynamic";
 
-export async function GET(req: NextRequest) {
+export const GET = withApiHandler(async (req: NextRequest) => {
   const { searchParams } = new URL(req.url);
   const saleId = searchParams.get("saleId");
 
@@ -62,4 +63,4 @@ export async function GET(req: NextRequest) {
   }
 
   return NextResponse.json(result);
-}
+});

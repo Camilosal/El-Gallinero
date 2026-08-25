@@ -2,10 +2,11 @@ import { db } from "@/db";
 import { meatLosses } from "@/db/schema";
 import { eq, desc, and, gte } from "drizzle-orm";
 import { NextRequest, NextResponse } from "next/server";
+import { withApiHandler, safeParseJson } from "@/lib/api-handler";
 
 export const dynamic = "force-dynamic";
 
-export async function GET(req: NextRequest) {
+export const GET = withApiHandler(async (req: NextRequest) => {
   const { searchParams } = new URL(req.url);
   const period = Number(searchParams.get("period") || "30");
   const since = new Date();
@@ -29,10 +30,10 @@ export async function GET(req: NextRequest) {
       byReason: Object.fromEntries(byReason),
     },
   });
-}
+});
 
-export async function POST(req: NextRequest) {
-  const body = await req.json();
+export const POST = withApiHandler(async (req: NextRequest) => {
+  const body = await safeParseJson(req);
 
   if (!body.date) return NextResponse.json({ error: "Fecha requerida" }, { status: 400 });
   const quantityKg = Number(body.quantityKg);
@@ -47,13 +48,13 @@ export async function POST(req: NextRequest) {
   }).returning();
 
   return NextResponse.json(created, { status: 201 });
-}
+});
 
-export async function DELETE(req: NextRequest) {
+export const DELETE = withApiHandler(async (req: NextRequest) => {
   const { searchParams } = new URL(req.url);
   const id = searchParams.get("id");
   if (!id) return NextResponse.json({ error: "ID requerido" }, { status: 400 });
 
   await db.delete(meatLosses).where(eq(meatLosses.id, id));
   return NextResponse.json({ ok: true });
-}
+});

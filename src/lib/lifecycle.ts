@@ -76,11 +76,11 @@ export function stageForAge(stages: StageRange[], weeks: number): StageRange | n
 
 /**
  * Evalúa el ciclo de vida de una gallina y resuelve su estado automático.
- * Reglas de recomendación de sacrificio:
- *  - La etapa de postura ya pasó (edad ≥ finPosturaWeeks)
- *  - Y tiene el peso adecuado para venta (peso ≥ pesoVentaKg)
- * Ambas condiciones deben cumplirse. El peso por sí solo no recomienda sacrificio
- * si el ave aún está en edad productiva (sigue poniendo huevos).
+ * Reglas de recomendación de sacrificio (cualquiera de las dos basta):
+ *  1. La etapa de postura ya pasó (edad ≥ finPosturaWeeks)
+ *  2. Tiene el peso adecuado para venta (peso ≥ pesoVentaKg)
+ * El objetivo es liberar espacio en el gallinero cuando el ave ya cumplió
+ * su ciclo productivo o cuando tiene el peso comercial deseado.
  */
 export function evaluateLifecycle(hen: HenLike, stages: StageRange[]): LifecycleResult {
   const weeks = ageInWeeks(hen.birthDate);
@@ -93,13 +93,13 @@ export function evaluateLifecycle(hen: HenLike, stages: StageRange[]): Lifecycle
 
   if (pastLayingAge) {
     reasons.push(`Etapa de postura finalizada (${LIFECYCLE_RULES.finPosturaWeeks}+ semanas)`);
-    if (adequateWeight) {
-      reasons.push(`Peso adecuado para venta (≥ ${LIFECYCLE_RULES.pesoVentaKg} kg)`);
-    }
+  }
+  if (adequateWeight) {
+    reasons.push(`Peso adecuado para venta (≥ ${LIFECYCLE_RULES.pesoVentaKg} kg)`);
   }
 
   return {
-    status: pastLayingAge && adequateWeight ? "recomendada_sacrificio" : "activa",
+    status: (pastLayingAge || adequateWeight) ? "recomendada_sacrificio" : "activa",
     stage: stage?.value ?? null,
     ageWeeks: Math.floor(weeks),
     reasons,

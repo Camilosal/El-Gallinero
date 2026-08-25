@@ -32,3 +32,314 @@
   --color-green-800: #166534;
   --color-green-900: #14532d;
 }
+
+/* ============================================================
+   Landing page — El Gallinero
+   ============================================================ */
+:root {
+  --ink: #1c2419;
+  --forest: #1f3d2c;
+  --forest-deep: #132a1e;
+  --cream: #faf4e7;
+  --cream-2: #f2ead6;
+  --paper: #fffdf8;
+  --amber: #b8842c;
+  --amber-deep: #8f6420;
+  --moss: #5c7a5e;
+  --line: rgba(28, 36, 25, 0.12);
+  --radius: 3px;
+}
+
+html {
+  scroll-behavior: smooth;
+}
+@media (prefers-reduced-motion: reduce) {
+  html { scroll-behavior: auto; }
+  * { animation-duration: 0.001ms !important; transition-duration: 0.001ms !important; }
+}
+
+.land-wrap { max-width: 1080px; margin: 0 auto; padding: 0 28px; }
+.land-h1, .land-h2, .land-h3 { font-family: var(--font-fraunces, 'Fraunces'), serif; font-weight: 600; letter-spacing: -0.01em; margin: 0; }
+.land-eyebrow {
+  font-family: var(--font-mono, 'IBM Plex Mono'), monospace;
+  font-size: 12px; letter-spacing: 0.14em; text-transform: uppercase;
+  color: var(--amber-deep); display: flex; align-items: center; gap: 10px;
+}
+.land-eyebrow::before { content: ""; width: 22px; height: 1px; background: var(--amber-deep); display: inline-block; }
+
+/* ---------- NAV ---------- */
+.land-nav {
+  position: sticky; top: 0; z-index: 40;
+  background: rgba(250, 244, 231, 0.88);
+  backdrop-filter: blur(8px);
+  border-bottom: 1px solid var(--line);
+}
+.land-nav .land-wrap { display: flex; align-items: center; justify-content: space-between; padding: 16px 28px; }
+.land-brandmark { display: flex; align-items: center; gap: 10px; font-family: var(--font-fraunces, 'Fraunces'), serif; font-weight: 600; font-size: 17px; }
+.land-brandmark .dot { width: 9px; height: 9px; border-radius: 50%; background: var(--amber); box-shadow: 0 0 0 3px rgba(184, 132, 44, 0.18); }
+.land-brandmark small { font-family: var(--font-mono, 'IBM Plex Mono'), monospace; font-weight: 400; font-size: 11px; color: var(--moss); letter-spacing: 0.04em; }
+.land-navlinks { display: flex; gap: 28px; font-size: 14px; }
+.land-navlinks a { text-decoration: none; opacity: 0.75; color: inherit; }
+.land-navlinks a:hover { opacity: 1; }
+
+/* ---------- HAMBURGER (mobile only) ---------- */
+.land-hamburger {
+  display: none; /* hidden on desktop */
+  flex-direction: column; justify-content: center; gap: 5px;
+  width: 36px; height: 36px; padding: 6px;
+  background: none; border: 1px solid var(--line); border-radius: var(--radius);
+  cursor: pointer; z-index: 50;
+}
+.land-ham-line {
+  display: block; width: 100%; height: 2px; background: var(--ink);
+  border-radius: 1px; transition: transform 0.25s ease, opacity 0.25s ease;
+}
+.land-ham-line.open:nth-child(1) { transform: translateY(7px) rotate(45deg); }
+.land-ham-line.open:nth-child(2) { opacity: 0; }
+.land-ham-line.open:nth-child(3) { transform: translateY(-7px) rotate(-45deg); }
+
+/* Mobile menu overlay */
+.land-mobile-menu {
+  display: none; /* hidden on desktop */
+  position: fixed; top: 57px; right: 0; left: 0; z-index: 39;
+  background: rgba(250, 244, 231, 0.97); backdrop-filter: blur(12px);
+  border-bottom: 1px solid var(--line);
+  max-height: 0; overflow: hidden; opacity: 0;
+  transition: max-height 0.3s ease, opacity 0.25s ease;
+}
+.land-mobile-menu.open { max-height: 320px; opacity: 1; }
+.land-mobile-nav {
+  display: flex; flex-direction: column; padding: 12px 28px 20px;
+}
+.land-mobile-nav a {
+  text-decoration: none; color: inherit; font-size: 16px;
+  padding: 14px 0; border-bottom: 1px solid var(--line);
+  font-family: var(--font-fraunces, 'Fraunces'), serif; font-weight: 500;
+}
+.land-mobile-nav a:last-child { border-bottom: none; }
+.land-mobile-nav a:hover { color: var(--amber-deep); }
+.land-mobile-backdrop {
+  display: none; /* hidden on desktop */
+  position: fixed; inset: 0; z-index: 38; background: transparent;
+}
+
+/* Mobile breakpoint: show hamburger, hide desktop links */
+@media (max-width: 768px) {
+  .land-navlinks { display: none; }
+  .land-hamburger { display: flex; }
+  .land-mobile-menu { display: block; }
+  .land-mobile-backdrop { display: block; }
+  .land-brandmark small { display: none; }
+}
+
+/* ---------- HERO ---------- */
+.land-hero { padding: 88px 0 64px; position: relative; overflow: hidden; }
+.land-hero-grid { display: grid; grid-template-columns: 1.15fr 0.85fr; gap: 56px; align-items: center; }
+@media (max-width: 880px) { .land-hero-grid { grid-template-columns: 1fr; } }
+.land-hero h1 { font-size: clamp(38px, 5.4vw, 58px); line-height: 1.04; margin-top: 16px; }
+.land-hero h1 em { font-style: italic; color: var(--amber-deep); }
+.land-hero .lede { font-size: 18px; color: #3a4636; max-width: 46ch; margin-top: 20px; }
+
+.land-cta-row { display: flex; gap: 14px; margin-top: 32px; flex-wrap: wrap; }
+.land-btn {
+  font-family: var(--font-mono, 'IBM Plex Mono'), monospace; font-size: 13px; letter-spacing: 0.02em;
+  padding: 13px 22px; border-radius: var(--radius); text-decoration: none;
+  display: inline-flex; align-items: center; gap: 8px;
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+.land-btn-primary { background: var(--forest); color: var(--cream); box-shadow: 0 1px 0 rgba(0, 0, 0, 0.15); }
+.land-btn-primary:hover { transform: translateY(-1px); box-shadow: 0 4px 14px rgba(31, 61, 44, 0.28); }
+.land-btn-ghost { border: 1px solid var(--ink); color: var(--ink); }
+.land-btn-ghost:hover { background: var(--ink); color: var(--cream); }
+
+/* ---------- LOGCARD ---------- */
+.land-logcard {
+  background: var(--paper); border: 1px solid var(--line); border-radius: 2px;
+  padding: 26px 24px 22px; position: relative; transform: rotate(1.2deg);
+  box-shadow: 0 18px 40px -14px rgba(19, 42, 30, 0.35), 0 2px 0 rgba(0, 0, 0, 0.03);
+}
+.land-logcard::before {
+  content: ""; position: absolute; inset: 8px;
+  border: 1px dashed rgba(28, 36, 25, 0.16); pointer-events: none;
+}
+.land-logcard .stamp {
+  position: absolute; top: -14px; right: 22px;
+  background: var(--amber); color: var(--cream);
+  font-family: var(--font-mono, 'IBM Plex Mono'), monospace; font-size: 11px; letter-spacing: 0.08em;
+  padding: 6px 12px; border-radius: 2px; transform: rotate(-3deg);
+  box-shadow: 0 4px 10px rgba(143, 100, 32, 0.4);
+}
+.land-logcard h3 {
+  font-size: 14px; font-family: var(--font-mono, 'IBM Plex Mono'), monospace;
+  font-weight: 500; text-transform: uppercase; letter-spacing: 0.08em;
+  color: var(--moss); margin-bottom: 18px;
+}
+.land-logrow { display: grid; grid-template-columns: 1fr 1fr; gap: 14px 18px; margin-bottom: 6px; }
+.land-logstat { border-top: 1px solid var(--line); padding-top: 12px; }
+.land-logstat .n { font-family: var(--font-fraunces, 'Fraunces'), serif; font-size: 30px; font-weight: 600; color: var(--forest-deep); line-height: 1; }
+.land-logstat .l { font-size: 12px; color: #5c6355; margin-top: 4px; }
+.land-logfoot { margin-top: 18px; padding-top: 14px; border-top: 1px solid var(--line); font-family: var(--font-mono, 'IBM Plex Mono'), monospace; font-size: 11px; color: var(--moss); display: flex; justify-content: space-between; }
+
+/* ---------- MICROSTRIP ---------- */
+.land-microstrip {
+  margin-top: 56px; padding-top: 22px; border-top: 1px solid var(--line);
+  display: flex; flex-wrap: wrap; gap: 10px 14px; align-items: center;
+  font-family: var(--font-mono, 'IBM Plex Mono'), monospace; font-size: 12.5px; color: #4a5340;
+}
+.land-microstrip strong { color: var(--forest-deep); font-family: var(--font-fraunces, 'Fraunces'), serif; font-size: 15px; font-weight: 600; }
+.land-microstrip .sep { color: var(--amber); opacity: 0.6; }
+
+/* ---------- SECTION: historia ---------- */
+.land-section { padding: 88px 0; }
+.land-historia { background: var(--forest); color: var(--cream-2); }
+.land-historia .land-eyebrow { color: #d9b877; }
+.land-historia .land-eyebrow::before { background: #d9b877; }
+.land-historia h2 { font-size: clamp(28px, 3.6vw, 40px); color: #fff; max-width: 16ch; margin-top: 18px; }
+.land-historia-grid { display: grid; grid-template-columns: 0.9fr 1.1fr; gap: 60px; margin-top: 36px; }
+@media (max-width: 880px) { .land-historia-grid { grid-template-columns: 1fr; gap: 32px; } }
+.land-historia p { color: #d7ddcf; font-size: 16.5px; max-width: 56ch; }
+.land-historia p + p { margin-top: 16px; }
+.land-pull { font-family: var(--font-fraunces, 'Fraunces'), serif; font-style: italic; font-size: 22px; color: #f2e2bd; border-left: 2px solid var(--amber); padding-left: 20px; max-width: 34ch; }
+.land-factline-list { display: flex; flex-direction: column; }
+.land-factline { display: grid; grid-template-columns: 120px 1fr; gap: 18px; padding: 16px 0; border-top: 1px solid rgba(242, 238, 222, 0.14); }
+.land-factline.end { border-bottom: 1px solid rgba(242, 238, 222, 0.14); }
+.land-factline .k { font-family: var(--font-mono, 'IBM Plex Mono'), monospace; font-size: 11px; letter-spacing: 0.08em; text-transform: uppercase; color: #d9b877; padding-top: 2px; }
+.land-factline .v { font-size: 16px; color: #e7ead9; max-width: 46ch; }
+.land-factline.end .v { color: #fff; font-weight: 500; }
+@media (max-width: 560px) { .land-factline { grid-template-columns: 1fr; gap: 4px; } }
+
+/* ---------- SECTION: funcionalidades ---------- */
+.land-func { background: var(--paper); border-top: 1px solid var(--line); border-bottom: 1px solid var(--line); }
+.land-func-head { margin-bottom: 48px; }
+.land-func-head h2 { font-size: clamp(28px, 3.6vw, 40px); max-width: 22ch; margin-top: 18px; }
+.land-func-head p { font-size: 16px; color: #3a4636; max-width: 56ch; margin-top: 14px; }
+.land-func-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px; }
+@media (max-width: 880px) { .land-func-grid { grid-template-columns: repeat(2, 1fr); } }
+@media (max-width: 560px) { .land-func-grid { grid-template-columns: 1fr; } }
+.land-func-card {
+  background: var(--cream); border: 1px solid var(--line); border-radius: 3px;
+  padding: 26px 22px 22px; display: flex; flex-direction: column; gap: 10px;
+  transition: border-color 0.2s ease, transform 0.2s ease;
+}
+.land-func-card:hover { border-color: var(--amber); transform: translateY(-2px); }
+.land-func-card .ficon {
+  font-size: 26px; line-height: 1; width: 42px; height: 42px;
+  display: flex; align-items: center; justify-content: center;
+  background: var(--paper); border: 1px solid var(--line); border-radius: 2px;
+}
+.land-func-card h3 { font-size: 17px; margin-top: 4px; }
+.land-func-card p { font-size: 13.5px; color: #4a5340; margin: 0; line-height: 1.55; }
+.land-func-card .ftags {
+  margin-top: auto; padding-top: 12px; display: flex; flex-wrap: wrap; gap: 6px;
+}
+.land-func-card .ftag {
+  font-family: var(--font-mono, 'IBM Plex Mono'), monospace; font-size: 10.5px;
+  letter-spacing: 0.04em; color: var(--moss); background: var(--paper);
+  border: 1px solid var(--line); border-radius: 2px; padding: 3px 8px;
+}
+
+/* ---------- MANUAL BANNER ---------- */
+.land-manual {
+  margin-top: 56px; padding: 28px 26px;
+  background: var(--forest); border: 1px solid rgba(242, 238, 222, 0.14);
+  border-radius: 3px; display: flex; align-items: center; justify-content: space-between; gap: 24px;
+}
+@media (max-width: 680px) { .land-manual { flex-direction: column; align-items: flex-start; } }
+.land-manual-text { display: flex; flex-direction: column; gap: 6px; }
+.land-manual-text .land-eyebrow { color: #d9b877; }
+.land-manual-text .land-eyebrow::before { background: #d9b877; }
+.land-manual-text h3 { font-family: var(--font-fraunces, 'Fraunces'), serif; font-size: 20px; font-weight: 600; color: #fff; margin: 4px 0 0; }
+.land-manual-text p { font-size: 14px; color: #c7cebb; margin: 0; max-width: 48ch; }
+.land-manual-btn {
+  flex-shrink: 0;
+  font-family: var(--font-mono, 'IBM Plex Mono'), monospace; font-size: 13px; letter-spacing: 0.02em;
+  padding: 13px 24px; border-radius: var(--radius); text-decoration: none;
+  background: var(--amber); color: var(--cream);
+  display: inline-flex; align-items: center; gap: 8px;
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+.land-manual-btn:hover { transform: translateY(-1px); box-shadow: 0 4px 14px rgba(184, 132, 44, 0.35); }
+
+/* ---------- SECTION: caminos ---------- */
+.land-caminos-head { text-align: left; margin-bottom: 44px; }
+.land-caminos-head h2 { font-size: clamp(28px, 3.6vw, 38px); max-width: 20ch; }
+.land-paths { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; }
+@media (max-width: 880px) { .land-paths { grid-template-columns: 1fr; } }
+.land-path {
+  background: var(--paper); border: 1px solid var(--line); border-radius: 3px;
+  padding: 32px 28px; display: flex; flex-direction: column; gap: 16px;
+  transition: border-color 0.2s ease, transform 0.2s ease;
+}
+.land-path:hover { border-color: var(--amber); transform: translateY(-3px); }
+.land-path .tag { font-family: var(--font-mono, 'IBM Plex Mono'), monospace; font-size: 11px; letter-spacing: 0.1em; text-transform: uppercase; color: var(--amber-deep); }
+.land-path h3 { font-size: 23px; margin-top: 2px; }
+.land-path p { color: #3f473a; font-size: 15px; margin: 0; }
+.land-path ul { margin: 6px 0 0; padding: 0; list-style: none; display: flex; flex-direction: column; gap: 9px; }
+.land-path li { font-size: 14.5px; color: #333c2e; padding-left: 18px; position: relative; }
+.land-path li::before { content: "\2014"; position: absolute; left: 0; color: var(--moss); }
+.land-path .go { margin-top: auto; padding-top: 14px; font-family: var(--font-mono, 'IBM Plex Mono'), monospace; font-size: 13px; color: var(--forest-deep); display: flex; align-items: center; gap: 6px; text-decoration: none; }
+.land-path .go:hover { color: var(--amber-deep); }
+
+/* ---------- SECTION: cierre ---------- */
+.land-cierre { background: var(--cream-2); border-top: 1px solid var(--line); border-bottom: 1px solid var(--line); }
+.land-cierre-grid { display: grid; grid-template-columns: 0.55fr 0.45fr; gap: 56px; align-items: center; }
+@media (max-width: 880px) { .land-cierre-grid { grid-template-columns: 1fr; } }
+.land-cierre h2 { font-size: clamp(26px, 3.2vw, 34px); max-width: 18ch; }
+.land-cierre p { font-size: 16px; color: #3a4636; max-width: 52ch; margin-top: 16px; }
+.land-lead-short { font-family: var(--font-fraunces, 'Fraunces'), serif; font-size: 19px; font-style: italic; color: var(--forest-deep); }
+.land-chiplist { list-style: none; margin: 20px 0 0; padding: 0; display: flex; flex-direction: column; gap: 10px; }
+.land-chiplist li { font-family: var(--font-mono, 'IBM Plex Mono'), monospace; font-size: 13px; color: #333c2e; padding: 10px 14px; background: var(--paper); border: 1px solid var(--line); border-radius: 2px; }
+.land-cierre-card {
+  border: 1px solid var(--ink); padding: 26px;
+  font-family: var(--font-mono, 'IBM Plex Mono'), monospace; font-size: 13px; color: var(--ink);
+  background: var(--paper);
+}
+.land-cierre-card .row { display: flex; justify-content: space-between; padding: 9px 0; border-bottom: 1px solid var(--line); }
+.land-cierre-card .row:last-child { border-bottom: none; }
+.land-cierre-card .row span:last-child { color: var(--moss); }
+
+/* ---------- FOOTER ---------- */
+.land-footer { padding: 56px 0 60px; }
+.land-foot-grid { display: flex; justify-content: space-between; align-items: flex-end; flex-wrap: wrap; gap: 24px; }
+.land-footer .eco { font-family: var(--font-mono, 'IBM Plex Mono'), monospace; font-size: 12px; color: var(--moss); max-width: 40ch; }
+.land-footer .foot-links { display: flex; gap: 22px; font-size: 13px; }
+.land-footer .foot-links a { text-decoration: none; opacity: 0.7; color: inherit; }
+.land-footer .foot-links a:hover { opacity: 1; }
+
+/* ---------- ILLUSTRATIONS ---------- */
+.land-illust {
+  position: relative; overflow: hidden; border-radius: 3px;
+}
+.land-illust img {
+  display: block; width: 100%; height: auto;
+  border: 1px solid var(--line); border-radius: 3px;
+}
+/* Hero illustration — sits beside logcard */
+.land-hero-illust {
+  margin-top: 24px;
+}
+.land-hero-illust img {
+  box-shadow: 0 12px 32px -10px rgba(19, 42, 30, 0.18);
+}
+/* Modules diagram — centered in funcionalidades */
+.land-modules-illust {
+  max-width: 520px; margin: 40px auto 0;
+}
+.land-modules-illust img {
+  box-shadow: 0 8px 24px -8px rgba(19, 42, 30, 0.12);
+}
+/* Traceability flow — full width in historia */
+.land-trace-illust {
+  margin-top: 36px;
+}
+.land-trace-illust img {
+  box-shadow: 0 8px 24px -8px rgba(0, 0, 0, 0.1);
+  border-color: rgba(242, 238, 222, 0.2);
+}
+@media (max-width: 560px) {
+  .land-modules-illust { max-width: 100%; }
+}
+
+/* ---------- REVEAL ---------- */
+.land-reveal { opacity: 0; transform: translateY(14px); transition: opacity 0.6s ease, transform 0.6s ease; }
+.land-reveal.in { opacity: 1; transform: none; }

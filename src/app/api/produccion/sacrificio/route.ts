@@ -1,17 +1,18 @@
 import { db } from "@/db";
-import { slaughter, hens, roosters, broilerBatches } from "@/db/schema";
-import { eq, desc, and } from "drizzle-orm";
+import { slaughter, hens, roosters, broilerBatches, chickenSales, mortalityRecords } from "@/db/schema";
+import { eq, desc, and, sql } from "drizzle-orm";
 import { NextRequest, NextResponse } from "next/server";
 import { isAvailableForExit } from "@/lib/lifecycle";
 import {
   validateRoosterForExit, validateBatchForExit,
   applyRoosterExit, restoreRoosterExit, applyBatchExit, restoreBatchExit,
 } from "@/lib/birdExit";
+import { withApiHandler, safeParseJson } from "@/lib/api-handler";
 
 export const dynamic = "force-dynamic";
 
 // GET /api/produccion/sacrificio — lista de registros de sacrificio (producción de carne)
-export async function GET() {
+export const GET = withApiHandler(async () => {
   const data = await db.select().from(slaughter).orderBy(desc(slaughter.date)).limit(100);
 
   const enriched = await Promise.all(
@@ -30,11 +31,11 @@ export async function GET() {
   );
 
   return NextResponse.json(enriched);
-}
+});
 
 // POST /api/produccion/sacrificio — registrar sacrificio (producción pura, siempre va a inventario)
-export async function POST(req: NextRequest) {
-  const body = await req.json();
+export const POST = withApiHandler(async (req: NextRequest) => {
+  const body = await safeParseJson(req);
 
   const qty = Number(body.quantity);
   if (!body.birdType) return NextResponse.json({ error: "Tipo de ave requerido" }, { status: 400 });
@@ -96,11 +97,11 @@ export async function POST(req: NextRequest) {
   });
 
   return NextResponse.json(created, { status: 201 });
-}
+});
 
 // PUT /api/produccion/sacrificio — actualizar registro
-export async function PUT(req: NextRequest) {
-  const body = await req.json();
+export const PUT = withApiHandler(async (req: NextRequest) => {
+  const body = await safeParseJson(req);
   if (!body.id) return NextResponse.json({ error: "ID requerido" }, { status: 400 });
 
   const qty = Number(body.quantity);
@@ -175,24 +176,40 @@ export async function PUT(req: NextRequest) {
   }
 
   return NextResponse.json(updated);
-}
+});
 
 // DELETE /api/produccion/sacrificio — eliminar registro
-export async function DELETE(req: NextRequest) {
+export const DELETE = withApiHandler(async (req: NextRequest) => {
   const { searchParams } = new URL(req.url);
   const id = searchParams.get("id");
   if (!id) return NextResponse.json({ error: "ID requerido" }, { status: 400 });
 
   const [record] = await db.select().from(slaughter).where(eq(slaughter.id, id));
+  if (!record) return NextResponse.json({ error: "No encontrado" }, { status: 404 });
 
   await db.transaction(async (tx) => {
-    if (record?.henId) {
-      await tx.update(hens).set({ status: "activa" }).where(eq(hens.id, record.henId));
+    if (record.henId) {
+      // Check no subsequent exit before restoring
+      const [otherSlaughter] = await tx.select({ id: slaughter.id })
+        .from(slaughter)
+        .where(and(eq(slaughter.henId, record.henId), sql`${slaughter.id} != ${record.id}`))
+        .limit(1);
+      const [otherSale] = await tx.select({ id: chickenSales.id })
+        .from(chickenSales)
+        .where(eq(chickenSales.henId, record.henId))
+        .limit(1);
+      const [hasMortality] = await tx.select({ id: mortalityRecords.id })
+        .from(mortalityRecords)
+        .where(eq(mortalityRecords.henId, record.henId))
+        .limit(1);
+      if (!otherSlaughter && !otherSale && !hasMortality) {
+        await tx.update(hens).set({ status: "activa" }).where(eq(hens.id, record.henId));
+      }
     }
-    if (record?.roosterId) {
+    if (record.roosterId) {
       await restoreRoosterExit(record.roosterId, tx);
     }
-    if (record?.batchId) {
+    if (record.batchId) {
       await restoreBatchExit(record.batchId, record.quantity, tx);
     }
 
@@ -200,4 +217,4 @@ export async function DELETE(req: NextRequest) {
   });
 
   return NextResponse.json({ ok: true });
-}
+});

@@ -3,6 +3,7 @@ import { hens, catalogos, incubation, chickenSales, slaughter, mortalityRecords 
 import { eq, desc, and, sql, inArray } from "drizzle-orm";
 import { NextRequest, NextResponse } from "next/server";
 import { evaluateLifecycle, isAutoManaged, type StageRange } from "@/lib/lifecycle";
+import { withApiHandler, safeParseJson } from "@/lib/api-handler";
 
 export const dynamic = "force-dynamic";
 
@@ -15,7 +16,7 @@ async function getStages(): Promise<StageRange[]> {
     .orderBy(sql`${catalogos.sortOrder}`);
 }
 
-export async function GET() {
+export const GET = withApiHandler(async () => {
   const [data, stages] = await Promise.all([
     db.select().from(hens).orderBy(desc(hens.createdAt)),
     getStages(),
@@ -44,10 +45,10 @@ export async function GET() {
   }
 
   return NextResponse.json(enriched);
-}
+});
 
-export async function POST(req: NextRequest) {
-  const body = await req.json();
+export const POST = withApiHandler(async (req: NextRequest) => {
+  const body = await safeParseJson(req);
   const stages = await getStages();
 
   // Resolver estado automático a partir del estado inicial registrado
@@ -69,10 +70,10 @@ export async function POST(req: NextRequest) {
 
   const lc = evaluateLifecycle(created, stages);
   return NextResponse.json({ ...created, stage: lc.stage, ageWeeks: lc.ageWeeks, lifecycleReasons: lc.reasons }, { status: 201 });
-}
+});
 
-export async function PUT(req: NextRequest) {
-  const body = await req.json();
+export const PUT = withApiHandler(async (req: NextRequest) => {
+  const body = await safeParseJson(req);
   if (!body.id) return NextResponse.json({ error: "ID requerido" }, { status: 400 });
 
   const stages = await getStages();
@@ -99,9 +100,9 @@ export async function PUT(req: NextRequest) {
 
   const lc = evaluateLifecycle(updated, stages);
   return NextResponse.json({ ...updated, stage: lc.stage, ageWeeks: lc.ageWeeks, lifecycleReasons: lc.reasons });
-}
+});
 
-export async function DELETE(req: NextRequest) {
+export const DELETE = withApiHandler(async (req: NextRequest) => {
   const { searchParams } = new URL(req.url);
   const id = searchParams.get("id");
   if (!id) return NextResponse.json({ error: "ID requerido" }, { status: 400 });
@@ -113,4 +114,4 @@ export async function DELETE(req: NextRequest) {
     await tx.delete(hens).where(eq(hens.id, id));
   });
   return NextResponse.json({ ok: true });
-}
+});

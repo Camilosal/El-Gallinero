@@ -2,6 +2,7 @@ import { db } from "@/db";
 import { transactions } from "@/db/schema";
 import { sql, gte, lte, and } from "drizzle-orm";
 import { NextRequest, NextResponse } from "next/server";
+import { withApiHandler, safeParseJson } from "@/lib/api-handler";
 
 export const dynamic = "force-dynamic";
 
@@ -25,7 +26,7 @@ function classifyTransaction(t: { category: string; type: string; sourceType: st
   return "otros";
 }
 
-export async function GET(req: NextRequest) {
+export const GET = withApiHandler(async (req: NextRequest) => {
   const { searchParams } = new URL(req.url);
   const from = searchParams.get("from") || new Date(new Date().getFullYear(), 0, 1).toISOString().split("T")[0];
   const to = searchParams.get("to") || new Date().toISOString().split("T")[0];
@@ -78,4 +79,4 @@ export async function GET(req: NextRequest) {
     totalCost: parseFloat(totalCost.toFixed(2)),
     totalProfit: parseFloat((totalRevenue - totalCost).toFixed(2)),
   });
-}
+});

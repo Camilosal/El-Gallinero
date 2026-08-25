@@ -2,14 +2,15 @@ import { db } from "@/db";
 import { feedPrograms, feedInventory, catalogos } from "@/db/schema";
 import { eq, and } from "drizzle-orm";
 import { NextRequest, NextResponse } from "next/server";
+import { withApiHandler, safeParseJson } from "@/lib/api-handler";
 
 export const dynamic = "force-dynamic";
 
 /** GET /api/produccion/etapas/[id]/programa — lista el programa alimenticio de una etapa */
-export async function GET(
+export const GET = withApiHandler(async (
   _req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
-) {
+) => {
   const { id } = await params;
   const data = await db
     .select({
@@ -27,15 +28,15 @@ export async function GET(
     .leftJoin(feedInventory, eq(feedPrograms.feedId, feedInventory.id))
     .where(eq(feedPrograms.stageCatalogoId, id));
   return NextResponse.json(data);
-}
+});
 
 /** POST /api/produccion/etapas/[id]/programa — agregar o actualizar entradas del programa */
-export async function POST(
+export const POST = withApiHandler(async (
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
-) {
+) => {
   const { id: stageCatalogoId } = await params;
-  const body = await req.json();
+  const body = await safeParseJson(req);
 
   // Validar que la etapa existe
   const [stage] = await db
@@ -71,13 +72,13 @@ export async function POST(
   });
 
   return NextResponse.json(inserted, { status: 201 });
-}
+});
 
 /** DELETE /api/produccion/etapas/[id]/programa — eliminar una entrada específica del programa */
-export async function DELETE(
+export const DELETE = withApiHandler(async (
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
-) {
+) => {
   const { id: stageCatalogoId } = await params;
   const { searchParams } = new URL(req.url);
   const programId = searchParams.get("programId");
@@ -88,4 +89,4 @@ export async function DELETE(
     .delete(feedPrograms)
     .where(and(eq(feedPrograms.id, programId), eq(feedPrograms.stageCatalogoId, stageCatalogoId)));
   return NextResponse.json({ ok: true });
-}
+});

@@ -2,10 +2,11 @@ import { db } from "@/db";
 import { broilerBatches, mortalityRecords, weightLogs, eggProduction, eggProductionDetails } from "@/db/schema";
 import { eq, desc } from "drizzle-orm";
 import { NextRequest, NextResponse } from "next/server";
+import { withApiHandler, safeParseJson } from "@/lib/api-handler";
 
 export const dynamic = "force-dynamic";
 
-export async function GET(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+export const GET = withApiHandler(async (req: NextRequest, { params }: { params: Promise<{ id: string }> }) => {
   const { id } = await params;
 
   const [batch] = await db
@@ -75,4 +76,4 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
   }
 
   return NextResponse.json({ error: "Lote no encontrado" }, { status: 404 });
-}
+});

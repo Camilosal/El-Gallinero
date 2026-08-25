@@ -2,10 +2,11 @@ import { db } from "@/db";
 import { eggLosses } from "@/db/schema";
 import { eq, desc, gte, sql } from "drizzle-orm";
 import { NextRequest, NextResponse } from "next/server";
+import { withApiHandler, safeParseJson } from "@/lib/api-handler";
 
 export const dynamic = "force-dynamic";
 
-export async function GET(req: NextRequest) {
+export const GET = withApiHandler(async (req: NextRequest) => {
   const { searchParams } = new URL(req.url);
   const period = Number(searchParams.get("period")) || 30;
   const cutoff = new Date();
@@ -26,32 +27,33 @@ export async function GET(req: NextRequest) {
     .groupBy(eggLosses.reason);
 
   return NextResponse.json({ losses, totalLost: summary?.total || 0, lossCount: summary?.count || 0, byReason, periodDays: period });
-}
+});
 
-export async function POST(req: NextRequest) {
-  const body = await req.json();
+export const POST = withApiHandler(async (req: NextRequest) => {
+  const body = await safeParseJson(req);
   const { date, quantity, size, reason, notes } = body;
 
-  if (!date || !quantity || quantity < 1 || !reason) {
+  const qty = Number(quantity);
+  if (!date || !quantity || isNaN(qty) || qty < 1 || !reason) {
     return NextResponse.json({ error: "Fecha, cantidad y razón son requeridos" }, { status: 400 });
   }
 
   const [created] = await db.insert(eggLosses).values({
     date,
-    quantity: Number(quantity),
+    quantity: qty,
     size: size || null,
     reason,
     notes: notes || null,
   }).returning();
 
   return NextResponse.json(created, { status: 201 });
-}
+});
 
-export async function DELETE(req: NextRequest) {
+export const DELETE = withApiHandler(async (req: NextRequest) => {
   const { searchParams } = new URL(req.url);
   const id = searchParams.get("id");
   if (!id) return NextResponse.json({ error: "ID requerido" }, { status: 400 });
 
   await db.delete(eggLosses).where(eq(eggLosses.id, id));
   return NextResponse.json({ ok: true });
-}
+});

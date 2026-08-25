@@ -2,6 +2,28 @@
 
 import { ReactNode, useState, ButtonHTMLAttributes, InputHTMLAttributes, SelectHTMLAttributes, TextareaHTMLAttributes } from "react";
 
+/** Parse help text that may contain \n (real newlines or literal \\n) and • bullets into JSX */
+function renderHelpText(text: string) {
+  // Normalize: replace literal \n (from double-escaping) with real newlines
+  const normalized = text.replace(/\\n/g, "\n");
+  const parts = normalized.split(/\n/).filter(p => p.trim());
+  if (parts.length <= 1) return <>{text}</>;
+  return (
+    <div className="space-y-1">
+      {parts.map((part, i) => {
+        const trimmed = part.replace(/^[•\-]\s*/, "").trim();
+        const isBullet = part.trim().startsWith("•") || part.trim().startsWith("-");
+        return (
+          <div key={i} className="flex gap-2">
+            {isBullet && <span className="text-blue-500 flex-shrink-0">•</span>}
+            <span>{trimmed}</span>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
 // ─── Tooltip ───
 export function Tooltip({ text, children }: { text: string; children?: ReactNode }) {
   if (!text) return <>{children}</>;
@@ -11,7 +33,7 @@ export function Tooltip({ text, children }: { text: string; children?: ReactNode
         <span className="ml-1 inline-flex items-center justify-center w-4 h-4 rounded-full bg-slate-200 text-slate-500 text-[10px] font-bold cursor-help select-none">?</span>
       )}
       <span className="pointer-events-none absolute bottom-full left-1/2 -translate-x-1/2 mb-2 z-50 opacity-0 group-hover:opacity-100 transition-opacity duration-150">
-        <span className="block w-56 px-3 py-2 rounded-lg bg-slate-800 text-white text-xs font-normal leading-relaxed shadow-lg text-left">
+        <span className="block w-56 px-3 py-2 rounded-lg bg-slate-800 text-white text-xs font-normal leading-relaxed shadow-lg text-left whitespace-pre-line">
           {text}
           <span className="absolute top-full left-1/2 -translate-x-1/2 border-4 border-transparent border-t-slate-800" />
         </span>
@@ -85,7 +107,7 @@ export function PageHeader({ title, description, actions, help }: { title: strin
         <div className="mt-3 p-4 bg-blue-50 border border-blue-200 rounded-xl text-sm text-blue-800 leading-relaxed">
           <div className="flex gap-2">
             <span className="text-lg flex-shrink-0">💡</span>
-            <div className="whitespace-pre-line">{help}</div>
+            <div>{renderHelpText(help)}</div>
           </div>
           <button onClick={() => setHelpOpen(false)} className="mt-2 text-xs text-blue-500 hover:text-blue-700 font-medium">Cerrar ✕</button>
         </div>

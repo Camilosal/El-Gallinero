@@ -6,10 +6,11 @@ import { ageInWeeks, isAvailableForExit, stageForAge } from "@/lib/lifecycle";
 import { flockBalance } from "@/lib/flock";
 import { totalEstimatedKgPerDay } from "@/lib/manure";
 import { computeManureInventory, computeEggInventory } from "@/lib/inventory";
+import { withApiHandler, safeParseJson } from "@/lib/api-handler";
 
 export const dynamic = "force-dynamic";
 
-export async function GET() {
+export const GET = withApiHandler(async () => {
   try {
     const thirtyDaysAgo = new Date();
     thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
@@ -353,4 +354,4 @@ export async function GET() {
     console.error("Dashboard error:", error);
     return NextResponse.json({ error: "Error loading dashboard" }, { status: 500 });
   }
-}
+});

@@ -3,7 +3,7 @@ import {
   hens, feedInventory, feedMovements, feedPrograms,
   eggProduction, eggProductionDetails, eggSales, eggSalesItems,
   transactions, catalogos, roosters, broilerBatches, incubation,
-  chickenSales, slaughter,
+  chickenSales, slaughter, manureSales, manureAdjustments, manureProduction,
 } from "@/db/schema";
 import { eq, inArray, and } from "drizzle-orm";
 
@@ -89,6 +89,13 @@ export async function cleanup(c: TestCleanup & { productionDetailIds?: string[] 
   if (c.batchIds.length) await db.delete(broilerBatches).where(inArray(broilerBatches.id, c.batchIds));
   if (c.catalogoIds.length) await db.delete(catalogos).where(inArray(catalogos.id, c.catalogoIds));
   if (c.programIds.length) await db.delete(feedPrograms).where(inArray(feedPrograms.id, c.programIds));
+}
+
+/** Purge all manure transactional data (sales, adjustments, production) to ensure clean state */
+export async function purgeManureData() {
+  await db.delete(manureSales);
+  await db.delete(manureAdjustments);
+  await db.delete(manureProduction);
 }
 
 /** Get a reference feed from the seed data (doesn't need cleanup) */

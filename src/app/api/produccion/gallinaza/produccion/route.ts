@@ -2,16 +2,17 @@ import { db } from "@/db";
 import { manureProduction } from "@/db/schema";
 import { eq, desc, asc } from "drizzle-orm";
 import { NextRequest, NextResponse } from "next/server";
+import { withApiHandler, safeParseJson } from "@/lib/api-handler";
 
 export const dynamic = "force-dynamic";
 
-export async function GET() {
+export const GET = withApiHandler(async () => {
   const data = await db.select().from(manureProduction).orderBy(desc(manureProduction.date));
   return NextResponse.json(data);
-}
+});
 
-export async function POST(req: NextRequest) {
-  const body = await req.json();
+export const POST = withApiHandler(async (req: NextRequest) => {
+  const body = await safeParseJson(req);
 
   if (!body.date) return NextResponse.json({ error: "Fecha requerida" }, { status: 400 });
   const kgProduced = Number(body.kgProduced);
@@ -25,10 +26,10 @@ export async function POST(req: NextRequest) {
   }).returning();
 
   return NextResponse.json(created, { status: 201 });
-}
+});
 
-export async function PUT(req: NextRequest) {
-  const body = await req.json();
+export const PUT = withApiHandler(async (req: NextRequest) => {
+  const body = await safeParseJson(req);
   if (!body.id) return NextResponse.json({ error: "ID requerido" }, { status: 400 });
 
   const kgProduced = Number(body.kgProduced);
@@ -41,14 +42,16 @@ export async function PUT(req: NextRequest) {
     notes: body.notes || null,
   }).where(eq(manureProduction.id, body.id)).returning();
 
-  return NextResponse.json(updated);
-}
+  if (!updated) return NextResponse.json({ error: "No encontrado" }, { status: 404 });
 
-export async function DELETE(req: NextRequest) {
+  return NextResponse.json(updated);
+});
+
+export const DELETE = withApiHandler(async (req: NextRequest) => {
   const { searchParams } = new URL(req.url);
   const id = searchParams.get("id");
   if (!id) return NextResponse.json({ error: "ID requerido" }, { status: 400 });
 
   await db.delete(manureProduction).where(eq(manureProduction.id, id));
   return NextResponse.json({ ok: true });
-}
+});

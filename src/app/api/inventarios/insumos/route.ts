@@ -2,20 +2,21 @@ import { db } from "@/db";
 import { supplyInventory, supplyMovements } from "@/db/schema";
 import { eq, desc, sql } from "drizzle-orm";
 import { NextRequest, NextResponse } from "next/server";
+import { withApiHandler, safeParseJson } from "@/lib/api-handler";
 
 export const dynamic = "force-dynamic";
 
-export async function GET() {
+export const GET = withApiHandler(async () => {
   const items = await db
     .select()
     .from(supplyInventory)
     .orderBy(supplyInventory.name);
 
   return NextResponse.json(items);
-}
+});
 
-export async function POST(req: NextRequest) {
-  const body = await req.json();
+export const POST = withApiHandler(async (req: NextRequest) => {
+  const body = await safeParseJson(req);
   const { name, category, unit, currentStock, minStock, costPerUnit, supplier, expiryDate } = body;
 
   if (!name || !category || !unit) {
@@ -53,10 +54,10 @@ export async function POST(req: NextRequest) {
   });
 
   return NextResponse.json(created, { status: 201 });
-}
+});
 
-export async function PUT(req: NextRequest) {
-  const body = await req.json();
+export const PUT = withApiHandler(async (req: NextRequest) => {
+  const body = await safeParseJson(req);
   if (!body.id) {
     return NextResponse.json({ error: "ID requerido" }, { status: 400 });
   }
@@ -87,9 +88,9 @@ export async function PUT(req: NextRequest) {
     .returning();
 
   return NextResponse.json(updated);
-}
+});
 
-export async function DELETE(req: NextRequest) {
+export const DELETE = withApiHandler(async (req: NextRequest) => {
   const { searchParams } = new URL(req.url);
   const id = searchParams.get("id");
   if (!id) return NextResponse.json({ error: "ID requerido" }, { status: 400 });
@@ -99,4 +100,4 @@ export async function DELETE(req: NextRequest) {
     await tx.delete(supplyInventory).where(eq(supplyInventory.id, id));
   });
   return NextResponse.json({ ok: true });
-}
+});

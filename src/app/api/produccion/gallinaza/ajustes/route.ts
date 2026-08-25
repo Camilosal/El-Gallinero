@@ -2,16 +2,17 @@ import { db } from "@/db";
 import { manureAdjustments } from "@/db/schema";
 import { eq, desc } from "drizzle-orm";
 import { NextRequest, NextResponse } from "next/server";
+import { withApiHandler, safeParseJson } from "@/lib/api-handler";
 
 export const dynamic = "force-dynamic";
 
-export async function GET() {
+export const GET = withApiHandler(async () => {
   const data = await db.select().from(manureAdjustments).orderBy(desc(manureAdjustments.date));
   return NextResponse.json(data);
-}
+});
 
-export async function POST(req: NextRequest) {
-  const body = await req.json();
+export const POST = withApiHandler(async (req: NextRequest) => {
+  const body = await safeParseJson(req);
 
   if (!body.date) return NextResponse.json({ error: "Fecha requerida" }, { status: 400 });
   const deltaKg = Number(body.deltaKg);
@@ -25,13 +26,13 @@ export async function POST(req: NextRequest) {
   }).returning();
 
   return NextResponse.json(created, { status: 201 });
-}
+});
 
-export async function DELETE(req: NextRequest) {
+export const DELETE = withApiHandler(async (req: NextRequest) => {
   const { searchParams } = new URL(req.url);
   const id = searchParams.get("id");
   if (!id) return NextResponse.json({ error: "ID requerido" }, { status: 400 });
 
   await db.delete(manureAdjustments).where(eq(manureAdjustments.id, id));
   return NextResponse.json({ ok: true });
-}
+});

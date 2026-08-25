@@ -8,6 +8,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { ageInWeeks, isAvailableForExit, stageForAge, type StageRange } from "@/lib/lifecycle";
 import { estimatedKgPerDay, totalEstimatedKgPerDay, daysSince, type BirdGroupCount } from "@/lib/manure";
 import { computeManureInventory } from "@/lib/inventory";
+import { withApiHandler, safeParseJson } from "@/lib/api-handler";
 
 export const dynamic = "force-dynamic";
 
@@ -89,7 +90,7 @@ async function buildGroups(): Promise<{ groups: EstimationGroup[]; totalKgPerDay
   return { groups, totalKgPerDay: totalEstimatedKgPerDay(groups) };
 }
 
-export async function GET() {
+export const GET = withApiHandler(async () => {
   try {
     const { groups, totalKgPerDay } = await buildGroups();
 
@@ -111,11 +112,11 @@ export async function GET() {
     console.error("Gallinaza GET error:", error);
     return NextResponse.json({ error: "Error cargando gallinaza" }, { status: 500 });
   }
-}
+});
 
-export async function POST(req: NextRequest) {
+export const POST = withApiHandler(async (req: NextRequest) => {
   try {
-    const body = await req.json();
+    const body = await safeParseJson(req);
 
     if (body.action === "factor") {
       const kg = Number(body.kgPerBirdPerDay);
@@ -136,6 +137,17 @@ export async function POST(req: NextRequest) {
       if (!body.date || isNaN(quantityKg) || quantityKg <= 0 || isNaN(pricePerKg) || pricePerKg < 0) {
         return NextResponse.json({ error: "Fecha, cantidad kg y precio/kg son obligatorios" }, { status: 400 });
       }
+
+      // Validate stock availability
+      const { totalKgPerDay } = await buildGroups();
+      const inventory = await computeManureInventory(totalKgPerDay);
+      if (quantityKg > inventory.summary.available) {
+        return NextResponse.json(
+          { error: `Stock insuficiente: disponibles ${inventory.summary.available.toFixed(1)} kg, solicitados ${quantityKg} kg` },
+          { status: 400 },
+        );
+      }
+
       const totalAmount = (quantityKg * pricePerKg).toFixed(2);
 
       const sale = await db.transaction(async (tx) => {
@@ -193,9 +205,9 @@ export async function POST(req: NextRequest) {
     console.error("Gallinaza POST error:", error);
     return NextResponse.json({ error: "Error al guardar" }, { status: 500 });
   }
-}
+});
 
-export async function DELETE(req: NextRequest) {
+export const DELETE = withApiHandler(async (req: NextRequest) => {
   try {
     const { searchParams } = new URL(req.url);
     const saleId = searchParams.get("saleId");
@@ -219,4 +231,4 @@ export async function DELETE(req: NextRequest) {
     console.error("Gallinaza DELETE error:", error);
     return NextResponse.json({ error: "Error al eliminar" }, { status: 500 });
   }
-}
+});

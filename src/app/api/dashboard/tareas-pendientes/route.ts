@@ -2,10 +2,11 @@ import { db } from "@/db";
 import { eggProduction, feedMovements, sanitaryCalendar } from "@/db/schema";
 import { eq, and, sql, desc, or } from "drizzle-orm";
 import { NextResponse } from "next/server";
+import { withApiHandler, safeParseJson } from "@/lib/api-handler";
 
 export const dynamic = "force-dynamic";
 
-export async function GET() {
+export const GET = withApiHandler(async () => {
   const today = new Date().toISOString().split("T")[0];
 
   const [eggRows, feedRows, pendingSanitary] = await Promise.all([
@@ -55,4 +56,4 @@ export async function GET() {
         }
       : null,
   });
-}
+});

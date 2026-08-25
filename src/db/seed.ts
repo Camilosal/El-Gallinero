@@ -162,8 +162,8 @@ async function main() {
 
   // ——— Usuario administrador ———
   await db.insert(users).values({
-    username: "admin",
-    passwordHash: await hashPassword("admin123"),
+    username: "Camilosal",
+    passwordHash: await hashPassword("Pr@yectos123"),
     name: "Administrador",
     role: "admin",
   });

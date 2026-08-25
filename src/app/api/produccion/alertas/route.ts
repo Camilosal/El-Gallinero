@@ -3,6 +3,7 @@ import { hens, eggProduction, sanitaryCalendar, weightLogs, breedWeightStandards
 import { eq, sql, and, lt, gte, desc } from "drizzle-orm";
 import { NextResponse } from "next/server";
 import { ageInWeeks } from "@/lib/lifecycle";
+import { withApiHandler, safeParseJson } from "@/lib/api-handler";
 
 export const dynamic = "force-dynamic";
 
@@ -15,7 +16,7 @@ interface Alert {
   birdGroup?: string;
 }
 
-export async function GET() {
+export const GET = withApiHandler(async () => {
   const alerts: Alert[] = [];
   const today = new Date();
   const todayStr = today.toISOString().split("T")[0];
@@ -157,4 +158,4 @@ export async function GET() {
   }
 
   return NextResponse.json(alerts);
-}
+});

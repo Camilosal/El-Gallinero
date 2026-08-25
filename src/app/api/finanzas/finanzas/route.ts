@@ -2,15 +2,21 @@ import { db } from "@/db";
 import { transactions, feedInventory, feedMovements, accountsPayable, purchaseProducts } from "@/db/schema";
 import { eq, desc, sql, gte, and } from "drizzle-orm";
 import { NextRequest, NextResponse } from "next/server";
+import { withApiHandler, safeParseJson } from "@/lib/api-handler";
 
 export const dynamic = "force-dynamic";
 
-export async function GET(req: NextRequest) {
+export const GET = withApiHandler(async (req: NextRequest) => {
   const { searchParams } = new URL(req.url);
   const period = searchParams.get("period") || "30";
 
+  const periodDays = parseInt(period);
+  if (isNaN(periodDays) || periodDays < 1) {
+    return NextResponse.json({ error: "Período inválido" }, { status: 400 });
+  }
+
   const daysAgo = new Date();
-  daysAgo.setDate(daysAgo.getDate() - parseInt(period));
+  daysAgo.setDate(daysAgo.getDate() - periodDays);
   const dateStr = daysAgo.toISOString().split("T")[0];
 
   const [data, summary, byCategory] = await Promise.all([
@@ -41,8 +47,8 @@ export async function GET(req: NextRequest) {
   const income = summary.find((s) => s.type === "ingreso")?.total || "0";
   const expenses = summary.find((s) => s.type === "egreso")?.total || "0";
 
-  const series = buildSeries(data, parseInt(period));
-  const kpis = computeKpis(data, parseInt(period));
+  const series = buildSeries(data, periodDays);
+  const kpis = computeKpis(data, periodDays);
 
   return NextResponse.json({
     transactions: enriched,
@@ -55,7 +61,7 @@ export async function GET(req: NextRequest) {
     series,
     kpis,
   });
-}
+});
 
 function resolveAmount(body: any): string {
   if (body.amount) return String(body.amount);
@@ -178,8 +184,8 @@ function computeKpis(txs: any[], periodDays: number): Kpis {
   };
 }
 
-export async function POST(req: NextRequest) {
-  const body = await req.json();
+export const POST = withApiHandler(async (req: NextRequest) => {
+  const body = await safeParseJson(req);
   const amount = resolveAmount(body);
   if (!amount) {
     return NextResponse.json({ error: "Defina el monto o cantidad y valor unitario" }, { status: 400 });
@@ -193,19 +199,22 @@ export async function POST(req: NextRequest) {
     const presentations = Number(body.presentations);
     const factor = Number(body.factor);
     const pricePerPresentation = Number(body.pricePerPresentation);
+    if (isNaN(presentations) || isNaN(factor) || isNaN(pricePerPresentation)) {
+      return NextResponse.json({ error: "Valores numéricos inválidos en presentaciones" }, { status: 400 });
+    }
     const quantityInBaseUnit = presentations * factor; // ej: 2 bultos × 25 kg = 50 kg
     const unitPricePerBaseUnit = factor > 0 ? pricePerPresentation / factor : 0; // ej: $95,000 / 25 = $3,800/kg
 
     if (isFeedPurchase) {
-      // Validate feed exists
-      const [feed] = await db.select().from(feedInventory).where(eq(feedInventory.id, body.feedId));
-      if (!feed) {
-        return NextResponse.json({ error: "Alimento no encontrado" }, { status: 404 });
-      }
-
       // Use DB transaction for atomicity
       const result = await db.transaction(async (tx) => {
-        // 1. Insert financial transaction
+        // 1. Validate feed exists inside transaction
+        const [feed] = await tx.select().from(feedInventory).where(eq(feedInventory.id, body.feedId));
+        if (!feed) {
+          throw new Error("Alimento no encontrado");
+        }
+
+        // 2. Insert financial transaction
         const [created] = await tx.insert(transactions).values({
           date: body.date,
           type: body.type || "egreso",
@@ -231,7 +240,7 @@ export async function POST(req: NextRequest) {
           notes: body.notes || `Compra de ${body.description}`,
         }).returning();
 
-        // 3. Update stock and recalculate average cost
+        // 4. Update stock and recalculate average cost using relative SQL
         const oldStock = Number(feed.currentStock);
         const oldCostPerUnit = Number(feed.costPerUnit);
         const oldTotalValue = oldStock * oldCostPerUnit;
@@ -239,7 +248,7 @@ export async function POST(req: NextRequest) {
         const avgCostPerUnit = (oldTotalValue + newTotalValue) / (oldStock + quantityInBaseUnit);
 
         await tx.update(feedInventory).set({
-          currentStock: String(oldStock + quantityInBaseUnit),
+          currentStock: sql`(${feedInventory.currentStock}::numeric + ${quantityInBaseUnit})`,
           costPerUnit: avgCostPerUnit.toFixed(2),
           updatedAt: new Date(),
         }).where(eq(feedInventory.id, body.feedId));
@@ -268,7 +277,7 @@ export async function POST(req: NextRequest) {
 
       return NextResponse.json(result, { status: 201 });
     }
-
+    
     // Non-feed purchase with presentation — just save the transaction
     const result = await db.transaction(async (tx) => {
       const [created] = await tx.insert(transactions).values({
@@ -346,10 +355,10 @@ export async function POST(req: NextRequest) {
   });
 
   return NextResponse.json(result, { status: 201 });
-}
+});
 
-export async function PUT(req: NextRequest) {
-  const body = await req.json();
+export const PUT = withApiHandler(async (req: NextRequest) => {
+  const body = await safeParseJson(req);
   if (!body.id) {
     return NextResponse.json({ error: "ID requerido" }, { status: 400 });
   }
@@ -403,9 +412,10 @@ export async function PUT(req: NextRequest) {
         const [mov] = await tx.select().from(feedMovements).where(eq(feedMovements.id, existing.sourceId));
         if (mov) {
           const delta = newQty - oldQty;
-          const modifier = delta >= 0 ? "+" : "-";
           await tx.update(feedInventory).set({
-            currentStock: sql`greatest(0, (${feedInventory.currentStock}::numeric ${sql.raw(modifier)} ${Math.abs(delta)}))`,
+            currentStock: delta >= 0
+              ? sql`greatest(0, (${feedInventory.currentStock}::numeric + ${Math.abs(delta)}))`
+              : sql`greatest(0, (${feedInventory.currentStock}::numeric - ${Math.abs(delta)}))`,
             updatedAt: new Date(),
           }).where(eq(feedInventory.id, mov.feedId));
           await tx.update(feedMovements).set({ quantity: String(newQty), date: body.date }).where(eq(feedMovements.id, mov.id));
@@ -417,9 +427,9 @@ export async function PUT(req: NextRequest) {
   });
 
   return NextResponse.json(result);
-}
+});
 
-export async function DELETE(req: NextRequest) {
+export const DELETE = withApiHandler(async (req: NextRequest) => {
   const { searchParams } = new URL(req.url);
   const id = searchParams.get("id");
   if (!id) return NextResponse.json({ error: "ID requerido" }, { status: 400 });
@@ -430,9 +440,10 @@ export async function DELETE(req: NextRequest) {
     if (record && record.sourceType === "alimento" && record.sourceId) {
       const [mov] = await tx.select().from(feedMovements).where(eq(feedMovements.id, record.sourceId));
       if (mov) {
-        const modifier = mov.isEntry ? "-" : "+";
         await tx.update(feedInventory).set({
-          currentStock: sql`(${feedInventory.currentStock}::numeric ${sql.raw(modifier)} ${Number(mov.quantity)})`,
+          currentStock: mov.isEntry
+            ? sql`(${feedInventory.currentStock}::numeric - ${Number(mov.quantity)})`
+            : sql`(${feedInventory.currentStock}::numeric + ${Number(mov.quantity)})`,
           updatedAt: new Date(),
         }).where(eq(feedInventory.id, mov.feedId));
         await tx.delete(feedMovements).where(eq(feedMovements.id, mov.id));
@@ -443,4 +454,4 @@ export async function DELETE(req: NextRequest) {
   });
 
   return NextResponse.json({ ok: true });
-}
+});

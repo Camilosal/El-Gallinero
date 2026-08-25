@@ -1,11 +1,12 @@
 import { db } from "@/db";
 import { supplyMovements, supplyInventory } from "@/db/schema";
-import { eq, desc, sql } from "drizzle-orm";
+import { eq, desc, sql, and } from "drizzle-orm";
 import { NextRequest, NextResponse } from "next/server";
+import { withApiHandler, safeParseJson } from "@/lib/api-handler";
 
 export const dynamic = "force-dynamic";
 
-export async function GET() {
+export const GET = withApiHandler(async () => {
   const movements = await db
     .select({
       id: supplyMovements.id,
@@ -24,37 +25,43 @@ export async function GET() {
     .orderBy(desc(supplyMovements.createdAt));
 
   return NextResponse.json(movements);
-}
+});
 
-export async function POST(req: NextRequest) {
-  const body = await req.json();
+export const POST = withApiHandler(async (req: NextRequest) => {
+  const body = await safeParseJson(req);
   const { supplyId, quantity, isEntry, movementType, date, notes } = body;
 
   if (!supplyId || !quantity || isEntry === undefined || !movementType || !date) {
     return NextResponse.json({ error: "Campos requeridos: supplyId, quantity, isEntry, movementType, date" }, { status: 400 });
   }
 
-  const [supply] = await db
-    .select()
-    .from(supplyInventory)
-    .where(eq(supplyInventory.id, supplyId));
-
-  if (!supply) {
-    return NextResponse.json({ error: "Insumo no encontrado" }, { status: 404 });
-  }
-
   const qty = Number(quantity);
-  const currentStock = Number(supply.currentStock);
-
-  // Block negative stock
-  if (!isEntry && qty > currentStock) {
-    return NextResponse.json({ error: `Stock insuficiente. Disponible: ${currentStock} ${supply.unit}` }, { status: 400 });
+  if (isNaN(qty) || qty < 1) {
+    return NextResponse.json({ error: "Cantidad inválida" }, { status: 400 });
   }
-
-  // Update stock
-  const newStock = isEntry ? currentStock + qty : currentStock - qty;
 
   const movement = await db.transaction(async (tx) => {
+    // Verify supply exists inside transaction
+    const [supply] = await tx
+      .select()
+      .from(supplyInventory)
+      .where(eq(supplyInventory.id, supplyId));
+
+    if (!supply) {
+      throw new Error("Insumo no encontrado");
+    }
+
+    // For withdrawals, check stock inside the transaction using SQL
+    if (!isEntry) {
+      const currentStock = Number(supply.currentStock);
+      if (qty > currentStock) {
+        return NextResponse.json(
+          { error: `Stock insuficiente. Disponible: ${currentStock} ${supply.unit}` },
+          { status: 400 },
+        );
+      }
+    }
+
     const [row] = await tx
       .insert(supplyMovements)
       .values({
@@ -67,48 +74,61 @@ export async function POST(req: NextRequest) {
       })
       .returning();
 
-    await tx
-      .update(supplyInventory)
-      .set({
-        currentStock: String(Math.max(0, newStock)),
-        updatedAt: new Date(),
-      })
-      .where(eq(supplyInventory.id, supplyId));
+    // Use relative SQL update to avoid race conditions
+    if (isEntry) {
+      await tx
+        .update(supplyInventory)
+        .set({
+          currentStock: sql`(${supplyInventory.currentStock}::numeric + ${qty})`,
+          updatedAt: new Date(),
+        })
+        .where(eq(supplyInventory.id, supplyId));
+    } else {
+      await tx
+        .update(supplyInventory)
+        .set({
+          currentStock: sql`GREATEST(0, ${supplyInventory.currentStock}::numeric - ${qty})`,
+          updatedAt: new Date(),
+        })
+        .where(eq(supplyInventory.id, supplyId));
+    }
 
     return row;
   });
 
   return NextResponse.json(movement, { status: 201 });
-}
+});
 
-export async function DELETE(req: NextRequest) {
+export const DELETE = withApiHandler(async (req: NextRequest) => {
   const { searchParams } = new URL(req.url);
   const id = searchParams.get("id");
   if (!id) return NextResponse.json({ error: "ID requerido" }, { status: 400 });
 
-  const [movement] = await db
-    .select()
-    .from(supplyMovements)
-    .where(eq(supplyMovements.id, id));
-
-  if (!movement) {
-    return NextResponse.json({ error: "Movimiento no encontrado" }, { status: 404 });
-  }
-
   await db.transaction(async (tx) => {
-    const [supply] = await tx
+    const [movement] = await tx
       .select()
-      .from(supplyInventory)
-      .where(eq(supplyInventory.id, movement.supplyId));
+      .from(supplyMovements)
+      .where(eq(supplyMovements.id, id));
 
-    if (supply) {
-      const currentStock = Number(supply.currentStock);
-      const qty = Number(movement.quantity);
-      const newStock = movement.isEntry ? currentStock - qty : currentStock + qty;
+    if (!movement) {
+      throw new Error("Movimiento no encontrado");
+    }
+
+    // Reverse stock using relative SQL update
+    const qty = Number(movement.quantity);
+    if (movement.isEntry) {
       await tx
         .update(supplyInventory)
         .set({
-          currentStock: String(Math.max(0, newStock)),
+          currentStock: sql`GREATEST(0, ${supplyInventory.currentStock}::numeric - ${qty})`,
+          updatedAt: new Date(),
+        })
+        .where(eq(supplyInventory.id, movement.supplyId));
+    } else {
+      await tx
+        .update(supplyInventory)
+        .set({
+          currentStock: sql`(${supplyInventory.currentStock}::numeric + ${qty})`,
           updatedAt: new Date(),
         })
         .where(eq(supplyInventory.id, movement.supplyId));
@@ -118,4 +138,4 @@ export async function DELETE(req: NextRequest) {
   });
 
   return NextResponse.json({ ok: true });
-}
+});

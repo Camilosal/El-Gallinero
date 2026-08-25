@@ -8,6 +8,7 @@ import { eq, and, sql, desc, gte } from "drizzle-orm";
 import { NextRequest, NextResponse } from "next/server";
 import { runFeedProgramCatchup } from "@/lib/feeding/runProgram";
 import { computeEggInventory, computeManureInventory, computeMeatInventory } from "@/lib/inventory";
+import { withApiHandler, safeParseJson } from "@/lib/api-handler";
 
 export const dynamic = "force-dynamic";
 
@@ -24,7 +25,7 @@ export const dynamic = "force-dynamic";
  * Query params:
  * - days: días hacia atrás para el resumen de movimientos por motivo (default: 30)
  */
-export async function GET(req: NextRequest) {
+export const GET = withApiHandler(async (req: NextRequest) => {
   const { searchParams } = new URL(req.url);
   const days = Math.min(Math.max(parseInt(searchParams.get("days") || "30", 10), 1), 365);
 
@@ -302,4 +303,4 @@ export async function GET(req: NextRequest) {
       totalDeaths,
     },
   });
-}
+});

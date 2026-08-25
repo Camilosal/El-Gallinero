@@ -119,12 +119,14 @@ Página índice con KPIs de stock consolidado.
 | Insumos | `/inventarios/insumos` | Inventario de insumos (alimento, medicamentos, empaques) |
 
 ### 💊 Sanidad (`/sanidad`)
-Página índice con accesos rápidos a control y calendario sanitario.
+Plan Sanitario proactivo con protocolos por etapa de crecimiento, ejecución con control de recursos y trazabilidad completa.
 
 | Sub-módulo | Ruta | Funcionalidades |
 | --- | --- | --- |
-| Control Sanitario | `/sanidad/control` | Eventos (vacunación, desparasitación, tratamiento, inspección, fumigación, vitaminas, otro) con producto, costo y próxima aplicación; los tratamientos marcan gallinas como enfermas; próximos eventos a vencer |
-| Calendario Sanitario | `/sanidad/calendario` | Calendario de vacunas y recordatorios sanitarios |
+| Plan Sanitario | `/sanidad` | **Sistema proactivo** con 5 pestañas: Plan de Acción (pendientes por urgencia), Protocolos por Etapa (Pollito, Juvenil, Pre-postura, Postura con acciones definidas), Ejecutar (confirma recursos y aplica), Historial (registro completo), Recursos (inventario de insumos sanitarios). Genera eventos automáticamente en el calendario según los protocolos de cada etapa. |
+| Control Sanitario | `/sanidad/control` | Eventos manuales (vacunación, desparasitación, tratamiento, inspección, fumigación, vitaminas) con producto, costo y próxima aplicación. Pre-llenado automático desde eventos pendientes del calendario. |
+| Calendario Sanitario | `/sanidad/calendario` | Calendario de eventos sanitarios programados (automáticos y manuales). Eventos vencidos en rojo, próximos en amarillo. |
+| Alertas | `/sanidad/alertas` | Monitoreo automático de transiciones de etapa, vacunación pendiente y niveles de producción. |
 
 ### 🔧 Operaciones (`/operaciones`)
 Página índice con accesos rápidos a mantenimiento y gallinaza.
@@ -168,42 +170,64 @@ Página índice con accesos rápidos a catálogos.
 - **Inventario de huevos PEPS**: las ventas se descuentan del lote más antiguo de cada tamaño; huevos con más de 21 días generan alerta.
 - **Producción esperada**: huevos/día = Σ(gallinas por etapa × factor del catálogo); rendimiento % contra lo real y alerta si supera 1.5×.
 - **Alimentación**: bloqueo de stock negativo; consumo registrado por etapa con gramos/gallina/día; proyección de días de stock.
+- **Plan Sanitario**: protocolos por etapa (Pollito, Juvenil, Pre-postura, Postura) con acciones de vacunación, desparasitación y vitaminas. Genera eventos en el calendario, verifica recursos disponibles y registra períodos de carencia.
 - **Trazabilidad financiera**: cada venta, sacrificio, compra de alimento, mantenimiento completado y evento sanitario con costo crea su transacción automáticamente (`sourceType`/`sourceId`); al borrar el origen se revierte la transacción.
+
+## Guía de usuario integrada
+
+El sistema incluye una **guía de usuario completa** accesible desde el sidebar (botón 📖). Contiene guías paso a paso para cada módulo con:
+- Diagramas de flujo visuales (arquitectura del sistema, ciclo de vida, flujos de producción, integración financiera)
+- Instrucciones detalladas para cada tarea
+- Tips, advertencias y notas
+- Enlaces directos a la aplicación
 
 ## Diagramas de arquitectura
 
 ### Flujo de Producción de Huevos
 ```mermaid
-sequenceDiagram
-    participant Hen as Gallina
-    participant Nest as Nido
-    participant Collection as Recolección
-    participant Classification as Clasificación por Tamaño
-    participant Storage as Almacenamiento (Inventario Huevos)
-    participant Sales as Ventas
-    participant Finance as Finanzas
-    Hen->>Nest: Pone huevo
-    Nest->>Collection: Huevo disponible
-    Collection->>Classification: Recolectar huevo
-    Classification->>Storage: Clasificar (S, M, L, XL)
-    Storage->>Sales: Disponible para venta
-    Sales->>Finance: Registrar ingreso
-    Finance->>Storage: Actualizar egreso/ingreso
+flowchart TD
+    A[🐔 Gallina] -->|Pone huevo| B[🥚 Recolección]
+    B -->|Clasificar| C[📏 Tamaño: P, M, G, XL, XXL]
+    C -->|Almacena| D[📦 Inventario PEPS]
+    D -->|Venta| E[💰 Ingreso automático]
+    D -->|Incubación| F[🐣 21 días → Pollitos]
+    D -->|>21 días| G[⚠️ Alerta vencimiento]
+    E --> H[📈 Finanzas]
+```
+
+### Ciclo de Vida de la Gallina
+```mermaid
+flowchart LR
+    A[🐤 Pollito\n0–6 sem] -->|6 sem| B[🐔 Juvenil\n6–18 sem]
+    B -->|18 sem| C[🥚 Pre-postura\n18–20 sem]
+    C -->|20 sem| D[🐔 Postura\n20+ sem]
+    D -->|≥80 sem Y ≥2.5kg| E[⚠️ Rec. Sacrificio]
+    D -->|Vendida| F[Terminal]
+    D -->|Muerta| G[Terminal]
+```
+
+### Plan Sanitario Proactivo
+```mermaid
+flowchart TD
+    A[📋 Protocolos por Etapa] -->|Genera| B[📅 Eventos en Calendario]
+    B -->|Vencimiento próximo| C[🔔 Alerta de Acción]
+    C -->|Verifica recursos| D[✅ Ejecutar Acción]
+    D -->|Confirma insumos| E[📊 Historial Sanitario]
+    D -->|Deduce stock| F[📦 Inventario Insumos]
+    F -->|Stock bajo| G[⚠️ Alerta Reposición]
 ```
 
 ### Integración Automática de Finanzas
 ```mermaid
-sequenceDiagram
-    participant Op as Operación (Venta, Compra, Mantenimiento, Sanidad)
-    participant Sys as Sistema
-    participant DB as Base de Datos
-    participant Tx as Transacción Financiera
-    Op->>Sys: Ejecuta operación con costo
-    Sys->>DB: Registra operación (sourceType, sourceId)
-    Sys->>Tx: Crea transacción automática (ingreso/egreso)
-    Tx->>DB: Guarda transacción vinculada
-    DB-->>Sys: Confirmación
-    Sys-->>Op: Operación completada con trazabilidad
+flowchart TD
+    A[💰 Venta] -->|Ingreso| T[📝 Transacción]
+    B[🛒 Compra Alimento] -->|Egreso| T
+    C[🔧 Mantenimiento] -->|Egreso| T
+    D[💊 Evento Sanitario] -->|Egreso| T
+    E[🌱 Venta Gallinaza] -->|Ingreso| T
+    T --> F[📈 KPIs y Gráficos]
+    T --> G[💵 Balance Financiero]
+    G --> H[📊 Análisis]
 ```
 
 ## Estructura del proyecto
@@ -211,69 +235,74 @@ sequenceDiagram
 ```
 ├── src/
 │   ├── app/
-│   │   ├── (app)/                    # Páginas del sistema agrupadas por sección
-│   │   │   ├── page.tsx              # Dashboard principal
+│   │   ├── dashboard/                    # Páginas del sistema agrupadas por sección
+│   │   │   ├── page.tsx              # Dashboard principal (4 tarjetas/día, KPIs, gráficos)
 │   │   │   ├── produccion/           # 🐔 Producción
-│   │   │   │   ├── page.tsx          # Índice con KPIs (huevos, gallinas, mortalidad)
-│   │   │   │   ├── gallinas/         # Gestión de gallinas
+│   │   │   │   ├── page.tsx          # Índice con tabs (Huevos, Gallinas, Pollos, Alimentación, Incubación, Carne, Gallinaza, Inventario)
+│   │   │   │   ├── gallinas/         # Gestión de gallinas + detalle individual
 │   │   │   │   ├── pollos/           # Pollos y gallos
 │   │   │   │   ├── adquisiciones/    # Entrada de aves
-│   │   │   │   ├── alimentacion/     # Programas y consumo
+│   │   │   │   ├── alimentacion/     # Programas y consumo (5 tabs)
 │   │   │   │   ├── huevos/           # Producción de huevos
 │   │   │   │   ├── incubacion/       # Incubación
 │   │   │   │   ├── sacrificio/       # Carne
 │   │   │   │   ├── mortalidad/       # Bajas
+│   │   │   │   ├── peso/             # Seguimiento de peso
 │   │   │   │   └── plan-parvada/     # Proyecciones
 │   │   │   ├── inventarios/          # 📦 Inventarios
 │   │   │   │   ├── page.tsx          # Índice con KPIs de stock
 │   │   │   │   ├── huevos/           # Inventario PEPS de huevos
+│   │   │   │   ├── carne/            # Inventario FIFO de carne
+│   │   │   │   ├── gallinaza/        # Inventario de gallinaza
 │   │   │   │   ├── balance/          # Balance consolidado
-│   │   │   │   └── insumos/          # Insumos
+│   │   │   │   └── insumos/          # Insumos (alimento, medicamentos, empaques)
 │   │   │   ├── sanidad/              # 💊 Sanidad
-│   │   │   │   ├── page.tsx          # Índice
-│   │   │   │   ├── control/          # Control sanitario
-│   │   │   │   └── calendario/       # Calendario sanitario
+│   │   │   │   ├── page.tsx          # Plan Sanitario proactivo (5 tabs)
+│   │   │   │   ├── _components/
+│   │   │   │   │   └── PlanSanitarioTab.tsx  # Plan de Acción, Protocolos, Ejecutar, Historial, Recursos
+│   │   │   │   ├── control/          # Control sanitario manual
+│   │   │   │   ├── calendario/       # Calendario sanitario
+│   │   │   │   └── alertas/          # Alertas automáticas
 │   │   │   ├── operaciones/          # 🔧 Operaciones
 │   │   │   │   ├── page.tsx          # Índice
 │   │   │   │   ├── mantenimiento/    # Tareas y equipos
-│   │   │   │   └── gallinaza/        # Gestión de gallinaza
+│   │   │   │   └── gallinaza/        # Factores y ajustes
 │   │   │   ├── finanzas/             # 💰 Finanzas
 │   │   │   │   ├── page.tsx          # Índice con KPIs financieros
-│   │   │   │   ├── ventas/           # Ventas de huevos y aves
-│   │   │   │   ├── egresos/          # Gastos
-│   │   │   │   ├── finanzas/         # Panel financiero
+│   │   │   │   ├── ventas/           # Ventas (huevos, aves, carne, gallinaza)
+│   │   │   │   ├── egresos/          # Gastos (compra con presentación + general)
+│   │   │   │   ├── finanzas/         # Panel financiero (KPIs, gráficos, proyección)
 │   │   │   │   ├── presupuestos/     # Planificación
-│   │   │   │   └── cuentas/          # CxC y CxP
+│   │   │   │   └── cuentas/          # CxC yCxP
 │   │   │   ├── analisis/             # 📊 Análisis
 │   │   │   │   ├── page.tsx          # Índice
 │   │   │   │   ├── kpis/             # Indicadores clave
+│   │   │   │   ├── razas/            # Estándares de raza
 │   │   │   │   └── reportes/         # Reportes exportables
-│   │   │   └── configuracion/        # 🗂️ Configuración
-│   │   │       ├── page.tsx          # Índice
-│   │   │       └── catalogos/        # Datos maestros
+│   │   │   ├── configuracion/        # ⚙️ Configuración
+│   │   │   │   ├── page.tsx          # Índice
+│   │   │   │   └── catalogos/        # Datos maestros (16 categorías)
+│   │   │   ├── escanear/             # 📷 Escáner QR de aves
+│   │   │   └── guia/                 # 📖 Guía de usuario integrada
+│   │   │       ├── page.tsx          # Índice de guías por módulo
+│   │   │       └── [slug]/           # Vista de guía individual con diagramas
 │   │   ├── api/                      # API Routes (Next.js)
 │   │   │   ├── auth/                 # login, logout, me
 │   │   │   ├── produccion/           # APIs de producción
-│   │   │   │   ├── resumen/          # KPIs de producción
-│   │   │   │   ├── gallinas/
-│   │   │   │   ├── pollos/
-│   │   │   │   ├── alimentacion/
-│   │   │   │   ├── huevos/
-│   │   │   │   └── ...
 │   │   │   ├── inventarios/          # APIs de inventarios
-│   │   │   ├── sanidad/              # APIs de sanidad
+│   │   │   ├── sanidad/              # APIs de sanidad (calendario, plan, control, resumen)
 │   │   │   ├── operaciones/          # APIs de operaciones
 │   │   │   ├── finanzas/             # APIs de finanzas
 │   │   │   ├── analisis/             # APIs de análisis
 │   │   │   └── configuracion/        # APIs de configuración
 │   │   ├── login/                    # Página de acceso
 │   │   └── layout.tsx
-│   ├── components/                   # Sidebar y componentes UI (Card, StatCard, Modal, Table…)
+│   ├── components/                   # Sidebar, UI (Card, StatCard, Modal, Table, renderHelpText…)
 │   ├── db/
-│   │   ├── schema.ts                 # Modelo de datos (25 tablas, Drizzle ORM)
-│   │   ├── seed.ts                   # Datos demo idempotentes (admin/admin123)
+│   │   ├── schema.ts                 # Modelo de datos (25+ tablas, Drizzle ORM)
+│   │   ├── seed.ts                   # Datos demo idempotentes
 │   │   └── index.ts                  # Conexión a Postgres
-│   └── lib/                          # auth (sesiones), inventory (PEPS), flock, lifecycle, manure, birdExit
+│   └── lib/                          # auth, inventory (PEPS), lifecycle, flock, guide-data, vaccination-schedules
 ├── docs/                             # Especificaciones y planes de diseño
 ├── tests/                            # Pruebas de flujo (vitest)
 └── drizzle.config.ts
@@ -285,7 +314,8 @@ sequenceDiagram
 - **Producción:** `egg_production` + `egg_production_details` (por tamaño), `incubation`
 - **Comercial:** `egg_sales`, `egg_sales_items`, `chicken_sales`, `manure_sales`
 - **Finanzas:** `transactions` (ingresos y egresos, enlazadas a su fuente)
-- **Apoyo:** `feed_inventory`, `feed_movements`, `feed_programs`, `maintenance`, `health_control`, `manure_factors`, `manure_inventory`, `manure_adjustments`, `catalogos` (maestros), `users`, `sessions`
+- **Sanidad:** `sanitary_calendar` (eventos programados), `health_control` (ejecuciones), `flock_plans` + `flock_plan_milestones` (planes proactivos)
+- **Apoyo:** `feed_inventory`, `feed_movements`, `feed_programs`, `supply_inventory`, `supply_movements`, `maintenance`, `manure_factors`, `manure_inventory`, `manure_adjustments`, `catalogos` (maestros), `users`, `sessions`
 
 El esquema completo está en [`src/db/schema.ts`](src/db/schema.ts).
 

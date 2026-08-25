@@ -2,9 +2,10 @@ import { VACCINATION_SCHEDULES } from "@/lib/vaccination-schedules";
 import { db } from "@/db";
 import { sanitaryCalendar } from "@/db/schema";
 import { NextRequest, NextResponse } from "next/server";
+import { withApiHandler, safeParseJson } from "@/lib/api-handler";
 
-export async function POST(req: NextRequest) {
-  const { breed, startDate, targetBirds } = await req.json();
+export const POST = withApiHandler(async (req: NextRequest) => {
+  const { breed, startDate, targetBirds } = await safeParseJson(req);
   const schedule = VACCINATION_SCHEDULES[breed];
   if (!schedule) {
     return NextResponse.json({ error: `Raza ${breed} no encontrada` }, { status: 400 });
@@ -27,4 +28,4 @@ export async function POST(req: NextRequest) {
 
   const inserted = await db.insert(sanitaryCalendar).values(events).returning();
   return NextResponse.json({ created: inserted.length, events: inserted });
-}
+});

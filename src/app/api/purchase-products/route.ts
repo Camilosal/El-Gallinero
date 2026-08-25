@@ -2,11 +2,12 @@ import { db } from "@/db";
 import { purchaseProducts } from "@/db/schema";
 import { eq, and, desc } from "drizzle-orm";
 import { NextRequest, NextResponse } from "next/server";
+import { withApiHandler, safeParseJson } from "@/lib/api-handler";
 
 export const dynamic = "force-dynamic";
 
 /** List all active purchase products, optionally filtered by expense category */
-export async function GET(req: NextRequest) {
+export const GET = withApiHandler(async (req: NextRequest) => {
   const category = req.nextUrl.searchParams.get("category");
 
   if (category) {
@@ -24,11 +25,11 @@ export async function GET(req: NextRequest) {
     .where(eq(purchaseProducts.isActive, true))
     .orderBy(desc(purchaseProducts.updatedAt));
   return NextResponse.json(data);
-}
+});
 
 /** Create a new purchase product */
-export async function POST(req: NextRequest) {
-  const body = await req.json();
+export const POST = withApiHandler(async (req: NextRequest) => {
+  const body = await safeParseJson(req);
   if (!body.name || !body.expenseCategory) {
     return NextResponse.json({ error: "Nombre y categoría son requeridos" }, { status: 400 });
   }
@@ -47,11 +48,11 @@ export async function POST(req: NextRequest) {
     .returning();
 
   return NextResponse.json(created, { status: 201 });
-}
+});
 
 /** Update a purchase product */
-export async function PUT(req: NextRequest) {
-  const body = await req.json();
+export const PUT = withApiHandler(async (req: NextRequest) => {
+  const body = await safeParseJson(req);
   if (!body.id) {
     return NextResponse.json({ error: "ID requerido" }, { status: 400 });
   }
@@ -72,10 +73,10 @@ export async function PUT(req: NextRequest) {
     .returning();
 
   return NextResponse.json(updated);
-}
+});
 
 /** Soft-delete a purchase product (set isActive=false) */
-export async function DELETE(req: NextRequest) {
+export const DELETE = withApiHandler(async (req: NextRequest) => {
   const { searchParams } = new URL(req.url);
   const id = searchParams.get("id");
   if (!id) return NextResponse.json({ error: "ID requerido" }, { status: 400 });
@@ -86,4 +87,4 @@ export async function DELETE(req: NextRequest) {
     .where(eq(purchaseProducts.id, id));
 
   return NextResponse.json({ ok: true });
-}
+});

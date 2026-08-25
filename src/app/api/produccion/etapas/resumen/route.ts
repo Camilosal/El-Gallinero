@@ -3,6 +3,7 @@ import { catalogos, hens, feedPrograms, feedInventory, feedMovements } from "@/d
 import { eq, and, sql, or, desc } from "drizzle-orm";
 import { NextRequest, NextResponse } from "next/server";
 import { runFeedProgramCatchup } from "@/lib/feeding/runProgram";
+import { withApiHandler, safeParseJson } from "@/lib/api-handler";
 
 export const dynamic = "force-dynamic";
 
@@ -13,7 +14,7 @@ export const dynamic = "force-dynamic";
  * Query params:
  * - days: número de días para calcular stock mínimo automático (ej: 7, 14, 30)
  */
-export async function GET(req?: NextRequest) {
+export const GET = withApiHandler(async (req?: NextRequest) => {
   const url = req?.url ? new URL(req.url) : new URL("http://localhost/api/produccion/etapas/resumen");
   const daysParam = url.searchParams.get("days");
   const stockDays = daysParam ? parseInt(daysParam, 10) : null;
@@ -217,4 +218,4 @@ export async function GET(req?: NextRequest) {
       variance: Math.round((data.actual7d - data.expected7d) * 100) / 100,
     })),
   });
-}
+});

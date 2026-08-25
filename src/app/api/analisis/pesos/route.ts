@@ -2,10 +2,11 @@ import { db } from "@/db";
 import { weightLogs } from "@/db/schema";
 import { desc } from "drizzle-orm";
 import { NextRequest, NextResponse } from "next/server";
+import { withApiHandler, safeParseJson } from "@/lib/api-handler";
 
 export const dynamic = "force-dynamic";
 
-export async function GET() {
+export const GET = withApiHandler(async () => {
   const logs = await db
     .select()
     .from(weightLogs)
@@ -13,11 +14,11 @@ export async function GET() {
     .limit(100);
 
   return NextResponse.json(logs);
-}
+});
 
-export async function POST(req: NextRequest) {
+export const POST = withApiHandler(async (req: NextRequest) => {
   try {
-    const body = await req.json();
+    const body = await safeParseJson(req);
     const { date, batchId, henGroup, breed, weekNumber, avgWeightKg, sampleSize, notes } = body;
 
     if (!date || !avgWeightKg) {
@@ -41,7 +42,7 @@ export async function POST(req: NextRequest) {
       })
       .returning();
 
-    return NextResponse.json(log);
+    return NextResponse.json(log, { status: 201 });
   } catch (error) {
     console.error("Error creating weight log:", error);
     return NextResponse.json(
@@ -49,4 +50,4 @@ export async function POST(req: NextRequest) {
       { status: 500 }
     );
   }
-}
+});

@@ -234,7 +234,7 @@ export default function Dashboard() {
 
       {/* ─── 1. Alert Banner ─── */}
       {alerts.length > 0 ? (
-        <div className="mb-6 space-y-2">
+        <div className="mb-6 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
           {alerts.filter((a) => a.severity === "critical").map((alert) => (
             <a
               key={alert.id}
@@ -270,7 +270,7 @@ export default function Dashboard() {
       {tareas && (!tareas.eggCollectedToday || !tareas.feedMovedToday || tareas.pendingSanitary) && (
         <div className="mb-6">
           <h2 className="text-sm font-semibold text-slate-500 uppercase tracking-wide mb-3">Pendientes de hoy</h2>
-          <div className="space-y-2">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             {!tareas.eggCollectedToday && (
               <div className="flex items-center gap-3 p-4 bg-yellow-50 border border-yellow-200 rounded-xl">
                 <span className="text-2xl">🥚</span>
@@ -307,7 +307,7 @@ export default function Dashboard() {
       {/* ─── 3. Task Buttons ─── */}
       <div className="mb-6">
         <h2 className="text-sm font-semibold text-slate-500 uppercase tracking-wide mb-3">Tareas del día</h2>
-        <div className="grid grid-cols-2 lg:grid-cols-5 gap-4">
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
           <a
             href="/dashboard/produccion?tab=huevos"
             className="flex flex-col items-center gap-3 p-6 bg-yellow-50 border-2 border-yellow-200 rounded-2xl hover:bg-yellow-100 hover:border-yellow-300 transition-all"
@@ -336,22 +336,14 @@ export default function Dashboard() {
             <span className="text-xs text-green-600">${Number(data.sales.totalRevenue).toLocaleString()} este mes</span>
           </a>
           <a
-            href="/dashboard/sanidad/control"
+            href="/dashboard/sanidad"
             className="flex flex-col items-center gap-3 p-6 bg-blue-50 border-2 border-blue-200 rounded-2xl hover:bg-blue-100 hover:border-blue-300 transition-all"
           >
             <span className="text-4xl">💊</span>
-            <span className="text-sm font-semibold text-blue-800 text-center">Control Sanitario</span>
+            <span className="text-sm font-semibold text-blue-800 text-center">Plan Sanitario</span>
             <span className="text-xs text-blue-600">
               {data.sanitaryAlerts > 0 ? `${data.sanitaryAlerts} pendiente${data.sanitaryAlerts > 1 ? "s" : ""}` : "Al día"}
             </span>
-          </a>
-          <a
-            href="/dashboard/escanear"
-            className="flex flex-col items-center gap-3 p-6 bg-indigo-50 border-2 border-indigo-200 rounded-2xl hover:bg-indigo-100 hover:border-indigo-300 transition-all"
-          >
-            <span className="text-4xl">📷</span>
-            <span className="text-sm font-semibold text-indigo-800 text-center">Escanear Ave</span>
-            <span className="text-xs text-indigo-600">{data.hens.active} aves activas</span>
           </a>
         </div>
       </div>

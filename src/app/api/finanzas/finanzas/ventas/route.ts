@@ -2,6 +2,7 @@ import { db } from "@/db";
 import { eggSales, eggSalesItems, transactions, eggProductionDetails, eggProduction, accountsReceivable } from "@/db/schema";
 import { eq, desc, sql, and, notInArray } from "drizzle-orm";
 import { NextRequest, NextResponse } from "next/server";
+import { withApiHandler, safeParseJson } from "@/lib/api-handler";
 
 export const dynamic = "force-dynamic";
 
@@ -33,7 +34,7 @@ async function getAvailableEggsBySize(excludeSaleIds?: string[]): Promise<Map<st
 }
 
 // GET /api/finanzas/finanzas/ventas
-export async function GET() {
+export const GET = withApiHandler(async () => {
   const data = await db.select().from(eggSales).orderBy(desc(eggSales.date)).limit(100);
   const result = [];
   for (const sale of data) {
@@ -41,11 +42,11 @@ export async function GET() {
     result.push({ ...sale, items });
   }
   return NextResponse.json(result);
-}
+});
 
 // POST /api/finanzas/finanzas/ventas
-export async function POST(req: NextRequest) {
-  const body = await req.json();
+export const POST = withApiHandler(async (req: NextRequest) => {
+  const body = await safeParseJson(req);
   const items: { size: string; quantity: number; presentations?: number; pricePerUnit: number; presentation?: string }[] = body.items;
 
   if (!items || !Array.isArray(items) || items.length === 0) {
@@ -134,11 +135,11 @@ export async function POST(req: NextRequest) {
     return { ...created, items: createdItems };
   });
   return NextResponse.json(result, { status: 201 });
-}
+});
 
 // PUT /api/finanzas/finanzas/ventas
-export async function PUT(req: NextRequest) {
-  const body = await req.json();
+export const PUT = withApiHandler(async (req: NextRequest) => {
+  const body = await safeParseJson(req);
   const items: { size: string; quantity: number; presentations?: number; pricePerUnit: number; presentation?: string }[] = body.items;
 
   if (!items || !Array.isArray(items) || items.length === 0) {
@@ -148,6 +149,7 @@ export async function PUT(req: NextRequest) {
   for (const item of items) {
     if (!item.size) return NextResponse.json({ error: "Selecciona el tamaño del huevo" }, { status: 400 });
     if (!item.quantity || item.quantity < 1) return NextResponse.json({ error: `Cantidad inválida para tamaño ${item.size}` }, { status: 400 });
+    if (!item.pricePerUnit || item.pricePerUnit <= 0) return NextResponse.json({ error: `Precio inválido para tamaño ${item.size}` }, { status: 400 });
   }
 
   const available = await getAvailableEggsBySize([body.id]);
@@ -255,10 +257,10 @@ export async function PUT(req: NextRequest) {
     return { ...updated, items: createdItems };
   });
   return NextResponse.json(result);
-}
+});
 
 // DELETE /api/finanzas/finanzas/ventas
-export async function DELETE(req: NextRequest) {
+export const DELETE = withApiHandler(async (req: NextRequest) => {
   const { searchParams } = new URL(req.url);
   const id = searchParams.get("id");
   if (!id) return NextResponse.json({ error: "ID requerido" }, { status: 400 });
@@ -274,4 +276,4 @@ export async function DELETE(req: NextRequest) {
     await tx.delete(eggSales).where(eq(eggSales.id, id));
   });
   return NextResponse.json({ ok: true });
-}
+});

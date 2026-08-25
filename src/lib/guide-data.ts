@@ -2,13 +2,30 @@
 // Each guide is a structured object with sections rendered by the wiki viewer.
 // To add a new guide: add an object to the `guides` array and it will appear automatically.
 
-export type SectionType = "intro" | "steps" | "tip" | "warning" | "note";
+export type SectionType = "intro" | "steps" | "tip" | "warning" | "note" | "diagram";
+
+export interface DiagramNode {
+  id: string;
+  label: string;
+  icon?: string;
+  color?: string;
+}
+
+export interface DiagramConnection {
+  from: string;
+  to: string;
+  label?: string;
+}
 
 export interface GuideSection {
   type: SectionType;
   text?: string;
   title?: string;
   items?: string[];
+  /** For diagram type */
+  nodes?: DiagramNode[];
+  connections?: DiagramConnection[];
+  layout?: "horizontal" | "vertical";
 }
 
 export interface Guide {
@@ -53,15 +70,33 @@ export const guides: Guide[] = [
     ],
     sections: [
       { type: "intro", text: "El Gallinero es un sistema integral para gestionar tu granja avícola: producción, finanzas, inventarios y sanidad, todo en un solo lugar. Esta guía te ayudará a comenzar." },
+      { type: "diagram", title: "Arquitectura del Sistema", layout: "vertical", nodes: [
+        { id: "dash", label: "Dashboard", icon: "📊", color: "green" },
+        { id: "prod", label: "Producción", icon: "🐔", color: "yellow" },
+        { id: "fin", label: "Finanzas", icon: "💰", color: "green" },
+        { id: "san", label: "Sanidad", icon: "💊", color: "blue" },
+        { id: "inv", label: "Inventarios", icon: "📦", color: "amber" },
+        { id: "op", label: "Operaciones", icon: "🔧", color: "slate" },
+        { id: "an", label: "Análisis", icon: "📈", color: "purple" },
+      ], connections: [
+        { from: "dash", to: "prod", label: "Huevos, Gallinas, Alimentación" },
+        { from: "dash", to: "fin", label: "Ventas, Egresos" },
+        { from: "dash", to: "san", label: "Plan Sanitario" },
+        { from: "prod", to: "inv" },
+        { from: "prod", to: "fin" },
+        { from: "san", to: "fin" },
+        { from: "inv", to: "an" },
+        { from: "fin", to: "an" },
+      ]},
       { type: "steps", title: "Configuración inicial", items: [
-        "Accede al Dashboard principal para ver el resumen general de tu granja.",
+        "Accede al Dashboard principal: verás 4 tarjetas de tareas diarias (Recoger Huevos, Alimentación, Venta, Plan Sanitario) y un resumen rápido del estado de la granja.",
         "Registra tus gallinas en Producción → Gallinas (puedes escanear códigos QR individuales).",
         "Configura los programas de alimentación en Producción → Alimentación.",
         "Establece tus primeros registros de huevos en Producción → Huevos.",
-        "Revisa el Inventario para ver el estado actual de stock.",
+        "Revisa el Plan Sanitario en Sanidad para ver las acciones de salud según la etapa de tus aves.",
       ]},
-      { type: "tip", title: "Modo Simple vs Avanzado", text: "El sidebar tiene dos modos. El Modo Simple muestra las secciones más usadas (Granja, Ventas, Egresos, Sanidad). Activa el Modo Avanzado para acceder a Análisis, Operaciones y Configuración completa." },
-      { type: "tip", title: "Ayuda en cada campo", text: "Cada campo del formulario tiene un ícono de ayuda (?) al lado del nombre. Pasa el mouse sobre él para ver una explicación detallada de qué ingresar y cómo funciona." },
+      { type: "tip", title: "Modo Simple vs Avanzado", text: "El sidebar tiene dos modos. El Modo Simple muestra las secciones más usadas (Granja, Ventas, Egresos, Sanidad). Activa el Modo Avanzado para acceder a Análisis, Operaciones, Inventarios detallados y Configuración completa." },
+      { type: "tip", title: "Ayuda en cada página y campo", text: "Cada página tiene un botón 'Ayuda' (❓) arriba a la derecha que explica el módulo completo. Además, cada campo de formulario tiene un ícono (?) al lado del nombre con explicación detallada." },
       { type: "note", text: "El sistema funciona offline como PWA (Progressive Web App). Puedes instalarlo en tu celular desde el navegador para acceso rápido." },
     ],
   },
@@ -80,6 +115,22 @@ export const guides: Guide[] = [
     ],
     sections: [
       { type: "intro", text: "Desde aquí registras la recolección diaria de huevos. El sistema ofrece dos modos: rápido (recomendado para el día a día) y detallado." },
+      { type: "diagram", title: "Flujo de Producción de Huevos", layout: "vertical", nodes: [
+        { id: "hen", label: "Gallina pone", icon: "🐔", color: "yellow" },
+        { id: "collect", label: "Recolección", icon: "🥚", color: "amber" },
+        { id: "classify", label: "Clasificación por Tamaño", icon: "📏", color: "blue" },
+        { id: "storage", label: "Inventario (PEPS)", icon: "📦", color: "green" },
+        { id: "sale", label: "Venta", icon: "💰", color: "green" },
+        { id: "incub", label: "Incubación", icon: "🐣", color: "purple" },
+        { id: "finance", label: "Finanzas", icon: "📈", color: "indigo" },
+      ], connections: [
+        { from: "hen", to: "collect" },
+        { from: "collect", to: "classify", label: "P, M, G, XL, XXL" },
+        { from: "classify", to: "storage" },
+        { from: "storage", to: "sale", label: "Descuenta stock" },
+        { from: "storage", to: "incub", label: "Resta del inventario" },
+        { from: "sale", to: "finance", label: "Ingreso automático" },
+      ]},
       { type: "steps", title: "Modo Rápido (recomendado)", items: [
         "Ve a Producción → Huevos.",
         "Ingresa la fecha de recolección (por defecto hoy).",
@@ -108,6 +159,18 @@ export const guides: Guide[] = [
     ],
     sections: [
       { type: "intro", text: "Gestiona el registro individual de cada gallina: datos, estado, peso, ciclo de vida y recomendaciones automáticas." },
+      { type: "diagram", title: "Ciclo de Vida de la Gallina", layout: "vertical", nodes: [
+        { id: "chick", label: "Pollito (0–6 sem)", icon: "🐤", color: "yellow" },
+        { id: "juv", label: "Juvenil (6–18 sem)", icon: "🐔", color: "green" },
+        { id: "pre", label: "Pre-postura (18–20 sem)", icon: "🥚", color: "amber" },
+        { id: "lay", label: "Postura (20+ sem)", icon: "🐔", color: "blue" },
+        { id: "rec", label: "Recomendada sacrificio (≥80 sem)", icon: "⚠️", color: "red" },
+      ], connections: [
+        { from: "chick", to: "juv", label: "Cumple 6 semanas" },
+        { from: "juv", to: "pre", label: "Cumple 18 semanas" },
+        { from: "pre", to: "lay", label: "Cumple 20 semanas" },
+        { from: "lay", to: "rec", label: "≥80 semanas Y ≥2.5 kg" },
+      ]},
       { type: "steps", title: "Registrar una gallina", items: [
         "Ve a Producción → Gallinas.",
         "Haz clic en 'Agregar Gallina'.",
@@ -351,6 +414,20 @@ export const guides: Guide[] = [
     ],
     sections: [
       { type: "intro", text: "Visualiza el estado financiero de tu granja: ingresos, egresos, balance y evolución en el tiempo." },
+      { type: "diagram", title: "Integración Automática de Finanzas", layout: "vertical", nodes: [
+        { id: "sale", label: "Venta de Huevos/Aves/Carne", icon: "💰", color: "green" },
+        { id: "expense", label: "Compra de Alimento/Insumos", icon: "🛒", color: "red" },
+        { id: "maint", label: "Mantenimiento Completado", icon: "🔧", color: "amber" },
+        { id: "health", label: "Evento Sanitario con Costo", icon: "💊", color: "blue" },
+        { id: "tx", label: "Transacción Automática", icon: "📝", color: "indigo" },
+        { id: "kpi", label: "KPIs y Gráficos", icon: "📈", color: "purple" },
+      ], connections: [
+        { from: "sale", to: "tx", label: "Ingreso automático" },
+        { from: "expense", to: "tx", label: "Egreso automático" },
+        { from: "maint", to: "tx", label: "Egreso al completar" },
+        { from: "health", to: "tx", label: "Egreso con costo" },
+        { from: "tx", to: "kpi", label: "Actualiza indicadores" },
+      ]},
       { type: "steps", title: "Usar el balance", items: [
         "Ve a Finanzas → Balance.",
         "Selecciona el período que quieres analizar (mes, trimestre, año o personalizado).",
@@ -387,6 +464,48 @@ export const guides: Guide[] = [
   // SANIDAD
   // ═══════════════════════════════════════════
   {
+    slug: "plan-sanitario",
+    title: "Plan Sanitario",
+    module: "sanidad",
+    icon: "🛡️",
+    relatedHrefs: [
+      { href: "/dashboard/sanidad", label: "Plan Sanitario" },
+      { href: "/dashboard/sanidad/control", label: "Control Sanitario" },
+      { href: "/dashboard/sanidad/calendario", label: "Calendario" },
+    ],
+    sections: [
+      { type: "intro", text: "El Plan Sanitario es tu sistema proactivo de salud para la parvada. Funciona como el Plan de Alimentación: el sistema define qué acciones sanitarias corresponden a cada etapa de crecimiento y te alerta cuando es momento de ejecutarlas." },
+      { type: "diagram", title: "Flujo del Plan Sanitario", layout: "vertical", nodes: [
+        { id: "proto", label: "Protocolos por Etapa", icon: "📋", color: "blue" },
+        { id: "events", label: "Eventos en Calendario", icon: "📅", color: "yellow" },
+        { id: "alert", label: "Alerta de Acción", icon: "🔔", color: "red" },
+        { id: "exec", label: "Ejecutar Acción", icon: "✅", color: "green" },
+        { id: "record", label: "Historial Sanitario", icon: "📊", color: "purple" },
+      ], connections: [
+        { from: "proto", to: "events", label: "Genera eventos automáticos" },
+        { from: "events", to: "alert", label: "Vencimiento próximo" },
+        { from: "alert", to: "exec", label: "Confirma recursos y ejecuta" },
+        { from: "exec", to: "record", label: "Registra en historial" },
+      ]},
+      { type: "steps", title: "Las 5 pestañas del Plan Sanitario", items: [
+        "Plan de Acción: muestra las acciones pendientes organizadas por urgencia (vencidas en rojo, próximas en azul). Incluye barra de cumplimiento y horizonte configurable (7–90 días).",
+        "Protocolos por Etapa: define qué acciones sanitarias corresponden a cada etapa (Pollito, Juvenil, Pre-postura, Postura). Puedes generar eventos automáticamente desde aquí.",
+        "Ejecutar: vista enfocada en las acciones pendientes con verificación de recursos disponibles. Ejecuta con un clic y confirma los insumos utilizados.",
+        "Historial: registro completo de todas las acciones sanitarias ejecutadas con fecha, tipo, producto, costo y notas.",
+        "Recursos: estado del inventario de insumos sanitarios (medicamentos, vacunas, antiparasitarios) con alertas de stock bajo y crítico.",
+      ]},
+      { type: "steps", title: "Cómo empezar", items: [
+        "Ve a Sanidad → Plan Sanitario.",
+        "Revisa los 'Protocolos por Etapa' para ver las acciones definidas para cada etapa de tus aves.",
+        "Haz clic en 'Generar Eventos' en cada etapa para crear los eventos en el calendario.",
+        "Ve a 'Plan de Acción' para ver las acciones pendientes.",
+        "Cuando llegue la fecha, ejecuta la acción desde la pestaña 'Ejecutar' o directamente desde el Plan de Acción.",
+      ]},
+      { type: "tip", title: "Recursos automáticos", text: "Al ejecutar una acción, el sistema verifica si tienes los insumos necesarios en el inventario. Si el medicamento o vacuna está en stock, lo deduce automáticamente. Si no está disponible, te alerta para que lo compres." },
+      { type: "warning", title: "Períodos de carencia", text: "Cada acción sanitaria tiene un período de carencia (días durante los cuales no se deben consumir los huevos). El sistema te muestra este período al ejecutar la acción. Respétalo para garantizar la seguridad alimentaria." },
+    ],
+  },
+  {
     slug: "control-sanitario",
     title: "Control Sanitario",
     module: "sanidad",
@@ -396,7 +515,8 @@ export const guides: Guide[] = [
       { href: "/dashboard/sanidad/calendario", label: "Calendario" },
     ],
     sections: [
-      { type: "intro", text: "Registra y gestiona los tratamientos sanitarios del plantel: medicamentos aplicados, dosis, fechas y aves tratadas." },
+      { type: "intro", text: "Registra y gestiona los tratamientos sanitarios del plantel: medicamentos aplicados, dosis, fechas y aves tratadas. Este módulo funciona junto al Plan Sanitario proactivo." },
+      { type: "tip", title: "Plan Sanitario Proactivo", text: "Además del control manual, el sistema tiene un Plan Sanitario proactivo que define protocolos por etapa de crecimiento y genera eventos automáticamente. Ve a Sanidad para ver el Plan de Acción, Protocolos, Ejecución y Recursos." },
       { type: "steps", title: "Registrar un tratamiento", items: [
         "Ve a Sanidad → Control.",
         "Haz clic en 'Nuevo Registro'.",

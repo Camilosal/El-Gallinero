@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useParams } from "next/navigation";
-import { getGuide, getAdjacentGuides, guideModules } from "@/lib/guide-data";
+import { getGuide, getAdjacentGuides, guideModules, DiagramNode, DiagramConnection } from "@/lib/guide-data";
 
 export default function GuiaPage() {
   const params = useParams();
@@ -119,6 +119,11 @@ export default function GuiaPage() {
                 </div>
               );
 
+            case "diagram":
+              return (
+                <DiagramSection key={idx} title={section.title} nodes={section.nodes || []} connections={section.connections || []} layout={section.layout} />
+              );
+
             case "note":
               return (
                 <div key={idx} className="bg-slate-50 border border-slate-200 rounded-xl p-4">
@@ -193,5 +198,122 @@ export default function GuiaPage() {
         )}
       </nav>
     </article>
+  );
+}
+
+// ─── Diagram Section Component ───
+const COLOR_MAP: Record<string, string> = {
+  green: "bg-green-100 border-green-300 text-green-800",
+  blue: "bg-blue-100 border-blue-300 text-blue-800",
+  yellow: "bg-yellow-100 border-yellow-300 text-yellow-800",
+  red: "bg-red-100 border-red-300 text-red-800",
+  purple: "bg-purple-100 border-purple-300 text-purple-800",
+  amber: "bg-amber-100 border-amber-300 text-amber-800",
+  slate: "bg-slate-100 border-slate-300 text-slate-800",
+  indigo: "bg-indigo-100 border-indigo-300 text-indigo-800",
+};
+
+function DiagramSection({
+  title,
+  nodes,
+  connections,
+  layout,
+}: {
+  title?: string;
+  nodes: DiagramNode[];
+  connections: DiagramConnection[];
+  layout?: "horizontal" | "vertical";
+}) {
+  const isHorizontal = layout !== "vertical";
+
+  // Build adjacency for topological ordering
+  const adj = new Map<string, string[]>();
+  const inDeg = new Map<string, number>();
+  for (const n of nodes) {
+    adj.set(n.id, []);
+    inDeg.set(n.id, 0);
+  }
+  for (const c of connections) {
+    adj.get(c.from)?.push(c.to);
+    inDeg.set(c.to, (inDeg.get(c.to) || 0) + 1);
+  }
+
+  // Topological sort into layers
+  const layers: string[][] = [];
+  const visited = new Set<string>();
+  let queue = nodes.filter((n) => (inDeg.get(n.id) || 0) === 0).map((n) => n.id);
+  while (queue.length > 0) {
+    layers.push([...queue]);
+    queue.forEach((id) => visited.add(id));
+    const next: string[] = [];
+    for (const id of queue) {
+      for (const neighbor of adj.get(id) || []) {
+        if (!visited.has(neighbor)) {
+          const remainingDeps = connections.filter((c) => c.to === neighbor && !visited.has(c.from)).length;
+          if (remainingDeps === 0 && !next.includes(neighbor)) {
+            next.push(neighbor);
+          }
+        }
+      }
+    }
+    queue = next;
+  }
+  // Add any unvisited nodes
+  for (const n of nodes) {
+    if (!visited.has(n.id)) {
+      layers.push([n.id]);
+      visited.add(n.id);
+    }
+  }
+
+  const nodeMap = new Map(nodes.map((n) => [n.id, n]));
+
+  return (
+    <div className="bg-white border border-slate-200 rounded-xl p-5 overflow-x-auto">
+      {title && (
+        <h3 className="font-semibold text-slate-800 mb-4 flex items-center gap-2">
+          <span className="w-6 h-6 rounded-full bg-indigo-100 text-indigo-700 flex items-center justify-center text-xs font-bold">📊</span>
+          {title}
+        </h3>
+      )}
+      <div className={`flex ${isHorizontal ? "flex-col" : "flex-col"} items-center gap-1`}>
+        {layers.map((layer, li) => (
+          <div key={li} className="flex flex-col items-center">
+            <div className={`flex ${isHorizontal ? "flex-row" : "flex-col"} items-center gap-4`}>
+              {layer.map((nodeId) => {
+                const node = nodeMap.get(nodeId);
+                if (!node) return null;
+                const colorClass = COLOR_MAP[node.color || "slate"] || COLOR_MAP.slate;
+                return (
+                  <div
+                    key={nodeId}
+                    className={`flex items-center gap-2 px-4 py-3 rounded-xl border-2 ${colorClass} min-w-[120px] justify-center shadow-sm`}
+                  >
+                    {node.icon && <span className="text-lg flex-shrink-0">{node.icon}</span>}
+                    <span className="text-sm font-medium text-center">{node.label}</span>
+                  </div>
+                );
+              })}
+            </div>
+            {/* Arrow between layers */}
+            {li < layers.length - 1 && (
+              <div className="flex flex-col items-center py-1">
+                <div className="w-0.5 h-4 bg-slate-300" />
+                <span className="text-slate-400 text-xs">▼</span>
+                {/* Show connection label if exists */}
+                {(() => {
+                  const connLabel = connections.find(
+                    (c) => layer.includes(c.from) && layers[li + 1]?.includes(c.to) && c.label
+                  )?.label;
+                  return connLabel ? (
+                    <span className="text-[10px] text-slate-500 mt-0.5">{connLabel}</span>
+                  ) : null;
+                })()}
+              </div>
+            )}
+          </div>
+        ))}
+      </div>
+    </div>
   );
 }

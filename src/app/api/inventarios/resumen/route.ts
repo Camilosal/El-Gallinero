@@ -3,8 +3,9 @@ import { db } from "@/db";
 import { feedInventory, hens, eggProduction } from "@/db/schema";
 import { sql, eq, and, gte, desc, lt } from "drizzle-orm";
 import { computeManureInventory } from "@/lib/inventory";
+import { withApiHandler, safeParseJson } from "@/lib/api-handler";
 
-export async function GET() {
+export const GET = withApiHandler(async () => {
   try {
     const hoy = new Date();
     const hace21Dias = new Date(hoy);
@@ -45,4 +46,4 @@ export async function GET() {
       { status: 500 }
     );
   }
-}
+});

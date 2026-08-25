@@ -2,10 +2,11 @@ import { db } from "@/db";
 import { sanitaryCalendar, healthControl } from "@/db/schema";
 import { eq, sql, and, lte, gte } from "drizzle-orm";
 import { NextResponse } from "next/server";
+import { withApiHandler, safeParseJson } from "@/lib/api-handler";
 
 export const dynamic = "force-dynamic";
 
-export async function GET() {
+export const GET = withApiHandler(async () => {
   const today = new Date().toISOString().split("T")[0];
   const nextWeek = new Date();
   nextWeek.setDate(nextWeek.getDate() + 7);
@@ -57,4 +58,4 @@ export async function GET() {
     upcoming: { count: upcoming.length, items: upcoming },
     withdrawalActive: { count: withdrawalActive.length, items: withdrawalActive },
   });
-}
+});

@@ -3,13 +3,14 @@ import { db } from "@/db";
 import { broilerBatches } from "@/db/schema";
 import { eq } from "drizzle-orm";
 import QRCode from "qrcode";
+import { withApiHandler, safeParseJson } from "@/lib/api-handler";
 
 export const dynamic = "force-dynamic";
 
-export async function GET(
+export const GET = withApiHandler(async (
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
-) {
+) => {
   const { id } = await params;
 
   const [batch] = await db
@@ -40,4 +41,4 @@ export async function GET(
       "Cache-Control": "public, max-age=86400",
     },
   });
-}
+});

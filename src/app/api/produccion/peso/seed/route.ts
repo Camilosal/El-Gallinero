@@ -2,8 +2,9 @@ import { db } from "@/db";
 import { breedWeightStandards } from "@/db/schema";
 import { ALL_BREED_STANDARDS } from "@/lib/breed-standards";
 import { NextResponse } from "next/server";
+import { withApiHandler, safeParseJson } from "@/lib/api-handler";
 
-export async function POST() {
+export const POST = withApiHandler(async () => {
   let seeded = 0;
 
   for (const [key, points] of Object.entries(ALL_BREED_STANDARDS)) {
@@ -22,4 +23,4 @@ export async function POST() {
   }
 
   return NextResponse.json({ seeded });
-}
+});

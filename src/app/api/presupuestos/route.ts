@@ -2,10 +2,11 @@ import { db } from "@/db";
 import { budgets, budgetItems, transactions } from "@/db/schema";
 import { eq, desc, sql, gte, lte, and } from "drizzle-orm";
 import { NextRequest, NextResponse } from "next/server";
+import { withApiHandler, safeParseJson } from "@/lib/api-handler";
 
 export const dynamic = "force-dynamic";
 
-export async function GET() {
+export const GET = withApiHandler(async () => {
   const allBudgets = await db
     .select()
     .from(budgets)
@@ -44,10 +45,10 @@ export async function GET() {
   );
 
   return NextResponse.json(result);
-}
+});
 
-export async function POST(req: NextRequest) {
-  const body = await req.json();
+export const POST = withApiHandler(async (req: NextRequest) => {
+  const body = await safeParseJson(req);
   const { name, periodStart, periodEnd, type, items } = body;
 
   if (!name || !periodStart || !periodEnd || !type) {
@@ -66,7 +67,7 @@ export async function POST(req: NextRequest) {
           budgetId: budget.id,
           category: item.category,
           description: item.description || null,
-          monthlyTarget: String(item.monthlyTarget),
+          monthlyTarget: item.monthlyTarget != null ? String(item.monthlyTarget) : "0",
           unit: item.unit || null,
           notes: item.notes || null,
         });
@@ -77,10 +78,10 @@ export async function POST(req: NextRequest) {
   });
 
   return NextResponse.json(result, { status: 201 });
-}
+});
 
-export async function PUT(req: NextRequest) {
-  const body = await req.json();
+export const PUT = withApiHandler(async (req: NextRequest) => {
+  const body = await safeParseJson(req);
   if (!body.id) {
     return NextResponse.json({ error: "ID requerido" }, { status: 400 });
   }
@@ -110,7 +111,7 @@ export async function PUT(req: NextRequest) {
           budgetId: body.id,
           category: item.category,
           description: item.description || null,
-          monthlyTarget: String(item.monthlyTarget),
+          monthlyTarget: item.monthlyTarget != null ? String(item.monthlyTarget) : "0",
           unit: item.unit || null,
           notes: item.notes || null,
         });
@@ -120,9 +121,9 @@ export async function PUT(req: NextRequest) {
 
   const [updated] = await db.select().from(budgets).where(eq(budgets.id, body.id));
   return NextResponse.json(updated);
-}
+});
 
-export async function DELETE(req: NextRequest) {
+export const DELETE = withApiHandler(async (req: NextRequest) => {
   const { searchParams } = new URL(req.url);
   const id = searchParams.get("id");
   if (!id) return NextResponse.json({ error: "ID requerido" }, { status: 400 });
@@ -132,4 +133,4 @@ export async function DELETE(req: NextRequest) {
     await tx.delete(budgets).where(eq(budgets.id, id));
   });
   return NextResponse.json({ ok: true });
-}
+});

@@ -2,16 +2,17 @@ import { db } from "@/db";
 import { maintenance, transactions } from "@/db/schema";
 import { eq, desc, and } from "drizzle-orm";
 import { NextRequest, NextResponse } from "next/server";
+import { withApiHandler, safeParseJson } from "@/lib/api-handler";
 
 export const dynamic = "force-dynamic";
 
-export async function GET() {
+export const GET = withApiHandler(async () => {
   const data = await db.select().from(maintenance).orderBy(desc(maintenance.scheduledDate));
   return NextResponse.json(data);
-}
+});
 
-export async function POST(req: NextRequest) {
-  const body = await req.json();
+export const POST = withApiHandler(async (req: NextRequest) => {
+  const body = await safeParseJson(req);
   const [created] = await db.insert(maintenance).values({
     title: body.title,
     description: body.description || null,
@@ -20,10 +21,10 @@ export async function POST(req: NextRequest) {
     cost: body.cost || "0",
   }).returning();
   return NextResponse.json(created, { status: 201 });
-}
+});
 
-export async function PUT(req: NextRequest) {
-  const body = await req.json();
+export const PUT = withApiHandler(async (req: NextRequest) => {
+  const body = await safeParseJson(req);
   if (!body.id) return NextResponse.json({ error: "ID requerido" }, { status: 400 });
 
   let result;
@@ -66,9 +67,9 @@ export async function PUT(req: NextRequest) {
   }
 
   return NextResponse.json(result);
-}
+});
 
-export async function DELETE(req: NextRequest) {
+export const DELETE = withApiHandler(async (req: NextRequest) => {
   const { searchParams } = new URL(req.url);
   const id = searchParams.get("id");
   if (!id) return NextResponse.json({ error: "ID requerido" }, { status: 400 });
@@ -77,4 +78,4 @@ export async function DELETE(req: NextRequest) {
     await tx.delete(transactions).where(and(eq(transactions.sourceType, "mantenimiento"), eq(transactions.sourceId, id)));
   });
   return NextResponse.json({ ok: true });
-}
+});

@@ -2,16 +2,17 @@ import { db } from "@/db";
 import { manureSales, transactions } from "@/db/schema";
 import { eq, desc, and } from "drizzle-orm";
 import { NextRequest, NextResponse } from "next/server";
+import { withApiHandler, safeParseJson } from "@/lib/api-handler";
 
 export const dynamic = "force-dynamic";
 
-export async function GET() {
+export const GET = withApiHandler(async () => {
   const data = await db.select().from(manureSales).orderBy(desc(manureSales.date));
   return NextResponse.json(data);
-}
+});
 
-export async function POST(req: NextRequest) {
-  const body = await req.json();
+export const POST = withApiHandler(async (req: NextRequest) => {
+  const body = await safeParseJson(req);
 
   const quantityKg = Number(body.quantityKg);
   const pricePerKg = Number(body.pricePerKg);
@@ -43,7 +44,7 @@ export async function POST(req: NextRequest) {
       unitPrice: pricePerKg.toFixed(2),
       unit: "kg",
       presentation: body.presentation || null,
-      sourceType: "venta_gallinaza",
+      sourceType: "gallinaza",
       sourceId: inserted.id,
       notes: body.notes || null,
     });
@@ -52,10 +53,10 @@ export async function POST(req: NextRequest) {
   });
 
   return NextResponse.json(created, { status: 201 });
-}
+});
 
-export async function PUT(req: NextRequest) {
-  const body = await req.json();
+export const PUT = withApiHandler(async (req: NextRequest) => {
+  const body = await safeParseJson(req);
   if (!body.id) return NextResponse.json({ error: "ID requerido" }, { status: 400 });
 
   const quantityKg = Number(body.quantityKg);
@@ -77,7 +78,7 @@ export async function PUT(req: NextRequest) {
     }).where(eq(manureSales.id, body.id)).returning();
 
     const [existingTx] = await tx.select().from(transactions)
-      .where(and(eq(transactions.sourceType, "venta_gallinaza"), eq(transactions.sourceId, body.id)));
+      .where(and(eq(transactions.sourceType, "gallinaza"), eq(transactions.sourceId, body.id)));
 
     const values = {
       date: body.date,
@@ -98,7 +99,7 @@ export async function PUT(req: NextRequest) {
         ...values,
         type: "ingreso",
         category: "Venta de abono/gallinaza",
-        sourceType: "venta_gallinaza",
+        sourceType: "gallinaza",
         sourceId: body.id,
       });
     }
@@ -106,18 +107,20 @@ export async function PUT(req: NextRequest) {
     return upd;
   });
 
-  return NextResponse.json(updated);
-}
+  if (!updated) return NextResponse.json({ error: "No encontrado" }, { status: 404 });
 
-export async function DELETE(req: NextRequest) {
+  return NextResponse.json(updated);
+});
+
+export const DELETE = withApiHandler(async (req: NextRequest) => {
   const { searchParams } = new URL(req.url);
   const id = searchParams.get("id");
   if (!id) return NextResponse.json({ error: "ID requerido" }, { status: 400 });
 
   await db.transaction(async (tx) => {
-    await tx.delete(transactions).where(and(eq(transactions.sourceType, "venta_gallinaza"), eq(transactions.sourceId, id)));
+    await tx.delete(transactions).where(and(eq(transactions.sourceType, "gallinaza"), eq(transactions.sourceId, id)));
     await tx.delete(manureSales).where(eq(manureSales.id, id));
   });
 
   return NextResponse.json({ ok: true });
-}
+});

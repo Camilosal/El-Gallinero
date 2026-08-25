@@ -1,14 +1,15 @@
 import { db } from "@/db";
 import { healthControl, transactions, hens, roosters, mortalityRecords, supplyInventory, supplyMovements, sanitaryCalendar } from "@/db/schema";
-import { eq, desc, and, inArray } from "drizzle-orm";
+import { eq, desc, and, inArray, sql } from "drizzle-orm";
 import { NextRequest, NextResponse } from "next/server";
+import { withApiHandler, safeParseJson } from "@/lib/api-handler";
 
 export const dynamic = "force-dynamic";
 
-export async function GET() {
+export const GET = withApiHandler(async () => {
   const data = await db.select().from(healthControl).orderBy(desc(healthControl.date));
   return NextResponse.json(data);
-}
+});
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 async function markAffectedAsSick(type: string, affectedHens: string | null, client: any = db) {
@@ -25,8 +26,8 @@ async function markAffectedAsSick(type: string, affectedHens: string | null, cli
   }
 }
 
-export async function POST(req: NextRequest) {
-  const body = await req.json();
+export const POST = withApiHandler(async (req: NextRequest) => {
+  const body = await safeParseJson(req);
 
   const created = await db.transaction(async (tx) => {
     // 1. Insert health control record
@@ -83,7 +84,7 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    // 5. Discount supplies used
+    // 5. Discount supplies used — relative SQL update to avoid race conditions
     if (body.supplies && body.supplies.length > 0) {
       for (const s of body.supplies) {
         const qty = Number(s.quantity);
@@ -98,15 +99,11 @@ export async function POST(req: NextRequest) {
           healthControlId: record.id,
           notes: `Usado en: ${body.description || body.type}`,
         });
-        // Decrement stock
-        const [supply] = await tx.select().from(supplyInventory).where(eq(supplyInventory.id, s.supplyId));
-        if (supply) {
-          const newStock = Math.max(0, Number(supply.currentStock) - qty);
-          await tx.update(supplyInventory).set({
-            currentStock: String(newStock),
-            updatedAt: new Date(),
-          }).where(eq(supplyInventory.id, s.supplyId));
-        }
+        // Decrement stock with relative SQL
+        await tx.update(supplyInventory).set({
+          currentStock: sql`GREATEST(0, ${supplyInventory.currentStock}::numeric - ${qty})`,
+          updatedAt: new Date(),
+        }).where(eq(supplyInventory.id, s.supplyId));
       }
     }
 
@@ -128,15 +125,13 @@ export async function POST(req: NextRequest) {
   });
 
   return NextResponse.json(created, { status: 201 });
-}
+});
 
-export async function PUT(req: NextRequest) {
-  const body = await req.json();
+export const PUT = withApiHandler(async (req: NextRequest) => {
+  const body = await safeParseJson(req);
   if (!body.id) return NextResponse.json({ error: "ID requerido" }, { status: 400 });
 
-  let updated;
-  try {
-    updated = await db.transaction(async (tx) => {
+  const updated = await db.transaction(async (tx) => {
     // 1. Update health control record
     const [record] = await tx.update(healthControl).set({
       date: body.date,
@@ -168,23 +163,20 @@ export async function PUT(req: NextRequest) {
     // 3. Mark affected hens as sick
     await markAffectedAsSick(body.type, body.affectedHens, tx);
 
-    // 4. Reverse old supply movements and restore stock
+    // 4. Reverse old supply movements and restore stock (relative SQL)
     const oldMovements = await tx.select().from(supplyMovements).where(eq(supplyMovements.healthControlId, body.id));
     for (const m of oldMovements) {
       if (!m.isEntry) {
         const qty = Number(m.quantity);
-        const [supply] = await tx.select().from(supplyInventory).where(eq(supplyInventory.id, m.supplyId));
-        if (supply) {
-          await tx.update(supplyInventory).set({
-            currentStock: String(Number(supply.currentStock) + qty),
-            updatedAt: new Date(),
-          }).where(eq(supplyInventory.id, m.supplyId));
-        }
+        await tx.update(supplyInventory).set({
+          currentStock: sql`(${supplyInventory.currentStock}::numeric + ${qty})`,
+          updatedAt: new Date(),
+        }).where(eq(supplyInventory.id, m.supplyId));
       }
     }
     await tx.delete(supplyMovements).where(eq(supplyMovements.healthControlId, body.id));
 
-    // 5. Re-create supply movements from new body data
+    // 5. Re-create supply movements from new body data (relative SQL)
     if (body.supplies && body.supplies.length > 0) {
       for (const s of body.supplies) {
         const qty = Number(s.quantity);
@@ -198,14 +190,10 @@ export async function PUT(req: NextRequest) {
           healthControlId: body.id,
           notes: `Usado en: ${body.description || body.type}`,
         });
-        const [supply] = await tx.select().from(supplyInventory).where(eq(supplyInventory.id, s.supplyId));
-        if (supply) {
-          const newStock = Math.max(0, Number(supply.currentStock) - qty);
-          await tx.update(supplyInventory).set({
-            currentStock: String(newStock),
-            updatedAt: new Date(),
-          }).where(eq(supplyInventory.id, s.supplyId));
-        }
+        await tx.update(supplyInventory).set({
+          currentStock: sql`GREATEST(0, ${supplyInventory.currentStock}::numeric - ${qty})`,
+          updatedAt: new Date(),
+        }).where(eq(supplyInventory.id, s.supplyId));
       }
     }
 
@@ -224,18 +212,12 @@ export async function PUT(req: NextRequest) {
     }
 
     return record;
-    });
-  } catch (e: any) {
-    if (e.message === "No encontrado") {
-      return NextResponse.json({ error: "No encontrado" }, { status: 404 });
-    }
-    throw e;
-  }
+  });
 
   return NextResponse.json(updated);
-}
+});
 
-export async function DELETE(req: NextRequest) {
+export const DELETE = withApiHandler(async (req: NextRequest) => {
   const { searchParams } = new URL(req.url);
   const id = searchParams.get("id");
   if (!id) return NextResponse.json({ error: "ID requerido" }, { status: 400 });
@@ -244,18 +226,15 @@ export async function DELETE(req: NextRequest) {
     // 1. Delete linked mortality records
     await tx.delete(mortalityRecords).where(eq(mortalityRecords.healthControlId, id));
 
-    // 2. Reverse supply movements (restore stock)
+    // 2. Reverse supply movements (restore stock with relative SQL)
     const movements = await tx.select().from(supplyMovements).where(eq(supplyMovements.healthControlId, id));
     for (const m of movements) {
       if (!m.isEntry) {
         const qty = Number(m.quantity);
-        const [supply] = await tx.select().from(supplyInventory).where(eq(supplyInventory.id, m.supplyId));
-        if (supply) {
-          await tx.update(supplyInventory).set({
-            currentStock: String(Number(supply.currentStock) + qty),
-            updatedAt: new Date(),
-          }).where(eq(supplyInventory.id, m.supplyId));
-        }
+        await tx.update(supplyInventory).set({
+          currentStock: sql`(${supplyInventory.currentStock}::numeric + ${qty})`,
+          updatedAt: new Date(),
+        }).where(eq(supplyInventory.id, m.supplyId));
       }
     }
 
@@ -283,4 +262,4 @@ export async function DELETE(req: NextRequest) {
   });
 
   return NextResponse.json({ ok: true });
-}
+});

@@ -11,10 +11,11 @@ import {
 } from "@/db/schema";
 import { eq, sql, gte, and, inArray } from "drizzle-orm";
 import { NextRequest, NextResponse } from "next/server";
+import { withApiHandler, safeParseJson } from "@/lib/api-handler";
 
 export const dynamic = "force-dynamic";
 
-export async function GET(req: NextRequest) {
+export const GET = withApiHandler(async (req: NextRequest) => {
   const { searchParams } = new URL(req.url);
   const period = searchParams.get("period") || "30";
   const days = parseInt(period);
@@ -253,4 +254,4 @@ export async function GET(req: NextRequest) {
       totalEggs: peakWeek?.totalEggs || 0,
     },
   });
-}
+});

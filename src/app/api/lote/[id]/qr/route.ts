@@ -1,7 +1,8 @@
 import QRCode from "qrcode";
 import { NextRequest, NextResponse } from "next/server";
+import { withApiHandler, safeParseJson } from "@/lib/api-handler";
 
-export async function GET(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+export const GET = withApiHandler(async (req: NextRequest, { params }: { params: Promise<{ id: string }> }) => {
   const { id } = await params;
   const origin = process.env.NEXT_PUBLIC_APP_URL || req.nextUrl.origin;
   const url = `${origin}/lote/${id}`;
@@ -17,4 +18,4 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
       "Cache-Control": "public, max-age=86400",
     },
   });
-}
+});

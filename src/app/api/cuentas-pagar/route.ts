@@ -2,10 +2,11 @@ import { db } from "@/db";
 import { accountsPayable, transactions, payments } from "@/db/schema";
 import { eq, desc, sql } from "drizzle-orm";
 import { NextRequest, NextResponse } from "next/server";
+import { withApiHandler, safeParseJson } from "@/lib/api-handler";
 
 export const dynamic = "force-dynamic";
 
-export async function GET() {
+export const GET = withApiHandler(async () => {
   const accounts = await db
     .select({
       id: accountsPayable.id,
@@ -40,14 +41,20 @@ export async function GET() {
   });
 
   return NextResponse.json(enriched);
-}
+});
 
-export async function POST(req: NextRequest) {
-  const body = await req.json();
+export const POST = withApiHandler(async (req: NextRequest) => {
+  const body = await safeParseJson(req);
   const { transactionId, supplier, totalAmount, dueDate } = body;
 
   if (!transactionId || !supplier || !totalAmount) {
     return NextResponse.json({ error: "transactionId, supplier y totalAmount son requeridos" }, { status: 400 });
+  }
+
+  // Verify transaction exists
+  const [txExists] = await db.select({ id: transactions.id }).from(transactions).where(eq(transactions.id, transactionId)).limit(1);
+  if (!txExists) {
+    return NextResponse.json({ error: "Transacción no encontrada" }, { status: 400 });
   }
 
   const [created] = await db
@@ -64,10 +71,10 @@ export async function POST(req: NextRequest) {
     .returning();
 
   return NextResponse.json(created, { status: 201 });
-}
+});
 
-export async function PUT(req: NextRequest) {
-  const body = await req.json();
+export const PUT = withApiHandler(async (req: NextRequest) => {
+  const body = await safeParseJson(req);
   if (!body.id) {
     return NextResponse.json({ error: "ID requerido" }, { status: 400 });
   }
@@ -93,9 +100,9 @@ export async function PUT(req: NextRequest) {
     .returning();
 
   return NextResponse.json(updated);
-}
+});
 
-export async function DELETE(req: NextRequest) {
+export const DELETE = withApiHandler(async (req: NextRequest) => {
   const { searchParams } = new URL(req.url);
   const id = searchParams.get("id");
   if (!id) return NextResponse.json({ error: "ID requerido" }, { status: 400 });
@@ -105,4 +112,4 @@ export async function DELETE(req: NextRequest) {
     await tx.delete(accountsPayable).where(eq(accountsPayable.id, id));
   });
   return NextResponse.json({ ok: true });
-}
+});

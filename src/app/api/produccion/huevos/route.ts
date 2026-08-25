@@ -2,6 +2,7 @@ import { db } from "@/db";
 import { eggProduction, eggProductionDetails, catalogos, hens } from "@/db/schema";
 import { eq, desc, inArray, and, or, sql } from "drizzle-orm";
 import { NextRequest, NextResponse } from "next/server";
+import { withApiHandler, safeParseJson } from "@/lib/api-handler";
 
 export const dynamic = "force-dynamic";
 
@@ -64,7 +65,7 @@ async function getExpectedDailyProduction(): Promise<number> {
 // Threshold: actual production cannot exceed 150% of expected without explicit override
 const VALIDATION_THRESHOLD = 1.5;
 
-export async function GET() {
+export const GET = withApiHandler(async () => {
   const records = await db.select().from(eggProduction).orderBy(desc(eggProduction.date)).limit(100);
   const ids = records.map((r) => r.id);
   const details = ids.length
@@ -77,7 +78,7 @@ export async function GET() {
     byProd.set(d.productionId, arr);
   }
   return NextResponse.json(records.map((r) => ({ ...r, details: byProd.get(r.id) || [] })));
-}
+});
 
 const toDetails = (sizes: unknown): { size: string; quantity: number }[] =>
   (Array.isArray(sizes) ? sizes : [])
@@ -88,7 +89,7 @@ const toDetails = (sizes: unknown): { size: string; quantity: number }[] =>
     .filter((x) => x.size.length > 0);
 
 async function handleSave(req: NextRequest, isUpdate: boolean) {
-  const body = await req.json();
+  const body = await safeParseJson(req);
   const sizes = toDetails(body.sizes);
   const broken = Number(body.broken) || 0;
   const forIncubation = Number(body.forIncubation) || 0;
@@ -124,6 +125,8 @@ async function handleSave(req: NextRequest, isUpdate: boolean) {
         notes: body.notes || null,
       }).where(eq(eggProduction.id, body.id)).returning();
 
+      if (!row) throw new Error("No encontrado");
+
       await tx.delete(eggProductionDetails).where(eq(eggProductionDetails.productionId, body.id));
       if (sizes.length) {
         await tx.insert(eggProductionDetails).values(
@@ -157,15 +160,15 @@ async function handleSave(req: NextRequest, isUpdate: boolean) {
   return NextResponse.json(created, { status: 201 });
 }
 
-export async function POST(req: NextRequest) {
+export const POST = withApiHandler(async (req: NextRequest) => {
   return handleSave(req, false);
-}
+});
 
-export async function PUT(req: NextRequest) {
+export const PUT = withApiHandler(async (req: NextRequest) => {
   return handleSave(req, true);
-}
+});
 
-export async function DELETE(req: NextRequest) {
+export const DELETE = withApiHandler(async (req: NextRequest) => {
   const { searchParams } = new URL(req.url);
   const id = searchParams.get("id");
   if (!id) return NextResponse.json({ error: "ID requerido" }, { status: 400 });
@@ -174,4 +177,4 @@ export async function DELETE(req: NextRequest) {
     await tx.delete(eggProduction).where(eq(eggProduction.id, id));
   });
   return NextResponse.json({ ok: true });
-}
+});

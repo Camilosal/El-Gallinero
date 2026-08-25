@@ -4,13 +4,14 @@ import { eq } from "drizzle-orm";
 import { NextRequest, NextResponse } from "next/server";
 import { cookies } from "next/headers";
 import { verifyPassword, createSession, getSessionUser, destroySession, sessionCookieName } from "@/lib/auth";
+import { withErrorHandler, safeParseJson } from "@/lib/api-handler";
 
 export const dynamic = "force-dynamic";
 
 const MAX_AGE = 7 * 24 * 60 * 60; // seconds
 
-export async function POST(req: NextRequest) {
-  const { username, password } = await req.json();
+export const POST = withErrorHandler(async (req: NextRequest) => {
+  const { username, password } = await safeParseJson(req);
   if (!username || !password) {
     return NextResponse.json({ error: "Usuario y contraseña requeridos" }, { status: 400 });
   }
@@ -31,4 +32,4 @@ export async function POST(req: NextRequest) {
   });
 
   return NextResponse.json({ id: user.id, username: user.username, name: user.name, role: user.role });
-}
+});

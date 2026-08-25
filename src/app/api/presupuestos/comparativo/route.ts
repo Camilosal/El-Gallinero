@@ -2,10 +2,11 @@ import { db } from "@/db";
 import { budgets, budgetItems, transactions } from "@/db/schema";
 import { eq, sql, gte, lte, and } from "drizzle-orm";
 import { NextRequest, NextResponse } from "next/server";
+import { withApiHandler, safeParseJson } from "@/lib/api-handler";
 
 export const dynamic = "force-dynamic";
 
-export async function GET(req: NextRequest) {
+export const GET = withApiHandler(async (req: NextRequest) => {
   const { searchParams } = new URL(req.url);
   const budgetId = searchParams.get("budgetId");
   if (!budgetId) {
@@ -52,4 +53,4 @@ export async function GET(req: NextRequest) {
   );
 
   return NextResponse.json({ budget, items: comparativo });
-}
+});

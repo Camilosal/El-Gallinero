@@ -1,9 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
 import { breedCurves } from "@/lib/breedCurves";
+import { withApiHandler, safeParseJson } from "@/lib/api-handler";
 
 export const dynamic = "force-dynamic";
 
-export async function GET(req: NextRequest) {
+export const GET = withApiHandler(async (req: NextRequest) => {
   const { searchParams } = new URL(req.url);
   const breed = searchParams.get("breed");
 
@@ -24,4 +25,4 @@ export async function GET(req: NextRequest) {
   }
 
   return NextResponse.json(curve);
-}
+});

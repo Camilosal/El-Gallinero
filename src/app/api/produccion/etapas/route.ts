@@ -2,11 +2,12 @@ import { db } from "@/db";
 import { catalogos, hens, feedPrograms, feedInventory } from "@/db/schema";
 import { eq, and, sql, isNull, gte, lt, or } from "drizzle-orm";
 import { NextRequest, NextResponse } from "next/server";
+import { withApiHandler, safeParseJson } from "@/lib/api-handler";
 
 export const dynamic = "force-dynamic";
 
 /** Lista todas las etapas de crecimiento con conteo de gallinas por etapa */
-export async function GET() {
+export const GET = withApiHandler(async () => {
   const stages = await db
     .select()
     .from(catalogos)
@@ -78,4 +79,4 @@ export async function GET() {
   }
 
   return NextResponse.json(result);
-}
+});

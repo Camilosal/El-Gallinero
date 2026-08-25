@@ -1,0 +1,407 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>El Gallinero — Iwagé Granja</title>
+
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@graph": [
+    {
+      "@type": "WebPage",
+      "@id": "https://iwage.co/granja/gallinero#webpage",
+      "url": "https://iwage.co/granja/gallinero",
+      "name": "El Gallinero — Iwagé Granja",
+      "description": "Software abierto que gestiona la parvada real de Iwagé Granja en la vereda Ambalá: identidad individual por ave, trazabilidad financiera automática y modo simple/avanzado para el registro diario.",
+      "inLanguage": "es-CO",
+      "isPartOf": { "@id": "https://iwage.co#website" },
+      "about": { "@id": "https://iwage.co/granja/gallinero#software" },
+      "breadcrumb": { "@id": "https://iwage.co/granja/gallinero#breadcrumb" }
+    },
+    {
+      "@type": "BreadcrumbList",
+      "@id": "https://iwage.co/granja/gallinero#breadcrumb",
+      "itemListElement": [
+        { "@type": "ListItem", "position": 1, "name": "Iwagé", "item": "https://iwage.co" },
+        { "@type": "ListItem", "position": 2, "name": "Granja", "item": "https://iwage.co/granja" },
+        { "@type": "ListItem", "position": 3, "name": "El Gallinero", "item": "https://iwage.co/granja/gallinero" }
+      ]
+    },
+    {
+      "@type": "SoftwareApplication",
+      "@id": "https://iwage.co/granja/gallinero#software",
+      "name": "El Gallinero",
+      "description": "Sistema de gestión avícola de código abierto: identidad individual por ave, trazabilidad financiera automática (PEPS por talla de huevo), sanidad, inventarios y modo simple/avanzado. En producción real en Iwagé Granja, Ambalá, Colombia.",
+      "applicationCategory": "BusinessApplication",
+      "applicationSubCategory": "Farm Management Software",
+      "operatingSystem": "Web, PWA",
+      "softwareRequirements": "Navegador web moderno",
+      "programmingLanguage": ["TypeScript", "React"],
+      "codeRepository": "https://github.com/Camilosal/El-Gallinero",
+      "license": "https://github.com/Camilosal/El-Gallinero/blob/main/LICENSE",
+      "url": "https://iwage.co/granja/gallinero",
+      "sameAs": [
+        "https://github.com/Camilosal/El-Gallinero"
+      ],
+      "offers": {
+        "@type": "Offer",
+        "price": "0",
+        "priceCurrency": "USD"
+      },
+      "creator": { "@id": "https://iwage.co#organization" },
+      "isPartOf": { "@id": "https://iwage.co/granja#project" }
+    },
+    {
+      "@type": "Organization",
+      "@id": "https://iwage.co#organization",
+      "name": "Iwagé",
+      "url": "https://iwage.co",
+      "description": "Granja autosustentable y meliponario en la vereda Ambalá, Ibagué, Tolima, Colombia."
+    }
+  ]
+}
+</script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600;9..144,700&family=Inter:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --ink:#1c2419;
+    --forest:#1f3d2c;
+    --forest-deep:#132a1e;
+    --cream:#faf4e7;
+    --cream-2:#f2ead6;
+    --paper:#fffdf8;
+    --amber:#b8842c;
+    --amber-deep:#8f6420;
+    --moss:#5c7a5e;
+    --line: rgba(28,36,25,0.12);
+    --radius: 3px;
+  }
+  *{box-sizing:border-box;}
+  html{scroll-behavior:smooth;}
+  @media (prefers-reduced-motion: reduce){ html{scroll-behavior:auto;} *{animation-duration:0.001ms !important; transition-duration:0.001ms !important;} }
+
+  body{
+    margin:0;
+    background:var(--cream);
+    color:var(--ink);
+    font-family:'Inter', sans-serif;
+    line-height:1.6;
+    -webkit-font-smoothing:antialiased;
+  }
+  .wrap{max-width:1080px; margin:0 auto; padding:0 28px;}
+  h1,h2,h3{font-family:'Fraunces', serif; font-weight:600; letter-spacing:-0.01em; margin:0;}
+  .eyebrow{
+    font-family:'IBM Plex Mono', monospace;
+    font-size:12px;
+    letter-spacing:0.14em;
+    text-transform:uppercase;
+    color:var(--amber-deep);
+    display:flex; align-items:center; gap:10px;
+  }
+  .eyebrow::before{content:""; width:22px; height:1px; background:var(--amber-deep); display:inline-block;}
+  a{color:inherit;}
+  :focus-visible{outline:2px solid var(--amber-deep); outline-offset:3px;}
+
+  /* ---------- NAV ---------- */
+  nav{
+    position:sticky; top:0; z-index:40;
+    background:rgba(250,244,231,0.88);
+    backdrop-filter:blur(8px);
+    border-bottom:1px solid var(--line);
+  }
+  nav .wrap{display:flex; align-items:center; justify-content:space-between; padding:16px 28px;}
+  .brandmark{display:flex; align-items:center; gap:10px; font-family:'Fraunces',serif; font-weight:600; font-size:17px;}
+  .brandmark .dot{width:9px; height:9px; border-radius:50%; background:var(--amber); box-shadow:0 0 0 3px rgba(184,132,44,0.18);}
+  .brandmark small{font-family:'IBM Plex Mono',monospace; font-weight:400; font-size:11px; color:var(--moss); letter-spacing:0.04em;}
+  .navlinks{display:flex; gap:28px; font-size:14px;}
+  .navlinks a{text-decoration:none; opacity:0.75;}
+  .navlinks a:hover{opacity:1;}
+
+  /* ---------- HERO ---------- */
+  header.hero{padding:88px 0 64px; position:relative; overflow:hidden;}
+  .hero-grid{display:grid; grid-template-columns:1.15fr 0.85fr; gap:56px; align-items:center;}
+  @media (max-width:880px){ .hero-grid{grid-template-columns:1fr;} }
+
+  .hero h1{font-size:clamp(38px,5.4vw,58px); line-height:1.04; margin-top:16px;}
+  .hero h1 em{font-style:italic; color:var(--amber-deep);}
+  .hero p.lede{font-size:18px; color:#3a4636; max-width:46ch; margin-top:20px;}
+
+  .cta-row{display:flex; gap:14px; margin-top:32px; flex-wrap:wrap;}
+  .btn{
+    font-family:'IBM Plex Mono',monospace; font-size:13px; letter-spacing:0.02em;
+    padding:13px 22px; border-radius:var(--radius); text-decoration:none;
+    display:inline-flex; align-items:center; gap:8px; transition:transform .15s ease, box-shadow .15s ease;
+  }
+  .btn-primary{background:var(--forest); color:var(--cream); box-shadow:0 1px 0 rgba(0,0,0,0.15);}
+  .btn-primary:hover{transform:translateY(-1px); box-shadow:0 4px 14px rgba(31,61,44,0.28);}
+  .btn-ghost{border:1px solid var(--ink); color:var(--ink);}
+  .btn-ghost:hover{background:var(--ink); color:var(--cream);}
+
+  /* signature: field log card */
+  .logcard{
+    background:var(--paper);
+    border:1px solid var(--line);
+    border-radius:2px;
+    padding:26px 24px 22px;
+    position:relative;
+    transform:rotate(1.2deg);
+    box-shadow:0 18px 40px -14px rgba(19,42,30,0.35), 0 2px 0 rgba(0,0,0,0.03);
+  }
+  .logcard::before{
+    content:"";
+    position:absolute; inset:8px;
+    border:1px dashed rgba(28,36,25,0.16);
+    pointer-events:none;
+  }
+  .logcard .stamp{
+    position:absolute; top:-14px; right:22px;
+    background:var(--amber); color:var(--cream);
+    font-family:'IBM Plex Mono',monospace; font-size:11px; letter-spacing:0.08em;
+    padding:6px 12px; border-radius:2px; transform:rotate(-3deg);
+    box-shadow:0 4px 10px rgba(143,100,32,0.4);
+  }
+  .logcard h3{font-size:14px; font-family:'IBM Plex Mono',monospace; font-weight:500; text-transform:uppercase; letter-spacing:0.08em; color:var(--moss); margin-bottom:18px;}
+  .logrow{display:grid; grid-template-columns:1fr 1fr; gap:14px 18px; margin-bottom:6px;}
+  .logstat{border-top:1px solid var(--line); padding-top:12px;}
+  .logstat .n{font-family:'Fraunces',serif; font-size:30px; font-weight:600; color:var(--forest-deep); line-height:1;}
+  .logstat .l{font-size:12px; color:#5c6355; margin-top:4px;}
+  .logfoot{margin-top:18px; padding-top:14px; border-top:1px solid var(--line); font-family:'IBM Plex Mono',monospace; font-size:11px; color:var(--moss); display:flex; justify-content:space-between;}
+
+  .microstrip{
+    margin-top:56px; padding-top:22px; border-top:1px solid var(--line);
+    display:flex; flex-wrap:wrap; gap:10px 14px; align-items:center;
+    font-family:'IBM Plex Mono',monospace; font-size:12.5px; color:#4a5340;
+  }
+  .microstrip strong{color:var(--forest-deep); font-family:'Fraunces',serif; font-size:15px; font-weight:600;}
+  .microstrip .sep{color:var(--amber); opacity:0.6;}
+
+  /* ---------- SECTION: historia ---------- */
+  section{padding:88px 0;}
+  .historia{background:var(--forest); color:var(--cream-2);}
+  .historia .eyebrow{color:#d9b877;}
+  .historia .eyebrow::before{background:#d9b877;}
+  .historia h2{font-size:clamp(28px,3.6vw,40px); color:#fff; max-width:16ch; margin-top:18px;}
+  .historia-grid{display:grid; grid-template-columns:0.9fr 1.1fr; gap:60px; margin-top:36px;}
+  @media (max-width:880px){ .historia-grid{grid-template-columns:1fr; gap:32px;} }
+  .historia p{color:#d7ddcf; font-size:16.5px; max-width:56ch;}
+  .historia p + p{margin-top:16px;}
+  .pull{font-family:'Fraunces',serif; font-style:italic; font-size:22px; color:#f2e2bd; border-left:2px solid var(--amber); padding-left:20px; max-width:34ch;}
+
+  .factline-list{display:flex; flex-direction:column;}
+  .factline{display:grid; grid-template-columns:120px 1fr; gap:18px; padding:16px 0; border-top:1px solid rgba(242,238,222,0.14);}
+  .factline.end{border-bottom:1px solid rgba(242,238,222,0.14);}
+  .factline .k{font-family:'IBM Plex Mono',monospace; font-size:11px; letter-spacing:0.08em; text-transform:uppercase; color:#d9b877; padding-top:2px;}
+  .factline .v{font-size:16px; color:#e7ead9; max-width:46ch;}
+  .factline.end .v{color:#fff; font-weight:500;}
+  @media (max-width:560px){ .factline{grid-template-columns:1fr; gap:4px;} }
+
+  /* ---------- SECTION: dos caminos ---------- */
+  .caminos-head{text-align:left; margin-bottom:44px;}
+  .caminos-head h2{font-size:clamp(28px,3.6vw,38px); max-width:20ch;}
+  .paths{display:grid; grid-template-columns:1fr 1fr; gap:24px;}
+  @media (max-width:880px){ .paths{grid-template-columns:1fr;} }
+  .path{
+    background:var(--paper); border:1px solid var(--line); border-radius:3px;
+    padding:32px 28px; display:flex; flex-direction:column; gap:16px;
+    transition:border-color .2s ease, transform .2s ease;
+  }
+  .path:hover{border-color:var(--amber); transform:translateY(-3px);}
+  .path .tag{font-family:'IBM Plex Mono',monospace; font-size:11px; letter-spacing:0.1em; text-transform:uppercase; color:var(--amber-deep);}
+  .path h3{font-size:23px; margin-top:2px;}
+  .path p{color:#3f473a; font-size:15px; margin:0;}
+  .path ul{margin:6px 0 0; padding:0; list-style:none; display:flex; flex-direction:column; gap:9px;}
+  .path li{font-size:14.5px; color:#333c2e; padding-left:18px; position:relative;}
+  .path li::before{content:"—"; position:absolute; left:0; color:var(--moss);}
+  .path .go{margin-top:auto; padding-top:14px; font-family:'IBM Plex Mono',monospace; font-size:13px; color:var(--forest-deep); display:flex; align-items:center; gap:6px; text-decoration:none;}
+  .path .go:hover{color:var(--amber-deep);}
+
+  /* ---------- SECTION: cierre ---------- */
+  .cierre{background:var(--cream-2); border-top:1px solid var(--line); border-bottom:1px solid var(--line);}
+  .cierre-grid{display:grid; grid-template-columns:0.55fr 0.45fr; gap:56px; align-items:center;}
+  @media (max-width:880px){ .cierre-grid{grid-template-columns:1fr;} }
+  .cierre h2{font-size:clamp(26px,3.2vw,34px); max-width:18ch;}
+  .cierre p{font-size:16px; color:#3a4636; max-width:52ch; margin-top:16px;}
+  .lead-short{font-family:'Fraunces',serif; font-size:19px; font-style:italic; color:var(--forest-deep);}
+  .chiplist{list-style:none; margin:20px 0 0; padding:0; display:flex; flex-direction:column; gap:10px;}
+  .chiplist li{font-family:'IBM Plex Mono',monospace; font-size:13px; color:#333c2e; padding:10px 14px; background:var(--paper); border:1px solid var(--line); border-radius:2px;}
+  .cierre-card{
+    border:1px solid var(--ink); padding:26px; font-family:'IBM Plex Mono',monospace; font-size:13px; color:var(--ink);
+    background:var(--paper);
+  }
+  .cierre-card .row{display:flex; justify-content:space-between; padding:9px 0; border-bottom:1px solid var(--line);}
+  .cierre-card .row:last-child{border-bottom:none;}
+  .cierre-card .row span:last-child{color:var(--moss);}
+
+  /* ---------- FOOTER ---------- */
+  footer{padding:56px 0 60px;}
+  .foot-grid{display:flex; justify-content:space-between; align-items:flex-end; flex-wrap:wrap; gap:24px;}
+  footer .eco{font-family:'IBM Plex Mono',monospace; font-size:12px; color:var(--moss); max-width:40ch;}
+  footer nav.foot-links{display:flex; gap:22px; font-size:13px;}
+  footer nav.foot-links a{text-decoration:none; opacity:0.7;}
+
+  /* reveal */
+  .reveal{opacity:0; transform:translateY(14px); transition:opacity .6s ease, transform .6s ease;}
+  .reveal.in{opacity:1; transform:none;}
+</style>
+</head>
+<body>
+
+<nav>
+  <div class="wrap">
+    <div class="brandmark"><span class="dot"></span>El Gallinero <small>&nbsp;· IWAGÉ GRANJA</small></div>
+    <div class="navlinks">
+      <a href="#historia">Historia</a>
+      <a href="#caminos">Probarlo</a>
+      <a href="#cierre">Sobre el criterio</a>
+    </div>
+  </div>
+</nav>
+
+<header class="hero">
+  <div class="wrap hero-grid">
+    <div>
+      <div class="eyebrow">Agroecosistema productivo — producción animal integrada</div>
+      <h1>Un gallinero real,<br>trazado <em>día a día</em>.</h1>
+      <p class="lede">Software abierto que gestiona la parvada de la granja de Ambalá desde 2026 — cada ave, cada huevo y cada peso, con trazabilidad completa. No es una demo: es la herramienta con la que se lleva el gallinero.</p>
+      <div class="cta-row">
+        <a class="btn btn-primary" href="#caminos">Probar la demo en vivo →</a>
+        <a class="btn btn-ghost" href="https://github.com/Camilosal/El-Gallinero">Ver el código en GitHub</a>
+      </div>
+    </div>
+
+    <div class="logcard">
+      <div class="stamp">HOY EN EL GALLINERO</div>
+      <h3>Bitácora — corredor Ambalá</h3>
+      <div class="logrow">
+        <div class="logstat"><div class="n">26</div><div class="l">gallinas activas</div></div>
+        <div class="logstat"><div class="n">13</div><div class="l">huevos / día (prom.)</div></div>
+        <div class="logstat"><div class="n">28d</div><div class="l">stock de alimento</div></div>
+        <div class="logstat"><div class="n">7</div><div class="l">módulos conectados</div></div>
+      </div>
+      <div class="logfoot"><span>fuente: el-gallinero, prod.</span><span>PEPS · trazabilidad automática</span></div>
+    </div>
+  </div>
+
+  <div class="wrap">
+    <div class="microstrip reveal">
+      <span><strong>7</strong> módulos conectados</span>
+      <span class="sep">·</span>
+      <span>Auto-registro financiero</span>
+      <span class="sep">·</span>
+      <span>Funciona sin conexión (PWA)</span>
+      <span class="sep">·</span>
+      <span>Código abierto — MIT</span>
+    </div>
+  </div>
+</header>
+
+<section class="historia" id="historia">
+  <div class="wrap">
+    <div class="eyebrow">Por qué existe</div>
+    <h2 class="reveal">Nació de una pregunta operativa, no de una idea de producto.</h2>
+    <div class="historia-grid">
+      <p class="pull reveal">«¿Cuánto cuesta realmente una docena de huevos en Ambalá — y cuánto se gana vendiéndola?»</p>
+      <div class="factline-list">
+        <div class="factline reveal">
+          <span class="k">Identidad</span>
+          <span class="v">Cada gallina con raza, edad y etapa — no un número en un lote.</span>
+        </div>
+        <div class="factline reveal">
+          <span class="k">Trazabilidad</span>
+          <span class="v">Cada huevo rastreable hasta su venta.</span>
+        </div>
+        <div class="factline reveal">
+          <span class="k">Costo real</span>
+          <span class="v">Cada peso de alimento o vacuna, conectado al evento que lo generó.</span>
+        </div>
+        <div class="factline reveal end">
+          <span class="k">Hoy</span>
+          <span class="v">26 aves activas, trazabilidad financiera automática, cero cuaderno.</span>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section id="caminos">
+  <div class="wrap">
+    <div class="caminos-head">
+      <div class="eyebrow">Dos formas de entrar</div>
+      <h2 class="reveal">Elige tu camino según lo que necesitas resolver.</h2>
+    </div>
+    <div class="paths">
+      <div class="path reveal">
+        <div class="tag">Para quien lleva un gallinero</div>
+        <h3>Pruébalo antes de instalar nada</h3>
+        <p>La demo pública corre con meses de historial simulado — huevos, ventas, alimento, sanidad — para explorar el sistema completo sin tocar tus propios datos.</p>
+        <ul>
+          <li>Cada ave con ficha propia: código, raza, edad, etapa</li>
+          <li>Vista de acceso rápido para el registro diario</li>
+          <li>Modo simple y modo avanzado, sin abrumar desde el día uno</li>
+          <li>Cada venta o tratamiento genera su transacción automáticamente</li>
+          <li>Funciona sin conexión — registra en el gallinero aunque no haya señal</li>
+        </ul>
+        <a class="go" href="#">Probar la demo en vivo →</a>
+      </div>
+      <div class="path reveal">
+        <div class="tag">Para quien desarrolla o gestiona sistemas</div>
+        <h3>La ficha técnica</h3>
+        <p>Software libre publicado en GitHub bajo licencia abierta, pensado para que cualquier gallinero pequeño o mediano lo despliegue con su propia base de datos.</p>
+        <ul>
+          <li>Next.js 16 + React 19 · Drizzle ORM sobre PostgreSQL · Tailwind CSS 4</li>
+          <li>7 módulos, 25 tablas, reglas de negocio explícitas</li>
+          <li><code style="font-family:'IBM Plex Mono',monospace;">docker compose up</code> levanta app y base de datos en un paso</li>
+          <li>README con arquitectura, diccionario de datos y guía de contribución</li>
+        </ul>
+        <a class="go" href="https://github.com/Camilosal/El-Gallinero">Ver el repositorio →</a>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="cierre" id="cierre">
+  <div class="wrap cierre-grid">
+    <div>
+      <div class="eyebrow">El criterio de fondo</div>
+      <h2 class="reveal">La misma disciplina que se aplica a cualquier sistema.</h2>
+      <p class="lead-short reveal">No es un caso aislado. Es evidencia de que el criterio se sostiene fuera de una presentación.</p>
+      <ul class="chiplist reveal">
+        <li>Modelar el proceso real antes que la pantalla</li>
+        <li>Conectar cada operación con su impacto financiero</li>
+        <li>Trazabilidad completa, sin reportes reconstruidos a mano</li>
+      </ul>
+    </div>
+    <div class="cierre-card reveal">
+      <div class="row"><span>Sistema</span><span>Agroecosistema productivo</span></div>
+      <div class="row"><span>Línea</span><span>Producción animal integrada</span></div>
+      <div class="row"><span>Territorio</span><span>Vereda Ambalá</span></div>
+      <div class="row"><span>Licencia</span><span>Código abierto</span></div>
+      <div class="row"><span>Estado</span><span>En producción</span></div>
+    </div>
+  </div>
+</section>
+
+<footer>
+  <div class="wrap foot-grid">
+    <div class="eco">El Gallinero es parte del sistema Agroecosistema productivo de Iwagé Granja, dentro del Ecosistema Iwagé.</div>
+    <nav class="foot-links">
+      <a href="#">iwage.co</a>
+      <a href="#">granja/bitácora</a>
+      <a href="https://github.com/Camilosal/El-Gallinero">GitHub</a>
+    </nav>
+  </div>
+</footer>
+
+<script>
+  const items = document.querySelectorAll('.reveal');
+  const io = new IntersectionObserver((entries)=>{
+    entries.forEach(e=>{ if(e.isIntersecting){ e.target.classList.add('in'); io.unobserve(e.target); } });
+  }, {threshold:0.15});
+  items.forEach(i=>io.observe(i));
+</script>
+
+</body>
+</html>

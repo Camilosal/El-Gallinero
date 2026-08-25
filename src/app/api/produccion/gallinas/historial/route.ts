@@ -4,11 +4,12 @@ import { eq, desc, and, sql } from "drizzle-orm";
 import { NextRequest, NextResponse } from "next/server";
 import { evaluateLifecycle } from "@/lib/lifecycle";
 import { catalogos } from "@/db/schema";
+import { withApiHandler, safeParseJson } from "@/lib/api-handler";
 
 export const dynamic = "force-dynamic";
 
 /** GET /api/produccion/gallinas/historial?henId=UUID */
-export async function GET(req: NextRequest) {
+export const GET = withApiHandler(async (req: NextRequest) => {
   const henId = new URL(req.url).searchParams.get("henId");
   if (!henId) return NextResponse.json({ error: "henId requerido" }, { status: 400 });
 
@@ -101,4 +102,4 @@ export async function GET(req: NextRequest) {
   timeline.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
 
   return NextResponse.json({ hen: enrichedHen, timeline });
-}
+});
