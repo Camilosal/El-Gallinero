@@ -254,8 +254,8 @@ export default function BalancePage() {
     <div>
       <PageHeader
         title="⚖️ Balance de Inventario"
-        description="Vista consolidada de todos los stocks del gallinero: alimentos, huevos, aves y gallinaza"
-        help="Vista consolidada de todo el inventario del gallinero en un solo lugar: alimentos (stock actual, valor, alertas de mínimo), huevos (disponible por tamaño), aves (gallinas, pollos, patos, codornices, conejos) y gallinaza. Los indicadores en rojo señalan stock bajo. Incluye gráfico de distribución de valor por categoría para ver dónde se concentra el capital invertido en inventario."
+        description="Vista consolidada de todos los stocks del gallinero: alimentos, huevos, animales y gallinaza"
+        help="Vista consolidada de todo el inventario del gallinero en un solo lugar: alimentos (stock actual, valor, alertas de mínimo), huevos (disponible por tamaño), animales (gallinas, gallos, pollos, codornices, patos y conejos) y gallinaza. Las aves incluyen gallinas, gallos, pollos, codornices y patos; los conejos se reportan aparte. Los indicadores en rojo señalan stock bajo. Incluye gráfico de distribución de valor por categoría para ver dónde se concentra el capital invertido en inventario."
       />
 
       <div className="flex justify-end mb-4">
@@ -298,7 +298,7 @@ export default function BalancePage() {
               <p className="text-2xl font-bold text-purple-600">{fmtMoney(data.summary.eggValue)}</p>
             </Card>
             <Card>
-              <p className="text-sm text-slate-500">🐔 Valor Aves en Pie</p>
+              <p className="text-sm text-slate-500">🐾 Valor Animales en Pie</p>
               <p className="text-2xl font-bold text-orange-600">{fmtMoney(data.summary.birdsValue)}</p>
               <p className="text-xs text-slate-400">{data.summary.totalBirdsWeightKg} kg en pie, valorados con precios de Catálogos</p>
             </Card>

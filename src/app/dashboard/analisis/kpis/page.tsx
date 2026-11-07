@@ -120,7 +120,7 @@ export default function KpisPage() {
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
             <StatCard icon="💀" label="Tasa mortalidad" value={`${data.mortality.rate}%`} color="red" />
             <StatCard icon="☠️" label="Muertes totales" value={String(data.mortality.totalDeaths)} color="yellow" />
-            <StatCard icon="🏠" label="Parvada total" value={String(data.mortality.totalFlock)} color="green" />
+            <StatCard icon="🏠" label="Animales en inventario" value={String(data.mortality.totalFlock)} color="green" />
             <StatCard icon="📊" label="Causas registradas" value={String(data.mortality.byCause.length)} color="purple" />
           </div>
 
@@ -130,7 +130,7 @@ export default function KpisPage() {
             <StatCard icon="📈" label="Tasa de postura" value={`${data.laying.rate}%`} color="green" />
             <StatCard icon="🥚" label="Total huevos" value={String(data.laying.totalEggs)} color="yellow" />
             <StatCard icon="📅" label="Promedio diario" value={String(data.laying.avgDaily)} color="blue" />
-            <StatCard icon="🐔" label="Aves en parvada" value={String(data.mortality.totalFlock)} color="earth" />
+            <StatCard icon="🐾" label="Animales en parvada" value={String(data.mortality.totalFlock)} color="earth" />
           </div>
 
           {/* Cost KPIs */}
@@ -168,7 +168,7 @@ export default function KpisPage() {
           <h2 className="text-lg font-bold text-slate-700">🐔 Parvada</h2>
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
             <StatCard icon="📅" label="Edad promedio" value={`${data.flock.avgAgeWeeks} sem`} color="blue" />
-            <StatCard icon="🐔" label="Total aves" value={String(data.flock.totalBirds)} color="green" />
+            <StatCard icon="🐾" label="Total animales" value={String(data.flock.totalBirds)} color="green" />
             <StatCard icon="📈" label="Ratio productivo" value={`${(data.flock.productiveRatio * 100).toFixed(0)}%`} color="yellow" />
             <StatCard icon="🏠" label="Estado" value={data.flock.totalBirds > 0 ? "Activo" : "Vacío"} color="earth" />
           </div>

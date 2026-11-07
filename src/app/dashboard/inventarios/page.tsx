@@ -45,7 +45,7 @@ export default function InventariosPage() {
           Inventarios
         </h1>
         <p className="text-gray-600 mt-2">
-          Consolidado de todos los recursos: huevos, aves, insumos y gallinaza.
+          Consolidado de todos los recursos: huevos, animales, insumos y gallinaza.
         </p>
       </div>
 

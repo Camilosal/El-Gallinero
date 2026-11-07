@@ -190,7 +190,7 @@ export default function MortalidadPage() {
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         <StatCard icon="💀" label="Tasa mortalidad (30d)" value={`${stats.mortalityRate}%`} color="red" />
         <StatCard icon="🐔" label="Muertes (30d)" value={String(stats.totalDeaths)} color="yellow" />
-        <StatCard icon="🏠" label="Parvada total" value={String(stats.totalFlock)} color="green" />
+        <StatCard icon="🏠" label="Animales en inventario" value={String(stats.totalFlock)} color="green" />
         <StatCard icon="🥚" label="Huevos perdidos (30d)" value={String(lossStats.totalLost)} color="purple" />
       </div>
 
