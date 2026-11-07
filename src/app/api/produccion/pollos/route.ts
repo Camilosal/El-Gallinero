@@ -6,19 +6,34 @@ import { batchReadiness } from "@/lib/flock";
 
 export const dynamic = "force-dynamic";
 
-/** Autogenera el siguiente código de lote (L-001, L-002...) */
-async function nextBatchCode(): Promise<string> {
-  const [maxRow] = await db.select({ maxCode: sql<string>`max(${broilerBatches.code})` }).from(broilerBatches);
+/** Autogenera el siguiente código de lote según la especie */
+async function nextBatchCode(species?: string): Promise<string> {
+  const prefix = species === "codorniz" ? "L-COD-"
+    : species === "pato" ? "L-PAT-"
+    : species === "conejo" ? "L-CON-"
+    : "L-";
+
+  const [maxRow] = await db.select({ maxCode: sql<string>`max(${broilerBatches.code})` })
+    .from(broilerBatches)
+    .where(sql`${broilerBatches.code} LIKE ${prefix + '%'}`);
+
   let max = 0;
   if (maxRow?.maxCode) {
-    const m = String(maxRow.maxCode).match(/^L-(\d+)$/);
+    const regex = new RegExp(`^${prefix.replace("-", "\\-")}(\\d+)$`);
+    const m = String(maxRow.maxCode).match(regex);
     if (m) max = Number(m[1]);
   }
-  return `L-${String(max + 1).padStart(3, "0")}`;
+  return `${prefix}${String(max + 1).padStart(3, "0")}`;
 }
 
-export async function GET() {
-  const data = await db.select().from(broilerBatches).orderBy(desc(broilerBatches.createdAt));
+export async function GET(req: NextRequest) {
+  const { searchParams } = new URL(req.url);
+  const speciesFilter = searchParams.get("species");
+
+  let query = db.select().from(broilerBatches);
+  const data = speciesFilter && speciesFilter !== "all"
+    ? await query.where(eq(broilerBatches.species, speciesFilter as any)).orderBy(desc(broilerBatches.createdAt))
+    : await query.orderBy(desc(broilerBatches.createdAt));
 
   // ─── Sincronización automática: lotes activos que ya cumplen el objetivo ───
   const toMarkReady: string[] = [];
@@ -44,15 +59,31 @@ export async function POST(req: NextRequest) {
   if (!body.breed) return NextResponse.json({ error: "Raza requerida" }, { status: 400 });
   if (!qty || qty < 1) return NextResponse.json({ error: "Cantidad inválida" }, { status: 400 });
 
+  const species = body.species || "pollo";
+  const defaultTargetWeeks = species === "codorniz" ? 5
+    : species === "pato" ? 9
+    : species === "conejo" ? 11
+    : 7;
+
+  const defaultTargetWeight = species === "codorniz" ? "0.15"
+    : species === "pato" ? "3.2"
+    : species === "conejo" ? "2.4"
+    : "2.5";
+
   const [created] = await db.insert(broilerBatches).values({
-    code: body.code || (await nextBatchCode()),
+    code: body.code || (await nextBatchCode(species)),
+    species,
+    purpose: body.purpose || "engorde_carne",
+    systemType: body.systemType || "piso",
     breed: body.breed,
     startDate: body.startDate || new Date().toISOString().split("T")[0],
     initialQuantity: qty,
     currentQuantity: qty,
-    targetWeeks: body.targetWeeks || 7,
-    targetWeightKg: body.targetWeightKg || "2.5",
+    targetWeeks: body.targetWeeks || defaultTargetWeeks,
+    targetDays: body.targetDays || (body.targetWeeks ? body.targetWeeks * 7 : defaultTargetWeeks * 7),
+    targetWeightKg: body.targetWeightKg || defaultTargetWeight,
     avgWeightKg: body.avgWeightKg || null,
+    feedConversionTarget: body.feedConversionTarget || null,
     notes: body.notes || null,
   }).returning();
 
@@ -66,13 +97,18 @@ export async function PUT(req: NextRequest) {
 
   const [updated] = await db.update(broilerBatches).set({
     code: body.code,
+    species: body.species,
+    purpose: body.purpose,
+    systemType: body.systemType,
     breed: body.breed,
     startDate: body.startDate,
     initialQuantity: body.initialQuantity,
     currentQuantity: body.currentQuantity,
     targetWeeks: body.targetWeeks,
+    targetDays: body.targetDays,
     targetWeightKg: body.targetWeightKg,
     avgWeightKg: body.avgWeightKg,
+    feedConversionTarget: body.feedConversionTarget,
     status: body.status,
     notes: body.notes,
     updatedAt: new Date(),

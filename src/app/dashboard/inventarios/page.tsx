@@ -5,11 +5,12 @@ import { useEffect, useState } from "react";
 import { apiFetch } from "@/lib/fetch";
 
 const secciones = [
-  { href: "/inventarios/huevos", label: "Inventario Huevos", icon: "📦", desc: "Stock por tipo y edad" },
-  { href: "/inventarios/carne", label: "Inventario Carne", icon: "🍗", desc: "Stock de carne por lote" },
-  { href: "/inventarios/gallinaza", label: "Inventario Gallinaza", icon: "🌱", desc: "Stock de abono" },
-  { href: "/inventarios/balance", label: "Balance de Inventario", icon: "⚖️", desc: "Entradas y salidas" },
-  { href: "/inventarios/insumos", label: "Insumos", icon: "🧰", desc: "Alimento, medicamentos, empaques" },
+  { href: "/dashboard/inventarios/huevos", label: "Inventario Huevos", icon: "📦", desc: "Stock por tipo y edad" },
+  { href: "/dashboard/inventarios/carne", label: "Inventario Carne", icon: "🍗", desc: "Stock de carne por lote" },
+  { href: "/dashboard/inventarios/gallinaza", label: "Inventario Gallinaza", icon: "🌱", desc: "Stock de abono" },
+  { href: "/dashboard/inventarios/alimentacion", label: "Inventario Alimentación", icon: "🌾", desc: "Stock y consumo de alimentos" },
+  { href: "/dashboard/inventarios/balance", label: "Balance de Inventario", icon: "⚖️", desc: "Entradas y salidas" },
+  { href: "/dashboard/inventarios/insumos", label: "Insumos", icon: "🧰", desc: "Medicamentos, empaques, material" },
 ];
 
 interface ResumenInventarios {

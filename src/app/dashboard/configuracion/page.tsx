@@ -1,7 +1,7 @@
 import Link from "next/link";
 
 const secciones = [
-  { href: "/configuracion/catalogos", label: "Catálogos", icon: "🗂️", desc: "Tablas maestras del sistema" },
+  { href: "/dashboard/configuracion/catalogos", label: "Catálogos", icon: "🗂️", desc: "Tablas maestras del sistema" },
 ];
 
 export default function ConfiguracionPage() {

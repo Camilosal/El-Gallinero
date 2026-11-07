@@ -11,6 +11,7 @@ const PUBLIC_PREFIXES = [
   "/login",
   "/api/auth/",
   "/api/health",
+  "/api/produccion/alimentacion",
   "/lote/",
   "/dashboard/guia",
 ];

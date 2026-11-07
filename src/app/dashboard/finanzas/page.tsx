@@ -5,11 +5,11 @@ import { useEffect, useState } from "react";
 import { apiFetch } from "@/lib/fetch";
 
 const secciones = [
-  { href: "/finanzas/ventas", label: "Ventas", icon: "💰", desc: "Facturación" },
-  { href: "/finanzas/egresos", label: "Egresos", icon: "📤", desc: "Gastos" },
-  { href: "/finanzas/finanzas", label: "Finanzas", icon: "📈", desc: "Balance y P&L" },
-  { href: "/finanzas/presupuestos", label: "Presupuestos", icon: "💵", desc: "Planificación financiera" },
-  { href: "/finanzas/cuentas", label: "Cuentas", icon: "💳", desc: "CxC y CxP" },
+  { href: "/dashboard/finanzas/ventas", label: "Ventas", icon: "💰", desc: "Facturación" },
+  { href: "/dashboard/finanzas/egresos", label: "Egresos", icon: "📤", desc: "Gastos" },
+  { href: "/dashboard/finanzas/finanzas", label: "Finanzas", icon: "📈", desc: "Balance y P&L" },
+  { href: "/dashboard/finanzas/presupuestos", label: "Presupuestos", icon: "💵", desc: "Planificación financiera" },
+  { href: "/dashboard/finanzas/cuentas", label: "Cuentas", icon: "💳", desc: "CxC y CxP" },
 ];
 
 interface ResumenFinanzas {

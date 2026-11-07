@@ -1,10 +1,12 @@
 "use client";
 
-import { useEffect, useState, useCallback, Suspense } from "react";
+import { useEffect, useState, useCallback, useMemo, Suspense } from "react";
 import { useSearchParams } from "next/navigation";
 import { PageHeader, Button, Card, Table, Badge, Modal, Input, Select, Textarea, EmptyState, StatCard } from "@/components/ui";
 import { apiFetch } from "@/lib/fetch";
 import { useCatalog } from "@/lib/useCatalog";
+import TableSearch from "@/components/TableSearch";
+import { matchesTextQuery } from "@/lib/text";
 
 interface HealthRecord {
   id: string;
@@ -66,6 +68,7 @@ function SanidadPageInner() {
   const [editing, setEditing] = useState<HealthRecord | null>(null);
   const [error, setError] = useState("");
   const [calendarEvents, setCalendarEvents] = useState<CalendarEvent[]>([]);
+  const [search, setSearch] = useState("");
   const [form, setForm] = useState({
     date: new Date().toISOString().split("T")[0],
     type: "inspeccion",
@@ -179,6 +182,24 @@ function SanidadPageInner() {
   const totalCost = records.reduce((s, r) => s + Number(r.cost || 0), 0);
   const upcoming = records.filter((r) => r.nextScheduled && new Date(r.nextScheduled + "T12:00:00") >= new Date()).sort((a, b) => new Date(a.nextScheduled!).getTime() - new Date(b.nextScheduled!).getTime());
 
+  const filteredRecords = useMemo(() => {
+    if (!search.trim()) return records;
+    return records.filter((record) =>
+      matchesTextQuery(search, [
+        record.date,
+        new Date(record.date + "T12:00:00").toLocaleDateString("es"),
+        record.type,
+        eventTypes.find((type) => type.value === record.type)?.label,
+        record.description,
+        record.affectedHens,
+        record.product,
+        record.cost,
+        record.nextScheduled,
+        record.notes,
+      ]),
+    );
+  }, [records, search]);
+
   return (
     <div>
       <PageHeader
@@ -214,13 +235,28 @@ function SanidadPageInner() {
       )}
 
       <Card>
+        <TableSearch
+          value={search}
+          onChange={setSearch}
+          placeholder="Buscar por fecha, tipo, producto o descripción..."
+          resultCount={filteredRecords.length}
+          totalCount={records.length}
+          className="mb-4"
+        />
         {loading ? (
           <p className="text-center py-8 text-slate-400">Cargando...</p>
-        ) : records.length === 0 ? (
-          <EmptyState icon="💊" message="No hay registros sanitarios" />
+        ) : filteredRecords.length === 0 ? (
+          <EmptyState
+            icon="💊"
+            message={
+              search.trim()
+                ? "No hay registros que coincidan con la búsqueda"
+                : "No hay registros sanitarios"
+            }
+          />
         ) : (
           <Table headers={["Fecha", "Tipo", "Descripción", "Gallinas", "Producto", "Costo", "Próximo", ""]}>
-            {records.map((r) => (
+            {filteredRecords.map((r) => (
               <tr key={r.id} className="hover:bg-slate-50">
                 <td className="px-4 py-3">{new Date(r.date + "T12:00:00").toLocaleDateString("es")}</td>
                 <td className="px-4 py-3"><Badge color={typeColors[r.type] || "gray"}>{eventTypes.find((t) => t.value === r.type)?.label || r.type}</Badge></td>

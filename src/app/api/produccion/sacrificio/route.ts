@@ -1,5 +1,5 @@
 import { db } from "@/db";
-import { slaughter, hens, roosters, broilerBatches, chickenSales, mortalityRecords } from "@/db/schema";
+import { slaughter, hens, roosters, broilerBatches, chickenSales, mortalityRecords, autoconsumoLogs } from "@/db/schema";
 import { eq, desc, and, sql } from "drizzle-orm";
 import { NextRequest, NextResponse } from "next/server";
 import { isAvailableForExit } from "@/lib/lifecycle";
@@ -12,8 +12,14 @@ import { withApiHandler, safeParseJson } from "@/lib/api-handler";
 export const dynamic = "force-dynamic";
 
 // GET /api/produccion/sacrificio — lista de registros de sacrificio (producción de carne)
-export const GET = withApiHandler(async () => {
-  const data = await db.select().from(slaughter).orderBy(desc(slaughter.date)).limit(100);
+export const GET = withApiHandler(async (req: NextRequest) => {
+  const { searchParams } = new URL(req.url);
+  const speciesFilter = searchParams.get("species");
+
+  let query = db.select().from(slaughter);
+  const data = speciesFilter && speciesFilter !== "all"
+    ? await query.where(eq(slaughter.species, speciesFilter as any)).orderBy(desc(slaughter.date)).limit(100)
+    : await query.orderBy(desc(slaughter.date)).limit(100);
 
   const enriched = await Promise.all(
     data.map(async (record) => {
@@ -38,7 +44,7 @@ export const POST = withApiHandler(async (req: NextRequest) => {
   const body = await safeParseJson(req);
 
   const qty = Number(body.quantity);
-  if (!body.birdType) return NextResponse.json({ error: "Tipo de ave requerido" }, { status: 400 });
+  if (!body.birdType) return NextResponse.json({ error: "Tipo de ave/animal requerido" }, { status: 400 });
   if (!qty || qty < 1) return NextResponse.json({ error: "Cantidad inválida" }, { status: 400 });
 
   const weightKg = Number(body.weightKg);
@@ -67,16 +73,47 @@ export const POST = withApiHandler(async (req: NextRequest) => {
   }
 
   const destination = body.destination || "consumo_propio";
+  const species = body.species || "pollo";
+  const liveWeightKg = body.liveWeightKg ? String(body.liveWeightKg) : null;
+  const carcassYieldPercent = body.carcassYieldPercent ? String(body.carcassYieldPercent) : null;
+
+  // Manejo de la partición dual:
+  let headsAutoconsumo = Number(body.headsAutoconsumo) || 0;
+  let weightKgAutoconsumo = Number(body.weightKgAutoconsumo) || 0;
+  let headsExcedente = Number(body.headsExcedente) || 0;
+  let weightKgExcedente = Number(body.weightKgExcedente) || 0;
+
+  if (destination === "consumo_propio" && headsAutoconsumo === 0 && weightKgAutoconsumo === 0) {
+    headsAutoconsumo = qty;
+    weightKgAutoconsumo = weightKg;
+  } else if (destination === "venta" && headsExcedente === 0 && weightKgExcedente === 0) {
+    headsExcedente = qty;
+    weightKgExcedente = weightKg;
+  }
+
+  const refPricePerKg = body.marketReferencePricePerKg ? Number(body.marketReferencePricePerKg) : 0;
+  const savingsAmount = refPricePerKg > 0 && weightKgAutoconsumo > 0
+    ? (weightKgAutoconsumo * refPricePerKg).toFixed(2)
+    : (body.estimatedSavingsAmount ? String(body.estimatedSavingsAmount) : null);
 
   const created = await db.transaction(async (tx) => {
     const [inserted] = await tx.insert(slaughter).values({
       date: body.date,
+      species,
       birdType: body.birdType,
       quantity: qty,
+      liveWeightKg,
       weightKg: String(weightKg),
+      carcassYieldPercent,
       destination,
-      pricePerKg: null,
-      totalAmount: null,
+      headsAutoconsumo,
+      weightKgAutoconsumo: String(weightKgAutoconsumo),
+      headsExcedente,
+      weightKgExcedente: String(weightKgExcedente),
+      pricePerKg: body.pricePerKg ? String(body.pricePerKg) : null,
+      totalAmount: body.totalAmount ? String(body.totalAmount) : null,
+      marketReferencePricePerKg: refPricePerKg > 0 ? String(refPricePerKg) : null,
+      estimatedSavingsAmount: savingsAmount,
       henId: body.henId || null,
       roosterId: body.roosterId || null,
       batchId: body.batchId || null,
@@ -91,6 +128,23 @@ export const POST = withApiHandler(async (req: NextRequest) => {
     }
     if (body.batchId) {
       await applyBatchExit(body.batchId, qty, "sacrificio", tx);
+    }
+
+    // Auto-registrar en Soberanía Alimentaria si hay carne para el hogar
+    if (weightKgAutoconsumo > 0 && refPricePerKg > 0) {
+      await tx.insert(autoconsumoLogs).values({
+        date: body.date,
+        species,
+        productType: "carne_canal",
+        quantity: String(weightKgAutoconsumo),
+        unit: "kg",
+        marketReferencePrice: String(refPricePerKg),
+        savingsAmount: String(savingsAmount || "0"),
+        destinationHousehold: "Familia Granja",
+        batchId: body.batchId || null,
+        slaughterId: inserted.id,
+        notes: `Faena (${species}) - ${headsAutoconsumo} unidades para consumo familiar`,
+      });
     }
 
     return inserted;
@@ -121,6 +175,27 @@ export const PUT = withApiHandler(async (req: NextRequest) => {
   }
 
   const destination = body.destination || "consumo_propio";
+  const species = body.species || existing.species || "pollo";
+  const liveWeightKg = body.liveWeightKg ? String(body.liveWeightKg) : null;
+  const carcassYieldPercent = body.carcassYieldPercent ? String(body.carcassYieldPercent) : null;
+
+  let headsAutoconsumo = Number(body.headsAutoconsumo) || 0;
+  let weightKgAutoconsumo = Number(body.weightKgAutoconsumo) || 0;
+  let headsExcedente = Number(body.headsExcedente) || 0;
+  let weightKgExcedente = Number(body.weightKgExcedente) || 0;
+
+  if (destination === "consumo_propio" && headsAutoconsumo === 0 && weightKgAutoconsumo === 0) {
+    headsAutoconsumo = qty;
+    weightKgAutoconsumo = weightKg;
+  } else if (destination === "venta" && headsExcedente === 0 && weightKgExcedente === 0) {
+    headsExcedente = qty;
+    weightKgExcedente = weightKg;
+  }
+
+  const refPricePerKg = body.marketReferencePricePerKg ? Number(body.marketReferencePricePerKg) : 0;
+  const savingsAmount = refPricePerKg > 0 && weightKgAutoconsumo > 0
+    ? (weightKgAutoconsumo * refPricePerKg).toFixed(2)
+    : (body.estimatedSavingsAmount ? String(body.estimatedSavingsAmount) : null);
 
   let updated;
   try {
@@ -139,10 +214,21 @@ export const PUT = withApiHandler(async (req: NextRequest) => {
 
       const [upd] = await tx.update(slaughter).set({
         date: body.date,
+        species,
         birdType: body.birdType,
         quantity: qty,
+        liveWeightKg,
         weightKg: String(weightKg),
+        carcassYieldPercent,
         destination,
+        headsAutoconsumo,
+        weightKgAutoconsumo: String(weightKgAutoconsumo),
+        headsExcedente,
+        weightKgExcedente: String(weightKgExcedente),
+        pricePerKg: body.pricePerKg ? String(body.pricePerKg) : null,
+        totalAmount: body.totalAmount ? String(body.totalAmount) : null,
+        marketReferencePricePerKg: refPricePerKg > 0 ? String(refPricePerKg) : null,
+        estimatedSavingsAmount: savingsAmount,
         henId: body.henId || null,
         roosterId: body.roosterId || null,
         batchId: body.batchId || null,
@@ -164,6 +250,24 @@ export const PUT = withApiHandler(async (req: NextRequest) => {
       }
       if (body.batchId && body.batchId !== existing.batchId) {
         await applyBatchExit(body.batchId, qty, "sacrificio", tx);
+      }
+
+      // Sync autoconsumo log
+      await tx.delete(autoconsumoLogs).where(eq(autoconsumoLogs.slaughterId, body.id));
+      if (weightKgAutoconsumo > 0 && refPricePerKg > 0) {
+        await tx.insert(autoconsumoLogs).values({
+          date: body.date,
+          species,
+          productType: "carne_canal",
+          quantity: String(weightKgAutoconsumo),
+          unit: "kg",
+          marketReferencePrice: String(refPricePerKg),
+          savingsAmount: String(savingsAmount || "0"),
+          destinationHousehold: "Familia Granja",
+          batchId: body.batchId || null,
+          slaughterId: upd.id,
+          notes: `Faena (${species}) - ${headsAutoconsumo} unidades para consumo familiar`,
+        });
       }
 
       return upd;
@@ -188,6 +292,9 @@ export const DELETE = withApiHandler(async (req: NextRequest) => {
   if (!record) return NextResponse.json({ error: "No encontrado" }, { status: 404 });
 
   await db.transaction(async (tx) => {
+    // Delete linked autoconsumo log first
+    await tx.delete(autoconsumoLogs).where(eq(autoconsumoLogs.slaughterId, id));
+
     if (record.henId) {
       // Check no subsequent exit before restoring
       const [otherSlaughter] = await tx.select({ id: slaughter.id })

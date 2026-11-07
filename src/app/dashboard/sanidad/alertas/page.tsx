@@ -1,8 +1,10 @@
 "use client";
 
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useMemo } from "react";
 import { PageHeader, Card, Badge, EmptyState } from "@/components/ui";
 import { apiFetch } from "@/lib/fetch";
+import TableSearch from "@/components/TableSearch";
+import { matchesTextQuery } from "@/lib/text";
 
 interface Alert {
   type: string;
@@ -36,6 +38,7 @@ const TYPE_ICONS: Record<string, string> = {
 export default function AlertasPage() {
   const [alerts, setAlerts] = useState<Alert[]>([]);
   const [loading, setLoading] = useState(true);
+  const [search, setSearch] = useState("");
 
   const load = useCallback(() => {
     setLoading(true);
@@ -51,9 +54,23 @@ export default function AlertasPage() {
     return () => clearInterval(interval);
   }, [load]);
 
-  const critical = alerts.filter((a) => a.severity === "critical");
-  const warnings = alerts.filter((a) => a.severity === "warning");
-  const infos = alerts.filter((a) => a.severity === "info");
+  const filteredAlerts = useMemo(() => {
+    if (!search.trim()) return alerts;
+    return alerts.filter((alert) =>
+      matchesTextQuery(search, [
+        alert.type,
+        SEVERITY_LABELS[alert.severity],
+        alert.title,
+        alert.message,
+        alert.date,
+        alert.birdGroup,
+      ]),
+    );
+  }, [alerts, search]);
+
+  const filteredCritical = filteredAlerts.filter((a) => a.severity === "critical");
+  const filteredWarnings = filteredAlerts.filter((a) => a.severity === "warning");
+  const filteredInfos = filteredAlerts.filter((a) => a.severity === "info");
 
   const renderGroup = (title: string, group: Alert[], color: string) => {
     if (group.length === 0) return null;
@@ -99,9 +116,29 @@ export default function AlertasPage() {
         <EmptyState icon="✅" message="No hay alertas activas" />
       ) : (
         <>
-          {renderGroup("Críticas", critical, "red")}
-          {renderGroup("Advertencias", warnings, "yellow")}
-          {renderGroup("Información", infos, "blue")}
+          <TableSearch
+            value={search}
+            onChange={setSearch}
+            placeholder="Buscar por título, mensaje o grupo..."
+            resultCount={filteredAlerts.length}
+            totalCount={alerts.length}
+          />
+          {filteredAlerts.length === 0 ? (
+            <EmptyState
+              icon="🔔"
+              message={
+                search.trim()
+                  ? "No hay alertas que coincidan con la búsqueda"
+                  : "No hay alertas activas"
+              }
+            />
+          ) : (
+            <>
+              {renderGroup("Críticas", filteredCritical, "red")}
+              {renderGroup("Advertencias", filteredWarnings, "yellow")}
+              {renderGroup("Información", filteredInfos, "blue")}
+            </>
+          )}
         </>
       )}
     </div>

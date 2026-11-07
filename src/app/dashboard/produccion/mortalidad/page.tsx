@@ -1,9 +1,11 @@
 "use client";
 
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useMemo } from "react";
 import { apiFetch } from "@/lib/fetch";
 import { Card, StatCard, PageHeader, Button, Input, Select, Textarea, Modal, Table, Badge, EmptyState } from "@/components/ui";
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip, Legend } from "recharts";
+import TableSearch from "@/components/TableSearch";
+import { matchesTextQuery } from "@/lib/text";
 
 type MortalityRecord = {
   id: string;
@@ -50,6 +52,8 @@ export default function MortalidadPage() {
   const [roosters, setRoosters] = useState<{ id: string; code: string }[]>([]);
   const [batches, setBatches] = useState<{ id: string; code: string }[]>([]);
   const [editingId, setEditingId] = useState<string | null>(null);
+  const [mortalitySearch, setMortalitySearch] = useState("");
+  const [lossSearch, setLossSearch] = useState("");
 
   const load = useCallback(async () => {
     const [mortRes, lossRes, hensRes, roostersRes, batchesRes] = await Promise.all([
@@ -140,6 +144,35 @@ export default function MortalidadPage() {
   const pieData = stats.byCause.map((b) => ({ name: CAUSE_LABELS[b.cause] || b.cause, value: b.total }));
   const lossPieData = lossStats.byReason.map((r) => ({ name: r.reason, value: r.total }));
 
+  const filteredRecords = useMemo(() => {
+    if (!mortalitySearch.trim()) return records;
+    return records.filter((record) =>
+      matchesTextQuery(mortalitySearch, [
+        record.date,
+        BIRD_LABELS[record.birdType] || record.birdType,
+        record.henCode,
+        record.roosterCode,
+        record.batchCode,
+        CAUSE_LABELS[record.cause] || record.cause,
+        record.description,
+        record.quantity,
+      ]),
+    );
+  }, [records, mortalitySearch]);
+
+  const filteredLosses = useMemo(() => {
+    if (!lossSearch.trim()) return losses;
+    return losses.filter((loss) =>
+      matchesTextQuery(lossSearch, [
+        loss.date,
+        loss.quantity,
+        loss.size,
+        loss.reason,
+        loss.notes,
+      ]),
+    );
+  }, [losses, lossSearch]);
+
   return (
     <div className="space-y-6">
       <PageHeader
@@ -177,13 +210,28 @@ export default function MortalidadPage() {
 
       <Card>
         <h3 className="text-sm font-semibold text-slate-700 mb-3">Historial de mortalidad</h3>
+        <TableSearch
+          value={mortalitySearch}
+          onChange={setMortalitySearch}
+          placeholder="Buscar por fecha, ave, causa o descripción..."
+          resultCount={filteredRecords.length}
+          totalCount={records.length}
+          className="mb-4"
+        />
         {loading ? (
           <p className="text-center py-8 text-slate-400">Cargando...</p>
-        ) : records.length === 0 ? (
-          <EmptyState icon="💀" message="No hay registros de mortalidad" />
+        ) : filteredRecords.length === 0 ? (
+          <EmptyState
+            icon="💀"
+            message={
+              mortalitySearch.trim()
+                ? "No hay registros que coincidan con la búsqueda"
+                : "No hay registros de mortalidad"
+            }
+          />
         ) : (
           <Table headers={["Fecha", "Tipo", "Ave/Lote", "Causa", "Descripción", "Acciones"]}>
-            {records.map((r) => (
+            {filteredRecords.map((r) => (
               <tr key={r.id} className="hover:bg-slate-50">
                 <td className="px-4 py-3 text-sm">{r.date}</td>
                 <td className="px-4 py-3 text-sm">{BIRD_LABELS[r.birdType] || r.birdType}</td>
@@ -200,8 +248,16 @@ export default function MortalidadPage() {
       {losses.length > 0 && (
         <Card>
           <h3 className="text-sm font-semibold text-slate-700 mb-3">Pérdidas de huevo</h3>
+          <TableSearch
+            value={lossSearch}
+            onChange={setLossSearch}
+            placeholder="Buscar por fecha, tamaño o razón..."
+            resultCount={filteredLosses.length}
+            totalCount={losses.length}
+            className="mb-4"
+          />
           <Table headers={["Fecha", "Cantidad", "Tamaño", "Razón", "Notas", "Acciones"]}>
-            {losses.map((l) => (
+            {filteredLosses.map((l) => (
               <tr key={l.id} className="hover:bg-slate-50">
                 <td className="px-4 py-3 text-sm">{l.date}</td>
                 <td className="px-4 py-3 text-sm font-medium">{l.quantity}</td>

@@ -1,9 +1,11 @@
 "use client";
 
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useMemo } from "react";
 import { PageHeader, Button, Card, Table, Badge, Modal, Input, Textarea, EmptyState, StatCard } from "@/components/ui";
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend, AreaChart, Area } from "recharts";
 import { apiFetch } from "@/lib/fetch";
+import TableSearch from "@/components/TableSearch";
+import { matchesTextQuery } from "@/lib/text";
 
 interface Milestone {
   id: string;
@@ -36,6 +38,7 @@ export default function PlanParvadaPage() {
   const [error, setError] = useState("");
   const [form, setForm] = useState({ name: "", startDate: new Date().toISOString().split("T")[0], targetHenCount: "", targetRoosterCount: "", replacementDate: "", notes: "" });
   const [selectedPlan, setSelectedPlan] = useState<FlockPlan | null>(null);
+  const [search, setSearch] = useState("");
 
   const load = useCallback(() => {
     setLoading(true);
@@ -89,6 +92,22 @@ export default function PlanParvadaPage() {
   };
 
   // Build chart data from milestones
+  const filteredMilestones = useMemo(() => {
+    const milestones = selectedPlan?.milestones ?? [];
+    if (!search.trim()) return milestones;
+    return milestones.filter((milestone) =>
+      matchesTextQuery(search, [
+        `semana ${milestone.weekNumber}`,
+        `s${milestone.weekNumber}`,
+        milestone.expectedHens,
+        milestone.expectedEggsPerWeek,
+        milestone.expectedFeedKgPerWeek,
+        milestone.actualHens,
+        milestone.actualEggsPerWeek,
+      ]),
+    );
+  }, [selectedPlan, search]);
+
   const chartData = selectedPlan?.milestones.map((m) => ({
     week: `S${m.weekNumber}`,
     esperado: m.expectedEggsPerWeek,
@@ -175,8 +194,26 @@ export default function PlanParvadaPage() {
               {/* Milestone table */}
               <Card>
                 <h3 className="font-semibold text-slate-700 mb-3">Hitos del Plan</h3>
+                <TableSearch
+                  value={search}
+                  onChange={setSearch}
+                  placeholder="Buscar por semana o meta de producción..."
+                  resultCount={filteredMilestones.length}
+                  totalCount={selectedPlan.milestones.length}
+                  className="mb-4"
+                />
+                {filteredMilestones.length === 0 ? (
+                  <EmptyState
+                    icon="📅"
+                    message={
+                      search.trim()
+                        ? "No hay hitos que coincidan con la búsqueda"
+                        : "Este plan no tiene hitos registrados"
+                    }
+                  />
+                ) : (
                 <Table headers={["Semana", "Gallinas Esp.", "Huevos/Sem Esp.", "Alimento Esp. (kg)", "Gallinas Real", "Huevos/Sem Real", "Cumplimiento"]}>
-                  {selectedPlan.milestones.map((m) => {
+                  {filteredMilestones.map((m) => {
                     const expected = m.expectedEggsPerWeek || 0;
                     const actual = m.actualEggsPerWeek || 0;
                     const pct = expected > 0 ? (actual / expected) * 100 : 0;
@@ -211,6 +248,7 @@ export default function PlanParvadaPage() {
                     );
                   })}
                 </Table>
+                )}
               </Card>
 
               {/* Delete plan */}

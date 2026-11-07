@@ -10,6 +10,11 @@ export const LIFECYCLE_RULES = {
   pesoVentaKg: 2.5,
 };
 
+export interface LifecycleRules {
+  finPosturaWeeks: number;
+  pesoVentaKg: number;
+}
+
 /** Estados definidos por el usuario que el motor automático nunca modifica */
 export const MANUAL_STATUSES = ["enferma", "descarte", "empollando"];
 
@@ -82,20 +87,24 @@ export function stageForAge(stages: StageRange[], weeks: number): StageRange | n
  * El objetivo es liberar espacio en el gallinero cuando el ave ya cumplió
  * su ciclo productivo o cuando tiene el peso comercial deseado.
  */
-export function evaluateLifecycle(hen: HenLike, stages: StageRange[]): LifecycleResult {
+export function evaluateLifecycle(
+  hen: HenLike,
+  stages: StageRange[],
+  rules: LifecycleRules = LIFECYCLE_RULES,
+): LifecycleResult {
   const weeks = ageInWeeks(hen.birthDate);
   const stage = stageForAge(stages, weeks);
 
   const reasons: string[] = [];
-  const pastLayingAge = weeks >= LIFECYCLE_RULES.finPosturaWeeks;
+  const pastLayingAge = weeks >= rules.finPosturaWeeks;
   const weight = hen.weight ? Number(hen.weight) : 0;
-  const adequateWeight = weight >= LIFECYCLE_RULES.pesoVentaKg;
+  const adequateWeight = weight >= rules.pesoVentaKg;
 
   if (pastLayingAge) {
-    reasons.push(`Etapa de postura finalizada (${LIFECYCLE_RULES.finPosturaWeeks}+ semanas)`);
+    reasons.push(`Etapa de postura finalizada (${rules.finPosturaWeeks}+ semanas)`);
   }
   if (adequateWeight) {
-    reasons.push(`Peso adecuado para venta (≥ ${LIFECYCLE_RULES.pesoVentaKg} kg)`);
+    reasons.push(`Peso adecuado para venta (≥ ${rules.pesoVentaKg} kg)`);
   }
 
   return {

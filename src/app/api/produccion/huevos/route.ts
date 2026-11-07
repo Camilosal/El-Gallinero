@@ -1,7 +1,8 @@
 import { db } from "@/db";
-import { eggProduction, eggProductionDetails, catalogos, hens } from "@/db/schema";
+import { eggProduction, eggProductionDetails, catalogos, hens, autoconsumoLogs } from "@/db/schema";
 import { eq, desc, inArray, and, or, sql } from "drizzle-orm";
 import { NextRequest, NextResponse } from "next/server";
+import { getEggValidationThreshold } from "@/lib/settings";
 import { withApiHandler, safeParseJson } from "@/lib/api-handler";
 
 export const dynamic = "force-dynamic";
@@ -62,11 +63,15 @@ async function getExpectedDailyProduction(): Promise<number> {
   return Math.round(totalExpected * 10) / 10;
 }
 
-// Threshold: actual production cannot exceed 150% of expected without explicit override
-const VALIDATION_THRESHOLD = 1.5;
+export const GET = withApiHandler(async (req: NextRequest) => {
+  const { searchParams } = new URL(req.url);
+  const speciesFilter = searchParams.get("species");
 
-export const GET = withApiHandler(async () => {
-  const records = await db.select().from(eggProduction).orderBy(desc(eggProduction.date)).limit(100);
+  let query = db.select().from(eggProduction);
+  const records = speciesFilter && speciesFilter !== "all"
+    ? await query.where(eq(eggProduction.species, speciesFilter as any)).orderBy(desc(eggProduction.date)).limit(100)
+    : await query.orderBy(desc(eggProduction.date)).limit(100);
+
   const ids = records.map((r) => r.id);
   const details = ids.length
     ? await db.select().from(eggProductionDetails).where(inArray(eggProductionDetails.productionId, ids))
@@ -93,13 +98,23 @@ async function handleSave(req: NextRequest, isUpdate: boolean) {
   const sizes = toDetails(body.sizes);
   const broken = Number(body.broken) || 0;
   const forIncubation = Number(body.forIncubation) || 0;
-  const totalCollected = sizes.reduce((s, x) => s + x.quantity, 0) + broken + forIncubation;
+  const totalCollected = sizes.length > 0
+    ? sizes.reduce((s, x) => s + x.quantity, 0) + broken + forIncubation
+    : Number(body.totalCollected) || 0;
 
-  // Validate against expected production (unless override is set)
-  if (totalCollected > 0 && !body.overrideValidation) {
+  const species = body.species || "gallina";
+  const qtyAutoconsumo = Number(body.quantityAutoconsumo) || 0;
+  const qtyExcedente = body.quantityExcedente !== undefined
+    ? Number(body.quantityExcedente)
+    : Math.max(0, totalCollected - broken - forIncubation - qtyAutoconsumo);
+  const refPrice = body.referenceUnitPrice ? String(body.referenceUnitPrice) : null;
+
+  // Validate against expected production only for chicken eggs (unless override is set)
+  if (species === "gallina" && totalCollected > 0 && !body.overrideValidation) {
     const expected = await getExpectedDailyProduction();
     if (expected > 0) {
-      const limit = Math.ceil(expected * VALIDATION_THRESHOLD);
+      const threshold = await getEggValidationThreshold();
+      const limit = Math.ceil(expected * threshold);
       if (totalCollected > limit) {
         return NextResponse.json(
           {
@@ -107,7 +122,7 @@ async function handleSave(req: NextRequest, isUpdate: boolean) {
             expected,
             actual: totalCollected,
             limit,
-            error: `La producción registrada (${totalCollected}) supera el 50% de la producción esperada (${expected} huevos/día). Límite: ${limit}. Si es correcto, confirme para guardar.`,
+            error: `La producción registrada (${totalCollected}) supera el ${Math.round(threshold * 100)}% de la producción esperada (${expected} huevos/día). Límite: ${limit}. Si es correcto, confirme para guardar.`,
           },
           { status: 409 }
         );
@@ -119,9 +134,14 @@ async function handleSave(req: NextRequest, isUpdate: boolean) {
     const updated = await db.transaction(async (tx) => {
       const [row] = await tx.update(eggProduction).set({
         date: body.date,
+        species,
+        batchId: body.batchId || null,
         totalCollected,
         broken,
         forIncubation,
+        quantityAutoconsumo: qtyAutoconsumo,
+        quantityExcedente: qtyExcedente,
+        referenceUnitPrice: refPrice,
         notes: body.notes || null,
       }).where(eq(eggProduction.id, body.id)).returning();
 
@@ -133,6 +153,42 @@ async function handleSave(req: NextRequest, isUpdate: boolean) {
           sizes.map((x) => ({ productionId: row.id, size: x.size, quantity: x.quantity }))
         );
       }
+
+      // Sync autoconsumo log
+      if (qtyAutoconsumo > 0 && refPrice) {
+        const unitPriceNum = Number(refPrice) || 0;
+        const savings = (qtyAutoconsumo * unitPriceNum).toFixed(2);
+        const [existingLog] = await tx.select().from(autoconsumoLogs).where(
+          and(
+            eq(autoconsumoLogs.date, body.date),
+            eq(autoconsumoLogs.species, species),
+            eq(autoconsumoLogs.productType, "huevo")
+          )
+        );
+        if (existingLog) {
+          await tx.update(autoconsumoLogs).set({
+            quantity: String(qtyAutoconsumo),
+            marketReferencePrice: refPrice,
+            savingsAmount: savings,
+            batchId: body.batchId || null,
+            notes: `Cosecha de huevos (${species}) - autoconsumo`,
+          }).where(eq(autoconsumoLogs.id, existingLog.id));
+        } else {
+          await tx.insert(autoconsumoLogs).values({
+            date: body.date,
+            species,
+            productType: "huevo",
+            quantity: String(qtyAutoconsumo),
+            unit: "unidades",
+            marketReferencePrice: refPrice,
+            savingsAmount: savings,
+            destinationHousehold: "Familia Granja",
+            batchId: body.batchId || null,
+            notes: `Cosecha de huevos (${species}) - autoconsumo`,
+          });
+        }
+      }
+
       return row;
     });
 
@@ -142,9 +198,14 @@ async function handleSave(req: NextRequest, isUpdate: boolean) {
   const created = await db.transaction(async (tx) => {
     const [row] = await tx.insert(eggProduction).values({
       date: body.date,
+      species,
+      batchId: body.batchId || null,
       totalCollected,
       broken,
       forIncubation,
+      quantityAutoconsumo: qtyAutoconsumo,
+      quantityExcedente: qtyExcedente,
+      referenceUnitPrice: refPrice,
       notes: body.notes || null,
     }).returning();
 
@@ -152,6 +213,23 @@ async function handleSave(req: NextRequest, isUpdate: boolean) {
       await tx.insert(eggProductionDetails).values(
         sizes.map((x) => ({ productionId: row.id, size: x.size, quantity: x.quantity }))
       );
+    }
+
+    if (qtyAutoconsumo > 0 && refPrice) {
+      const unitPriceNum = Number(refPrice) || 0;
+      const savings = (qtyAutoconsumo * unitPriceNum).toFixed(2);
+      await tx.insert(autoconsumoLogs).values({
+        date: body.date,
+        species,
+        productType: "huevo",
+        quantity: String(qtyAutoconsumo),
+        unit: "unidades",
+        marketReferencePrice: refPrice,
+        savingsAmount: savings,
+        destinationHousehold: "Familia Granja",
+        batchId: body.batchId || null,
+        notes: `Cosecha de huevos (${species}) - autoconsumo`,
+      });
     }
 
     return row;

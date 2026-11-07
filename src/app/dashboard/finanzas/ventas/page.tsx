@@ -1,11 +1,13 @@
 "use client";
 
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useMemo } from "react";
 import { PageHeader, Button, Card, Table, Modal, Input, Select, Textarea, EmptyState, StatCard, Badge } from "@/components/ui";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from "recharts";
 import { apiFetch } from "@/lib/fetch";
 import { useCatalog } from "@/lib/useCatalog";
 import KgSaleTab from "./_components/KgSaleTab";
+import TableSearch from "@/components/TableSearch";
+import { matchesTextQuery } from "@/lib/text";
 
 // ─── Types ───
 interface SaleItem {
@@ -131,6 +133,7 @@ export default function VentasPage() {
   });
   const [isCredit, setIsCredit] = useState(false);
   const [dueDate, setDueDate] = useState("");
+  const [eggSearch, setEggSearch] = useState("");
 
   // ─── Chicken sales state ───
   const [chickenSales, setChickenSales] = useState<ChickenSale[]>([]);
@@ -157,6 +160,7 @@ export default function VentasPage() {
   });
   const [birdIsCredit, setBirdIsCredit] = useState(false);
   const [birdDueDate, setBirdDueDate] = useState("");
+  const [birdSearch, setBirdSearch] = useState("");
 
   // ─── Catalogs ───
   const { values: buyerOptions } = useCatalog("comprador");
@@ -430,6 +434,48 @@ export default function VentasPage() {
     return `${s.quantity} ${s.size || "—"}`;
   };
 
+  const filteredSales = useMemo(() => {
+    if (!eggSearch.trim()) return sales;
+    return sales.filter((sale) => {
+      const detail =
+        sale.items.length > 0
+          ? sale.items
+              .map((item) => `${item.quantity} ${item.size} ${item.presentation ?? ""}`)
+              .join(" ")
+          : `${sale.quantity} ${sale.size ?? ""}`;
+      return matchesTextQuery(eggSearch, [
+        sale.date,
+        new Date(sale.date + "T12:00:00").toLocaleDateString("es"),
+        detail,
+        sale.totalAmount,
+        sale.buyer,
+        sale.notes,
+        sale.isCredit ? "credito" : "",
+      ]);
+    });
+  }, [sales, eggSearch]);
+
+  const filteredChickenSales = useMemo(() => {
+    if (!birdSearch.trim()) return chickenSales;
+    return chickenSales.filter((sale) =>
+      matchesTextQuery(birdSearch, [
+        sale.date,
+        new Date(sale.date + "T12:00:00").toLocaleDateString("es"),
+        sale.hen?.code,
+        sale.rooster?.code,
+        sale.batch?.code,
+        birdTypeLabels[sale.birdType] || sale.birdType,
+        sale.weightKg,
+        sale.pricePerUnit,
+        sale.priceMode === "por_kg" ? "por kg" : "por ave",
+        sale.totalAmount,
+        sale.buyer,
+        sale.presentation,
+        sale.notes,
+      ]),
+    );
+  }, [chickenSales, birdSearch]);
+
   return (
     <div>
       <PageHeader
@@ -503,13 +549,28 @@ export default function VentasPage() {
           )}
 
           <Card>
+            <TableSearch
+              value={eggSearch}
+              onChange={setEggSearch}
+              placeholder="Buscar por fecha, detalle o comprador..."
+              resultCount={filteredSales.length}
+              totalCount={sales.length}
+              className="mb-4"
+            />
             {loading ? (
               <p className="text-center py-8 text-slate-400">Cargando...</p>
-            ) : sales.length === 0 ? (
-              <EmptyState icon="🥚" message="No hay ventas de huevos registradas" />
+            ) : filteredSales.length === 0 ? (
+              <EmptyState
+                icon="🥚"
+                message={
+                  eggSearch.trim()
+                    ? "No hay ventas que coincidan con la búsqueda"
+                    : "No hay ventas de huevos registradas"
+                }
+              />
             ) : (
               <Table headers={["Fecha", "Detalle", "Total", "Comprador", ""]}>
-                {sales.map((s) => (
+                {filteredSales.map((s) => (
                   <tr key={s.id} className="hover:bg-slate-50">
                     <td className="px-4 py-3">{new Date(s.date + "T12:00:00").toLocaleDateString("es")}</td>
                     <td className="px-4 py-3 font-semibold text-sm">{formatSaleItems(s)}</td>
@@ -559,13 +620,28 @@ export default function VentasPage() {
           )}
 
           <Card>
+            <TableSearch
+              value={birdSearch}
+              onChange={setBirdSearch}
+              placeholder="Buscar por fecha, ave, tipo o comprador..."
+              resultCount={filteredChickenSales.length}
+              totalCount={chickenSales.length}
+              className="mb-4"
+            />
             {loadingBirds ? (
               <p className="text-center py-8 text-slate-400">Cargando...</p>
-            ) : chickenSales.length === 0 ? (
-              <EmptyState icon="🐔" message="No hay ventas de aves registradas" />
+            ) : filteredChickenSales.length === 0 ? (
+              <EmptyState
+                icon="🐔"
+                message={
+                  birdSearch.trim()
+                    ? "No hay ventas que coincidan con la búsqueda"
+                    : "No hay ventas de aves registradas"
+                }
+              />
             ) : (
               <Table headers={["Fecha", "Ave", "Tipo", "Peso", "Precio", "Total", "Comprador", ""]}>
-                {chickenSales.map((s) => (
+                {filteredChickenSales.map((s) => (
                   <tr key={s.id} className="hover:bg-slate-50">
                     <td className="px-4 py-3">{new Date(s.date + "T12:00:00").toLocaleDateString("es")}</td>
                     <td className="px-4 py-3">

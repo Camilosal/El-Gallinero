@@ -1,9 +1,11 @@
 "use client";
 
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useMemo } from "react";
 import { PageHeader, Button, Card, Table, Badge, Modal, Input, Select, Textarea, EmptyState, StatCard } from "@/components/ui";
 import { useCatalog } from "@/lib/useCatalog";
 import { apiFetch } from "@/lib/fetch";
+import TableSearch from "@/components/TableSearch";
+import { matchesTextQuery } from "@/lib/text";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, LineChart, Line } from "recharts";
 
 interface Feed {
@@ -50,6 +52,19 @@ interface Movement {
   henCount: number | null;
   date: string;
   notes: string | null;
+}
+
+/** Acepta tanto un array plano como `{ items: [...] }` para no romper la vista. */
+function normalizeFeedList(data: unknown): Feed[] {
+  if (Array.isArray(data)) return data as Feed[];
+  if (
+    data &&
+    typeof data === "object" &&
+    Array.isArray((data as { items?: unknown }).items)
+  ) {
+    return (data as { items: Feed[] }).items;
+  }
+  return [];
 }
 
 // Motivos de movimiento clasificados por tipo (entrada / salida)
@@ -195,11 +210,29 @@ export default function AlimentacionPage() {
   const [editing, setEditing] = useState<Feed | null>(null);
   const [editingStage, setEditingStage] = useState<Stage | null>(null);
   const [programEntries, setProgramEntries] = useState<FeedProgramEntry[]>([]);
+
+  // ─── Nuevo Plan de Alimentación Multiespecie ───
+  const [newPlanModalOpen, setNewPlanModalOpen] = useState(false);
+  const [selectedProgramSpeciesFilter, setSelectedProgramSpeciesFilter] = useState<string>("all");
+  const [newPlanError, setNewPlanError] = useState("");
+  const [newPlanForm, setNewPlanForm] = useState({
+    species: "pollo",
+    name: "",
+    minWeeks: "0",
+    maxWeeks: "7",
+    entries: [{ feedId: "", percentage: "100", dailyAmountPerHen: "100" }],
+  });
   const [form, setForm] = useState({ name: "", category: "granja_fresco", feedType: "pastos_gramineas", unit: "kg", currentStock: "0", minStock: "10", costPerUnit: "0", supplier: "" });
   const [movForm, setMovForm] = useState({ feedId: "", quantity: "", isEntry: true, movementType: "compra", stageCatalogoId: "", henCount: "", date: new Date().toISOString().split("T")[0], notes: "" });
   const [stockDays, setStockDays] = useState<number>(14);
   const [prediccion, setPrediccion] = useState<PredictionData | null>(null);
   const [prediccionDays, setPrediccionDays] = useState<number>(30);
+  const [feedSearch, setFeedSearch] = useState("");
+  const [movementSearch, setMovementSearch] = useState("");
+  const [projectionSearch, setProjectionSearch] = useState("");
+  const [consumptionSearch, setConsumptionSearch] = useState("");
+  const [comparativoSearch, setComparativoSearch] = useState("");
+  const [predictionSearch, setPredictionSearch] = useState("");
   const { values: supplierOptions } = useCatalog("proveedor");
   const { values: unitOptions } = useCatalog("unidad_medida", ["kg", "lb", "litros"]);
   const { values: categoryOptions } = useCatalog("categoria_alimento", categoryFallback);
@@ -214,12 +247,12 @@ export default function AlimentacionPage() {
       apiFetch(`/api/produccion/alimentacion/comparativo?days=${comparativoDays}`).then((r) => r.json()),
       apiFetch(`/api/produccion/alimentacion/prediccion?days=${prediccionDays}`).then((r) => r.json()),
     ]).then(([f, m, s, r, comp, pred]) => {
-      setFeeds(f);
-      setMovements(m);
-      setStages(s);
+      setFeeds(normalizeFeedList(f));
+      setMovements(Array.isArray(m) ? m : []);
+      setStages(Array.isArray(s) ? s : []);
       setResumen(r);
-      setComparativo(comp.comparativo || []);
-      setDailyData(comp.dailyData || []);
+      setComparativo(comp?.comparativo || []);
+      setDailyData(comp?.dailyData || []);
       setPrediccion(pred);
     }).finally(() => setLoading(false));
   }, [stockDays, comparativoDays, prediccionDays]);
@@ -306,10 +339,177 @@ export default function AlimentacionPage() {
     load();
   };
 
+  // ─── Lógica para Nuevo Plan / Programa ───
+  const openNewPlanModal = () => {
+    setNewPlanError("");
+    setNewPlanForm({
+      species: "pollo",
+      name: "",
+      minWeeks: "0",
+      maxWeeks: "7",
+      entries: [{ feedId: feeds[0]?.id || "", percentage: "100", dailyAmountPerHen: "100" }],
+    });
+    setNewPlanModalOpen(true);
+  };
+
+  const addPlanEntry = () => {
+    setNewPlanForm((prev) => ({
+      ...prev,
+      entries: [...prev.entries, { feedId: feeds[0]?.id || "", percentage: "0", dailyAmountPerHen: "0" }],
+    }));
+  };
+
+  const removePlanEntry = (idx: number) => {
+    setNewPlanForm((prev) => ({
+      ...prev,
+      entries: prev.entries.filter((_, i) => i !== idx),
+    }));
+  };
+
+  const updatePlanEntry = (idx: number, field: string, val: string) => {
+    setNewPlanForm((prev) => {
+      const copy = [...prev.entries];
+      copy[idx] = { ...copy[idx], [field]: val };
+      return { ...prev, entries: copy };
+    });
+  };
+
+  const saveNewPlan = async () => {
+    setNewPlanError("");
+    if (!newPlanForm.name.trim()) {
+      setNewPlanError("El nombre del plan o etapa es requerido");
+      return;
+    }
+    const validEntries = newPlanForm.entries.filter((e) => e.feedId && Number(e.dailyAmountPerHen) > 0);
+    if (validEntries.length === 0) {
+      setNewPlanError("Agrega al menos un alimento con dosis diaria mayor a 0");
+      return;
+    }
+
+    const payload = {
+      value: newPlanForm.name.trim(),
+      minWeeks: Number(newPlanForm.minWeeks) || 0,
+      maxWeeks: newPlanForm.maxWeeks ? Number(newPlanForm.maxWeeks) : null,
+      programs: validEntries,
+    };
+
+    const res = await apiFetch("/api/produccion/etapas", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+    });
+
+    if (!res.ok) {
+      const data = await res.json().catch(() => ({}));
+      setNewPlanError(data.error || "Error al crear el plan de alimentación");
+      return;
+    }
+
+    setNewPlanModalOpen(false);
+    load();
+  };
+
   const lowStock = feeds.filter((f) => Number(f.currentStock) <= Number(f.minStock));
   const farmFeeds = feeds.filter((f) => f.category !== "suplementario");
   const purchasedFeeds = feeds.filter((f) => f.category === "suplementario");
   const totalHens = stages.reduce((sum, s) => sum + s.henCount, 0);
+
+  const filteredFeeds = useMemo(() => {
+    if (!feedSearch.trim()) return feeds;
+    return feeds.filter((feed) =>
+      matchesTextQuery(feedSearch, [
+        feed.name,
+        categoryLabels[feed.category] || feed.category,
+        feedTypeLabels[feed.feedType] || feed.feedType,
+        feed.currentStock,
+        feed.minStock,
+        feed.costPerUnit,
+        feed.unit,
+        feed.supplier,
+        Number(feed.currentStock) <= Number(feed.minStock) ? "stock bajo" : "",
+      ]),
+    );
+  }, [feeds, feedSearch]);
+
+  const filteredMovements = useMemo(() => {
+    if (!movementSearch.trim()) return movements;
+    return movements.filter((movement) =>
+      matchesTextQuery(movementSearch, [
+        movement.date,
+        new Date(movement.date + "T12:00:00").toLocaleDateString("es"),
+        movement.feedName,
+        movement.movementType,
+        movementTypeLabels[movement.movementType] || movement.movementType,
+        movement.isEntry ? "entrada" : movement.autoGenerated ? "consumo auto" : "salida",
+        movement.stageName,
+        movement.henCount,
+        movement.quantity,
+        movement.feedUnit,
+        movement.notes,
+      ]),
+    );
+  }, [movements, movementSearch]);
+
+  const filteredStockProjection = useMemo(() => {
+    const projection = resumen?.stockProjection ?? [];
+    if (!projectionSearch.trim()) return projection;
+    return projection.filter((item) =>
+      matchesTextQuery(projectionSearch, [
+        item.feedName,
+        item.currentStockKg,
+        item.dailyNeedKg,
+        item.daysRemaining,
+        item.calculatedMinStock,
+      ]),
+    );
+  }, [resumen, projectionSearch]);
+
+  const filteredConsumption = useMemo(() => {
+    const consumption = resumen?.consumptionVsExpected ?? [];
+    if (!consumptionSearch.trim()) return consumption;
+    return consumption.filter((item) =>
+      matchesTextQuery(consumptionSearch, [
+        item.feedName,
+        item.expected7d,
+        item.actual7d,
+        item.variance,
+      ]),
+    );
+  }, [resumen, consumptionSearch]);
+
+  const filteredComparativo = useMemo(() => {
+    if (!comparativoSearch.trim()) return comparativo;
+    return comparativo.filter((item) =>
+      matchesTextQuery(comparativoSearch, [
+        item.feedName,
+        item.plannedDaily,
+        item.plannedTotal,
+        item.actualTotal,
+        item.entryTotal,
+        item.variance,
+        item.variancePercent,
+        item.currentStock,
+        item.costPerUnit,
+      ]),
+    );
+  }, [comparativo, comparativoSearch]);
+
+  const filteredPredictions = useMemo(() => {
+    const predictions = prediccion?.predictions ?? [];
+    if (!predictionSearch.trim()) return predictions;
+    return predictions.filter((item) =>
+      matchesTextQuery(predictionSearch, [
+        item.feedName,
+        item.currentStockKg,
+        item.dailyNeedKg,
+        item.daysRemaining,
+        item.outOfStockDate,
+        item.reorderDate,
+        item.suggestedOrderQty,
+        item.alertLevel,
+      ]),
+    );
+  }, [prediccion, predictionSearch]);
 
   return (
     <div>
@@ -371,13 +571,28 @@ export default function AlimentacionPage() {
       {/* Tab: Inventario */}
       {tab === "inventario" && (
         <Card>
+          <TableSearch
+            value={feedSearch}
+            onChange={setFeedSearch}
+            placeholder="Buscar por alimento, categoría o proveedor..."
+            resultCount={filteredFeeds.length}
+            totalCount={feeds.length}
+            className="mb-4"
+          />
           {loading ? (
             <p className="text-center py-8 text-slate-400">Cargando...</p>
-          ) : feeds.length === 0 ? (
-            <EmptyState icon="🌾" message="No hay alimentos registrados" />
+          ) : filteredFeeds.length === 0 ? (
+            <EmptyState
+              icon="🌾"
+              message={
+                feedSearch.trim()
+                  ? "No hay alimentos que coincidan con la búsqueda"
+                  : "No hay alimentos registrados"
+              }
+            />
           ) : (
             <Table headers={["Alimento", "Categoría", "Tipo", "Stock", "Mín.", "Costo/Unidad", "Proveedor", "Acciones"]}>
-              {feeds.map((f) => (
+              {filteredFeeds.map((f) => (
                 <tr key={f.id} className={`hover:bg-slate-50 ${Number(f.currentStock) <= Number(f.minStock) ? "bg-red-50" : ""}`}>
                   <td className="px-4 py-3 font-semibold">{f.name}</td>
                   <td className="px-4 py-3 text-sm">{categoryLabels[f.category] || f.category}</td>
@@ -402,11 +617,26 @@ export default function AlimentacionPage() {
       {/* Tab: Movimientos */}
       {tab === "movimientos" && (
         <Card>
-          {movements.length === 0 ? (
-            <EmptyState icon="📦" message="No hay movimientos registrados" />
+          <TableSearch
+            value={movementSearch}
+            onChange={setMovementSearch}
+            placeholder="Buscar por fecha, alimento, motivo o etapa..."
+            resultCount={filteredMovements.length}
+            totalCount={movements.length}
+            className="mb-4"
+          />
+          {filteredMovements.length === 0 ? (
+            <EmptyState
+              icon="📦"
+              message={
+                movementSearch.trim()
+                  ? "No hay movimientos que coincidan con la búsqueda"
+                  : "No hay movimientos registrados"
+              }
+            />
           ) : (
             <Table headers={["Fecha", "Alimento", "Tipo", "Motivo", "Etapa", "Gallinas", "Cantidad", "Notas"]}>
-              {movements.map((m) => (
+              {filteredMovements.map((m) => (
                 <tr key={m.id} className="hover:bg-slate-50">
                   <td className="px-4 py-3">{new Date(m.date + "T12:00:00").toLocaleDateString("es")}</td>
                   <td className="px-4 py-3 font-medium">{m.feedName || "—"}</td>
@@ -435,61 +665,123 @@ export default function AlimentacionPage() {
         </Card>
       )}
 
-      {/* Tab: Etapas y Programas */}
+      {/* Tab: Etapas y Programas de Alimentación Multiespecie */}
       {tab === "etapas" && (
         <div className="space-y-4">
+          <div className="flex flex-wrap items-center justify-between gap-3 mb-2">
+            <div className="flex flex-wrap gap-1">
+              {[
+                { id: "all", label: "Todos los Planes", icon: "🌐" },
+                { id: "gallina", label: "Gallinas", icon: "🐔" },
+                { id: "pollo", label: "Pollos", icon: "🐓" },
+                { id: "codorniz", label: "Codornices", icon: "🥚" },
+                { id: "pato", label: "Patos", icon: "🦆" },
+                { id: "conejo", label: "Conejos", icon: "🐇" },
+              ].map((sp) => {
+                const isSelected = selectedProgramSpeciesFilter === sp.id;
+                return (
+                  <button
+                    key={sp.id}
+                    onClick={() => setSelectedProgramSpeciesFilter(sp.id)}
+                    className={`px-3 py-1.5 rounded-full text-xs font-medium transition-all ${
+                      isSelected
+                        ? "bg-emerald-600 text-white shadow-sm"
+                        : "bg-slate-100 text-slate-600 hover:bg-slate-200"
+                    }`}
+                  >
+                    {sp.icon} {sp.label}
+                  </button>
+                );
+              })}
+            </div>
+
+            <Button onClick={openNewPlanModal}>+ Nuevo Plan de Alimentación</Button>
+          </div>
+
           {stages.length === 0 ? (
             <Card>
-              <EmptyState icon="📊" message="No hay etapas de crecimiento definidas" />
+              <EmptyState icon="📊" message="No hay etapas o planes de alimentación definidos" />
             </Card>
           ) : (
-            stages.map((stage) => {
-              const totalPercentage = stage.programs.reduce((s, p) => s + Number(p.percentage), 0);
-              const totalGrams = stage.programs.reduce((s, p) => s + Number(p.dailyAmountPerHen), 0);
-              const totalDailyKg = (stage.henCount * totalGrams / 1000).toFixed(1);
+            stages
+              .filter((stage) => {
+                if (selectedProgramSpeciesFilter === "all") return true;
+                const v = stage.value.toLowerCase();
+                if (selectedProgramSpeciesFilter === "pollo") return v.includes("pollo");
+                if (selectedProgramSpeciesFilter === "codorniz") return v.includes("codorniz");
+                if (selectedProgramSpeciesFilter === "pato") return v.includes("pato");
+                if (selectedProgramSpeciesFilter === "conejo") return v.includes("conejo");
+                if (selectedProgramSpeciesFilter === "gallina") return !v.includes("pollo") && !v.includes("codorniz") && !v.includes("pato") && !v.includes("conejo");
+                return true;
+              })
+              .map((stage) => {
+                const totalPercentage = stage.programs.reduce((s, p) => s + Number(p.percentage), 0);
+                const totalGrams = stage.programs.reduce((s, p) => s + Number(p.dailyAmountPerHen), 0);
+                const totalDailyKg = (stage.henCount * totalGrams / 1000).toFixed(1);
 
-              return (
-                <Card key={stage.id}>
-                  <div className="flex items-center justify-between mb-3">
-                    <div className="flex items-center gap-3">
-                      <Badge color={stageColors[stage.value] || "gray"}>{stage.value}</Badge>
-                      <span className="text-sm text-slate-500">
-                        {stage.minWeeks}–{stage.maxWeeks ? `${stage.maxWeeks} sem` : "+ sem"}
-                      </span>
-                      <span className="text-sm font-semibold text-slate-700">
-                        🐔 {stage.henCount} gallina{stage.henCount !== 1 ? "s" : ""}
-                      </span>
+                const v = stage.value.toLowerCase();
+                const speciesIcon = v.includes("conejo") ? "🐇"
+                  : v.includes("pato") ? "🦆"
+                  : v.includes("codorniz") ? "🥚"
+                  : v.includes("pollo") ? "🐓"
+                  : "🐔";
+
+                const animalLabel = v.includes("conejo") ? "conejo" : "ave";
+
+                return (
+                  <Card key={stage.id}>
+                    <div className="flex items-center justify-between mb-3">
+                      <div className="flex items-center gap-3">
+                        <Badge color={stageColors[stage.value] || "green"}>
+                          {speciesIcon} {stage.value}
+                        </Badge>
+                        <span className="text-sm text-slate-500">
+                          {stage.minWeeks}–{stage.maxWeeks ? `${stage.maxWeeks} sem` : "+ sem"}
+                        </span>
+                        {speciesIcon === "🐔" && (
+                          <span className="text-sm font-semibold text-slate-700">
+                            🐔 {stage.henCount} gallina{stage.henCount !== 1 ? "s" : ""}
+                          </span>
+                        )}
+                      </div>
+                      <Button onClick={() => openProgramEditor(stage)}>
+                        ✏️ Editar Dieta
+                      </Button>
                     </div>
-                    <Button onClick={() => openProgramEditor(stage)}>
-                      ✏️ Editar Programa
-                    </Button>
-                  </div>
 
-                  {stage.programs.length === 0 ? (
-                    <p className="text-sm text-slate-400 py-2">Sin programa alimenticio definido</p>
-                  ) : (
-                    <div>
-                      <Table headers={["Alimento", "% Dieta", "g/gallina/día", `Total/día (${stage.henCount} aves)`]}>
-                        {stage.programs.map((p) => (
-                          <tr key={p.id || p.feedId} className="hover:bg-slate-50">
-                            <td className="px-4 py-2 font-medium">{p.feedName || "—"}</td>
-                            <td className="px-4 py-2">{p.percentage}%</td>
-                            <td className="px-4 py-2">{p.dailyAmountPerHen} g</td>
-                            <td className="px-4 py-2 font-semibold">{((Number(p.dailyAmountPerHen) * stage.henCount) / 1000).toFixed(2)} kg</td>
+                    {stage.programs.length === 0 ? (
+                      <p className="text-sm text-slate-400 py-2">Sin programa alimenticio definido</p>
+                    ) : (
+                      <div>
+                        <Table headers={["Alimento / Ingrediente", "% Dieta", `g/${animalLabel}/día`, stage.henCount > 0 ? `Total/día (${stage.henCount} aves)` : "Dosis unitaria"]}>
+                          {stage.programs.map((p) => (
+                            <tr key={p.id || p.feedId} className="hover:bg-slate-50">
+                              <td className="px-4 py-2 font-medium">{p.feedName || "—"}</td>
+                              <td className="px-4 py-2">{p.percentage}%</td>
+                              <td className="px-4 py-2 font-semibold text-slate-800">{p.dailyAmountPerHen} g</td>
+                              <td className="px-4 py-2">
+                                {stage.henCount > 0 ? (
+                                  <span className="font-semibold">{((Number(p.dailyAmountPerHen) * stage.henCount) / 1000).toFixed(2)} kg</span>
+                                ) : (
+                                  <span className="text-slate-400">{p.dailyAmountPerHen} g/cabeza</span>
+                                )}
+                              </td>
+                            </tr>
+                          ))}
+                          <tr className="border-t font-semibold bg-slate-50">
+                            <td className="px-4 py-2">TOTAL</td>
+                            <td className="px-4 py-2">{totalPercentage}%</td>
+                            <td className="px-4 py-2">{totalGrams} g</td>
+                            <td className="px-4 py-2">
+                              {stage.henCount > 0 ? `${totalDailyKg} kg` : `${totalGrams} g/animal`}
+                            </td>
                           </tr>
-                        ))}
-                        <tr className="border-t font-semibold bg-slate-50">
-                          <td className="px-4 py-2">TOTAL</td>
-                          <td className="px-4 py-2">{totalPercentage}%</td>
-                          <td className="px-4 py-2">{totalGrams} g</td>
-                          <td className="px-4 py-2">{totalDailyKg} kg</td>
-                        </tr>
-                      </Table>
-                    </div>
-                  )}
-                </Card>
-              );
-            })
+                        </Table>
+                      </div>
+                    )}
+                  </Card>
+                );
+              })
           )}
 
           {/* Stock Projection */}
@@ -513,8 +805,26 @@ export default function AlimentacionPage() {
                   </select>
                 </div>
               </div>
+              <TableSearch
+                value={projectionSearch}
+                onChange={setProjectionSearch}
+                placeholder="Buscar por alimento o días restantes..."
+                resultCount={filteredStockProjection.length}
+                totalCount={resumen.stockProjection.length}
+                className="mb-4"
+              />
+              {filteredStockProjection.length === 0 ? (
+                <EmptyState
+                  icon="📦"
+                  message={
+                    projectionSearch.trim()
+                      ? "No hay alimentos que coincidan con la búsqueda"
+                      : "Sin proyección de stock"
+                  }
+                />
+              ) : (
               <Table headers={["Alimento", "Stock Actual", "Consumo/día", "Días Restantes", `Mín. (${stockDays}d)`, "Acción"]}>
-                {resumen.stockProjection.map((item) => {
+                {filteredStockProjection.map((item) => {
                   const isCritical = item.daysRemaining !== null && item.daysRemaining <= 7;
                   const isWarning = item.daysRemaining !== null && item.daysRemaining > 7 && item.daysRemaining <= 14;
                   const currentMin = Number(feeds.find((f) => f.id === item.feedId)?.minStock || 0);
@@ -561,6 +871,7 @@ export default function AlimentacionPage() {
                   );
                 })}
               </Table>
+              )}
             </Card>
           )}
 
@@ -568,8 +879,26 @@ export default function AlimentacionPage() {
           {resumen && resumen.consumptionVsExpected.length > 0 && (
             <Card>
               <h3 className="font-semibold text-slate-700 mb-3">📊 Consumo Real vs Esperado (últimos 7 días)</h3>
+              <TableSearch
+                value={consumptionSearch}
+                onChange={setConsumptionSearch}
+                placeholder="Buscar por alimento..."
+                resultCount={filteredConsumption.length}
+                totalCount={resumen.consumptionVsExpected.length}
+                className="mb-4"
+              />
+              {filteredConsumption.length === 0 ? (
+                <EmptyState
+                  icon="📊"
+                  message={
+                    consumptionSearch.trim()
+                      ? "No hay alimentos que coincidan con la búsqueda"
+                      : "Sin datos de consumo"
+                  }
+                />
+              ) : (
               <Table headers={["Alimento", "Esperado (7d)", "Real (7d)", "Diferencia"]}>
-                {resumen.consumptionVsExpected.map((item) => (
+                {filteredConsumption.map((item) => (
                   <tr key={item.feedId} className="hover:bg-slate-50">
                     <td className="px-4 py-2 font-medium">{item.feedName}</td>
                     <td className="px-4 py-2">{item.expected7d} kg</td>
@@ -582,6 +911,7 @@ export default function AlimentacionPage() {
                   </tr>
                 ))}
               </Table>
+              )}
             </Card>
           )}
         </div>
@@ -612,8 +942,26 @@ export default function AlimentacionPage() {
               <EmptyState icon="📈" message="No hay datos de comparativo disponibles" />
             ) : (
               <>
+                <TableSearch
+                  value={comparativoSearch}
+                  onChange={setComparativoSearch}
+                  placeholder="Buscar por alimento..."
+                  resultCount={filteredComparativo.length}
+                  totalCount={comparativo.length}
+                  className="mb-4"
+                />
+                {filteredComparativo.length === 0 ? (
+                  <EmptyState
+                    icon="📈"
+                    message={
+                      comparativoSearch.trim()
+                        ? "No hay alimentos que coincidan con la búsqueda"
+                        : "No hay datos de comparativo disponibles"
+                    }
+                  />
+                ) : (
                 <Table headers={["Alimento", "Planificado/día", `Planificado (${comparativoDays}d)`, `Real (${comparativoDays}d)`, "Entradas", "Diferencia", "%", "Stock", "Costo/kg"]}>
-                  {comparativo.map((item) => {
+                  {filteredComparativo.map((item) => {
                     const isOver = item.variance > 0;
                     const isUnder = item.variance < 0;
                     return (
@@ -639,6 +987,7 @@ export default function AlimentacionPage() {
                     );
                   })}
                 </Table>
+                )}
               </>
             )}
           </Card>
@@ -734,8 +1083,26 @@ export default function AlimentacionPage() {
                   </Card>
                 </div>
 
+                <TableSearch
+                  value={predictionSearch}
+                  onChange={setPredictionSearch}
+                  placeholder="Buscar por alimento o nivel de alerta..."
+                  resultCount={filteredPredictions.length}
+                  totalCount={prediccion.predictions.length}
+                  className="mb-4"
+                />
+                {filteredPredictions.length === 0 ? (
+                  <EmptyState
+                    icon="🔮"
+                    message={
+                      predictionSearch.trim()
+                        ? "No hay alimentos que coincidan con la búsqueda"
+                        : "Sin predicciones disponibles"
+                    }
+                  />
+                ) : (
                 <Table headers={["Alimento", "Stock Actual", "Consumo/día", "Se agota en", "Reponer antes de", "Compra sugerida", "Real vs Esperado (7d)", "Alerta"]}>
-                  {prediccion.predictions.map((item) => (
+                  {filteredPredictions.map((item) => (
                     <tr key={item.feedId} className={item.alertLevel === "critico" ? "bg-red-50" : item.alertLevel === "bajo" ? "bg-yellow-50" : "hover:bg-slate-50"}>
                       <td className="px-4 py-2 font-medium">{item.feedName}</td>
                       <td className="px-4 py-2">{item.currentStockKg} kg</td>
@@ -767,6 +1134,7 @@ export default function AlimentacionPage() {
                     </tr>
                   ))}
                 </Table>
+                )}
                 <p className="text-xs text-slate-500 mt-2">
                   Consumo estimado según gallinas por etapa y programas alimenticios activos. La compra sugerida cubre 14 días de consumo.
                 </p>
@@ -940,6 +1308,124 @@ export default function AlimentacionPage() {
           <div className="flex gap-3 pt-2">
             <Button onClick={saveProgram}>Guardar Programa</Button>
             <Button variant="secondary" onClick={() => setProgramModalOpen(false)}>Cancelar</Button>
+          </div>
+        </div>
+      </Modal>
+
+      {/* Modal: Nuevo Plan / Programa de Alimentación */}
+      <Modal open={newPlanModalOpen} onClose={() => setNewPlanModalOpen(false)} title="📋 Nuevo Plan / Programa de Alimentación">
+        <div className="space-y-4">
+          {newPlanError && <p className="text-sm text-red-600 bg-red-50 p-3 rounded-lg">{newPlanError}</p>}
+
+          <div className="grid grid-cols-2 gap-3">
+            <Select
+              label="Especie Objetivo *"
+              value={newPlanForm.species}
+              onChange={(e) => {
+                const sp = e.target.value;
+                const defaultName = sp === "pollo" ? "Pollo Engorde (4-7 sem)"
+                  : sp === "codorniz" ? "Codorniz Postura (6+ sem)"
+                  : sp === "pato" ? "Pato Engorde (4-9 sem)"
+                  : sp === "conejo" ? "Conejo Engorde (8-12 sem)"
+                  : "Gallina Postura";
+                setNewPlanForm((prev) => ({ ...prev, species: sp, name: defaultName }));
+              }}
+            >
+              <option value="pollo">🐓 Pollo de engorde</option>
+              <option value="gallina">🐔 Gallina</option>
+              <option value="codorniz">🥚 Codorniz</option>
+              <option value="pato">🦆 Pato</option>
+              <option value="conejo">🐇 Conejo de engorde</option>
+            </Select>
+
+            <Input
+              label="Nombre del Plan / Etapa *"
+              placeholder="Ej: Conejo Engorde y Finalización"
+              value={newPlanForm.name}
+              onChange={(e) => setNewPlanForm({ ...newPlanForm, name: e.target.value })}
+            />
+          </div>
+
+          <div className="grid grid-cols-2 gap-3">
+            <Input
+              label="Semana Inicio *"
+              type="number"
+              min="0"
+              value={newPlanForm.minWeeks}
+              onChange={(e) => setNewPlanForm({ ...newPlanForm, minWeeks: e.target.value })}
+            />
+            <Input
+              label="Semana Fin (opcional si es continua)"
+              type="number"
+              min="1"
+              value={newPlanForm.maxWeeks}
+              onChange={(e) => setNewPlanForm({ ...newPlanForm, maxWeeks: e.target.value })}
+            />
+          </div>
+
+          <div className="border-t pt-3">
+            <div className="flex justify-between items-center mb-2">
+              <span className="text-xs font-bold text-slate-700 uppercase">Composición Nutricional de la Dieta</span>
+              <button type="button" onClick={addPlanEntry} className="text-xs text-green-600 font-semibold hover:underline">
+                + Agregar Alimento
+              </button>
+            </div>
+
+            <div className="space-y-2">
+              {newPlanForm.entries.map((entry, idx) => (
+                <div key={idx} className="flex gap-2 items-end bg-slate-50 p-2 rounded-lg border border-slate-200">
+                  <div className="flex-1">
+                    <label className="block text-[11px] font-medium text-slate-600 mb-1">Alimento</label>
+                    <select
+                      className="w-full border rounded-md px-2 py-1.5 text-xs bg-white"
+                      value={entry.feedId}
+                      onChange={(e) => updatePlanEntry(idx, "feedId", e.target.value)}
+                    >
+                      <option value="">-- Seleccionar alimento --</option>
+                      {feeds.map((f) => (
+                        <option key={f.id} value={f.id}>{f.name} ({f.currentStock} {f.unit} disp.)</option>
+                      ))}
+                    </select>
+                  </div>
+                  <div className="w-20">
+                    <label className="block text-[11px] font-medium text-slate-600 mb-1">% Dieta</label>
+                    <input
+                      type="number"
+                      step="1"
+                      min="0"
+                      max="100"
+                      className="w-full border rounded-md px-2 py-1.5 text-xs bg-white"
+                      value={entry.percentage}
+                      onChange={(e) => updatePlanEntry(idx, "percentage", e.target.value)}
+                    />
+                  </div>
+                  <div className="w-24">
+                    <label className="block text-[11px] font-medium text-slate-600 mb-1">g/animal/día</label>
+                    <input
+                      type="number"
+                      step="1"
+                      min="0"
+                      className="w-full border rounded-md px-2 py-1.5 text-xs bg-white font-semibold"
+                      value={entry.dailyAmountPerHen}
+                      onChange={(e) => updatePlanEntry(idx, "dailyAmountPerHen", e.target.value)}
+                    />
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => removePlanEntry(idx)}
+                    className="text-red-500 hover:text-red-700 text-xs px-1 pb-1"
+                    disabled={newPlanForm.entries.length <= 1}
+                  >
+                    ✕
+                  </button>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          <div className="flex gap-3 pt-2">
+            <Button onClick={saveNewPlan}>Crear Plan de Alimentación</Button>
+            <Button variant="secondary" onClick={() => setNewPlanModalOpen(false)}>Cancelar</Button>
           </div>
         </div>
       </Modal>

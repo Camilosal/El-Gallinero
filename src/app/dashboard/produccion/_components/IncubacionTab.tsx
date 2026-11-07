@@ -1,8 +1,10 @@
 "use client";
 
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useMemo } from "react";
 import { PageHeader, Button, Card, Table, Badge, Modal, Input, Select, Textarea, EmptyState, StatCard } from "@/components/ui";
 import { apiFetch } from "@/lib/fetch";
+import TableSearch from "@/components/TableSearch";
+import { matchesTextQuery } from "@/lib/text";
 
 interface Hen { id: string; code: string; status: string; }
 interface Incubation {
@@ -29,6 +31,7 @@ export default function IncubacionPage() {
   const [form, setForm] = useState({ henId: "", startDate: new Date().toISOString().split("T")[0], eggsSet: 10, notes: "" });
   const [hatchForm, setHatchForm] = useState({ eggsHatched: 0, femalesHatched: 0, malesHatched: 0, notes: "" });
   const [assignmentMsg, setAssignmentMsg] = useState("");
+  const [search, setSearch] = useState("");
 
   const load = useCallback(() => {
     Promise.all([
@@ -81,6 +84,24 @@ export default function IncubacionPage() {
   const totalSet = incubations.reduce((s, i) => s + i.eggsSet, 0);
   const hatchRate = totalSet > 0 ? Math.round((totalHatched / totalSet) * 100) : 0;
   const availableHens = hens.filter((h) => h.status === "activa");
+
+  const filteredCompleted = useMemo(() => {
+    if (!search.trim()) return completedInc;
+    return completedInc.filter((incubation) =>
+      matchesTextQuery(search, [
+        incubation.henCode,
+        incubation.startDate,
+        new Date(incubation.startDate + "T12:00:00").toLocaleDateString("es"),
+        incubation.expectedHatchDate,
+        new Date(incubation.expectedHatchDate + "T12:00:00").toLocaleDateString("es"),
+        incubation.eggsSet,
+        incubation.eggsHatched,
+        incubation.femalesHatched,
+        incubation.malesHatched,
+        incubation.notes,
+      ]),
+    );
+  }, [completedInc, search]);
 
   const getDaysRemaining = (expected: string) => {
     const diff = Math.ceil((new Date(expected + "T12:00:00").getTime() - today) / (1000 * 60 * 60 * 24));
@@ -146,11 +167,26 @@ export default function IncubacionPage() {
       {/* Completed */}
       <h2 className="text-lg font-semibold mb-3">📋 Historial de Incubaciones</h2>
       <Card>
-        {completedInc.length === 0 ? (
-          <EmptyState icon="📋" message="No hay incubaciones completadas" />
+        <TableSearch
+          value={search}
+          onChange={setSearch}
+          placeholder="Buscar por gallina, fecha o nota..."
+          resultCount={filteredCompleted.length}
+          totalCount={completedInc.length}
+          className="mb-4"
+        />
+        {filteredCompleted.length === 0 ? (
+          <EmptyState
+            icon="📋"
+            message={
+              search.trim()
+                ? "No hay incubaciones que coincidan con la búsqueda"
+                : "No hay incubaciones completadas"
+            }
+          />
         ) : (
           <Table headers={["Gallina", "Inicio", "Eclosión", "Huevos", "Nacidos", "Tasa", "Notas"]}>
-            {completedInc.map((inc) => (
+            {filteredCompleted.map((inc) => (
               <tr key={inc.id} className="hover:bg-slate-50">
                 <td className="px-4 py-3 font-medium">{inc.henCode || "—"}</td>
                 <td className="px-4 py-3">{new Date(inc.startDate + "T12:00:00").toLocaleDateString("es")}</td>

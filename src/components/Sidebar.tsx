@@ -2,127 +2,11 @@
 
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { useState, useEffect, useCallback } from "react";
-
-interface MenuItem {
-  href: string;
-  label: string;
-  icon: string;
-}
-
-interface MenuGroup {
-  id: string;
-  label: string;
-  icon: string;
-  indexHref: string;
-  items: MenuItem[];
-}
-
-// ─── Simple mode: 3 main groups (always visible) ───
-const simpleGroups: MenuGroup[] = [
-  {
-    id: "granja",
-    label: "Granja",
-    icon: "🐔",
-    indexHref: "/dashboard/produccion",
-    items: [
-      { href: "/dashboard/produccion?tab=huevos", label: "Huevos", icon: "🥚" },
-      { href: "/dashboard/produccion?tab=gallinas", label: "Gallinas", icon: "🐔" },
-      { href: "/dashboard/produccion?tab=pollos", label: "Pollos", icon: "🐓" },
-      { href: "/dashboard/produccion?tab=alimentacion", label: "Alimentación", icon: "🌾" },
-      { href: "/dashboard/produccion?tab=incubacion", label: "Incubación", icon: "🐣" },
-      { href: "/dashboard/produccion?tab=carne", label: "Carne", icon: "🍗" },
-      { href: "/dashboard/produccion?tab=gallinaza", label: "Gallinaza", icon: "🌱" },
-      { href: "/dashboard/produccion?tab=inventario", label: "Inventario", icon: "📦" },
-    ],
-  },
-  {
-    id: "ventas",
-    label: "Ventas",
-    icon: "💰",
-    indexHref: "/dashboard/finanzas/ventas",
-    items: [],
-  },
-  {
-    id: "egresos",
-    label: "Egresos",
-    icon: "📤",
-    indexHref: "/dashboard/finanzas/egresos",
-    items: [],
-  },
-  {
-    id: "sanidad",
-    label: "Sanidad",
-    icon: "💊",
-    indexHref: "/dashboard/sanidad",
-    items: [
-      { href: "/dashboard/sanidad/control", label: "Control", icon: "💊" },
-      { href: "/dashboard/sanidad/calendario", label: "Calendario", icon: "📅" },
-      { href: "/dashboard/sanidad/alertas", label: "Alertas", icon: "🔔" },
-    ],
-  },
-];
-
-// ─── Advanced mode: additional groups ───
-const advancedGroups: MenuGroup[] = [
-  {
-    id: "analisis",
-    label: "Análisis",
-    icon: "📊",
-    indexHref: "/dashboard/analisis",
-    items: [
-      { href: "/dashboard/analisis/kpis", label: "KPIs", icon: "🎯" },
-      { href: "/dashboard/analisis/reportes", label: "Reportes", icon: "📋" },
-      { href: "/dashboard/analisis/razas", label: "Estándares de Raza", icon: "🧬" },
-    ],
-  },
-  {
-    id: "finanzas",
-    label: "Finanzas",
-    icon: "💰",
-    indexHref: "/dashboard/finanzas",
-    items: [
-      { href: "/dashboard/finanzas/ventas", label: "Ventas", icon: "💰" },
-      { href: "/dashboard/finanzas/egresos", label: "Egresos", icon: "📤" },
-      { href: "/dashboard/finanzas/finanzas", label: "Balance", icon: "📈" },
-      { href: "/dashboard/finanzas/presupuestos", label: "Presupuestos", icon: "💵" },
-      { href: "/dashboard/finanzas/cuentas", label: "Cuentas", icon: "💳" },
-    ],
-  },
-  {
-    id: "operaciones",
-    label: "Operaciones",
-    icon: "🔧",
-    indexHref: "/dashboard/operaciones",
-    items: [
-      { href: "/dashboard/operaciones/mantenimiento", label: "Mantenimiento", icon: "🔧" },
-      { href: "/dashboard/operaciones/gallinaza", label: "Gallinaza", icon: "🌱" },
-    ],
-  },
-  {
-    id: "inventarios",
-    label: "Inventarios",
-    icon: "📦",
-    indexHref: "/dashboard/inventarios",
-    items: [
-      { href: "/dashboard/inventarios/huevos", label: "Huevos", icon: "📦" },
-      { href: "/dashboard/inventarios/carne", label: "Carne", icon: "🍗" },
-      { href: "/dashboard/inventarios/gallinaza", label: "Gallinaza", icon: "🌱" },
-      { href: "/dashboard/inventarios/balance", label: "Balance", icon: "⚖️" },
-      { href: "/dashboard/inventarios/insumos", label: "Insumos", icon: "🧰" },
-    ],
-  },
-  {
-    id: "configuracion",
-    label: "Configuración",
-    icon: "🗂️",
-    indexHref: "/dashboard/configuracion",
-    items: [{ href: "/dashboard/configuracion/catalogos", label: "Catálogos", icon: "🗂️" }],
-  },
-];
+import { useState, useEffect } from "react";
+import GlobalSearch from "@/components/GlobalSearch";
+import { navigationGroups, type MenuGroup } from "@/lib/navigation";
 
 const STORAGE_KEY = "sidebar-expanded-groups";
-const ADVANCED_KEY = "sidebar-advanced-mode";
 const COLLAPSED_KEY = "sidebar-collapsed";
 
 export default function Sidebar() {
@@ -130,7 +14,6 @@ export default function Sidebar() {
   const router = useRouter();
   const [expandedGroups, setExpandedGroups] = useState<Set<string>>(new Set());
   const [mobileOpen, setMobileOpen] = useState(false);
-  const [advancedMode, setAdvancedMode] = useState(false);
   const [collapsed, setCollapsed] = useState(false);
 
   // Close mobile sidebar on route change
@@ -144,16 +27,11 @@ export default function Sidebar() {
       try {
         setExpandedGroups(new Set(JSON.parse(stored)));
       } catch {
-        setExpandedGroups(new Set(["granja"]));
+        setExpandedGroups(new Set(["produccion"]));
       }
     } else {
-      setExpandedGroups(new Set(["granja"]));
+      setExpandedGroups(new Set(["produccion"]));
     }
-  }, []);
-
-  useEffect(() => {
-    const adv = localStorage.getItem(ADVANCED_KEY);
-    setAdvancedMode(adv === "true");
   }, []);
 
   useEffect(() => {
@@ -164,10 +42,6 @@ export default function Sidebar() {
   useEffect(() => {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(Array.from(expandedGroups)));
   }, [expandedGroups]);
-
-  useEffect(() => {
-    localStorage.setItem(ADVANCED_KEY, String(advancedMode));
-  }, [advancedMode]);
 
   useEffect(() => {
     localStorage.setItem(COLLAPSED_KEY, String(collapsed));
@@ -259,6 +133,11 @@ export default function Sidebar() {
           )}
         </div>
 
+        {/* Global search */}
+        <div className={collapsed ? "px-2 py-3" : "px-3 py-3"}>
+          <GlobalSearch collapsed={collapsed} />
+        </div>
+
         {/* Collapse toggle - desktop only */}
         <button
           onClick={() => setCollapsed(!collapsed)}
@@ -298,8 +177,8 @@ export default function Sidebar() {
             {!collapsed && <span>Escanear Ave</span>}
           </Link>
 
-          {/* Simple groups */}
-          {simpleGroups.map((group) => (
+          {/* Unified groups */}
+          {navigationGroups.map((group) => (
             <GroupItem
               key={group.id}
               group={group}
@@ -311,33 +190,9 @@ export default function Sidebar() {
               collapsed={collapsed}
             />
           ))}
-
-          {/* Advanced mode divider + groups */}
-          {advancedMode && (
-            <>
-              <div className={`my-3 border-t border-green-700 ${collapsed ? "mx-2" : "mx-5"}`} />
-              {!collapsed && (
-                <p className="px-5 py-1 text-[10px] uppercase tracking-wider text-green-500 font-semibold">
-                  Avanzado
-                </p>
-              )}
-              {advancedGroups.map((group) => (
-                <GroupItem
-                  key={group.id}
-                  group={group}
-                  pathname={pathname}
-                  expandedGroups={expandedGroups}
-                  toggleGroup={toggleGroup}
-                  isItemActive={isItemActive}
-                  isGroupActive={isGroupActive}
-                  collapsed={collapsed}
-                />
-              ))}
-            </>
-          )}
         </nav>
 
-        {/* Footer: guide + mode toggle + logout */}
+        {/* Footer: guide + logout */}
         <div className={`border-t border-green-700 space-y-2 ${collapsed ? "p-2" : "p-4"}`}>
           <Link
             href="/dashboard/guia"
@@ -353,15 +208,6 @@ export default function Sidebar() {
             <span>📖</span>
             {!collapsed && <span>Guía de Usuario</span>}
           </Link>
-          {!collapsed && (
-            <button
-              onClick={() => setAdvancedMode(!advancedMode)}
-              className="w-full py-1.5 rounded-lg bg-green-800 hover:bg-green-700 text-green-200 text-xs font-medium transition-colors flex items-center justify-center gap-2"
-            >
-              <span>{advancedMode ? "▲" : "▼"}</span>
-              <span>{advancedMode ? "Modo Simple" : "Modo Avanzado"}</span>
-            </button>
-          )}
           <button
             onClick={logout}
             className={`w-full py-1.5 rounded-lg bg-green-700 hover:bg-green-600 text-green-100 text-xs font-medium transition-colors flex items-center justify-center gap-2 ${

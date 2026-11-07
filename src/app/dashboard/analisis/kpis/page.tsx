@@ -130,7 +130,7 @@ export default function KpisPage() {
             <StatCard icon="📈" label="Tasa de postura" value={`${data.laying.rate}%`} color="green" />
             <StatCard icon="🥚" label="Total huevos" value={String(data.laying.totalEggs)} color="yellow" />
             <StatCard icon="📅" label="Promedio diario" value={String(data.laying.avgDaily)} color="blue" />
-            <StatCard icon="🐔" label="Gallinas productivas" value={String(data.mortality.totalFlock)} color="earth" />
+            <StatCard icon="🐔" label="Aves en parvada" value={String(data.mortality.totalFlock)} color="earth" />
           </div>
 
           {/* Cost KPIs */}

@@ -8,6 +8,8 @@ import { eq, and, sql, desc, gte } from "drizzle-orm";
 import { NextRequest, NextResponse } from "next/server";
 import { runFeedProgramCatchup } from "@/lib/feeding/runProgram";
 import { computeEggInventory, computeManureInventory, computeMeatInventory } from "@/lib/inventory";
+import { computeAnimalInventory } from "@/lib/animal-inventory";
+import { getInventoryPrices } from "@/lib/settings";
 import { withApiHandler, safeParseJson } from "@/lib/api-handler";
 
 export const dynamic = "force-dynamic";
@@ -49,6 +51,8 @@ export const GET = withApiHandler(async (req: NextRequest) => {
     supplyRows,
     meatInv,
     mortalityRows,
+    animalInv,
+    inventoryPrices,
   ] = await Promise.all([
     // 1. Alimentos
     db.select().from(feedInventory).orderBy(desc(feedInventory.category)),
@@ -96,6 +100,12 @@ export const GET = withApiHandler(async (req: NextRequest) => {
       total: sql<number>`coalesce(sum(${mortalityRecords.quantity}), 0)::int`,
     }).from(mortalityRecords).where(gte(mortalityRecords.date, startStr))
       .groupBy(mortalityRecords.birdType, mortalityRecords.cause),
+
+    // Inventario consolidado multiespecie
+    computeAnimalInventory(),
+
+    // Precios de valoración configurables
+    getInventoryPrices(),
   ]);
 
   // 1. Alimentos con valor y días restantes
@@ -153,12 +163,19 @@ export const GET = withApiHandler(async (req: NextRequest) => {
     batches: batches.map((b) => ({
       batchId: b.id,
       code: b.code,
+      species: b.species,
+      purpose: b.purpose,
       breed: b.breed,
       currentQuantity: b.currentQuantity,
       startDate: b.startDate,
       avgWeightKg: Number(b.avgWeightKg || 0),
     })),
     totalBirdsInProduction: hensActive + (roosterStatusMap.activo || 0) + batches.reduce((s, b) => s + b.currentQuantity, 0),
+    // Inventario multiespecie: la unidad es "animal", no "gallina".
+    animals: animalInv,
+    totalAnimals: animalInv.summary.totalAnimals,
+    totalBirds: animalInv.summary.totalBirds,
+    species: animalInv.species,
   };
 
   // 4. Gallinaza
@@ -229,37 +246,12 @@ export const GET = withApiHandler(async (req: NextRequest) => {
   // 6. Valor total
   const eggValue = eggInv.estimatedValue;
 
-  // Valor de aves en pie: gallinas + gallos + lotes de engorde
-  // Precio estimado por kg de ave viva (configurable)
-  const BIRD_PRICE_PER_KG = 10000; // COP por kg de ave viva
-  const MANURE_PRICE_PER_KG = 300; // COP por kg de gallinaza (abono)
+  // Valor de animales en pie: cálculo multiespecie con precios de Catálogos.
+  const totalBirdsWeightKg = animalInv.summary.totalWeightKg;
+  const birdsValue = animalInv.summary.totalValue;
 
-  // Calcular peso total de gallinas vivas (activa, empollando, enferma)
-  const hensWeight = await db
-    .select({ totalWeight: sql<string>`coalesce(sum(${hens.weight}), 0)` })
-    .from(hens)
-    .where(and(
-      sql`${hens.weight} IS NOT NULL`,
-      sql`${hens.status} IN ('activa', 'empollando', 'enferma')`
-    ));
-  const hensWeightKg = parseFloat(hensWeight[0]?.totalWeight || "0");
-
-  // Calcular peso total de gallos activos
-  const roostersWeight = await db
-    .select({ totalWeight: sql<string>`coalesce(sum(${roosters.weight}), 0)` })
-    .from(roosters)
-    .where(and(eq(roosters.status, "activo"), sql`${roosters.weight} IS NOT NULL`));
-  const roostersWeightKg = parseFloat(roostersWeight[0]?.totalWeight || "0");
-
-  // Peso total de lotes de engorde
-  const batchesWeightKg = birds.batches.reduce((s, b) => s + b.currentQuantity * b.avgWeightKg, 0);
-
-  // Valor total de aves en pie
-  const totalBirdsWeightKg = hensWeightKg + roostersWeightKg + batchesWeightKg;
-  const birdsValue = Math.round(totalBirdsWeightKg * BIRD_PRICE_PER_KG * 100) / 100;
-
-  // Valor de gallinaza
-  const manureValue = Math.round(manure.currentStockKg * MANURE_PRICE_PER_KG * 100) / 100;
+  // Valor de gallinaza con precio configurable.
+  const manureValue = Math.round(manure.currentStockKg * inventoryPrices.manurePricePerKg * 100) / 100;
 
   // Valor total del inventario
   const totalValue = Math.round((totalFoodValue + eggValue + totalSuppliesValue + totalMeatValue + birdsValue + manureValue) * 100) / 100;
@@ -271,6 +263,8 @@ export const GET = withApiHandler(async (req: NextRequest) => {
       totalFeeds: foodItems.length,
       lowStockFeeds: foodItems.filter((f) => f.isLow).length,
       totalHensActive: birds.hens.active,
+      totalAnimalsActive: animalInv.summary.totalAnimals,
+      totalBirdsActive: animalInv.summary.totalBirds,
       totalEggsAvailable: eggInv.summary.available,
       totalManureKg: manure.currentStockKg,
       totalValue,
@@ -289,6 +283,7 @@ export const GET = withApiHandler(async (req: NextRequest) => {
     foods: foodItems,
     eggs: eggSummary,
     birds,
+    animals: animalInv,
     manure,
     movements: {
       entriesByType,

@@ -3,6 +3,7 @@ import { db } from "@/db";
 import { eggProduction, mortalityRecords, feedMovements, hens } from "@/db/schema";
 import { sql, eq, and, gte, desc, lt } from "drizzle-orm";
 import { withApiHandler, safeParseJson } from "@/lib/api-handler";
+import { computeAnimalInventory } from "@/lib/animal-inventory";
 
 export const GET = withApiHandler(async () => {
   try {
@@ -33,11 +34,15 @@ export const GET = withApiHandler(async () => {
     const productividad = totalGallinas?.count ? 
       Number(produccionMes?.total || 0) / Number(totalGallinas?.count || 1) : 0;
 
+    const animals = await computeAnimalInventory();
+
     return NextResponse.json({
       produccionMes: Number(produccionMes?.total || 0),
       mortalidadMes: Number(mortalidadMes?.total || 0),
       consumoAlimentoMes: Number(consumoAlimentoMes?.total || 0),
       totalGallinas: Number(totalGallinas?.count || 0),
+      totalAnimals: animals.summary.totalAnimals,
+      totalBirds: animals.summary.totalBirds,
       productividad: productividad.toFixed(2),
     });
   } catch (error) {

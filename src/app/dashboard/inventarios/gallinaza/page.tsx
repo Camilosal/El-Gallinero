@@ -1,9 +1,11 @@
 "use client";
 
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useMemo } from "react";
 import Link from "next/link";
 import { PageHeader, Card, Table, StatCard, EmptyState, Button } from "@/components/ui";
 import { apiFetch } from "@/lib/fetch";
+import TableSearch from "@/components/TableSearch";
+import { matchesTextQuery } from "@/lib/text";
 
 interface InventoryData {
   summary: {
@@ -23,12 +25,40 @@ const dateFmt = (d: string) => new Date(d + "T12:00:00").toLocaleDateString("es"
 export default function InventarioGallinazaPage() {
   const [data, setData] = useState<InventoryData | null>(null);
   const [loading, setLoading] = useState(true);
+  const [productionSearch, setProductionSearch] = useState("");
+  const [salesSearch, setSalesSearch] = useState("");
 
   const load = useCallback(() => {
     apiFetch("/api/inventarios/gallinaza").then((r) => r.json()).then(setData).finally(() => setLoading(false));
   }, []);
 
   useEffect(() => { load(); }, [load]);
+
+  const filteredProduction = useMemo(() => {
+    const history = data?.productionHistory ?? [];
+    if (!productionSearch.trim()) return history;
+    return history.filter((entry) =>
+      matchesTextQuery(productionSearch, [
+        entry.date,
+        dateFmt(entry.date),
+        entry.kgProduced,
+        entry.source === "real" ? "medicion real" : "estimado",
+      ]),
+    );
+  }, [data, productionSearch]);
+
+  const filteredSales = useMemo(() => {
+    const history = data?.salesHistory ?? [];
+    if (!salesSearch.trim()) return history;
+    return history.filter((entry) =>
+      matchesTextQuery(salesSearch, [
+        entry.date,
+        dateFmt(entry.date),
+        entry.quantityKg,
+        entry.totalAmount,
+      ]),
+    );
+  }, [data, salesSearch]);
 
   return (
     <div>
@@ -63,11 +93,26 @@ export default function InventarioGallinazaPage() {
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
           <Card>
             <h3 className="font-semibold text-slate-700 mb-4">Historial de Producción</h3>
-            {data.productionHistory.length === 0 ? (
-              <EmptyState icon="🌱" message="No hay registros de producción" />
+            <TableSearch
+              value={productionSearch}
+              onChange={setProductionSearch}
+              placeholder="Buscar por fecha o fuente..."
+              resultCount={filteredProduction.length}
+              totalCount={data.productionHistory.length}
+              className="mb-4"
+            />
+            {filteredProduction.length === 0 ? (
+              <EmptyState
+                icon="🌱"
+                message={
+                  productionSearch.trim()
+                    ? "No hay registros que coincidan con la búsqueda"
+                    : "No hay registros de producción"
+                }
+              />
             ) : (
               <Table headers={["Fecha", "Kg Producidos", "Fuente"]}>
-                {data.productionHistory.map((p, i) => (
+                {filteredProduction.map((p, i) => (
                   <tr key={i} className="hover:bg-slate-50">
                     <td className="px-4 py-3">{dateFmt(p.date)}</td>
                     <td className="px-4 py-3 font-medium">{p.kgProduced.toFixed(1)} kg</td>
@@ -84,11 +129,26 @@ export default function InventarioGallinazaPage() {
 
           <Card>
             <h3 className="font-semibold text-slate-700 mb-4">Historial de Ventas</h3>
-            {data.salesHistory.length === 0 ? (
-              <EmptyState icon="💰" message="No hay ventas registradas" />
+            <TableSearch
+              value={salesSearch}
+              onChange={setSalesSearch}
+              placeholder="Buscar por fecha o monto..."
+              resultCount={filteredSales.length}
+              totalCount={data.salesHistory.length}
+              className="mb-4"
+            />
+            {filteredSales.length === 0 ? (
+              <EmptyState
+                icon="💰"
+                message={
+                  salesSearch.trim()
+                    ? "No hay ventas que coincidan con la búsqueda"
+                    : "No hay ventas registradas"
+                }
+              />
             ) : (
               <Table headers={["Fecha", "Kg Vendidos", "Total"]}>
-                {data.salesHistory.map((s, i) => (
+                {filteredSales.map((s, i) => (
                   <tr key={i} className="hover:bg-slate-50">
                     <td className="px-4 py-3">{dateFmt(s.date)}</td>
                     <td className="px-4 py-3 font-medium">{s.quantityKg.toFixed(1)} kg</td>

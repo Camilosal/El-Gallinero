@@ -1,7 +1,9 @@
 "use client";
 
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useMemo } from "react";
 import { PageHeader, Card, Select, Button, Modal, Input, Table, EmptyState } from "@/components/ui";
+import TableSearch from "@/components/TableSearch";
+import { matchesTextQuery } from "@/lib/text";
 import {
   ComposedChart,
   Area,
@@ -47,6 +49,7 @@ export default function PesoPage() {
   const [breed, setBreed] = useState("ISA Brown");
   const [gender, setGender] = useState("hembra");
   const [loading, setLoading] = useState(true);
+  const [search, setSearch] = useState("");
   const [modalOpen, setModalOpen] = useState(false);
   const [seeding, setSeeding] = useState(false);
 
@@ -129,6 +132,21 @@ export default function PesoPage() {
     return { ...d, actual: match?.actual };
   });
 
+  const filteredLogs = useMemo(() => {
+    if (!search.trim()) return logs;
+    return logs.filter((log) =>
+      matchesTextQuery(search, [
+        log.date,
+        log.breed,
+        log.henGroup,
+        log.weekNumber,
+        log.avgWeightKg,
+        log.sampleSize,
+        log.notes,
+      ]),
+    );
+  }, [logs, search]);
+
   return (
     <div className="space-y-6">
       <PageHeader
@@ -181,12 +199,27 @@ export default function PesoPage() {
           <h3 className="font-semibold text-slate-700">Registros de peso</h3>
           <Button onClick={() => setModalOpen(true)}>+ Nuevo registro</Button>
         </div>
-        {logs.length === 0 ? (
-          <EmptyState icon="📋" message="No hay registros de peso" />
+        <TableSearch
+          value={search}
+          onChange={setSearch}
+          placeholder="Buscar por fecha, raza o grupo..."
+          resultCount={filteredLogs.length}
+          totalCount={logs.length}
+          className="mb-4"
+        />
+        {filteredLogs.length === 0 ? (
+          <EmptyState
+            icon="📋"
+            message={
+              search.trim()
+                ? "No hay registros que coincidan con la búsqueda"
+                : "No hay registros de peso"
+            }
+          />
         ) : (
           <div className="overflow-x-auto">
             <Table headers={["Fecha", "Raza", "Grupo", "Semana", "Peso (kg)", "Muestra", "Notas", ""]}>
-              {logs.map((l) => (
+              {filteredLogs.map((l) => (
                 <tr key={l.id} className="border-b border-slate-100">
                   <td className="py-2">{l.date}</td>
                   <td className="py-2">{l.breed || "-"}</td>

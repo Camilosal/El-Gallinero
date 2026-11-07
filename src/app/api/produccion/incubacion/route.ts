@@ -3,7 +3,8 @@ import { incubation, hens, roosters, broilerBatches } from "@/db/schema";
 import { eq, desc, sql } from "drizzle-orm";
 import { NextRequest, NextResponse } from "next/server";
 import { isAvailableForExit } from "@/lib/lifecycle";
-import { assignMales, requiredRoosters, FLOCK_RULES } from "@/lib/flock";
+import { assignMales, requiredRoosters } from "@/lib/flock";
+import { getFlockRules, getIncubationDays } from "@/lib/settings";
 import { withApiHandler, safeParseJson } from "@/lib/api-handler";
 
 export const dynamic = "force-dynamic";
@@ -36,8 +37,9 @@ export const POST = withApiHandler(async (req: NextRequest) => {
   if (isNaN(startDate.getTime())) {
     return NextResponse.json({ error: "Fecha de inicio inválida" }, { status: 400 });
   }
+  const incubationDays = await getIncubationDays();
   const expectedHatch = new Date(startDate);
-  expectedHatch.setDate(expectedHatch.getDate() + 21); // 21 days incubation
+  expectedHatch.setDate(expectedHatch.getDate() + incubationDays);
 
   const created = await db.transaction(async (tx) => {
     const [row] = await tx.insert(incubation).values({
@@ -74,6 +76,8 @@ async function nextCodesInTx(tx: any, table: any, prefix: string, count: number)
 export const PUT = withApiHandler(async (req: NextRequest) => {
   const body = await safeParseJson(req);
   if (!body.id) return NextResponse.json({ error: "ID requerido" }, { status: 400 });
+
+  const flockRules = await getFlockRules();
 
   const result = await db.transaction(async (tx) => {
     // Read existing record to detect idempotency (avoid re-creating birds on re-submit)
@@ -126,7 +130,11 @@ export const PUT = withApiHandler(async (req: NextRequest) => {
           tx.select({ id: roosters.id }).from(roosters).where(eq(roosters.status, "activo")),
         ]);
         const hensInCoop = henRows.filter((h) => isAvailableForExit(h.status)).length;
-        const { toRoosters, toSlaughter } = assignMales(males, roosterRows.length, requiredRoosters(hensInCoop));
+        const { toRoosters, toSlaughter } = assignMales(
+          males,
+          roosterRows.length,
+          requiredRoosters(hensInCoop, flockRules.hensPerRooster),
+        );
 
         if (toRoosters > 0) {
           const codes = await nextCodesInTx(tx, roosters, "GA", toRoosters);
@@ -148,8 +156,8 @@ export const PUT = withApiHandler(async (req: NextRequest) => {
             startDate: today,
             initialQuantity: toSlaughter,
             currentQuantity: toSlaughter,
-            targetWeeks: FLOCK_RULES.defaultTargetWeeks,
-            targetWeightKg: String(FLOCK_RULES.defaultTargetWeightKg),
+            targetWeeks: flockRules.defaultTargetWeeks,
+            targetWeightKg: String(flockRules.defaultTargetWeightKg),
             notes: `Machos de eclosión (${updated.eggsHatched ?? 0} nacidos)`,
           }).returning();
           assignment.batchCode = batch.code;

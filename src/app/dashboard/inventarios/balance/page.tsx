@@ -1,9 +1,11 @@
 "use client";
 
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useMemo } from "react";
 import { PageHeader, Card, Table, Badge, StatCard, EmptyState } from "@/components/ui";
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip, Legend } from "recharts";
 import { apiFetch } from "@/lib/fetch";
+import TableSearch from "@/components/TableSearch";
+import { matchesTextQuery } from "@/lib/text";
 
 interface FoodItem {
   feedId: string;
@@ -73,6 +75,8 @@ interface ConsolidatedData {
     totalFeeds: number;
     lowStockFeeds: number;
     totalHensActive: number;
+    totalAnimalsActive: number;
+    totalBirdsActive: number;
     totalEggsAvailable: number;
     totalManureKg: number;
     totalValue: number;
@@ -126,6 +130,11 @@ export default function BalancePage() {
   const [data, setData] = useState<ConsolidatedData | null>(null);
   const [loading, setLoading] = useState(true);
   const [period, setPeriod] = useState(30);
+  const [foodSearch, setFoodSearch] = useState("");
+  const [supplySearch, setSupplySearch] = useState("");
+  const [eggSearch, setEggSearch] = useState("");
+  const [batchSearch, setBatchSearch] = useState("");
+  const [meatSearch, setMeatSearch] = useState("");
 
   useEffect(() => {
     let cancelled = false;
@@ -153,12 +162,90 @@ export default function BalancePage() {
     ? Object.entries(data.movements.exitsByType).map(([k, v]) => ({ name: movementTypeLabels[k] || k, value: Math.round(v * 100) / 100 }))
     : [];
 
+  const filteredFoods = useMemo(() => {
+    const foods = data?.foods ?? [];
+    if (!foodSearch.trim()) return foods;
+    return foods.filter((food) =>
+      matchesTextQuery(foodSearch, [
+        food.name,
+        food.category,
+        food.feedType,
+        food.unit,
+        food.currentStock,
+        food.minStock,
+        food.costPerUnit,
+        food.isLow ? "stock bajo" : "",
+      ]),
+    );
+  }, [data, foodSearch]);
+
+  const filteredSupplies = useMemo(() => {
+    const supplies = data?.supplies ?? [];
+    if (!supplySearch.trim()) return supplies;
+    return supplies.filter((supply) =>
+      matchesTextQuery(supplySearch, [
+        supply.name,
+        supply.category,
+        supply.unit,
+        supply.currentStock,
+        supply.minStock,
+        supply.supplier,
+        supply.expiryDate,
+        supply.isLow ? "stock bajo" : "",
+      ]),
+    );
+  }, [data, supplySearch]);
+
+  const filteredEggs = useMemo(() => {
+    const eggs = data?.eggs ?? [];
+    if (!eggSearch.trim()) return eggs;
+    return eggs.filter((egg) =>
+      matchesTextQuery(eggSearch, [
+        egg.size,
+        egg.price,
+        egg.produced,
+        egg.sold,
+        egg.available,
+        egg.value,
+      ]),
+    );
+  }, [data, eggSearch]);
+
+  const filteredBatches = useMemo(() => {
+    const batches = data?.birds.batches ?? [];
+    if (!batchSearch.trim()) return batches;
+    return batches.filter((batch) =>
+      matchesTextQuery(batchSearch, [
+        batch.code,
+        batch.breed,
+        batch.currentQuantity,
+        batch.startDate,
+        batch.avgWeightKg,
+      ]),
+    );
+  }, [data, batchSearch]);
+
+  const filteredMeat = useMemo(() => {
+    const meat = data?.meat ?? [];
+    if (!meatSearch.trim()) return meat;
+    return meat.filter((item) =>
+      matchesTextQuery(meatSearch, [
+        item.date,
+        item.source,
+        item.birdType,
+        item.quantityKg,
+        item.availableKg,
+        item.costPerKg,
+      ]),
+    );
+  }, [data, meatSearch]);
+
   return (
     <div>
       <PageHeader
         title="⚖️ Balance de Inventario"
         description="Vista consolidada de todos los stocks del gallinero: alimentos, huevos, aves y gallinaza"
-        help="Vista consolidada de todo el inventario del gallinero en un solo lugar: alimentos (stock actual, valor, alertas de mínimo), huevos (disponible por tamaño), aves (gallinas, pollos, gallos) y gallinaza. Los indicadores en rojo señalan stock bajo. Incluye gráfico de distribución de valor por categoría para ver dónde se concentra el capital invertido en inventario."
+        help="Vista consolidada de todo el inventario del gallinero en un solo lugar: alimentos (stock actual, valor, alertas de mínimo), huevos (disponible por tamaño), aves (gallinas, pollos, patos, codornices, conejos) y gallinaza. Los indicadores en rojo señalan stock bajo. Incluye gráfico de distribución de valor por categoría para ver dónde se concentra el capital invertido en inventario."
       />
 
       <div className="flex justify-end mb-4">
@@ -186,7 +273,7 @@ export default function BalancePage() {
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
             <StatCard icon="💰" label="Valor Total Inventario" value={fmtMoney(data.summary.totalValue)} color="green" />
             <StatCard icon="🌾" label="Alimentos" value={`${data.summary.totalFeeds} (${data.summary.lowStockFeeds} bajos)`} color="blue" />
-            <StatCard icon="🐔" label="Gallinas Activas" value={data.summary.totalHensActive} color="yellow" />
+            <StatCard icon="🐾" label="Animales Activos" value={data.summary.totalAnimalsActive} color="yellow" />
             <StatCard icon="🥚" label="Huevos Disponibles" value={data.summary.totalEggsAvailable} color="purple" />
           </div>
 
@@ -224,11 +311,26 @@ export default function BalancePage() {
           {/* Alimentos */}
           <Card>
             <h3 className="font-semibold text-slate-700 mb-3">🌾 Inventario de Alimentos</h3>
-            {data.foods.length === 0 ? (
-              <EmptyState icon="🌾" message="No hay alimentos registrados" />
+            <TableSearch
+              value={foodSearch}
+              onChange={setFoodSearch}
+              placeholder="Buscar por alimento, categoría o stock..."
+              resultCount={filteredFoods.length}
+              totalCount={data.foods.length}
+              className="mb-4"
+            />
+            {filteredFoods.length === 0 ? (
+              <EmptyState
+                icon="🌾"
+                message={
+                  foodSearch.trim()
+                    ? "No hay alimentos que coincidan con la búsqueda"
+                    : "No hay alimentos registrados"
+                }
+              />
             ) : (
               <Table headers={["Alimento", "Categoría", "Stock", "Mínimo", "Costo/Unidad", "Valor Estimado"]}>
-                {data.foods.map((f) => (
+                {filteredFoods.map((f) => (
                   <tr key={f.feedId} className={f.isLow ? "bg-red-50" : "hover:bg-slate-50"}>
                     <td className="px-4 py-3 font-medium">{f.name}</td>
                     <td className="px-4 py-3 text-sm">
@@ -256,12 +358,30 @@ export default function BalancePage() {
                 <span className="px-3 py-1 bg-red-50 text-red-700 rounded-full">⚠ {data.summary.lowStockSupplies} stock bajo</span>
               )}
             </div>
+            <TableSearch
+              value={supplySearch}
+              onChange={setSupplySearch}
+              placeholder="Buscar por nombre, categoría o proveedor..."
+              resultCount={filteredSupplies.length}
+              totalCount={data.supplies.length}
+              className="mb-3"
+            />
+            {filteredSupplies.length === 0 ? (
+              <EmptyState
+                icon="🧰"
+                message={
+                  supplySearch.trim()
+                    ? "No hay insumos que coincidan con la búsqueda"
+                    : "No hay insumos registrados"
+                }
+              />
+            ) : (
             <table className="w-full text-sm">
               <thead><tr className="border-b text-left text-gray-500">
                 <th className="py-2">Nombre</th><th>Categoría</th><th>Stock</th><th>Mínimo</th><th>Valor</th>
               </tr></thead>
               <tbody>
-                {data.supplies.map((s) => (
+                {filteredSupplies.map((s) => (
                   <tr key={s.supplyId} className={`border-b ${s.isLow ? 'bg-red-50' : ''}`}>
                     <td className="py-2 font-medium">{s.name}</td>
                     <td>{s.category}</td>
@@ -272,16 +392,32 @@ export default function BalancePage() {
                 ))}
               </tbody>
             </table>
+            )}
           </div>
 
           {/* Huevos */}
           <Card>
             <h3 className="font-semibold text-slate-700 mb-3">🥚 Huevos Disponibles por Tamaño (PEPS)</h3>
-            {data.eggs.length === 0 || data.eggs.every((e) => e.produced === 0) ? (
-              <EmptyState icon="🥚" message="No hay producción de huevos registrada" />
+            <TableSearch
+              value={eggSearch}
+              onChange={setEggSearch}
+              placeholder="Buscar por tamaño o disponibilidad..."
+              resultCount={filteredEggs.length}
+              totalCount={data.eggs.length}
+              className="mb-4"
+            />
+            {filteredEggs.length === 0 ? (
+              <EmptyState
+                icon="🥚"
+                message={
+                  eggSearch.trim()
+                    ? "No hay tamaños que coincidan con la búsqueda"
+                    : "No hay producción de huevos registrada"
+                }
+              />
             ) : (
               <Table headers={["Tamaño", "Precio", "Producido", "Vendido", "Disponible", "Valor"]}>
-                {data.eggs.map((s) => (
+                {filteredEggs.map((s) => (
                   <tr key={s.size} className="hover:bg-slate-50">
                     <td className="px-4 py-3"><Badge color="green">{s.size}</Badge></td>
                     <td className="px-4 py-3">{s.price != null ? `$${s.price.toLocaleString()}` : "—"}</td>
@@ -320,8 +456,26 @@ export default function BalancePage() {
               {data.birds.batches.length > 0 && (
                 <div className="mt-4">
                   <p className="text-sm font-medium text-slate-600 mb-2">📦 Lotes de engorde activos</p>
+                  <TableSearch
+                    value={batchSearch}
+                    onChange={setBatchSearch}
+                    placeholder="Buscar por código o raza..."
+                    resultCount={filteredBatches.length}
+                    totalCount={data.birds.batches.length}
+                    className="mb-3"
+                  />
+                  {filteredBatches.length === 0 ? (
+                    <EmptyState
+                      icon="📦"
+                      message={
+                        batchSearch.trim()
+                          ? "No hay lotes que coincidan con la búsqueda"
+                          : "No hay lotes de engorde activos"
+                      }
+                    />
+                  ) : (
                   <Table headers={["Código", "Raza", "Cantidad", "Peso Prom."]}>
-                    {data.birds.batches.map((b) => (
+                    {filteredBatches.map((b) => (
                       <tr key={b.batchId} className="hover:bg-slate-50">
                         <td className="px-4 py-2 font-medium">{b.code}</td>
                         <td className="px-4 py-2">{b.breed}</td>
@@ -330,6 +484,7 @@ export default function BalancePage() {
                       </tr>
                     ))}
                   </Table>
+                  )}
                 </div>
               )}
             </Card>
@@ -358,12 +513,30 @@ export default function BalancePage() {
               <div className="flex gap-4 mb-3 text-sm">
                 <span className="px-3 py-1 bg-amber-50 text-amber-700 rounded-full">{data.summary.totalMeatKg} kg disponibles</span>
               </div>
+              <TableSearch
+                value={meatSearch}
+                onChange={setMeatSearch}
+                placeholder="Buscar por fecha, origen o tipo de ave..."
+                resultCount={filteredMeat.length}
+                totalCount={data.meat.length}
+                className="mb-3"
+              />
+              {filteredMeat.length === 0 ? (
+                <EmptyState
+                  icon="🍗"
+                  message={
+                    meatSearch.trim()
+                      ? "No hay lotes que coincidan con la búsqueda"
+                      : "No hay inventario de carne"
+                  }
+                />
+              ) : (
               <table className="w-full text-sm">
                 <thead><tr className="border-b text-left text-gray-500">
                   <th className="py-2">Fecha</th><th>Origen</th><th>Tipo Ave</th><th>Kg</th><th>Disponible</th>
                 </tr></thead>
                 <tbody>
-                  {data.meat.map((m) => (
+                  {filteredMeat.map((m) => (
                     <tr key={m.id} className="border-b">
                       <td className="py-2">{m.date}</td>
                       <td>{m.source}</td>
@@ -374,6 +547,7 @@ export default function BalancePage() {
                   ))}
                 </tbody>
               </table>
+              )}
             </div>
           )}
 

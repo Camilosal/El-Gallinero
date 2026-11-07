@@ -1,8 +1,10 @@
 "use client";
 
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useMemo } from "react";
 import { PageHeader, Button, Card, Table, Badge, Modal, Input, Select, Textarea, EmptyState, StatCard } from "@/components/ui";
 import { apiFetch } from "@/lib/fetch";
+import TableSearch from "@/components/TableSearch";
+import { matchesTextQuery } from "@/lib/text";
 
 interface SanitaryEvent {
   id: string;
@@ -33,6 +35,7 @@ const TYPE_LABELS: Record<string, string> = {
 export default function CalendarioSanitarioPage() {
   const [events, setEvents] = useState<SanitaryEvent[]>([]);
   const [loading, setLoading] = useState(true);
+  const [search, setSearch] = useState("");
   const [modalOpen, setModalOpen] = useState(false);
   const [error, setError] = useState("");
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -59,6 +62,23 @@ export default function CalendarioSanitarioPage() {
   const overdueEvents = events.filter((e) => e.isOverdue);
   const dueSoonEvents = events.filter((e) => e.isDueSoon);
   const upcomingEvents = events.filter((e) => !e.isOverdue && !e.isDueSoon && e.isActive);
+
+  const filteredEvents = useMemo(() => {
+    if (!search.trim()) return events;
+    return events.filter((event) =>
+      matchesTextQuery(search, [
+        event.nextDueDate,
+        event.type,
+        TYPE_LABELS[event.type] || event.type,
+        event.name,
+        event.description,
+        event.targetBirds,
+        event.frequencyDays,
+        event.withdrawalDays,
+        event.isOverdue ? "vencido" : event.isDueSoon ? "próximo" : "al día",
+      ]),
+    );
+  }, [events, search]);
 
   const save = async () => {
     setError("");
@@ -197,13 +217,28 @@ export default function CalendarioSanitarioPage() {
       {/* Upcoming events table */}
       <Card>
         <h3 className="font-semibold text-slate-700 mb-3">Próximos Eventos</h3>
+        <TableSearch
+          value={search}
+          onChange={setSearch}
+          placeholder="Buscar por fecha, tipo, nombre o estado..."
+          resultCount={filteredEvents.length}
+          totalCount={events.length}
+          className="mb-4"
+        />
         {loading ? (
           <p className="text-center py-8 text-slate-400">Cargando...</p>
-        ) : events.length === 0 ? (
-          <EmptyState icon="📅" message="No hay eventos en el calendario" />
+        ) : filteredEvents.length === 0 ? (
+          <EmptyState
+            icon="📅"
+            message={
+              search.trim()
+                ? "No hay eventos que coincidan con la búsqueda"
+                : "No hay eventos en el calendario"
+            }
+          />
         ) : (
           <Table headers={["Fecha", "Tipo", "Nombre", "Aves objetivo", "Frecuencia", "Retiro", "Estado", "Acciones"]}>
-            {events.map((e) => (
+            {filteredEvents.map((e) => (
               <tr key={e.id} className={`hover:bg-slate-50 ${e.isOverdue ? "bg-red-50" : e.isDueSoon ? "bg-yellow-50" : ""}`}>
                 <td className="px-4 py-3 text-sm font-medium">{e.nextDueDate}</td>
                 <td className="px-4 py-3">

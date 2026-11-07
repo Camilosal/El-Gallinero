@@ -3,6 +3,7 @@ import { hens, chickenSales, slaughter, healthControl, mortalityRecords, incubat
 import { eq, desc, and, sql } from "drizzle-orm";
 import { NextRequest, NextResponse } from "next/server";
 import { evaluateLifecycle } from "@/lib/lifecycle";
+import { getLifecycleRules } from "@/lib/settings";
 import { catalogos } from "@/db/schema";
 import { withApiHandler, safeParseJson } from "@/lib/api-handler";
 
@@ -17,13 +18,16 @@ export const GET = withApiHandler(async (req: NextRequest) => {
   if (!henData) return NextResponse.json({ error: "Gallina no encontrada" }, { status: 404 });
 
   // Get lifecycle info
-  const stages = await db
-    .select()
-    .from(catalogos)
-    .where(and(eq(catalogos.category, "etapa_crecimiento"), eq(catalogos.isActive, true)))
-    .orderBy(sql`${catalogos.sortOrder}`);
+  const [stages, lifecycleRules] = await Promise.all([
+    db
+      .select()
+      .from(catalogos)
+      .where(and(eq(catalogos.category, "etapa_crecimiento"), eq(catalogos.isActive, true)))
+      .orderBy(sql`${catalogos.sortOrder}`),
+    getLifecycleRules(),
+  ]);
 
-  const lc = evaluateLifecycle(henData, stages);
+  const lc = evaluateLifecycle(henData, stages, lifecycleRules);
   const enrichedHen = { ...henData, stage: lc.stage, ageWeeks: lc.ageWeeks, lifecycleReasons: lc.reasons };
 
   // Fetch related events in parallel

@@ -89,3 +89,84 @@ export const ALL_BREED_STANDARDS: Record<string, BreedStandardPoint[]> = {
   "Cobb 500_macho": COBB_500_MALE,
   "Cobb 500_hembra": COBB_500_FEMALE,
 };
+
+
+// ─── Codorniz Japónica (Coturnix coturnix japonica) ───
+export const COTURNIX_JAPONICA: BreedStandardPoint[] = [
+  { week: 0, targetG: 7, minG: 6, maxG: 8 },
+  { week: 1, targetG: 25, minG: 22, maxG: 28 },
+  { week: 2, targetG: 55, minG: 50, maxG: 61 },
+  { week: 3, targetG: 90, minG: 81, maxG: 99 },
+  { week: 4, targetG: 120, minG: 108, maxG: 132 },
+  { week: 5, targetG: 145, minG: 130, maxG: 160 },
+  { week: 6, targetG: 160, minG: 144, maxG: 176 },
+];
+
+// ─── Pato Pekín (Anas platyrhynchos domesticus) ───
+export const PATO_PEKIN: BreedStandardPoint[] = [
+  { week: 0, targetG: 55, minG: 50, maxG: 60 },
+  { week: 1, targetG: 200, minG: 180, maxG: 220 },
+  { week: 2, targetG: 550, minG: 495, maxG: 605 },
+  { week: 3, targetG: 1100, minG: 990, maxG: 1210 },
+  { week: 4, targetG: 1700, minG: 1530, maxG: 1870 },
+  { week: 5, targetG: 2200, minG: 1980, maxG: 2420 },
+  { week: 6, targetG: 2600, minG: 2340, maxG: 2860 },
+  { week: 7, targetG: 2900, minG: 2610, maxG: 3190 },
+  { week: 8, targetG: 3100, minG: 2790, maxG: 3410 },
+  { week: 9, targetG: 3200, minG: 2880, maxG: 3520 },
+  { week: 10, targetG: 3200, minG: 2880, maxG: 3520 },
+];
+
+// ─── Pato Criollo / Muscovy (Cairina moschata) ───
+export const PATO_MUSCOVY: BreedStandardPoint[] = [
+  { week: 0, targetG: 60, minG: 54, maxG: 66 },
+  { week: 2, targetG: 200, minG: 180, maxG: 220 },
+  { week: 4, targetG: 700, minG: 630, maxG: 770 },
+  { week: 6, targetG: 1400, minG: 1260, maxG: 1540 },
+  { week: 8, targetG: 2100, minG: 1890, maxG: 2310 },
+  { week: 10, targetG: 2700, minG: 2430, maxG: 2970 },
+  { week: 12, targetG: 3200, minG: 2880, maxG: 3520 },
+  { week: 14, targetG: 3500, minG: 3150, maxG: 3850 },
+];
+
+// ─── Conejo Nueva Zelanda / California (Oryctolagus cuniculus) ───
+export interface WeightCurvePoint {
+  day: number;
+  targetG: number;
+  minG?: number;
+  maxG?: number;
+}
+
+export const CONEJO_NZ_CALIFORNIA: WeightCurvePoint[] = [
+  { day: 0, targetG: 50, minG: 45, maxG: 55 },
+  { day: 7, targetG: 130, minG: 117, maxG: 143 },
+  { day: 14, targetG: 270, minG: 243, maxG: 297 },
+  { day: 21, targetG: 450, minG: 405, maxG: 495 },
+  { day: 28, targetG: 680, minG: 612, maxG: 748 },
+  { day: 35, targetG: 950, minG: 855, maxG: 1045 },
+  { day: 42, targetG: 1250, minG: 1125, maxG: 1375 },
+  { day: 49, targetG: 1550, minG: 1395, maxG: 1705 },
+  { day: 56, targetG: 1850, minG: 1665, maxG: 2035 },
+  { day: 63, targetG: 2100, minG: 1890, maxG: 2310 },
+  { day: 70, targetG: 2300, minG: 2070, maxG: 2530 },
+  { day: 77, targetG: 2450, minG: 2205, maxG: 2695 },
+  { day: 84, targetG: 2550, minG: 2295, maxG: 2805 },
+];
+
+/** Mapa de especie → curva de referencia (por semanas) */
+export const SPECIES_WEIGHT_CURVES: Record<string, BreedStandardPoint[]> = {
+  pollo: [
+    { week: 0, targetG: 42 }, { week: 1, targetG: 170 }, { week: 2, targetG: 400 },
+    { week: 3, targetG: 720 }, { week: 4, targetG: 1100 }, { week: 5, targetG: 1500 },
+    { week: 6, targetG: 1900 }, { week: 7, targetG: 2300 }, { week: 8, targetG: 2600 },
+  ],
+  codorniz: COTURNIX_JAPONICA,
+  pato: PATO_PEKIN,
+  conejo: [
+    { week: 0, targetG: 50 }, { week: 1, targetG: 130 }, { week: 2, targetG: 270 },
+    { week: 3, targetG: 450 }, { week: 4, targetG: 680 }, { week: 5, targetG: 950 },
+    { week: 6, targetG: 1250 }, { week: 7, targetG: 1550 }, { week: 8, targetG: 1850 },
+    { week: 9, targetG: 2100 }, { week: 10, targetG: 2300 }, { week: 11, targetG: 2450 },
+    { week: 12, targetG: 2550 },
+  ],
+};

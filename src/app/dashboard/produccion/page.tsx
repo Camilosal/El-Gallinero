@@ -26,23 +26,25 @@ const tabComponents: Record<string, React.ComponentType> = {
 };
 
 const secciones = [
-  { href: "/produccion/gallinas", label: "Gallinas", icon: "🐔", desc: "Parvada activa y lotes" },
-  { href: "/produccion/pollos", label: "Pollos y Gallos", icon: "🐓", desc: "Levante y engorde" },
-  { href: "/produccion/adquisiciones", label: "Adquisiciones", icon: "📥", desc: "Entrada de aves" },
-  { href: "/produccion/alimentacion", label: "Alimentación", icon: "🌾", desc: "Consumo y programas" },
-  { href: "/produccion/huevos", label: "Producción Huevos", icon: "🥚", desc: "Recolección diario" },
-  { href: "/produccion/incubacion", label: "Incubación", icon: "🐣", desc: "Nacimientos y fertilidad" },
-  { href: "/produccion/sacrificio", label: "Carne", icon: "🍗", desc: "Procesamiento" },
-  { href: "/produccion?tab=gallinaza", label: "Gallinaza", icon: "🌱", desc: "Producción y ventas" },
-  { href: "/produccion?tab=inventario", label: "Inventario", icon: "📦", desc: "Stock consolidado" },
-  { href: "/produccion/mortalidad", label: "Mortalidad", icon: "💀", desc: "Bajas por lote" },
-  { href: "/produccion/plan-parvada", label: "Plan Parvada", icon: "🏠", desc: "Proyecciones" },
+  { href: "/dashboard/produccion/gallinas", label: "Gallinas", icon: "🐔", desc: "Parvada activa y lotes" },
+  { href: "/dashboard/produccion/pollos", label: "Pollos y Gallos", icon: "🐓", desc: "Levante y engorde" },
+  { href: "/dashboard/produccion/adquisiciones", label: "Adquisiciones", icon: "📥", desc: "Entrada de aves" },
+  { href: "/dashboard/produccion/alimentacion", label: "Alimentación", icon: "🌾", desc: "Consumo y programas" },
+  { href: "/dashboard/produccion/huevos", label: "Producción Huevos", icon: "🥚", desc: "Recolección diario" },
+  { href: "/dashboard/produccion/incubacion", label: "Incubación", icon: "🐣", desc: "Nacimientos y fertilidad" },
+  { href: "/dashboard/produccion/sacrificio", label: "Carne", icon: "🍗", desc: "Procesamiento" },
+  { href: "/dashboard/produccion?tab=gallinaza", label: "Gallinaza", icon: "🌱", desc: "Producción y ventas" },
+  { href: "/dashboard/produccion?tab=inventario", label: "Inventario", icon: "📦", desc: "Stock consolidado" },
+  { href: "/dashboard/produccion/mortalidad", label: "Mortalidad", icon: "💀", desc: "Bajas por lote" },
+  { href: "/dashboard/produccion/plan-parvada", label: "Plan Parvada", icon: "🏠", desc: "Proyecciones" },
 ];
 
 interface ResumenProduccion {
   huevosHoy: number;
   huevosSemana: number;
   totalGallinas: number;
+  totalAnimals: number;
+  totalBirds: number;
   mortalidadSemana: number;
   consumoAlimentoSemanal: number;
 }
@@ -130,8 +132,9 @@ function CategoryView() {
             <p className="text-3xl font-bold text-gray-900">{resumen.huevosSemana}</p>
           </div>
           <div className="bg-white rounded-lg shadow-md p-6 border-l-4 border-purple-500">
-            <p className="text-sm text-gray-600 mb-1">🐔 Gallinas Activas</p>
-            <p className="text-3xl font-bold text-gray-900">{resumen.totalGallinas}</p>
+            <p className="text-sm text-gray-600 mb-1">🐾 Animales Activos</p>
+            <p className="text-3xl font-bold text-gray-900">{resumen.totalAnimals ?? resumen.totalGallinas}</p>
+            <p className="text-xs text-gray-500 mt-1">{resumen.totalBirds ?? 0} aves · {Math.max(0, (resumen.totalAnimals ?? 0) - (resumen.totalBirds ?? 0))} no aves</p>
           </div>
           <div className="bg-white rounded-lg shadow-md p-6 border-l-4 border-red-500">
             <p className="text-sm text-gray-600 mb-1">💀 Mortalidad Semana</p>

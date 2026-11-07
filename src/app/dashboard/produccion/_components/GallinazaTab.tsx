@@ -1,9 +1,11 @@
 "use client";
 
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useMemo } from "react";
 import { PageHeader, Button, Card, Table, Modal, Input, Textarea, EmptyState, StatCard } from "@/components/ui";
 import { apiFetch } from "@/lib/fetch";
 import { useCatalog } from "@/lib/useCatalog";
+import TableSearch from "@/components/TableSearch";
+import { matchesTextQuery } from "@/lib/text";
 
 interface EstimationGroup {
   key: string;
@@ -50,6 +52,8 @@ export default function GallinazaPage() {
   const [error, setError] = useState("");
   const [saleForm, setSaleForm] = useState({ date: new Date().toISOString().split("T")[0], quantityKg: "", pricePerKg: "", presentation: "", buyer: "", notes: "" });
   const [adjustForm, setAdjustForm] = useState({ date: new Date().toISOString().split("T")[0], deltaKg: "", reason: "" });
+  const [salesSearch, setSalesSearch] = useState("");
+  const [adjustSearch, setAdjustSearch] = useState("");
   const { values: buyerOptions } = useCatalog("comprador");
 
   const load = useCallback(() => {
@@ -127,6 +131,36 @@ export default function GallinazaPage() {
     await apiFetch(`/api/operaciones/gallinaza?adjustId=${id}`, { method: "DELETE" });
     load();
   };
+
+  const filteredSales = useMemo(() => {
+    const sales = data?.sales ?? [];
+    if (!salesSearch.trim()) return sales;
+    return sales.filter((sale) =>
+      matchesTextQuery(salesSearch, [
+        sale.date,
+        dateFmt(sale.date),
+        sale.quantityKg,
+        sale.pricePerKg,
+        sale.totalAmount,
+        sale.presentation,
+        sale.buyer,
+        sale.notes,
+      ]),
+    );
+  }, [data, salesSearch]);
+
+  const filteredAdjustments = useMemo(() => {
+    const adjustments = data?.adjustments ?? [];
+    if (!adjustSearch.trim()) return adjustments;
+    return adjustments.filter((adjustment) =>
+      matchesTextQuery(adjustSearch, [
+        adjustment.date,
+        dateFmt(adjustment.date),
+        adjustment.deltaKg,
+        adjustment.reason,
+      ]),
+    );
+  }, [data, adjustSearch]);
 
   if (loading || !data) {
     return <Card><p className="text-center py-8 text-slate-400">Cargando...</p></Card>;
@@ -216,11 +250,26 @@ export default function GallinazaPage() {
       {/* Ventas */}
       <Card className="mb-6">
         <h3 className="font-semibold text-slate-700 mb-4">💰 Ventas de Gallinaza</h3>
-        {data.sales.length === 0 ? (
-          <EmptyState icon="🌱" message="Aún no hay ventas de gallinaza" />
+        <TableSearch
+          value={salesSearch}
+          onChange={setSalesSearch}
+          placeholder="Buscar por fecha, comprador o presentación..."
+          resultCount={filteredSales.length}
+          totalCount={data.sales.length}
+          className="mb-4"
+        />
+        {filteredSales.length === 0 ? (
+          <EmptyState
+            icon="🌱"
+            message={
+              salesSearch.trim()
+                ? "No hay ventas que coincidan con la búsqueda"
+                : "Aún no hay ventas de gallinaza"
+            }
+          />
         ) : (
           <Table headers={["Fecha", "Cantidad", "Precio/kg", "Presentación", "Comprador", "Total", ""]}>
-            {data.sales.map((s) => (
+            {filteredSales.map((s) => (
               <tr key={s.id} className="hover:bg-slate-50">
                 <td className="px-4 py-3 text-sm">{dateFmt(s.date)}</td>
                 <td className="px-4 py-3 text-sm">{Number(s.quantityKg).toLocaleString()} kg</td>
@@ -240,11 +289,26 @@ export default function GallinazaPage() {
       {/* Ajustes */}
       <Card>
         <h3 className="font-semibold text-slate-700 mb-4">⚖️ Ajustes de Inventario</h3>
-        {data.adjustments.length === 0 ? (
-          <EmptyState icon="⚖️" message="Sin ajustes registrados" />
+        <TableSearch
+          value={adjustSearch}
+          onChange={setAdjustSearch}
+          placeholder="Buscar por fecha o motivo..."
+          resultCount={filteredAdjustments.length}
+          totalCount={data.adjustments.length}
+          className="mb-4"
+        />
+        {filteredAdjustments.length === 0 ? (
+          <EmptyState
+            icon="⚖️"
+            message={
+              adjustSearch.trim()
+                ? "No hay ajustes que coincidan con la búsqueda"
+                : "Sin ajustes registrados"
+            }
+          />
         ) : (
           <Table headers={["Fecha", "Ajuste", "Motivo", ""]}>
-            {data.adjustments.map((a) => (
+            {filteredAdjustments.map((a) => (
               <tr key={a.id} className="hover:bg-slate-50">
                 <td className="px-4 py-3 text-sm">{dateFmt(a.date)}</td>
                 <td className={`px-4 py-3 text-sm font-bold ${Number(a.deltaKg) >= 0 ? "text-green-600" : "text-red-600"}`}>

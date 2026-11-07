@@ -5,8 +5,8 @@ import { useEffect, useState } from "react";
 import { apiFetch } from "@/lib/fetch";
 
 const secciones = [
-  { href: "/analisis/kpis", label: "KPIs", icon: "🎯", desc: "Productividad, mortalidad, conversión" },
-  { href: "/analisis/reportes", label: "Reportes", icon: "📋", desc: "Reportes exportables" },
+  { href: "/dashboard/analisis/kpis", label: "KPIs", icon: "🎯", desc: "Productividad, mortalidad, conversión" },
+  { href: "/dashboard/analisis/reportes", label: "Reportes", icon: "📋", desc: "Reportes exportables" },
 ];
 
 interface ResumenAnalisis {
@@ -14,6 +14,8 @@ interface ResumenAnalisis {
   mortalidadMes: number;
   consumoAlimentoMes: number;
   totalGallinas: number;
+  totalAnimals: number;
+  totalBirds: number;
   productividad: string;
 }
 
@@ -65,8 +67,9 @@ export default function AnalisisPage() {
             <p className="text-3xl font-bold text-gray-900">{resumen.productividad}</p>
           </div>
           <div className="bg-white rounded-lg shadow-md p-6 border-l-4 border-purple-500">
-            <p className="text-sm text-gray-600 mb-1">🐔 Gallinas Activas</p>
-            <p className="text-3xl font-bold text-gray-900">{resumen.totalGallinas}</p>
+            <p className="text-sm text-gray-600 mb-1">🐾 Animales Activos</p>
+            <p className="text-3xl font-bold text-gray-900">{resumen.totalAnimals ?? resumen.totalGallinas}</p>
+            <p className="text-xs text-gray-500 mt-1">{resumen.totalBirds ?? 0} aves · {Math.max(0, (resumen.totalAnimals ?? 0) - (resumen.totalBirds ?? 0))} no aves</p>
           </div>
         </div>
       ) : null}

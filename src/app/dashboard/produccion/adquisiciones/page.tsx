@@ -1,9 +1,11 @@
 "use client";
 
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useMemo } from "react";
 import { apiFetch } from "@/lib/fetch";
 import { useCatalog } from "@/lib/useCatalog";
 import { Card, StatCard, PageHeader, Button, Input, Select, Textarea, Modal, Table, Badge, EmptyState } from "@/components/ui";
+import TableSearch from "@/components/TableSearch";
+import { matchesTextQuery } from "@/lib/text";
 
 type Acquisition = {
   id: string;
@@ -43,6 +45,7 @@ export default function AdquisicionesPage() {
   const [form, setForm] = useState(emptyForm);
   const [error, setError] = useState("");
   const [editingId, setEditingId] = useState<string | null>(null);
+  const [search, setSearch] = useState("");
 
   const razas = useCatalog("raza", ["Criolla", "Leghorn", "Rhode Island", "Plymouth Rock"]);
   const proveedores = useCatalog("proveedor", []);
@@ -59,6 +62,23 @@ export default function AdquisicionesPage() {
   const totalInversion = items.filter(i => i.acquisitionType === "compra").reduce((s, i) => s + Number(i.totalCost || 0), 0);
   const compras = items.filter(i => i.acquisitionType === "compra").length;
   const donaciones = items.filter(i => i.acquisitionType === "donacion").length;
+
+  const filteredItems = useMemo(() => {
+    if (!search.trim()) return items;
+    return items.filter((item) =>
+      matchesTextQuery(search, [
+        item.date,
+        TYPE_LABELS[item.acquisitionType] || item.acquisitionType,
+        BIRD_LABELS[item.birdType] || item.birdType,
+        item.quantity,
+        item.breed,
+        item.supplier,
+        item.unitCost,
+        item.totalCost,
+        item.notes,
+      ]),
+    );
+  }, [items, search]);
 
   const save = async () => {
     setError("");
@@ -101,13 +121,28 @@ export default function AdquisicionesPage() {
       </div>
 
       <Card>
+        <TableSearch
+          value={search}
+          onChange={setSearch}
+          placeholder="Buscar por fecha, tipo, raza o proveedor..."
+          resultCount={filteredItems.length}
+          totalCount={items.length}
+          className="mb-4"
+        />
         {loading ? (
           <p className="text-center py-8 text-slate-400">Cargando...</p>
-        ) : items.length === 0 ? (
-          <EmptyState icon="📥" message="No hay adquisiciones registradas" />
+        ) : filteredItems.length === 0 ? (
+          <EmptyState
+            icon="📥"
+            message={
+              search.trim()
+                ? "No hay adquisiciones que coincidan con la búsqueda"
+                : "No hay adquisiciones registradas"
+            }
+          />
         ) : (
           <Table headers={["Fecha", "Tipo", "Especie", "Cantidad", "Raza", "Proveedor", "Costo unitario", "Total", "Acciones"]}>
-            {items.map((a) => (
+            {filteredItems.map((a) => (
               <tr key={a.id} className="hover:bg-slate-50">
                 <td className="px-4 py-3 text-sm">{a.date}</td>
                 <td className="px-4 py-3"><Badge color={TYPE_COLORS[a.acquisitionType] || "gray"}>{TYPE_LABELS[a.acquisitionType] || a.acquisitionType}</Badge></td>

@@ -1,6 +1,7 @@
 import { db } from "@/db";
 import { eggProduction, eggProductionDetails, eggSales, eggSalesItems, eggLosses, catalogos, slaughter, meatSales, meatLosses, manureProduction, manureSales, manureAdjustments } from "@/db/schema";
 import { asc, desc, eq } from "drizzle-orm";
+import { loadSpeciesPriceMap } from "./species-db";
 
 export interface EggLot {
   id: string;
@@ -194,12 +195,24 @@ export async function computeEggInventory(): Promise<EggInventory> {
 export interface MeatLot {
   id: string;
   date: string;
+  species: string;
   birdType: string;
+  destination?: string | null;
+  weightKgAutoconsumo?: number | null;
+  weightKgExcedente?: number | null;
   quantityKg: number;
   soldKg: number;
   lostKg: number;
   remainingKg: number;
   ageDays: number;
+}
+
+export interface MeatSpeciesSummary {
+  species: string;
+  producedKg: number;
+  availableKg: number;
+  estimatedPriceKg: number;
+  estimatedValue: number;
 }
 
 export interface MeatInventory {
@@ -209,6 +222,7 @@ export interface MeatInventory {
     lost: number;
     available: number;
     value: number;
+    bySpecies?: MeatSpeciesSummary[];
   };
   lots: MeatLot[];
   oldestLot: MeatLot | null;
@@ -216,10 +230,11 @@ export interface MeatInventory {
 }
 
 export async function computeMeatInventory(): Promise<MeatInventory> {
-  const [productions, sales, losses] = await Promise.all([
+  const [productions, sales, losses, speciesPrices] = await Promise.all([
     db.select().from(slaughter).orderBy(asc(slaughter.date)),
     db.select().from(meatSales).orderBy(asc(meatSales.date)),
     db.select().from(meatLosses).orderBy(asc(meatLosses.date)),
+    loadSpeciesPriceMap(),
   ]);
 
   const today = new Date();
@@ -256,15 +271,20 @@ export async function computeMeatInventory(): Promise<MeatInventory> {
     const lotDate = new Date(p.date + "T12:00:00");
     lotDate.setHours(0, 0, 0, 0);
     const ageDays = Math.max(0, Math.floor((today.getTime() - lotDate.getTime()) / 86400000));
+    const sp = p.species || (p.birdType === "gallina_descarte" ? "gallina" : "pollo");
 
     lots.push({
       id: p.id,
       date: p.date,
+      species: sp,
       birdType: p.birdType,
+      destination: p.destination,
+      weightKgAutoconsumo: p.weightKgAutoconsumo ? Number(p.weightKgAutoconsumo) : null,
+      weightKgExcedente: p.weightKgExcedente ? Number(p.weightKgExcedente) : null,
       quantityKg: initialKg,
       soldKg: soldThisLot,
       lostKg: lostThisLot,
-      remainingKg: initialKg - soldThisLot - lostThisLot,
+      remainingKg: Math.max(0, initialKg - soldThisLot - lostThisLot),
       ageDays,
     });
   }
@@ -274,19 +294,45 @@ export async function computeMeatInventory(): Promise<MeatInventory> {
     ? availableLots.reduce((a, b) => (b.ageDays > a.ageDays ? b : a))
     : null;
 
-  const totalAvailable = totalProducedKg - totalSoldKg - totalLostKg;
+  const totalAvailable = Math.max(0, totalProducedKg - totalSoldKg - totalLostKg);
+
+  // Desglose y valor estimado por especie
+  const speciesMap = new Map<string, { produced: number; available: number }>();
+  lots.forEach((l) => {
+    const cur = speciesMap.get(l.species) || { produced: 0, available: 0 };
+    speciesMap.set(l.species, {
+      produced: cur.produced + l.quantityKg,
+      available: cur.available + l.remainingKg,
+    });
+  });
+
+  let estimatedValue = 0;
+  const bySpecies: MeatSpeciesSummary[] = [];
+  for (const [sp, data] of speciesMap.entries()) {
+    const price = speciesPrices[sp] ?? 14000;
+    const val = data.available * price;
+    estimatedValue += val;
+    bySpecies.push({
+      species: sp,
+      producedKg: Math.round(data.produced * 100) / 100,
+      availableKg: Math.round(data.available * 100) / 100,
+      estimatedPriceKg: price,
+      estimatedValue: Math.round(val),
+    });
+  }
 
   return {
     summary: {
-      produced: totalProducedKg,
-      sold: totalSoldKg,
-      lost: totalLostKg,
+      produced: Math.round(totalProducedKg * 100) / 100,
+      sold: Math.round(totalSoldKg * 100) / 100,
+      lost: Math.round(totalLostKg * 100) / 100,
       available: Math.round(totalAvailable * 100) / 100,
-      value: 0,
+      value: Math.round(estimatedValue),
+      bySpecies,
     },
     lots,
     oldestLot,
-    estimatedValue: 0,
+    estimatedValue: Math.round(estimatedValue),
   };
 }
 

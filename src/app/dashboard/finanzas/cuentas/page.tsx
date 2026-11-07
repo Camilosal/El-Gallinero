@@ -1,8 +1,10 @@
 "use client";
 
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useMemo } from "react";
 import { PageHeader, Button, Card, Table, Badge, Modal, Input, Select, EmptyState, StatCard } from "@/components/ui";
 import { apiFetch } from "@/lib/fetch";
+import TableSearch from "@/components/TableSearch";
+import { matchesTextQuery } from "@/lib/text";
 
 interface ReceivableAccount {
   id: string;
@@ -56,6 +58,8 @@ export default function CuentasPage() {
   const [payables, setPayables] = useState<PayableAccount[]>([]);
   const [payments, setPayments] = useState<Payment[]>([]);
   const [loading, setLoading] = useState(true);
+  const [accountSearch, setAccountSearch] = useState("");
+  const [paymentSearch, setPaymentSearch] = useState("");
   const [paymentModalOpen, setPaymentModalOpen] = useState(false);
   const [selectedAccount, setSelectedAccount] = useState<{ id: string; type: "cobrar" | "pagar"; pending: number } | null>(null);
   const [payForm, setPayForm] = useState({ date: new Date().toISOString().split("T")[0], amount: "", method: "efectivo", reference: "", notes: "" });
@@ -139,6 +143,39 @@ export default function CuentasPage() {
 
   const accounts = tab === "cobrar" ? receivables : payables;
 
+  const filteredAccounts = useMemo(() => {
+    if (!accountSearch.trim()) return accounts;
+    return accounts.filter((account) =>
+      matchesTextQuery(accountSearch, [
+        "buyer" in account ? account.buyer : account.supplier,
+        account.totalAmount,
+        account.paidAmount,
+        account.pendingAmount,
+        account.dueDate,
+        account.status,
+        account.agingDays,
+        account.transactionDate,
+        account.transactionCategory,
+        account.transactionDescription,
+        account.isOverdue ? "vencida" : "",
+      ]),
+    );
+  }, [accounts, accountSearch]);
+
+  const filteredPayments = useMemo(() => {
+    if (!paymentSearch.trim()) return payments;
+    return payments.filter((payment) =>
+      matchesTextQuery(paymentSearch, [
+        payment.date,
+        payment.type === "cobro" ? "cobro" : "pago",
+        payment.amount,
+        payment.method,
+        payment.reference,
+        payment.notes,
+      ]),
+    );
+  }, [payments, paymentSearch]);
+
   return (
     <div className="space-y-6">
       <PageHeader
@@ -175,8 +212,28 @@ export default function CuentasPage() {
         <EmptyState icon="💳" message={tab === "cobrar" ? "No hay cuentas por cobrar" : "No hay cuentas por pagar"} />
       ) : (
         <Card>
+          <TableSearch
+            value={accountSearch}
+            onChange={setAccountSearch}
+            placeholder={tab === "cobrar" ? "Buscar por comprador, estado o descripción..." : "Buscar por proveedor, estado o descripción..."}
+            resultCount={filteredAccounts.length}
+            totalCount={accounts.length}
+            className="mb-4"
+          />
+          {filteredAccounts.length === 0 ? (
+            <EmptyState
+              icon="💳"
+              message={
+                accountSearch.trim()
+                  ? "No hay cuentas que coincidan con la búsqueda"
+                  : tab === "cobrar"
+                    ? "No hay cuentas por cobrar"
+                    : "No hay cuentas por pagar"
+              }
+            />
+          ) : (
           <Table headers={[tab === "cobrar" ? "Comprador" : "Proveedor", "Total", "Pagado", "Pendiente", "Vencimiento", "Días", "Estado", "Acciones"]}>
-            {accounts.map((a) => (
+            {filteredAccounts.map((a) => (
               <tr key={a.id} className={`hover:bg-slate-50 ${a.isOverdue ? "bg-red-50" : ""}`}>
                 <td className="px-4 py-3 text-sm font-medium">{"buyer" in a ? a.buyer : a.supplier}</td>
                 <td className="px-4 py-3 text-sm">{fmt(Number(a.totalAmount))}</td>
@@ -204,6 +261,7 @@ export default function CuentasPage() {
               </tr>
             ))}
           </Table>
+          )}
         </Card>
       )}
 
@@ -211,8 +269,26 @@ export default function CuentasPage() {
       {payments.length > 0 && (
         <Card>
           <h3 className="font-semibold text-slate-700 mb-3">Últimos Pagos</h3>
+          <TableSearch
+            value={paymentSearch}
+            onChange={setPaymentSearch}
+            placeholder="Buscar por fecha, método o referencia..."
+            resultCount={filteredPayments.length}
+            totalCount={payments.length}
+            className="mb-4"
+          />
+          {filteredPayments.length === 0 ? (
+            <EmptyState
+              icon="💳"
+              message={
+                paymentSearch.trim()
+                  ? "No hay pagos que coincidan con la búsqueda"
+                  : "Sin pagos registrados"
+              }
+            />
+          ) : (
           <Table headers={["Fecha", "Tipo", "Monto", "Método", "Referencia", "Notas", "Acciones"]}>
-            {payments.slice(0, 20).map((p) => (
+            {filteredPayments.slice(0, 20).map((p) => (
               <tr key={p.id} className="hover:bg-slate-50">
                 <td className="px-4 py-3 text-sm">{p.date}</td>
                 <td className="px-4 py-3">
@@ -230,6 +306,7 @@ export default function CuentasPage() {
               </tr>
             ))}
           </Table>
+          )}
         </Card>
       )}
 

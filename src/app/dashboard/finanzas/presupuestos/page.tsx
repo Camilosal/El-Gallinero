@@ -1,9 +1,11 @@
 "use client";
 
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useMemo } from "react";
 import { PageHeader, Button, Card, Table, Badge, Modal, Input, Select, Textarea, EmptyState, StatCard } from "@/components/ui";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from "recharts";
 import { apiFetch } from "@/lib/fetch";
+import TableSearch from "@/components/TableSearch";
+import { matchesTextQuery } from "@/lib/text";
 
 interface BudgetItem {
   id: string;
@@ -42,10 +44,12 @@ export default function PresupuestosPage() {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [form, setForm] = useState({ name: "", periodStart: "", periodEnd: "", type: budgetTypes[0] });
   const [items, setItems] = useState<{ category: string; description: string; monthlyTarget: string; unit: string }[]>([]);
+  const [search, setSearch] = useState("");
+  const [detailSearch, setDetailSearch] = useState("");
 
   const load = useCallback(() => {
     setLoading(true);
-    apiFetch("/api/finanzas/presupuestos")
+    apiFetch("/api/presupuestos")
       .then((r) => r.json())
       .then(setBudgets)
       .finally(() => setLoading(false));
@@ -55,7 +59,7 @@ export default function PresupuestosPage() {
 
   const openDetail = async (b: Budget) => {
     setDetailBudget(b);
-    const res = await apiFetch(`/api/finanzas/presupuestos/comparativo?budgetId=${b.id}`);
+    const res = await apiFetch(`/api/presupuestos/comparativo?budgetId=${b.id}`);
     if (res.ok) {
       const data = await res.json();
       setComparativo(data.items);
@@ -86,7 +90,7 @@ export default function PresupuestosPage() {
       return setError("Agregue al menos un item con categoría y meta");
     }
 
-    const res = await apiFetch("/api/finanzas/presupuestos", {
+    const res = await apiFetch("/api/presupuestos", {
       method: editingId ? "PUT" : "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ ...(editingId ? { id: editingId } : {}), ...form, items: validItems }),
@@ -104,7 +108,7 @@ export default function PresupuestosPage() {
 
   const removeBudget = async (id: string) => {
     if (!confirm("¿Eliminar este presupuesto?")) return;
-    await apiFetch(`/api/finanzas/presupuestos?id=${id}`, { method: "DELETE" });
+    await apiFetch(`/api/presupuestos?id=${id}`, { method: "DELETE" });
     load();
   };
 
@@ -126,6 +130,32 @@ export default function PresupuestosPage() {
     objetivo: c.target || 0,
     real: c.actual || 0,
   }));
+
+  const filteredBudgets = useMemo(() => {
+    if (!search.trim()) return budgets;
+    return budgets.filter((budget) =>
+      matchesTextQuery(search, [
+        budget.name,
+        budget.type,
+        budget.periodStart,
+        budget.periodEnd,
+        budget.items.map((item) => `${item.category} ${item.description ?? ""}`).join(" "),
+      ]),
+    );
+  }, [budgets, search]);
+
+  const filteredComparativo = useMemo(() => {
+    if (!detailSearch.trim()) return comparativo;
+    return comparativo.filter((item) =>
+      matchesTextQuery(detailSearch, [
+        item.category,
+        item.description,
+        item.monthlyTarget,
+        item.actual,
+        item.target,
+      ]),
+    );
+  }, [comparativo, detailSearch]);
 
   return (
     <div className="space-y-6">
@@ -154,8 +184,26 @@ export default function PresupuestosPage() {
 
           <Card>
             <h3 className="font-semibold text-slate-700 mb-3">Lista de Presupuestos</h3>
+            <TableSearch
+              value={search}
+              onChange={setSearch}
+              placeholder="Buscar por nombre, tipo o período..."
+              resultCount={filteredBudgets.length}
+              totalCount={budgets.length}
+              className="mb-4"
+            />
+            {filteredBudgets.length === 0 ? (
+              <EmptyState
+                icon="📅"
+                message={
+                  search.trim()
+                    ? "No hay presupuestos que coincidan con la búsqueda"
+                    : "No hay presupuestos creados"
+                }
+              />
+            ) : (
             <Table headers={["Nombre", "Tipo", "Período", "Items", "Acciones"]}>
-              {budgets.map((b) => (
+              {filteredBudgets.map((b) => (
                 <tr key={b.id} className="hover:bg-slate-50">
                   <td className="px-4 py-3 text-sm font-medium">{b.name}</td>
                   <td className="px-4 py-3"><Badge color={b.type === "ingreso" ? "green" : b.type === "egreso" ? "red" : "blue"}>{b.type}</Badge></td>
@@ -171,6 +219,7 @@ export default function PresupuestosPage() {
                 </tr>
               ))}
             </Table>
+            )}
           </Card>
         </>
       )}
@@ -187,8 +236,26 @@ export default function PresupuestosPage() {
             <EmptyState icon="📊" message="Sin datos de comparativo" />
           ) : (
             <>
+              <TableSearch
+                value={detailSearch}
+                onChange={setDetailSearch}
+                placeholder="Buscar por categoría o descripción..."
+                resultCount={filteredComparativo.length}
+                totalCount={comparativo.length}
+                className="mb-4"
+              />
+              {filteredComparativo.length === 0 ? (
+                <EmptyState
+                  icon="📊"
+                  message={
+                    detailSearch.trim()
+                      ? "No hay categorías que coincidan con la búsqueda"
+                      : "Sin datos de comparativo"
+                  }
+                />
+              ) : (
               <Table headers={["Categoría", "Objetivo", "Real", "Varianza", "% Varianza", "Progreso"]}>
-                {comparativo.map((c, i) => {
+                {filteredComparativo.map((c, i) => {
                   const progress = c.target && c.target > 0 ? Math.min(100, ((c.actual || 0) / c.target) * 100) : 0;
                   const isOverBudget = (c.variance || 0) > 0 && detailBudget.type === "egreso";
                   return (
@@ -215,6 +282,7 @@ export default function PresupuestosPage() {
                   );
                 })}
               </Table>
+              )}
 
               {/* Variance chart */}
               <div className="mt-6">

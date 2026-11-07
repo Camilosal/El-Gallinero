@@ -10,9 +10,25 @@ import {
   boolean,
   pgEnum,
   uniqueIndex,
+  jsonb,
 } from "drizzle-orm/pg-core";
 
 // ─── Enums ───
+export const animalSpeciesEnum = pgEnum("animal_species", [
+  "gallina",
+  "pollo",
+  "codorniz",
+  "pato",
+  "conejo",
+]);
+
+export const batchPurposeEnum = pgEnum("batch_purpose", [
+  "engorde_carne",
+  "postura_huevo",
+  "pie_cria",
+  "mixto",
+]);
+
 export const henStatusEnum = pgEnum("hen_status", [
   "activa",
   "empollando",
@@ -145,9 +161,14 @@ export const feedMovements = pgTable("feed_movements", {
 export const eggProduction = pgTable("egg_production", {
   id: uuid("id").defaultRandom().primaryKey(),
   date: date("date").notNull(),
+  species: animalSpeciesEnum("species").default("gallina").notNull(),
+  batchId: uuid("batch_id").references(() => broilerBatches.id), // lote atribuible (ej. lote de codornices)
   totalCollected: integer("total_collected").notNull(),
   broken: integer("broken").default(0).notNull(),
   forIncubation: integer("for_incubation").default(0).notNull(),
+  quantityAutoconsumo: integer("quantity_autoconsumo").default(0).notNull(), // asignación a consumo familiar
+  quantityExcedente: integer("quantity_excedente").default(0).notNull(),     // excedente para venta
+  referenceUnitPrice: decimal("reference_unit_price", { precision: 10, scale: 2 }), // valor de mercado para ahorro de autoconsumo
   notes: text("notes"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
@@ -192,17 +213,22 @@ export const roosters = pgTable("roosters", {
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
 
-// ─── Lotes de pollo de engorde ───
+// ─── Lotes de producción / engorde multi-especie ───
 export const broilerBatches = pgTable("broiler_batches", {
   id: uuid("id").defaultRandom().primaryKey(),
   code: varchar("code", { length: 50 }).notNull(),
+  species: animalSpeciesEnum("species").default("pollo").notNull(),
+  purpose: batchPurposeEnum("purpose").default("engorde_carne").notNull(),
+  systemType: varchar("system_type", { length: 50 }).default("piso"), // jaula, pastoreo, piso, baterias
   breed: varchar("breed", { length: 100 }).notNull(),
   startDate: date("start_date").notNull(),
   initialQuantity: integer("initial_quantity").notNull(),
   currentQuantity: integer("current_quantity").notNull(),
   targetWeeks: integer("target_weeks").default(7).notNull(),
+  targetDays: integer("target_days"),
   targetWeightKg: decimal("target_weight_kg", { precision: 6, scale: 2 }).default("2.5").notNull(),
   avgWeightKg: decimal("avg_weight_kg", { precision: 6, scale: 2 }),
+  feedConversionTarget: decimal("feed_conversion_target", { precision: 4, scale: 2 }),
   status: broilerBatchStatusEnum("status").default("activo").notNull(),
   notes: text("notes"),
   acquisitionId: uuid("acquisition_id").references(() => birdAcquisitions.id),
@@ -215,6 +241,7 @@ export const broilerBatches = pgTable("broiler_batches", {
 export const eggSales = pgTable("egg_sales", {
   id: uuid("id").defaultRandom().primaryKey(),
   date: date("date").notNull(),
+  species: animalSpeciesEnum("species").default("gallina").notNull(),
   quantity: integer("quantity").notNull(),
   pricePerUnit: decimal("price_per_unit", { precision: 10, scale: 2 }).notNull(),
   totalAmount: decimal("total_amount", { precision: 12, scale: 2 }).notNull(),
@@ -310,9 +337,16 @@ export const catalogos = pgTable("catalogos", {
   price: decimal("price", { precision: 12, scale: 2 }),
   units: integer("units"), // unidades por presentación (ej: docena = 12, caja x30 = 30)
   tipo: varchar("tipo", { length: 50 }), // subtipo: ej "huevos", "aves", "general" para presentacion_venta
-  minWeeks: integer("min_weeks"), // solo para category = 'etapa_crecimiento'
-  maxWeeks: integer("max_weeks"), // solo para category = 'etapa_crecimiento' (null = abierto)
-  expectedEggsPerHen: decimal("expected_eggs_per_hen", { precision: 4, scale: 2 }), // huevos/gallina/día (solo etapa_crecimiento)
+  minWeeks: integer("min_weeks"), // semanas min (etapa_crecimiento) o semanas ciclo (params_especie)
+  maxWeeks: integer("max_weeks"), // semanas max (etapa_crecimiento) o días ciclo (params_especie)
+  expectedEggsPerHen: decimal("expected_eggs_per_hen", { precision: 4, scale: 2 }), // huevos/ave/día (etapa_crecimiento o params_especie)
+  dailyFeedG: integer("daily_feed_g"), // consumo diario estimado en g/ave/día (params_especie)
+  targetWeightKg: decimal("target_weight_kg", { precision: 6, scale: 2 }), // peso vivo objetivo en kg (params_especie)
+  feedCostPerKg: decimal("feed_cost_per_kg", { precision: 10, scale: 2 }), // costo alimento estimado $/kg (params_especie)
+  feedConversionRatio: decimal("feed_conversion_ratio", { precision: 4, scale: 2 }), // kg alimento / kg peso vivo (params_especie)
+  systemType: varchar("system_type", { length: 50 }), // piso, jaula, pastoreo, baterias (params_especie)
+  description: text("description"), // descripción / notas del registro
+  eggPrice: decimal("egg_price", { precision: 10, scale: 2 }), // precio de referencia por huevo (params_especie)
   sortOrder: integer("sort_order").default(0).notNull(),
   isActive: boolean("is_active").default(true).notNull(),
   createdAt: timestamp("created_at").defaultNow().notNull(),
@@ -343,12 +377,21 @@ export const chickenSales = pgTable("chicken_sales", {
 export const slaughter = pgTable("slaughter", {
   id: uuid("id").defaultRandom().primaryKey(),
   date: date("date").notNull(),
-  birdType: varchar("bird_type", { length: 50 }).notNull(), // gallina_descarte, pollo, gallo
-  quantity: integer("quantity").notNull(), // número de aves sacrificadas
-  weightKg: decimal("weight_kg", { precision: 8, scale: 2 }).notNull(), // peso en canal (kg)
-  destination: varchar("destination", { length: 50 }).notNull().default("consumo_propio"), // venta, consumo_propio, donacion
+  species: animalSpeciesEnum("species").default("pollo").notNull(),
+  birdType: varchar("bird_type", { length: 50 }).notNull(), // gallina_descarte, pollo, gallo, codorniz, pato, conejo
+  quantity: integer("quantity").notNull(), // número de animales sacrificados
+  liveWeightKg: decimal("live_weight_kg", { precision: 8, scale: 2 }), // peso vivo total antes de faena
+  weightKg: decimal("weight_kg", { precision: 8, scale: 2 }).notNull(), // peso en canal limpia (kg)
+  carcassYieldPercent: decimal("carcass_yield_percent", { precision: 5, scale: 2 }), // % rendimiento canal
+  destination: varchar("destination", { length: 50 }).notNull().default("consumo_propio"), // venta, consumo_propio, mixto, donacion
+  headsAutoconsumo: integer("heads_autoconsumo").default(0).notNull(), // cabezas para consumo doméstico
+  weightKgAutoconsumo: decimal("weight_kg_autoconsumo", { precision: 8, scale: 2 }).default("0").notNull(), // kg canal para hogar
+  headsExcedente: integer("heads_excedente").default(0).notNull(),     // cabezas para venta
+  weightKgExcedente: decimal("weight_kg_excedente", { precision: 8, scale: 2 }).default("0").notNull(), // kg canal para venta
   pricePerKg: decimal("price_per_kg", { precision: 10, scale: 2 }), // precio por kg si se vende
   totalAmount: decimal("total_amount", { precision: 12, scale: 2 }), // total si se vende
+  marketReferencePricePerKg: decimal("market_reference_price_per_kg", { precision: 10, scale: 2 }), // precio de ref. de mercado
+  estimatedSavingsAmount: decimal("estimated_savings_amount", { precision: 12, scale: 2 }), // valor económico generado para autoconsumo
   henId: uuid("hen_id").references(() => hens.id), // gallina específica (opcional)
   roosterId: uuid("rooster_id").references(() => roosters.id), // gallo específico (opcional)
   batchId: uuid("batch_id").references(() => broilerBatches.id), // lote de engorde (opcional)
@@ -413,12 +456,13 @@ export const manureProduction = pgTable("manure_production", {
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
-// ─── Adquisición de aves (compra, donación, pollitos) ───
+// ─── Adquisición de aves y animales menores (compra, donación, cría) ───
 export const birdAcquisitions = pgTable("bird_acquisitions", {
   id: uuid("id").defaultRandom().primaryKey(),
   date: date("date").notNull(),
-  acquisitionType: varchar("acquisition_type", { length: 50 }).notNull(), // compra, donacion, pollito_comprado
-  birdType: varchar("bird_type", { length: 50 }).notNull(), // gallina, gallo, lote_pollos
+  species: animalSpeciesEnum("species").default("pollo"),
+  acquisitionType: varchar("acquisition_type", { length: 50 }).notNull(), // compra, donacion, pollito_comprado, gazapo, etc.
+  birdType: varchar("bird_type", { length: 50 }).notNull(), // gallina, gallo, lote_pollos, codorniz, pato, conejo
   quantity: integer("quantity").notNull(),
   unitCost: decimal("unit_cost", { precision: 12, scale: 2 }),
   totalCost: decimal("total_cost", { precision: 12, scale: 2 }),
@@ -433,6 +477,7 @@ export const birdAcquisitions = pgTable("bird_acquisitions", {
 export const mortalityRecords = pgTable("mortality_records", {
   id: uuid("id").defaultRandom().primaryKey(),
   date: date("date").notNull(),
+  species: animalSpeciesEnum("species").default("pollo"),
   birdType: varchar("bird_type", { length: 50 }).notNull(),
   quantity: integer("quantity").notNull(),
   cause: mortalityCauseEnum("cause").notNull(),
@@ -487,6 +532,7 @@ export const supplyMovements = pgTable("supply_movements", {
 export const meatSales = pgTable("meat_sales", {
   id: uuid("id").defaultRandom().primaryKey(),
   date: date("date").notNull(),
+  species: animalSpeciesEnum("species").default("pollo").notNull(),
   quantityKg: decimal("quantity_kg", { precision: 8, scale: 2 }).notNull(),
   pricePerKg: decimal("price_per_kg", { precision: 10, scale: 2 }).notNull(),
   totalAmount: decimal("total_amount", { precision: 12, scale: 2 }).notNull(),
@@ -502,6 +548,23 @@ export const meatLosses = pgTable("meat_losses", {
   date: date("date").notNull(),
   quantityKg: decimal("quantity_kg", { precision: 8, scale: 2 }).notNull(),
   reason: varchar("reason", { length: 50 }).notNull(),
+  notes: text("notes"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+// ─── Registro de Autoconsumo / Soberanía Alimentaria Familiar ───
+export const autoconsumoLogs = pgTable("autoconsumo_logs", {
+  id: uuid("id").defaultRandom().primaryKey(),
+  date: date("date").notNull(),
+  species: animalSpeciesEnum("species").notNull(),
+  productType: varchar("product_type", { length: 50 }).notNull(), // 'huevo', 'carne_canal', 'visceras_subproducto', 'abono_huerta'
+  quantity: decimal("quantity", { precision: 10, scale: 2 }).notNull(), // unidades o kg
+  unit: varchar("unit", { length: 30 }).notNull(), // 'unidades', 'kg', 'docenas'
+  marketReferencePrice: decimal("market_reference_price", { precision: 10, scale: 2 }).notNull(),
+  savingsAmount: decimal("savings_amount", { precision: 12, scale: 2 }).notNull(), // quantity * marketReferencePrice
+  destinationHousehold: varchar("destination_household", { length: 100 }).default("Familia Granja"),
+  batchId: uuid("batch_id").references(() => broilerBatches.id),
+  slaughterId: uuid("slaughter_id").references(() => slaughter.id),
   notes: text("notes"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
@@ -663,6 +726,67 @@ export const weightLogs = pgTable("weight_logs", {
 });
 
 // ─── Productos de compra frecuente (Egresos rápidos) ───
+// ─── Parámetros globales editables (clave/valor) ───
+export const appSettings = pgTable("app_settings", {
+  id: uuid("id").defaultRandom().primaryKey(),
+  key: varchar("key", { length: 100 }).notNull().unique(),
+  value: text("value").notNull(),
+  updatedBy: uuid("updated_by").references(() => users.id),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
+// ─── Plantillas de vacunación / plan sanitario por especie o raza ───
+export const vaccinationTemplates = pgTable("vaccination_templates", {
+  id: uuid("id").defaultRandom().primaryKey(),
+  species: varchar("species", { length: 50 }).default("gallina").notNull(),
+  breed: varchar("breed", { length: 100 }).default("").notNull(),
+  weekNumber: integer("week_number").notNull(),
+  name: varchar("name", { length: 200 }).notNull(),
+  description: text("description"),
+  type: varchar("type", { length: 50 }).default("vacunacion").notNull(),
+  frequencyDays: integer("frequency_days"),
+  isActive: boolean("is_active").default(true).notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+}, (t) => [
+  uniqueIndex("vaccination_template_unique_idx").on(t.species, t.breed, t.weekNumber, t.name),
+]);
+
+// ─── Agente IA: conversaciones, mensajes y acciones auditables ───
+export const aiConversations = pgTable("ai_conversations", {
+  id: uuid("id").defaultRandom().primaryKey(),
+  userId: uuid("user_id").references(() => users.id, { onDelete: "cascade" }).notNull(),
+  title: varchar("title", { length: 200 }).default("Nueva conversación").notNull(),
+  isArchived: boolean("is_archived").default(false).notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
+export const aiMessages = pgTable("ai_messages", {
+  id: uuid("id").defaultRandom().primaryKey(),
+  conversationId: uuid("conversation_id").references(() => aiConversations.id, { onDelete: "cascade" }).notNull(),
+  role: varchar("role", { length: 20 }).notNull(), // system | user | assistant | tool
+  content: text("content"),
+  toolCalls: jsonb("tool_calls"),
+  toolCallId: varchar("tool_call_id", { length: 100 }),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+export const aiActions = pgTable("ai_actions", {
+  id: uuid("id").defaultRandom().primaryKey(),
+  conversationId: uuid("conversation_id").references(() => aiConversations.id, { onDelete: "cascade" }).notNull(),
+  messageId: uuid("message_id").references(() => aiMessages.id, { onDelete: "set null" }),
+  userId: uuid("user_id").references(() => users.id, { onDelete: "cascade" }).notNull(),
+  toolName: varchar("tool_name", { length: 100 }).notNull(),
+  args: jsonb("args").notNull(),
+  summary: text("summary").notNull(),
+  status: varchar("status", { length: 20 }).default("pending").notNull(), // pending | executed | failed | cancelled
+  result: jsonb("result"),
+  error: text("error"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  executedAt: timestamp("executed_at"),
+});
+
 export const purchaseProducts = pgTable("purchase_products", {
   id: uuid("id").defaultRandom().primaryKey(),
   name: varchar("name", { length: 200 }).notNull(),

@@ -1,14 +1,29 @@
 "use client";
 
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useMemo } from "react";
 import Link from "next/link";
-import { PageHeader, Card, Table, StatCard, EmptyState, Button } from "@/components/ui";
+import { PageHeader, Card, Table, StatCard, EmptyState, Button, Badge } from "@/components/ui";
 import { apiFetch } from "@/lib/fetch";
+import TableSearch from "@/components/TableSearch";
+import { matchesTextQuery } from "@/lib/text";
+import { SPECIES_ICON, SPECIES_LABEL } from "@/lib/species-params";
+
+interface MeatSpeciesSummary {
+  species: string;
+  producedKg: number;
+  availableKg: number;
+  estimatedPriceKg: number;
+  estimatedValue: number;
+}
 
 interface MeatLot {
   id: string;
   date: string;
+  species: string;
   birdType: string;
+  destination?: string | null;
+  weightKgAutoconsumo?: number | null;
+  weightKgExcedente?: number | null;
   quantityKg: number;
   soldKg: number;
   lostKg: number;
@@ -23,6 +38,7 @@ interface InventoryData {
     lost: number;
     available: number;
     value: number;
+    bySpecies?: MeatSpeciesSummary[];
   };
   lots: MeatLot[];
   oldestLot: MeatLot | null;
@@ -30,14 +46,19 @@ interface InventoryData {
 }
 
 const birdTypeLabels: Record<string, string> = {
-  gallina_descarte: "Gallina",
+  gallina_descarte: "Gallina descarte",
   pollo: "Pollo",
   gallo: "Gallo",
+  codorniz: "Codorniz",
+  pato: "Pato",
+  conejo: "Conejo",
 };
 
 export default function InventarioCarnePage() {
   const [data, setData] = useState<InventoryData | null>(null);
   const [loading, setLoading] = useState(true);
+  const [search, setSearch] = useState("");
+  const [selectedSpeciesFilter, setSelectedSpeciesFilter] = useState<string>("all");
 
   const load = useCallback(() => {
     apiFetch("/api/inventarios/carne").then((r) => r.json()).then(setData).finally(() => setLoading(false));
@@ -45,56 +66,177 @@ export default function InventarioCarnePage() {
 
   useEffect(() => { load(); }, [load]);
 
+  const filteredLots = useMemo(() => {
+    const lots = data?.lots ?? [];
+    return lots.filter((lot) => {
+      const sp = lot.species || "pollo";
+      if (selectedSpeciesFilter !== "all" && sp !== selectedSpeciesFilter) {
+        return false;
+      }
+      if (!search.trim()) return true;
+      return matchesTextQuery(search, [
+        lot.date,
+        new Date(lot.date + "T12:00:00").toLocaleDateString("es"),
+        sp,
+        SPECIES_LABEL[sp],
+        birdTypeLabels[lot.birdType] || lot.birdType,
+        lot.destination,
+        lot.quantityKg,
+        lot.soldKg,
+        lot.lostKg,
+        lot.remainingKg,
+        lot.ageDays,
+      ]);
+    });
+  }, [data, search, selectedSpeciesFilter]);
+
   return (
     <div>
       <PageHeader
-        title="🍗 Inventario de Carne"
-        description="Stock de carne disponible: producido (sacrificio) - vendido - perdido. Consumo FIFO."
-        help="Inventario de carne disponible proveniente de sacrificios. Se muestra lo producido, vendido, perdido y restante por lote. Usa consumo FIFO (First In, First Out). Desde aquí puedes registrar ventas directamente o ver el historial de lotes. El valor estimado se calcula con el costo de producción."
+        title="🥩 Inventario de Carne Multiespecie"
+        description="Stock de carne limpia en frío: pollo, gallina, codorniz, pato y conejo. Consumo FIFO."
+        help="Inventario de carne disponible proveniente de faenas. Se muestra lo producido, vendido, perdido y disponible por especie y lote. Los precios de valoración se basan en el mercado local por kg canal."
         actions={
           <div className="flex gap-2">
-            <Link href="/dashboard/finanzas/ventas?tab=carne"><Button>+ Registrar Venta</Button></Link>
+            <Link href="/dashboard/produccion/sacrificio"><Button variant="secondary">🍗 Registrar Faena</Button></Link>
+            <Link href="/dashboard/finanzas/ventas?tab=carne"><Button>+ Registrar Venta de Carne</Button></Link>
           </div>
         }
       />
 
+      {/* StatCards Principales */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
-        <StatCard icon="🍗" label="Producido (kg)" value={(data?.summary.produced ?? 0).toFixed(1)} color="green" />
-        <StatCard icon="💰" label="Vendido (kg)" value={(data?.summary.sold ?? 0).toFixed(1)} color="blue" />
-        <StatCard icon="📦" label="Disponible (kg)" value={(data?.summary.available ?? 0).toFixed(1)} color="yellow" />
-        <StatCard icon="🗑️" label="Perdido (kg)" value={(data?.summary.lost ?? 0).toFixed(1)} color="red" />
+        <StatCard icon="🥩" label="Producido Total (kg)" value={(data?.summary.produced ?? 0).toFixed(1)} color="green" />
+        <StatCard icon="💰" label="Vendido Total (kg)" value={(data?.summary.sold ?? 0).toFixed(1)} color="blue" />
+        <StatCard icon="📦" label="Disponible en Frío (kg)" value={(data?.summary.available ?? 0).toFixed(1)} color="yellow" />
+        <StatCard icon="💵" label="Valor Estimado Stock" value={`$${Math.round(data?.estimatedValue ?? 0).toLocaleString("es-CO")}`} color="purple" />
       </div>
+
+      {/* Desglose por Especie */}
+      {data?.summary.bySpecies && data.summary.bySpecies.length > 0 && (
+        <Card className="mb-6">
+          <h3 className="font-semibold text-slate-700 mb-3">🏷️ Disponibilidad y Valoración por Especie</h3>
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
+            {data.summary.bySpecies.map((spData) => {
+              const icon = SPECIES_ICON[spData.species] || "🥩";
+              const label = SPECIES_LABEL[spData.species] || spData.species;
+              return (
+                <div key={spData.species} className="p-3 bg-slate-50 rounded-lg border border-slate-200">
+                  <div className="flex items-center justify-between mb-1">
+                    <span className="font-bold text-slate-800 text-sm">{icon} {label}</span>
+                    <span className="text-[11px] text-slate-500">${spData.estimatedPriceKg.toLocaleString("es-CO")}/kg</span>
+                  </div>
+                  <div className="text-xl font-bold text-emerald-700">
+                    {spData.availableKg.toFixed(1)} <span className="text-xs text-slate-500 font-normal">kg disp.</span>
+                  </div>
+                  <div className="text-xs text-slate-500 mt-1">
+                    Valor: ${spData.estimatedValue.toLocaleString("es-CO")}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </Card>
+      )}
 
       {loading ? (
         <Card><p className="text-center py-8 text-slate-400">Cargando...</p></Card>
       ) : data && data.summary.produced > 0 ? (
         <Card>
-          <h3 className="font-semibold text-slate-700 mb-4">Lotes de Carne (FIFO)</h3>
-          {data.lots.length === 0 ? (
-            <EmptyState icon="🍗" message="No hay lotes en inventario" />
+          {/* Filtros por Especie y Buscador */}
+          <div className="flex flex-wrap items-center justify-between gap-3 mb-4 pb-3 border-b border-slate-100">
+            <div className="flex flex-wrap gap-1">
+              {[
+                { id: "all", label: "Todas las Carnes", icon: "🌐" },
+                { id: "pollo", label: "Pollo", icon: "🐓" },
+                { id: "gallina", label: "Gallina", icon: "🐔" },
+                { id: "codorniz", label: "Codorniz", icon: "🥚" },
+                { id: "pato", label: "Pato", icon: "🦆" },
+                { id: "conejo", label: "Conejo", icon: "🐇" },
+              ].map((sp) => {
+                const isSelected = selectedSpeciesFilter === sp.id;
+                const count = sp.id === "all"
+                  ? data.lots.length
+                  : data.lots.filter((l) => (l.species || "pollo") === sp.id).length;
+                return (
+                  <button
+                    key={sp.id}
+                    onClick={() => setSelectedSpeciesFilter(sp.id)}
+                    className={`px-3 py-1.5 rounded-full text-xs font-medium transition-all ${
+                      isSelected
+                        ? "bg-emerald-600 text-white shadow-sm"
+                        : "bg-slate-100 text-slate-600 hover:bg-slate-200"
+                    }`}
+                  >
+                    {sp.icon} {sp.label} ({count})
+                  </button>
+                );
+              })}
+            </div>
+
+            <TableSearch
+              value={search}
+              onChange={setSearch}
+              placeholder="Buscar por fecha, especie, edad..."
+              resultCount={filteredLots.length}
+              totalCount={data.lots.length}
+              className="w-full sm:w-64"
+            />
+          </div>
+
+          {filteredLots.length === 0 ? (
+            <EmptyState
+              icon="🥩"
+              message={
+                search.trim() || selectedSpeciesFilter !== "all"
+                  ? "No hay lotes de carne que coincidan con los filtros"
+                  : "No hay lotes de carne en inventario"
+              }
+            />
           ) : (
-            <Table headers={["Fecha", "Origen", "Producido (kg)", "Vendido (kg)", "Perdido (kg)", "Disponible (kg)", "Edad (días)"]}>
-              {data.lots.map((lot) => (
-                <tr key={lot.id} className={`hover:bg-slate-50 ${lot.remainingKg <= 0 ? "opacity-50" : ""}`}>
-                  <td className="px-4 py-3">{new Date(lot.date + "T12:00:00").toLocaleDateString("es")}</td>
-                  <td className="px-4 py-3 text-sm">{birdTypeLabels[lot.birdType] || lot.birdType}</td>
-                  <td className="px-4 py-3">{lot.quantityKg.toFixed(1)}</td>
-                  <td className="px-4 py-3">{lot.soldKg.toFixed(1)}</td>
-                  <td className="px-4 py-3">{lot.lostKg.toFixed(1)}</td>
-                  <td className="px-4 py-3 font-bold text-green-600">{lot.remainingKg.toFixed(1)}</td>
-                  <td className="px-4 py-3 text-sm">
-                    <span className={lot.ageDays > 30 ? "text-red-600 font-semibold" : lot.ageDays > 14 ? "text-yellow-600" : "text-slate-600"}>
-                      {lot.ageDays} días
-                    </span>
-                  </td>
-                </tr>
-              ))}
+            <Table headers={["Fecha", "Especie / Tipo", "Destino Lote", "Producido (kg)", "Vendido (kg)", "Disponible (kg)", "Tiempo en Frío"]}>
+              {filteredLots.map((lot) => {
+                const sp = lot.species || "pollo";
+                const icon = SPECIES_ICON[sp] || "🥩";
+                const isAvailable = lot.remainingKg > 0;
+
+                return (
+                  <tr key={lot.id} className={`hover:bg-slate-50 ${!isAvailable ? "opacity-50" : ""}`}>
+                    <td className="px-4 py-3 text-sm font-medium">
+                      {new Date(lot.date + "T12:00:00").toLocaleDateString("es")}
+                    </td>
+                    <td className="px-4 py-3 text-sm">
+                      <div className="font-semibold text-slate-800 flex items-center gap-1">
+                        <span>{icon}</span>
+                        <span>{SPECIES_LABEL[sp] || sp}</span>
+                      </div>
+                      <span className="text-xs text-slate-400">{birdTypeLabels[lot.birdType] || lot.birdType}</span>
+                    </td>
+                    <td className="px-4 py-3 text-xs">
+                      {lot.destination === "consumo_propio" && <Badge color="green">🏡 Hogar</Badge>}
+                      {lot.destination === "venta" && <Badge color="blue">💰 Venta</Badge>}
+                      {lot.destination === "mixto" && <Badge color="purple">⚖️ Dual</Badge>}
+                      {!lot.destination && <Badge color="gray">General</Badge>}
+                    </td>
+                    <td className="px-4 py-3 text-sm">{lot.quantityKg.toFixed(1)} kg</td>
+                    <td className="px-4 py-3 text-sm text-slate-600">{lot.soldKg.toFixed(1)} kg</td>
+                    <td className="px-4 py-3 font-bold text-emerald-700 text-sm">
+                      {lot.remainingKg.toFixed(1)} kg
+                    </td>
+                    <td className="px-4 py-3 text-sm">
+                      <span className={lot.ageDays > 30 ? "text-red-600 font-semibold" : lot.ageDays > 14 ? "text-yellow-600" : "text-slate-600"}>
+                        {lot.ageDays} días
+                      </span>
+                    </td>
+                  </tr>
+                );
+              })}
             </Table>
           )}
         </Card>
       ) : (
         <Card>
-          <EmptyState icon="🍗" message="No hay producción de carne registrada. Registra sacrificios desde Producción → Carne." />
+          <EmptyState icon="🥩" message="No hay producción de carne registrada. Registra faenas desde Producción → Faena." />
         </Card>
       )}
     </div>

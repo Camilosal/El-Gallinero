@@ -1,8 +1,16 @@
 "use client";
 
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useMemo } from "react";
 import { PageHeader, Button, Card, Table, Badge, Modal, Input, EmptyState } from "@/components/ui";
 import { apiFetch } from "@/lib/fetch";
+import TableSearch from "@/components/TableSearch";
+import { matchesTextQuery } from "@/lib/text";
+import ParametrosTab from "./_components/ParametrosTab";
+import EspeciesTab from "./_components/EspeciesTab";
+import VacunasTab from "./_components/VacunasTab";
+import PesosTab from "./_components/PesosTab";
+import GallinazaTab from "./_components/GallinazaTab";
+import AlimentacionTab from "./_components/AlimentacionTab";
 
 interface CatalogItem {
   id: string;
@@ -10,6 +18,13 @@ interface CatalogItem {
   value: string;
   price: string | null;
   units: number | null;
+  tipo: string | null;
+  minWeeks: number | null;
+  maxWeeks: number | null;
+  expectedEggsPerHen: string | null;
+  dailyFeedG: number | null;
+  targetWeightKg: string | null;
+  feedCostPerKg: string | null;
   sortOrder: number;
   isActive: boolean;
 }
@@ -31,9 +46,10 @@ const CATEGORIES: { key: string; label: string; icon: string }[] = [
   { key: "categoria_alimento", label: "Cat. Alimento", icon: "🌿" },
   { key: "tipo_alimento", label: "Tipos de alimento", icon: "🌾" },
   { key: "tipo_ave", label: "Tipos de ave", icon: "🐓" },
+  { key: "etapa_crecimiento", label: "Etapas de Crecimiento", icon: "🌱" },
 ];
 
-export default function CatalogosPage() {
+function ListasTab() {
   const [items, setItems] = useState<CatalogItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [activeCat, setActiveCat] = useState("raza");
@@ -42,7 +58,15 @@ export default function CatalogosPage() {
   const [value, setValue] = useState("");
   const [price, setPrice] = useState("");
   const [units, setUnits] = useState("");
+  const [tipo, setTipo] = useState("");
+  const [minWeeks, setMinWeeks] = useState("");
+  const [maxWeeks, setMaxWeeks] = useState("");
+  const [expectedEggsPerHen, setExpectedEggsPerHen] = useState("");
+  const [dailyFeedG, setDailyFeedG] = useState("");
+  const [targetWeightKg, setTargetWeightKg] = useState("");
+  const [feedCostPerKg, setFeedCostPerKg] = useState("");
   const [error, setError] = useState("");
+  const [search, setSearch] = useState("");
 
   const load = useCallback(() => {
     apiFetch("/api/configuracion/catalogos").then((r) => r.json()).then(setItems).finally(() => setLoading(false));
@@ -53,11 +77,31 @@ export default function CatalogosPage() {
   const filtered = items.filter((i) => i.category === activeCat);
   const activeCount = filtered.filter((i) => i.isActive).length;
 
+  const searched = useMemo(() => {
+    if (!search.trim()) return filtered;
+    return filtered.filter((item) =>
+      matchesTextQuery(search, [
+        item.value,
+        item.price,
+        item.units,
+        item.sortOrder,
+        item.isActive ? "activo" : "inactivo",
+      ]),
+    );
+  }, [filtered, search]);
+
   const openNew = () => {
     setEditing(null);
     setValue("");
     setPrice("");
     setUnits("");
+    setTipo("");
+    setMinWeeks("");
+    setMaxWeeks("");
+    setExpectedEggsPerHen("");
+    setDailyFeedG("");
+    setTargetWeightKg("");
+    setFeedCostPerKg("");
     setError("");
     setModalOpen(true);
   };
@@ -67,6 +111,13 @@ export default function CatalogosPage() {
     setValue(item.value);
     setPrice(item.price || "");
     setUnits(item.units != null ? String(item.units) : "");
+    setTipo(item.tipo || "");
+    setMinWeeks(item.minWeeks != null ? String(item.minWeeks) : "");
+    setMaxWeeks(item.maxWeeks != null ? String(item.maxWeeks) : "");
+    setExpectedEggsPerHen(item.expectedEggsPerHen || "");
+    setDailyFeedG(item.dailyFeedG != null ? String(item.dailyFeedG) : "");
+    setTargetWeightKg(item.targetWeightKg || "");
+    setFeedCostPerKg(item.feedCostPerKg || "");
     setError("");
     setModalOpen(true);
   };
@@ -76,7 +127,9 @@ export default function CatalogosPage() {
     const v = value.trim();
     if (!v) { setError("El valor no puede estar vacío"); return; }
     const method = editing ? "PUT" : "POST";
-    const body = editing ? { id: editing.id, value: v, price, units } : { category: activeCat, value: v, price, units };
+    const body = editing
+      ? { id: editing.id, value: v, price, units, tipo, minWeeks, maxWeeks, expectedEggsPerHen, dailyFeedG, targetWeightKg, feedCostPerKg }
+      : { category: activeCat, value: v, price, units, tipo, minWeeks, maxWeeks, expectedEggsPerHen, dailyFeedG, targetWeightKg, feedCostPerKg };
     const res = await apiFetch("/api/configuracion/catalogos", { method, headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
     if (!res.ok) {
       const data = await res.json().catch(() => ({}));
@@ -100,12 +153,6 @@ export default function CatalogosPage() {
 
   return (
     <div>
-      <PageHeader
-        title="🗂️ Catálogos y Datos Maestros"
-        description="Administra las opciones de los campos de selección: razas, compradores, proveedores, unidades, tamaños y más"
-        help="Aquí se administran todos los catálogos del sistema: las opciones que aparecen en los campos de selección (dropdowns) de todo el gallinero. Incluye razas de aves, compradores, proveedores, unidades de medida, tamaños de huevo, categorías de insumos, motivos de movimiento, presentaciones, y más. Agregar o editar opciones aquí se refleja inmediatamente en todos los formularios del sistema."
-      />
-
       <div className="flex flex-wrap gap-2 mb-6">
         {CATEGORIES.map((c) => (
           <button
@@ -140,13 +187,56 @@ export default function CatalogosPage() {
         ) : filtered.length === 0 ? (
           <EmptyState icon="🗂️" message="No hay valores en este catálogo" />
         ) : (
-          <Table headers={["Valor", "Precio", "Unidades", "Orden", "Estado", ""]}>
-            {filtered.map((item) => (
+          <>
+          <TableSearch
+            value={search}
+            onChange={setSearch}
+            placeholder="Buscar valor en este catálogo..."
+            resultCount={searched.length}
+            totalCount={filtered.length}
+            className="mb-4"
+          />
+          {searched.length === 0 ? (
+            <EmptyState
+              icon="🗂️"
+              message={
+                search.trim()
+                  ? "No hay valores que coincidan con la búsqueda"
+                  : "No hay valores en este catálogo"
+              }
+            />
+          ) : (
+          <Table headers={
+            activeCat === "etapa_crecimiento"
+              ? ["Etapa", "Especie (tipo)", "Sem. Mín", "Sem. Máx", "Huevos/día", "Estado", ""]
+              : activeCat === "params_especie"
+              ? ["Especie / Raza", "$/kg canal", "Rdto. canal %", "Ciclo sem.", "g/día/ave", "Estado", ""]
+              : ["Valor", "Precio", "Unidades", "Orden", "Estado", ""]
+          }>
+            {searched.map((item) => (
               <tr key={item.id} className="hover:bg-slate-50">
                 <td className="px-4 py-3 font-medium">{item.value}</td>
-                <td className="px-4 py-3 text-sm">{item.price ? `$${Number(item.price).toLocaleString()}` : "—"}</td>
-                <td className="px-4 py-3 text-sm">{item.units != null ? item.units : "—"}</td>
-                <td className="px-4 py-3 text-sm text-slate-400">{item.sortOrder}</td>
+                {activeCat === "etapa_crecimiento" ? (
+                  <>
+                    <td className="px-4 py-3 text-sm">{item.tipo || "—"}</td>
+                    <td className="px-4 py-3 text-sm">{item.minWeeks != null ? `${item.minWeeks} sem` : "—"}</td>
+                    <td className="px-4 py-3 text-sm">{item.maxWeeks != null ? `${item.maxWeeks} sem` : "—"}</td>
+                    <td className="px-4 py-3 text-sm">{item.expectedEggsPerHen ? item.expectedEggsPerHen : "—"}</td>
+                  </>
+                ) : activeCat === "params_especie" ? (
+                  <>
+                    <td className="px-4 py-3 text-sm">{item.price ? `$${Number(item.price).toLocaleString()}` : "—"}</td>
+                    <td className="px-4 py-3 text-sm">{item.units != null ? `${item.units}%` : "—"}</td>
+                    <td className="px-4 py-3 text-sm">{item.minWeeks != null ? `${item.minWeeks}` : "—"}</td>
+                    <td className="px-4 py-3 text-sm">{item.dailyFeedG != null ? `${item.dailyFeedG} g` : "—"}</td>
+                  </>
+                ) : (
+                  <>
+                    <td className="px-4 py-3 text-sm">{item.price ? `$${Number(item.price).toLocaleString()}` : "—"}</td>
+                    <td className="px-4 py-3 text-sm">{item.units != null ? item.units : "—"}</td>
+                    <td className="px-4 py-3 text-sm text-slate-400">{item.sortOrder}</td>
+                  </>
+                )}
                 <td className="px-4 py-3">
                   <Badge color={item.isActive ? "green" : "gray"}>{item.isActive ? "Activo" : "Inactivo"}</Badge>
                 </td>
@@ -162,6 +252,8 @@ export default function CatalogosPage() {
               </tr>
             ))}
           </Table>
+          )}
+          </>
         )}
       </Card>
 
@@ -177,7 +269,13 @@ export default function CatalogosPage() {
             help="El texto que aparecerá en el campo de selección del catálogo"
           />
           <Input
-            label={`Precio ($)${activeCat === "tamano_huevo" ? " — se usará al vender" : " — opcional"}`}
+            label={
+              activeCat === "params_especie"
+                ? "Precio de mercado $/kg canal (COP)"
+                : activeCat === "tamano_huevo"
+                ? "Precio ($) — se usará al vender"
+                : "Precio ($) — opcional"
+            }
             type="number"
             step="0.01"
             min="0"
@@ -198,12 +296,175 @@ export default function CatalogosPage() {
               help="Cuántas unidades contiene esta presentación (ej: docena = 12)"
             />
           )}
+          {/* Especie/tipo — para params_especie y etapa_crecimiento */}
+          {(activeCat === "params_especie" || activeCat === "etapa_crecimiento") && (
+            <Input
+              label="Especie (tipo)"
+              value={tipo}
+              onChange={(e) => setTipo(e.target.value)}
+              placeholder="Ej: pollo, gallina, codorniz, pato, conejo"
+              help="Especie o subtipo al que pertenece este registro"
+            />
+          )}
+          {/* Campos para etapa_crecimiento */}
+          {activeCat === "etapa_crecimiento" && (
+            <>
+              <div className="grid grid-cols-2 gap-3">
+                <Input
+                  label="Semanas mínimas"
+                  type="number"
+                  min="0"
+                  step="1"
+                  value={minWeeks}
+                  onChange={(e) => setMinWeeks(e.target.value)}
+                  placeholder="Ej: 0"
+                />
+                <Input
+                  label="Semanas máximas"
+                  type="number"
+                  min="0"
+                  step="1"
+                  value={maxWeeks}
+                  onChange={(e) => setMaxWeeks(e.target.value)}
+                  placeholder="Ej: 6 (vacío = abierto)"
+                />
+              </div>
+              <Input
+                label="Huevos/ave/día (esperados)"
+                type="number"
+                step="0.01"
+                min="0"
+                max="1"
+                value={expectedEggsPerHen}
+                onChange={(e) => setExpectedEggsPerHen(e.target.value)}
+                placeholder="Ej: 0.85"
+                help="Solo para etapas de postura. 0 = no produce huevos."
+              />
+            </>
+          )}
+          {/* Campos para params_especie */}
+          {activeCat === "params_especie" && (
+            <>
+              <div className="grid grid-cols-2 gap-3">
+                <Input
+                  label="Rendimiento canal (%)"
+                  type="number"
+                  min="0"
+                  max="100"
+                  step="1"
+                  value={units}
+                  onChange={(e) => setUnits(e.target.value)}
+                  placeholder="Ej: 72"
+                  help="Porcentaje de peso vivo que se convierte en canal"
+                />
+                <Input
+                  label="Semanas de ciclo"
+                  type="number"
+                  min="1"
+                  step="1"
+                  value={minWeeks}
+                  onChange={(e) => setMinWeeks(e.target.value)}
+                  placeholder="Ej: 7"
+                  help="Duración total del ciclo productivo en semanas"
+                />
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <Input
+                  label="Peso objetivo vivo (kg)"
+                  type="number"
+                  step="0.01"
+                  min="0"
+                  value={targetWeightKg}
+                  onChange={(e) => setTargetWeightKg(e.target.value)}
+                  placeholder="Ej: 2.5"
+                />
+                <Input
+                  label="Consumo diario (g/ave/día)"
+                  type="number"
+                  min="0"
+                  step="1"
+                  value={dailyFeedG}
+                  onChange={(e) => setDailyFeedG(e.target.value)}
+                  placeholder="Ej: 120"
+                />
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <Input
+                  label="Costo alimento ($/kg)"
+                  type="number"
+                  min="0"
+                  value={feedCostPerKg}
+                  onChange={(e) => setFeedCostPerKg(e.target.value)}
+                  placeholder="Ej: 2800"
+                />
+                <Input
+                  label="Huevos/hembra/día (si aplica)"
+                  type="number"
+                  step="0.01"
+                  min="0"
+                  max="1"
+                  value={expectedEggsPerHen}
+                  onChange={(e) => setExpectedEggsPerHen(e.target.value)}
+                  placeholder="Ej: 0.9 (codorniz)"
+                />
+              </div>
+            </>
+          )}
           <div className="flex gap-3">
             <Button onClick={save}>{editing ? "Actualizar" : "Agregar"}</Button>
             <Button variant="secondary" onClick={() => setModalOpen(false)}>Cancelar</Button>
           </div>
         </div>
       </Modal>
+    </div>
+  );
+}
+
+const TABS = [
+  { key: "listas", label: "Listas", icon: "🗂️" },
+  { key: "parametros", label: "Parámetros globales", icon: "⚙️" },
+  { key: "especies", label: "Especies", icon: "📊" },
+  { key: "vacunas", label: "Vacunas", icon: "💉" },
+  { key: "pesos", label: "Estándares de peso", icon: "⚖️" },
+  { key: "gallinaza", label: "Factores de gallinaza", icon: "🌱" },
+  { key: "alimentacion", label: "Programas de alimentación", icon: "🌾" },
+];
+
+export default function CatalogosPage() {
+  const [tab, setTab] = useState("listas");
+
+  return (
+    <div>
+      <PageHeader
+        title="🗂️ Catálogos y Datos Maestros"
+        description="Administra listas, parámetros de cálculo y tablas técnicas que alimentan todo el sistema"
+        help="Este es el centro de datos maestros del gallinero. En 'Listas' están las opciones de los campos de selección (razas, compradores, proveedores, unidades, tamaños, etc.). En 'Parámetros globales' están los valores de cálculo (ciclo de vida, parvada, precios de valoración, validaciones). En las demás pestañas se administran los parámetros por especie, las plantillas de vacunación, los estándares de peso, los factores de gallinaza y los programas de alimentación. Todo lo que cambie aquí se refleja de inmediato en los formularios, cálculos y reportes."
+      />
+
+      <div className="flex flex-wrap gap-2 mb-6">
+        {TABS.map((item) => (
+          <button
+            key={item.key}
+            onClick={() => setTab(item.key)}
+            className={`px-4 py-2 rounded-xl text-sm font-medium transition-colors border ${
+              tab === item.key
+                ? "bg-green-700 text-white border-green-700"
+                : "bg-white text-slate-600 border-slate-200 hover:bg-slate-50"
+            }`}
+          >
+            <span className="mr-1">{item.icon}</span>
+            {item.label}
+          </button>
+        ))}
+      </div>
+
+      {tab === "listas" && <ListasTab />}
+      {tab === "parametros" && <ParametrosTab />}
+      {tab === "especies" && <EspeciesTab />}
+      {tab === "vacunas" && <VacunasTab />}
+      {tab === "pesos" && <PesosTab />}
+      {tab === "gallinaza" && <GallinazaTab />}
+      {tab === "alimentacion" && <AlimentacionTab />}
     </div>
   );
 }

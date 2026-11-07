@@ -2,8 +2,10 @@
 
 import { useEffect, useState, useCallback, useMemo } from "react";
 import { PageHeader, Button, Card, Table, Badge, Modal, Input, Select, Textarea, EmptyState } from "@/components/ui";
+import TableSearch from "@/components/TableSearch";
 import { useCatalog } from "@/lib/useCatalog";
 import { apiFetch } from "@/lib/fetch";
+import { matchesTextQuery } from "@/lib/text";
 import { QrGeneratorButton } from "./QrGenerator";
 
 interface Hen {
@@ -90,6 +92,7 @@ export default function GallinasPage() {
   const [form, setForm] = useState({ code: "", breed: "", birthDate: "", status: "activa", weight: "", notes: "", isBroody: false, clutchSize: 0 });
   const [filter, setFilter] = useState("todos");
   const [stageFilter, setStageFilter] = useState("todas");
+  const [search, setSearch] = useState("");
   const { values: breedOptions } = useCatalog("raza", breeds);
   const { values: statusOptions } = useCatalog("estado_gallina", statusFallback);
 
@@ -148,8 +151,20 @@ export default function GallinasPage() {
     if (stageFilter !== "todas") {
       result = result.filter((h) => henStage(h) === stageFilter);
     }
+    if (search.trim()) {
+      result = result.filter((h) =>
+        matchesTextQuery(search, [
+          h.code,
+          h.breed,
+          henStage(h),
+          statusLabels[h.status] || h.status,
+          h.notes,
+          h.lifecycleReasons?.join(" "),
+        ]),
+      );
+    }
     return result;
-  }, [hens, filter, stageFilter, henStage]);
+  }, [hens, filter, stageFilter, search, henStage]);
 
   return (
     <div>
@@ -181,6 +196,15 @@ export default function GallinasPage() {
         </div>
       )}
 
+      <TableSearch
+        value={search}
+        onChange={setSearch}
+        placeholder="Buscar por código, raza, etapa o estado..."
+        resultCount={filtered.length}
+        totalCount={hens.length}
+        className="mb-4"
+      />
+
       {/* Status Filter */}
       <div className="flex gap-2 mb-3 flex-wrap">
         {["todos", ...statusOptions].map((s) => (
@@ -209,7 +233,14 @@ export default function GallinasPage() {
         {loading ? (
           <p className="text-center py-8 text-slate-400">Cargando...</p>
         ) : filtered.length === 0 ? (
-          <EmptyState icon="🐔" message="No hay gallinas registradas aún" />
+          <EmptyState
+            icon="🐔"
+            message={
+              search.trim()
+                ? "No hay gallinas que coincidan con la búsqueda"
+                : "No hay gallinas registradas aún"
+            }
+          />
         ) : (
           <Table headers={["Código", "Raza", "Edad", "Etapa", "Estado", "Peso (kg)", "Empollando", "Acciones"]}>
             {filtered.map((h) => {

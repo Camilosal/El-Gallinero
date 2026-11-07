@@ -1,4 +1,4 @@
-import { VACCINATION_SCHEDULES } from "@/lib/vaccination-schedules";
+import { loadVaccinationSchedule } from "@/lib/vaccination-db";
 import { db } from "@/db";
 import { sanitaryCalendar } from "@/db/schema";
 import { NextRequest, NextResponse } from "next/server";
@@ -6,9 +6,9 @@ import { withApiHandler, safeParseJson } from "@/lib/api-handler";
 
 export const POST = withApiHandler(async (req: NextRequest) => {
   const { breed, startDate, targetBirds } = await safeParseJson(req);
-  const schedule = VACCINATION_SCHEDULES[breed];
-  if (!schedule) {
-    return NextResponse.json({ error: `Raza ${breed} no encontrada` }, { status: 400 });
+  const schedule = await loadVaccinationSchedule(breed);
+  if (schedule.length === 0) {
+    return NextResponse.json({ error: `No hay plan de vacunación para la raza ${breed}` }, { status: 400 });
   }
 
   const start = new Date(startDate + "T12:00:00");

@@ -41,6 +41,8 @@ interface FeedChartPoint {
 interface DashboardData {
   hens: { total: number; active: number; broody: number; sick: number; recommendedForSlaughter: number };
   roosters: { required: number; active: number; deficit: number; surplus: number };
+  totalAnimals?: number;
+  totalBirds?: number;
   readyBatches: number;
   eggs: {
     totalLast30: number;
@@ -352,7 +354,7 @@ export default function Dashboard() {
       <div className="mb-6">
         <h2 className="text-sm font-semibold text-slate-500 uppercase tracking-wide mb-3">Resumen rápido</h2>
         <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
-          <QuickStat icon="🐔" label="Gallinas activas" value={data.hens.active} />
+          <QuickStat icon="🐾" label="Animales activos" value={data.totalAnimals ?? data.hens.active} />
           <QuickStat icon="🥚" label="Huevos hoy" value={`${data.eggs.avgDaily} prom`} />
           <QuickStat
             icon="🌾"

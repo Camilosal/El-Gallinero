@@ -71,6 +71,11 @@ export const PUT = withApiHandler(async (req: NextRequest) => {
     return NextResponse.json({ error: "Insumo no encontrado" }, { status: 404 });
   }
 
+  // Handle empty string for expiryDate (date column doesn't accept empty string)
+  const expiryDate = body.expiryDate !== undefined
+    ? (body.expiryDate ? body.expiryDate : null)
+    : existing.expiryDate;
+
   const [updated] = await db
     .update(supplyInventory)
     .set({
@@ -81,7 +86,7 @@ export const PUT = withApiHandler(async (req: NextRequest) => {
       minStock: body.minStock != null ? String(body.minStock) : existing.minStock,
       costPerUnit: body.costPerUnit != null ? String(body.costPerUnit) : existing.costPerUnit,
       supplier: body.supplier !== undefined ? body.supplier : existing.supplier,
-      expiryDate: body.expiryDate !== undefined ? body.expiryDate : existing.expiryDate,
+      expiryDate,
       updatedAt: new Date(),
     })
     .where(eq(supplyInventory.id, body.id))

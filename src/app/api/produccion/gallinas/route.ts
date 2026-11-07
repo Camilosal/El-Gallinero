@@ -3,6 +3,7 @@ import { hens, catalogos, incubation, chickenSales, slaughter, mortalityRecords 
 import { eq, desc, and, sql, inArray } from "drizzle-orm";
 import { NextRequest, NextResponse } from "next/server";
 import { evaluateLifecycle, isAutoManaged, type StageRange } from "@/lib/lifecycle";
+import { getLifecycleRules } from "@/lib/settings";
 import { withApiHandler, safeParseJson } from "@/lib/api-handler";
 
 export const dynamic = "force-dynamic";
@@ -17,9 +18,10 @@ async function getStages(): Promise<StageRange[]> {
 }
 
 export const GET = withApiHandler(async () => {
-  const [data, stages] = await Promise.all([
+  const [data, stages, lifecycleRules] = await Promise.all([
     db.select().from(hens).orderBy(desc(hens.createdAt)),
     getStages(),
+    getLifecycleRules(),
   ]);
 
   // ─── Sincronización automática del ciclo de vida ───
@@ -27,7 +29,7 @@ export const GET = withApiHandler(async () => {
   const toRecommend: string[] = [];
   const toActivate: string[] = [];
   const enriched = data.map((hen) => {
-    const lc = evaluateLifecycle(hen, stages);
+    const lc = evaluateLifecycle(hen, stages, lifecycleRules);
     if (isAutoManaged(hen.status) && lc.status !== hen.status) {
       if (lc.status === "recomendada_sacrificio") toRecommend.push(hen.id);
       else toActivate.push(hen.id);
@@ -49,12 +51,12 @@ export const GET = withApiHandler(async () => {
 
 export const POST = withApiHandler(async (req: NextRequest) => {
   const body = await safeParseJson(req);
-  const stages = await getStages();
+  const [stages, lifecycleRules] = await Promise.all([getStages(), getLifecycleRules()]);
 
   // Resolver estado automático a partir del estado inicial registrado
   let status = body.status || "activa";
   if (isAutoManaged(status)) {
-    status = evaluateLifecycle({ birthDate: body.birthDate, weight: body.weight || null, status }, stages).status;
+    status = evaluateLifecycle({ birthDate: body.birthDate, weight: body.weight || null, status }, stages, lifecycleRules).status;
   }
 
   const [created] = await db.insert(hens).values({
@@ -68,7 +70,7 @@ export const POST = withApiHandler(async (req: NextRequest) => {
     clutchSize: body.clutchSize || 0,
   }).returning();
 
-  const lc = evaluateLifecycle(created, stages);
+  const lc = evaluateLifecycle(created, stages, lifecycleRules);
   return NextResponse.json({ ...created, stage: lc.stage, ageWeeks: lc.ageWeeks, lifecycleReasons: lc.reasons }, { status: 201 });
 });
 
@@ -76,12 +78,12 @@ export const PUT = withApiHandler(async (req: NextRequest) => {
   const body = await safeParseJson(req);
   if (!body.id) return NextResponse.json({ error: "ID requerido" }, { status: 400 });
 
-  const stages = await getStages();
+  const [stages, lifecycleRules] = await Promise.all([getStages(), getLifecycleRules()]);
 
   // Si el estado enviado es automático, resolverlo según edad/peso
   let status = body.status;
   if (status && isAutoManaged(status)) {
-    status = evaluateLifecycle({ birthDate: body.birthDate, weight: body.weight || null, status }, stages).status;
+    status = evaluateLifecycle({ birthDate: body.birthDate, weight: body.weight || null, status }, stages, lifecycleRules).status;
   }
 
   const [updated] = await db.update(hens).set({
@@ -98,7 +100,7 @@ export const PUT = withApiHandler(async (req: NextRequest) => {
 
   if (!updated) return NextResponse.json({ error: "No encontrada" }, { status: 404 });
 
-  const lc = evaluateLifecycle(updated, stages);
+  const lc = evaluateLifecycle(updated, stages, lifecycleRules);
   return NextResponse.json({ ...updated, stage: lc.stage, ageWeeks: lc.ageWeeks, lifecycleReasons: lc.reasons });
 });
 

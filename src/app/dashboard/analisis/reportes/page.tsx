@@ -1,9 +1,11 @@
 "use client";
 
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useMemo } from "react";
 import { PageHeader, Card, Input, Button, Table, EmptyState } from "@/components/ui";
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip, Legend, BarChart, Bar, XAxis, YAxis, CartesianGrid } from "recharts";
 import { apiFetch } from "@/lib/fetch";
+import TableSearch from "@/components/TableSearch";
+import { matchesTextQuery } from "@/lib/text";
 
 interface PLData {
   from: string;
@@ -41,6 +43,9 @@ export default function ReportesPage() {
   const [plData, setPlData] = useState<PLData | null>(null);
   const [rentData, setRentData] = useState<RentData | null>(null);
   const [loading, setLoading] = useState(false);
+  const [incomeSearch, setIncomeSearch] = useState("");
+  const [expenseSearch, setExpenseSearch] = useState("");
+  const [lineSearch, setLineSearch] = useState("");
 
   const load = useCallback(() => {
     setLoading(true);
@@ -72,6 +77,35 @@ export default function ReportesPage() {
       value: Math.abs(l.profit),
       color: COLORS[i % COLORS.length],
     })) || [];
+
+  const filteredIncome = useMemo(() => {
+    const categories = plData?.income.categories ?? [];
+    if (!incomeSearch.trim()) return categories;
+    return categories.filter((category) =>
+      matchesTextQuery(incomeSearch, [category.category, category.total]),
+    );
+  }, [plData, incomeSearch]);
+
+  const filteredExpenses = useMemo(() => {
+    const categories = plData?.expenses.categories ?? [];
+    if (!expenseSearch.trim()) return categories;
+    return categories.filter((category) =>
+      matchesTextQuery(expenseSearch, [category.category, category.total]),
+    );
+  }, [plData, expenseSearch]);
+
+  const filteredProductLines = useMemo(() => {
+    const lines = rentData?.productLines ?? [];
+    if (!lineSearch.trim()) return lines;
+    return lines.filter((line) =>
+      matchesTextQuery(lineSearch, [
+        LINE_LABELS[line.line] || line.line,
+        line.revenue,
+        line.cost,
+        line.profit,
+      ]),
+    );
+  }, [rentData, lineSearch]);
 
   return (
     <div className="space-y-6">
@@ -129,11 +163,26 @@ export default function ReportesPage() {
           {/* Income categories */}
           <Card>
             <h3 className="font-semibold text-green-700 mb-3">📥 Ingresos por Categoría</h3>
-            {plData.income.categories.length === 0 ? (
-              <EmptyState icon="📥" message="Sin ingresos en el período" />
+            <TableSearch
+              value={incomeSearch}
+              onChange={setIncomeSearch}
+              placeholder="Buscar categoría de ingreso..."
+              resultCount={filteredIncome.length}
+              totalCount={plData.income.categories.length}
+              className="mb-4"
+            />
+            {filteredIncome.length === 0 ? (
+              <EmptyState
+                icon="📥"
+                message={
+                  incomeSearch.trim()
+                    ? "No hay categorías que coincidan con la búsqueda"
+                    : "Sin ingresos en el período"
+                }
+              />
             ) : (
               <Table headers={["Categoría", "Monto", "% del Total"]}>
-                {plData.income.categories.map((c, i) => (
+                {filteredIncome.map((c, i) => (
                   <tr key={i} className="hover:bg-slate-50">
                     <td className="px-4 py-3 text-sm font-medium">{c.category}</td>
                     <td className="px-4 py-3 text-sm text-green-600 font-bold">{fmt(c.total)}</td>
@@ -154,11 +203,26 @@ export default function ReportesPage() {
           {/* Expense categories */}
           <Card>
             <h3 className="font-semibold text-red-700 mb-3">📤 Egresos por Categoría</h3>
-            {plData.expenses.categories.length === 0 ? (
-              <EmptyState icon="📤" message="Sin egresos en el período" />
+            <TableSearch
+              value={expenseSearch}
+              onChange={setExpenseSearch}
+              placeholder="Buscar categoría de egreso..."
+              resultCount={filteredExpenses.length}
+              totalCount={plData.expenses.categories.length}
+              className="mb-4"
+            />
+            {filteredExpenses.length === 0 ? (
+              <EmptyState
+                icon="📤"
+                message={
+                  expenseSearch.trim()
+                    ? "No hay categorías que coincidan con la búsqueda"
+                    : "Sin egresos en el período"
+                }
+              />
             ) : (
               <Table headers={["Categoría", "Monto", "% del Total"]}>
-                {plData.expenses.categories.map((c, i) => (
+                {filteredExpenses.map((c, i) => (
                   <tr key={i} className="hover:bg-slate-50">
                     <td className="px-4 py-3 text-sm font-medium">{c.category}</td>
                     <td className="px-4 py-3 text-sm text-red-600 font-bold">{fmt(c.total)}</td>
@@ -225,8 +289,26 @@ export default function ReportesPage() {
           {/* Table */}
           <Card>
             <h3 className="font-semibold text-slate-700 mb-3">Detalle por Línea de Producto</h3>
+            <TableSearch
+              value={lineSearch}
+              onChange={setLineSearch}
+              placeholder="Buscar línea de producto..."
+              resultCount={filteredProductLines.length}
+              totalCount={rentData.productLines.length}
+              className="mb-4"
+            />
+            {filteredProductLines.length === 0 ? (
+              <EmptyState
+                icon="📋"
+                message={
+                  lineSearch.trim()
+                    ? "No hay líneas que coincidan con la búsqueda"
+                    : "Sin datos de rentabilidad"
+                }
+              />
+            ) : (
             <Table headers={["Línea", "Ingresos", "Costos", "Utilidad", "Margen"]}>
-              {rentData.productLines.map((l, i) => (
+              {filteredProductLines.map((l, i) => (
                 <tr key={i} className="hover:bg-slate-50">
                   <td className="px-4 py-3 text-sm font-medium">{LINE_LABELS[l.line] || l.line}</td>
                   <td className="px-4 py-3 text-sm text-green-600">{fmt(l.revenue)}</td>
@@ -247,6 +329,7 @@ export default function ReportesPage() {
                 </td>
               </tr>
             </Table>
+            )}
           </Card>
         </>
       ) : null}

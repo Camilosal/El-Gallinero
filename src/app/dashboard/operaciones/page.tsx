@@ -5,8 +5,8 @@ import { useEffect, useState } from "react";
 import { apiFetch } from "@/lib/fetch";
 
 const secciones = [
-  { href: "/operaciones/mantenimiento", label: "Mantenimiento", icon: "🔧", desc: "Equipos e instalaciones" },
-  { href: "/operaciones/gallinaza", label: "Gallinaza", icon: "🌱", desc: "Recolección y procesamiento" },
+  { href: "/dashboard/operaciones/mantenimiento", label: "Mantenimiento", icon: "🔧", desc: "Equipos e instalaciones" },
+  { href: "/dashboard/operaciones/gallinaza", label: "Gallinaza", icon: "🌱", desc: "Recolección y procesamiento" },
 ];
 
 interface ResumenOperaciones {

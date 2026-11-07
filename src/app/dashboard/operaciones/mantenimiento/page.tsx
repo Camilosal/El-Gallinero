@@ -1,9 +1,11 @@
 "use client";
 
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useMemo } from "react";
 import { PageHeader, Button, Card, Table, Badge, Modal, Input, Select, Textarea, EmptyState, StatCard } from "@/components/ui";
 import { useCatalog } from "@/lib/useCatalog";
 import { apiFetch } from "@/lib/fetch";
+import TableSearch from "@/components/TableSearch";
+import { matchesTextQuery } from "@/lib/text";
 
 interface Maintenance {
   id: string;
@@ -37,6 +39,7 @@ const taskTemplates = [
 export default function MantenimientoPage() {
   const [tasks, setTasks] = useState<Maintenance[]>([]);
   const [loading, setLoading] = useState(true);
+  const [search, setSearch] = useState("");
   const [modalOpen, setModalOpen] = useState(false);
   const [editing, setEditing] = useState<Maintenance | null>(null);
   const [form, setForm] = useState({ title: "", description: "", scheduledDate: new Date().toISOString().split("T")[0], status: "pendiente", cost: "0", completedDate: "" });
@@ -79,6 +82,21 @@ export default function MantenimientoPage() {
   const completed = tasks.filter((t) => t.status === "completado").length;
   const totalCost = tasks.filter((t) => t.status === "completado").reduce((s, t) => s + Number(t.cost || 0), 0);
 
+  const filteredTasks = useMemo(() => {
+    if (!search.trim()) return tasks;
+    return tasks.filter((task) =>
+      matchesTextQuery(search, [
+        task.title,
+        task.description,
+        task.scheduledDate,
+        task.completedDate,
+        task.status,
+        statusLabels[task.status]?.label,
+        task.cost,
+      ]),
+    );
+  }, [tasks, search]);
+
   return (
     <div>
       <PageHeader
@@ -109,13 +127,28 @@ export default function MantenimientoPage() {
       </Card>
 
       <Card>
+        <TableSearch
+          value={search}
+          onChange={setSearch}
+          placeholder="Buscar por tarea, estado o descripción..."
+          resultCount={filteredTasks.length}
+          totalCount={tasks.length}
+          className="mb-4"
+        />
         {loading ? (
           <p className="text-center py-8 text-slate-400">Cargando...</p>
-        ) : tasks.length === 0 ? (
-          <EmptyState icon="🔧" message="No hay tareas de mantenimiento" />
+        ) : filteredTasks.length === 0 ? (
+          <EmptyState
+            icon="🔧"
+            message={
+              search.trim()
+                ? "No hay tareas que coincidan con la búsqueda"
+                : "No hay tareas de mantenimiento"
+            }
+          />
         ) : (
           <Table headers={["Tarea", "Programada", "Estado", "Completada", "Costo", "Acciones"]}>
-            {tasks.map((t) => (
+            {filteredTasks.map((t) => (
               <tr key={t.id} className={`hover:bg-slate-50 ${t.status === "pendiente" ? "bg-yellow-50" : ""}`}>
                 <td className="px-4 py-3">
                   <p className="font-medium">{t.title}</p>

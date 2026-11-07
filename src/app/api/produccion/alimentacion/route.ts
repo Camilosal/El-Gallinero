@@ -1,16 +1,21 @@
 import { db } from "@/db";
 import { feedInventory, feedMovements, transactions } from "@/db/schema";
-import { eq, desc, inArray } from "drizzle-orm";
+import { eq, inArray } from "drizzle-orm";
 import { NextRequest, NextResponse } from "next/server";
-import { runFeedProgramCatchup } from "@/lib/feeding/runProgram";
-import { withApiHandler, safeParseJson } from "@/lib/api-handler";
+import { getFeedInventoryProjection } from "@/lib/feeding/inventory";
+import { withApiHandler, withErrorHandler, safeParseJson } from "@/lib/api-handler";
 
 export const dynamic = "force-dynamic";
 
-export const GET = withApiHandler(async () => {
-  await runFeedProgramCatchup();
-  const inventory = await db.select().from(feedInventory).orderBy(desc(feedInventory.createdAt));
-  return NextResponse.json(inventory);
+// GET - public endpoint for reading feed inventory (no auth required)
+export const GET = withErrorHandler(async (req: NextRequest) => {
+  const { searchParams } = new URL(req.url);
+  const days = parseInt(searchParams.get("days") || "30", 10);
+
+  const items = await getFeedInventoryProjection(days);
+
+  // Contrato histórico del endpoint: array plano de alimentos.
+  return NextResponse.json(items);
 });
 
 export const POST = withApiHandler(async (req: NextRequest) => {

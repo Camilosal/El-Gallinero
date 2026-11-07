@@ -3,6 +3,7 @@ import { db } from "@/db";
 import { eggProduction, hens, feedMovements, mortalityRecords } from "@/db/schema";
 import { sql, eq, and, gte, desc } from "drizzle-orm";
 import { withApiHandler, safeParseJson } from "@/lib/api-handler";
+import { computeAnimalInventory } from "@/lib/animal-inventory";
 
 export const GET = withApiHandler(async () => {
   try {
@@ -38,10 +39,14 @@ export const GET = withApiHandler(async () => {
       .from(feedMovements)
       .where(gte(feedMovements.date, hace7DiasStr));
 
+    const animals = await computeAnimalInventory();
+
     return NextResponse.json({
       huevosHoy: Number(huevosHoy?.count || 0),
       huevosSemana: Number(huevosSemana?.count || 0),
       totalGallinas: Number(totalGallinas?.count || 0),
+      totalAnimals: animals.summary.totalAnimals,
+      totalBirds: animals.summary.totalBirds,
       mortalidadSemana: Number(mortalidadSemana?.count || 0),
       consumoAlimentoSemanal: Number(consumoAlimentoSemanal?.total || 0),
     });

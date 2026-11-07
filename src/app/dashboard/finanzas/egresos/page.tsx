@@ -5,6 +5,8 @@ import { PageHeader, Button, Card, Table, Badge, Modal, Input, Select, Textarea,
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from "recharts";
 import { apiFetch } from "@/lib/fetch";
 import { useCatalog, CatalogItem } from "@/lib/useCatalog";
+import TableSearch from "@/components/TableSearch";
+import { matchesTextQuery } from "@/lib/text";
 
 interface Transaction {
   id: string;
@@ -130,6 +132,7 @@ export default function EgresosPage() {
   const [expenses, setExpenses] = useState<Transaction[]>([]);
   const [loading, setLoading] = useState(true);
   const [period, setPeriod] = useState("30");
+  const [search, setSearch] = useState("");
   const [modalOpen, setModalOpen] = useState(false);
   const [editing, setEditing] = useState<Transaction | null>(null);
   const [error, setError] = useState("");
@@ -495,6 +498,25 @@ export default function EgresosPage() {
   });
   const chartData = Array.from(chartMap.entries()).map(([f, v]) => ({ fecha: f, egresos: v })).reverse();
 
+  const filteredExpenses = useMemo(() => {
+    if (!search.trim()) return expenses;
+    return expenses.filter((expense) =>
+      matchesTextQuery(search, [
+        expense.date,
+        new Date(expense.date + "T12:00:00").toLocaleDateString("es"),
+        expense.category,
+        expense.description,
+        expense.counterparty,
+        expense.presentation,
+        expense.quantity,
+        expense.unit,
+        expense.unitPrice,
+        expense.notes,
+        expense.amount,
+      ]),
+    );
+  }, [expenses, search]);
+
   return (
     <div>
       <PageHeader
@@ -551,13 +573,28 @@ export default function EgresosPage() {
       )}
 
       <Card>
+        <TableSearch
+          value={search}
+          onChange={setSearch}
+          placeholder="Buscar por fecha, categoría, proveedor o descripción..."
+          resultCount={filteredExpenses.length}
+          totalCount={expenses.length}
+          className="mb-4"
+        />
         {loading ? (
           <p className="text-center py-8 text-slate-400">Cargando...</p>
-        ) : expenses.length === 0 ? (
-          <EmptyState icon="📤" message="No hay egresos en este período" />
+        ) : filteredExpenses.length === 0 ? (
+          <EmptyState
+            icon="📤"
+            message={
+              search.trim()
+                ? "No hay egresos que coincidan con la búsqueda"
+                : "No hay egresos en este período"
+            }
+          />
         ) : (
           <Table headers={["Fecha", "Categoría", "Descripción", "Proveedor", "Detalle", "Monto", ""]}>
-            {expenses.map((t) => (
+            {filteredExpenses.map((t) => (
               <tr key={t.id} className="hover:bg-slate-50">
                 <td className="px-4 py-3">{new Date(t.date + "T12:00:00").toLocaleDateString("es")}</td>
                 <td className="px-4 py-3"><Badge color="red">{t.category}</Badge></td>

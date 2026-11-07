@@ -80,3 +80,33 @@ export const GET = withApiHandler(async () => {
 
   return NextResponse.json(result);
 });
+
+/** Crea un nuevo plan o etapa de alimentación con su programa nutricional */
+export const POST = withApiHandler(async (req: NextRequest) => {
+  const body = await safeParseJson(req);
+  if (!body.value) return NextResponse.json({ error: "Nombre del plan o etapa requerido" }, { status: 400 });
+
+  const [createdStage] = await db.insert(catalogos).values({
+    category: "etapa_crecimiento",
+    value: body.value,
+    minWeeks: body.minWeeks !== undefined && body.minWeeks !== "" ? Number(body.minWeeks) : 0,
+    maxWeeks: body.maxWeeks !== undefined && body.maxWeeks !== "" ? Number(body.maxWeeks) : null,
+    sortOrder: body.sortOrder ? Number(body.sortOrder) : 20,
+    isActive: true,
+  }).returning();
+
+  if (Array.isArray(body.programs) && body.programs.length > 0) {
+    for (const p of body.programs) {
+      if (p.feedId && p.dailyAmountPerHen) {
+        await db.insert(feedPrograms).values({
+          stageCatalogoId: createdStage.id,
+          feedId: p.feedId,
+          percentage: String(p.percentage || 100),
+          dailyAmountPerHen: String(p.dailyAmountPerHen),
+        });
+      }
+    }
+  }
+
+  return NextResponse.json(createdStage, { status: 201 });
+});

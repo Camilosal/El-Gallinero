@@ -6,6 +6,8 @@ import { ageInWeeks, isAvailableForExit, stageForAge } from "@/lib/lifecycle";
 import { flockBalance } from "@/lib/flock";
 import { totalEstimatedKgPerDay } from "@/lib/manure";
 import { computeManureInventory, computeEggInventory } from "@/lib/inventory";
+import { computeAnimalInventory } from "@/lib/animal-inventory";
+import { getFlockRules } from "@/lib/settings";
 import { withApiHandler, safeParseJson } from "@/lib/api-handler";
 
 export const dynamic = "force-dynamic";
@@ -31,6 +33,8 @@ export const GET = withApiHandler(async () => {
       sanitaryAlerts,
       supplyAlerts,
       eggInventory,
+      animalInventory,
+      flockRules,
     ] = await Promise.all([
       db.select({
         status: hens.status,
@@ -93,6 +97,10 @@ export const GET = withApiHandler(async () => {
 
       // Egg inventory (real data from details)
       computeEggInventory(),
+
+      // Inventario multiespecie y reglas de parvada configurables
+      computeAnimalInventory(),
+      getFlockRules(),
     ]);
 
     const totalHens = henStats.reduce((sum, s) => sum + s.count, 0);
@@ -223,7 +231,7 @@ export const GET = withApiHandler(async () => {
       db.select({ count: sql<number>`count(*)::int` }).from(broilerBatches).where(eq(broilerBatches.status, "listo_sacrificio")),
     ]);
     const hensInCoop = henStats.filter((s) => isAvailableForExit(s.status)).reduce((sum, s) => sum + s.count, 0);
-    const roosterBalance = flockBalance(hensInCoop, roosterCount[0]?.count || 0);
+    const roosterBalance = flockBalance(hensInCoop, roosterCount[0]?.count || 0, flockRules.hensPerRooster);
 
     // ─── Gallinaza: stock y estimación (solo lectura, sin lazy-sync) ───
     const [manureFactorRows, manureInventoryData] = await Promise.all([
@@ -259,7 +267,7 @@ export const GET = withApiHandler(async () => {
       const cause = m.cause || "otro";
       mortalityByCause[cause] = (mortalityByCause[cause] || 0) + m.total;
     }
-    const totalFlock = totalHens + (roosterCount[0]?.count || 0) + (batchQty[0]?.total || 0);
+    const totalFlock = animalInventory.summary.totalAnimals;
     const mortalityRate = totalFlock > 0 ? Math.round((totalDeaths30d / totalFlock) * 10000) / 100 : 0;
 
     const totalEggs30 = eggInventory.summary.produced;
@@ -302,6 +310,10 @@ export const GET = withApiHandler(async () => {
 
     return NextResponse.json({
       hens: { total: totalHens, active: activeHens, broody: broodyHens, sick: sickHens, recommendedForSlaughter: recommendedHens, byStatus: henStats },
+      animals: animalInventory.summary,
+      species: animalInventory.species,
+      totalAnimals: animalInventory.summary.totalAnimals,
+      totalBirds: animalInventory.summary.totalBirds,
       roosters: roosterBalance,
       readyBatches: readyBatchCount[0]?.count || 0,
       eggs: { 

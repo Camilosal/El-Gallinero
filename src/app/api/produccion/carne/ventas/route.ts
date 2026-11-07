@@ -6,8 +6,13 @@ import { withApiHandler, safeParseJson } from "@/lib/api-handler";
 
 export const dynamic = "force-dynamic";
 
-export const GET = withApiHandler(async () => {
-  const data = await db.select().from(meatSales).orderBy(desc(meatSales.date));
+export const GET = withApiHandler(async (req: NextRequest) => {
+  const { searchParams } = new URL(req.url);
+  const species = searchParams.get("species");
+  let query = db.select().from(meatSales);
+  const data = species && species !== "all"
+    ? await query.where(eq(meatSales.species, species as any)).orderBy(desc(meatSales.date))
+    : await query.orderBy(desc(meatSales.date));
   return NextResponse.json(data);
 });
 
@@ -16,15 +21,18 @@ export const POST = withApiHandler(async (req: NextRequest) => {
 
   const quantityKg = Number(body.quantityKg);
   const pricePerKg = Number(body.pricePerKg);
+  const species = body.species || "pollo";
   if (!body.date) return NextResponse.json({ error: "Fecha requerida" }, { status: 400 });
   if (isNaN(quantityKg) || quantityKg <= 0) return NextResponse.json({ error: "Cantidad kg inválida" }, { status: 400 });
   if (isNaN(pricePerKg) || pricePerKg < 0) return NextResponse.json({ error: "Precio/kg inválido" }, { status: 400 });
 
   const totalAmount = (quantityKg * pricePerKg).toFixed(2);
+  const speciesLabel = species.charAt(0).toUpperCase() + species.slice(1);
 
   const created = await db.transaction(async (tx) => {
     const [inserted] = await tx.insert(meatSales).values({
       date: body.date,
+      species,
       quantityKg: quantityKg.toFixed(2),
       pricePerKg: pricePerKg.toFixed(2),
       totalAmount,
@@ -37,7 +45,7 @@ export const POST = withApiHandler(async (req: NextRequest) => {
       date: body.date,
       type: "ingreso",
       category: "Venta de carne",
-      description: `Venta de ${quantityKg} kg de carne${body.buyer ? ` a ${body.buyer}` : ""}`,
+      description: `Venta de ${quantityKg} kg de carne de ${speciesLabel}${body.buyer ? ` a ${body.buyer}` : ""}`,
       counterparty: body.buyer || null,
       amount: totalAmount,
       quantity: quantityKg.toFixed(2),
@@ -61,14 +69,17 @@ export const PUT = withApiHandler(async (req: NextRequest) => {
 
   const quantityKg = Number(body.quantityKg);
   const pricePerKg = Number(body.pricePerKg);
+  const species = body.species || "pollo";
   if (isNaN(quantityKg) || quantityKg <= 0) return NextResponse.json({ error: "Cantidad kg inválida" }, { status: 400 });
   if (isNaN(pricePerKg) || pricePerKg < 0) return NextResponse.json({ error: "Precio/kg inválido" }, { status: 400 });
 
   const totalAmount = (quantityKg * pricePerKg).toFixed(2);
+  const speciesLabel = species.charAt(0).toUpperCase() + species.slice(1);
 
   const updated = await db.transaction(async (tx) => {
     const [upd] = await tx.update(meatSales).set({
       date: body.date,
+      species,
       quantityKg: quantityKg.toFixed(2),
       pricePerKg: pricePerKg.toFixed(2),
       totalAmount,
@@ -82,7 +93,7 @@ export const PUT = withApiHandler(async (req: NextRequest) => {
 
     const values = {
       date: body.date,
-      description: `Venta de ${quantityKg} kg de carne${body.buyer ? ` a ${body.buyer}` : ""}`,
+      description: `Venta de ${quantityKg} kg de carne de ${speciesLabel}${body.buyer ? ` a ${body.buyer}` : ""}`,
       amount: totalAmount,
       quantity: quantityKg.toFixed(2),
       unitPrice: pricePerKg.toFixed(2),

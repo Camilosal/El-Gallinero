@@ -1,8 +1,10 @@
 "use client";
 
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useMemo } from "react";
 import { PageHeader, Card, Table, Badge, StatCard, EmptyState } from "@/components/ui";
 import { apiFetch } from "@/lib/fetch";
+import TableSearch from "@/components/TableSearch";
+import { matchesTextQuery } from "@/lib/text";
 
 interface EggLot {
   id: string;
@@ -41,6 +43,8 @@ interface InventoryData {
 export default function InventarioPage() {
   const [data, setData] = useState<InventoryData | null>(null);
   const [loading, setLoading] = useState(true);
+  const [summarySearch, setSummarySearch] = useState("");
+  const [lotSearch, setLotSearch] = useState("");
 
   const load = useCallback(() => {
     apiFetch("/api/produccion/huevos/inventario").then((r) => r.json()).then(setData).finally(() => setLoading(false));
@@ -50,6 +54,45 @@ export default function InventarioPage() {
 
   const riskLots = data?.lots.filter((l) => l.remaining > 0 && l.ageDays > 14) || [];
   const expiring = data?.aging.find((a) => a.label === ">21 días")?.count || 0;
+
+  const filteredSizes = useMemo(() => {
+    const sizes = data?.summary.sizes ?? [];
+    if (!summarySearch.trim()) return sizes;
+    return sizes.filter((size) =>
+      matchesTextQuery(summarySearch, [
+        size.size,
+        size.price,
+        size.produced,
+        size.sold,
+        size.lost,
+        size.available,
+        size.value,
+      ]),
+    );
+  }, [data, summarySearch]);
+
+  const filteredLots = useMemo(() => {
+    const lots = data?.lots ?? [];
+    if (!lotSearch.trim()) return lots;
+    return lots.filter((lot) =>
+      matchesTextQuery(lotSearch, [
+        lot.date,
+        new Date(lot.date + "T12:00:00").toLocaleDateString("es"),
+        lot.size,
+        lot.initial,
+        lot.sold,
+        lot.remaining,
+        lot.ageDays,
+        lot.remaining === 0
+          ? "agotado"
+          : lot.ageDays > 21
+            ? "por vencer"
+            : lot.ageDays > 14
+              ? "vender pronto"
+              : "disponible",
+      ]),
+    );
+  }, [data, lotSearch]);
 
   return (
     <div>
@@ -110,8 +153,26 @@ export default function InventarioPage() {
 
           <Card className="mb-6">
             <h3 className="font-semibold text-slate-700 mb-4">📊 Resumen por Tamaño</h3>
+            <TableSearch
+              value={summarySearch}
+              onChange={setSummarySearch}
+              placeholder="Buscar por tamaño o valor..."
+              resultCount={filteredSizes.length}
+              totalCount={data.summary.sizes.length}
+              className="mb-4"
+            />
+            {filteredSizes.length === 0 ? (
+              <EmptyState
+                icon="📊"
+                message={
+                  summarySearch.trim()
+                    ? "No hay tamaños que coincidan con la búsqueda"
+                    : "Sin datos por tamaño"
+                }
+              />
+            ) : (
             <Table headers={["Tamaño", "Precio", "Producido", "Vendido", "Perdido", "Disponible", "Valor"]}>
-              {data.summary.sizes.map((s) => (
+              {filteredSizes.map((s) => (
                 <tr key={s.size} className="hover:bg-slate-50">
                   <td className="px-4 py-3"><Badge color="green">{s.size}</Badge></td>
                   <td className="px-4 py-3">{s.price != null ? `$${s.price.toLocaleString()}` : "—"}</td>
@@ -123,13 +184,32 @@ export default function InventarioPage() {
                 </tr>
               ))}
             </Table>
+            )}
           </Card>
 
           <Card>
             <h3 className="font-semibold text-slate-700 mb-1">🗂️ Movimiento de Inventario (PEPS)</h3>
             <p className="text-xs text-slate-400 mb-4">Las ventas se descuentan primero de los lotes más antiguos de cada tamaño</p>
+            <TableSearch
+              value={lotSearch}
+              onChange={setLotSearch}
+              placeholder="Buscar por fecha, tamaño o estado..."
+              resultCount={filteredLots.length}
+              totalCount={data.lots.length}
+              className="mb-4"
+            />
+            {filteredLots.length === 0 ? (
+              <EmptyState
+                icon="🗂️"
+                message={
+                  lotSearch.trim()
+                    ? "No hay lotes que coincidan con la búsqueda"
+                    : "No hay lotes en inventario"
+                }
+              />
+            ) : (
             <Table headers={["Fecha Lote", "Tamaño", "Inicial", "Vendido", "Disponible", "Edad", "Estado"]}>
-              {data.lots.map((l) => {
+              {filteredLots.map((l) => {
                 const isOld = l.remaining > 0 && l.ageDays > 14;
                 const isExpiring = l.remaining > 0 && l.ageDays > 21;
                 return (
@@ -155,6 +235,7 @@ export default function InventarioPage() {
                 );
               })}
             </Table>
+            )}
           </Card>
         </>
       ) : (

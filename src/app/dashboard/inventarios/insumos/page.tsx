@@ -1,9 +1,11 @@
 "use client";
 
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useMemo } from "react";
 import { PageHeader, Button, Card, Table, Badge, Modal, Input, Select, Textarea, EmptyState, StatCard } from "@/components/ui";
 import { apiFetch } from "@/lib/fetch";
 import { useCatalog } from "@/lib/useCatalog";
+import TableSearch from "@/components/TableSearch";
+import { matchesTextQuery } from "@/lib/text";
 
 interface Supply {
   id: string;
@@ -45,6 +47,8 @@ export default function InsumosPage() {
   const [form, setForm] = useState({ name: "", category: supplyCategories[0], unit: "unidades", currentStock: "", minStock: "", costPerUnit: "", supplier: "", expiryDate: "" });
   const [movForm, setMovForm] = useState({ supplyId: "", quantity: "", isEntry: true, movementType: movementTypes[0], date: new Date().toISOString().split("T")[0], notes: "" });
   const [editingId, setEditingId] = useState<string | null>(null);
+  const [supplySearch, setSupplySearch] = useState("");
+  const [movementSearch, setMovementSearch] = useState("");
 
   const load = useCallback(async () => {
     const [supRes, movRes] = await Promise.all([
@@ -60,6 +64,37 @@ export default function InsumosPage() {
 
   const lowStockItems = supplies.filter((s) => Number(s.currentStock) <= Number(s.minStock));
   const totalValue = supplies.reduce((s, item) => s + Number(item.currentStock) * Number(item.costPerUnit), 0);
+
+  const filteredSupplies = useMemo(() => {
+    if (!supplySearch.trim()) return supplies;
+    return supplies.filter((supply) =>
+      matchesTextQuery(supplySearch, [
+        supply.name,
+        supply.category,
+        supply.unit,
+        supply.supplier,
+        supply.currentStock,
+        supply.minStock,
+        supply.costPerUnit,
+        supply.expiryDate,
+      ]),
+    );
+  }, [supplies, supplySearch]);
+
+  const filteredMovements = useMemo(() => {
+    if (!movementSearch.trim()) return movements;
+    return movements.filter((movement) =>
+      matchesTextQuery(movementSearch, [
+        movement.date,
+        movement.supplyName,
+        movement.movementType,
+        movement.isEntry ? "entrada" : "salida",
+        movement.quantity,
+        movement.supplyUnit,
+        movement.notes,
+      ]),
+    );
+  }, [movements, movementSearch]);
 
   const saveSupply = async () => {
     setError("");
@@ -148,13 +183,28 @@ export default function InsumosPage() {
 
       <Card>
         <h3 className="font-semibold text-slate-700 mb-3">Inventario de Insumos</h3>
+        <TableSearch
+          value={supplySearch}
+          onChange={setSupplySearch}
+          placeholder="Buscar por nombre, categoría o proveedor..."
+          resultCount={filteredSupplies.length}
+          totalCount={supplies.length}
+          className="mb-4"
+        />
         {loading ? (
           <p className="text-center py-8 text-slate-400">Cargando...</p>
-        ) : supplies.length === 0 ? (
-          <EmptyState icon="🧰" message="No hay insumos registrados" />
+        ) : filteredSupplies.length === 0 ? (
+          <EmptyState
+            icon="🧰"
+            message={
+              supplySearch.trim()
+                ? "No hay insumos que coincidan con la búsqueda"
+                : "No hay insumos registrados"
+            }
+          />
         ) : (
           <Table headers={["Nombre", "Categoría", "Stock", "Mínimo", "Unidad", "Costo Unit.", "Proveedor", "Acciones"]}>
-            {supplies.map((s) => (
+            {filteredSupplies.map((s) => (
               <tr key={s.id} className="hover:bg-slate-50">
                 <td className="px-4 py-3 text-sm font-medium">{s.name}</td>
                 <td className="px-4 py-3"><Badge color="blue">{s.category}</Badge></td>
@@ -186,11 +236,26 @@ export default function InsumosPage() {
 
       <Card>
         <h3 className="font-semibold text-slate-700 mb-3">Historial de Movimientos</h3>
-        {movements.length === 0 ? (
-          <EmptyState icon="📋" message="No hay movimientos registrados" />
+        <TableSearch
+          value={movementSearch}
+          onChange={setMovementSearch}
+          placeholder="Buscar por insumo, motivo o nota..."
+          resultCount={filteredMovements.length}
+          totalCount={movements.length}
+          className="mb-4"
+        />
+        {filteredMovements.length === 0 ? (
+          <EmptyState
+            icon="📋"
+            message={
+              movementSearch.trim()
+                ? "No hay movimientos que coincidan con la búsqueda"
+                : "No hay movimientos registrados"
+            }
+          />
         ) : (
           <Table headers={["Fecha", "Insumo", "Tipo", "Motivo", "Cantidad", "Notas", "Acciones"]}>
-            {movements.map((m) => (
+            {filteredMovements.map((m) => (
               <tr key={m.id} className="hover:bg-slate-50">
                 <td className="px-4 py-3 text-sm">{m.date}</td>
                 <td className="px-4 py-3 text-sm">{m.supplyName || "—"}</td>

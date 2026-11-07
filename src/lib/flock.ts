@@ -12,8 +12,11 @@ export const FLOCK_RULES = {
 };
 
 /** Gallos requeridos para un número de gallinas activas */
-export function requiredRoosters(activeHenCount: number): number {
-  return Math.ceil(activeHenCount / FLOCK_RULES.hensPerRooster);
+export function requiredRoosters(
+  activeHenCount: number,
+  hensPerRooster: number = FLOCK_RULES.hensPerRooster,
+): number {
+  return Math.ceil(activeHenCount / Math.max(1, hensPerRooster));
 }
 
 /**
@@ -28,6 +31,7 @@ export function assignMales(males: number, activeRoosters: number, required: num
 export interface BatchLike {
   startDate: string;
   targetWeeks: number;
+  targetDays?: number | null;
   targetWeightKg: string | number;
   avgWeightKg: string | number | null;
 }
@@ -35,33 +39,49 @@ export interface BatchLike {
 export interface BatchReadiness {
   ready: boolean;
   ageWeeks: number;
+  ageDays: number;
   reasons: string[];
 }
 
 /**
  * Evalúa si un lote de engorde está listo para sacrificio:
- * cumple la edad objetivo O el peso promedio objetivo.
+ * cumple la edad objetivo (semanas O días) O el peso promedio objetivo.
+ * Los conejos usan targetDays; aves usan targetWeeks.
  */
 export function batchReadiness(batch: BatchLike, today: Date = new Date()): BatchReadiness {
   const start = new Date(batch.startDate + "T12:00:00");
-  const ageWeeks = Math.floor((today.getTime() - start.getTime()) / (7 * 24 * 60 * 60 * 1000));
+  const msElapsed = today.getTime() - start.getTime();
+  const ageDays = Math.floor(msElapsed / (24 * 60 * 60 * 1000));
+  const ageWeeks = Math.floor(msElapsed / (7 * 24 * 60 * 60 * 1000));
 
   const reasons: string[] = [];
-  if (ageWeeks >= batch.targetWeeks) {
-    reasons.push(`Edad objetivo alcanzada (${batch.targetWeeks} sem)`);
+
+  // Criterio por días (conejos principalmente)
+  const effectiveTargetDays = batch.targetDays ?? batch.targetWeeks * 7;
+  if (ageDays >= effectiveTargetDays) {
+    if (batch.targetDays) {
+      reasons.push(`Edad objetivo alcanzada (${batch.targetDays} días)`);
+    } else {
+      reasons.push(`Edad objetivo alcanzada (${batch.targetWeeks} sem)`);
+    }
   }
+
   const weight = batch.avgWeightKg != null ? Number(batch.avgWeightKg) : null;
   const target = Number(batch.targetWeightKg);
   if (weight != null && weight >= target) {
     reasons.push(`Peso objetivo alcanzado (≥ ${target} kg)`);
   }
 
-  return { ready: reasons.length > 0, ageWeeks, reasons };
+  return { ready: reasons.length > 0, ageWeeks, ageDays, reasons };
 }
 
 /** Balance de gallos vs gallinas del gallinero */
-export function flockBalance(activeHenCount: number, activeRoosterCount: number) {
-  const required = requiredRoosters(activeHenCount);
+export function flockBalance(
+  activeHenCount: number,
+  activeRoosterCount: number,
+  hensPerRooster: number = FLOCK_RULES.hensPerRooster,
+) {
+  const required = requiredRoosters(activeHenCount, hensPerRooster);
   return {
     required,
     active: activeRoosterCount,

@@ -1,8 +1,10 @@
 "use client";
 
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useMemo } from "react";
 import { PageHeader, Button, Card, Table, Badge, Modal, Input, Select, Textarea, EmptyState, StatCard } from "@/components/ui";
 import { apiFetch } from "@/lib/fetch";
+import TableSearch from "@/components/TableSearch";
+import { matchesTextQuery } from "@/lib/text";
 
 // ─── Types ───
 interface ProtocolAction {
@@ -143,6 +145,10 @@ export default function PlanSanitarioTab() {
   const [seedStage, setSeedStage] = useState("");
   const [seedDate, setSeedDate] = useState(new Date().toISOString().split("T")[0]);
   const [planDays, setPlanDays] = useState(30);
+  const [upcomingSearch, setUpcomingSearch] = useState("");
+  const [protocolSearch, setProtocolSearch] = useState("");
+  const [historySearch, setHistorySearch] = useState("");
+  const [supplySearch, setSupplySearch] = useState("");
 
   const load = useCallback(() => {
     apiFetch(`/api/sanidad/plan?days=${planDays}`)
@@ -153,6 +159,86 @@ export default function PlanSanitarioTab() {
   }, [planDays]);
 
   useEffect(() => { load(); }, [load]);
+
+  const filteredUpcoming = useMemo(() => {
+    const actions = plan?.upcomingActions ?? [];
+    if (!upcomingSearch.trim()) return actions;
+    return actions.filter((action) =>
+      matchesTextQuery(upcomingSearch, [
+        action.nextDueDate,
+        action.type,
+        TYPE_LABELS[action.type] || action.type,
+        action.name,
+        action.description,
+        action.targetBirds,
+        action.frequencyDays ? `cada ${action.frequencyDays}d` : "unico",
+        action.withdrawalDays ? `retiro ${action.withdrawalDays}d` : "",
+        action.supplyCategory
+          ? supplyCategoryLabels[action.supplyCategory] || action.supplyCategory
+          : "",
+        action.daysUntilDue <= 7 ? "esta semana" : `en ${action.daysUntilDue}d`,
+      ]),
+    );
+  }, [plan, upcomingSearch]);
+
+  const filteredProtocolsByStage = useMemo(() => {
+    const map: Record<string, ProtocolAction[]> = {};
+    for (const stage of plan?.stages ?? []) {
+      map[stage.id] = !protocolSearch.trim()
+        ? stage.protocol
+        : stage.protocol.filter((action) =>
+            matchesTextQuery(protocolSearch, [
+              `sem ${action.weekOffset}`,
+              action.weekOffset,
+              action.type,
+              TYPE_LABELS[action.type] || action.type,
+              action.name,
+              action.description,
+              action.frequencyDays ? `cada ${action.frequencyDays}d` : "unico",
+              action.withdrawalDays,
+              action.supplyCategory
+                ? supplyCategoryLabels[action.supplyCategory] || action.supplyCategory
+                : "",
+            ]),
+          );
+    }
+    return map;
+  }, [plan, protocolSearch]);
+
+  const filteredExecutions = useMemo(() => {
+    const executions = plan?.recentExecutions ?? [];
+    if (!historySearch.trim()) return executions;
+    return executions.filter((record) =>
+      matchesTextQuery(historySearch, [
+        record.date,
+        new Date(record.date + "T12:00:00").toLocaleDateString("es"),
+        record.type,
+        TYPE_LABELS[record.type] || record.type,
+        record.description,
+        record.affectedHens,
+        record.product,
+        record.cost,
+        record.notes,
+      ]),
+    );
+  }, [plan, historySearch]);
+
+  const filteredSupplies = useMemo(() => {
+    const supplies = plan?.supplyStatus ?? [];
+    if (!supplySearch.trim()) return supplies;
+    return supplies.filter((supply) =>
+      matchesTextQuery(supplySearch, [
+        supply.name,
+        supply.category,
+        supplyCategoryLabels[supply.category] || supply.category,
+        supply.unit,
+        supply.currentStock,
+        supply.minStock,
+        supply.costPerUnit,
+        supply.isCritical ? "critico" : supply.isLow ? "bajo" : "ok",
+      ]),
+    );
+  }, [plan, supplySearch]);
 
   // ─── Execute action ───
   const openExecute = (event: CalendarEvent) => {
@@ -336,11 +422,26 @@ export default function PlanSanitarioTab() {
                 </select>
               </div>
             </div>
-            {upcomingActions.length === 0 ? (
-              <EmptyState icon="✅" message="No hay acciones programadas en este período" />
+            <TableSearch
+              value={upcomingSearch}
+              onChange={setUpcomingSearch}
+              placeholder="Buscar por fecha, acción o recurso..."
+              resultCount={filteredUpcoming.length}
+              totalCount={upcomingActions.length}
+              className="mb-4"
+            />
+            {filteredUpcoming.length === 0 ? (
+              <EmptyState
+                icon="✅"
+                message={
+                  upcomingSearch.trim()
+                    ? "No hay acciones que coincidan con la búsqueda"
+                    : "No hay acciones programadas en este período"
+                }
+              />
             ) : (
               <Table headers={["Fecha", "Tipo", "Acción", "Objetivo", "Frecuencia", "Recursos", "Estado", ""]}>
-                {upcomingActions.map((e) => {
+                {filteredUpcoming.map((e) => {
                   const thisWeek = e.daysUntilDue <= 7;
                   return (
                     <tr key={e.id} className={`hover:bg-slate-50 ${thisWeek ? "bg-yellow-50" : ""}`}>
@@ -404,6 +505,13 @@ export default function PlanSanitarioTab() {
       {/* ─── Tab: Protocolos por Etapa ─── */}
       {tab === "protocolos" && (
         <div className="space-y-4">
+          <TableSearch
+            value={protocolSearch}
+            onChange={setProtocolSearch}
+            placeholder="Buscar por acción, tipo o recurso..."
+            resultCount={Object.values(filteredProtocolsByStage).reduce((sum, actions) => sum + actions.length, 0)}
+            totalCount={stages.reduce((sum, stage) => sum + stage.protocol.length, 0)}
+          />
           {stages.length === 0 ? (
             <Card>
               <EmptyState icon="📊" message="No hay etapas de crecimiento definidas" />
@@ -426,11 +534,15 @@ export default function PlanSanitarioTab() {
                   </Button>
                 </div>
 
-                {stage.protocol.length === 0 ? (
-                  <p className="text-sm text-slate-400 py-2">Sin protocolo sanitario definido para esta etapa</p>
+                {(filteredProtocolsByStage[stage.id] ?? []).length === 0 ? (
+                  <p className="text-sm text-slate-400 py-2">
+                    {stage.protocol.length === 0
+                      ? "Sin protocolo sanitario definido para esta etapa"
+                      : "Sin acciones que coincidan con la búsqueda en esta etapa"}
+                  </p>
                 ) : (
                   <Table headers={["Semana", "Tipo", "Acción", "Descripción", "Frecuencia", "Retiro", "Recurso Esperado"]}>
-                    {stage.protocol.map((action, idx) => (
+                    {(filteredProtocolsByStage[stage.id] ?? []).map((action, idx) => (
                       <tr key={idx} className="hover:bg-slate-50">
                         <td className="px-4 py-2 text-sm font-medium">Sem {action.weekOffset}</td>
                         <td className="px-4 py-2"><Badge color={TYPE_COLORS[action.type] || "gray"}>{TYPE_LABELS[action.type] || action.type}</Badge></td>
@@ -516,11 +628,26 @@ export default function PlanSanitarioTab() {
       {tab === "historial" && (
         <Card>
           <h3 className="font-semibold text-slate-700 mb-3">📜 Historial de Acciones Sanitarias</h3>
-          {recentExecutions.length === 0 ? (
-            <EmptyState icon="📜" message="No hay registros sanitarios aún" />
+          <TableSearch
+            value={historySearch}
+            onChange={setHistorySearch}
+            placeholder="Buscar por fecha, tipo, producto o notas..."
+            resultCount={filteredExecutions.length}
+            totalCount={recentExecutions.length}
+            className="mb-4"
+          />
+          {filteredExecutions.length === 0 ? (
+            <EmptyState
+              icon="📜"
+              message={
+                historySearch.trim()
+                  ? "No hay registros que coincidan con la búsqueda"
+                  : "No hay registros sanitarios aún"
+              }
+            />
           ) : (
             <Table headers={["Fecha", "Tipo", "Descripción", "Aves", "Producto", "Costo", "Notas"]}>
-              {recentExecutions.map((r) => (
+              {filteredExecutions.map((r) => (
                 <tr key={r.id} className="hover:bg-slate-50">
                   <td className="px-4 py-3 text-sm">{new Date(r.date + "T12:00:00").toLocaleDateString("es")}</td>
                   <td className="px-4 py-3"><Badge color={TYPE_COLORS[r.type] || "gray"}>{TYPE_LABELS[r.type] || r.type}</Badge></td>
@@ -555,11 +682,26 @@ export default function PlanSanitarioTab() {
 
           <Card>
             <h3 className="font-semibold text-slate-700 mb-3">🧰 Inventario de Insumos Sanitarios</h3>
-            {supplyStatus.length === 0 ? (
-              <EmptyState icon="🧰" message="No hay insumos registrados. Agrega insumos desde el módulo de Inventarios." />
+            <TableSearch
+              value={supplySearch}
+              onChange={setSupplySearch}
+              placeholder="Buscar por insumo, categoría o estado..."
+              resultCount={filteredSupplies.length}
+              totalCount={supplyStatus.length}
+              className="mb-4"
+            />
+            {filteredSupplies.length === 0 ? (
+              <EmptyState
+                icon="🧰"
+                message={
+                  supplySearch.trim()
+                    ? "No hay insumos que coincidan con la búsqueda"
+                    : "No hay insumos registrados. Agrega insumos desde el módulo de Inventarios."
+                }
+              />
             ) : (
               <Table headers={["Insumo", "Categoría", "Stock Actual", "Stock Mín.", "Costo/Unidad", "Estado"]}>
-                {supplyStatus.map((s) => (
+                {filteredSupplies.map((s) => (
                   <tr key={s.id} className={s.isCritical ? "bg-red-50" : s.isLow ? "bg-yellow-50" : "hover:bg-slate-50"}>
                     <td className="px-4 py-2 font-medium">{s.name}</td>
                     <td className="px-4 py-2 text-sm">{supplyCategoryLabels[s.category] || s.category}</td>

@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react";
 import Sidebar from "@/components/Sidebar";
+import AssistantWidget from "@/components/AssistantWidget";
 
 const COLLAPSED_KEY = "sidebar-collapsed";
 
@@ -30,6 +31,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
       <main className={`flex-1 ${marginClass} p-4 md:p-6 overflow-auto transition-all duration-300`}>
         {children}
       </main>
+      <AssistantWidget />
     </div>
   );
 }

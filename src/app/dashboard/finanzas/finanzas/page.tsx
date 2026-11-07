@@ -1,10 +1,12 @@
 "use client";
 
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useMemo } from "react";
 import { PageHeader, Button, Card, Table, Badge, Modal, Input, Select, Textarea, EmptyState, StatCard } from "@/components/ui";
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip, Legend, AreaChart, Area, XAxis, YAxis, CartesianGrid } from "recharts";
 import { apiFetch } from "@/lib/fetch";
 import { useCatalog } from "@/lib/useCatalog";
+import TableSearch from "@/components/TableSearch";
+import { matchesTextQuery } from "@/lib/text";
 
 interface Transaction {
   id: string;
@@ -109,6 +111,7 @@ export default function FinanzasPage() {
   const [modalOpen, setModalOpen] = useState(false);
   const [editing, setEditing] = useState<Transaction | null>(null);
   const [error, setError] = useState("");
+  const [search, setSearch] = useState("");
   const [form, setForm] = useState({ date: new Date().toISOString().split("T")[0], type: "egreso", category: expenseCategories[0], description: "", counterparty: "", quantity: "", unitPrice: "", unit: "unidades", presentation: "", amount: "", notes: "" });
   const { values: incomeCats } = useCatalog("categoria_ingreso", incomeCategories);
   const { values: expenseCats } = useCatalog("categoria_egreso", expenseCategories);
@@ -206,6 +209,27 @@ export default function FinanzasPage() {
 
   const k = data?.kpis;
   const positive = (k?.profit ?? 0) >= 0;
+
+  const filteredTransactions = useMemo(() => {
+    const transactions = data?.transactions ?? [];
+    if (!search.trim()) return transactions;
+    return transactions.filter((transaction) =>
+      matchesTextQuery(search, [
+        transaction.date,
+        dateFmt(transaction.date),
+        transaction.type === "ingreso" ? "ingreso" : "egreso",
+        transaction.category,
+        transaction.description,
+        transaction.counterparty,
+        transaction.quantity,
+        transaction.unitPrice,
+        transaction.unit,
+        transaction.presentation,
+        transaction.amount,
+        transaction.notes,
+      ]),
+    );
+  }, [data, search]);
   const marginPct = k ? pct(k.margin) : "—";
   const ratioPct = k ? pct(k.expenseRatio) : "—";
 
@@ -404,13 +428,28 @@ export default function FinanzasPage() {
       {/* Transactions Table */}
       <Card>
         <h3 className="font-semibold text-slate-700 mb-4">📋 Historial de Transacciones</h3>
+        <TableSearch
+          value={search}
+          onChange={setSearch}
+          placeholder="Buscar por fecha, categoría, descripción o contraparte..."
+          resultCount={filteredTransactions.length}
+          totalCount={data?.transactions.length ?? 0}
+          className="mb-4"
+        />
         {loading ? (
           <p className="text-center py-8 text-slate-400">Cargando...</p>
-        ) : !data || data.transactions.length === 0 ? (
-          <EmptyState icon="📈" message="No hay transacciones en este período" />
+        ) : filteredTransactions.length === 0 ? (
+          <EmptyState
+            icon="📈"
+            message={
+              search.trim()
+                ? "No hay transacciones que coincidan con la búsqueda"
+                : "No hay transacciones en este período"
+            }
+          />
         ) : (
           <Table headers={["Fecha", "Tipo", "Categoría", "Descripción", "Contraparte", "Detalle", "Monto", ""]}>
-            {data.transactions.map((t) => (
+            {filteredTransactions.map((t) => (
               <tr key={t.id} className="hover:bg-slate-50">
                 <td className="px-4 py-3">{new Date(t.date + "T12:00:00").toLocaleDateString("es")}</td>
                 <td className="px-4 py-3">
