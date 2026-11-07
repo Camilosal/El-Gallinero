@@ -1,9 +1,10 @@
 import { NextResponse } from "next/server";
 import { db } from "@/db";
-import { feedInventory, hens, eggProduction } from "@/db/schema";
-import { sql, eq, and, gte, desc, lt } from "drizzle-orm";
+import { feedInventory, eggProduction } from "@/db/schema";
+import { sql, lt } from "drizzle-orm";
 import { computeManureInventory } from "@/lib/inventory";
-import { withApiHandler, safeParseJson } from "@/lib/api-handler";
+import { computeAnimalInventory } from "@/lib/animal-inventory";
+import { withApiHandler } from "@/lib/api-handler";
 
 export const GET = withApiHandler(async () => {
   try {
@@ -25,19 +26,23 @@ export const GET = withApiHandler(async () => {
       .select({ quantity: sql<number>`sum(${feedInventory.currentStock})` })
       .from(feedInventory);
 
-    const manureInventory = await computeManureInventory();
-
-    const [totalAves] = await db
-      .select({ count: sql<number>`count(*)` })
-      .from(hens)
-      .where(eq(hens.status, "activa"));
+    const [manureInventory, animalInventory] = await Promise.all([
+      computeManureInventory(),
+      computeAnimalInventory(),
+    ]);
 
     return NextResponse.json({
       totalHuevos: Number(totalHuevos?.count || 0),
       huevosPorVencer: Number(huevosPorVencer?.count || 0),
       totalAlimento: Number(totalAlimento?.quantity || 0),
       totalGallinaza: Math.round(manureInventory.summary.available * 100) / 100,
-      totalAves: Number(totalAves?.count || 0),
+      // Inventario vigente: el mismo número que inicio y balance.
+      totalAves: animalInventory.summary.totalAnimals,
+      totalBirds: animalInventory.summary.totalBirds,
+      totalHens: animalInventory.summary.activeHens,
+      totalRoosters: animalInventory.summary.activeRoosters,
+      totalBatches: animalInventory.summary.activeBatches,
+      species: animalInventory.species,
     });
   } catch (error) {
     console.error("Error en resumen inventarios:", error);

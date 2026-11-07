@@ -3,6 +3,11 @@
 // transicionan solas según edad y peso. Los estados manuales (enferma,
 // descarte, empollando) y terminales (vendida, faena, muerta) nunca se tocan.
 
+import {
+  HEN_EXIT_AVAILABLE_STATUSES,
+  HEN_TERMINAL_STATUSES,
+} from "./animal-status";
+
 export const LIFECYCLE_RULES = {
   /** Edad (semanas) a partir de la cual la etapa de postura se considera finalizada */
   finPosturaWeeks: 80,
@@ -19,13 +24,13 @@ export interface LifecycleRules {
 export const MANUAL_STATUSES = ["enferma", "descarte", "empollando"];
 
 /** Estados terminales: el ave ya salió del sistema */
-export const TERMINAL_STATUSES = ["vendida", "faena", "muerta"];
+export const TERMINAL_STATUSES = HEN_TERMINAL_STATUSES;
 
 /** Estados gobernados por el motor automático */
 export const AUTO_STATUSES = ["activa", "recomendada_sacrificio"];
 
 /** Estados de aves que siguen en el gallinero y pueden ir a sacrificio o venta */
-export const AVAILABLE_FOR_EXIT = ["activa", "empollando", "recomendada_sacrificio"];
+export const AVAILABLE_FOR_EXIT = HEN_EXIT_AVAILABLE_STATUSES;
 
 export interface StageRange {
   id: string;

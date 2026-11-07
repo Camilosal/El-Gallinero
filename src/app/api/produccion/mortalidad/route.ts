@@ -3,6 +3,7 @@ import { mortalityRecords, hens, roosters, broilerBatches, slaughter, chickenSal
 import { eq, desc, and, gte, sql } from "drizzle-orm";
 import { NextRequest, NextResponse } from "next/server";
 import { isAvailableForExit } from "@/lib/lifecycle";
+import { computeAnimalInventory } from "@/lib/animal-inventory";
 import { withApiHandler, safeParseJson } from "@/lib/api-handler";
 
 export const dynamic = "force-dynamic";
@@ -42,9 +43,8 @@ export const GET = withApiHandler(async (req: NextRequest) => {
     .from(mortalityRecords)
     .where(gte(mortalityRecords.date, cutoffStr));
 
-  const [henCount] = await db.select({ count: sql<number>`count(*)::int` }).from(hens).where(eq(hens.status, "activa"));
-  const [roosterCount] = await db.select({ count: sql<number>`count(*)::int` }).from(roosters).where(eq(roosters.status, "activo"));
-  const totalFlock = (henCount?.count || 0) + (roosterCount?.count || 0);
+  const animalInventory = await computeAnimalInventory();
+  const totalFlock = animalInventory.summary.totalAnimals;
   const totalDeaths = periodRecords?.total || 0;
   const mortalityRate = totalFlock > 0 ? ((totalDeaths / totalFlock) * 100).toFixed(2) : "0";
 

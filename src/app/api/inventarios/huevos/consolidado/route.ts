@@ -4,11 +4,12 @@ import {
   feedInventory, feedMovements, eggProductionDetails,
   supplyInventory, mortalityRecords,
 } from "@/db/schema";
-import { eq, and, sql, desc, gte } from "drizzle-orm";
+import { eq, and, sql, desc, gte, inArray } from "drizzle-orm";
 import { NextRequest, NextResponse } from "next/server";
 import { runFeedProgramCatchup } from "@/lib/feeding/runProgram";
 import { computeEggInventory, computeManureInventory, computeMeatInventory } from "@/lib/inventory";
 import { computeAnimalInventory } from "@/lib/animal-inventory";
+import { summarizeHens, summarizeRoosters } from "@/lib/animal-status";
 import { getInventoryPrices } from "@/lib/settings";
 import { withApiHandler, safeParseJson } from "@/lib/api-handler";
 
@@ -63,8 +64,8 @@ export const GET = withApiHandler(async (req: NextRequest) => {
     // 3. Aves: gallos por estado
     db.select({ status: roosters.status, count: sql<number>`count(*)::int` }).from(roosters).groupBy(roosters.status),
 
-    // 3. Aves: lotes de engorde activos
-    db.select().from(broilerBatches).where(eq(broilerBatches.status, "activo")),
+    // 3. Aves: lotes de engorde activos (en inventario)
+    db.select().from(broilerBatches).where(inArray(broilerBatches.status, ["activo", "listo_sacrificio"])),
 
     // 2. Huevos (PEPS)
     computeEggInventory(),
@@ -139,26 +140,32 @@ export const GET = withApiHandler(async (req: NextRequest) => {
     value: s.value,
   }));
 
-  // 3. Aves por estado
-  const henStatusMap = Object.fromEntries(hensByStatus.map((h) => [h.status, h.count]));
-  const roosterStatusMap = Object.fromEntries(roostersByStatus.map((r) => [r.status, r.count]));
+  // 3. Aves por estado — misma definición de "presente" que el resto de la app.
+  const henSummary = summarizeHens(hensByStatus);
+  const roosterSummary = summarizeRoosters(roostersByStatus);
 
-  const hensActive = (henStatusMap.activa || 0) + (henStatusMap.empollando || 0);
   const birds = {
     hens: {
-      active: hensActive,
-      sick: henStatusMap.enferma || 0,
-      recommendedSlaughter: henStatusMap.recomendada_sacrificio || 0,
-      sold: henStatusMap.vendida || 0,
-      slaughtered: henStatusMap.faena || 0,
-      dead: henStatusMap.muerta || 0,
-      total: hensByStatus.reduce((s, h) => s + h.count, 0),
+      // "active" = gallinas que siguen en el gallinero (29)
+      active: henSummary.present,
+      // "laying" = gallinas en postura (22)
+      laying: henSummary.laying,
+      broody: henSummary.broody,
+      sick: henSummary.sick,
+      discard: henSummary.discard,
+      recommendedSlaughter: henSummary.recommendedForSlaughter,
+      sold: henSummary.sold,
+      slaughtered: henSummary.slaughtered,
+      dead: henSummary.dead,
+      total: henSummary.registered,
     },
     roosters: {
-      active: roosterStatusMap.activo || 0,
-      sold: roosterStatusMap.vendido || 0,
-      slaughtered: roosterStatusMap.faena || 0,
-      total: roostersByStatus.reduce((s, r) => s + r.count, 0),
+      active: roosterSummary.present,
+      sick: roosterSummary.sick,
+      sold: roosterSummary.sold,
+      slaughtered: roosterSummary.slaughtered,
+      dead: roosterSummary.dead,
+      total: roosterSummary.registered,
     },
     batches: batches.map((b) => ({
       batchId: b.id,
@@ -170,7 +177,9 @@ export const GET = withApiHandler(async (req: NextRequest) => {
       startDate: b.startDate,
       avgWeightKg: Number(b.avgWeightKg || 0),
     })),
-    totalBirdsInProduction: hensActive + (roosterStatusMap.activo || 0) + batches.reduce((s, b) => s + b.currentQuantity, 0),
+    // Inventario vigente completo: 29 gallinas + 3 gallos + 7 pollos = 39.
+    totalBirdsInProduction: animalInv.summary.totalAnimals,
+    totalBatches: animalInv.summary.activeBatches,
     // Inventario multiespecie: la unidad es "animal", no "gallina".
     animals: animalInv,
     totalAnimals: animalInv.summary.totalAnimals,
@@ -262,7 +271,10 @@ export const GET = withApiHandler(async (req: NextRequest) => {
     summary: {
       totalFeeds: foodItems.length,
       lowStockFeeds: foodItems.filter((f) => f.isLow).length,
-      totalHensActive: birds.hens.active,
+      totalHensActive: animalInv.summary.activeHens,
+      totalHensLaying: animalInv.summary.layingHens,
+      totalHensRegistered: animalInv.summary.registeredHens,
+      totalRoostersActive: animalInv.summary.activeRoosters,
       totalAnimalsActive: animalInv.summary.totalAnimals,
       totalBirdsActive: animalInv.summary.totalBirds,
       totalEggsAvailable: eggInv.summary.available,

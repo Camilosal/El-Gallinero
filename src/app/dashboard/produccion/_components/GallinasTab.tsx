@@ -6,6 +6,7 @@ import TableSearch from "@/components/TableSearch";
 import { useCatalog } from "@/lib/useCatalog";
 import { apiFetch } from "@/lib/fetch";
 import { matchesTextQuery } from "@/lib/text";
+import { isHenPresent } from "@/lib/animal-status";
 import { QrGeneratorButton } from "./QrGenerator";
 
 interface Hen {
@@ -90,7 +91,7 @@ export default function GallinasPage() {
   const [modalOpen, setModalOpen] = useState(false);
   const [editing, setEditing] = useState<Hen | null>(null);
   const [form, setForm] = useState({ code: "", breed: "", birthDate: "", status: "activa", weight: "", notes: "", isBroody: false, clutchSize: 0 });
-  const [filter, setFilter] = useState("todos");
+  const [filter, setFilter] = useState("en_inventario");
   const [stageFilter, setStageFilter] = useState("todas");
   const [search, setSearch] = useState("");
   const { values: breedOptions } = useCatalog("raza", breeds);
@@ -145,9 +146,18 @@ export default function GallinasPage() {
   const henAge = useCallback((h: Hen) => h.ageWeeks ?? getHenAgeWeeks(h.birthDate), []);
 
   const recommended = useMemo(() => hens.filter((h) => h.status === "recomendada_sacrificio"), [hens]);
+  const presentHens = useMemo(() => hens.filter((h) => isHenPresent(h.status)), [hens]);
+  const layingHens = useMemo(() => presentHens.filter((h) => h.status === "activa"), [presentHens]);
+  const outsideHens = hens.length - presentHens.length;
+
+  const statusFiltered = useMemo(() => {
+    if (filter === "todos") return hens;
+    if (filter === "en_inventario") return presentHens;
+    return hens.filter((h) => h.status === filter);
+  }, [hens, filter, presentHens]);
 
   const filtered = useMemo(() => {
-    let result = filter === "todos" ? hens : hens.filter((h) => h.status === filter);
+    let result = statusFiltered;
     if (stageFilter !== "todas") {
       result = result.filter((h) => henStage(h) === stageFilter);
     }
@@ -164,7 +174,7 @@ export default function GallinasPage() {
       );
     }
     return result;
-  }, [hens, filter, stageFilter, search, henStage]);
+  }, [statusFiltered, stageFilter, search, henStage]);
 
   return (
     <div>
@@ -179,6 +189,24 @@ export default function GallinasPage() {
           </div>
         }
       />
+
+      {/* Resumen de inventario: mismas cifras que inicio, balance y KPIs */}
+      <div className="mb-4 flex flex-wrap items-center gap-2 text-xs">
+        <span className="px-3 py-1 rounded-full font-semibold bg-green-50 text-green-700">
+          {presentHens.length} en inventario
+        </span>
+        <span className="px-3 py-1 rounded-full font-semibold bg-emerald-50 text-emerald-700">
+          {layingHens.length} en postura
+        </span>
+        <span className="px-3 py-1 rounded-full bg-slate-100 text-slate-600">
+          {hens.length} gallinas registradas
+        </span>
+        {outsideHens > 0 && (
+          <span className="px-3 py-1 rounded-full bg-gray-50 text-gray-500">
+            {outsideHens} fuera del inventario (vendidas, faena o muertas)
+          </span>
+        )}
+      </div>
 
       {/* Alerta de gallinas recomendadas para sacrificio */}
       {recommended.length > 0 && (
@@ -201,18 +229,30 @@ export default function GallinasPage() {
         onChange={setSearch}
         placeholder="Buscar por código, raza, etapa o estado..."
         resultCount={filtered.length}
-        totalCount={hens.length}
+        totalCount={statusFiltered.length}
         className="mb-4"
       />
 
       {/* Status Filter */}
       <div className="flex gap-2 mb-3 flex-wrap">
-        {["todos", ...statusOptions].map((s) => (
-          <button key={s} onClick={() => setFilter(s)}
-            className={`px-3 py-1 rounded-full text-sm font-medium transition ${filter === s ? "bg-green-600 text-white" : "bg-white text-slate-600 hover:bg-slate-100 border"}`}>
-            {statusLabels[s] || s.charAt(0).toUpperCase() + s.slice(1)} ({s === "todos" ? hens.length : hens.filter((h) => h.status === s).length})
-          </button>
-        ))}
+        {["en_inventario", "todos", ...statusOptions].map((s) => {
+          const label = s === "en_inventario"
+            ? "En inventario"
+            : s === "todos"
+              ? "Todas"
+              : statusLabels[s] || s.charAt(0).toUpperCase() + s.slice(1);
+          const count = s === "en_inventario"
+            ? presentHens.length
+            : s === "todos"
+              ? hens.length
+              : hens.filter((h) => h.status === s).length;
+          return (
+            <button key={s} onClick={() => setFilter(s)}
+              className={`px-3 py-1 rounded-full text-sm font-medium transition ${filter === s ? "bg-green-600 text-white" : "bg-white text-slate-600 hover:bg-slate-100 border"}`}>
+              {label} ({count})
+            </button>
+          );
+        })}
       </div>
 
       {/* Stage Filter */}
@@ -224,7 +264,7 @@ export default function GallinasPage() {
         {stageNames.map((s) => (
           <button key={s} onClick={() => setStageFilter(s)}
             className={`px-3 py-1 rounded-full text-xs font-medium transition ${stageFilter === s ? "bg-amber-500 text-white" : "bg-white text-slate-600 hover:bg-slate-100 border"}`}>
-            {s} ({hens.filter((h) => henStage(h) === s).length})
+            {s} ({statusFiltered.filter((h) => henStage(h) === s).length})
           </button>
         ))}
       </div>

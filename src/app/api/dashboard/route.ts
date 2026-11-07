@@ -2,7 +2,8 @@ import { db } from "@/db";
 import { hens, eggProduction, eggSales, feedInventory, transactions, incubation, maintenance, catalogos, feedPrograms, feedMovements, chickenSales, slaughter, roosters, broilerBatches, manureFactors, mortalityRecords, sanitaryCalendar, supplyInventory, manureSales, meatSales } from "@/db/schema";
 import { eq, sql, desc, and, gte, or } from "drizzle-orm";
 import { NextResponse } from "next/server";
-import { ageInWeeks, isAvailableForExit, stageForAge } from "@/lib/lifecycle";
+import { ageInWeeks, stageForAge } from "@/lib/lifecycle";
+import { isHenPresent, summarizeHens } from "@/lib/animal-status";
 import { flockBalance } from "@/lib/flock";
 import { totalEstimatedKgPerDay } from "@/lib/manure";
 import { computeManureInventory, computeEggInventory } from "@/lib/inventory";
@@ -103,39 +104,39 @@ export const GET = withApiHandler(async () => {
       getFlockRules(),
     ]);
 
-    const totalHens = henStats.reduce((sum, s) => sum + s.count, 0);
-    const activeHens = henStats.find((s) => s.status === "activa")?.count || 0;
-    const broodyHens = henStats.find((s) => s.status === "empollando")?.count || 0;
-    const sickHens = henStats.find((s) => s.status === "enferma")?.count || 0;
-    const recommendedHens = henStats.find((s) => s.status === "recomendada_sacrificio")?.count || 0;
+    const henSummary = summarizeHens(henStats);
 
     const income = financeStats.find((f) => f.type === "ingreso")?.total || "0";
     const expenses = financeStats.find((f) => f.type === "egreso")?.total || "0";
 
-    // Calcular distribución por etapa
+    // Calcular distribución por etapa.
+    // Cada gallina se asigna a UNA sola etapa (la primera que coincide por edad)
+    // para que la suma de la distribución sea igual al inventario de gallinas.
     const today = new Date();
-    const stageDistribution = stages.map((stage) => {
-      const minWeeks = stage.minWeeks ?? 0;
-      const maxWeeks = stage.maxWeeks;
-      const minDate = new Date(today);
-      minDate.setDate(minDate.getDate() - minWeeks * 7);
+    const stageRangeList = stages.map((s) => ({
+      id: s.id,
+      value: s.value,
+      minWeeks: s.minWeeks ?? 0,
+      maxWeeks: s.maxWeeks,
+    }));
+    const hensPerStage = new Map<string, number>();
+    for (const hen of allHens) {
+      if (!isHenPresent(hen.status)) continue;
+      const stage = stageForAge(stageRangeList, ageInWeeks(hen.birthDate, today));
+      if (stage) hensPerStage.set(stage.id, (hensPerStage.get(stage.id) || 0) + 1);
+    }
 
-      let count = 0;
-      for (const hen of allHens) {
-        if (!isAvailableForExit(hen.status)) continue;
-        const weeks = ageInWeeks(hen.birthDate, today);
-        if (weeks >= minWeeks && (maxWeeks === null || weeks < maxWeeks)) {
-          count++;
-        }
-      }
-
-      const eggsPerHen = Number(stage.expectedEggsPerHen || 0);
-      return {
-        name: stage.value,
-        count,
-        expectedEggsPerDay: Math.round(eggsPerHen * count * 10) / 10,
-      };
-    });
+    const stageDistribution = stages
+      .map((stage) => {
+        const count = hensPerStage.get(stage.id) || 0;
+        const eggsPerHen = Number(stage.expectedEggsPerHen || 0);
+        return {
+          name: stage.value,
+          count,
+          expectedEggsPerDay: Math.round(eggsPerHen * count * 10) / 10,
+        };
+      })
+      .filter((stage) => stage.count > 0);
 
     const totalExpectedEggs = stageDistribution.reduce((s, st) => s + st.expectedEggsPerDay, 0);
 
@@ -226,32 +227,25 @@ export const GET = withApiHandler(async () => {
     }).from(manureSales).where(gte(manureSales.date, dateStr));
 
     // ─── Parvada: gallos reproductores y lotes de engorde ───
-    const [roosterCount, readyBatchCount] = await Promise.all([
-      db.select({ count: sql<number>`count(*)::int` }).from(roosters).where(eq(roosters.status, "activo")),
-      db.select({ count: sql<number>`count(*)::int` }).from(broilerBatches).where(eq(broilerBatches.status, "listo_sacrificio")),
-    ]);
-    const hensInCoop = henStats.filter((s) => isAvailableForExit(s.status)).reduce((sum, s) => sum + s.count, 0);
-    const roosterBalance = flockBalance(hensInCoop, roosterCount[0]?.count || 0, flockRules.hensPerRooster);
+    const [readyBatchCount] = await db
+      .select({ count: sql<number>`count(*)::int` })
+      .from(broilerBatches)
+      .where(eq(broilerBatches.status, "listo_sacrificio"));
+    const presentRoosters = animalInventory.summary.activeRoosters;
+    const roosterBalance = flockBalance(henSummary.present, presentRoosters, flockRules.hensPerRooster);
 
     // ─── Gallinaza: stock y estimación (solo lectura, sin lazy-sync) ───
     const [manureFactorRows, manureInventoryData] = await Promise.all([
       db.select().from(manureFactors),
       computeManureInventory(),
     ]);
-    const stageRangeList = stages.map((s) => ({ id: s.id, value: s.value, minWeeks: s.minWeeks ?? 0, maxWeeks: s.maxWeeks }));
-    const hensPerStage = new Map<string, number>();
-    for (const hen of allHens) {
-      if (!isAvailableForExit(hen.status)) continue;
-      const stage = stageForAge(stageRangeList, ageInWeeks(hen.birthDate, today));
-      if (stage) hensPerStage.set(stage.id, (hensPerStage.get(stage.id) || 0) + 1);
-    }
     const batchQty = await db.select({ total: sql<number>`coalesce(sum(${broilerBatches.currentQuantity}), 0)::int` })
       .from(broilerBatches).where(or(eq(broilerBatches.status, "activo"), eq(broilerBatches.status, "listo_sacrificio")));
     const factorOf = (stageId?: string, group?: string) =>
       Number(manureFactorRows.find((f) => (stageId ? f.stageCatalogoId === stageId : f.birdGroup === group))?.kgPerBirdPerDay || 0);
     const manureGroups = [
       ...stages.map((s) => ({ key: s.id, label: s.value, count: hensPerStage.get(s.id) || 0, kgPerBirdPerDay: factorOf(s.id) })),
-      { key: "gallo", label: "Gallos", count: roosterCount[0]?.count || 0, kgPerBirdPerDay: factorOf(undefined, "gallo") },
+      { key: "gallo", label: "Gallos", count: presentRoosters, kgPerBirdPerDay: factorOf(undefined, "gallo") },
       { key: "lote", label: "Lotes", count: batchQty[0]?.total || 0, kgPerBirdPerDay: factorOf(undefined, "lote") },
     ];
     const manure = {
@@ -309,13 +303,25 @@ export const GET = withApiHandler(async () => {
       .map(([, v]) => v);
 
     return NextResponse.json({
-      hens: { total: totalHens, active: activeHens, broody: broodyHens, sick: sickHens, recommendedForSlaughter: recommendedHens, byStatus: henStats },
+      hens: {
+        total: henSummary.registered,
+        active: henSummary.present,
+        laying: henSummary.laying,
+        broody: henSummary.broody,
+        sick: henSummary.sick,
+        discard: henSummary.discard,
+        recommendedForSlaughter: henSummary.recommendedForSlaughter,
+        sold: henSummary.sold,
+        slaughtered: henSummary.slaughtered,
+        dead: henSummary.dead,
+        byStatus: henStats,
+      },
       animals: animalInventory.summary,
       species: animalInventory.species,
       totalAnimals: animalInventory.summary.totalAnimals,
       totalBirds: animalInventory.summary.totalBirds,
       roosters: roosterBalance,
-      readyBatches: readyBatchCount[0]?.count || 0,
+      readyBatches: readyBatchCount?.count || 0,
       eggs: { 
         totalLast30: totalEggs30, 
         avgDaily: eggStats[0]?.avgDaily || 0,

@@ -19,6 +19,10 @@ interface ResumenInventarios {
   totalAlimento: number;
   totalGallinaza: number;
   totalAves: number;
+  totalBirds: number;
+  totalHens: number;
+  totalRoosters: number;
+  totalBatches: number;
 }
 
 export default function InventariosPage() {
@@ -69,8 +73,11 @@ export default function InventariosPage() {
             <p className="text-3xl font-bold text-gray-900">{resumen.totalAlimento.toFixed(1)}</p>
           </div>
           <div className="bg-white rounded-lg shadow-md p-6 border-l-4 border-purple-500">
-            <p className="text-sm text-gray-600 mb-1">🐔 Aves Activas</p>
+            <p className="text-sm text-gray-600 mb-1">🐾 Animales Activos</p>
             <p className="text-3xl font-bold text-gray-900">{resumen.totalAves}</p>
+            <p className="text-xs text-gray-500 mt-1">
+              {resumen.totalHens} gallinas · {resumen.totalRoosters} gallos · {resumen.totalBatches} lote{resumen.totalBatches === 1 ? "" : "s"}
+            </p>
           </div>
         </div>
       ) : null}

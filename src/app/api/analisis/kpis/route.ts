@@ -12,6 +12,8 @@ import {
 import { eq, sql, gte, and, inArray } from "drizzle-orm";
 import { NextRequest, NextResponse } from "next/server";
 import { withApiHandler, safeParseJson } from "@/lib/api-handler";
+import { computeAnimalInventory } from "@/lib/animal-inventory";
+import { isHenPresent, isRoosterPresent, summarizeHens } from "@/lib/animal-status";
 
 export const dynamic = "force-dynamic";
 
@@ -31,17 +33,14 @@ export const GET = withApiHandler(async (req: NextRequest) => {
     .from(mortalityRecords)
     .where(gte(mortalityRecords.date, cutoffStr));
 
-  const [henCount] = await db
-    .select({ count: sql<number>`count(*)::int` })
-    .from(hens)
-    .where(eq(hens.status, "activa"));
-
-  const [roosterCount] = await db
-    .select({ count: sql<number>`count(*)::int` })
-    .from(roosters)
-    .where(eq(roosters.status, "activo"));
-
-  const totalFlock = (henCount?.count || 0) + (roosterCount?.count || 0);
+  // Fuente única: todos los animales presentes (gallinas, gallos y lotes).
+  const [henStatusRows, animalInventory] = await Promise.all([
+    db.select({ status: hens.status, count: sql<number>`count(*)::int` }).from(hens).groupBy(hens.status),
+    computeAnimalInventory(),
+  ]);
+  const henSummary = summarizeHens(henStatusRows);
+  const totalFlock = animalInventory.summary.totalAnimals;
+  const layingHens = henSummary.laying;
   const totalDeaths = totalDeathsRow?.total || 0;
   const mortalityRate = totalFlock > 0 ? ((totalDeaths / totalFlock) * 100) : 0;
 
@@ -61,8 +60,7 @@ export const GET = withApiHandler(async (req: NextRequest) => {
     .where(gte(eggProduction.date, cutoffStr));
 
   const totalEggs = totalEggsRow?.total || 0;
-  // Laying-age hens: hens with status activa (assume laying age for simplicity)
-  const layingHens = henCount?.count || 0;
+  // Gallinas en postura: estado "activa" (definición compartida).
   const layingRate = layingHens > 0 && days > 0
     ? (totalEggs / layingHens / days) * 100
     : 0;
@@ -106,7 +104,7 @@ export const GET = withApiHandler(async (req: NextRequest) => {
   let totalAgeWeeks = 0;
   let countWithAge = 0;
   for (const h of allHens) {
-    if (h.status === "activa" || h.status === "empollando" || h.status === "enferma") {
+    if (isHenPresent(h.status)) {
       const birth = new Date(h.birthDate + "T12:00:00");
       const weeks = (now.getTime() - birth.getTime()) / (7 * 24 * 60 * 60 * 1000);
       totalAgeWeeks += weeks;
@@ -114,7 +112,7 @@ export const GET = withApiHandler(async (req: NextRequest) => {
     }
   }
   for (const r of allRoosters) {
-    if (r.status === "activo") {
+    if (isRoosterPresent(r.status)) {
       const birth = new Date(r.birthDate + "T12:00:00");
       const weeks = (now.getTime() - birth.getTime()) / (7 * 24 * 60 * 60 * 1000);
       totalAgeWeeks += weeks;
@@ -220,6 +218,7 @@ export const GET = withApiHandler(async (req: NextRequest) => {
       rate: parseFloat(layingRate.toFixed(2)),
       totalEggs,
       avgDaily: parseFloat(avgDaily.toFixed(1)),
+      hens: layingHens,
       series: layingSeries,
     },
     costPerUnit: {
@@ -230,6 +229,7 @@ export const GET = withApiHandler(async (req: NextRequest) => {
     flock: {
       avgAgeWeeks: parseFloat(avgAgeWeeks.toFixed(1)),
       totalBirds: totalFlock,
+      layingHens,
       productiveRatio: parseFloat(productiveRatio.toFixed(2)),
     },
     expenseByCategory,

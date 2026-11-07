@@ -1,5 +1,6 @@
 import { InternalApiClient, InternalApiError } from "./internal-api";
 import { normalizeSpecies, speciesLabel } from "@/lib/species-db";
+import { isBatchPresent, isHenPresent, isRoosterPresent } from "@/lib/animal-status";
 import type { LlmToolDefinition } from "./llm";
 
 /**
@@ -150,10 +151,6 @@ interface BatchRow {
   readinessReasons?: string[];
 }
 
-const HEN_TERMINAL = new Set(["vendida", "faena", "muerta"]);
-const ROOSTER_TERMINAL = new Set(["vendido", "faena", "muerto"]);
-const BATCH_TERMINAL = new Set(["vendido", "faena"]);
-
 async function loadHens(ctx: ToolContext): Promise<HenRow[]> {
   return asArray<HenRow>(await ctx.api.get("/api/produccion/gallinas"));
 }
@@ -175,15 +172,15 @@ function asArray<T>(value: unknown): T[] {
 }
 
 function activeHens(rows: HenRow[]): HenRow[] {
-  return rows.filter((row) => !HEN_TERMINAL.has(row.status));
+  return rows.filter((row) => isHenPresent(row.status));
 }
 
 function activeRoosters(rows: RoosterRow[]): RoosterRow[] {
-  return rows.filter((row) => !ROOSTER_TERMINAL.has(row.status));
+  return rows.filter((row) => isRoosterPresent(row.status));
 }
 
 function activeBatches(rows: BatchRow[]): BatchRow[] {
-  return rows.filter((row) => !BATCH_TERMINAL.has(row.status) && Number(row.currentQuantity) > 0);
+  return rows.filter((row) => isBatchPresent(row.status, row.currentQuantity));
 }
 
 function findByIdOrCode<T extends { id: string; code: string }>(rows: T[], value?: string | null): T | undefined {
@@ -216,6 +213,7 @@ const consultarResumenGranja: AgentTool = {
         ? {
             total: data.hens.total,
             activas: data.hens.active,
+            enPostura: data.hens.laying ?? 0,
             empollando: data.hens.broody,
             enfermas: data.hens.sick,
             recomendadasSacrificio: data.hens.recommendedForSlaughter,

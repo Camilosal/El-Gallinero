@@ -39,10 +39,11 @@ interface FeedChartPoint {
 }
 
 interface DashboardData {
-  hens: { total: number; active: number; broody: number; sick: number; recommendedForSlaughter: number };
+  hens: { total: number; active: number; laying?: number; broody: number; sick: number; recommendedForSlaughter: number };
   roosters: { required: number; active: number; deficit: number; surplus: number };
   totalAnimals?: number;
   totalBirds?: number;
+  species?: { species: string; label: string; count: number }[];
   readyBatches: number;
   eggs: {
     totalLast30: number;
@@ -215,6 +216,16 @@ export default function Dashboard() {
     .filter((s) => s.daysRemaining !== null)
     .reduce((min, s) => Math.min(min, s.daysRemaining!), Infinity);
 
+  // Desglose de la parvada con la misma definición de inventario del resto de la app.
+  const speciesBreakdown = (data.species ?? [])
+    .filter((s) => s.count > 0)
+    .map((s) => `${s.count} ${s.label.toLowerCase()}`)
+    .join(" · ");
+  const flockHint = [
+    data.hens.laying != null ? `${data.hens.laying} en postura` : "",
+    speciesBreakdown,
+  ].filter(Boolean).join(" · ");
+
   return (
     <div>
       {/* Header */}
@@ -354,7 +365,7 @@ export default function Dashboard() {
       <div className="mb-6">
         <h2 className="text-sm font-semibold text-slate-500 uppercase tracking-wide mb-3">Resumen rápido</h2>
         <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
-          <QuickStat icon="🐾" label="Animales activos" value={data.totalAnimals ?? data.hens.active} />
+          <QuickStat icon="🐾" label="Animales activos" value={data.totalAnimals ?? data.hens.active} hint={flockHint} />
           <QuickStat icon="🥚" label="Huevos hoy" value={`${data.eggs.avgDaily} prom`} />
           <QuickStat
             icon="🌾"
@@ -619,12 +630,13 @@ export default function Dashboard() {
 }
 
 // ─── Quick stat component ───
-function QuickStat({ icon, label, value, alert }: { icon: string; label: string; value: string | number; alert?: boolean }) {
+function QuickStat({ icon, label, value, alert, hint }: { icon: string; label: string; value: string | number; alert?: boolean; hint?: string }) {
   return (
     <div className={`p-3 rounded-xl border text-center ${alert ? "border-red-200 bg-red-50" : "border-slate-200 bg-white"}`}>
       <p className="text-lg">{icon}</p>
       <p className={`text-lg font-bold ${alert ? "text-red-600" : "text-slate-800"}`}>{value}</p>
       <p className="text-[11px] text-slate-500">{label}</p>
+      {hint && <p className="text-[10px] text-slate-400 mt-0.5 leading-tight">{hint}</p>}
     </div>
   );
 }

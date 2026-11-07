@@ -56,16 +56,23 @@ interface EggSize {
 interface BirdsData {
   hens: {
     active: number;
+    laying: number;
+    broody: number;
     sick: number;
+    discard: number;
     recommendedSlaughter: number;
     sold: number;
     slaughtered: number;
     dead: number;
     total: number;
   };
-  roosters: { active: number; sold: number; slaughtered: number; total: number };
+  roosters: { active: number; sick: number; sold: number; slaughtered: number; dead: number; total: number };
   batches: { batchId: string; code: string; breed: string; currentQuantity: number; startDate: string; avgWeightKg: number }[];
   totalBirdsInProduction: number;
+  totalBatches: number;
+  totalAnimals: number;
+  totalBirds: number;
+  species: { species: string; label: string; count: number }[];
 }
 
 interface ConsolidatedData {
@@ -75,6 +82,9 @@ interface ConsolidatedData {
     totalFeeds: number;
     lowStockFeeds: number;
     totalHensActive: number;
+    totalHensLaying: number;
+    totalHensRegistered: number;
+    totalRoostersActive: number;
     totalAnimalsActive: number;
     totalBirdsActive: number;
     totalEggsAvailable: number;
@@ -290,7 +300,7 @@ export default function BalancePage() {
             <Card>
               <p className="text-sm text-slate-500">🐔 Valor Aves en Pie</p>
               <p className="text-2xl font-bold text-orange-600">{fmtMoney(data.summary.birdsValue)}</p>
-              <p className="text-xs text-slate-400">{data.summary.totalBirdsWeightKg} kg × $10,000/kg</p>
+              <p className="text-xs text-slate-400">{data.summary.totalBirdsWeightKg} kg en pie, valorados con precios de Catálogos</p>
             </Card>
             <Card>
               <p className="text-sm text-slate-500">🧰 Valor en Insumos</p>
@@ -304,7 +314,7 @@ export default function BalancePage() {
             <Card>
               <p className="text-sm text-slate-500">🌱 Valor Gallinaza</p>
               <p className="text-2xl font-bold text-green-600">{fmtMoney(data.summary.manureValue)}</p>
-              <p className="text-xs text-slate-400">{fmtKg(data.summary.totalManureKg)} × $300/kg</p>
+              <p className="text-xs text-slate-400">{fmtKg(data.summary.totalManureKg)} en stock</p>
             </Card>
           </div>
 
@@ -434,15 +444,20 @@ export default function BalancePage() {
           {/* Aves */}
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
             <Card>
-              <h3 className="font-semibold text-slate-700 mb-3">🐔 Aves por Estado</h3>
+              <h3 className="font-semibold text-slate-700 mb-3">🐔 Animales por Estado</h3>
               <div className="grid grid-cols-2 gap-2 text-sm">
-                <div className="p-3 bg-green-50 rounded-lg"><p className="text-slate-500 text-xs">Gallinas activas</p><p className="text-xl font-bold text-green-700">{data.birds.hens.active}</p></div>
+                <div className="p-3 bg-green-50 rounded-lg"><p className="text-slate-500 text-xs">Gallinas en inventario</p><p className="text-xl font-bold text-green-700">{data.birds.hens.active}</p></div>
+                <div className="p-3 bg-emerald-50 rounded-lg"><p className="text-slate-500 text-xs">Gallinas en postura</p><p className="text-xl font-bold text-emerald-700">{data.birds.hens.laying}</p></div>
+                <div className="p-3 bg-purple-50 rounded-lg"><p className="text-slate-500 text-xs">Empollando</p><p className="text-xl font-bold text-purple-700">{data.birds.hens.broody}</p></div>
                 <div className="p-3 bg-yellow-50 rounded-lg"><p className="text-slate-500 text-xs">Enfermas</p><p className="text-xl font-bold text-yellow-700">{data.birds.hens.sick}</p></div>
                 <div className="p-3 bg-orange-50 rounded-lg"><p className="text-slate-500 text-xs">Recomendadas sacrificio</p><p className="text-xl font-bold text-orange-700">{data.birds.hens.recommendedSlaughter}</p></div>
                 <div className="p-3 bg-red-50 rounded-lg"><p className="text-slate-500 text-xs">Vendidas / Faena</p><p className="text-xl font-bold text-red-700">{data.birds.hens.sold + data.birds.hens.slaughtered}</p></div>
-                <div className="p-3 bg-blue-50 rounded-lg"><p className="text-slate-500 text-xs">Gallos activos</p><p className="text-xl font-bold text-blue-700">{data.birds.roosters.active}</p></div>
-                <div className="p-3 bg-purple-50 rounded-lg"><p className="text-slate-500 text-xs">Aves en producción</p><p className="text-xl font-bold text-purple-700">{data.birds.totalBirdsInProduction}</p></div>
+                <div className="p-3 bg-blue-50 rounded-lg"><p className="text-slate-500 text-xs">Gallos en inventario</p><p className="text-xl font-bold text-blue-700">{data.birds.roosters.active}</p></div>
+                <div className="p-3 bg-indigo-50 rounded-lg"><p className="text-slate-500 text-xs">Animales en inventario</p><p className="text-xl font-bold text-indigo-700">{data.birds.totalAnimals}</p></div>
               </div>
+              <p className="text-xs text-slate-500 mt-3">
+                Inventario vigente: {data.birds.species.filter((s) => s.count > 0).map((s) => `${s.count} ${s.label.toLowerCase()}`).join(" · ") || "sin animales"}
+              </p>
               {data.mortality.totalDeaths > 0 && (
                 <div className="mt-3 p-3 bg-red-50 rounded-lg">
                   <span className="font-semibold text-red-700">📉 Mortalidad: {data.mortality.totalDeaths} muertes</span>

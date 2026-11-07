@@ -4,6 +4,7 @@ import { useEffect, useState, useRef } from "react";
 import QRCode from "qrcode";
 import { Button, Modal } from "@/components/ui";
 import { generateQrPayload } from "@/lib/qr";
+import { HEN_PRESENT_STATUSES } from "@/lib/animal-status";
 
 interface Hen {
   id: string;
@@ -12,11 +13,9 @@ interface Hen {
   status: string;
 }
 
-const activeStatuses = ["activa", "empollando", "enferma", "descarte", "recomendada_sacrificio"];
-
 export function QrGeneratorButton({ hens }: { hens: Hen[] }) {
   const [open, setOpen] = useState(false);
-  const activeHens = hens.filter((h) => activeStatuses.includes(h.status));
+  const activeHens = hens.filter((h) => HEN_PRESENT_STATUSES.includes(h.status));
 
   return (
     <>

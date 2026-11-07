@@ -9,6 +9,12 @@ import {
   type SpeciesDbParams,
 } from "./species-db";
 import { getNumberSetting } from "./settings";
+import {
+  isBatchPresent,
+  isHenLaying,
+  isHenPresent,
+  isRoosterPresent,
+} from "./animal-status";
 
 /**
  * Inventario consolidado de animales del gallinero.
@@ -50,7 +56,12 @@ export interface AnimalInventorySummary {
   totalAnimals: number;
   totalBirds: number;
   totalNonBirds: number;
+  /** Gallinas registradas en total (incluye vendidas, faenadas y muertas). */
+  registeredHens: number;
+  /** Gallinas que siguen en el gallinero. */
   activeHens: number;
+  /** Gallinas en postura (estado "activa"). */
+  layingHens: number;
   activeRoosters: number;
   activeBatches: number;
   totalWeightKg: number;
@@ -63,10 +74,6 @@ export interface AnimalInventory {
   groups: AnimalGroup[];
   byPurpose: { purpose: string; label: string; count: number }[];
 }
-
-const HEN_TERMINAL = new Set(["vendida", "faena", "muerta"]);
-const ROOSTER_TERMINAL = new Set(["vendido", "faena", "muerto"]);
-const BATCH_TERMINAL = new Set(["vendido", "faena"]);
 
 const PURPOSE_LABEL: Record<string, string> = {
   engorde_carne: "Engorde / carne",
@@ -152,7 +159,7 @@ export async function computeAnimalInventory(): Promise<AnimalInventory> {
   };
 
   // ─── Gallinas ───
-  const presentHens = henRows.filter((h) => !HEN_TERMINAL.has(h.status));
+  const presentHens = henRows.filter((h) => isHenPresent(h.status));
   const henTargetWeight = targetWeightMap.get("gallina") ?? 2.5;
   const henWeights = presentHens.map((h) => {
     const real = h.weight != null ? Number(h.weight) : 0;
@@ -173,7 +180,7 @@ export async function computeAnimalInventory(): Promise<AnimalInventory> {
   });
 
   // ─── Gallos ───
-  const presentRoosters = roosterRows.filter((r) => !ROOSTER_TERMINAL.has(r.status));
+  const presentRoosters = roosterRows.filter((r) => isRoosterPresent(r.status));
   const roosterTargetWeight = targetWeightMap.get("gallina") ?? 3;
   const roosterWeights = presentRoosters.map((r) => (r.weight != null ? Number(r.weight) : 0)).filter((w) => w > 0);
   const roosterAvgWeight = roosterWeights.length > 0
@@ -191,7 +198,7 @@ export async function computeAnimalInventory(): Promise<AnimalInventory> {
   });
 
   // ─── Lotes multiespecie ───
-  const presentBatches = batchRows.filter((b) => !BATCH_TERMINAL.has(b.status) && b.currentQuantity > 0);
+  const presentBatches = batchRows.filter((b) => isBatchPresent(b.status, b.currentQuantity));
   for (const batch of presentBatches) {
     const real = batch.avgWeightKg != null ? Number(batch.avgWeightKg) : 0;
     const target = Number(batch.targetWeightKg) || targetWeightMap.get(batch.species) || 0;
@@ -266,7 +273,9 @@ export async function computeAnimalInventory(): Promise<AnimalInventory> {
       totalAnimals,
       totalBirds,
       totalNonBirds: totalAnimals - totalBirds,
+      registeredHens: henRows.length,
       activeHens: presentHens.length,
+      layingHens: presentHens.filter((h) => isHenLaying(h.status)).length,
       activeRoosters: presentRoosters.length,
       activeBatches: presentBatches.length,
       totalWeightKg,

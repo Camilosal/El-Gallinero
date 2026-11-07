@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState, useCallback, useMemo } from "react";
+import Link from "next/link";
 import { apiFetch } from "@/lib/fetch";
 import { useCatalog } from "@/lib/useCatalog";
 import { Card, StatCard, PageHeader, Button, Input, Select, Textarea, Modal, Table, Badge, EmptyState } from "@/components/ui";
@@ -22,6 +23,17 @@ type Acquisition = {
   createdAt: string;
 };
 
+interface InventorySummary {
+  totalAnimals: number;
+  totalBirds: number;
+  totalNonBirds: number;
+  registeredHens: number;
+  activeHens: number;
+  layingHens: number;
+  activeRoosters: number;
+  activeBatches: number;
+}
+
 const TYPE_LABELS: Record<string, string> = { compra: "Compra", donacion: "Donación", pollito_comprado: "Pollitos comprados" };
 const TYPE_COLORS: Record<string, string> = { compra: "blue", donacion: "green", pollito_comprado: "purple" };
 const BIRD_LABELS: Record<string, string> = { gallina: "Gallinas", gallo: "Gallos", lote_pollos: "Lote pollos" };
@@ -40,6 +52,7 @@ const emptyForm = {
 
 export default function AdquisicionesPage() {
   const [items, setItems] = useState<Acquisition[]>([]);
+  const [inventory, setInventory] = useState<InventorySummary | null>(null);
   const [loading, setLoading] = useState(true);
   const [modalOpen, setModalOpen] = useState(false);
   const [form, setForm] = useState(emptyForm);
@@ -51,8 +64,15 @@ export default function AdquisicionesPage() {
   const proveedores = useCatalog("proveedor", []);
 
   const load = useCallback(async () => {
-    const res = await apiFetch("/api/produccion/adquisiciones");
+    const [res, invRes] = await Promise.all([
+      apiFetch("/api/produccion/adquisiciones"),
+      apiFetch("/api/inventarios/animales"),
+    ]);
     if (res.ok) setItems(await res.json());
+    if (invRes.ok) {
+      const inv = await invRes.json();
+      setInventory(inv.summary);
+    }
     setLoading(false);
   }, []);
 
@@ -114,10 +134,33 @@ export default function AdquisicionesPage() {
       />
 
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        <StatCard icon="🐔" label="Total aves adquiridas" value={String(totalAves)} color="green" />
+        <StatCard icon="📥" label="Aves adquiridas (histórico)" value={String(totalAves)} color="green" />
         <StatCard icon="💰" label="Inversión total" value={`$${totalInversion.toLocaleString()}`} color="blue" />
         <StatCard icon="🛒" label="Compras" value={String(compras)} color="purple" />
         <StatCard icon="🎁" label="Donaciones" value={String(donaciones)} color="yellow" />
+      </div>
+
+      <div className="p-4 bg-blue-50 border border-blue-200 rounded-xl text-sm text-blue-800">
+        <p className="font-semibold mb-1">📋 Este es un histórico de entradas, no el inventario actual</p>
+        <p>
+          Las {totalAves} aves adquiridas suman compras, donaciones y pollitos registrados desde el inicio.
+          Algunas ya se vendieron, faenaron o murieron, y los pollos crecieron y pasaron a lotes.
+        </p>
+        <p className="mt-2">
+          Inventario vigente hoy:{" "}
+          <strong>{inventory ? `${inventory.totalAnimals} animales` : "—"}</strong>
+          {inventory && (
+            <span className="text-blue-700">
+              {" "}({inventory.activeHens} gallinas
+              {inventory.layingHens > 0 ? `, ${inventory.layingHens} en postura` : ""}
+              {" · "}{inventory.activeRoosters} gallos
+              {" · "}{inventory.activeBatches} lote{inventory.activeBatches === 1 ? "" : "s"})
+            </span>
+          )}
+        </p>
+        <Link href="/dashboard/inventarios/balance" className="inline-block mt-2 text-xs font-semibold text-blue-700 hover:underline">
+          Ver balance de inventario →
+        </Link>
       </div>
 
       <Card>

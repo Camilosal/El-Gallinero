@@ -5,6 +5,7 @@ import { apiFetch } from "@/lib/fetch";
 import { PageHeader, StatCard, Card, Button, Input, Select, Textarea, Badge, Modal, Table, EmptyState } from "@/components/ui";
 import TableSearch from "@/components/TableSearch";
 import { matchesTextQuery } from "@/lib/text";
+import { isRoosterPresent } from "@/lib/animal-status";
 import {
   calcularRentabilidadLote,
   SPECIES_ICON,
@@ -309,7 +310,7 @@ export default function PollosPage() {
   };
 
   // ─── Stats ───
-  const activeRoosters = roosters.filter((r) => r.status === "activo").length;
+  const activeRoosters = roosters.filter((r) => isRoosterPresent(r.status)).length;
   const totalInBatches = batches.reduce((s, b) => s + b.currentQuantity, 0);
   const readyBatches = batches.filter((b) => b.status === "listo_sacrificio");
 
