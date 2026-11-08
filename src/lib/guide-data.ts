@@ -310,15 +310,15 @@ export const guides: Guide[] = [
       { href: "/dashboard/produccion/plan-parvada", label: "Plan de Parvada" },
     ],
     sections: [
-      { type: "intro", text: "Planifica la composición de tu parvada: cuántas aves necesitas, cuándo incorporar nuevas, proyección de producción y renovación del plantel." },
-      { type: "steps", title: "Crear un plan", items: [
+      { type: "intro", text: "Diagnostica la parvada real y proyecta postura, alimento y reemplazo con la edad de cada gallina. El plan no usa curvas fijas: se calcula con los estándares de Catálogos y los datos reales de la granja." },
+      { type: "steps", title: "Cómo usarlo", items: [
         "Ve a Producción → Plan de Parvada.",
-        "Define el objetivo: número de aves, producción esperada, período.",
-        "El sistema compara con tu situación actual y sugiere acciones.",
-        "Registra las incorporaciones planificadas (compra de pollitas, incubación).",
-        "Monitorea el avance contra el plan.",
+        "Revisa el diagnóstico: animales en inventario, gallinas en postura, huevos de los últimos 7 días y alimento estimado.",
+        "Atiende las alertas: gallinas fuera del ciclo, recomendadas para venta, postura baja y relación gallos/gallinas. Cada alerta enlaza a la pantalla donde se resuelve.",
+        "Consulta la proyección de 17 semanas: esperado vs real y cumplimiento semanal.",
+        "Crea o edita un plan para fijar la meta de gallinas, gallos y la fecha de reemplazo.",
       ]},
-      { type: "note", text: "El plan de parvada te ayuda a tomar decisiones informadas sobre renovación del plantel y proyección de ingresos por producción." },
+      { type: "note", text: "La proyección se actualiza sola con la edad de las gallinas y los parámetros de Catálogos. Si cambias el estándar de postura o alimento de una etapa, el plan lo refleja de inmediato." },
     ],
   },
 

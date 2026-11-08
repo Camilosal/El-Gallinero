@@ -118,7 +118,7 @@ async function main() {
     },
     {
       category: "estado_gallina",
-      values: ["activa", "empollando", "enferma", "descarte", "vendida", "muerta"],
+      values: ["activa", "empollando", "enferma", "recomendada_sacrificio", "descarte", "vendida", "faena", "muerta"],
     },
     {
       category: "categoria_alimento",

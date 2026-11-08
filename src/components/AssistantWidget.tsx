@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { apiFetch } from "@/lib/fetch";
+import ChatMarkdown from "@/components/ChatMarkdown";
 
 interface ChatMessage {
   id: string;
@@ -42,7 +43,6 @@ function uid(prefix: string): string {
 export default function AssistantWidget() {
   const [open, setOpen] = useState(false);
   const [configured, setConfigured] = useState<boolean | null>(null);
-  const [model, setModel] = useState<string | null>(null);
   const [conversationId, setConversationId] = useState<string | null>(null);
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [pendingActions, setPendingActions] = useState<PendingAction[]>([]);
@@ -73,10 +73,7 @@ export default function AssistantWidget() {
 
     apiFetch("/api/asistente/estado")
       .then((res) => res.json())
-      .then((data) => {
-        setConfigured(Boolean(data.configured));
-        setModel(data.model || null);
-      })
+      .then((data) => setConfigured(Boolean(data.configured)))
       .catch(() => setConfigured(false));
   }, [open, configured]);
 
@@ -255,20 +252,29 @@ export default function AssistantWidget() {
       {open && (
         <section
           className="fixed bottom-20 right-3 z-40 flex h-[min(680px,78vh)] w-[calc(100vw-1.5rem)] max-w-md flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-2xl md:right-5"
-          aria-label="Asistente del Gallinero"
+          aria-label="Asistente de la granja"
         >
           <header className="flex items-center justify-between gap-2 bg-green-800 px-4 py-3 text-white">
             <div className="min-w-0">
               <div className="flex items-center gap-2">
                 <span className="text-lg">🤖</span>
-                <h2 className="truncate text-sm font-semibold">Asistente del Gallinero</h2>
+                <h2 className="truncate text-sm font-semibold">Asistente de la granja</h2>
               </div>
-              <p className="mt-0.5 truncate text-[11px] text-green-100">
+              <p className="mt-0.5 flex items-center gap-1.5 truncate text-[11px] text-green-100">
+                <span
+                  className={`inline-block h-1.5 w-1.5 shrink-0 rounded-full ${
+                    configured === null
+                      ? "bg-slate-300"
+                      : configured
+                        ? "bg-green-300"
+                        : "bg-amber-300"
+                  }`}
+                />
                 {configured === null
-                  ? "Verificando configuración..."
+                  ? "Conectando..."
                   : configured
-                    ? `Configurado${model ? ` · ${model}` : ""}`
-                    : "No configurado"}
+                    ? "En línea · pregúntame lo que necesites"
+                    : "Sin conexión"}
               </p>
             </div>
             <div className="flex shrink-0 items-center gap-1">
@@ -376,13 +382,13 @@ export default function AssistantWidget() {
                 className={`flex ${message.role === "user" ? "justify-end" : "justify-start"}`}
               >
                 <div
-                  className={`max-w-[85%] whitespace-pre-wrap rounded-2xl px-3.5 py-2.5 text-sm leading-relaxed ${
+                  className={`max-w-[85%] break-words rounded-2xl px-3.5 py-2.5 text-sm leading-relaxed ${
                     message.role === "user"
-                      ? "rounded-br-md bg-green-700 text-white"
+                      ? "whitespace-pre-wrap rounded-br-md bg-green-700 text-white"
                       : "rounded-bl-md border border-slate-200 bg-white text-slate-700"
                   }`}
                 >
-                  {message.content}
+                  {message.role === "user" ? message.content : <ChatMarkdown content={message.content} />}
                 </div>
               </div>
             ))}

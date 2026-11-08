@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState, useCallback, useMemo } from "react";
+import { useSearchParams } from "next/navigation";
 import { PageHeader, Button, Card, Table, Badge, Modal, Input, Select, Textarea, EmptyState } from "@/components/ui";
 import TableSearch from "@/components/TableSearch";
 import { useCatalog } from "@/lib/useCatalog";
@@ -91,9 +92,16 @@ export default function GallinasPage() {
   const [modalOpen, setModalOpen] = useState(false);
   const [editing, setEditing] = useState<Hen | null>(null);
   const [form, setForm] = useState({ code: "", breed: "", birthDate: "", status: "activa", weight: "", notes: "", isBroody: false, clutchSize: 0 });
-  const [filter, setFilter] = useState("en_inventario");
+  const searchParams = useSearchParams();
+  const estadoParam = searchParams.get("estado");
+  const [filter, setFilter] = useState(estadoParam || "en_inventario");
   const [stageFilter, setStageFilter] = useState("todas");
   const [search, setSearch] = useState("");
+
+  // Permite enlaces profundos desde el plan de parvada u otras pantallas.
+  useEffect(() => {
+    if (estadoParam) setFilter(estadoParam);
+  }, [estadoParam]);
   const { values: breedOptions } = useCatalog("raza", breeds);
   const { values: statusOptions } = useCatalog("estado_gallina", statusFallback);
 
