@@ -47,6 +47,7 @@ export const GET = withApiHandler(async () => {
       totalGallinas: Number(totalGallinas?.count || 0),
       totalAnimals: animals.summary.totalAnimals,
       totalBirds: animals.summary.totalBirds,
+      species: animals.species,
       mortalidadSemana: Number(mortalidadSemana?.count || 0),
       consumoAlimentoSemanal: Number(consumoAlimentoSemanal?.total || 0),
     });

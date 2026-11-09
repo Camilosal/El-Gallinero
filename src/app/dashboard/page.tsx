@@ -222,8 +222,8 @@ export default function Dashboard() {
     .map((s) => `${s.count} ${s.label.toLowerCase()}`)
     .join(" · ");
   const flockHint = [
-    data.hens.laying != null ? `${data.hens.laying} en postura` : "",
     speciesBreakdown,
+    data.hens.laying != null ? `${data.hens.laying} en postura` : "",
   ].filter(Boolean).join(" · ");
 
   return (
@@ -365,7 +365,7 @@ export default function Dashboard() {
       <div className="mb-6">
         <h2 className="text-sm font-semibold text-slate-500 uppercase tracking-wide mb-3">Resumen rápido</h2>
         <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
-          <QuickStat icon="🐾" label="Animales activos" value={data.totalAnimals ?? data.hens.active} hint={flockHint} />
+          <QuickStat icon="🐾" label="Animales en inventario" value={data.totalAnimals ?? data.hens.active} hint={flockHint} />
           <QuickStat icon="🥚" label="Huevos hoy" value={`${data.eggs.avgDaily} prom`} />
           <QuickStat
             icon="🌾"

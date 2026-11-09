@@ -43,6 +43,7 @@ export const GET = withApiHandler(async () => {
       totalGallinas: Number(totalGallinas?.count || 0),
       totalAnimals: animals.summary.totalAnimals,
       totalBirds: animals.summary.totalBirds,
+      species: animals.species,
       productividad: productividad.toFixed(2),
     });
   } catch (error) {

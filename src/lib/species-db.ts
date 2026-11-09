@@ -25,7 +25,8 @@ export const SPECIES_PLURAL: Record<string, string> = {
 
 export const SPECIES_ICON: Record<string, string> = {
   gallina: "🐔",
-  pollo: "🐓",
+  gallo: "🐓",
+  pollo: "🐤",
   codorniz: "🥚",
   pato: "🦆",
   conejo: "🐇",

@@ -16,6 +16,7 @@ interface ResumenAnalisis {
   totalGallinas: number;
   totalAnimals: number;
   totalBirds: number;
+  species?: { species: string; label: string; count: number }[];
   productividad: string;
 }
 
@@ -30,6 +31,11 @@ export default function AnalisisPage() {
       .catch(console.error)
       .finally(() => setLoading(false));
   }, []);
+
+  const speciesHint = (resumen?.species ?? [])
+    .filter((s) => s.count > 0)
+    .map((s) => `${s.count} ${s.label.toLowerCase()}`)
+    .join(" · ");
 
   return (
     <div className="p-8">
@@ -67,9 +73,9 @@ export default function AnalisisPage() {
             <p className="text-3xl font-bold text-gray-900">{resumen.productividad}</p>
           </div>
           <div className="bg-white rounded-lg shadow-md p-6 border-l-4 border-purple-500">
-            <p className="text-sm text-gray-600 mb-1">🐾 Animales Activos</p>
+            <p className="text-sm text-gray-600 mb-1">🐾 Animales en Inventario</p>
             <p className="text-3xl font-bold text-gray-900">{resumen.totalAnimals ?? resumen.totalGallinas}</p>
-            <p className="text-xs text-gray-500 mt-1">{resumen.totalBirds ?? 0} aves · {Math.max(0, (resumen.totalAnimals ?? 0) - (resumen.totalBirds ?? 0))} no aves</p>
+            <p className="text-xs text-gray-500 mt-1">{speciesHint || `${resumen.totalBirds ?? 0} aves`}</p>
           </div>
         </div>
       ) : null}

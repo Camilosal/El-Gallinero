@@ -23,6 +23,7 @@ interface ResumenInventarios {
   totalHens: number;
   totalRoosters: number;
   totalBatches: number;
+  species?: { species: string; label: string; count: number }[];
 }
 
 export default function InventariosPage() {
@@ -37,6 +38,11 @@ export default function InventariosPage() {
       .finally(() => setLoading(false));
   }, []);
 
+  const speciesHint = (resumen?.species ?? [])
+    .filter((s) => s.count > 0)
+    .map((s) => `${s.count} ${s.label.toLowerCase()}`)
+    .join(" · ");
+
   return (
     <div className="p-8">
       <div className="mb-8">
@@ -45,7 +51,7 @@ export default function InventariosPage() {
           Inventarios
         </h1>
         <p className="text-gray-600 mt-2">
-          Consolidado de todos los recursos: huevos, animales, insumos y gallinaza.
+          Consolidado de todos los recursos: huevos, animales (gallinas, gallos, pollos, codornices, patos y conejos), insumos y gallinaza.
         </p>
       </div>
 
@@ -73,10 +79,10 @@ export default function InventariosPage() {
             <p className="text-3xl font-bold text-gray-900">{resumen.totalAlimento.toFixed(1)}</p>
           </div>
           <div className="bg-white rounded-lg shadow-md p-6 border-l-4 border-purple-500">
-            <p className="text-sm text-gray-600 mb-1">🐾 Animales Activos</p>
+            <p className="text-sm text-gray-600 mb-1">🐾 Animales en Inventario</p>
             <p className="text-3xl font-bold text-gray-900">{resumen.totalAves}</p>
             <p className="text-xs text-gray-500 mt-1">
-              {resumen.totalHens} gallinas · {resumen.totalRoosters} gallos · {resumen.totalBatches} lote{resumen.totalBatches === 1 ? "" : "s"}
+              {speciesHint || `${resumen.totalHens} gallinas · ${resumen.totalRoosters} gallos`}
             </p>
           </div>
         </div>

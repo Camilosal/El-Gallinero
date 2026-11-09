@@ -72,7 +72,7 @@ interface BirdsData {
   totalBatches: number;
   totalAnimals: number;
   totalBirds: number;
-  species: { species: string; label: string; count: number }[];
+  species: { species: string; label: string; icon: string; count: number }[];
 }
 
 interface ConsolidatedData {
@@ -283,7 +283,7 @@ export default function BalancePage() {
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
             <StatCard icon="💰" label="Valor Total Inventario" value={fmtMoney(data.summary.totalValue)} color="green" />
             <StatCard icon="🌾" label="Alimentos" value={`${data.summary.totalFeeds} (${data.summary.lowStockFeeds} bajos)`} color="blue" />
-            <StatCard icon="🐾" label="Animales Activos" value={data.summary.totalAnimalsActive} color="yellow" />
+            <StatCard icon="🐾" label="Animales en Inventario" value={data.summary.totalAnimalsActive} color="yellow" />
             <StatCard icon="🥚" label="Huevos Disponibles" value={data.summary.totalEggsAvailable} color="purple" />
           </div>
 
@@ -444,20 +444,43 @@ export default function BalancePage() {
           {/* Aves */}
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
             <Card>
-              <h3 className="font-semibold text-slate-700 mb-3">🐔 Animales por Estado</h3>
-              <div className="grid grid-cols-2 gap-2 text-sm">
-                <div className="p-3 bg-green-50 rounded-lg"><p className="text-slate-500 text-xs">Gallinas en inventario</p><p className="text-xl font-bold text-green-700">{data.birds.hens.active}</p></div>
-                <div className="p-3 bg-emerald-50 rounded-lg"><p className="text-slate-500 text-xs">Gallinas en postura</p><p className="text-xl font-bold text-emerald-700">{data.birds.hens.laying}</p></div>
+              <div className="flex items-start justify-between gap-3">
+                <div>
+                  <h3 className="font-semibold text-slate-700">🐾 Animales por Estado</h3>
+                  <p className="text-xs text-slate-500 mt-1">Inventario vigente: animales no vendidos, faenados ni muertos.</p>
+                </div>
+                <div className="text-right">
+                  <p className="text-3xl font-bold text-indigo-700">{data.birds.totalAnimals}</p>
+                  <p className="text-xs text-slate-500">animales en inventario</p>
+                </div>
+              </div>
+
+              <div className="mt-3 grid grid-cols-3 gap-2 sm:grid-cols-6">
+                {data.birds.species.map((s) => (
+                  <div key={s.species} className="rounded-lg bg-slate-50 p-2 text-center">
+                    <p className={`text-lg leading-none ${s.count > 0 ? "" : "opacity-40"}`}>{s.icon}</p>
+                    <p className={`mt-1 text-lg font-bold ${s.count > 0 ? "text-slate-800" : "text-slate-300"}`}>{s.count}</p>
+                    <p className={`text-[11px] ${s.count > 0 ? "text-slate-600" : "text-slate-400"}`}>{s.label}</p>
+                  </div>
+                ))}
+              </div>
+
+              <p className="mt-4 text-xs font-semibold uppercase tracking-wide text-slate-500">
+                Estado de las gallinas ({data.birds.hens.active} en inventario)
+              </p>
+              <div className="mt-2 grid grid-cols-2 gap-2 text-sm">
+                <div className="p-3 bg-emerald-50 rounded-lg"><p className="text-slate-500 text-xs">En postura</p><p className="text-xl font-bold text-emerald-700">{data.birds.hens.laying}</p></div>
                 <div className="p-3 bg-purple-50 rounded-lg"><p className="text-slate-500 text-xs">Empollando</p><p className="text-xl font-bold text-purple-700">{data.birds.hens.broody}</p></div>
                 <div className="p-3 bg-yellow-50 rounded-lg"><p className="text-slate-500 text-xs">Enfermas</p><p className="text-xl font-bold text-yellow-700">{data.birds.hens.sick}</p></div>
                 <div className="p-3 bg-orange-50 rounded-lg"><p className="text-slate-500 text-xs">Recomendadas sacrificio</p><p className="text-xl font-bold text-orange-700">{data.birds.hens.recommendedSlaughter}</p></div>
-                <div className="p-3 bg-red-50 rounded-lg"><p className="text-slate-500 text-xs">Vendidas / Faena</p><p className="text-xl font-bold text-red-700">{data.birds.hens.sold + data.birds.hens.slaughtered}</p></div>
-                <div className="p-3 bg-blue-50 rounded-lg"><p className="text-slate-500 text-xs">Gallos en inventario</p><p className="text-xl font-bold text-blue-700">{data.birds.roosters.active}</p></div>
-                <div className="p-3 bg-indigo-50 rounded-lg"><p className="text-slate-500 text-xs">Animales en inventario</p><p className="text-xl font-bold text-indigo-700">{data.birds.totalAnimals}</p></div>
               </div>
-              <p className="text-xs text-slate-500 mt-3">
-                Inventario vigente: {data.birds.species.filter((s) => s.count > 0).map((s) => `${s.count} ${s.label.toLowerCase()}`).join(" · ") || "sin animales"}
-              </p>
+              <div className="mt-3 flex flex-wrap gap-x-4 gap-y-1 text-xs text-slate-500">
+                <span>🐓 Gallos en inventario: <strong className="text-slate-700">{data.birds.roosters.active}</strong></span>
+                <span>
+                  Fuera del inventario: <strong className="text-slate-700">{data.birds.hens.sold + data.birds.hens.slaughtered + data.birds.hens.dead} gallinas</strong>
+                  {" "}({data.birds.hens.sold} vendidas · {data.birds.hens.slaughtered} faena · {data.birds.hens.dead} muertas)
+                </span>
+              </div>
               {data.mortality.totalDeaths > 0 && (
                 <div className="mt-3 p-3 bg-red-50 rounded-lg">
                   <span className="font-semibold text-red-700">📉 Mortalidad: {data.mortality.totalDeaths} muertes</span>

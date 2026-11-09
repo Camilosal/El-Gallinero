@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState, useCallback, useMemo } from "react";
+import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { PageHeader, Button, Card, Table, Badge, Modal, Input, Select, Textarea, EmptyState } from "@/components/ui";
 import TableSearch from "@/components/TableSearch";
@@ -30,6 +31,11 @@ interface Stage {
   value: string;
   minWeeks: number | null;
   maxWeeks: number | null;
+}
+
+interface InventorySummary {
+  totalAves: number;
+  species: { species: string; label: string; count: number }[];
 }
 
 const statusColors: Record<string, string> = {
@@ -97,6 +103,7 @@ export default function GallinasPage() {
   const [filter, setFilter] = useState(estadoParam || "en_inventario");
   const [stageFilter, setStageFilter] = useState("todas");
   const [search, setSearch] = useState("");
+  const [inventorySummary, setInventorySummary] = useState<InventorySummary | null>(null);
 
   // Permite enlaces profundos desde el plan de parvada u otras pantallas.
   useEffect(() => {
@@ -109,7 +116,8 @@ export default function GallinasPage() {
     Promise.all([
       apiFetch("/api/produccion/gallinas").then((r) => r.json()),
       apiFetch("/api/produccion/etapas").then((r) => r.json()),
-    ]).then(([h, s]) => {
+      apiFetch("/api/inventarios/resumen").then((r) => r.json()).catch(() => null),
+    ]).then(([h, s, inv]) => {
       setHens(h);
       setStages(s.map((st: { id: string; value: string; minWeeks: number | null; maxWeeks: number | null }) => ({
         id: st.id,
@@ -117,6 +125,7 @@ export default function GallinasPage() {
         minWeeks: st.minWeeks,
         maxWeeks: st.maxWeeks,
       })));
+      setInventorySummary(inv);
     }).finally(() => setLoading(false));
   }, []);
 
@@ -148,10 +157,21 @@ export default function GallinasPage() {
     load();
   };
 
-  const stageNames = useMemo(() => [...new Set(stages.map((s) => s.value))], [stages]);
-
   const henStage = useCallback((h: Hen) => h.stage ?? getHenStage(h.birthDate, stages), [stages]);
   const henAge = useCallback((h: Hen) => h.ageWeeks ?? getHenAgeWeeks(h.birthDate), []);
+
+  // Solo mostramos etapas que realmente aplican a las gallinas registradas:
+  // el catálogo también contiene etapas de pollos, codornices, patos y conejos.
+  const stageNames = useMemo(() => {
+    const present = new Set(hens.map((h) => henStage(h)));
+    return [...new Set(stages.map((s) => s.value))].filter((name) => present.has(name));
+  }, [hens, stages, henStage]);
+
+  const statusCounts = useMemo(() => {
+    const counts = new Map<string, number>();
+    for (const h of hens) counts.set(h.status, (counts.get(h.status) ?? 0) + 1);
+    return counts;
+  }, [hens]);
 
   const recommended = useMemo(() => hens.filter((h) => h.status === "recomendada_sacrificio"), [hens]);
   const presentHens = useMemo(() => hens.filter((h) => isHenPresent(h.status)), [hens]);
@@ -184,12 +204,24 @@ export default function GallinasPage() {
     return result;
   }, [statusFiltered, stageFilter, search, henStage]);
 
+  const filtersActive = filter !== "en_inventario" || stageFilter !== "todas" || search.trim().length > 0;
+  const resetFilters = () => {
+    setFilter("en_inventario");
+    setStageFilter("todas");
+    setSearch("");
+  };
+  const speciesBreakdown = (inventorySummary?.species ?? [])
+    .filter((s) => s.count > 0)
+    .map((s) => `${s.count} ${s.label.toLowerCase()}`)
+    .join(" · ");
+  const stageCount = (stage: string) => statusFiltered.filter((h) => henStage(h) === stage).length;
+
   return (
     <div>
       <PageHeader
         title="🐔 Gestión de Gallinas"
-        description="Registro, seguimiento y estado de todas las gallinas del gallinero"
-        help="Aquí registras cada gallina del gallinero con su código, raza, fecha de nacimiento y estado.\n\n• El sistema calcula automáticamente la etapa de crecimiento y cambia el estado según la edad y condición.\n• Las gallinas marcadas como 'recomendada sacrificio' son candidatos para venta o faena según su rendimiento.\n• Usa el botón 'Etiquetas QR' para generar códigos QR que puedes imprimir y pegar en bandas de pata. Luego escanéalo con tu celular para acceder rápido a cada ave.\n• Filtra por estado o etapa para encontrar gallinas específicas."
+        description="Registro, seguimiento y estado de todas las gallinas. Los gallos y pollos se gestionan aparte."
+        help="Aquí registras cada gallina del gallinero con su código, raza, fecha de nacimiento y estado.\n\n• Esta vista solo lista gallinas; los gallos y pollos están en Producción → Pollos y Gallos.\n• El sistema calcula automáticamente la etapa de crecimiento y cambia el estado según la edad y condición.\n• Las gallinas marcadas como 'recomendada sacrificio' son candidatos para venta o faena según su rendimiento.\n• Usa el botón 'Etiquetas QR' para generar códigos QR que puedes imprimir y pegar en bandas de pata. Luego escanéalo con tu celular para acceder rápido a cada ave.\n• Filtra por estado o etapa para encontrar gallinas específicas."
         actions={
           <div className="flex gap-2">
             <QrGeneratorButton hens={hens} />
@@ -198,22 +230,39 @@ export default function GallinasPage() {
         }
       />
 
-      {/* Resumen de inventario: mismas cifras que inicio, balance y KPIs */}
-      <div className="mb-4 flex flex-wrap items-center gap-2 text-xs">
-        <span className="px-3 py-1 rounded-full font-semibold bg-green-50 text-green-700">
-          {presentHens.length} en inventario
-        </span>
-        <span className="px-3 py-1 rounded-full font-semibold bg-emerald-50 text-emerald-700">
-          {layingHens.length} en postura
-        </span>
-        <span className="px-3 py-1 rounded-full bg-slate-100 text-slate-600">
-          {hens.length} gallinas registradas
-        </span>
-        {outsideHens > 0 && (
-          <span className="px-3 py-1 rounded-full bg-gray-50 text-gray-500">
-            {outsideHens} fuera del inventario (vendidas, faena o muertas)
+      {/* Resumen de inventario: esta vista solo lista gallinas */}
+      <div className="mb-4 rounded-xl border border-slate-200 bg-white px-4 py-3">
+        <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-sm">
+          <span className="text-green-700">
+            <strong className="text-lg">{presentHens.length}</strong> gallinas en inventario
           </span>
-        )}
+          <span className="hidden text-slate-300 sm:inline">|</span>
+          <span className="text-slate-600">
+            <strong>{layingHens.length}</strong> en postura
+          </span>
+          <span className="hidden text-slate-300 sm:inline">|</span>
+          <span className="text-slate-500">
+            <strong>{hens.length}</strong> gallinas registradas
+          </span>
+          {outsideHens > 0 && (
+            <>
+              <span className="hidden text-slate-300 sm:inline">|</span>
+              <span className="text-slate-400">{outsideHens} fuera del inventario</span>
+            </>
+          )}
+        </div>
+        <p className="mt-2 text-xs text-slate-500">
+          Esta vista solo lista gallinas.
+          {inventorySummary ? (
+            <>
+              {" "}El inventario total es <strong className="text-slate-700">{inventorySummary.totalAves} animales</strong>
+              {speciesBreakdown ? ` (${speciesBreakdown})` : ""}.
+            </>
+          ) : null}{" "}
+          <Link href="/dashboard/inventarios/balance" className="font-medium text-blue-600 hover:underline">
+            Ver balance de animales →
+          </Link>
+        </p>
       </div>
 
       {/* Alerta de gallinas recomendadas para sacrificio */}
@@ -232,49 +281,54 @@ export default function GallinasPage() {
         </div>
       )}
 
-      <TableSearch
-        value={search}
-        onChange={setSearch}
-        placeholder="Buscar por código, raza, etapa o estado..."
-        resultCount={filtered.length}
-        totalCount={statusFiltered.length}
-        className="mb-4"
-      />
-
-      {/* Status Filter */}
-      <div className="flex gap-2 mb-3 flex-wrap">
-        {["en_inventario", "todos", ...statusOptions].map((s) => {
-          const label = s === "en_inventario"
-            ? "En inventario"
-            : s === "todos"
-              ? "Todas"
-              : statusLabels[s] || s.charAt(0).toUpperCase() + s.slice(1);
-          const count = s === "en_inventario"
-            ? presentHens.length
-            : s === "todos"
-              ? hens.length
-              : hens.filter((h) => h.status === s).length;
-          return (
-            <button key={s} onClick={() => setFilter(s)}
-              className={`px-3 py-1 rounded-full text-sm font-medium transition ${filter === s ? "bg-green-600 text-white" : "bg-white text-slate-600 hover:bg-slate-100 border"}`}>
-              {label} ({count})
-            </button>
-          );
-        })}
-      </div>
-
-      {/* Stage Filter */}
-      <div className="flex gap-2 mb-4 flex-wrap">
-        <button onClick={() => setStageFilter("todas")}
-          className={`px-3 py-1 rounded-full text-xs font-medium transition ${stageFilter === "todas" ? "bg-amber-500 text-white" : "bg-white text-slate-600 hover:bg-slate-100 border"}`}>
-          Todas las etapas
-        </button>
-        {stageNames.map((s) => (
-          <button key={s} onClick={() => setStageFilter(s)}
-            className={`px-3 py-1 rounded-full text-xs font-medium transition ${stageFilter === s ? "bg-amber-500 text-white" : "bg-white text-slate-600 hover:bg-slate-100 border"}`}>
-            {s} ({statusFiltered.filter((h) => henStage(h) === s).length})
-          </button>
-        ))}
+      {/* Filtros compactos: búsqueda + estado + etapa */}
+      <div className="mb-4 rounded-xl border border-slate-200 bg-white p-3">
+        <div className="flex flex-col gap-3 lg:flex-row lg:items-center">
+          <TableSearch
+            value={search}
+            onChange={setSearch}
+            placeholder="Buscar por código, raza, etapa o estado..."
+            resultCount={filtered.length}
+            totalCount={statusFiltered.length}
+            className="lg:flex-1"
+          />
+          <div className="flex flex-wrap items-center gap-2">
+            <label className="flex items-center gap-2 text-xs font-medium text-slate-600">
+              Estado
+              <select
+                value={filter}
+                onChange={(e) => setFilter(e.target.value)}
+                className="rounded-lg border border-slate-300 bg-white px-2 py-1.5 text-xs text-slate-700 focus:outline-none focus:ring-2 focus:ring-green-500"
+              >
+                <option value="en_inventario">En inventario ({presentHens.length})</option>
+                <option value="todos">Todas ({hens.length})</option>
+                {statusOptions.map((s) => (
+                  <option key={s} value={s}>
+                    {statusLabels[s] || s.charAt(0).toUpperCase() + s.slice(1)} ({statusCounts.get(s) ?? 0})
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label className="flex items-center gap-2 text-xs font-medium text-slate-600">
+              Etapa
+              <select
+                value={stageFilter}
+                onChange={(e) => setStageFilter(e.target.value)}
+                className="rounded-lg border border-slate-300 bg-white px-2 py-1.5 text-xs text-slate-700 focus:outline-none focus:ring-2 focus:ring-green-500"
+              >
+                <option value="todas">Todas ({statusFiltered.length})</option>
+                {stageNames.map((s) => (
+                  <option key={s} value={s}>{s} ({stageCount(s)})</option>
+                ))}
+              </select>
+            </label>
+            {filtersActive && (
+              <button onClick={resetFilters} className="text-xs font-medium text-slate-500 underline hover:text-slate-800">
+                Limpiar
+              </button>
+            )}
+          </div>
+        </div>
       </div>
 
       <Card>
@@ -284,8 +338,8 @@ export default function GallinasPage() {
           <EmptyState
             icon="🐔"
             message={
-              search.trim()
-                ? "No hay gallinas que coincidan con la búsqueda"
+              filtersActive
+                ? "No hay gallinas que coincidan con los filtros"
                 : "No hay gallinas registradas aún"
             }
           />
