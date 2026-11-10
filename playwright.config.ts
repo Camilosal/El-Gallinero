@@ -8,18 +8,31 @@ export default defineConfig({
   workers: process.env.CI ? undefined : 1,
   reporter: "html",
   use: {
-    baseURL: "http://127.0.0.1:4327",
+    baseURL: "http://localhost:3001",
     trace: "on-first-retry",
     screenshot: "only-on-failure",
   },
   projects: [
     {
+      name: "setup",
+      testDir: "./tests/e2e",
+      testMatch: /auth\.setup\.ts/,
+    },
+    {
       name: "chromium desktop",
-      use: { ...devices["Desktop Chrome"] },
+      use: {
+        ...devices["Desktop Chrome"],
+        storageState: "tests/e2e/.auth/user.json",
+      },
+      dependencies: ["setup"],
     },
     {
       name: "mobile chrome",
-      use: { ...devices["Pixel 5"] },
+      use: {
+        ...devices["Pixel 5"],
+        storageState: "tests/e2e/.auth/user.json",
+      },
+      dependencies: ["setup"],
     },
   ],
   webServer: process.env.CI
