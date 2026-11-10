@@ -57,7 +57,7 @@ export default function CalendarioSanitarioPage() {
       .finally(() => setLoading(false));
   }, []);
 
-  useEffect(() => { load(); }, [load]);
+  useEffect(() => { void Promise.resolve().then(load); }, [load]);
 
   const overdueEvents = events.filter((e) => e.isOverdue);
   const dueSoonEvents = events.filter((e) => e.isDueSoon);

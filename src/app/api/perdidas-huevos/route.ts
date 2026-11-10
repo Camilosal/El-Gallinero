@@ -1,10 +1,14 @@
+import { isDateOnly } from "@/lib/date-validation";
 import { db } from "@/db";
 import { eggLosses } from "@/db/schema";
 import { eq, desc, gte, sql } from "drizzle-orm";
 import { NextRequest, NextResponse } from "next/server";
 import { withApiHandler, safeParseJson } from "@/lib/api-handler";
+import { computeEggInventory } from "@/lib/inventory";
+import { lockEggInventory } from "@/lib/inventory-locks";
 
 export const dynamic = "force-dynamic";
+
 
 export const GET = withApiHandler(async (req: NextRequest) => {
   const { searchParams } = new URL(req.url);
@@ -31,20 +35,32 @@ export const GET = withApiHandler(async (req: NextRequest) => {
 
 export const POST = withApiHandler(async (req: NextRequest) => {
   const body = await safeParseJson(req);
+  if (!body || typeof body !== "object") return NextResponse.json({ error: "Cuerpo inválido" }, { status: 400 });
   const { date, quantity, size, reason, notes } = body;
 
   const qty = Number(quantity);
-  if (!date || !quantity || isNaN(qty) || qty < 1 || !reason) {
+  if (!isDateOnly(date) || !Number.isSafeInteger(qty) || qty < 1 || typeof reason !== "string" || !reason.trim()) {
     return NextResponse.json({ error: "Fecha, cantidad y razón son requeridos" }, { status: 400 });
   }
 
-  const [created] = await db.insert(eggLosses).values({
-    date,
-    quantity: qty,
-    size: size || null,
-    reason,
-    notes: notes || null,
-  }).returning();
+  const [created] = await db.transaction(async (tx) => {
+    await lockEggInventory(tx);
+    const inventory = await computeEggInventory(tx);
+    const available = size
+      ? inventory.summary.sizes.find((entry) => entry.size === size)?.available || 0
+      : inventory.summary.available;
+    if (qty > available) {
+      throw new Error(`Stock insuficiente: disponibles ${available} huevos`);
+    }
+
+    return tx.insert(eggLosses).values({
+      date,
+      quantity: qty,
+      size: size || null,
+      reason: reason.trim(),
+      notes: notes || null,
+    }).returning();
+  });
 
   return NextResponse.json(created, { status: 201 });
 });
@@ -54,6 +70,11 @@ export const DELETE = withApiHandler(async (req: NextRequest) => {
   const id = searchParams.get("id");
   if (!id) return NextResponse.json({ error: "ID requerido" }, { status: 400 });
 
-  await db.delete(eggLosses).where(eq(eggLosses.id, id));
+  await db.transaction(async (tx) => {
+    await lockEggInventory(tx);
+    const [loss] = await tx.select().from(eggLosses).where(eq(eggLosses.id, id));
+    if (!loss) throw new Error("No encontrado");
+    await tx.delete(eggLosses).where(eq(eggLosses.id, id));
+  });
   return NextResponse.json({ ok: true });
 });

@@ -89,7 +89,7 @@ export default function SoberaniaPage() {
   }, [speciesFilter]);
 
   useEffect(() => {
-    loadData();
+    void Promise.resolve().then(loadData);
   }, [loadData]);
 
   const filteredLogs = useMemo(() => {

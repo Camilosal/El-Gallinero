@@ -1,9 +1,12 @@
+import { isDateOnly } from "@/lib/date-validation";
 import { db } from "@/db";
 import { eggProduction, eggProductionDetails, catalogos, hens, autoconsumoLogs } from "@/db/schema";
 import { eq, desc, inArray, and, or, sql } from "drizzle-orm";
 import { NextRequest, NextResponse } from "next/server";
 import { getEggValidationThreshold } from "@/lib/settings";
 import { withApiHandler, safeParseJson } from "@/lib/api-handler";
+import { lockEggInventory } from "@/lib/inventory-locks";
+import { computeEggInventory, eggInventoryBookBalance } from "@/lib/inventory";
 
 export const dynamic = "force-dynamic";
 
@@ -85,29 +88,66 @@ export const GET = withApiHandler(async (req: NextRequest) => {
   return NextResponse.json(records.map((r) => ({ ...r, details: byProd.get(r.id) || [] })));
 });
 
-const toDetails = (sizes: unknown): { size: string; quantity: number }[] =>
-  (Array.isArray(sizes) ? sizes : [])
-    .map((x: { size?: string; quantity?: number }) => ({
-      size: String(x.size ?? ""),
-      quantity: Number(x.quantity) || 0,
-    }))
-    .filter((x) => x.size.length > 0);
 
 async function handleSave(req: NextRequest, isUpdate: boolean) {
   const body = await safeParseJson(req);
-  const sizes = toDetails(body.sizes);
-  const broken = Number(body.broken) || 0;
-  const forIncubation = Number(body.forIncubation) || 0;
-  const totalCollected = sizes.length > 0
-    ? sizes.reduce((s, x) => s + x.quantity, 0) + broken + forIncubation
-    : Number(body.totalCollected) || 0;
+  if (isUpdate && !body.id) return NextResponse.json({ error: "ID requerido" }, { status: 400 });
+  if (!isDateOnly(body.date)) return NextResponse.json({ error: "Fecha inválida" }, { status: 400 });
 
   const species = body.species || "gallina";
-  const qtyAutoconsumo = Number(body.quantityAutoconsumo) || 0;
+  if (!["gallina", "codorniz", "pato"].includes(species)) {
+    return NextResponse.json({ error: "Especie de postura no válida" }, { status: 400 });
+  }
+
+  const broken = Number(body.broken ?? 0);
+  const forIncubation = Number(body.forIncubation ?? 0);
+  if (!Number.isSafeInteger(broken) || broken < 0 || !Number.isSafeInteger(forIncubation) || forIncubation < 0) {
+    return NextResponse.json({ error: "Rotos e incubación deben ser cantidades enteras no negativas" }, { status: 400 });
+  }
+
+  if (body.sizes !== undefined && !Array.isArray(body.sizes)) {
+    return NextResponse.json({ error: "El detalle por tamaño debe ser una lista" }, { status: 400 });
+  }
+  const rawSizes = Array.isArray(body.sizes) ? body.sizes : [];
+  const sizes: { size: string; quantity: number }[] = [];
+  const seenSizes = new Set<string>();
+  for (const row of rawSizes) {
+    const size = typeof row?.size === "string" ? row.size.trim() : "";
+    const quantity = Number(row?.quantity);
+    if (!size || !Number.isSafeInteger(quantity) || quantity < 0) {
+      return NextResponse.json({ error: "Cada tamaño debe tener una cantidad entera no negativa" }, { status: 400 });
+    }
+    if (seenSizes.has(size)) return NextResponse.json({ error: `El tamaño ${size} está repetido` }, { status: 400 });
+    seenSizes.add(size);
+    if (quantity > 0) sizes.push({ size, quantity });
+  }
+
+  const totalCollected = sizes.length > 0
+    ? sizes.reduce((s, x) => s + x.quantity, 0) + broken + forIncubation
+    : Number(body.totalCollected);
+  if (!Number.isSafeInteger(totalCollected) || totalCollected < 0) {
+    return NextResponse.json({ error: "Total recolectado inválido" }, { status: 400 });
+  }
+
+  const goodTotal = sizes.reduce((sum, row) => sum + row.quantity, 0);
+  if (goodTotal === 0 && totalCollected > broken + forIncubation) {
+    return NextResponse.json({ error: "Clasifica por tamaño los huevos buenos antes de guardar" }, { status: 400 });
+  }
+
+  const qtyAutoconsumo = Number(body.quantityAutoconsumo ?? 0);
   const qtyExcedente = body.quantityExcedente !== undefined
     ? Number(body.quantityExcedente)
-    : Math.max(0, totalCollected - broken - forIncubation - qtyAutoconsumo);
+    : Math.max(0, goodTotal - qtyAutoconsumo);
+  if (!Number.isSafeInteger(qtyAutoconsumo) || qtyAutoconsumo < 0 || !Number.isSafeInteger(qtyExcedente) || qtyExcedente < 0) {
+    return NextResponse.json({ error: "La asignación al hogar y a la venta debe usar cantidades enteras no negativas" }, { status: 400 });
+  }
+  if (qtyAutoconsumo + qtyExcedente > goodTotal) {
+    return NextResponse.json({ error: "La asignación al hogar y a la venta supera los huevos buenos disponibles" }, { status: 400 });
+  }
   const refPrice = body.referenceUnitPrice ? String(body.referenceUnitPrice) : null;
+  if (refPrice !== null && (!Number.isFinite(Number(refPrice)) || Number(refPrice) < 0)) {
+    return NextResponse.json({ error: "Precio de referencia inválido" }, { status: 400 });
+  }
 
   // Validate against expected production only for chicken eggs (unless override is set)
   if (species === "gallina" && totalCollected > 0 && !body.overrideValidation) {
@@ -132,6 +172,8 @@ async function handleSave(req: NextRequest, isUpdate: boolean) {
 
   if (isUpdate) {
     const updated = await db.transaction(async (tx) => {
+      await lockEggInventory(tx);
+      const inventoryBefore = await computeEggInventory(tx);
       const [row] = await tx.update(eggProduction).set({
         date: body.date,
         species,
@@ -154,17 +196,14 @@ async function handleSave(req: NextRequest, isUpdate: boolean) {
         );
       }
 
-      // Sync autoconsumo log
+      // Sync only this production's autoconsumption log. Date/species matching
+      // could overwrite a different same-day record and leave stale entries.
+      const [existingLog] = await tx.select().from(autoconsumoLogs).where(
+        eq(autoconsumoLogs.eggProductionId, row.id)
+      );
       if (qtyAutoconsumo > 0 && refPrice) {
         const unitPriceNum = Number(refPrice) || 0;
         const savings = (qtyAutoconsumo * unitPriceNum).toFixed(2);
-        const [existingLog] = await tx.select().from(autoconsumoLogs).where(
-          and(
-            eq(autoconsumoLogs.date, body.date),
-            eq(autoconsumoLogs.species, species),
-            eq(autoconsumoLogs.productType, "huevo")
-          )
-        );
         if (existingLog) {
           await tx.update(autoconsumoLogs).set({
             quantity: String(qtyAutoconsumo),
@@ -184,9 +223,17 @@ async function handleSave(req: NextRequest, isUpdate: boolean) {
             savingsAmount: savings,
             destinationHousehold: "Familia Granja",
             batchId: body.batchId || null,
+            eggProductionId: row.id,
             notes: `Cosecha de huevos (${species}) - autoconsumo`,
           });
         }
+      } else if (existingLog) {
+        await tx.delete(autoconsumoLogs).where(eq(autoconsumoLogs.id, existingLog.id));
+      }
+
+      const inventoryAfter = await computeEggInventory(tx);
+      if (eggInventoryBookBalance(inventoryAfter) < Math.min(0, eggInventoryBookBalance(inventoryBefore)) - 0.0001) {
+        throw new Error("No se puede reducir la producción por debajo de los huevos ya vendidos o perdidos");
       }
 
       return row;
@@ -196,6 +243,7 @@ async function handleSave(req: NextRequest, isUpdate: boolean) {
   }
 
   const created = await db.transaction(async (tx) => {
+    await lockEggInventory(tx);
     const [row] = await tx.insert(eggProduction).values({
       date: body.date,
       species,
@@ -228,6 +276,7 @@ async function handleSave(req: NextRequest, isUpdate: boolean) {
         savingsAmount: savings,
         destinationHousehold: "Familia Granja",
         batchId: body.batchId || null,
+        eggProductionId: row.id,
         notes: `Cosecha de huevos (${species}) - autoconsumo`,
       });
     }
@@ -251,8 +300,17 @@ export const DELETE = withApiHandler(async (req: NextRequest) => {
   const id = searchParams.get("id");
   if (!id) return NextResponse.json({ error: "ID requerido" }, { status: 400 });
   await db.transaction(async (tx) => {
+    await lockEggInventory(tx);
+    const inventoryBefore = await computeEggInventory(tx);
+    const [production] = await tx.select({ id: eggProduction.id }).from(eggProduction).where(eq(eggProduction.id, id));
+    if (!production) throw new Error("No encontrado");
+    await tx.delete(autoconsumoLogs).where(eq(autoconsumoLogs.eggProductionId, id));
     await tx.delete(eggProductionDetails).where(eq(eggProductionDetails.productionId, id));
     await tx.delete(eggProduction).where(eq(eggProduction.id, id));
+    const inventoryAfter = await computeEggInventory(tx);
+    if (eggInventoryBookBalance(inventoryAfter) < Math.min(0, eggInventoryBookBalance(inventoryBefore)) - 0.0001) {
+      throw new Error("No se puede eliminar una producción con huevos ya vendidos o perdidos");
+    }
   });
   return NextResponse.json({ ok: true });
 });

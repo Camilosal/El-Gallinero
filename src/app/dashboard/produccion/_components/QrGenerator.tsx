@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState, useRef } from "react";
+import Image from "next/image";
 import QRCode from "qrcode";
 import { Button, Modal } from "@/components/ui";
 import { generateQrPayload } from "@/lib/qr";
@@ -130,7 +131,7 @@ function QrGeneratorContent({ hens }: { hens: Hen[] }) {
             <div key={hen.id} className="border border-slate-200 rounded-lg p-2 text-center">
               {qrUrls[hen.id] ? (
                 <>
-                  <img src={qrUrls[hen.id]} alt={`QR ${hen.code}`} className="w-full aspect-square object-contain" />
+                  <Image src={qrUrls[hen.id]} alt={`QR ${hen.code}`} width={200} height={200} unoptimized className="w-full aspect-square object-contain" />
                   <p className="text-xs font-bold text-slate-700 mt-1">{hen.code}</p>
                   <p className="text-[10px] text-slate-500 truncate">{hen.breed}</p>
                 </>

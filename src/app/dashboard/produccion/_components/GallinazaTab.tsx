@@ -36,7 +36,7 @@ interface ManureAdjustment {
 
 interface ManureData {
   estimation: { groups: EstimationGroup[]; totalKgPerDay: number };
-  inventory: { currentStockKg: number; lastAccumulatedDate: string };
+  inventory: { currentStockKg: number; asOfDate: string };
   sales: ManureSale[];
   adjustments: ManureAdjustment[];
 }
@@ -166,8 +166,8 @@ export default function GallinazaPage() {
     return <Card><p className="text-center py-8 text-slate-400">Cargando...</p></Card>;
   }
 
-  // Fecha de corte para métricas de 30 días, derivada de la fecha de acumulación (hoy)
-  const cutoff = new Date(new Date(data.inventory.lastAccumulatedDate + "T12:00:00").getTime() - 30 * 86400000).toISOString().split("T")[0];
+  // Fecha de corte para métricas de 30 días.
+  const cutoff = new Date(new Date(data.inventory.asOfDate + "T12:00:00").getTime() - 30 * 86400000).toISOString().split("T")[0];
   const revenue30 = data.sales.filter((s) => s.date >= cutoff).reduce((sum, s) => sum + Number(s.totalAmount), 0);
   const saleTotal = Number(saleForm.quantityKg) > 0 && Number(saleForm.pricePerKg) > 0
     ? (Number(saleForm.quantityKg) * Number(saleForm.pricePerKg)).toFixed(2)
@@ -206,7 +206,7 @@ export default function GallinazaPage() {
           <span className="text-slate-600">
             ⚖️ Ajustes reales positivos (30 días): <strong className="text-blue-700">{realPositive30.toFixed(2)} kg</strong>
           </span>
-          <span className="text-xs text-slate-400 self-center">La acumulación automática usa la estimación; usa los ajustes para reflejar mediciones reales.</span>
+          <span className="text-xs text-slate-400 self-center">Se registra una estimación al consultar el inventario cada día. Los días sin registro no se reconstruyen; usa los ajustes para reflejar mediciones reales.</span>
         </div>
       </Card>
 

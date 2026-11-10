@@ -42,6 +42,7 @@ export default function MantenimientoPage() {
   const [search, setSearch] = useState("");
   const [modalOpen, setModalOpen] = useState(false);
   const [editing, setEditing] = useState<Maintenance | null>(null);
+  const [error, setError] = useState("");
   const [form, setForm] = useState({ title: "", description: "", scheduledDate: new Date().toISOString().split("T")[0], status: "pendiente", cost: "0", completedDate: "" });
   const { values: taskOptions } = useCatalog("tipo_mantenimiento", taskTemplates);
 
@@ -53,12 +54,14 @@ export default function MantenimientoPage() {
 
   const openNew = () => {
     setEditing(null);
+    setError("");
     setForm({ title: "", description: "", scheduledDate: new Date().toISOString().split("T")[0], status: "pendiente", cost: "0", completedDate: "" });
     setModalOpen(true);
   };
 
   const openEdit = (t: Maintenance) => {
     setEditing(t);
+    setError("");
     setForm({ title: t.title, description: t.description || "", scheduledDate: t.scheduledDate, status: t.status, cost: t.cost || "0", completedDate: t.completedDate || "" });
     setModalOpen(true);
   };
@@ -66,14 +69,25 @@ export default function MantenimientoPage() {
   const save = async () => {
     const method = editing ? "PUT" : "POST";
     const body = editing ? { ...form, id: editing.id } : form;
-    await apiFetch("/api/operaciones/mantenimiento", { method, headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
+    const res = await apiFetch("/api/operaciones/mantenimiento", { method, headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
+    if (!res.ok) {
+      const data = await res.json().catch(() => ({}));
+      setError(data.error || "No se pudo guardar la tarea");
+      return;
+    }
     setModalOpen(false);
+    setError("");
     load();
   };
 
   const remove = async (id: string) => {
     if (!confirm("¿Eliminar esta tarea?")) return;
-    await apiFetch(`/api/operaciones/mantenimiento?id=${id}`, { method: "DELETE" });
+    const res = await apiFetch(`/api/operaciones/mantenimiento?id=${id}`, { method: "DELETE" });
+    if (!res.ok) {
+      const data = await res.json().catch(() => ({}));
+      alert(data.error || "No se pudo eliminar la tarea");
+      return;
+    }
     load();
   };
 
@@ -174,6 +188,7 @@ export default function MantenimientoPage() {
 
       <Modal open={modalOpen} onClose={() => setModalOpen(false)} title={editing ? "Editar Tarea" : "Nueva Tarea de Mantenimiento"}>
         <div className="space-y-4">
+          {error && <p className="text-sm text-red-600 bg-red-50 p-3 rounded-lg">{error}</p>}
           <Input label="Título de la Tarea" value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })} placeholder="Ej: Limpieza del gallinero" required help="Nombre corto y descriptivo de la tarea" />
           <Textarea label="Descripción" value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} placeholder="Detalles de la tarea..." help="Detalles adicionales, materiales necesarios, instrucciones, etc." />
           <div className="grid grid-cols-2 gap-3">

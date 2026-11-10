@@ -1,12 +1,38 @@
+import { isDateOnly } from "@/lib/date-validation";
 import { db } from "@/db";
 import { mortalityRecords, hens, roosters, broilerBatches, slaughter, chickenSales } from "@/db/schema";
 import { eq, desc, and, gte, sql } from "drizzle-orm";
 import { NextRequest, NextResponse } from "next/server";
-import { isAvailableForExit } from "@/lib/lifecycle";
+import { HEN_PRESENT_STATUSES } from "@/lib/animal-status";
 import { computeAnimalInventory } from "@/lib/animal-inventory";
+import {
+  captureAnimalExitSnapshots,
+  restoreBatchExit,
+  restoreHenExit,
+  restoreRoosterExit,
+  validateBatchForExit,
+  validateRoosterForExit,
+} from "@/lib/birdExit";
 import { withApiHandler, safeParseJson } from "@/lib/api-handler";
 
 export const dynamic = "force-dynamic";
+
+const MORTALITY_TYPES = new Set(["gallina", "gallo", "lote_pollos"]);
+const MORTALITY_CAUSES = new Set(["enfermedad", "depredador", "accidente", "sacrificio_sanitario", "causa_natural", "otro"]);
+
+
+async function lockMortalityTarget(client: any, record: { henId: string | null; roosterId: string | null; batchId: string | null }) {
+  if (record.henId) await client.select({ id: hens.id }).from(hens).where(eq(hens.id, record.henId)).for("update");
+  if (record.roosterId) await client.select({ id: roosters.id }).from(roosters).where(eq(roosters.id, record.roosterId)).for("update");
+  if (record.batchId) await client.select({ id: broilerBatches.id }).from(broilerBatches).where(eq(broilerBatches.id, record.batchId)).for("update");
+}
+
+function sameMortalityTarget(
+  a: { birdType: string; quantity: number; henId: string | null; roosterId: string | null; batchId: string | null },
+  b: { birdType: string; quantity: number; henId: string | null; roosterId: string | null; batchId: string | null },
+) {
+  return a.birdType === b.birdType && a.quantity === b.quantity && a.henId === b.henId && a.roosterId === b.roosterId && a.batchId === b.batchId;
+}
 
 export const GET = withApiHandler(async (req: NextRequest) => {
   const { searchParams } = new URL(req.url);
@@ -22,6 +48,7 @@ export const GET = withApiHandler(async (req: NextRequest) => {
       henId: mortalityRecords.henId,
       roosterId: mortalityRecords.roosterId,
       batchId: mortalityRecords.batchId,
+      healthControlId: mortalityRecords.healthControlId,
       description: mortalityRecords.description,
       createdAt: mortalityRecords.createdAt,
       henCode: hens.code,
@@ -59,37 +86,47 @@ export const GET = withApiHandler(async (req: NextRequest) => {
 
 export const POST = withApiHandler(async (req: NextRequest) => {
   const body = await safeParseJson(req);
+  if (!body || typeof body !== "object") return NextResponse.json({ error: "Cuerpo inválido" }, { status: 400 });
   const { date, birdType, cause, henId, roosterId, batchId, quantity, description } = body;
 
-  if (!date || !birdType || !cause) {
+  if (!isDateOnly(date) || !MORTALITY_TYPES.has(birdType) || !MORTALITY_CAUSES.has(cause)) {
     return NextResponse.json({ error: "Fecha, tipo de ave y causa son requeridos" }, { status: 400 });
   }
 
-  const qty = birdType === "lote_pollos" ? Number(quantity || 1) : 1;
+  if (birdType === "gallina" && (!henId || roosterId || batchId)) return NextResponse.json({ error: "Seleccione una sola gallina" }, { status: 400 });
+  if (birdType === "gallo" && (!roosterId || henId || batchId)) return NextResponse.json({ error: "Seleccione un solo gallo" }, { status: 400 });
+  if (birdType === "lote_pollos" && (!batchId || henId || roosterId)) return NextResponse.json({ error: "Seleccione un solo lote" }, { status: 400 });
+
+  const qty = birdType === "lote_pollos" ? Number(quantity ?? 1) : 1;
+  if (!Number.isSafeInteger(qty) || qty < 1) return NextResponse.json({ error: "Cantidad inválida" }, { status: 400 });
 
   try {
     const result = await db.transaction(async (tx) => {
       if (birdType === "gallina" && henId) {
-        const [hen] = await tx.select().from(hens).where(eq(hens.id, henId));
+        const [hen] = await tx.select().from(hens).where(eq(hens.id, henId)).for("update");
         if (!hen) throw new Error("Gallina no encontrada");
-        if (!isAvailableForExit(hen.status) && hen.status !== "activa" && hen.status !== "enferma") {
+        if (!HEN_PRESENT_STATUSES.includes(hen.status)) {
           throw new Error(`La gallina no está disponible (status: ${hen.status})`);
         }
-        await tx.update(hens).set({ status: "muerta", updatedAt: new Date() }).where(eq(hens.id, henId));
       }
 
       if (birdType === "gallo" && roosterId) {
-        const [rooster] = await tx.select().from(roosters).where(eq(roosters.id, roosterId));
-        if (!rooster) throw new Error("Gallo no encontrado");
-        await tx.update(roosters).set({ status: "muerto", updatedAt: new Date() }).where(eq(roosters.id, roosterId));
+        const roosterError = await validateRoosterForExit(roosterId, tx);
+        if (roosterError) throw new Error(roosterError);
       }
 
       if (birdType === "lote_pollos" && batchId) {
-        const [batch] = await tx.select().from(broilerBatches).where(eq(broilerBatches.id, batchId));
+        const batchError = await validateBatchForExit(batchId, qty, tx);
+        if (batchError) throw new Error(batchError);
+      }
+
+      const previousAnimalStates = await captureAnimalExitSnapshots(tx, { henId, roosterId, batchId });
+
+      if (henId) await tx.update(hens).set({ status: "muerta", updatedAt: new Date() }).where(eq(hens.id, henId));
+      if (roosterId) await tx.update(roosters).set({ status: "muerto", updatedAt: new Date() }).where(eq(roosters.id, roosterId));
+      if (batchId) {
+        const [batch] = await tx.select().from(broilerBatches).where(eq(broilerBatches.id, batchId)).for("update");
         if (!batch) throw new Error("Lote no encontrado");
-        if (qty > batch.currentQuantity) {
-          throw new Error("Cantidad excede aves en el lote");
-        }
         const newQty = batch.currentQuantity - qty;
         await tx.update(broilerBatches).set({
           currentQuantity: newQty,
@@ -107,6 +144,7 @@ export const POST = withApiHandler(async (req: NextRequest) => {
         roosterId: roosterId || null,
         batchId: batchId || null,
         description: description || null,
+        previousAnimalStates,
       }).returning();
 
       return created;
@@ -129,122 +167,197 @@ export const DELETE = withApiHandler(async (req: NextRequest) => {
 
   const [record] = await db.select().from(mortalityRecords).where(eq(mortalityRecords.id, id));
   if (!record) return NextResponse.json({ error: "No encontrado" }, { status: 404 });
+  if (record.healthControlId) {
+    return NextResponse.json({ error: "Este registro pertenece a un control sanitario. Elimínalo desde Sanidad." }, { status: 409 });
+  }
 
-  await db.transaction(async (tx) => {
-    if (record.henId) {
+  const result = await db.transaction(async (tx) => {
+    await lockMortalityTarget(tx, record);
+    const [currentRecord] = await tx.select().from(mortalityRecords).where(eq(mortalityRecords.id, id)).for("update");
+    if (!currentRecord) return "missing" as const;
+    if (currentRecord.healthControlId) return "linked" as const;
+    if (!sameMortalityTarget(currentRecord, record)) throw new Error("El registro cambió mientras se eliminaba; recarga e inténtalo de nuevo");
+    if (currentRecord.henId) {
+      await tx.select({ id: hens.id }).from(hens).where(eq(hens.id, currentRecord.henId)).for("update");
       // Only restore hen if no other exit records exist
       const [hasSlaughter] = await tx.select({ id: slaughter.id })
-        .from(slaughter).where(eq(slaughter.henId, record.henId)).limit(1);
+        .from(slaughter).where(eq(slaughter.henId, currentRecord.henId)).limit(1);
       const [hasSale] = await tx.select({ id: chickenSales.id })
-        .from(chickenSales).where(eq(chickenSales.henId, record.henId)).limit(1);
+        .from(chickenSales).where(eq(chickenSales.henId, currentRecord.henId)).limit(1);
       const [otherMortality] = await tx.select({ id: mortalityRecords.id })
         .from(mortalityRecords)
-        .where(and(eq(mortalityRecords.henId, record.henId), sql`${mortalityRecords.id} != ${record.id}`))
+        .where(and(eq(mortalityRecords.henId, currentRecord.henId), sql`${mortalityRecords.id} != ${currentRecord.id}`))
         .limit(1);
       if (!hasSlaughter && !hasSale && !otherMortality) {
-        await tx.update(hens).set({ status: "activa", updatedAt: new Date() }).where(eq(hens.id, record.henId));
+        const previousStatus = currentRecord.previousAnimalStates?.[`hen:${currentRecord.henId}`]?.status || "activa";
+        await restoreHenExit(currentRecord.henId, previousStatus, tx);
       }
     }
-    if (record.roosterId) {
-      // Only restore rooster if no other exit records exist
+    if (currentRecord.roosterId) {
+      await tx.select({ id: roosters.id }).from(roosters).where(eq(roosters.id, currentRecord.roosterId)).for("update");
+      const [hasSlaughter] = await tx.select({ id: slaughter.id })
+        .from(slaughter).where(eq(slaughter.roosterId, currentRecord.roosterId)).limit(1);
+      const [hasSale] = await tx.select({ id: chickenSales.id })
+        .from(chickenSales).where(eq(chickenSales.roosterId, currentRecord.roosterId)).limit(1);
       const [otherMortality] = await tx.select({ id: mortalityRecords.id })
         .from(mortalityRecords)
-        .where(and(eq(mortalityRecords.roosterId, record.roosterId), sql`${mortalityRecords.id} != ${record.id}`))
+        .where(and(eq(mortalityRecords.roosterId, currentRecord.roosterId), sql`${mortalityRecords.id} != ${currentRecord.id}`))
         .limit(1);
-      if (!otherMortality) {
-        await tx.update(roosters).set({ status: "activo", updatedAt: new Date() }).where(eq(roosters.id, record.roosterId));
+      if (!hasSlaughter && !hasSale && !otherMortality) {
+        const previousStatus = currentRecord.previousAnimalStates?.[`rooster:${currentRecord.roosterId}`]?.status || "activo";
+        await restoreRoosterExit(currentRecord.roosterId, tx, previousStatus);
       }
     }
-    if (record.batchId) {
-      const [batch] = await tx.select().from(broilerBatches).where(eq(broilerBatches.id, record.batchId));
-      if (batch) {
-        const newQty = batch.currentQuantity + record.quantity;
-        await tx.update(broilerBatches).set({
-          currentQuantity: newQty,
-          status: batch.status === "faena" ? "activo" : batch.status,
-          updatedAt: new Date(),
-        }).where(eq(broilerBatches.id, record.batchId));
-      }
+    if (currentRecord.batchId) {
+      await restoreBatchExit(
+        currentRecord.batchId,
+        currentRecord.quantity,
+        tx,
+        currentRecord.previousAnimalStates?.[`batch:${currentRecord.batchId}`],
+      );
     }
-    await tx.delete(mortalityRecords).where(eq(mortalityRecords.id, id));
+    await tx.delete(mortalityRecords).where(eq(mortalityRecords.id, currentRecord.id));
+    return "deleted" as const;
   });
 
+  if (result === "missing") return NextResponse.json({ error: "No encontrado" }, { status: 404 });
+  if (result === "linked") {
+    return NextResponse.json({ error: "Este registro pertenece a un control sanitario. Edítalo o elimínalo desde Sanidad." }, { status: 409 });
+  }
   return NextResponse.json({ ok: true });
 });
 
 export const PUT = withApiHandler(async (req: NextRequest) => {
   const body = await safeParseJson(req);
+  if (!body || typeof body !== "object") return NextResponse.json({ error: "Cuerpo inválido" }, { status: 400 });
   if (!body.id) return NextResponse.json({ error: "ID requerido" }, { status: 400 });
 
   const { date, birdType, cause, description } = body;
-  if (!date || !birdType || !cause) {
+  if (!isDateOnly(date) || !MORTALITY_TYPES.has(birdType) || !MORTALITY_CAUSES.has(cause)) {
     return NextResponse.json({ error: "Fecha, tipo de ave y causa son requeridos" }, { status: 400 });
   }
 
   const [existing] = await db.select().from(mortalityRecords).where(eq(mortalityRecords.id, body.id));
   if (!existing) return NextResponse.json({ error: "No encontrado" }, { status: 404 });
+  if (existing.healthControlId) {
+    return NextResponse.json({ error: "Este registro pertenece a un control sanitario. Edítalo desde Sanidad." }, { status: 409 });
+  }
+
+  const henId = birdType === "gallina"
+    ? (body.henId || (existing.birdType === birdType ? existing.henId : null))
+    : null;
+  const roosterId = birdType === "gallo"
+    ? (body.roosterId || (existing.birdType === birdType ? existing.roosterId : null))
+    : null;
+  const batchId = birdType === "lote_pollos"
+    ? (body.batchId || (existing.birdType === birdType ? existing.batchId : null))
+    : null;
+  const quantity = birdType === "lote_pollos"
+    ? Number(body.quantity ?? existing.quantity)
+    : 1;
+
+  if (birdType === "gallina" && !henId) return NextResponse.json({ error: "Seleccione una gallina" }, { status: 400 });
+  if (birdType === "gallo" && !roosterId) return NextResponse.json({ error: "Seleccione un gallo" }, { status: 400 });
+  if (birdType === "lote_pollos" && !batchId) return NextResponse.json({ error: "Seleccione un lote" }, { status: 400 });
+  if (!Number.isSafeInteger(quantity) || quantity < 1) return NextResponse.json({ error: "Cantidad inválida" }, { status: 400 });
 
   try {
-    await db.transaction(async (tx) => {
-      // Restore old bird status only if no other exit records exist
-      if (existing.henId) {
+    const result = await db.transaction(async (tx) => {
+      await lockMortalityTarget(tx, existing);
+      const [currentRecord] = await tx.select().from(mortalityRecords).where(eq(mortalityRecords.id, body.id)).for("update");
+      if (!currentRecord) throw new Error("No encontrado");
+      if (currentRecord.healthControlId) return "linked" as const;
+      if (!sameMortalityTarget(currentRecord, existing)) {
+        throw new Error("El registro cambió mientras se editaba; recarga e inténtalo de nuevo");
+      }
+      // Reverse the old mortality effect before validating/applying the edited target.
+      if (currentRecord.henId) {
+        await tx.select({ id: hens.id }).from(hens).where(eq(hens.id, currentRecord.henId)).for("update");
         const [hasSlaughter] = await tx.select({ id: slaughter.id })
-          .from(slaughter).where(eq(slaughter.henId, existing.henId)).limit(1);
+          .from(slaughter).where(eq(slaughter.henId, currentRecord.henId)).limit(1);
         const [hasSale] = await tx.select({ id: chickenSales.id })
-          .from(chickenSales).where(eq(chickenSales.henId, existing.henId)).limit(1);
-        if (!hasSlaughter && !hasSale) {
-          await tx.update(hens).set({ status: "activa", updatedAt: new Date() }).where(eq(hens.id, existing.henId));
+          .from(chickenSales).where(eq(chickenSales.henId, currentRecord.henId)).limit(1);
+        const [otherMortality] = await tx.select({ id: mortalityRecords.id })
+          .from(mortalityRecords)
+          .where(and(eq(mortalityRecords.henId, currentRecord.henId), sql`${mortalityRecords.id} != ${body.id}`))
+          .limit(1);
+        if (!hasSlaughter && !hasSale && !otherMortality) {
+          const previousStatus = currentRecord.previousAnimalStates?.[`hen:${currentRecord.henId}`]?.status || "activa";
+          await restoreHenExit(currentRecord.henId, previousStatus, tx);
         }
       }
-      if (existing.roosterId) {
-        await tx.update(roosters).set({ status: "activo", updatedAt: new Date() }).where(eq(roosters.id, existing.roosterId));
+      if (currentRecord.roosterId) {
+        await tx.select({ id: roosters.id }).from(roosters).where(eq(roosters.id, currentRecord.roosterId)).for("update");
+        const [hasSlaughter] = await tx.select({ id: slaughter.id })
+          .from(slaughter).where(eq(slaughter.roosterId, currentRecord.roosterId)).limit(1);
+        const [hasSale] = await tx.select({ id: chickenSales.id })
+          .from(chickenSales).where(eq(chickenSales.roosterId, currentRecord.roosterId)).limit(1);
+        const [otherMortality] = await tx.select({ id: mortalityRecords.id })
+          .from(mortalityRecords)
+          .where(and(eq(mortalityRecords.roosterId, currentRecord.roosterId), sql`${mortalityRecords.id} != ${body.id}`))
+          .limit(1);
+        if (!hasSlaughter && !hasSale && !otherMortality) {
+          const previousStatus = currentRecord.previousAnimalStates?.[`rooster:${currentRecord.roosterId}`]?.status || "activo";
+          await restoreRoosterExit(currentRecord.roosterId, tx, previousStatus);
+        }
       }
-      if (existing.batchId) {
-        const [batch] = await tx.select().from(broilerBatches).where(eq(broilerBatches.id, existing.batchId));
+      if (currentRecord.batchId) {
+        await restoreBatchExit(
+          currentRecord.batchId,
+          currentRecord.quantity,
+          tx,
+          currentRecord.previousAnimalStates?.[`batch:${currentRecord.batchId}`],
+        );
+      }
+
+      const previousAnimalStates = await captureAnimalExitSnapshots(tx, { henId, roosterId, batchId });
+
+      if (henId) {
+        const [hen] = await tx.select().from(hens).where(eq(hens.id, henId)).for("update");
+        if (!hen) throw new Error("Gallina no encontrada");
+        if (!HEN_PRESENT_STATUSES.includes(hen.status)) {
+          throw new Error(`La gallina no está disponible (status: ${hen.status})`);
+        }
+        await tx.update(hens).set({ status: "muerta", updatedAt: new Date() }).where(eq(hens.id, henId));
+      }
+      if (roosterId) {
+        const roosterError = await validateRoosterForExit(roosterId, tx);
+        if (roosterError) throw new Error(roosterError);
+        await tx.update(roosters).set({ status: "muerto", updatedAt: new Date() }).where(eq(roosters.id, roosterId));
+      }
+      if (batchId) {
+        const batchError = await validateBatchForExit(batchId, quantity, tx);
+        if (batchError) throw new Error(batchError);
+        const [batch] = await tx.select().from(broilerBatches).where(eq(broilerBatches.id, batchId));
         if (batch) {
-          const newQty = batch.currentQuantity + existing.quantity;
+          const newQty = batch.currentQuantity - quantity;
           await tx.update(broilerBatches).set({
             currentQuantity: newQty,
-            status: batch.status === "faena" ? "activo" : batch.status,
+            status: newQty === 0 ? "faena" : batch.status,
             updatedAt: new Date(),
-          }).where(eq(broilerBatches.id, existing.batchId));
+          }).where(eq(broilerBatches.id, batchId));
         }
       }
 
-      // Update the record
       await tx.update(mortalityRecords).set({
         date,
         birdType,
+        quantity,
         cause,
+        henId,
+        roosterId,
+        batchId,
         description: description || null,
+        previousAnimalStates,
       }).where(eq(mortalityRecords.id, body.id));
-
-      // Apply new bird status — only if not already exited by another record
-      if (existing.henId) {
-        const [hasSlaughter] = await tx.select({ id: slaughter.id })
-          .from(slaughter).where(eq(slaughter.henId, existing.henId)).limit(1);
-        const [hasSale] = await tx.select({ id: chickenSales.id })
-          .from(chickenSales).where(eq(chickenSales.henId, existing.henId)).limit(1);
-        if (!hasSlaughter && !hasSale) {
-          await tx.update(hens).set({ status: "muerta", updatedAt: new Date() }).where(eq(hens.id, existing.henId));
-        }
-      }
-      if (existing.roosterId) {
-        await tx.update(roosters).set({ status: "muerto", updatedAt: new Date() }).where(eq(roosters.id, existing.roosterId));
-      }
-      if (existing.batchId) {
-        const [batch] = await tx.select().from(broilerBatches).where(eq(broilerBatches.id, existing.batchId));
-        if (batch) {
-          const newQty = batch.currentQuantity - existing.quantity;
-          await tx.update(broilerBatches).set({
-            currentQuantity: Math.max(0, newQty),
-            status: newQty === 0 ? "faena" : batch.status,
-            updatedAt: new Date(),
-          }).where(eq(broilerBatches.id, existing.batchId));
-        }
-      }
+      return "updated" as const;
     });
+    if (result === "linked") {
+      return NextResponse.json({ error: "Este registro pertenece a un control sanitario. Edítalo desde Sanidad." }, { status: 409 });
+    }
   } catch (err: any) {
+    if (err.message === "No encontrado") return NextResponse.json({ error: err.message }, { status: 404 });
+    if (err.message?.includes("El registro cambió mientras se")) return NextResponse.json({ error: err.message }, { status: 409 });
     return NextResponse.json({ error: err.message || "Error al actualizar" }, { status: 400 });
   }
 

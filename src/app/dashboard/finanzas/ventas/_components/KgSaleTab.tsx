@@ -71,7 +71,7 @@ export default function KgSaleTab({ apiEndpoint, labels }: KgSaleTabProps) {
       .catch(() => setLoading(false));
   }, [apiEndpoint]);
 
-  useEffect(() => { load(); }, [load]);
+  useEffect(() => { void Promise.resolve().then(load); }, [load]);
 
   const handleSpeciesChange = (species: string) => {
     const defaultPrice = priceKg(species);

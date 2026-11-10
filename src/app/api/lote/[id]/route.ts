@@ -2,12 +2,14 @@ import { db } from "@/db";
 import { broilerBatches, mortalityRecords, weightLogs, eggProduction, eggProductionDetails } from "@/db/schema";
 import { eq, desc } from "drizzle-orm";
 import { NextRequest, NextResponse } from "next/server";
-import { withApiHandler, safeParseJson } from "@/lib/api-handler";
+import { withApiHandler } from "@/lib/api-handler";
+import { isUuid } from "@/lib/ids";
 
 export const dynamic = "force-dynamic";
 
 export const GET = withApiHandler(async (req: NextRequest, { params }: { params: Promise<{ id: string }> }) => {
   const { id } = await params;
+  if (!isUuid(id)) return NextResponse.json({ error: "Lote no encontrado" }, { status: 404 });
 
   const [batch] = await db
     .select()

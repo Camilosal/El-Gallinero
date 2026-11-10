@@ -1,15 +1,33 @@
+import { isDateOnly } from "@/lib/date-validation";
 import { db } from "@/db";
 import { slaughter, hens, roosters, broilerBatches, chickenSales, mortalityRecords, autoconsumoLogs } from "@/db/schema";
 import { eq, desc, and, sql } from "drizzle-orm";
 import { NextRequest, NextResponse } from "next/server";
 import { isAvailableForExit } from "@/lib/lifecycle";
 import {
+  captureAnimalExitSnapshots,
   validateRoosterForExit, validateBatchForExit,
-  applyRoosterExit, restoreRoosterExit, applyBatchExit, restoreBatchExit,
+  applyRoosterExit, restoreHenExit, restoreRoosterExit, applyBatchExit, restoreBatchExit,
 } from "@/lib/birdExit";
 import { withApiHandler, safeParseJson } from "@/lib/api-handler";
+import { lockMeatInventory } from "@/lib/inventory-locks";
+import { computeMeatInventory, meatInventoryBookBalance } from "@/lib/inventory";
 
 export const dynamic = "force-dynamic";
+
+
+function normalizeExitReferences(body: Record<string, any>, quantity: number): string | null {
+  for (const key of ["henId", "roosterId", "batchId"]) {
+    const value = body[key];
+    if (value === undefined || value === null || value === "") continue;
+    if (typeof value !== "string" || !value.trim()) return "Referencia de ave inválida";
+    body[key] = value.trim();
+  }
+  const references = [body.henId, body.roosterId, body.batchId].filter(Boolean);
+  if (references.length !== 1) return "Seleccione exactamente una gallina, un gallo o un lote";
+  if ((body.henId || body.roosterId) && quantity !== 1) return "La faena de una gallina o un gallo debe tener cantidad 1";
+  return null;
+}
 
 // GET /api/produccion/sacrificio — lista de registros de sacrificio (producción de carne)
 export const GET = withApiHandler(async (req: NextRequest) => {
@@ -42,17 +60,17 @@ export const GET = withApiHandler(async (req: NextRequest) => {
 // POST /api/produccion/sacrificio — registrar sacrificio (producción pura, siempre va a inventario)
 export const POST = withApiHandler(async (req: NextRequest) => {
   const body = await safeParseJson(req);
+  if (!body || typeof body !== "object") return NextResponse.json({ error: "Cuerpo inválido" }, { status: 400 });
 
   const qty = Number(body.quantity);
-  if (!body.birdType) return NextResponse.json({ error: "Tipo de ave/animal requerido" }, { status: 400 });
-  if (!qty || qty < 1) return NextResponse.json({ error: "Cantidad inválida" }, { status: 400 });
+  if (!isDateOnly(body.date)) return NextResponse.json({ error: "Fecha inválida" }, { status: 400 });
+  if (typeof body.birdType !== "string" || !body.birdType.trim()) return NextResponse.json({ error: "Tipo de ave/animal requerido" }, { status: 400 });
+  if (!Number.isSafeInteger(qty) || qty < 1) return NextResponse.json({ error: "Cantidad inválida" }, { status: 400 });
+  const referenceError = normalizeExitReferences(body, qty);
+  if (referenceError) return NextResponse.json({ error: referenceError }, { status: 400 });
 
   const weightKg = Number(body.weightKg);
-  if (!weightKg || weightKg <= 0) return NextResponse.json({ error: "Peso requerido" }, { status: 400 });
-
-  if (!body.henId && !body.roosterId && !body.batchId) {
-    return NextResponse.json({ error: "Debe seleccionar una gallina, un gallo o un lote" }, { status: 400 });
-  }
+  if (!Number.isFinite(weightKg) || weightKg <= 0) return NextResponse.json({ error: "Peso requerido" }, { status: 400 });
 
   if (body.henId) {
     const [hen] = await db.select().from(hens).where(eq(hens.id, body.henId));
@@ -97,6 +115,25 @@ export const POST = withApiHandler(async (req: NextRequest) => {
     : (body.estimatedSavingsAmount ? String(body.estimatedSavingsAmount) : null);
 
   const created = await db.transaction(async (tx) => {
+    await lockMeatInventory(tx);
+    if (body.henId) {
+      const [hen] = await tx.select().from(hens).where(eq(hens.id, body.henId)).for("update");
+      if (!hen) throw new Error("Gallina no encontrada");
+      if (!isAvailableForExit(hen.status)) throw new Error(`La gallina no está disponible para sacrificio (estado: ${hen.status})`);
+    }
+    if (body.roosterId) {
+      const error = await validateRoosterForExit(body.roosterId, tx);
+      if (error) throw new Error(error);
+    }
+    if (body.batchId) {
+      const error = await validateBatchForExit(body.batchId, qty, tx);
+      if (error) throw new Error(error);
+    }
+    const previousAnimalStates = await captureAnimalExitSnapshots(tx, {
+      henId: body.henId,
+      roosterId: body.roosterId,
+      batchId: body.batchId,
+    });
     const [inserted] = await tx.insert(slaughter).values({
       date: body.date,
       species,
@@ -117,6 +154,7 @@ export const POST = withApiHandler(async (req: NextRequest) => {
       henId: body.henId || null,
       roosterId: body.roosterId || null,
       batchId: body.batchId || null,
+      previousAnimalStates,
       notes: body.notes || null,
     }).returning();
 
@@ -156,12 +194,17 @@ export const POST = withApiHandler(async (req: NextRequest) => {
 // PUT /api/produccion/sacrificio — actualizar registro
 export const PUT = withApiHandler(async (req: NextRequest) => {
   const body = await safeParseJson(req);
+  if (!body || typeof body !== "object") return NextResponse.json({ error: "Cuerpo inválido" }, { status: 400 });
   if (!body.id) return NextResponse.json({ error: "ID requerido" }, { status: 400 });
 
   const qty = Number(body.quantity);
   const weightKg = Number(body.weightKg);
-  if (!qty || qty < 1) return NextResponse.json({ error: "Cantidad inválida" }, { status: 400 });
-  if (!weightKg || weightKg <= 0) return NextResponse.json({ error: "Peso requerido" }, { status: 400 });
+  if (!isDateOnly(body.date)) return NextResponse.json({ error: "Fecha inválida" }, { status: 400 });
+  if (typeof body.birdType !== "string" || !body.birdType.trim()) return NextResponse.json({ error: "Tipo de ave/animal requerido" }, { status: 400 });
+  if (!Number.isSafeInteger(qty) || qty < 1) return NextResponse.json({ error: "Cantidad inválida" }, { status: 400 });
+  if (!Number.isFinite(weightKg) || weightKg <= 0) return NextResponse.json({ error: "Peso requerido" }, { status: 400 });
+  const referenceError = normalizeExitReferences(body, qty);
+  if (referenceError) return NextResponse.json({ error: referenceError }, { status: 400 });
 
   const [existing] = await db.select().from(slaughter).where(eq(slaughter.id, body.id));
   if (!existing) return NextResponse.json({ error: "No encontrado" }, { status: 404 });
@@ -200,17 +243,64 @@ export const PUT = withApiHandler(async (req: NextRequest) => {
   let updated;
   try {
     updated = await db.transaction(async (tx) => {
-      if (body.roosterId && body.roosterId !== existing.roosterId) {
-        const err = await validateRoosterForExit(body.roosterId);
+      await lockMeatInventory(tx);
+      const inventoryBefore = await computeMeatInventory(tx);
+      const [currentRecord] = await tx.select().from(slaughter).where(eq(slaughter.id, body.id)).for("update");
+      if (!currentRecord) throw new Error("No encontrado");
+      const previousAnimalStates = { ...(currentRecord.previousAnimalStates || {}) };
+      if (body.henId && body.henId !== currentRecord.henId) {
+        const [hen] = await tx.select().from(hens).where(eq(hens.id, body.henId)).for("update");
+        if (!hen) throw new Error("Gallina no encontrada");
+        if (!isAvailableForExit(hen.status)) throw new Error(`La gallina no está disponible para sacrificio (estado: ${hen.status})`);
+      }
+      if (currentRecord.batchId) {
+        await restoreBatchExit(
+          currentRecord.batchId,
+          currentRecord.quantity,
+          tx,
+          previousAnimalStates[`batch:${currentRecord.batchId}`],
+        );
+        if (currentRecord.batchId !== body.batchId) delete previousAnimalStates[`batch:${currentRecord.batchId}`];
+      }
+      if (currentRecord.henId && currentRecord.henId !== body.henId) {
+        await tx.select({ id: hens.id }).from(hens).where(eq(hens.id, currentRecord.henId)).for("update");
+        const [otherSlaughter] = await tx.select({ id: slaughter.id }).from(slaughter).where(and(
+          eq(slaughter.henId, currentRecord.henId), sql`${slaughter.id} != ${currentRecord.id}`,
+        )).limit(1);
+        const [otherSale] = await tx.select({ id: chickenSales.id }).from(chickenSales).where(eq(chickenSales.henId, currentRecord.henId)).limit(1);
+        const [otherMortality] = await tx.select({ id: mortalityRecords.id }).from(mortalityRecords).where(eq(mortalityRecords.henId, currentRecord.henId)).limit(1);
+        if (!otherSlaughter && !otherSale && !otherMortality) {
+          const previousStatus = previousAnimalStates[`hen:${currentRecord.henId}`]?.status || "activa";
+          await restoreHenExit(currentRecord.henId, previousStatus, tx);
+        }
+        delete previousAnimalStates[`hen:${currentRecord.henId}`];
+      }
+      if (currentRecord.roosterId && currentRecord.roosterId !== body.roosterId) {
+        await tx.select({ id: roosters.id }).from(roosters).where(eq(roosters.id, currentRecord.roosterId)).for("update");
+        const [otherSlaughter] = await tx.select({ id: slaughter.id }).from(slaughter).where(and(
+          eq(slaughter.roosterId, currentRecord.roosterId), sql`${slaughter.id} != ${currentRecord.id}`,
+        )).limit(1);
+        const [otherSale] = await tx.select({ id: chickenSales.id }).from(chickenSales).where(eq(chickenSales.roosterId, currentRecord.roosterId)).limit(1);
+        const [otherMortality] = await tx.select({ id: mortalityRecords.id }).from(mortalityRecords).where(eq(mortalityRecords.roosterId, currentRecord.roosterId)).limit(1);
+        if (!otherSlaughter && !otherSale && !otherMortality) {
+          const previousStatus = previousAnimalStates[`rooster:${currentRecord.roosterId}`]?.status || "activo";
+          await restoreRoosterExit(currentRecord.roosterId, tx, previousStatus);
+        }
+        delete previousAnimalStates[`rooster:${currentRecord.roosterId}`];
+      }
+      if (body.roosterId && body.roosterId !== currentRecord.roosterId) {
+        const err = await validateRoosterForExit(body.roosterId, tx);
         if (err) throw new Error(err);
       }
       if (body.batchId) {
-        const err = await validateBatchForExit(body.batchId, qty);
+        const err = await validateBatchForExit(body.batchId, qty, tx);
         if (err) throw new Error(err);
       }
-      if (existing.batchId && existing.batchId !== body.batchId) {
-        await restoreBatchExit(existing.batchId, existing.quantity, tx);
-      }
+      Object.assign(previousAnimalStates, await captureAnimalExitSnapshots(tx, {
+        henId: body.henId && body.henId !== currentRecord.henId ? body.henId : null,
+        roosterId: body.roosterId && body.roosterId !== currentRecord.roosterId ? body.roosterId : null,
+        batchId: body.batchId || null,
+      }));
 
       const [upd] = await tx.update(slaughter).set({
         date: body.date,
@@ -232,23 +322,19 @@ export const PUT = withApiHandler(async (req: NextRequest) => {
         henId: body.henId || null,
         roosterId: body.roosterId || null,
         batchId: body.batchId || null,
+        previousAnimalStates,
         notes: body.notes || null,
       }).where(eq(slaughter.id, body.id)).returning();
+      if (!upd) throw new Error("No encontrado");
 
-      if (existing.henId && existing.henId !== body.henId) {
-        await tx.update(hens).set({ status: "activa" }).where(eq(hens.id, existing.henId));
-      }
-      if (body.henId && body.henId !== existing.henId) {
+      if (body.henId && body.henId !== currentRecord.henId) {
         await tx.update(hens).set({ status: "faena" }).where(eq(hens.id, body.henId));
       }
 
-      if (existing.roosterId && existing.roosterId !== body.roosterId) {
-        await restoreRoosterExit(existing.roosterId, tx);
-      }
-      if (body.roosterId && body.roosterId !== existing.roosterId) {
+      if (body.roosterId && body.roosterId !== currentRecord.roosterId) {
         await applyRoosterExit(body.roosterId, "sacrificio", tx);
       }
-      if (body.batchId && body.batchId !== existing.batchId) {
+      if (body.batchId) {
         await applyBatchExit(body.batchId, qty, "sacrificio", tx);
       }
 
@@ -268,6 +354,11 @@ export const PUT = withApiHandler(async (req: NextRequest) => {
           slaughterId: upd.id,
           notes: `Faena (${species}) - ${headsAutoconsumo} unidades para consumo familiar`,
         });
+      }
+
+      const inventoryAfter = await computeMeatInventory(tx);
+      if (meatInventoryBookBalance(inventoryAfter) < Math.min(0, meatInventoryBookBalance(inventoryBefore)) - 0.01) {
+        throw new Error("No se puede reducir la faena por debajo de la carne ya vendida o perdida");
       }
 
       return upd;
@@ -292,10 +383,15 @@ export const DELETE = withApiHandler(async (req: NextRequest) => {
   if (!record) return NextResponse.json({ error: "No encontrado" }, { status: 404 });
 
   await db.transaction(async (tx) => {
+    await lockMeatInventory(tx);
+    const [record] = await tx.select().from(slaughter).where(eq(slaughter.id, id)).for("update");
+    if (!record) throw new Error("No encontrado");
+    const inventoryBefore = await computeMeatInventory(tx);
     // Delete linked autoconsumo log first
     await tx.delete(autoconsumoLogs).where(eq(autoconsumoLogs.slaughterId, id));
 
     if (record.henId) {
+      await tx.select({ id: hens.id }).from(hens).where(eq(hens.id, record.henId)).for("update");
       // Check no subsequent exit before restoring
       const [otherSlaughter] = await tx.select({ id: slaughter.id })
         .from(slaughter)
@@ -310,17 +406,36 @@ export const DELETE = withApiHandler(async (req: NextRequest) => {
         .where(eq(mortalityRecords.henId, record.henId))
         .limit(1);
       if (!otherSlaughter && !otherSale && !hasMortality) {
-        await tx.update(hens).set({ status: "activa" }).where(eq(hens.id, record.henId));
+        const previousStatus = record.previousAnimalStates?.[`hen:${record.henId}`]?.status || "activa";
+        await restoreHenExit(record.henId, previousStatus, tx);
       }
     }
     if (record.roosterId) {
-      await restoreRoosterExit(record.roosterId, tx);
+      await tx.select({ id: roosters.id }).from(roosters).where(eq(roosters.id, record.roosterId)).for("update");
+      const [otherSlaughter] = await tx.select({ id: slaughter.id }).from(slaughter).where(and(
+        eq(slaughter.roosterId, record.roosterId), sql`${slaughter.id} != ${record.id}`,
+      )).limit(1);
+      const [otherSale] = await tx.select({ id: chickenSales.id }).from(chickenSales).where(eq(chickenSales.roosterId, record.roosterId)).limit(1);
+      const [hasMortality] = await tx.select({ id: mortalityRecords.id }).from(mortalityRecords).where(eq(mortalityRecords.roosterId, record.roosterId)).limit(1);
+      if (!otherSlaughter && !otherSale && !hasMortality) {
+        const previousStatus = record.previousAnimalStates?.[`rooster:${record.roosterId}`]?.status || "activo";
+        await restoreRoosterExit(record.roosterId, tx, previousStatus);
+      }
     }
     if (record.batchId) {
-      await restoreBatchExit(record.batchId, record.quantity, tx);
+      await restoreBatchExit(
+        record.batchId,
+        record.quantity,
+        tx,
+        record.previousAnimalStates?.[`batch:${record.batchId}`],
+      );
     }
 
     await tx.delete(slaughter).where(eq(slaughter.id, id));
+    const inventoryAfter = await computeMeatInventory(tx);
+    if (meatInventoryBookBalance(inventoryAfter) < Math.min(0, meatInventoryBookBalance(inventoryBefore)) - 0.01) {
+      throw new Error("No se puede eliminar la faena porque tiene carne ya vendida o perdida");
+    }
   });
 
   return NextResponse.json({ ok: true });

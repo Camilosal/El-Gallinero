@@ -17,11 +17,14 @@ export const GET = withApiHandler(async () => {
 
 export const POST = withApiHandler(async (req: NextRequest) => {
   const body = await safeParseJson(req);
+  if (!body || typeof body !== "object") return NextResponse.json({ error: "Cuerpo inválido" }, { status: 400 });
   const { name, category, unit, currentStock, minStock, costPerUnit, supplier, expiryDate } = body;
 
   if (!name || !category || !unit) {
     return NextResponse.json({ error: "Nombre, categoría y unidad son requeridos" }, { status: 400 });
   }
+  const initialStock = Number(currentStock ?? 0);
+  if (!Number.isFinite(initialStock) || initialStock < 0) return NextResponse.json({ error: "Stock inicial inválido" }, { status: 400 });
 
   const created = await db.transaction(async (tx) => {
     const [row] = await tx
@@ -30,7 +33,7 @@ export const POST = withApiHandler(async (req: NextRequest) => {
         name,
         category,
         unit,
-        currentStock: String(currentStock || 0),
+        currentStock: initialStock.toFixed(2),
         minStock: String(minStock || 0),
         costPerUnit: String(costPerUnit || 0),
         supplier: supplier || null,
@@ -39,10 +42,10 @@ export const POST = withApiHandler(async (req: NextRequest) => {
       .returning();
 
     // If initial stock provided, create a movement
-    if (currentStock && Number(currentStock) > 0) {
+    if (initialStock > 0) {
       await tx.insert(supplyMovements).values({
         supplyId: row.id,
-        quantity: String(currentStock),
+        quantity: initialStock.toFixed(2),
         isEntry: true,
         movementType: "compra",
         date: new Date().toISOString().split("T")[0],
@@ -58,39 +61,45 @@ export const POST = withApiHandler(async (req: NextRequest) => {
 
 export const PUT = withApiHandler(async (req: NextRequest) => {
   const body = await safeParseJson(req);
+  if (!body || typeof body !== "object") return NextResponse.json({ error: "Cuerpo inválido" }, { status: 400 });
   if (!body.id) {
     return NextResponse.json({ error: "ID requerido" }, { status: 400 });
   }
 
-  const [existing] = await db
-    .select()
-    .from(supplyInventory)
-    .where(eq(supplyInventory.id, body.id));
-
-  if (!existing) {
-    return NextResponse.json({ error: "Insumo no encontrado" }, { status: 404 });
-  }
-
-  // Handle empty string for expiryDate (date column doesn't accept empty string)
-  const expiryDate = body.expiryDate !== undefined
-    ? (body.expiryDate ? body.expiryDate : null)
-    : existing.expiryDate;
-
-  const [updated] = await db
-    .update(supplyInventory)
-    .set({
+  const [updated] = await db.transaction(async (tx) => {
+    const [existing] = await tx.select().from(supplyInventory).where(eq(supplyInventory.id, body.id)).for("update");
+    if (!existing) return [];
+    const nextStock = body.currentStock != null ? Number(body.currentStock) : Number(existing.currentStock);
+    if (!Number.isFinite(nextStock) || nextStock < 0) throw new Error("Stock inválido");
+    const previousStock = Number(existing.currentStock);
+    const expiryDate = body.expiryDate !== undefined
+      ? (body.expiryDate ? body.expiryDate : null)
+      : existing.expiryDate;
+    const [row] = await tx.update(supplyInventory).set({
       name: body.name ?? existing.name,
       category: body.category ?? existing.category,
       unit: body.unit ?? existing.unit,
-      currentStock: body.currentStock != null ? String(body.currentStock) : existing.currentStock,
+      currentStock: nextStock.toFixed(2),
       minStock: body.minStock != null ? String(body.minStock) : existing.minStock,
       costPerUnit: body.costPerUnit != null ? String(body.costPerUnit) : existing.costPerUnit,
       supplier: body.supplier !== undefined ? body.supplier : existing.supplier,
       expiryDate,
       updatedAt: new Date(),
-    })
-    .where(eq(supplyInventory.id, body.id))
-    .returning();
+    }).where(eq(supplyInventory.id, body.id)).returning();
+
+    if (Math.abs(nextStock - previousStock) >= 0.005) {
+      const delta = nextStock - previousStock;
+      await tx.insert(supplyMovements).values({
+        supplyId: existing.id,
+        quantity: Math.abs(delta).toFixed(2),
+        isEntry: delta > 0,
+        movementType: "ajuste_inventario",
+        date: new Date().toISOString().slice(0, 10),
+        notes: "Ajuste manual del stock desde el catálogo de insumos",
+      });
+    }
+    return [row];
+  });
 
   return NextResponse.json(updated);
 });
@@ -100,9 +109,21 @@ export const DELETE = withApiHandler(async (req: NextRequest) => {
   const id = searchParams.get("id");
   if (!id) return NextResponse.json({ error: "ID requerido" }, { status: 400 });
 
-  await db.transaction(async (tx) => {
+  const result = await db.transaction(async (tx) => {
+    const [supply] = await tx.select().from(supplyInventory).where(eq(supplyInventory.id, id)).for("update");
+    if (!supply) return "missing" as const;
+    const [linkedMovement] = await tx.select({ id: supplyMovements.id })
+      .from(supplyMovements)
+      .where(sql`${supplyMovements.supplyId} = ${id} AND ${supplyMovements.healthControlId} IS NOT NULL`)
+      .limit(1);
+    if (linkedMovement) return "linked" as const;
     await tx.delete(supplyMovements).where(eq(supplyMovements.supplyId, id));
     await tx.delete(supplyInventory).where(eq(supplyInventory.id, id));
+    return "deleted" as const;
   });
+  if (result === "missing") return NextResponse.json({ error: "Insumo no encontrado" }, { status: 404 });
+  if (result === "linked") {
+    return NextResponse.json({ error: "Este insumo tiene movimientos ligados a controles sanitarios y no se puede eliminar." }, { status: 409 });
+  }
   return NextResponse.json({ ok: true });
 });

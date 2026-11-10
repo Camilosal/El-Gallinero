@@ -10,9 +10,10 @@ export default function ClientAppLayout({ children }: { children: React.ReactNod
   const [collapsed, setCollapsed] = useState(false);
 
   useEffect(() => {
-    // Read initial state
-    const stored = localStorage.getItem(COLLAPSED_KEY);
-    setCollapsed(stored === "true");
+    let active = true;
+    void Promise.resolve().then(() => {
+      if (active) setCollapsed(localStorage.getItem(COLLAPSED_KEY) === "true");
+    });
 
     // Listen for sidebar toggle events
     const handler = (e: Event) => {
@@ -20,7 +21,10 @@ export default function ClientAppLayout({ children }: { children: React.ReactNod
       if (detail) setCollapsed(detail.collapsed);
     };
     window.addEventListener("sidebar-toggle", handler);
-    return () => window.removeEventListener("sidebar-toggle", handler);
+    return () => {
+      active = false;
+      window.removeEventListener("sidebar-toggle", handler);
+    };
   }, []);
 
   const marginClass = collapsed ? "md:ml-16" : "md:ml-64";

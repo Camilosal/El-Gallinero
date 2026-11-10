@@ -1,7 +1,14 @@
 import { db } from "@/db";
-import { broilerBatches, healthControl, mortalityRecords } from "@/db/schema";
+import { broilerBatches, mortalityRecords } from "@/db/schema";
 import { eq, desc } from "drizzle-orm";
 import { notFound } from "next/navigation";
+import { daysSince } from "@/lib/manure";
+import { isUuid } from "@/lib/ids";
+
+export const metadata = {
+  title: "Trazabilidad de lote | El Gallinero",
+  robots: { index: false, follow: false },
+};
 
 interface Props {
   params: Promise<{ id: string }>;
@@ -9,6 +16,7 @@ interface Props {
 
 export default async function LoteTraceabilityPage({ params }: Props) {
   const { id } = await params;
+  if (!isUuid(id)) notFound();
 
   const [batch] = await db
     .select()
@@ -20,15 +28,10 @@ export default async function LoteTraceabilityPage({ params }: Props) {
   }
 
   const mortality = await db
-    .select()
+    .select({ id: mortalityRecords.id, date: mortalityRecords.date, quantity: mortalityRecords.quantity, cause: mortalityRecords.cause })
     .from(mortalityRecords)
     .where(eq(mortalityRecords.batchId, id))
     .orderBy(desc(mortalityRecords.date));
-
-  const healthEvents = await db
-    .select()
-    .from(healthControl)
-    .orderBy(desc(healthControl.date));
 
   const totalMortality = mortality.reduce((sum, m) => sum + m.quantity, 0);
   const mortalityRate =
@@ -36,10 +39,7 @@ export default async function LoteTraceabilityPage({ params }: Props) {
       ? ((totalMortality / batch.initialQuantity) * 100).toFixed(1)
       : "0";
 
-  const ageDays = Math.floor(
-    (Date.now() - new Date(batch.startDate + "T00:00:00").getTime()) /
-      86400000
-  );
+  const ageDays = daysSince(batch.startDate);
   const ageWeeks = Math.floor(ageDays / 7);
 
   const statusLabel = (s: string) => {
@@ -126,32 +126,9 @@ export default async function LoteTraceabilityPage({ params }: Props) {
                     <p className="text-sm font-medium text-gray-700">{m.date}</p>
                     <p className="text-xs text-gray-500 capitalize">
                       {m.cause.replace("_", " ")}
-                      {m.description ? ` - ${m.description}` : ""}
                     </p>
                   </div>
                   <span className="text-sm font-semibold text-red-600">{m.quantity}</span>
-                </div>
-              ))}
-            </div>
-          </div>
-        )}
-
-        {/* Health Events */}
-        {healthEvents.length > 0 && (
-          <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6 mb-6">
-            <h3 className="text-md font-semibold text-gray-700 mb-3">
-              Eventos Sanitarios
-            </h3>
-            <div className="space-y-2">
-              {healthEvents.slice(0, 10).map((h) => (
-                <div key={h.id} className="flex justify-between items-center py-2 border-b border-gray-100 last:border-0">
-                  <div>
-                    <p className="text-sm font-medium text-gray-700">{h.date}</p>
-                    <p className="text-xs text-gray-500">{h.type} - {h.description}</p>
-                    {h.product && (
-                      <p className="text-xs text-gray-400">Producto: {h.product}</p>
-                    )}
-                  </div>
                 </div>
               ))}
             </div>

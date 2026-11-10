@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useCallback, useMemo, Suspense } from "react";
+import { useEffect, useRef, useState, useCallback, Suspense } from "react";
 import { useSearchParams } from "next/navigation";
 import { PageHeader, Button, Card, Table, Badge, Modal, Input, Select, Textarea, EmptyState, StatCard } from "@/components/ui";
 import { apiFetch } from "@/lib/fetch";
@@ -63,6 +63,8 @@ export default function SanidadPage() {
 function SanidadPageInner() {
   const searchParams = useSearchParams();
   const [records, setRecords] = useState<HealthRecord[]>([]);
+  const handledPendingId = useRef<string | null>(null);
+  const pendingOpenTimer = useRef<number | null>(null);
   const [loading, setLoading] = useState(true);
   const [modalOpen, setModalOpen] = useState(false);
   const [editing, setEditing] = useState<HealthRecord | null>(null);
@@ -91,23 +93,12 @@ function SanidadPageInner() {
     }).finally(() => setLoading(false));
   }, []);
 
-  useEffect(() => { load(); }, [load]);
+  useEffect(() => { void Promise.resolve().then(load); }, [load]);
 
   // Find most urgent pending calendar event
   const pendingEvent = calendarEvents
     .filter((e) => e.isOverdue || (e.daysUntilDue >= 0 && e.daysUntilDue <= 7))
     .sort((a, b) => a.daysUntilDue - b.daysUntilDue)[0] || null;
-
-  // Handle ?pendiente=ID from Dashboard
-  useEffect(() => {
-    const pendienteId = searchParams.get("pendiente");
-    if (pendienteId && calendarEvents.length > 0) {
-      const event = calendarEvents.find((e) => e.id === pendienteId);
-      if (event) {
-        openNewWithEvent(event);
-      }
-    }
-  }, [searchParams, calendarEvents]);
 
   const openNew = () => {
     setEditing(null);
@@ -116,7 +107,7 @@ function SanidadPageInner() {
     setModalOpen(true);
   };
 
-  const openNewWithEvent = (event: CalendarEvent) => {
+  const openNewWithEvent = useCallback((event: CalendarEvent) => {
     setEditing(null);
     setError("");
     // Calculate next scheduled date based on frequency
@@ -137,7 +128,36 @@ function SanidadPageInner() {
       notes: "",
     });
     setModalOpen(true);
-  };
+  }, []);
+
+  // Handle ?pendiente=ID once. Reloading calendar data after save must not
+  // reopen the modal for the same query parameter.
+  useEffect(() => {
+    const pendienteId = searchParams.get("pendiente");
+    if (!pendienteId) {
+      handledPendingId.current = null;
+      if (pendingOpenTimer.current !== null) {
+        window.clearTimeout(pendingOpenTimer.current);
+        pendingOpenTimer.current = null;
+      }
+      return;
+    }
+    if (pendienteId === handledPendingId.current || pendingOpenTimer.current !== null || calendarEvents.length === 0) return;
+
+    const event = calendarEvents.find((candidate) => candidate.id === pendienteId);
+    if (event) {
+      const timer = window.setTimeout(() => {
+        pendingOpenTimer.current = null;
+        handledPendingId.current = pendienteId;
+        openNewWithEvent(event);
+      }, 0);
+      pendingOpenTimer.current = timer;
+      return () => {
+        window.clearTimeout(timer);
+        if (pendingOpenTimer.current === timer) pendingOpenTimer.current = null;
+      };
+    }
+  }, [searchParams, calendarEvents, openNewWithEvent]);
 
   const openEdit = (r: HealthRecord) => {
     setEditing(r);
@@ -182,9 +202,7 @@ function SanidadPageInner() {
   const totalCost = records.reduce((s, r) => s + Number(r.cost || 0), 0);
   const upcoming = records.filter((r) => r.nextScheduled && new Date(r.nextScheduled + "T12:00:00") >= new Date()).sort((a, b) => new Date(a.nextScheduled!).getTime() - new Date(b.nextScheduled!).getTime());
 
-  const filteredRecords = useMemo(() => {
-    if (!search.trim()) return records;
-    return records.filter((record) =>
+  const filteredRecords = !search.trim() ? records : records.filter((record) =>
       matchesTextQuery(search, [
         record.date,
         new Date(record.date + "T12:00:00").toLocaleDateString("es"),
@@ -198,7 +216,6 @@ function SanidadPageInner() {
         record.notes,
       ]),
     );
-  }, [records, search]);
 
   return (
     <div>
@@ -284,7 +301,7 @@ function SanidadPageInner() {
           {!editing && pendingEvent && (
             <div className={`p-3 rounded-lg border ${pendingEvent.isOverdue ? "bg-red-50 border-red-200" : "bg-blue-50 border-blue-200"}`}>
               <p className="text-sm font-semibold text-slate-700 mb-1">
-                📅 Evento pendiente: "{pendingEvent.name}"
+                📅 Evento pendiente: &quot;{pendingEvent.name}&quot;
               </p>
               <p className="text-xs text-slate-500 mb-2">
                 {eventTypes.find((t) => t.value === pendingEvent.type)?.label || pendingEvent.type}

@@ -5,6 +5,7 @@ import { Html5Qrcode } from "html5-qrcode";
 import { Card, Button, Badge, Modal, Input, Select, Textarea } from "@/components/ui";
 import { apiFetch } from "@/lib/fetch";
 import { parseQrPayload } from "@/lib/qr";
+import { HEN_PRESENT_STATUSES, isHenAvailableForExit } from "@/lib/animal-status";
 import Link from "next/link";
 
 interface Hen {
@@ -53,6 +54,8 @@ export default function EscanearPage() {
   const [actionForm, setActionForm] = useState<Record<string, string>>({});
   const [actionError, setActionError] = useState("");
   const [actionSuccess, setActionSuccess] = useState("");
+  const [actionSubmitting, setActionSubmitting] = useState(false);
+  const actionSubmittingRef = useRef(false);
 
   // Load all hens for lookup
   useEffect(() => {
@@ -180,7 +183,9 @@ export default function EscanearPage() {
   };
 
   const submitAction = async () => {
-    if (!hen) return;
+    if (!hen || actionSubmittingRef.current) return;
+    actionSubmittingRef.current = true;
+    setActionSubmitting(true);
     setActionError("");
     setActionSuccess("");
 
@@ -195,7 +200,7 @@ export default function EscanearPage() {
             date: new Date().toISOString().split("T")[0],
             birdType: "gallina_descarte",
             quantity: 1,
-            weightKg: weight,
+            weightKg: actionForm.weightKg ? weight : null,
             pricePerUnit: price,
             priceMode: "por_ave",
             totalAmount: price,
@@ -207,12 +212,6 @@ export default function EscanearPage() {
           const d = await res.json().catch(() => ({}));
           throw new Error(d.error || "Error al registrar venta");
         }
-        // Update hen status
-        await apiFetch("/api/produccion/gallinas", {
-          method: "PUT",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ id: hen.id, code: hen.code, breed: hen.breed, birthDate: hen.birthDate, status: "vendida", weight: hen.weight }),
-        });
         setActionSuccess("Venta registrada correctamente");
       } else if (actionModal === "tratar") {
         const res = await apiFetch("/api/sanidad/control", {
@@ -251,10 +250,21 @@ export default function EscanearPage() {
         }
         setActionSuccess("Mortalidad registrada correctamente");
       }
+      const updatedStatus = actionModal === "vender"
+        ? "vendida"
+        : actionModal === "muerte"
+          ? "muerta"
+          : actionModal === "tratar" && actionForm.type === "tratamiento"
+            ? "enferma"
+            : hen.status;
+      setHens((current) => current.map((item) => item.id === hen.id ? { ...item, status: updatedStatus } : item));
       setHen(null); // Go back to scanner
       setTimeout(() => setActionModal(null), 1500);
     } catch (err) {
       setActionError(err instanceof Error ? err.message : "Error al registrar");
+    } finally {
+      actionSubmittingRef.current = false;
+      setActionSubmitting(false);
     }
   };
 
@@ -311,32 +321,38 @@ export default function EscanearPage() {
                 </div>
 
                 {/* Action buttons */}
-                <div className="grid grid-cols-3 gap-2 mb-3">
-                  <button
-                    onClick={() => openAction("vender")}
-                    className="flex flex-col items-center gap-1 p-3 bg-green-50 border border-green-200 rounded-xl hover:bg-green-100 transition-colors"
-                  >
-                    <span className="text-2xl">💰</span>
-                    <span className="text-xs font-medium text-green-700">Vender</span>
-                  </button>
-                  <button
-                    onClick={() => openAction("tratar")}
-                    className="flex flex-col items-center gap-1 p-3 bg-blue-50 border border-blue-200 rounded-xl hover:bg-blue-100 transition-colors"
-                  >
-                    <span className="text-2xl">💊</span>
-                    <span className="text-xs font-medium text-blue-700">Tratar</span>
-                  </button>
-                  <button
-                    onClick={() => openAction("muerte")}
-                    className="flex flex-col items-center gap-1 p-3 bg-red-50 border border-red-200 rounded-xl hover:bg-red-100 transition-colors"
-                  >
-                    <span className="text-2xl">💀</span>
-                    <span className="text-xs font-medium text-red-700">Muerte</span>
-                  </button>
-                </div>
+                {HEN_PRESENT_STATUSES.includes(hen.status) ? (
+                  <div className={`grid gap-2 mb-3 ${isHenAvailableForExit(hen.status) ? "grid-cols-3" : "grid-cols-2"}`}>
+                    {isHenAvailableForExit(hen.status) && (
+                      <button
+                        onClick={() => openAction("vender")}
+                        className="flex flex-col items-center gap-1 p-3 bg-green-50 border border-green-200 rounded-xl hover:bg-green-100 transition-colors"
+                      >
+                        <span className="text-2xl">💰</span>
+                        <span className="text-xs font-medium text-green-700">Vender</span>
+                      </button>
+                    )}
+                    <button
+                      onClick={() => openAction("tratar")}
+                      className="flex flex-col items-center gap-1 p-3 bg-blue-50 border border-blue-200 rounded-xl hover:bg-blue-100 transition-colors"
+                    >
+                      <span className="text-2xl">💊</span>
+                      <span className="text-xs font-medium text-blue-700">Tratar</span>
+                    </button>
+                    <button
+                      onClick={() => openAction("muerte")}
+                      className="flex flex-col items-center gap-1 p-3 bg-red-50 border border-red-200 rounded-xl hover:bg-red-100 transition-colors"
+                    >
+                      <span className="text-2xl">💀</span>
+                      <span className="text-xs font-medium text-red-700">Muerte</span>
+                    </button>
+                  </div>
+                ) : (
+                  <p className="mb-3 rounded-lg bg-slate-100 p-3 text-center text-sm text-slate-600">Esta ave ya salió del inventario y no admite nuevas acciones.</p>
+                )}
 
                 <Link
-                  href={`/produccion/gallinas/${hen.id}`}
+                  href={`/dashboard/produccion/gallinas/${hen.id}`}
                   className="block w-full text-center p-3 bg-slate-50 border border-slate-200 rounded-xl hover:bg-slate-100 transition-colors text-sm font-medium text-slate-700"
                 >
                   📋 Ver historial completo
@@ -387,7 +403,7 @@ export default function EscanearPage() {
       {/* Action Modal */}
       <Modal
         open={actionModal !== null}
-        onClose={() => setActionModal(null)}
+        onClose={() => { if (!actionSubmitting) setActionModal(null); }}
         title={
           actionModal === "vender" ? "💰 Vender Ave" : actionModal === "tratar" ? "💊 Registrar Tratamiento" : "💀 Registrar Muerte"
         }
@@ -507,8 +523,8 @@ export default function EscanearPage() {
             )}
 
             <div className="flex gap-2">
-              <Button onClick={submitAction}>Registrar</Button>
-              <Button variant="secondary" onClick={() => setActionModal(null)}>
+              <Button onClick={submitAction} disabled={actionSubmitting}>{actionSubmitting ? "Guardando…" : "Registrar"}</Button>
+              <Button variant="secondary" onClick={() => setActionModal(null)} disabled={actionSubmitting}>
                 Cancelar
               </Button>
             </div>

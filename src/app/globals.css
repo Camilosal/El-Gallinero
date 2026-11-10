@@ -37,6 +37,10 @@
    Landing page — El Gallinero
    ============================================================ */
 :root {
+  /* Prefer local system fallbacks so builds do not need to fetch Google Fonts. */
+  --font-inter: "Inter", Arial, Helvetica, sans-serif;
+  --font-fraunces: "Fraunces", Georgia, "Times New Roman", serif;
+  --font-mono: "IBM Plex Mono", "SFMono-Regular", Consolas, "Liberation Mono", monospace;
   --ink: #1c2419;
   --forest: #1f3d2c;
   --forest-deep: #132a1e;

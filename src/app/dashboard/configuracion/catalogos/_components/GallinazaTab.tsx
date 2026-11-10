@@ -33,7 +33,7 @@ export default function GallinazaTab() {
       .finally(() => setLoading(false));
   }, []);
 
-  useEffect(() => { load(); }, [load]);
+  useEffect(() => { void Promise.resolve().then(load); }, [load]);
 
   const saveAll = async () => {
     setSaving(true);

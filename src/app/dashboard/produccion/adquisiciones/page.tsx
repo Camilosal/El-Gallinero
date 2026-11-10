@@ -76,11 +76,11 @@ export default function AdquisicionesPage() {
     setLoading(false);
   }, []);
 
-  useEffect(() => { load(); }, [load]);
+  useEffect(() => { void Promise.resolve().then(load); }, [load]);
 
   const totalAves = items.reduce((s, i) => s + Number(i.quantity), 0);
-  const totalInversion = items.filter(i => i.acquisitionType === "compra").reduce((s, i) => s + Number(i.totalCost || 0), 0);
-  const compras = items.filter(i => i.acquisitionType === "compra").length;
+  const totalInversion = items.filter(i => i.acquisitionType !== "donacion").reduce((s, i) => s + Number(i.totalCost || 0), 0);
+  const compras = items.filter(i => i.acquisitionType !== "donacion").length;
   const donaciones = items.filter(i => i.acquisitionType === "donacion").length;
 
   const filteredItems = useMemo(() => {
@@ -104,7 +104,7 @@ export default function AdquisicionesPage() {
     setError("");
     if (!form.date) return setError("La fecha es requerida");
     if (!form.quantity || Number(form.quantity) < 1) return setError("Cantidad mínima: 1");
-    if (!editingId && form.acquisitionType === "compra" && !form.unitCost) return setError("El costo unitario es requerido para compras");
+    if (form.acquisitionType !== "donacion" && (!form.unitCost || Number(form.unitCost) <= 0)) return setError("El costo unitario debe ser mayor que cero para compras");
 
     const res = await apiFetch("/api/produccion/adquisiciones", {
       method: editingId ? "PUT" : "POST",
@@ -119,8 +119,13 @@ export default function AdquisicionesPage() {
   };
 
   const remove = async (id: string) => {
-    if (!confirm("¿Eliminar esta adquisición? Se eliminarán las aves asociadas.")) return;
-    await apiFetch(`/api/produccion/adquisiciones?id=${id}`, { method: "DELETE" });
+    if (!confirm("¿Eliminar esta adquisición? Se eliminarán las aves asociadas si aún no tienen movimientos registrados.")) return;
+    const res = await apiFetch(`/api/produccion/adquisiciones?id=${id}`, { method: "DELETE" });
+    if (!res.ok) {
+      const error = await res.json().catch(() => ({}));
+      window.alert(error.error || "No se pudo eliminar la adquisición");
+      return;
+    }
     load();
   };
 
@@ -264,7 +269,7 @@ export default function AdquisicionesPage() {
 
           <div className="flex justify-end gap-3 pt-2">
             <Button variant="secondary" onClick={() => setModalOpen(false)}>Cancelar</Button>
-            <Button onClick={save} disabled={!form.date || !form.quantity || Number(form.quantity) < 1 || (form.acquisitionType === "compra" && !form.unitCost)}>Guardar</Button>
+          <Button onClick={save} disabled={!form.date || !form.quantity || Number(form.quantity) < 1 || (form.acquisitionType !== "donacion" && (!form.unitCost || Number(form.unitCost) <= 0))}>Guardar</Button>
           </div>
         </div>
       </Modal>

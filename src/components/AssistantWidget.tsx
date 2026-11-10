@@ -103,7 +103,7 @@ export default function AssistantWidget() {
   useEffect(() => {
     if (!open) return;
     const stored = localStorage.getItem(STORAGE_KEY);
-    if (stored) loadConversation(stored).catch(() => undefined);
+    if (stored) void Promise.resolve().then(() => loadConversation(stored)).catch(() => undefined);
   }, [open, loadConversation]);
 
   const refreshConversations = useCallback(async () => {

@@ -68,7 +68,7 @@ export default function ReportesPage() {
     Promise.all(promises).finally(() => setLoading(false));
   }, [tab, from, to]);
 
-  useEffect(() => { load(); }, [load]);
+  useEffect(() => { void Promise.resolve().then(load); }, [load]);
 
   const rentPie = rentData?.productLines
     .filter((l) => l.revenue > 0 || l.cost > 0)

@@ -21,6 +21,8 @@ interface Transaction {
   unit: string | null;
   presentation: string | null;
   notes: string | null;
+  sourceType: string | null;
+  sourceId: string | null;
 }
 
 interface ByCategory {
@@ -59,6 +61,7 @@ interface FinanceData {
   byCategory: ByCategory[];
   series: SeriesPoint[];
   kpis: Kpis;
+  cashflow: { series: SeriesPoint[]; kpis: Kpis };
 }
 
 const incomeCategories = [
@@ -232,6 +235,7 @@ export default function FinanzasPage() {
   }, [data, search]);
   const marginPct = k ? pct(k.margin) : "—";
   const ratioPct = k ? pct(k.expenseRatio) : "—";
+  const cash = data?.cashflow?.kpis;
 
   return (
     <div>
@@ -254,26 +258,26 @@ export default function FinanzasPage() {
 
       {loading ? (
         <Card><p className="text-center py-8 text-slate-400">Cargando...</p></Card>
-      ) : !data || !k ? null : (
+      ) : !data || !k || !cash ? null : (
         <>
           {/* KPI cards */}
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 mb-6">
             <StatCard icon="📥" label="Ingresos" value={fmt(k.totalIncome)} color="green" />
             <StatCard icon="📤" label="Egresos" value={fmt(k.totalExpense)} color="red" />
             <StatCard icon={positive ? "📈" : "📉"} label="Utilidad Neta" value={fmt(k.profit)} color={positive ? "blue" : "red"} />
-            <StatCard icon="📅" label="Ingreso Prom. Diario" value={fmt(k.avgDailyIncome)} color="yellow" />
-            <StatCard icon="💸" label="Egreso Prom. Diario" value={fmt(k.avgDailyExpense)} color="purple" />
-            <StatCard icon="💧" label="Flujo Neto Diario" value={fmt(k.avgDailyNet)} color={k.avgDailyNet >= 0 ? "earth" : "red"} />
+            <StatCard icon="📅" label="Ingreso Prom. Diario (caja)" value={fmt(cash.avgDailyIncome)} color="yellow" />
+            <StatCard icon="💸" label="Egreso Prom. Diario (caja)" value={fmt(cash.avgDailyExpense)} color="purple" />
+            <StatCard icon="💧" label="Flujo Neto Diario" value={fmt(cash.avgDailyNet)} color={cash.avgDailyNet >= 0 ? "earth" : "red"} />
           </div>
 
           {/* Insights */}
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
             <Card className="!p-4 flex flex-col justify-between">
               <p className="text-sm text-slate-500">🥇 Mejor día</p>
-              {k.bestDay ? (
+              {cash.bestDay ? (
                 <>
-                  <p className="text-lg font-bold text-green-600">{dateFmt(k.bestDay.date)}</p>
-                  <p className="text-sm text-green-700">+{fmt(k.bestDay.profit)}</p>
+                  <p className="text-lg font-bold text-green-600">{dateFmt(cash.bestDay.date)}</p>
+                  <p className="text-sm text-green-700">+{fmt(cash.bestDay.profit)}</p>
                 </>
               ) : (
                 <p className="text-sm text-slate-400 py-2">Sin datos</p>
@@ -281,10 +285,10 @@ export default function FinanzasPage() {
             </Card>
             <Card className="!p-4 flex flex-col justify-between">
               <p className="text-sm text-slate-500">🥉 Peor día</p>
-              {k.worstDay ? (
+              {cash.worstDay ? (
                 <>
-                  <p className="text-lg font-bold text-red-600">{dateFmt(k.worstDay.date)}</p>
-                  <p className="text-sm text-red-700">{fmt(k.worstDay.profit)}</p>
+                  <p className="text-lg font-bold text-red-600">{dateFmt(cash.worstDay.date)}</p>
+                  <p className="text-sm text-red-700">{fmt(cash.worstDay.profit)}</p>
                 </>
               ) : (
                 <p className="text-sm text-slate-400 py-2">Sin datos</p>
@@ -297,18 +301,18 @@ export default function FinanzasPage() {
             </Card>
             <Card className="!p-4 flex flex-col justify-between">
               <p className="text-sm text-slate-500">📆 Proyección mensual</p>
-              <p className={`text-2xl font-bold ${k.projectedMonthly >= 0 ? "text-blue-600" : "text-red-600"}`}>{fmt(k.projectedMonthly)}</p>
-              <p className="text-sm text-slate-500">{k.activeDays} días con movimiento</p>
+              <p className={`text-2xl font-bold ${cash.projectedMonthly >= 0 ? "text-blue-600" : "text-red-600"}`}>{fmt(cash.projectedMonthly)}</p>
+              <p className="text-sm text-slate-500">Proyección basada en movimientos de caja reales</p>
             </Card>
           </div>
 
-          {/* Behavior over time */}
-          {data.series.length > 0 && (
+          {/* Cash behavior over time */}
+          {data.cashflow.series.length > 0 && (
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
               <Card>
-                <h3 className="font-semibold text-slate-700 mb-4">📈 Comportamiento a través del tiempo</h3>
+                <h3 className="font-semibold text-slate-700 mb-4">📈 Flujo de caja en el período</h3>
                 <ResponsiveContainer width="100%" height={280}>
-                  <AreaChart data={data.series}>
+                  <AreaChart data={data.cashflow.series}>
                     <defs>
                       <linearGradient id="gInc" x1="0" y1="0" x2="0" y2="1">
                         <stop offset="5%" stopColor="#22c55e" stopOpacity={0.6} />
@@ -330,9 +334,9 @@ export default function FinanzasPage() {
                 </ResponsiveContainer>
               </Card>
               <Card>
-                <h3 className="font-semibold text-slate-700 mb-4">📊 Utilidad Acumulada</h3>
+                <h3 className="font-semibold text-slate-700 mb-4">📊 Flujo neto acumulado</h3>
                 <ResponsiveContainer width="100%" height={280}>
-                  <AreaChart data={data.series}>
+                  <AreaChart data={data.cashflow.series}>
                     <defs>
                       <linearGradient id="gCum" x1="0" y1="0" x2="0" y2="1">
                         <stop offset="5%" stopColor="#3b82f6" stopOpacity={0.6} />
@@ -343,13 +347,12 @@ export default function FinanzasPage() {
                     <XAxis dataKey="label" fontSize={11} />
                     <YAxis fontSize={11} />
                     <Tooltip formatter={(v, name) => [fmt(Number(v)), name]} />
-                    <Area type="monotone" dataKey="cumulative" name="Utilidad acumulada" stroke="#3b82f6" fill="url(#gCum)" />
+                    <Area type="monotone" dataKey="cumulative" name="Flujo acumulado" stroke="#3b82f6" fill="url(#gCum)" />
                   </AreaChart>
                 </ResponsiveContainer>
               </Card>
             </div>
           )}
-
           {/* Pie charts */}
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
             <Card>
@@ -475,8 +478,22 @@ export default function FinanzasPage() {
                 </td>
                 <td className="px-4 py-3">
                   <div className="flex gap-1">
-                    <button onClick={() => openEdit(t)} className="text-blue-600 hover:underline text-xs">Editar</button>
-                    <button onClick={() => remove(t.id)} className="text-red-600 hover:underline text-xs">Eliminar</button>
+                    {(t.sourceType || t.sourceId) && !(t.sourceType === "alimento" && t.sourceId) ? (
+                      <span className="text-xs text-slate-400" title="Edítala o elimínala desde el módulo que la creó">
+                        Gestionar en módulo
+                      </span>
+                    ) : (
+                      <>
+                        <button onClick={() => openEdit(t)} className="text-blue-600 hover:underline text-xs">Editar</button>
+                        {t.sourceType === "alimento" && t.sourceId ? (
+                          <span className="text-xs text-slate-400" title="Elimina el movimiento desde Alimentación para actualizar el stock">
+                            Eliminar en Alimentación
+                          </span>
+                        ) : (
+                          <button onClick={() => remove(t.id)} className="text-red-600 hover:underline text-xs">Eliminar</button>
+                        )}
+                      </>
+                    )}
                   </div>
                 </td>
               </tr>

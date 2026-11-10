@@ -1,10 +1,14 @@
+import { isDateOnly } from "@/lib/date-validation";
 import { db } from "@/db";
 import { meatLosses } from "@/db/schema";
 import { eq, desc, and, gte } from "drizzle-orm";
 import { NextRequest, NextResponse } from "next/server";
 import { withApiHandler, safeParseJson } from "@/lib/api-handler";
+import { computeMeatInventory } from "@/lib/inventory";
+import { lockMeatInventory } from "@/lib/inventory-locks";
 
 export const dynamic = "force-dynamic";
+
 
 export const GET = withApiHandler(async (req: NextRequest) => {
   const { searchParams } = new URL(req.url);
@@ -34,18 +38,26 @@ export const GET = withApiHandler(async (req: NextRequest) => {
 
 export const POST = withApiHandler(async (req: NextRequest) => {
   const body = await safeParseJson(req);
+  if (!body || typeof body !== "object") return NextResponse.json({ error: "Cuerpo inválido" }, { status: 400 });
 
-  if (!body.date) return NextResponse.json({ error: "Fecha requerida" }, { status: 400 });
-  const quantityKg = Number(body.quantityKg);
-  if (isNaN(quantityKg) || quantityKg <= 0) return NextResponse.json({ error: "Cantidad kg inválida" }, { status: 400 });
-  if (!body.reason) return NextResponse.json({ error: "Motivo requerido" }, { status: 400 });
+  if (!isDateOnly(body.date)) return NextResponse.json({ error: "Fecha inválida" }, { status: 400 });
+  const quantityKg = Number(Number(body.quantityKg).toFixed(2));
+  if (!Number.isFinite(quantityKg) || quantityKg <= 0) return NextResponse.json({ error: "Cantidad kg inválida" }, { status: 400 });
+  if (typeof body.reason !== "string" || !body.reason.trim()) return NextResponse.json({ error: "Motivo requerido" }, { status: 400 });
 
-  const [created] = await db.insert(meatLosses).values({
-    date: body.date,
-    quantityKg: quantityKg.toFixed(2),
-    reason: body.reason,
-    notes: body.notes || null,
-  }).returning();
+  const [created] = await db.transaction(async (tx) => {
+    await lockMeatInventory(tx);
+    const inventory = await computeMeatInventory(tx);
+    if (quantityKg > inventory.summary.available) {
+      throw new Error(`Stock insuficiente: disponibles ${inventory.summary.available.toFixed(2)} kg`);
+    }
+    return tx.insert(meatLosses).values({
+      date: body.date,
+      quantityKg: quantityKg.toFixed(2),
+      reason: body.reason.trim(),
+      notes: body.notes || null,
+    }).returning();
+  });
 
   return NextResponse.json(created, { status: 201 });
 });
@@ -55,6 +67,11 @@ export const DELETE = withApiHandler(async (req: NextRequest) => {
   const id = searchParams.get("id");
   if (!id) return NextResponse.json({ error: "ID requerido" }, { status: 400 });
 
-  await db.delete(meatLosses).where(eq(meatLosses.id, id));
+  await db.transaction(async (tx) => {
+    await lockMeatInventory(tx);
+    const [loss] = await tx.select().from(meatLosses).where(eq(meatLosses.id, id));
+    if (!loss) throw new Error("No encontrado");
+    await tx.delete(meatLosses).where(eq(meatLosses.id, id));
+  });
   return NextResponse.json({ ok: true });
 });

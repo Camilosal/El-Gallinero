@@ -57,12 +57,8 @@ export const POST = withApiHandler(async (req: NextRequest) => {
   const error = validate(data);
   if (error) return NextResponse.json({ error }, { status: 400 });
 
-  try {
-    const [created] = await db.insert(feedPrograms).values(data).returning();
-    return NextResponse.json(created, { status: 201 });
-  } catch {
-    return NextResponse.json({ error: "Ya existe un programa para esa etapa y alimento" }, { status: 409 });
-  }
+  const [created] = await db.insert(feedPrograms).values(data).returning();
+  return NextResponse.json(created, { status: 201 });
 });
 
 export const PUT = withApiHandler(async (req: NextRequest) => {
@@ -73,18 +69,14 @@ export const PUT = withApiHandler(async (req: NextRequest) => {
   const error = validate(data);
   if (error) return NextResponse.json({ error }, { status: 400 });
 
-  try {
-    const [updated] = await db
-      .update(feedPrograms)
-      .set({ ...data, updatedAt: new Date() })
-      .where(eq(feedPrograms.id, body.id))
-      .returning();
+  const [updated] = await db
+    .update(feedPrograms)
+    .set({ ...data, updatedAt: new Date() })
+    .where(eq(feedPrograms.id, body.id))
+    .returning();
 
-    if (!updated) return NextResponse.json({ error: "No encontrado" }, { status: 404 });
-    return NextResponse.json(updated);
-  } catch {
-    return NextResponse.json({ error: "Ya existe un programa para esa etapa y alimento" }, { status: 409 });
-  }
+  if (!updated) return NextResponse.json({ error: "No encontrado" }, { status: 404 });
+  return NextResponse.json(updated);
 });
 
 export const DELETE = withApiHandler(async (req: NextRequest) => {

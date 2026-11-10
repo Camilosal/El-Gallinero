@@ -76,7 +76,7 @@ export default function KpisPage() {
       .finally(() => setLoading(false));
   }, [period]);
 
-  useEffect(() => { load(); }, [load]);
+  useEffect(() => { void Promise.resolve().then(load); }, [load]);
 
   const mortalityPie = data?.mortality.byCause.map((b) => ({
     name: CAUSE_LABELS[b.cause] || b.cause,

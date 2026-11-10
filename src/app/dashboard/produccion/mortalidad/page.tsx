@@ -13,6 +13,10 @@ type MortalityRecord = {
   birdType: string;
   quantity: number;
   cause: string;
+  henId: string | null;
+  roosterId: string | null;
+  batchId: string | null;
+  healthControlId: string | null;
   henCode: string | null;
   roosterCode: string | null;
   batchCode: string | null;
@@ -58,9 +62,9 @@ export default function MortalidadPage() {
   const load = useCallback(async () => {
     const [mortRes, lossRes, hensRes, roostersRes, batchesRes] = await Promise.all([
       apiFetch("/api/produccion/mortalidad?period=30"),
-      apiFetch("/api/finanzas/perdidas?period=30"),
+      apiFetch("/api/perdidas-huevos?period=30"),
       apiFetch("/api/produccion/gallinas"),
-      apiFetch("/api/produccion/pollos"),
+      apiFetch("/api/produccion/gallos"),
       apiFetch("/api/produccion/pollos"),
     ]);
     if (mortRes.ok) {
@@ -74,14 +78,12 @@ export default function MortalidadPage() {
       setLossStats({ totalLost: data.totalLost, byReason: data.byReason });
     }
     if (hensRes.ok) { const d = await hensRes.json(); setHens(d.map((h: any) => ({ id: h.id, code: h.code }))); }
-    if (roostersOk(roostersRes)) { const d = await roostersRes.json(); setRoosters(d.map((r: any) => ({ id: r.id, code: r.code }))); }
+    if (roostersRes.ok) { const d = await roostersRes.json(); setRoosters(d.map((r: any) => ({ id: r.id, code: r.code }))); }
     if (batchesRes.ok) { const d = await batchesRes.json(); setBatches(d.filter((b: any) => b.status === "activo" || b.status === "listo_sacrificio").map((b: any) => ({ id: b.id, code: b.code }))); }
     setLoading(false);
   }, []);
 
-  function roostersOk(r: Response) { return r.ok; }
-
-  useEffect(() => { load(); }, [load]);
+  useEffect(() => { void Promise.resolve().then(load); }, [load]);
 
   const save = async () => {
     setError("");
@@ -106,7 +108,7 @@ export default function MortalidadPage() {
   const saveLoss = async () => {
     setLossError("");
     if (!lossForm.quantity || Number(lossForm.quantity) < 1) return setLossError("Cantidad mínima: 1");
-    const res = await apiFetch("/api/finanzas/perdidas", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(lossForm) });
+    const res = await apiFetch("/api/perdidas-huevos", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(lossForm) });
     if (!res.ok) { const e = await res.json(); return setLossError(e.error || "Error"); }
     setLossModalOpen(false);
     setLossForm(emptyLoss);
@@ -115,7 +117,12 @@ export default function MortalidadPage() {
 
   const removeRecord = async (id: string) => {
     if (!confirm("¿Eliminar este registro? Se restaurará el ave/lote.")) return;
-    await apiFetch(`/api/produccion/mortalidad?id=${id}`, { method: "DELETE" });
+    const res = await apiFetch(`/api/produccion/mortalidad?id=${id}`, { method: "DELETE" });
+    if (!res.ok) {
+      const data = await res.json();
+      alert(data.error || "No se pudo eliminar el registro");
+      return;
+    }
     load();
   };
 
@@ -126,9 +133,9 @@ export default function MortalidadPage() {
       birdType: r.birdType,
       cause: r.cause,
       description: r.description || "",
-      henId: "",
-      roosterId: "",
-      batchId: "",
+      henId: r.henId || "",
+      roosterId: r.roosterId || "",
+      batchId: r.batchId || "",
       quantity: String(r.quantity || 1),
     });
     setError("");
@@ -137,7 +144,7 @@ export default function MortalidadPage() {
 
   const removeLoss = async (id: string) => {
     if (!confirm("¿Eliminar esta pérdida?")) return;
-    await apiFetch(`/api/finanzas/perdidas?id=${id}`, { method: "DELETE" });
+    await apiFetch(`/api/perdidas-huevos?id=${id}`, { method: "DELETE" });
     load();
   };
 
@@ -238,7 +245,16 @@ export default function MortalidadPage() {
                 <td className="px-4 py-3 text-sm">{r.henCode || r.roosterCode || r.batchCode || "—"}</td>
                 <td className="px-4 py-3"><Badge color="red">{CAUSE_LABELS[r.cause] || r.cause}</Badge></td>
                 <td className="px-4 py-3 text-sm text-slate-500">{r.description || "—"}</td>
-                <td className="px-4 py-3 flex gap-3"><button onClick={() => editRecord(r)} className="text-blue-600 hover:underline text-xs">Editar</button><button onClick={() => removeRecord(r.id)} className="text-red-600 hover:underline text-xs">Eliminar</button></td>
+                <td className="px-4 py-3">
+                  {r.healthControlId ? (
+                    <span className="text-xs text-slate-500">Gestionar desde Sanidad</span>
+                  ) : (
+                    <div className="flex gap-3">
+                      <button onClick={() => editRecord(r)} className="text-blue-600 hover:underline text-xs">Editar</button>
+                      <button onClick={() => removeRecord(r.id)} className="text-red-600 hover:underline text-xs">Eliminar</button>
+                    </div>
+                  )}
+                </td>
               </tr>
             ))}
           </Table>

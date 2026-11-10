@@ -29,6 +29,7 @@ interface Movement {
   notes: string | null;
   supplyName: string | null;
   supplyUnit: string | null;
+  healthControlId: string | null;
 }
 
 const supplyCategories = ["medicamento", "vacuna", "desinfectante", "limpieza", "equipo", "otro"];
@@ -60,7 +61,7 @@ export default function InsumosPage() {
     setLoading(false);
   }, []);
 
-  useEffect(() => { load(); }, [load]);
+  useEffect(() => { void Promise.resolve().then(load); }, [load]);
 
   const lowStockItems = supplies.filter((s) => Number(s.currentStock) <= Number(s.minStock));
   const totalValue = supplies.reduce((s, item) => s + Number(item.currentStock) * Number(item.costPerUnit), 0);
@@ -134,13 +135,23 @@ export default function InsumosPage() {
 
   const removeSupply = async (id: string) => {
     if (!confirm("¿Eliminar este insumo y todos sus movimientos?")) return;
-    await apiFetch(`/api/inventarios/insumos?id=${id}`, { method: "DELETE" });
+    const res = await apiFetch(`/api/inventarios/insumos?id=${id}`, { method: "DELETE" });
+    if (!res.ok) {
+      const data = await res.json().catch(() => ({}));
+      alert(data.error || "No se pudo eliminar el insumo");
+      return;
+    }
     load();
   };
 
   const removeMovement = async (id: string) => {
     if (!confirm("¿Eliminar este movimiento? Se revertirá el stock.")) return;
-    await apiFetch(`/api/inventarios/insumos/movimientos?id=${id}`, { method: "DELETE" });
+    const res = await apiFetch(`/api/inventarios/insumos/movimientos?id=${id}`, { method: "DELETE" });
+    if (!res.ok) {
+      const data = await res.json().catch(() => ({}));
+      alert(data.error || "No se pudo eliminar el movimiento");
+      return;
+    }
     load();
   };
 
@@ -268,7 +279,11 @@ export default function InsumosPage() {
                 <td className="px-4 py-3 text-sm font-medium">{m.quantity} {m.supplyUnit || ""}</td>
                 <td className="px-4 py-3 text-sm text-slate-500 max-w-[150px] truncate">{m.notes || "—"}</td>
                 <td className="px-4 py-3">
-                  <button onClick={() => removeMovement(m.id)} className="text-red-600 hover:underline text-xs">Eliminar</button>
+                  {m.healthControlId ? (
+                    <span className="text-xs text-slate-500">Gestionar desde Sanidad</span>
+                  ) : (
+                    <button onClick={() => removeMovement(m.id)} className="text-red-600 hover:underline text-xs">Eliminar</button>
+                  )}
                 </td>
               </tr>
             ))}

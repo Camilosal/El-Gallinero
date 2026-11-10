@@ -4,6 +4,7 @@ import { eq, desc, sql, and } from "drizzle-orm";
 import { NextRequest, NextResponse } from "next/server";
 import { runFeedProgramCatchup } from "@/lib/feeding/runProgram";
 import { withApiHandler, safeParseJson } from "@/lib/api-handler";
+import { deleteTransactionsAndUnpaidAccounts } from "@/lib/financial-records";
 
 export const dynamic = "force-dynamic";
 
@@ -36,19 +37,27 @@ export const GET = withApiHandler(async () => {
 
 export const POST = withApiHandler(async (req: NextRequest) => {
   const body = await safeParseJson(req);
+  if (!body || typeof body !== "object") return NextResponse.json({ error: "Cuerpo inválido" }, { status: 400 });
   const qty = Number(body.quantity);
 
-  if (isNaN(qty) || qty < 1) {
+  if (!Number.isFinite(qty) || qty <= 0) {
     return NextResponse.json({ error: "Cantidad inválida" }, { status: 400 });
   }
+  if (typeof body.isEntry !== "boolean") return NextResponse.json({ error: "Tipo de movimiento inválido" }, { status: 400 });
+  if (typeof body.date !== "string" || !/^\d{4}-\d{2}-\d{2}$/.test(body.date) || Number.isNaN(new Date(`${body.date}T00:00:00.000Z`).getTime()) || new Date(`${body.date}T00:00:00.000Z`).toISOString().slice(0, 10) !== body.date) {
+    return NextResponse.json({ error: "Fecha inválida" }, { status: 400 });
+  }
+  if (body.date > new Date().toISOString().slice(0, 10)) {
+    return NextResponse.json({ error: "No se pueden registrar movimientos de alimento en una fecha futura" }, { status: 400 });
+  }
 
-  // Ejecutar el programa hasta la fecha del movimiento para que el stock esté
-  // al día antes de aplicar la compra/consumo manual.
-  await runFeedProgramCatchup(body.date ? new Date(body.date + "T12:00:00") : undefined);
+  // Bring the current inventory up to today before applying a manual movement.
+  // Historical movement dates must not rewind or replay the automatic program.
+  await runFeedProgramCatchup();
 
   const created = await db.transaction(async (tx) => {
     // Validate feed inside transaction
-    const [feed] = await tx.select().from(feedInventory).where(eq(feedInventory.id, body.feedId));
+    const [feed] = await tx.select().from(feedInventory).where(eq(feedInventory.id, body.feedId)).for("update");
     if (!feed) {
       throw new Error("Alimento no encontrado");
     }
@@ -73,8 +82,8 @@ export const POST = withApiHandler(async (req: NextRequest) => {
     // Update stock with relative SQL (no sql.raw — operator baked into literal)
     await tx.update(feedInventory).set({
       currentStock: body.isEntry
-        ? sql`GREATEST(0, ${feedInventory.currentStock}::numeric + ${qty})`
-        : sql`GREATEST(0, ${feedInventory.currentStock}::numeric - ${qty})`,
+        ? sql`(${feedInventory.currentStock}::numeric + ${qty})`
+        : sql`(${feedInventory.currentStock}::numeric - ${qty})`,
       updatedAt: new Date(),
     }).where(eq(feedInventory.id, body.feedId));
 
@@ -107,17 +116,25 @@ export const DELETE = withApiHandler(async (req: NextRequest) => {
   const id = searchParams.get("id");
   if (!id) return NextResponse.json({ error: "ID requerido" }, { status: 400 });
   await db.transaction(async (tx) => {
-    const [mov] = await tx.select().from(feedMovements).where(eq(feedMovements.id, id));
-    if (mov) {
-      // Reverse stock change with GREATEST to prevent negative stock
-      await tx.update(feedInventory).set({
-        currentStock: mov.isEntry
-          ? sql`GREATEST(0, ${feedInventory.currentStock}::numeric - ${Number(mov.quantity)})`
-          : sql`GREATEST(0, ${feedInventory.currentStock}::numeric + ${Number(mov.quantity)})`,
-        updatedAt: new Date(),
-      }).where(eq(feedInventory.id, mov.feedId));
-      await tx.delete(transactions).where(and(eq(transactions.sourceType, "alimento"), eq(transactions.sourceId, id)));
+    const [mov] = await tx.select().from(feedMovements).where(eq(feedMovements.id, id)).for("update");
+    if (!mov) throw new Error("Movimiento no encontrado");
+    const [feed] = await tx.select().from(feedInventory).where(eq(feedInventory.id, mov.feedId)).for("update");
+    if (!feed) throw new Error("Alimento no encontrado");
+    const quantity = Number(mov.quantity);
+    const currentStock = Number(feed.currentStock);
+    if (mov.isEntry && currentStock + 0.0001 < quantity) {
+      throw new Error("No se puede eliminar una compra de alimento que ya fue consumida");
     }
+    await tx.update(feedInventory).set({
+      currentStock: mov.isEntry
+        ? sql`(${feedInventory.currentStock}::numeric - ${quantity})`
+        : sql`(${feedInventory.currentStock}::numeric + ${quantity})`,
+      updatedAt: new Date(),
+    }).where(eq(feedInventory.id, mov.feedId));
+    await deleteTransactionsAndUnpaidAccounts(
+      tx,
+      and(eq(transactions.sourceType, "alimento"), eq(transactions.sourceId, id)),
+    );
     await tx.delete(feedMovements).where(eq(feedMovements.id, id));
   });
   return NextResponse.json({ ok: true });

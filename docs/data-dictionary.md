@@ -57,9 +57,33 @@ Este documento describe las tablas, columnas y tipos de datos utilizados en la b
 |-------------|-------------------------|-------------|
 | id | uuid("id").defaultRandom().primaryKey() | Identificador único (UUID) |
 | date | date("date").notNull() | Fecha |
+| species | animalSpeciesEnum("species").default("gallina").notNull() | Especie de ave |
+| batchId | uuid("batch_id").references(() => broilerBatches.id) | Lote asociado (opcional) |
 | totalCollected | integer("total_collected").notNull() | Total recolectado |
 | broken | integer("broken").default(0).notNull() | Cantidad rota o dañada |
 | forIncubation | integer("for_incubation").default(0).notNull() | Destinado a incubación |
+| quantityAutoconsumo | integer("quantity_autoconsumo").default(0).notNull() | Huevos buenos destinados al hogar |
+| quantityExcedente | integer("quantity_excedente").default(0).notNull() | Huevos buenos disponibles para venta |
+| referenceUnitPrice | decimal("reference_unit_price", { precision: 10, scale: 2 }) | Precio de referencia para calcular el ahorro familiar |
+| notes | text("notes") | Notas adicionales |
+| createdAt | timestamp("created_at").defaultNow().notNull() | Fecha y hora de creación |
+
+### autoconsumo_logs
+*── Registro de autoconsumo familiar*
+| Column Name | Data Type / Constraints | Description |
+|-------------|-------------------------|-------------|
+| id | uuid("id").defaultRandom().primaryKey() | Identificador único (UUID) |
+| date | date("date").notNull() | Fecha |
+| species | animalSpeciesEnum("species").notNull() | Especie |
+| productType | varchar("product_type", { length: 50 }).notNull() | Tipo de producto; incluye huevo y carne de canal |
+| quantity | decimal("quantity", { precision: 10, scale: 2 }).notNull() | Cantidad consumida |
+| unit | varchar("unit", { length: 30 }).notNull() | Unidad de medida |
+| marketReferencePrice | decimal("market_reference_price", { precision: 10, scale: 2 }).notNull() | Precio de referencia |
+| savingsAmount | decimal("savings_amount", { precision: 12, scale: 2 }).notNull() | Ahorro estimado |
+| destinationHousehold | varchar("destination_household", { length: 100 }) | Hogar destinatario |
+| batchId | uuid("batch_id").references(() => broilerBatches.id) | Lote asociado |
+| slaughterId | uuid("slaughter_id").references(() => slaughter.id) | Sacrificio asociado |
+| eggProductionId | uuid("egg_production_id").references(() => eggProduction.id, { onDelete: "cascade" }) | Producción de huevos asociada; índice único para evitar duplicados |
 | notes | text("notes") | Notas adicionales |
 | createdAt | timestamp("created_at").defaultNow().notNull() | Fecha y hora de creación |
 
@@ -256,6 +280,7 @@ Este documento describe las tablas, columnas y tipos de datos utilizados en la b
 | henId | uuid("hen_id").references(() => hens.id), | gallina específica (opcional) |
 | roosterId | uuid("rooster_id").references(() => roosters.id), | gallo específico (opcional) |
 | batchId | uuid("batch_id").references(() => broilerBatches.id), | lote de engorde (opcional) |
+| previousAnimalStates | jsonb("previous_animal_states") | Estados y existencia del lote antes de la salida, para poder revertirla |
 | notes | text("notes") | Notas adicionales |
 | createdAt | timestamp("created_at").defaultNow().notNull() | Fecha y hora de creación |
 
@@ -274,6 +299,7 @@ Este documento describe las tablas, columnas y tipos de datos utilizados en la b
 | henId | uuid("hen_id").references(() => hens.id), | gallina específica (opcional) |
 | roosterId | uuid("rooster_id").references(() => roosters.id), | gallo específico (opcional) |
 | batchId | uuid("batch_id").references(() => broilerBatches.id), | lote de engorde (opcional) |
+| previousAnimalStates | jsonb("previous_animal_states") | Estados y existencia del lote antes de la faena, para poder revertirla |
 | notes | text("notes") | Notas adicionales |
 | createdAt | timestamp("created_at").defaultNow().notNull() | Fecha y hora de creación |
 
@@ -299,6 +325,8 @@ Este documento describe las tablas, columnas y tipos de datos utilizados en la b
 | kgPerBirdPerDay | decimal("kg_per_bird_per_day", { precision: 6, scale: 3 }).notNull() | Kg per bird per day (decimal) |
 | createdAt | timestamp("created_at").defaultNow().notNull() | Fecha y hora de creación |
 | updatedAt | timestamp("updated_at").defaultNow().notNull() | Fecha y hora de última actualización |
+
+Los factores por etapa son únicos por etapa y grupo; los factores globales (sin etapa) son únicos por grupo.
 
 ### manure_sales
 *── Gallinaza: ventas*
@@ -365,6 +393,7 @@ Este documento describe las tablas, columnas y tipos de datos utilizados en la b
 | roosterId | uuid("rooster_id").references(() => roosters.id) | ID de rooster |
 | batchId | uuid("batch_id").references(() => broilerBatches.id) | ID de batch |
 | healthControlId | uuid("health_control_id").references(() => healthControl.id) | ID de health control |
+| previousAnimalStates | jsonb("previous_animal_states") | Estados y existencia del lote antes de la mortalidad, para poder revertirla |
 | description | text("description") | Descripción detallada |
 | createdAt | timestamp("created_at").defaultNow().notNull() | Fecha y hora de creación |
 
@@ -604,4 +633,11 @@ Este documento describe las tablas, columnas y tipos de datos utilizados en la b
 | sampleSize | integer("sample_size").default(1) | Sample size (entero) |
 | notes | text("notes") | Notas adicionales |
 | createdAt | timestamp("created_at").defaultNow().notNull() | Fecha y hora de creación |
+
+## Actualizaciones de integridad
+
+- `hens.code`, `roosters.code` y `broiler_batches.code` tienen índices únicos para impedir códigos repetidos.
+- `health_control.previous_animal_states` guarda los estados que deben restaurarse al editar o eliminar un control sanitario. Los controles anteriores a esta columna no tienen una instantánea histórica.
+- `chicken_sales.previous_animal_states`, `slaughter.previous_animal_states` y `mortality_records.previous_animal_states` conservan el estado previo a la salida para permitir editarla o revertirla. Los registros anteriores a estas columnas no tienen una instantánea histórica.
+- `manure_production` guarda un registro con origen `auto_diario` por fecha para materializar la estimación de gallinaza en el inventario. `manure_auto_daily_unique_idx` evita duplicados.
 

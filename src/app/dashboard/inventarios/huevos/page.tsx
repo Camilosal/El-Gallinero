@@ -20,6 +20,7 @@ interface SizeSummary {
   size: string;
   price: number | null;
   produced: number;
+  saleableProduced: number;
   sold: number;
   lost: number;
   available: number;
@@ -29,6 +30,7 @@ interface SizeSummary {
 interface InventoryData {
   summary: {
     produced: number;
+    saleableProduced: number;
     sold: number;
     lost: number;
     available: number;
@@ -103,7 +105,7 @@ export default function InventarioPage() {
       />
 
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
-        <StatCard icon="🥚" label="Huevos Producidos" value={data?.summary.produced ?? 0} color="blue" />
+        <StatCard icon="🥚" label="Huevos buenos producidos" value={data?.summary.produced ?? 0} color="blue" />
         <StatCard icon="💰" label="Huevos Vendidos" value={data?.summary.sold ?? 0} color="purple" />
         <StatCard icon="📦" label="Disponibles" value={data?.summary.available ?? 0} color="green" />
         <StatCard icon="⏱️" label="Valor Estimado" value={`$${(data?.estimatedValue ?? 0).toLocaleString()}`} color="yellow" />
@@ -171,12 +173,13 @@ export default function InventarioPage() {
                 }
               />
             ) : (
-            <Table headers={["Tamaño", "Precio", "Producido", "Vendido", "Perdido", "Disponible", "Valor"]}>
+            <Table headers={["Tamaño", "Precio", "Producido", "Apto venta", "Vendido", "Perdido", "Disponible", "Valor"]}>
               {filteredSizes.map((s) => (
                 <tr key={s.size} className="hover:bg-slate-50">
                   <td className="px-4 py-3"><Badge color="green">{s.size}</Badge></td>
                   <td className="px-4 py-3">{s.price != null ? `$${s.price.toLocaleString()}` : "—"}</td>
                   <td className="px-4 py-3">{s.produced}</td>
+                  <td className="px-4 py-3">{s.saleableProduced}</td>
                   <td className="px-4 py-3">{s.sold}</td>
                   <td className="px-4 py-3 text-red-600">{s.lost}</td>
                   <td className="px-4 py-3 font-bold text-green-600">{s.available}</td>

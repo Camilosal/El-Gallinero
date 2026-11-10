@@ -33,7 +33,7 @@ cp .env.example .env.local
 ```
 
 ```env
-DATABASE_URL=postgresql://TU_USUARIO@127.0.0.1:5432/app_db
+DATABASE_URL=postgresql://TU_USUARIO:TU_CONTRASENA@127.0.0.1:5432/app_db
 ```
 
 > `.env.local` está excluido del repo por seguridad; cada quien crea el suyo.
@@ -42,19 +42,10 @@ DATABASE_URL=postgresql://TU_USUARIO@127.0.0.1:5432/app_db
 
 ```bash
 npm run db:push     # crea las tablas (drizzle-kit push)
-npm run db:seed     # datos demo: usuarios, catálogos, producción, ventas y finanzas
+DEMO_ADMIN_PASSWORD='elige-una-clave-de-12-caracteres' npm run db:seed -- --allow-destructive
 ```
 
-El seed es idempotente: puedes ejecutarlo de nuevo sin problema.
-
-#### Historial realista (Iwagé Dataset)
-Para cargar un historial simulado de 3 a 6 meses con datos realistas que permitan evaluar gráficos y KPIs inmediatamente, ejecuta:
-
-```bash
-npm run seed:demo   # o el comando que corresponda a tu entorno
-```
-
-Este script pobla la base de datos con producción diaria, ventas, egresos y eventos sanitarios coherentes con un ciclo avícola completo.
+El seed elimina y recrea datos; está bloqueado en `NODE_ENV=production`. Úsalo solo en una base local descartable.
 
 ### Arrancar
 
@@ -68,27 +59,23 @@ Para producción:
 npm run build && npm start
 ```
 
-## Despliegue cero fricción
+## Ejecución local con Docker Compose
 
-El archivo `docker-compose.yml` levanta tanto la aplicación Next.js como la base de datos PostgreSQL en un solo paso:
+Compose levanta la aplicación Next.js y PostgreSQL para desarrollo local. La primera vez, inicializa el esquema explícitamente y luego arranca la aplicación:
 
 ```bash
+docker compose --profile migrate run --rm migrate
+docker compose run --rm -e ADMIN_USERNAME='admin' -e ADMIN_PASSWORD='elige-una-clave-segura-de-12-caracteres' --entrypoint npm app run db:create-admin
 docker compose up -d
 ```
 
-Esto crea los contenedores `app` y `db`, expone la aplicación en `http://localhost:3000` y la base de datos en `5432`.
+La aplicación queda en `http://localhost:3000`; PostgreSQL solo se publica en `127.0.0.1:5432`. El perfil `migrate` usa una imagen de herramientas de desarrollo y solo corre cuando se invoca explícitamente. La imagen de la aplicación contiene dependencias de producción y `tsx` para sus tareas operativas; no incluye archivos `.env` ni altera el esquema al arrancar.
 
-### Despliegue con un clic
+## Acceso inicial
 
-[![Deploy to Railway](https://railway.app/button.svg)](https://railway.app/template/...)
-[![Deploy to Render](https://render.com/images/deploy-to-render-button.svg)](https://render.com/deploy?repo=...)
+En producción, crea el primer administrador después de aplicar el esquema con `npm run db:create-admin`, proporcionando `ADMIN_USERNAME` y `ADMIN_PASSWORD` como variables de entorno. La contraseña debe tener al menos 12 caracteres. El comando solo funciona si todavía no existen usuarios y no modifica cuentas existentes. Para datos de demostración local, el seed usa el usuario `Camilosal` y la contraseña indicada en `DEMO_ADMIN_PASSWORD`.
 
-## Acceso
-
-El seed crea el usuario administrador:
-
-- **Usuario:** `admin`
-- **Contraseña:** `admin123`
+Si una instalación ya usó el seed antiguo, cambia la contraseña con `npm run db:rotate-admin-password`; el comando invalida las sesiones abiertas de esa cuenta.
 
 ## Módulos
 
@@ -300,7 +287,7 @@ flowchart TD
 │   ├── components/                   # Sidebar, UI (Card, StatCard, Modal, Table, renderHelpText…)
 │   ├── db/
 │   │   ├── schema.ts                 # Modelo de datos (25+ tablas, Drizzle ORM)
-│   │   ├── seed.ts                   # Datos demo idempotentes
+│   │   ├── seed.ts                   # Datos demo destructivos, protegidos por confirmación
 │   │   └── index.ts                  # Conexión a Postgres
 │   └── lib/                          # auth, inventory (PEPS), lifecycle, flock, guide-data, vaccination-schedules
 ├── docs/                             # Especificaciones y planes de diseño
@@ -326,7 +313,9 @@ El esquema completo está en [`src/db/schema.ts`](src/db/schema.ts).
 | `npm run dev` | Servidor de desarrollo |
 | `npm run build` / `start` | Compilar y servir en producción |
 | `npm run db:push` | Aplicar el esquema a la BD |
-| `npm run db:seed` | Datos demo (idempotente) |
+| `npm run db:seed -- --allow-destructive` | Reemplazar datos con una muestra local (no usar en producción) |
+| `npm run db:create-admin` | Crear el primer usuario administrador sin tocar los datos existentes |
+| `npm run db:rotate-admin-password` | Cambiar la clave de un administrador y revocar sus sesiones |
 | `npm run db:generate` | Generar migración SQL |
 | `npm run test` | Pruebas con vitest |
 | `npm run typecheck` / `lint` | Verificación de tipos y estilo |

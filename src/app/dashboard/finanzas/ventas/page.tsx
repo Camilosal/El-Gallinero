@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useState, useCallback, useMemo } from "react";
+import { Suspense, useEffect, useState, useCallback, useMemo } from "react";
+import { useSearchParams } from "next/navigation";
 import { PageHeader, Button, Card, Table, Modal, Input, Select, Textarea, EmptyState, StatCard, Badge } from "@/components/ui";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from "recharts";
 import { apiFetch } from "@/lib/fetch";
@@ -115,8 +116,30 @@ const birdTypeLabels: Record<string, string> = {
 
 type Tab = "huevos" | "aves" | "carne" | "gallinaza";
 
+function parseSalesTab(value: string | null): Tab {
+  return value === "huevos" || value === "aves" || value === "carne" || value === "gallinaza"
+    ? value
+    : "huevos";
+}
+
 export default function VentasPage() {
-  const [tab, setTab] = useState<Tab>("huevos");
+  return (
+    <Suspense fallback={<div className="p-8 text-center text-slate-400">Cargando ventas...</div>}>
+      <VentasContent />
+    </Suspense>
+  );
+}
+
+function VentasContent() {
+  const searchParams = useSearchParams();
+  const [tab, setTab] = useState<Tab>(() => parseSalesTab(searchParams.get("tab")));
+
+  const selectTab = (nextTab: Tab) => {
+    setTab(nextTab);
+    const nextUrl = new URL(window.location.href);
+    nextUrl.searchParams.set("tab", nextTab);
+    window.history.replaceState(window.history.state, "", nextUrl);
+  };
 
   // ─── Egg sales state ───
   const [sales, setSales] = useState<Sale[]>([]);
@@ -167,6 +190,20 @@ export default function VentasPage() {
   const { items: sizeOptions } = useCatalog("tamano_huevo");
   const { items: presentOptions } = useCatalog("presentacion_venta");
   const { values: birdTypeOptions } = useCatalog("tipo_ave", ["gallina_descarte", "pollo", "gallo", "pollito"]);
+  const saleableSizeOptions = useMemo(() => {
+    const bySize = new Map<string, { id: string; value: string; price: string | null }>();
+    sizeOptions.forEach((option) => bySize.set(option.value, option));
+    inventory.forEach((item) => {
+      if (!bySize.has(item.size)) {
+        bySize.set(item.size, {
+          id: `inventory-${item.size}`,
+          value: item.size,
+          price: item.price === null ? null : String(item.price),
+        });
+      }
+    });
+    return [...bySize.values()];
+  }, [inventory, sizeOptions]);
 
   // ─── Load data ───
   const load = useCallback(() => {
@@ -175,7 +212,7 @@ export default function VentasPage() {
       apiFetch("/api/produccion/huevos/inventario").then((r) => r.json()),
       apiFetch("/api/finanzas/finanzas/ventas-aves").then((r) => r.json()),
       apiFetch("/api/produccion/gallinas").then((r) => r.json()),
-      apiFetch("/api/produccion/pollos").then((r) => r.json()),
+      apiFetch("/api/produccion/gallos").then((r) => r.json()),
       apiFetch("/api/produccion/pollos").then((r) => r.json()),
     ]).then(([salesData, invData, birdData, hensData, gallosData, lotesData]) => {
       setSales(salesData);
@@ -184,7 +221,7 @@ export default function VentasPage() {
       setHens(Array.isArray(hensData) ? hensData
         .filter((h: Hen) => h.status === "activa" || h.status === "empollando" || h.status === "recomendada_sacrificio")
         .sort((a: Hen, b: Hen) => Number(b.status === "recomendada_sacrificio") - Number(a.status === "recomendada_sacrificio")) : []);
-      setRoosters(Array.isArray(gallosData?.roosters) ? gallosData.roosters.filter((r: Rooster) => r.status === "activo" || r.status === "enfermo") : []);
+      setRoosters(Array.isArray(gallosData) ? gallosData.filter((r: Rooster) => r.status === "activo" || r.status === "enfermo") : []);
       setBatches(Array.isArray(lotesData) ? lotesData.filter((b: Batch) => b.status === "activo" || b.status === "listo_sacrificio") : []);
       setLoading(false);
       setLoadingBirds(false);
@@ -243,14 +280,14 @@ export default function VentasPage() {
         if (item.key !== key) return item;
         const updated = { ...item, ...changes };
         if (changes.size) {
-          const sizeOpt = sizeOptions.find((o) => o.value === changes.size);
+          const sizeOpt = saleableSizeOptions.find((o) => o.value === changes.size);
           if (sizeOpt?.price) {
             const units = getItemUnits(updated);
             updated.pricePerUnit = String(Number(sizeOpt.price) * units);
           }
         }
         if (changes.presentation) {
-          const sizeOpt = sizeOptions.find((o) => o.value === updated.size);
+          const sizeOpt = saleableSizeOptions.find((o) => o.value === updated.size);
           const newUnits = presentOptions.find((o) => o.value === changes.presentation)?.units ?? 1;
           if (sizeOpt?.price) {
             updated.pricePerUnit = String(Number(sizeOpt.price) * newUnits);
@@ -330,7 +367,7 @@ export default function VentasPage() {
     if (henId) {
       const hen = hens.find((h) => h.id === henId);
       if (hen) {
-        setBirdForm({ ...birdForm, henId, roosterId: "", batchId: "", weightKg: hen.weight, quantity: "1" });
+        setBirdForm({ ...birdForm, birdType: "gallina_descarte", henId, roosterId: "", batchId: "", weightKg: hen.weight, quantity: "1" });
       }
     } else {
       setBirdForm({ ...birdForm, henId: "" });
@@ -369,7 +406,8 @@ export default function VentasPage() {
     const qty = Number(birdForm.quantity);
     if (!birdForm.birdType) { setBirdError("Tipo de ave requerido"); return; }
     if (!birdForm.henId && !birdForm.roosterId && !birdForm.batchId) { setBirdError("Debe seleccionar una gallina, un gallo o un lote para descontar del inventario"); return; }
-    if (!qty || qty < 1) { setBirdError("Cantidad inválida"); return; }
+    if (!Number.isSafeInteger(qty) || qty < 1) { setBirdError("La cantidad debe ser un entero mayor que cero"); return; }
+    if ((birdForm.henId || birdForm.roosterId) && qty !== 1) { setBirdError("La venta de una gallina o un gallo debe tener cantidad 1"); return; }
     const price = Number(birdForm.pricePerUnit);
     if (!price || price <= 0) { setBirdError("Precio inválido"); return; }
 
@@ -492,16 +530,16 @@ export default function VentasPage() {
 
       {/* Tabs */}
       <div className="flex gap-1 mb-6 bg-slate-100 p-1 rounded-lg w-fit">
-        <button onClick={() => setTab("huevos")} className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${tab === "huevos" ? "bg-white text-green-700 shadow-sm" : "text-slate-600 hover:text-slate-800"}`}>
+        <button onClick={() => selectTab("huevos")} className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${tab === "huevos" ? "bg-white text-green-700 shadow-sm" : "text-slate-600 hover:text-slate-800"}`}>
           🥚 Huevos
         </button>
-        <button onClick={() => setTab("aves")} className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${tab === "aves" ? "bg-white text-green-700 shadow-sm" : "text-slate-600 hover:text-slate-800"}`}>
+        <button onClick={() => selectTab("aves")} className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${tab === "aves" ? "bg-white text-green-700 shadow-sm" : "text-slate-600 hover:text-slate-800"}`}>
           🐔 Aves
         </button>
-        <button onClick={() => setTab("carne")} className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${tab === "carne" ? "bg-white text-green-700 shadow-sm" : "text-slate-600 hover:text-slate-800"}`}>
+        <button onClick={() => selectTab("carne")} className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${tab === "carne" ? "bg-white text-green-700 shadow-sm" : "text-slate-600 hover:text-slate-800"}`}>
           🍗 Carne
         </button>
-        <button onClick={() => setTab("gallinaza")} className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${tab === "gallinaza" ? "bg-white text-green-700 shadow-sm" : "text-slate-600 hover:text-slate-800"}`}>
+        <button onClick={() => selectTab("gallinaza")} className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${tab === "gallinaza" ? "bg-white text-green-700 shadow-sm" : "text-slate-600 hover:text-slate-800"}`}>
           🌱 Gallinaza
         </button>
       </div>
@@ -746,7 +784,9 @@ export default function VentasPage() {
                 const remaining = item.size ? getRemainingAvailable(item.size, item.key) : 0;
                 const exceeds = item.size && eggs > remaining;
                 const units = getItemUnits(item);
-                const catalogPrice = sizeOptions.find((o) => o.value === item.size)?.price ? Number(sizeOptions.find((o) => o.value === item.size)!.price) : null;
+                const catalogPrice = saleableSizeOptions.find((o) => o.value === item.size)?.price
+                  ? Number(saleableSizeOptions.find((o) => o.value === item.size)!.price)
+                  : null;
 
                 return (
                   <div key={item.key} className={`p-3 rounded-lg border ${exceeds ? "border-red-300 bg-red-50" : "border-slate-200 bg-slate-50"}`}>
@@ -759,7 +799,7 @@ export default function VentasPage() {
                     <div className="grid grid-cols-2 gap-2">
                       <Select label="Tamaño" value={item.size} onChange={(e) => updateItem(item.key, { size: e.target.value })}>
                         <option value="">— Selecciona —</option>
-                        {sizeOptions.map((o) => (
+                        {saleableSizeOptions.map((o) => (
                           <option key={o.id} value={o.value}>{o.value}{o.price ? ` ($${Number(o.price).toLocaleString()})` : ""}</option>
                         ))}
                       </Select>

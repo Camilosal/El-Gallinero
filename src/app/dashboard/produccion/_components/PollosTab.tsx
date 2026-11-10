@@ -208,7 +208,12 @@ export default function PollosPage() {
 
   const removeRooster = async (id: string) => {
     if (!confirm("¿Eliminar este gallo?")) return;
-    await apiFetch(`/api/produccion/gallos?id=${id}`, { method: "DELETE" });
+    const res = await apiFetch(`/api/produccion/gallos?id=${id}`, { method: "DELETE" });
+    if (!res.ok) {
+      const data = await res.json().catch(() => ({}));
+      alert(data.error || "No se pudo eliminar el gallo");
+      return;
+    }
     load();
   };
 
@@ -305,7 +310,12 @@ export default function PollosPage() {
 
   const removeBatch = async (id: string) => {
     if (!confirm("¿Eliminar este lote? Se eliminarán también las ventas y sacrificios asociados.")) return;
-    await apiFetch(`/api/produccion/pollos?id=${id}`, { method: "DELETE" });
+    const res = await apiFetch(`/api/produccion/pollos?id=${id}`, { method: "DELETE" });
+    if (!res.ok) {
+      const data = await res.json().catch(() => ({}));
+      alert(data.error || "No se pudo eliminar el lote");
+      return;
+    }
     load();
   };
 

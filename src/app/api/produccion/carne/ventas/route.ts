@@ -1,10 +1,15 @@
+import { isDateOnly } from "@/lib/date-validation";
 import { db } from "@/db";
 import { meatSales, transactions } from "@/db/schema";
 import { eq, desc, and } from "drizzle-orm";
 import { NextRequest, NextResponse } from "next/server";
 import { withApiHandler, safeParseJson } from "@/lib/api-handler";
+import { computeMeatInventory } from "@/lib/inventory";
+import { lockMeatInventory } from "@/lib/inventory-locks";
+import { deleteTransactionsAndUnpaidAccounts } from "@/lib/financial-records";
 
 export const dynamic = "force-dynamic";
+
 
 export const GET = withApiHandler(async (req: NextRequest) => {
   const { searchParams } = new URL(req.url);
@@ -18,18 +23,26 @@ export const GET = withApiHandler(async (req: NextRequest) => {
 
 export const POST = withApiHandler(async (req: NextRequest) => {
   const body = await safeParseJson(req);
+  if (!body || typeof body !== "object") return NextResponse.json({ error: "Cuerpo inválido" }, { status: 400 });
 
-  const quantityKg = Number(body.quantityKg);
-  const pricePerKg = Number(body.pricePerKg);
+  const quantityKg = Number(Number(body.quantityKg).toFixed(2));
+  const pricePerKg = Number(Number(body.pricePerKg).toFixed(2));
   const species = body.species || "pollo";
-  if (!body.date) return NextResponse.json({ error: "Fecha requerida" }, { status: 400 });
-  if (isNaN(quantityKg) || quantityKg <= 0) return NextResponse.json({ error: "Cantidad kg inválida" }, { status: 400 });
-  if (isNaN(pricePerKg) || pricePerKg < 0) return NextResponse.json({ error: "Precio/kg inválido" }, { status: 400 });
+  if (!isDateOnly(body.date)) return NextResponse.json({ error: "Fecha inválida" }, { status: 400 });
+  if (!Number.isFinite(quantityKg) || quantityKg <= 0) return NextResponse.json({ error: "Cantidad kg inválida" }, { status: 400 });
+  if (!Number.isFinite(pricePerKg) || pricePerKg < 0) return NextResponse.json({ error: "Precio/kg inválido" }, { status: 400 });
 
   const totalAmount = (quantityKg * pricePerKg).toFixed(2);
   const speciesLabel = species.charAt(0).toUpperCase() + species.slice(1);
 
   const created = await db.transaction(async (tx) => {
+    await lockMeatInventory(tx);
+    const inventory = await computeMeatInventory(tx);
+    const availableKg = inventory.summary.bySpecies?.find((entry) => entry.species === species)?.availableKg || 0;
+    if (quantityKg > availableKg) {
+      throw new Error(`Stock insuficiente de ${species}: disponibles ${availableKg.toFixed(2)} kg`);
+    }
+
     const [inserted] = await tx.insert(meatSales).values({
       date: body.date,
       species,
@@ -65,18 +78,30 @@ export const POST = withApiHandler(async (req: NextRequest) => {
 
 export const PUT = withApiHandler(async (req: NextRequest) => {
   const body = await safeParseJson(req);
+  if (!body || typeof body !== "object") return NextResponse.json({ error: "Cuerpo inválido" }, { status: 400 });
   if (!body.id) return NextResponse.json({ error: "ID requerido" }, { status: 400 });
 
-  const quantityKg = Number(body.quantityKg);
-  const pricePerKg = Number(body.pricePerKg);
+  const quantityKg = Number(Number(body.quantityKg).toFixed(2));
+  const pricePerKg = Number(Number(body.pricePerKg).toFixed(2));
   const species = body.species || "pollo";
-  if (isNaN(quantityKg) || quantityKg <= 0) return NextResponse.json({ error: "Cantidad kg inválida" }, { status: 400 });
-  if (isNaN(pricePerKg) || pricePerKg < 0) return NextResponse.json({ error: "Precio/kg inválido" }, { status: 400 });
+  if (!isDateOnly(body.date)) return NextResponse.json({ error: "Fecha inválida" }, { status: 400 });
+  if (!Number.isFinite(quantityKg) || quantityKg <= 0) return NextResponse.json({ error: "Cantidad kg inválida" }, { status: 400 });
+  if (!Number.isFinite(pricePerKg) || pricePerKg < 0) return NextResponse.json({ error: "Precio/kg inválido" }, { status: 400 });
 
   const totalAmount = (quantityKg * pricePerKg).toFixed(2);
   const speciesLabel = species.charAt(0).toUpperCase() + species.slice(1);
 
   const updated = await db.transaction(async (tx) => {
+    await lockMeatInventory(tx);
+    const [currentSale] = await tx.select().from(meatSales).where(eq(meatSales.id, body.id));
+    if (!currentSale) throw new Error("No encontrado");
+    const inventory = await computeMeatInventory(tx, { excludeSaleId: body.id });
+    const availableBySpecies = new Map(inventory.summary.bySpecies?.map((entry) => [entry.species, entry.availableKg]) || []);
+    const availableKg = availableBySpecies.get(species) || 0;
+    if (quantityKg > availableKg) {
+      throw new Error(`Stock insuficiente de ${species}: disponibles ${availableKg.toFixed(2)} kg`);
+    }
+
     const [upd] = await tx.update(meatSales).set({
       date: body.date,
       species,
@@ -129,7 +154,13 @@ export const DELETE = withApiHandler(async (req: NextRequest) => {
   if (!id) return NextResponse.json({ error: "ID requerido" }, { status: 400 });
 
   await db.transaction(async (tx) => {
-    await tx.delete(transactions).where(and(eq(transactions.sourceType, "venta_carne"), eq(transactions.sourceId, id)));
+    await lockMeatInventory(tx);
+    const [sale] = await tx.select().from(meatSales).where(eq(meatSales.id, id));
+    if (!sale) throw new Error("No encontrado");
+    await deleteTransactionsAndUnpaidAccounts(
+      tx,
+      and(eq(transactions.sourceType, "venta_carne"), eq(transactions.sourceId, id)),
+    );
     await tx.delete(meatSales).where(eq(meatSales.id, id));
   });
 

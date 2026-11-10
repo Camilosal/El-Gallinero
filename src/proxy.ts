@@ -8,18 +8,15 @@ const SESSION_COOKIE = "galli_session";
 
 /** Routes that do not require a session cookie */
 const PUBLIC_PREFIXES = [
-  "/login",
   "/api/auth/",
-  "/api/health",
-  "/api/produccion/alimentacion",
   "/lote/",
-  "/dashboard/guia",
+  "/dashboard/guia/",
 ];
 
-/** Exact paths that are public (no prefix matching) */
-const PUBLIC_EXACT = ["/"];
+/** Routes that are public without allowing prefix-sharing paths through. */
+const PUBLIC_EXACT = ["/", "/login", "/api/health", "/dashboard/guia"];
 
-export default async function middleware(req: NextRequest) {
+export async function proxy(req: NextRequest) {
   const { pathname } = req.nextUrl;
 
   // Let public and static routes through

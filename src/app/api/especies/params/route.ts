@@ -1,6 +1,7 @@
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { loadSpeciesParams } from "@/lib/species-db";
 import { calcularRentabilidadLote } from "@/lib/species-params";
+import { withApiHandler } from "@/lib/api-handler";
 
 /**
  * GET /api/especies/params
@@ -11,7 +12,7 @@ import { calcularRentabilidadLote } from "@/lib/species-params";
  */
 export const dynamic = "force-dynamic";
 
-export async function GET(req: Request) {
+export const GET = withApiHandler(async (req: NextRequest) => {
   const { searchParams } = new URL(req.url);
   const species = searchParams.get("species") || undefined;
   const quantity = Number(searchParams.get("quantity") || "0");
@@ -34,4 +35,4 @@ export async function GET(req: Request) {
   });
 
   return NextResponse.json(species && result.length === 1 ? result[0] : result);
-}
+});

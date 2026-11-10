@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { searchNavigation, type SearchEntry } from "@/lib/navigation";
 
@@ -16,13 +16,18 @@ export default function GlobalSearch({ collapsed = false }: GlobalSearchProps) {
   const inputRef = useRef<HTMLInputElement>(null);
 
   const results = useMemo(() => searchNavigation(query), [query]);
+  const openSearch = useCallback(() => {
+    setQuery("");
+    setActiveIndex(0);
+    setOpen(true);
+  }, []);
 
   // Atajo global Ctrl/Cmd+K y cierre con Escape
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
       if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === "k") {
         event.preventDefault();
-        setOpen(true);
+        openSearch();
       }
       if (event.key === "Escape") {
         setOpen(false);
@@ -30,13 +35,11 @@ export default function GlobalSearch({ collapsed = false }: GlobalSearchProps) {
     };
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
-  }, []);
+  }, [openSearch]);
 
   // Reiniciar estado y enfocar al abrir
   useEffect(() => {
     if (!open) return;
-    setQuery("");
-    setActiveIndex(0);
     const timeout = window.setTimeout(() => inputRef.current?.focus(), 30);
     const previousOverflow = document.body.style.overflow;
     document.body.style.overflow = "hidden";
@@ -45,10 +48,6 @@ export default function GlobalSearch({ collapsed = false }: GlobalSearchProps) {
       document.body.style.overflow = previousOverflow;
     };
   }, [open]);
-
-  useEffect(() => {
-    setActiveIndex(0);
-  }, [query]);
 
   const navigate = (href: string) => {
     setOpen(false);
@@ -74,7 +73,7 @@ export default function GlobalSearch({ collapsed = false }: GlobalSearchProps) {
       {collapsed ? (
         <button
           type="button"
-          onClick={() => setOpen(true)}
+          onClick={openSearch}
           className="mx-auto flex h-10 w-10 items-center justify-center rounded-lg bg-green-800 text-green-100 transition-colors hover:bg-green-700"
           title="Buscar (Ctrl+K)"
           aria-label="Buscar en el sistema"
@@ -85,7 +84,7 @@ export default function GlobalSearch({ collapsed = false }: GlobalSearchProps) {
       ) : (
         <button
           type="button"
-          onClick={() => setOpen(true)}
+          onClick={openSearch}
           className="flex w-full items-center gap-2 rounded-lg border border-green-700 bg-green-800/70 px-3 py-2 text-left text-sm text-green-200 transition-colors hover:border-green-600 hover:bg-green-800"
           aria-label="Buscar en el sistema"
           aria-keyshortcuts="Control+K Meta+K"
@@ -116,7 +115,10 @@ export default function GlobalSearch({ collapsed = false }: GlobalSearchProps) {
               <input
                 ref={inputRef}
                 value={query}
-                onChange={(event) => setQuery(event.target.value)}
+                onChange={(event) => {
+                  setQuery(event.target.value);
+                  setActiveIndex(0);
+                }}
                 onKeyDown={handleInputKeyDown}
                 placeholder="Busca módulos, acciones o sinónimos..."
                 className="flex-1 bg-transparent py-4 text-sm text-slate-800 outline-none placeholder:text-slate-400"

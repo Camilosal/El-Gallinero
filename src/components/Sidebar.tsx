@@ -14,41 +14,65 @@ export default function Sidebar() {
   const searchParams = useSearchParams();
   const router = useRouter();
   const [expandedGroups, setExpandedGroups] = useState<Set<string>>(new Set());
-  const [mobileOpen, setMobileOpen] = useState(false);
+  const [mobileOpenAt, setMobileOpenAt] = useState<string | null>(null);
   const [collapsed, setCollapsed] = useState(false);
+  const [settingsLoaded, setSettingsLoaded] = useState(false);
+  const query = searchParams.toString();
+  const locationKey = query ? `${pathname}?${query}` : pathname;
+  const mobileOpen = mobileOpenAt === locationKey;
+  const setMobileOpen = (open: boolean) => setMobileOpenAt(open ? locationKey : null);
 
-  // Close mobile sidebar on route change
   useEffect(() => {
-    setMobileOpen(false);
-  }, [pathname]);
+    let active = true;
+    void Promise.resolve().then(() => {
+      if (!active) return;
 
-  useEffect(() => {
-    const stored = localStorage.getItem(STORAGE_KEY);
-    if (stored) {
+      let groups = ["animales"];
       try {
-        setExpandedGroups(new Set(JSON.parse(stored)));
+        const stored = localStorage.getItem(STORAGE_KEY);
+        if (stored) {
+          const parsed: unknown = JSON.parse(stored);
+          if (Array.isArray(parsed) && parsed.every((value): value is string => typeof value === "string")) {
+            groups = parsed;
+          }
+        }
       } catch {
-        setExpandedGroups(new Set(["animales"]));
+        // Keep the default group if persisted state is invalid or unavailable.
       }
-    } else {
-      setExpandedGroups(new Set(["animales"]));
+
+      let isCollapsed = false;
+      try {
+        isCollapsed = localStorage.getItem(COLLAPSED_KEY) === "true";
+      } catch {
+        // The sidebar remains expanded if storage is unavailable.
+      }
+
+      setExpandedGroups(new Set(groups));
+      setCollapsed(isCollapsed);
+      setSettingsLoaded(true);
+    });
+    return () => { active = false; };
+  }, []);
+
+  useEffect(() => {
+    if (!settingsLoaded) return;
+    try {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(Array.from(expandedGroups)));
+    } catch {
+      // Navigation remains usable when browser storage is disabled.
     }
-  }, []);
+  }, [expandedGroups, settingsLoaded]);
 
   useEffect(() => {
-    const col = localStorage.getItem(COLLAPSED_KEY);
-    setCollapsed(col === "true");
-  }, []);
-
-  useEffect(() => {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(Array.from(expandedGroups)));
-  }, [expandedGroups]);
-
-  useEffect(() => {
-    localStorage.setItem(COLLAPSED_KEY, String(collapsed));
+    if (!settingsLoaded) return;
+    try {
+      localStorage.setItem(COLLAPSED_KEY, String(collapsed));
+    } catch {
+      // Navigation remains usable when browser storage is disabled.
+    }
     // Dispatch custom event so layout can react
     window.dispatchEvent(new CustomEvent("sidebar-toggle", { detail: { collapsed } }));
-  }, [collapsed]);
+  }, [collapsed, settingsLoaded]);
 
   const toggleGroup = (groupId: string) => {
     setExpandedGroups((prev) => {

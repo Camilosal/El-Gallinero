@@ -1,3 +1,4 @@
+import { isDateOnly } from "@/lib/date-validation";
 import { db } from "@/db";
 import { payments, accountsReceivable, accountsPayable } from "@/db/schema";
 import { eq, desc, sql } from "drizzle-orm";
@@ -5,6 +6,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { withApiHandler, safeParseJson } from "@/lib/api-handler";
 
 export const dynamic = "force-dynamic";
+
 
 export const GET = withApiHandler(async () => {
   const allPayments = await db
@@ -17,9 +19,10 @@ export const GET = withApiHandler(async () => {
 
 export const POST = withApiHandler(async (req: NextRequest) => {
   const body = await safeParseJson(req);
+  if (!body || typeof body !== "object") return NextResponse.json({ error: "Cuerpo inválido" }, { status: 400 });
   const { date, type, receivableId, payableId, amount, method, reference, notes } = body;
 
-  if (!date || !type || !amount) {
+  if (!isDateOnly(date) || !type || amount === undefined) {
     return NextResponse.json({ error: "Fecha, tipo y monto son requeridos" }, { status: 400 });
   }
 
@@ -29,21 +32,51 @@ export const POST = withApiHandler(async (req: NextRequest) => {
   if (type === "pago" && !payableId) {
     return NextResponse.json({ error: "payableId requerido para pagos" }, { status: 400 });
   }
+  if ((type === "cobro" && payableId) || (type === "pago" && receivableId)) {
+    return NextResponse.json({ error: "El pago solo puede vincularse a una cuenta del tipo seleccionado" }, { status: 400 });
+  }
   if (type !== "cobro" && type !== "pago") {
     return NextResponse.json({ error: "Tipo inválido (debe ser 'cobro' o 'pago')" }, { status: 400 });
   }
 
-  const paymentAmount = Number(amount);
-  if (isNaN(paymentAmount) || paymentAmount <= 0) {
+  const paymentAmount = Number(Number(amount).toFixed(2));
+  if (!Number.isFinite(paymentAmount) || paymentAmount <= 0) {
     return NextResponse.json({ error: "Monto inválido" }, { status: 400 });
   }
 
   let result;
   try {
     result = await db.transaction(async (tx) => {
-    const [payment] = await tx
-      .insert(payments)
-      .values({
+      let receivable: typeof accountsReceivable.$inferSelect | undefined;
+      let payable: typeof accountsPayable.$inferSelect | undefined;
+
+      // Lock and validate the account before inserting the payment. Account
+      // deletion takes the same lock, so a concurrent payment cannot orphan.
+      if (type === "cobro" && receivableId) {
+        [receivable] = await tx
+        .select()
+        .from(accountsReceivable)
+        .where(eq(accountsReceivable.id, receivableId))
+        .for("update");
+        if (!receivable) throw new Error("Cuenta por cobrar no encontrada");
+        if (paymentAmount > Number(receivable.pendingAmount)) {
+          throw new Error(`Monto excede saldo pendiente ($${receivable.pendingAmount})`);
+        }
+      }
+
+      if (type === "pago" && payableId) {
+        [payable] = await tx
+        .select()
+        .from(accountsPayable)
+        .where(eq(accountsPayable.id, payableId))
+        .for("update");
+        if (!payable) throw new Error("Cuenta por pagar no encontrada");
+        if (paymentAmount > Number(payable.pendingAmount)) {
+          throw new Error(`Monto excede saldo pendiente ($${payable.pendingAmount})`);
+        }
+      }
+
+      const [payment] = await tx.insert(payments).values({
         date,
         type,
         receivableId: receivableId || null,
@@ -52,68 +85,31 @@ export const POST = withApiHandler(async (req: NextRequest) => {
         method: method || null,
         reference: reference || null,
         notes: notes || null,
-      })
-      .returning();
+      }).returning();
 
-    if (type === "cobro" && receivableId) {
-      const [account] = await tx
-        .select()
-        .from(accountsReceivable)
-        .where(eq(accountsReceivable.id, receivableId));
-
-      if (!account) {
-        throw new Error("Cuenta por cobrar no encontrada");
-      }
-
-      if (paymentAmount > Number(account.pendingAmount)) {
-        throw new Error(`Monto excede saldo pendiente ($${account.pendingAmount})`);
-      }
-
-      const newPaid = Number(account.paidAmount) + paymentAmount;
-      const newPending = Number(account.totalAmount) - newPaid;
-      const newStatus = newPending <= 0 ? "pagado" : "parcial";
-
-      await tx
-        .update(accountsReceivable)
-        .set({
+      if (receivable) {
+        const newPaid = Number(receivable.paidAmount) + paymentAmount;
+        const newPending = Number(receivable.totalAmount) - newPaid;
+        await tx.update(accountsReceivable).set({
           paidAmount: String(newPaid),
           pendingAmount: String(Math.max(0, newPending)),
-          status: newStatus,
+          status: newPending <= 0 ? "pagado" : "parcial",
           updatedAt: new Date(),
-        })
-        .where(eq(accountsReceivable.id, receivableId));
-    }
-
-    if (type === "pago" && payableId) {
-      const [account] = await tx
-        .select()
-        .from(accountsPayable)
-        .where(eq(accountsPayable.id, payableId));
-
-      if (!account) {
-        throw new Error("Cuenta por pagar no encontrada");
+        }).where(eq(accountsReceivable.id, receivable.id));
       }
 
-      if (paymentAmount > Number(account.pendingAmount)) {
-        throw new Error(`Monto excede saldo pendiente ($${account.pendingAmount})`);
-      }
-
-      const newPaid = Number(account.paidAmount) + paymentAmount;
-      const newPending = Number(account.totalAmount) - newPaid;
-      const newStatus = newPending <= 0 ? "pagado" : "parcial";
-
-      await tx
-        .update(accountsPayable)
-        .set({
+      if (payable) {
+        const newPaid = Number(payable.paidAmount) + paymentAmount;
+        const newPending = Number(payable.totalAmount) - newPaid;
+        await tx.update(accountsPayable).set({
           paidAmount: String(newPaid),
           pendingAmount: String(Math.max(0, newPending)),
-          status: newStatus,
+          status: newPending <= 0 ? "pagado" : "parcial",
           updatedAt: new Date(),
-        })
-        .where(eq(accountsPayable.id, payableId));
-    }
+        }).where(eq(accountsPayable.id, payable.id));
+      }
 
-    return payment;
+      return payment;
     });
   } catch (e: any) {
     const msg = e.message || "";
@@ -134,18 +130,17 @@ export const DELETE = withApiHandler(async (req: NextRequest) => {
   const id = searchParams.get("id");
   if (!id) return NextResponse.json({ error: "ID requerido" }, { status: 400 });
 
-  const [payment] = await db.select().from(payments).where(eq(payments.id, id));
-  if (!payment) {
-    return NextResponse.json({ error: "Pago no encontrado" }, { status: 404 });
-  }
+  const deleted = await db.transaction(async (tx) => {
+    const [payment] = await tx.select().from(payments).where(eq(payments.id, id)).for("update");
+    if (!payment) return false;
 
-  await db.transaction(async (tx) => {
     // Reverse the payment effect
     if (payment.type === "cobro" && payment.receivableId) {
       const [account] = await tx
         .select()
         .from(accountsReceivable)
-        .where(eq(accountsReceivable.id, payment.receivableId));
+        .where(eq(accountsReceivable.id, payment.receivableId))
+        .for("update");
 
       if (account) {
         const newPaid = Number(account.paidAmount) - Number(payment.amount);
@@ -168,7 +163,8 @@ export const DELETE = withApiHandler(async (req: NextRequest) => {
       const [account] = await tx
         .select()
         .from(accountsPayable)
-        .where(eq(accountsPayable.id, payment.payableId));
+        .where(eq(accountsPayable.id, payment.payableId))
+        .for("update");
 
       if (account) {
         const newPaid = Number(account.paidAmount) - Number(payment.amount);
@@ -188,7 +184,10 @@ export const DELETE = withApiHandler(async (req: NextRequest) => {
     }
 
     await tx.delete(payments).where(eq(payments.id, id));
+    return true;
   });
+
+  if (!deleted) return NextResponse.json({ error: "Pago no encontrado" }, { status: 404 });
 
   return NextResponse.json({ ok: true });
 });

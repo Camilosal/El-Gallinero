@@ -1,8 +1,9 @@
 #!/bin/sh
 set -e
 
-echo "[el_gallinero] Aplicando esquema a la base de datos (db:push)..."
-npm run db:push
+# El esquema se aplica como un paso explícito del despliegue. Ejecutar `db:push`
+# en cada arranque puede alterar o bloquear una base de datos de producción.
+echo "[el_gallinero] Se espera que el esquema y las migraciones ya estén aplicados."
 
 # Siembra idempotente: crea parámetros globales y planes de vacunación solo
 # cuando faltan. Nunca sobrescribe valores editados ni borra datos.

@@ -55,7 +55,7 @@ export default function PresupuestosPage() {
       .finally(() => setLoading(false));
   }, []);
 
-  useEffect(() => { load(); }, [load]);
+  useEffect(() => { void Promise.resolve().then(load); }, [load]);
 
   const openDetail = async (b: Budget) => {
     setDetailBudget(b);

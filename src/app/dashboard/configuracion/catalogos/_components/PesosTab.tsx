@@ -44,7 +44,7 @@ export default function PesosTab() {
       .finally(() => setLoading(false));
   }, []);
 
-  useEffect(() => { load(); }, [load]);
+  useEffect(() => { void Promise.resolve().then(load); }, [load]);
 
   const breeds = useMemo(() => Array.from(new Set(items.map((i) => i.breed))).sort(), [items]);
   const filtered = useMemo(() => items.filter((item) => {

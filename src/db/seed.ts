@@ -7,9 +7,23 @@ import { eq, sql } from "drizzle-orm";
 import { hashPassword } from "@/lib/auth";
 
 async function main() {
-  console.log("🌱 Sembrando datos de ejemplo...");
+  if (process.env.NODE_ENV === "production") {
+    throw new Error("El seed de demostración está bloqueado en producción.");
+  }
+  if (!process.argv.includes("--allow-destructive")) {
+    throw new Error(
+      "Este seed elimina y recrea datos. Para usarlo en una base local descartable, añade --allow-destructive.",
+    );
+  }
 
-  // Limpia datos previos (seed idempotente, orden por FK)
+  const demoAdminPassword = process.env.DEMO_ADMIN_PASSWORD;
+  if (!demoAdminPassword || demoAdminPassword.length < 12) {
+    throw new Error("Define DEMO_ADMIN_PASSWORD con al menos 12 caracteres para crear el usuario de demostración.");
+  }
+
+  console.log("🌱 Reemplazando los datos de la base local con datos de demostración...");
+
+  // Elimina datos previos en orden por FK; el comando requiere confirmación explícita.
   await db.delete(flockPlanMilestones);
   await db.delete(flockPlans);
   await db.delete(sanitaryCalendar);
@@ -175,7 +189,7 @@ async function main() {
   // ——— Usuario administrador ———
   await db.insert(users).values({
     username: "Camilosal",
-    passwordHash: await hashPassword("Pr@yectos123"),
+    passwordHash: await hashPassword(demoAdminPassword),
     name: "Administrador",
     role: "admin",
   });

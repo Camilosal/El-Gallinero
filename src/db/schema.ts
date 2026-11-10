@@ -12,6 +12,7 @@ import {
   uniqueIndex,
   jsonb,
 } from "drizzle-orm/pg-core";
+import { sql } from "drizzle-orm";
 
 // ─── Enums ───
 export const animalSpeciesEnum = pgEnum("animal_species", [
@@ -125,7 +126,7 @@ export const hens = pgTable("hens", {
   acquisitionCost: decimal("acquisition_cost", { precision: 10, scale: 2 }),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
-});
+}, (t) => [uniqueIndex("hens_code_unique_idx").on(t.code)]);
 
 // ─── Alimentos / Feed inventory ───
 export const feedInventory = pgTable("feed_inventory", {
@@ -211,7 +212,7 @@ export const roosters = pgTable("roosters", {
   acquisitionCost: decimal("acquisition_cost", { precision: 10, scale: 2 }),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
-});
+}, (t) => [uniqueIndex("roosters_code_unique_idx").on(t.code)]);
 
 // ─── Lotes de producción / engorde multi-especie ───
 export const broilerBatches = pgTable("broiler_batches", {
@@ -235,7 +236,7 @@ export const broilerBatches = pgTable("broiler_batches", {
   totalProductionCost: decimal("total_production_cost", { precision: 12, scale: 2 }),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
-});
+}, (t) => [uniqueIndex("broiler_batches_code_unique_idx").on(t.code)]);
 
 // ─── Ventas de huevos ───
 export const eggSales = pgTable("egg_sales", {
@@ -283,6 +284,7 @@ export const healthControl = pgTable("health_control", {
   type: varchar("type", { length: 100 }).notNull(), // vacunación, desparasitación, tratamiento, inspección
   description: text("description").notNull(),
   affectedHens: text("affected_hens"), // JSON array of hen IDs or "todas"
+  previousAnimalStates: jsonb("previous_animal_states").$type<Record<string, { status: string; currentQuantity?: number }>>(),
   product: varchar("product", { length: 200 }),
   cost: decimal("cost", { precision: 10, scale: 2 }).default("0"),
   nextScheduled: date("next_scheduled"),
@@ -369,6 +371,7 @@ export const chickenSales = pgTable("chicken_sales", {
   henId: uuid("hen_id").references(() => hens.id), // gallina específica (opcional)
   roosterId: uuid("rooster_id").references(() => roosters.id), // gallo específico (opcional)
   batchId: uuid("batch_id").references(() => broilerBatches.id), // lote de engorde (opcional)
+  previousAnimalStates: jsonb("previous_animal_states").$type<Record<string, { status: string; currentQuantity?: number }>>(),
   notes: text("notes"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
@@ -395,6 +398,7 @@ export const slaughter = pgTable("slaughter", {
   henId: uuid("hen_id").references(() => hens.id), // gallina específica (opcional)
   roosterId: uuid("rooster_id").references(() => roosters.id), // gallo específico (opcional)
   batchId: uuid("batch_id").references(() => broilerBatches.id), // lote de engorde (opcional)
+  previousAnimalStates: jsonb("previous_animal_states").$type<Record<string, { status: string; currentQuantity?: number }>>(),
   notes: text("notes"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
@@ -421,7 +425,8 @@ export const manureFactors = pgTable("manure_factors", {
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 }, (t) => [
-  uniqueIndex("manure_factor_stage_group_idx").on(t.stageCatalogoId, t.birdGroup),
+  uniqueIndex("manure_factor_stage_group_idx").on(t.stageCatalogoId, t.birdGroup).where(sql`${t.stageCatalogoId} IS NOT NULL`),
+  uniqueIndex("manure_factor_global_group_idx").on(t.birdGroup).where(sql`${t.stageCatalogoId} IS NULL`),
 ]);
 
 // ─── Gallinaza: ventas ───
@@ -454,7 +459,9 @@ export const manureProduction = pgTable("manure_production", {
   source: varchar("source", { length: 20 }).notNull().default("estimado"),
   notes: text("notes"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
-});
+}, (t) => [
+  uniqueIndex("manure_auto_daily_unique_idx").on(t.date).where(sql`${t.source} = 'auto_diario'`),
+]);
 
 // ─── Adquisición de aves y animales menores (compra, donación, cría) ───
 export const birdAcquisitions = pgTable("bird_acquisitions", {
@@ -485,6 +492,7 @@ export const mortalityRecords = pgTable("mortality_records", {
   roosterId: uuid("rooster_id").references(() => roosters.id),
   batchId: uuid("batch_id").references(() => broilerBatches.id),
   healthControlId: uuid("health_control_id").references(() => healthControl.id),
+  previousAnimalStates: jsonb("previous_animal_states").$type<Record<string, { status: string; currentQuantity?: number }>>(),
   description: text("description"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
@@ -565,9 +573,10 @@ export const autoconsumoLogs = pgTable("autoconsumo_logs", {
   destinationHousehold: varchar("destination_household", { length: 100 }).default("Familia Granja"),
   batchId: uuid("batch_id").references(() => broilerBatches.id),
   slaughterId: uuid("slaughter_id").references(() => slaughter.id),
+  eggProductionId: uuid("egg_production_id").references(() => eggProduction.id, { onDelete: "cascade" }),
   notes: text("notes"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
-});
+}, (t) => [uniqueIndex("autoconsumo_egg_production_idx").on(t.eggProductionId)]);
 
 // ─── Categorías financieras jerárquicas (Fase 5) ───
 export const financialCategories = pgTable("financial_categories", {

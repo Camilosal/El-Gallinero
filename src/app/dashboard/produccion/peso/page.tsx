@@ -74,7 +74,7 @@ export default function PesoPage() {
       .finally(() => setLoading(false));
   }, [breed, gender]);
 
-  useEffect(() => { load(); }, [load]);
+  useEffect(() => { void Promise.resolve().then(load); }, [load]);
 
   const seedStandards = async () => {
     setSeeding(true);

@@ -1,10 +1,15 @@
+import { isDateOnly } from "@/lib/date-validation";
 import { db } from "@/db";
 import { manureSales, transactions } from "@/db/schema";
 import { eq, desc, and } from "drizzle-orm";
 import { NextRequest, NextResponse } from "next/server";
 import { withApiHandler, safeParseJson } from "@/lib/api-handler";
+import { lockAndReadManureStock } from "@/lib/manure-stock";
+import { isTodayOrEarlierManureDate } from "@/lib/manure";
+import { createManureSale, deleteManureSale } from "@/lib/manure-operations";
 
 export const dynamic = "force-dynamic";
+
 
 export const GET = withApiHandler(async () => {
   const data = await db.select().from(manureSales).orderBy(desc(manureSales.date));
@@ -13,60 +18,48 @@ export const GET = withApiHandler(async () => {
 
 export const POST = withApiHandler(async (req: NextRequest) => {
   const body = await safeParseJson(req);
+  if (!body || typeof body !== "object") return NextResponse.json({ error: "Cuerpo inválido" }, { status: 400 });
 
-  const quantityKg = Number(body.quantityKg);
-  const pricePerKg = Number(body.pricePerKg);
-  if (!body.date) return NextResponse.json({ error: "Fecha requerida" }, { status: 400 });
-  if (isNaN(quantityKg) || quantityKg <= 0) return NextResponse.json({ error: "Cantidad kg inválida" }, { status: 400 });
-  if (isNaN(pricePerKg) || pricePerKg < 0) return NextResponse.json({ error: "Precio/kg inválido" }, { status: 400 });
+  const quantityKg = Number(Number(body.quantityKg).toFixed(2));
+  const pricePerKg = Number(Number(body.pricePerKg).toFixed(2));
+  if (!isDateOnly(body.date) || !isTodayOrEarlierManureDate(body.date)) return NextResponse.json({ error: "Fecha inválida o futura" }, { status: 400 });
+  if (!Number.isFinite(quantityKg) || quantityKg <= 0) return NextResponse.json({ error: "Cantidad kg inválida" }, { status: 400 });
+  if (!Number.isFinite(pricePerKg) || pricePerKg < 0) return NextResponse.json({ error: "Precio/kg inválido" }, { status: 400 });
 
-  const totalAmount = (quantityKg * pricePerKg).toFixed(2);
-
-  const created = await db.transaction(async (tx) => {
-    const [inserted] = await tx.insert(manureSales).values({
+  const created = await db.transaction((tx) => createManureSale(tx, {
       date: body.date,
-      quantityKg: quantityKg.toFixed(2),
-      pricePerKg: pricePerKg.toFixed(2),
-      totalAmount,
-      presentation: body.presentation || null,
-      buyer: body.buyer || null,
-      notes: body.notes || null,
-    }).returning();
-
-    await tx.insert(transactions).values({
-      date: body.date,
-      type: "ingreso",
-      category: "Venta de abono/gallinaza",
-      description: `Venta de gallinaza (${quantityKg} kg)${body.buyer ? ` a ${body.buyer}` : ""}`,
-      counterparty: body.buyer || null,
-      amount: totalAmount,
-      quantity: quantityKg.toFixed(2),
-      unitPrice: pricePerKg.toFixed(2),
-      unit: "kg",
-      presentation: body.presentation || null,
-      sourceType: "gallinaza",
-      sourceId: inserted.id,
-      notes: body.notes || null,
-    });
-
-    return inserted;
-  });
+      quantityKg,
+      pricePerKg,
+      presentation: body.presentation,
+      buyer: body.buyer,
+      notes: body.notes,
+  }));
 
   return NextResponse.json(created, { status: 201 });
 });
 
 export const PUT = withApiHandler(async (req: NextRequest) => {
   const body = await safeParseJson(req);
+  if (!body || typeof body !== "object") return NextResponse.json({ error: "Cuerpo inválido" }, { status: 400 });
   if (!body.id) return NextResponse.json({ error: "ID requerido" }, { status: 400 });
 
-  const quantityKg = Number(body.quantityKg);
-  const pricePerKg = Number(body.pricePerKg);
-  if (isNaN(quantityKg) || quantityKg <= 0) return NextResponse.json({ error: "Cantidad kg inválida" }, { status: 400 });
-  if (isNaN(pricePerKg) || pricePerKg < 0) return NextResponse.json({ error: "Precio/kg inválido" }, { status: 400 });
+  const quantityKg = Number(Number(body.quantityKg).toFixed(2));
+  const pricePerKg = Number(Number(body.pricePerKg).toFixed(2));
+  if (!isDateOnly(body.date) || !isTodayOrEarlierManureDate(body.date)) return NextResponse.json({ error: "Fecha inválida o futura" }, { status: 400 });
+  if (!Number.isFinite(quantityKg) || quantityKg <= 0) return NextResponse.json({ error: "Cantidad kg inválida" }, { status: 400 });
+  if (!Number.isFinite(pricePerKg) || pricePerKg < 0) return NextResponse.json({ error: "Precio/kg inválido" }, { status: 400 });
 
   const totalAmount = (quantityKg * pricePerKg).toFixed(2);
 
   const updated = await db.transaction(async (tx) => {
+    const stock = await lockAndReadManureStock(tx);
+    const [currentSale] = await tx.select().from(manureSales).where(eq(manureSales.id, body.id));
+    if (!currentSale) throw new Error("No encontrado");
+    const availableKg = stock + Number(currentSale.quantityKg);
+    if (quantityKg > availableKg) {
+      throw new Error(`Stock insuficiente: disponibles ${Math.max(0, availableKg).toFixed(2)} kg`);
+    }
+
     const [upd] = await tx.update(manureSales).set({
       date: body.date,
       quantityKg: quantityKg.toFixed(2),
@@ -117,10 +110,8 @@ export const DELETE = withApiHandler(async (req: NextRequest) => {
   const id = searchParams.get("id");
   if (!id) return NextResponse.json({ error: "ID requerido" }, { status: 400 });
 
-  await db.transaction(async (tx) => {
-    await tx.delete(transactions).where(and(eq(transactions.sourceType, "gallinaza"), eq(transactions.sourceId, id)));
-    await tx.delete(manureSales).where(eq(manureSales.id, id));
-  });
+  const deleted = await db.transaction((tx) => deleteManureSale(tx, id));
+  if (!deleted) return NextResponse.json({ error: "Venta no encontrada" }, { status: 404 });
 
   return NextResponse.json({ ok: true });
 });

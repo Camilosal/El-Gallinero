@@ -37,7 +37,7 @@ cp .env.example .env.local
 Edite `.env.local` con sus credenciales de PostgreSQL:
 
 ```env
-DATABASE_URL=postgresql://TU_USUARIO:TU_CONTRASE���ÑA@localhost:5432/app_db
+DATABASE_URL=postgresql://TU_USUARIO:TU_CONTRASENA@localhost:5432/app_db
 ```
 
 > **Importante**: Nunca confirme `.env.local` en el repositorio. Está listado en `.gitignore`.
@@ -54,7 +54,7 @@ createdb app_db
 npm run db:push
 
 # Sembrar datos de demostración
-npm run db:seed
+DEMO_ADMIN_PASSWORD='elige-una-clave-de-12-caracteres' npm run db:seed -- --allow-destructive
 ```
 
 #### Opción B: Paso a paso (para desarrollo activo)
@@ -66,8 +66,8 @@ createdb app_db
 # 2. Aplicar migraciones del esquema
 npm run db:push
 
-# 3. (Opcional) Sembrar datos iniciales
-npm run db:seed
+# 3. (Opcional) Reemplazar una base local descartable con datos de demostración
+DEMO_ADMIN_PASSWORD='elige-una-clave-de-12-caracteres' npm run db:seed -- --allow-destructive
 
 # 4. Durante el desarrollo, cuando cambie el esquema:
 npm run db:generate   # Genera archivos de migración SQL
@@ -131,14 +131,13 @@ Revisa los archivos generados antes de aplicarlos.
 npm run db:push
 ```
 
+Para vincular de forma segura los registros antiguos de autoconsumo de huevo con su cosecha, ejecuta después [`scripts/link_egg_autoconsumo_logs.sql`](../scripts/link_egg_autoconsumo_logs.sql). El script solo asocia casos sin ambigüedad; revisa manualmente los registros históricos que no queden vinculados.
+
 #### Sembrar Datos
 
 ```bash
-# Sembrar datos de demostración (idempotente)
-npm run db:seed
-
-# Para re-sembrar desde cero (elimina datos existentes)
-npm run db:seed -- --force
+# Sembrar datos de demostración (elimina y recrea datos; solo en base local descartable)
+DEMO_ADMIN_PASSWORD='elige-una-clave-de-12-caracteres' npm run db:seed -- --allow-destructive
 ```
 
 ### Pruebas
@@ -333,3 +332,13 @@ Siga la estructura existente en `src/app/(app)/[sección]/[submódulo]/`. Por ej
 Use las variables de entorno en `.env.local` con prefijo `NEXT_PUBLIC_` para características que necesiten estar disponibles en el cliente, o variables normales para solo servidor.
 
 Recuerde reiniciar el servidor de desarrollo después de cambiar variables de entorno.
+
+## Integridad de códigos y reversión de sanidad
+
+La migración `scripts/enforce_animal_code_integrity.sql` agrega índices únicos a los códigos de gallinas, gallos y lotes, y crea la columna que conserva el estado anterior de las aves en controles sanitarios. Antes de aplicarla en otra base de datos, confirme que no existan códigos duplicados; la migración aborta sin cambios si encuentra alguno. Los controles sanitarios anteriores no tienen una instantánea y no pueden restaurar automáticamente su estado original.
+
+La migración `scripts/enforce_manure_daily_integrity.sql` agrega un índice único parcial para impedir más de un registro de acumulación automática de gallinaza por fecha. La estimación diaria se guarda al consultar o modificar el inventario; los días en los que no se generó un registro no se reconstruyen con la población actual.
+
+La migración `scripts/enforce_manure_factor_integrity.sql` elimina factores duplicados por etapa o grupo global conservando el actualizado más recientemente y agrega índices únicos parciales para ambos casos. Aplícala antes de desplegar la versión que crea factores automáticamente.
+
+La migración `scripts/add_animal_exit_snapshots.sql` agrega instantáneas del estado previo a ventas, faenas y mortalidades vinculadas con gallinas, gallos o lotes. Los registros históricos anteriores no incluyen esa instantánea; al revertirlos se conserva el comportamiento de compatibilidad y no se puede recuperar un estado que nunca se guardó.

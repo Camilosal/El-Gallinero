@@ -1,82 +1,97 @@
+import { isDateOnly } from "@/lib/date-validation";
 import { db } from "@/db";
-import { eggSales, eggSalesItems, transactions, eggProductionDetails, eggProduction, accountsReceivable } from "@/db/schema";
-import { eq, desc, sql, and, notInArray } from "drizzle-orm";
+import { eggSales, eggSalesItems, transactions, accountsReceivable, payments } from "@/db/schema";
+import { eq, desc, and, inArray } from "drizzle-orm";
 import { NextRequest, NextResponse } from "next/server";
 import { withApiHandler, safeParseJson } from "@/lib/api-handler";
+import { computeEggInventory } from "@/lib/inventory";
+import { lockEggInventory } from "@/lib/inventory-locks";
+import { deleteTransactionsAndUnpaidAccounts } from "@/lib/financial-records";
 
 export const dynamic = "force-dynamic";
 
-async function getAvailableEggsBySize(excludeSaleIds?: string[]): Promise<Map<string, number>> {
-  const [prod, sold, incubation] = await Promise.all([
-    db.select({
-      size: eggProductionDetails.size,
-      total: sql<number>`coalesce(sum(${eggProductionDetails.quantity}), 0)::int`,
-    }).from(eggProductionDetails).groupBy(eggProductionDetails.size),
-    db.select({
-      size: eggSalesItems.size,
-      total: sql<number>`coalesce(sum(${eggSalesItems.quantity}), 0)::int`,
-    }).from(eggSalesItems)
-      .where(excludeSaleIds?.length ? notInArray(eggSalesItems.saleId, excludeSaleIds) : undefined)
-      .groupBy(eggSalesItems.size),
-    db.select({
-      size: eggProductionDetails.size,
-      total: sql<number>`coalesce(sum(round(${eggProductionDetails.quantity}::float * ${eggProduction.forIncubation} / nullif(${eggProduction.totalCollected}, 0))::int), 0)::int`,
-    }).from(eggProductionDetails)
-      .innerJoin(eggProduction, eq(eggProductionDetails.productionId, eggProduction.id))
-      .groupBy(eggProductionDetails.size),
-  ]);
+function aggregateItems(items: { size: string; quantity: number }[]) {
+  const totals = new Map<string, number>();
+  for (const item of items) totals.set(item.size, (totals.get(item.size) || 0) + item.quantity);
+  return totals;
+}
 
-  const map = new Map<string, number>();
-  for (const p of prod) if (p.size) map.set(p.size, p.total);
-  for (const s of sold) if (s.size) map.set(s.size, (map.get(s.size) || 0) - s.total);
-  for (const i of incubation) if (i.size) map.set(i.size, (map.get(i.size) || 0) - i.total);
-  return map;
+type InventoryClient = NonNullable<Parameters<typeof computeEggInventory>[0]>;
+
+async function getAvailableEggsBySize(
+  client: InventoryClient = db,
+  options: { excludeSaleId?: string } = {},
+) {
+  const inventory = await computeEggInventory(client, options);
+  return new Map(inventory.summary.sizes.map((size) => [size.size, size.available]));
+}
+
+function validateAvailability(items: { size: string; quantity: number }[], available: Map<string, number>) {
+  for (const [size, quantity] of aggregateItems(items)) {
+    const amountAvailable = available.get(size) || 0;
+    if (quantity > amountAvailable) {
+      return `No hay suficientes huevos tamaño ${size}. Disponibles: ${amountAvailable}`;
+    }
+  }
+  return null;
+}
+
+
+function validateItems(items: unknown): string | null {
+  if (!Array.isArray(items) || items.length === 0) return "La venta debe tener al menos un tamaño";
+  for (const item of items) {
+    if (!item || typeof item.size !== "string" || !item.size.trim()) return "Selecciona el tamaño del huevo";
+    if (!Number.isSafeInteger(item.quantity) || item.quantity < 1) return `Cantidad inválida para tamaño ${item.size}`;
+    if (item.presentations !== undefined && (!Number.isSafeInteger(item.presentations) || item.presentations < 1)) {
+      return `Presentaciones inválidas para tamaño ${item.size}`;
+    }
+    if (!Number.isFinite(Number(item.pricePerUnit)) || Number(item.pricePerUnit) <= 0) {
+      return `Precio inválido para tamaño ${item.size}`;
+    }
+  }
+  return null;
 }
 
 // GET /api/finanzas/finanzas/ventas
 export const GET = withApiHandler(async () => {
   const data = await db.select().from(eggSales).orderBy(desc(eggSales.date)).limit(100);
-  const result = [];
-  for (const sale of data) {
-    const items = await db.select().from(eggSalesItems).where(eq(eggSalesItems.saleId, sale.id));
-    result.push({ ...sale, items });
+  if (data.length === 0) return NextResponse.json([]);
+  const items = await db.select().from(eggSalesItems).where(inArray(eggSalesItems.saleId, data.map((sale) => sale.id)));
+  const itemsBySale = new Map<string, typeof items>();
+  for (const item of items) {
+    const saleItems = itemsBySale.get(item.saleId) || [];
+    saleItems.push(item);
+    itemsBySale.set(item.saleId, saleItems);
   }
-  return NextResponse.json(result);
+  return NextResponse.json(data.map((sale) => ({ ...sale, items: itemsBySale.get(sale.id) || [] })));
 });
 
 // POST /api/finanzas/finanzas/ventas
 export const POST = withApiHandler(async (req: NextRequest) => {
   const body = await safeParseJson(req);
+  if (!body || typeof body !== "object") return NextResponse.json({ error: "Cuerpo inválido" }, { status: 400 });
   const items: { size: string; quantity: number; presentations?: number; pricePerUnit: number; presentation?: string }[] = body.items;
 
-  if (!items || !Array.isArray(items) || items.length === 0) {
-    return NextResponse.json({ error: "La venta debe tener al menos un tamaño" }, { status: 400 });
-  }
-
-  for (const item of items) {
-    if (!item.size) return NextResponse.json({ error: "Selecciona el tamaño del huevo" }, { status: 400 });
-    if (!item.quantity || item.quantity < 1) return NextResponse.json({ error: `Cantidad inválida para tamaño ${item.size}` }, { status: 400 });
-    if (!item.pricePerUnit || item.pricePerUnit <= 0) return NextResponse.json({ error: `Precio inválido para tamaño ${item.size}` }, { status: 400 });
-  }
-
-  const available = await getAvailableEggsBySize();
-  for (const item of items) {
-    const avail = available.get(item.size) || 0;
-    if (item.quantity > avail) {
-      return NextResponse.json(
-        { error: `No hay suficientes huevos tamaño ${item.size}. Disponibles: ${avail}` },
-        { status: 400 }
-      );
-    }
-  }
+  const itemError = validateItems(items);
+  if (itemError) return NextResponse.json({ error: itemError }, { status: 400 });
+  if (!isDateOnly(body.date)) return NextResponse.json({ error: "Fecha inválida" }, { status: 400 });
+  if (body.isCredit && body.dueDate && !isDateOnly(body.dueDate)) return NextResponse.json({ error: "Fecha de vencimiento inválida" }, { status: 400 });
 
   const grandTotal = items.reduce((sum, item) => {
     const presentations = item.presentations || item.quantity;
     return sum + presentations * Number(item.pricePerUnit);
   }, 0);
   const totalQuantity = items.reduce((sum, item) => sum + item.quantity, 0);
+  if (!Number.isFinite(grandTotal) || grandTotal <= 0 || !Number.isSafeInteger(totalQuantity)) {
+    return NextResponse.json({ error: "Total de venta inválido" }, { status: 400 });
+  }
 
   const result = await db.transaction(async (tx) => {
+    await lockEggInventory(tx);
+    const available = await getAvailableEggsBySize(tx);
+    const stockError = validateAvailability(items, available);
+    if (stockError) throw new Error(stockError);
+
     const [created] = await tx.insert(eggSales).values({
       date: body.date,
       quantity: totalQuantity,
@@ -140,36 +155,32 @@ export const POST = withApiHandler(async (req: NextRequest) => {
 // PUT /api/finanzas/finanzas/ventas
 export const PUT = withApiHandler(async (req: NextRequest) => {
   const body = await safeParseJson(req);
+  if (!body || typeof body !== "object") return NextResponse.json({ error: "Cuerpo inválido" }, { status: 400 });
   const items: { size: string; quantity: number; presentations?: number; pricePerUnit: number; presentation?: string }[] = body.items;
 
-  if (!items || !Array.isArray(items) || items.length === 0) {
-    return NextResponse.json({ error: "La venta debe tener al menos un tamaño" }, { status: 400 });
-  }
-
-  for (const item of items) {
-    if (!item.size) return NextResponse.json({ error: "Selecciona el tamaño del huevo" }, { status: 400 });
-    if (!item.quantity || item.quantity < 1) return NextResponse.json({ error: `Cantidad inválida para tamaño ${item.size}` }, { status: 400 });
-    if (!item.pricePerUnit || item.pricePerUnit <= 0) return NextResponse.json({ error: `Precio inválido para tamaño ${item.size}` }, { status: 400 });
-  }
-
-  const available = await getAvailableEggsBySize([body.id]);
-  for (const item of items) {
-    const avail = available.get(item.size) || 0;
-    if (item.quantity > avail) {
-      return NextResponse.json(
-        { error: `No hay suficientes huevos tamaño ${item.size}. Disponibles: ${avail}` },
-        { status: 400 }
-      );
-    }
-  }
+  const itemError = validateItems(items);
+  if (itemError) return NextResponse.json({ error: itemError }, { status: 400 });
+  if (!body.id) return NextResponse.json({ error: "ID requerido" }, { status: 400 });
+  if (!isDateOnly(body.date)) return NextResponse.json({ error: "Fecha inválida" }, { status: 400 });
+  if (body.isCredit && body.dueDate && !isDateOnly(body.dueDate)) return NextResponse.json({ error: "Fecha de vencimiento inválida" }, { status: 400 });
 
   const grandTotal = items.reduce((sum, item) => {
     const presentations = item.presentations || item.quantity;
     return sum + presentations * Number(item.pricePerUnit);
   }, 0);
   const totalQuantity = items.reduce((sum, item) => sum + item.quantity, 0);
+  if (!Number.isFinite(grandTotal) || grandTotal <= 0 || !Number.isSafeInteger(totalQuantity)) {
+    return NextResponse.json({ error: "Total de venta inválido" }, { status: 400 });
+  }
 
   const result = await db.transaction(async (tx) => {
+    await lockEggInventory(tx);
+    const [currentSale] = await tx.select({ id: eggSales.id }).from(eggSales).where(eq(eggSales.id, body.id));
+    if (!currentSale) throw new Error("No encontrado");
+    const available = await getAvailableEggsBySize(tx, { excludeSaleId: body.id });
+    const stockError = validateAvailability(items, available);
+    if (stockError) throw new Error(stockError);
+
     const [updated] = await tx.update(eggSales).set({
       date: body.date,
       quantity: totalQuantity,
@@ -179,6 +190,7 @@ export const PUT = withApiHandler(async (req: NextRequest) => {
       buyer: body.buyer || null,
       notes: body.notes || null,
     }).where(eq(eggSales.id, body.id)).returning();
+    if (!updated) throw new Error("No encontrado");
 
     await tx.delete(eggSalesItems).where(eq(eggSalesItems.saleId, body.id));
     const createdItems = await tx.insert(eggSalesItems).values(
@@ -221,18 +233,24 @@ export const PUT = withApiHandler(async (req: NextRequest) => {
       .where(and(eq(transactions.sourceType, "venta"), eq(transactions.sourceId, body.id)));
 
     const [existingReceivable] = currentTx
-      ? await tx.select().from(accountsReceivable).where(eq(accountsReceivable.transactionId, currentTx.id))
+      ? await tx.select().from(accountsReceivable).where(eq(accountsReceivable.transactionId, currentTx.id)).for("update")
       : [undefined];
 
     if (body.isCredit) {
+      const paidAmount = Number(existingReceivable?.paidAmount || 0);
+      if (grandTotal < paidAmount) {
+        throw new Error("El total no puede quedar por debajo de los pagos ya recibidos");
+      }
       if (currentTx) {
         await tx.update(transactions).set({ isCredit: true }).where(eq(transactions.id, currentTx.id));
       }
       if (existingReceivable) {
+        const pendingAmount = Math.max(0, grandTotal - paidAmount);
         await tx.update(accountsReceivable).set({
           totalAmount: String(grandTotal),
-          pendingAmount: String(grandTotal - Number(existingReceivable.paidAmount)),
-          dueDate: body.dueDate || existingReceivable.dueDate,
+          pendingAmount: String(pendingAmount),
+          status: pendingAmount === 0 ? "pagado" : paidAmount > 0 ? "parcial" : "pendiente",
+          dueDate: body.dueDate !== undefined ? body.dueDate || null : existingReceivable.dueDate,
           buyer: body.buyer || existingReceivable.buyer,
           updatedAt: new Date(),
         }).where(eq(accountsReceivable.id, existingReceivable.id));
@@ -248,10 +266,16 @@ export const PUT = withApiHandler(async (req: NextRequest) => {
         });
       }
     } else if (existingReceivable) {
+      const linkedPayments = await tx.select({ id: payments.id }).from(payments).where(eq(payments.receivableId, existingReceivable.id));
+      if (Number(existingReceivable.paidAmount) > 0 || linkedPayments.length > 0) {
+        throw new Error("No se puede convertir a contado una venta que ya tiene pagos recibidos");
+      }
       await tx.delete(accountsReceivable).where(eq(accountsReceivable.id, existingReceivable.id));
       if (currentTx) {
         await tx.update(transactions).set({ isCredit: false }).where(eq(transactions.id, currentTx.id));
       }
+    } else if (currentTx) {
+      await tx.update(transactions).set({ isCredit: false }).where(eq(transactions.id, currentTx.id));
     }
 
     return { ...updated, items: createdItems };
@@ -266,12 +290,13 @@ export const DELETE = withApiHandler(async (req: NextRequest) => {
   if (!id) return NextResponse.json({ error: "ID requerido" }, { status: 400 });
 
   await db.transaction(async (tx) => {
-    const [linkedTx] = await tx.select().from(transactions)
-      .where(and(eq(transactions.sourceType, "venta"), eq(transactions.sourceId, id)));
-    if (linkedTx) {
-      await tx.delete(accountsReceivable).where(eq(accountsReceivable.transactionId, linkedTx.id));
-    }
-    await tx.delete(transactions).where(and(eq(transactions.sourceType, "venta"), eq(transactions.sourceId, id)));
+    await lockEggInventory(tx);
+    const [sale] = await tx.select({ id: eggSales.id }).from(eggSales).where(eq(eggSales.id, id));
+    if (!sale) throw new Error("No encontrado");
+    await deleteTransactionsAndUnpaidAccounts(
+      tx,
+      and(eq(transactions.sourceType, "venta"), eq(transactions.sourceId, id)),
+    );
     await tx.delete(eggSalesItems).where(eq(eggSalesItems.saleId, id));
     await tx.delete(eggSales).where(eq(eggSales.id, id));
   });

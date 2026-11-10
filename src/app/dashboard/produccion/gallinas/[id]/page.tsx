@@ -1,10 +1,11 @@
 "use client";
 
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useRef } from "react";
 import { useParams } from "next/navigation";
 import Link from "next/link";
 import { Card, Badge, Button, Modal, Input, Select, Textarea, EmptyState } from "@/components/ui";
 import { apiFetch } from "@/lib/fetch";
+import { HEN_PRESENT_STATUSES, isHenAvailableForExit } from "@/lib/animal-status";
 
 interface Hen {
   id: string;
@@ -69,6 +70,8 @@ export default function HenDetailPage() {
   const [actionForm, setActionForm] = useState<Record<string, string>>({});
   const [actionError, setActionError] = useState("");
   const [actionSuccess, setActionSuccess] = useState("");
+  const [actionSubmitting, setActionSubmitting] = useState(false);
+  const actionSubmittingRef = useRef(false);
 
   const load = useCallback(() => {
     apiFetch(`/api/produccion/gallinas/historial?henId=${henId}`)
@@ -109,7 +112,9 @@ export default function HenDetailPage() {
   };
 
   const submitAction = async () => {
-    if (!hen) return;
+    if (!hen || actionSubmittingRef.current) return;
+    actionSubmittingRef.current = true;
+    setActionSubmitting(true);
     setActionError("");
     setActionSuccess("");
 
@@ -123,7 +128,7 @@ export default function HenDetailPage() {
             date: new Date().toISOString().split("T")[0],
             birdType: "gallina_descarte",
             quantity: 1,
-            weightKg: Number(actionForm.weightKg) || 0,
+            weightKg: actionForm.weightKg ? Number(actionForm.weightKg) : null,
             pricePerUnit: price,
             priceMode: "por_ave",
             totalAmount: price,
@@ -135,18 +140,6 @@ export default function HenDetailPage() {
           const d = await res.json().catch(() => ({}));
           throw new Error(d.error || "Error al registrar venta");
         }
-        await apiFetch("/api/produccion/gallinas", {
-          method: "PUT",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            id: hen.id,
-            code: hen.code,
-            breed: hen.breed,
-            birthDate: hen.birthDate,
-            status: "vendida",
-            weight: hen.weight,
-          }),
-        });
         setActionSuccess("Venta registrada correctamente");
       } else if (actionModal === "tratar") {
         const res = await apiFetch("/api/sanidad/control", {
@@ -191,6 +184,9 @@ export default function HenDetailPage() {
       }, 1500);
     } catch (err) {
       setActionError(err instanceof Error ? err.message : "Error al registrar");
+    } finally {
+      actionSubmittingRef.current = false;
+      setActionSubmitting(false);
     }
   };
 
@@ -255,29 +251,35 @@ export default function HenDetailPage() {
       </div>
 
       {/* Quick Actions */}
-      <div className="grid grid-cols-3 gap-3 mb-6">
-        <button
-          onClick={() => openAction("vender")}
-          className="flex flex-col items-center gap-1 p-4 bg-green-50 border border-green-200 rounded-xl hover:bg-green-100 transition-colors"
-        >
-          <span className="text-2xl">💰</span>
-          <span className="text-xs font-medium text-green-700">Vender</span>
-        </button>
-        <button
-          onClick={() => openAction("tratar")}
-          className="flex flex-col items-center gap-1 p-4 bg-blue-50 border border-blue-200 rounded-xl hover:bg-blue-100 transition-colors"
-        >
-          <span className="text-2xl">💊</span>
-          <span className="text-xs font-medium text-blue-700">Tratar</span>
-        </button>
-        <button
-          onClick={() => openAction("muerte")}
-          className="flex flex-col items-center gap-1 p-4 bg-red-50 border border-red-200 rounded-xl hover:bg-red-100 transition-colors"
-        >
-          <span className="text-2xl">💀</span>
-          <span className="text-xs font-medium text-red-700">Muerte</span>
-        </button>
-      </div>
+      {HEN_PRESENT_STATUSES.includes(hen.status) ? (
+        <div className={`grid gap-3 mb-6 ${isHenAvailableForExit(hen.status) ? "grid-cols-3" : "grid-cols-2"}`}>
+          {isHenAvailableForExit(hen.status) && (
+            <button
+              onClick={() => openAction("vender")}
+              className="flex flex-col items-center gap-1 p-4 bg-green-50 border border-green-200 rounded-xl hover:bg-green-100 transition-colors"
+            >
+              <span className="text-2xl">💰</span>
+              <span className="text-xs font-medium text-green-700">Vender</span>
+            </button>
+          )}
+          <button
+            onClick={() => openAction("tratar")}
+            className="flex flex-col items-center gap-1 p-4 bg-blue-50 border border-blue-200 rounded-xl hover:bg-blue-100 transition-colors"
+          >
+            <span className="text-2xl">💊</span>
+            <span className="text-xs font-medium text-blue-700">Tratar</span>
+          </button>
+          <button
+            onClick={() => openAction("muerte")}
+            className="flex flex-col items-center gap-1 p-4 bg-red-50 border border-red-200 rounded-xl hover:bg-red-100 transition-colors"
+          >
+            <span className="text-2xl">💀</span>
+            <span className="text-xs font-medium text-red-700">Muerte</span>
+          </button>
+        </div>
+      ) : (
+        <p className="mb-6 rounded-lg bg-slate-100 p-3 text-center text-sm text-slate-600">Esta ave ya salió del inventario y no admite nuevas acciones.</p>
+      )}
 
       {/* Notes */}
       {hen.notes && (
@@ -322,7 +324,7 @@ export default function HenDetailPage() {
       {/* Action Modal */}
       <Modal
         open={actionModal !== null}
-        onClose={() => setActionModal(null)}
+        onClose={() => { if (!actionSubmitting) setActionModal(null); }}
         title={
           actionModal === "vender" ? "💰 Vender Ave" : actionModal === "tratar" ? "💊 Registrar Tratamiento" : "💀 Registrar Muerte"
         }
@@ -427,8 +429,8 @@ export default function HenDetailPage() {
             )}
 
             <div className="flex gap-2">
-              <Button onClick={submitAction}>Registrar</Button>
-              <Button variant="secondary" onClick={() => setActionModal(null)}>
+              <Button onClick={submitAction} disabled={actionSubmitting}>{actionSubmitting ? "Guardando…" : "Registrar"}</Button>
+              <Button variant="secondary" onClick={() => setActionModal(null)} disabled={actionSubmitting}>
                 Cancelar
               </Button>
             </div>

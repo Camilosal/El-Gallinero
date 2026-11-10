@@ -124,7 +124,10 @@ export default function HuevosPage() {
   useEffect(() => { load(); }, [load]);
 
   const sizesTotal = sizeOptions.reduce((s, o) => s + (form.sizes[o.value] || 0), 0);
-  const effectiveGoodEggs = form.species === "gallina" ? (quickMode && !editing ? quickTotal : sizesTotal) : form.totalUnits;
+  const quickGoodTotal = Math.max(0, quickTotal - form.broken - form.forIncubation);
+  const effectiveGoodEggs = form.species === "gallina"
+    ? (quickMode && !editing ? quickGoodTotal : sizesTotal)
+    : Math.max(0, form.totalUnits - form.broken - form.forIncubation);
   const totalCollected = effectiveGoodEggs + form.broken + form.forIncubation;
 
   // Promedio histórico para modo rápido de gallinas
@@ -132,44 +135,41 @@ export default function HuevosPage() {
     const recent = records.filter((r) => (r.species || "gallina") === "gallina").slice(0, 14);
     if (recent.length === 0) return { sizePcts: {} as Record<string, number>, brokenPct: 0.02, incubPct: 0 };
     const sizeTotals: Record<string, number> = {};
-    let grandTotal = 0;
-    let totalBroken = 0;
-    let totalIncub = 0;
     recent.forEach((r) => {
       r.details.forEach((d) => { sizeTotals[d.size] = (sizeTotals[d.size] || 0) + d.quantity; });
-      grandTotal += r.totalCollected;
-      totalBroken += r.broken;
-      totalIncub += r.forIncubation;
     });
+    const classifiedTotal = Object.values(sizeTotals).reduce((sum, quantity) => sum + quantity, 0);
     const sizePcts: Record<string, number> = {};
     Object.entries(sizeTotals).forEach(([size, qty]) => {
-      sizePcts[size] = grandTotal > 0 ? qty / grandTotal : 0;
+      sizePcts[size] = classifiedTotal > 0 ? qty / classifiedTotal : 0;
     });
-    return {
-      sizePcts,
-      brokenPct: grandTotal > 0 ? totalBroken / grandTotal : 0.02,
-      incubPct: grandTotal > 0 ? totalIncub / grandTotal : 0,
-    };
+    return { sizePcts };
   }, [records]);
 
   const quickDistribution = useMemo(() => {
-    if (quickTotal <= 0) return {} as Record<string, number>;
+    if (quickGoodTotal <= 0) return {} as Record<string, number>;
     const { sizePcts } = historicalAvg;
     const sizes = sizeOptions.map((o) => o.value);
-    const dist: Record<string, number> = {};
-    let assigned = 0;
+    if (sizes.length === 0) return {} as Record<string, number>;
     const hasHistory = Object.values(sizePcts).some((p) => p > 0);
-    sizes.forEach((size, i) => {
-      const pct = hasHistory ? (sizePcts[size] || 0) : 1 / sizes.length;
-      const qty = i < sizes.length - 1 ? Math.round(quickTotal * pct) : quickTotal - assigned;
-      dist[size] = Math.max(0, qty);
-      assigned += dist[size];
+    const weights = sizes.map((size) => hasHistory ? (sizePcts[size] || 0) : 1);
+    const totalWeight = weights.reduce((sum, weight) => sum + weight, 0);
+    const allocations = sizes.map((size, index) => {
+      const exact = totalWeight > 0 ? (quickGoodTotal * weights[index]) / totalWeight : quickGoodTotal / sizes.length;
+      const quantity = Math.floor(exact);
+      return { size, quantity, remainder: exact - quantity };
     });
+    let unassigned = quickGoodTotal - allocations.reduce((sum, row) => sum + row.quantity, 0);
+    allocations.sort((a, b) => b.remainder - a.remainder || sizes.indexOf(a.size) - sizes.indexOf(b.size));
+    for (const allocation of allocations) {
+      if (unassigned <= 0) break;
+      allocation.quantity += 1;
+      unassigned -= 1;
+    }
+    const dist: Record<string, number> = {};
+    allocations.forEach(({ size, quantity }) => { dist[size] = quantity; });
     return dist;
-  }, [quickTotal, historicalAvg, sizeOptions]);
-
-  const quickBroken = useMemo(() => Math.round(quickTotal * historicalAvg.brokenPct), [quickTotal, historicalAvg]);
-  const quickIncub = useMemo(() => Math.round(quickTotal * historicalAvg.incubPct), [quickTotal, historicalAvg]);
+  }, [quickGoodTotal, historicalAvg, sizeOptions]);
 
   const handleSpeciesChange = (species: string) => {
     const refPrice = priceEgg(species);
@@ -179,6 +179,11 @@ export default function HuevosPage() {
       referenceUnitPrice: String(refPrice),
       batchId: "",
       totalUnits: 0,
+      sizes: {},
+      broken: 0,
+      forIncubation: 0,
+      quantityAutoconsumo: 0,
+      quantityExcedente: 0,
     }));
   };
 
@@ -260,9 +265,9 @@ export default function HuevosPage() {
         sizesToSave = Object.entries(quickDistribution)
           .filter(([, v]) => v > 0)
           .map(([size, quantity]) => ({ size, quantity }));
-        totalGood = quickTotal;
-        broken = quickBroken;
-        forIncubation = quickIncub;
+        totalGood = quickGoodTotal;
+        broken = form.broken;
+        forIncubation = form.forIncubation;
       } else {
         sizesToSave = sizeOptions
           .map((o) => ({ size: o.value, quantity: form.sizes[o.value] || 0 }))
@@ -271,7 +276,7 @@ export default function HuevosPage() {
       }
     } else {
       // Codorniz o Pato: tamaño genérico estándar
-      totalGood = form.totalUnits;
+      totalGood = Math.max(0, form.totalUnits - broken - forIncubation);
       const genericSizeName = form.species === "codorniz" ? "Codorniz estándar" : "Pato estándar";
       sizesToSave = [{ size: genericSizeName, quantity: totalGood }];
     }
@@ -281,9 +286,25 @@ export default function HuevosPage() {
       setError("Debes ingresar al menos 1 huevo recolectado");
       return;
     }
+    if (isGallina && quickMode && !editing && broken + forIncubation > quickTotal) {
+      setError("Los huevos rotos y para incubación no pueden superar el total recogido");
+      return;
+    }
+    if (form.species !== "gallina" && broken + forIncubation > form.totalUnits) {
+      setError("Los huevos rotos y para incubación no pueden superar el total recogido");
+      return;
+    }
+    if (totalGood > 0 && sizesToSave.length === 0) {
+      setError("No hay tamaños activos para clasificar los huevos buenos");
+      return;
+    }
 
     const autoQty = form.quantityAutoconsumo || 0;
     const excQty = form.quantityExcedente !== undefined ? form.quantityExcedente : Math.max(0, totalGood - autoQty);
+    if (autoQty < 0 || excQty < 0 || autoQty + excQty > totalGood) {
+      setError("La asignación al hogar y a la venta no puede superar los huevos disponibles");
+      return;
+    }
 
     const payload = {
       id: editing?.id,
@@ -626,7 +647,7 @@ export default function HuevosPage() {
                       setQuickTotal(q);
                       setForm((prev) => ({
                         ...prev,
-                        quantityExcedente: Math.max(0, q - prev.quantityAutoconsumo),
+                        quantityExcedente: Math.max(0, q - prev.broken - prev.forIncubation - prev.quantityAutoconsumo),
                       }));
                     }}
                   />
@@ -672,7 +693,7 @@ export default function HuevosPage() {
                   setForm((prev) => ({
                     ...prev,
                     totalUnits: val,
-                    quantityExcedente: Math.max(0, val - prev.quantityAutoconsumo),
+                    quantityExcedente: Math.max(0, val - prev.broken - prev.forIncubation - prev.quantityAutoconsumo),
                   }));
                 }}
               />
@@ -686,14 +707,26 @@ export default function HuevosPage() {
               type="number"
               min="0"
               value={form.broken}
-              onChange={(e) => setForm({ ...form, broken: parseInt(e.target.value) || 0 })}
+              onChange={(e) => {
+                const broken = parseInt(e.target.value) || 0;
+                const good = form.species === "gallina"
+                  ? (quickMode && !editing ? Math.max(0, quickTotal - broken - form.forIncubation) : sizesTotal)
+                  : Math.max(0, form.totalUnits - broken - form.forIncubation);
+                setForm({ ...form, broken, quantityExcedente: Math.max(0, good - form.quantityAutoconsumo) });
+              }}
             />
             <Input
               label="Para Incubación"
               type="number"
               min="0"
               value={form.forIncubation}
-              onChange={(e) => setForm({ ...form, forIncubation: parseInt(e.target.value) || 0 })}
+              onChange={(e) => {
+                const forIncubation = parseInt(e.target.value) || 0;
+                const good = form.species === "gallina"
+                  ? (quickMode && !editing ? Math.max(0, quickTotal - form.broken - forIncubation) : sizesTotal)
+                  : Math.max(0, form.totalUnits - form.broken - forIncubation);
+                setForm({ ...form, forIncubation, quantityExcedente: Math.max(0, good - form.quantityAutoconsumo) });
+              }}
             />
           </div>
 
@@ -711,7 +744,7 @@ export default function HuevosPage() {
                 value={form.quantityAutoconsumo}
                 onChange={(e) => {
                   const auto = parseInt(e.target.value) || 0;
-                  const good = form.species === "gallina" ? (quickMode && !editing ? quickTotal : sizesTotal) : form.totalUnits;
+                  const good = effectiveGoodEggs;
                   const exc = Math.max(0, good - auto);
                   setForm({ ...form, quantityAutoconsumo: auto, quantityExcedente: exc });
                 }}

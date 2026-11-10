@@ -38,7 +38,7 @@ export default function ParametrosTab() {
       .finally(() => setLoading(false));
   }, []);
 
-  useEffect(() => { load(); }, [load]);
+  useEffect(() => { void Promise.resolve().then(load); }, [load]);
 
   const grouped = useMemo(() => {
     const map = new Map<string, SettingItem[]>();

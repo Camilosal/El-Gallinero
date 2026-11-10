@@ -41,7 +41,6 @@ export default function AlertasPage() {
   const [search, setSearch] = useState("");
 
   const load = useCallback(() => {
-    setLoading(true);
     apiFetch("/api/produccion/alertas")
       .then((r) => r.json())
       .then((data: Alert[]) => setAlerts(data))
@@ -49,7 +48,7 @@ export default function AlertasPage() {
   }, []);
 
   useEffect(() => {
-    load();
+    void Promise.resolve().then(load);
     const interval = setInterval(load, 60000);
     return () => clearInterval(interval);
   }, [load]);

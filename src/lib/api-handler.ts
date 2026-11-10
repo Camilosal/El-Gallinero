@@ -20,7 +20,7 @@ export function withApiHandler(handler: Handler): Handler {
   return async (req: NextRequest, ...args: any[]) => {
     // ─── Authentication gate ───
     const pathname = req?.nextUrl?.pathname ?? (req?.url ? new URL(req.url).pathname : "");
-    const isPublic = PUBLIC_PREFIXES.some((p) => pathname.startsWith(p));
+    const isPublic = PUBLIC_PREFIXES.includes(pathname);
     if (!isPublic) {
       try {
         const user = await getSessionUser();
@@ -30,8 +30,14 @@ export function withApiHandler(handler: Handler): Handler {
             { status: 401 },
           );
         }
-      } catch {
-        // Outside Next.js request context (e.g. vitest) — skip auth
+      } catch (error) {
+        // Authentication failures must fail closed. A missing request context or
+        // an unavailable session store must never grant access to a data route.
+        console.error("API authentication check failed:", error);
+        return NextResponse.json(
+          { error: "No se pudo validar la sesión" },
+          { status: 503 },
+        );
       }
     }
 
@@ -73,6 +79,24 @@ export function withApiHandler(handler: Handler): Handler {
 
       // Known application errors (thrown from within transactions)
       const msg: string = e.message || "";
+      if (msg.toLowerCase().includes("duplicado")) {
+        return NextResponse.json({ error: msg }, { status: 409 });
+      }
+      if (msg.includes("ya tiene una incubación activa") || msg.includes("ya completada")) {
+        return NextResponse.json({ error: msg }, { status: 409 });
+      }
+      if (msg.includes("pagos o cobros registrados") || msg.includes("pagos registrados") || msg.includes("cobros registrados")) {
+        return NextResponse.json({ error: msg }, { status: 409 });
+      }
+      if (msg.startsWith("Transacción vinculada")) {
+        return NextResponse.json({ error: msg }, { status: 409 });
+      }
+      if (msg.startsWith("Registro ligado a control sanitario")) {
+        return NextResponse.json({ error: msg }, { status: 409 });
+      }
+      if (msg.includes("El registro cambió mientras se")) {
+        return NextResponse.json({ error: msg }, { status: 409 });
+      }
       if (
         msg.includes("no encontrad") ||
         msg === "No encontrado" ||
@@ -83,7 +107,24 @@ export function withApiHandler(handler: Handler): Handler {
       if (
         msg.startsWith("Stock insuficiente") ||
         msg.includes("excede") ||
+        msg.includes("no puede quedar por debajo") ||
+        msg.includes("No se puede convertir a contado") ||
+        msg.startsWith("No se puede reducir") ||
+        msg.startsWith("No se puede eliminar") ||
         msg.includes("Cantidad inválida") ||
+        msg.includes("cantidad nacida") ||
+        msg.includes("Cantidad de machos inválida") ||
+        msg.includes("Cantidad de hembras inválida") ||
+        msg.includes("suma de machos y hembras") ||
+        msg.includes("Fecha inválida") ||
+        msg.includes("Fecha de nacimiento inválida") ||
+        msg.includes("Tipo de adquisición inválido") ||
+        msg.includes("Tipo de ave inválido") ||
+        msg.includes("Costo unitario inválido") ||
+        msg.includes("costo unitario debe ser mayor") ||
+        msg.includes("Código requerido") ||
+        msg.includes("La cantidad de huevos") ||
+        msg.includes("Estado de eclosión inválido") ||
         msg.includes("no está disponible")
       ) {
         return NextResponse.json({ error: msg }, { status: 400 });

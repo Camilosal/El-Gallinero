@@ -29,7 +29,7 @@ async function ensureFactor(stageCatalogoId: string | null, birdGroup: string): 
       stageCatalogoId,
       birdGroup,
       kgPerBirdPerDay: "0",
-    });
+    }).onConflictDoNothing();
   }
 }
 

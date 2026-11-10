@@ -107,7 +107,12 @@ export default function GallinasPage() {
 
   // Permite enlaces profundos desde el plan de parvada u otras pantallas.
   useEffect(() => {
-    if (estadoParam) setFilter(estadoParam);
+    if (!estadoParam) return;
+    let active = true;
+    void Promise.resolve().then(() => {
+      if (active) setFilter(estadoParam);
+    });
+    return () => { active = false; };
   }, [estadoParam]);
   const { values: breedOptions } = useCatalog("raza", breeds);
   const { values: statusOptions } = useCatalog("estado_gallina", statusFallback);
@@ -129,7 +134,7 @@ export default function GallinasPage() {
     }).finally(() => setLoading(false));
   }, []);
 
-  useEffect(() => { load(); }, [load]);
+  useEffect(() => { void Promise.resolve().then(load); }, [load]);
 
   const openNew = () => {
     setEditing(null);
@@ -153,7 +158,12 @@ export default function GallinasPage() {
 
   const remove = async (id: string) => {
     if (!confirm("¿Eliminar esta gallina?")) return;
-    await apiFetch(`/api/produccion/gallinas?id=${id}`, { method: "DELETE" });
+    const res = await apiFetch(`/api/produccion/gallinas?id=${id}`, { method: "DELETE" });
+    if (!res.ok) {
+      const data = await res.json().catch(() => ({}));
+      alert(data.error || "No se pudo eliminar la gallina");
+      return;
+    }
     load();
   };
 

@@ -46,7 +46,7 @@ export default function AlimentacionTab() {
       .finally(() => setLoading(false));
   }, []);
 
-  useEffect(() => { load(); }, [load]);
+  useEffect(() => { void Promise.resolve().then(load); }, [load]);
 
   const stageName = useMemo(() => Object.fromEntries(stages.map((s) => [s.id, s.value])), [stages]);
   const stagesWithoutProgram = useMemo(

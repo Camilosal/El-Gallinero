@@ -109,7 +109,12 @@ export const DELETE = withApiHandler(async (req: NextRequest) => {
   if (!id) return NextResponse.json({ error: "ID requerido" }, { status: 400 });
 
   await db.transaction(async (tx) => {
-    await tx.delete(payments).where(eq(payments.receivableId, id));
+    const [account] = await tx.select().from(accountsReceivable).where(eq(accountsReceivable.id, id)).for("update");
+    if (!account) throw new Error("No encontrado");
+    const linkedPayments = await tx.select({ id: payments.id }).from(payments).where(eq(payments.receivableId, id));
+    if (Number(account.paidAmount) > 0 || linkedPayments.length > 0) {
+      throw new Error("No se puede eliminar una cuenta con cobros registrados");
+    }
     await tx.delete(accountsReceivable).where(eq(accountsReceivable.id, id));
   });
   return NextResponse.json({ ok: true });

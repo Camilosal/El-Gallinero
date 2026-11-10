@@ -17,6 +17,7 @@ export const GET = withApiHandler(async () => {
       date: supplyMovements.date,
       notes: supplyMovements.notes,
       createdAt: supplyMovements.createdAt,
+      healthControlId: supplyMovements.healthControlId,
       supplyName: supplyInventory.name,
       supplyUnit: supplyInventory.unit,
     })
@@ -29,14 +30,19 @@ export const GET = withApiHandler(async () => {
 
 export const POST = withApiHandler(async (req: NextRequest) => {
   const body = await safeParseJson(req);
+  if (!body || typeof body !== "object") return NextResponse.json({ error: "Cuerpo inválido" }, { status: 400 });
   const { supplyId, quantity, isEntry, movementType, date, notes } = body;
 
   if (!supplyId || !quantity || isEntry === undefined || !movementType || !date) {
     return NextResponse.json({ error: "Campos requeridos: supplyId, quantity, isEntry, movementType, date" }, { status: 400 });
   }
+  if (typeof isEntry !== "boolean") return NextResponse.json({ error: "Tipo de movimiento inválido" }, { status: 400 });
+  if (typeof date !== "string" || !/^\d{4}-\d{2}-\d{2}$/.test(date) || Number.isNaN(new Date(`${date}T00:00:00.000Z`).getTime()) || new Date(`${date}T00:00:00.000Z`).toISOString().slice(0, 10) !== date) {
+    return NextResponse.json({ error: "Fecha inválida" }, { status: 400 });
+  }
 
   const qty = Number(quantity);
-  if (isNaN(qty) || qty < 1) {
+  if (!Number.isFinite(qty) || qty <= 0) {
     return NextResponse.json({ error: "Cantidad inválida" }, { status: 400 });
   }
 
@@ -45,7 +51,8 @@ export const POST = withApiHandler(async (req: NextRequest) => {
     const [supply] = await tx
       .select()
       .from(supplyInventory)
-      .where(eq(supplyInventory.id, supplyId));
+      .where(eq(supplyInventory.id, supplyId))
+      .for("update");
 
     if (!supply) {
       throw new Error("Insumo no encontrado");
@@ -104,23 +111,33 @@ export const DELETE = withApiHandler(async (req: NextRequest) => {
   const id = searchParams.get("id");
   if (!id) return NextResponse.json({ error: "ID requerido" }, { status: 400 });
 
-  await db.transaction(async (tx) => {
+  const result = await db.transaction(async (tx) => {
     const [movement] = await tx
       .select()
       .from(supplyMovements)
-      .where(eq(supplyMovements.id, id));
+      .where(eq(supplyMovements.id, id))
+      .for("update");
 
     if (!movement) {
-      throw new Error("Movimiento no encontrado");
+      return "missing" as const;
     }
+    if (movement.healthControlId) return "linked" as const;
 
-    // Reverse stock using relative SQL update
     const qty = Number(movement.quantity);
+    const [supply] = await tx
+      .select()
+      .from(supplyInventory)
+      .where(eq(supplyInventory.id, movement.supplyId))
+      .for("update");
+    if (!supply) throw new Error("Insumo no encontrado");
+    if (movement.isEntry && Number(supply.currentStock) + 0.0001 < qty) {
+      throw new Error("No se puede eliminar una entrada de insumo que ya fue consumida");
+    }
     if (movement.isEntry) {
       await tx
         .update(supplyInventory)
         .set({
-          currentStock: sql`GREATEST(0, ${supplyInventory.currentStock}::numeric - ${qty})`,
+          currentStock: sql`(${supplyInventory.currentStock}::numeric - ${qty})`,
           updatedAt: new Date(),
         })
         .where(eq(supplyInventory.id, movement.supplyId));
@@ -135,7 +152,12 @@ export const DELETE = withApiHandler(async (req: NextRequest) => {
     }
 
     await tx.delete(supplyMovements).where(eq(supplyMovements.id, id));
+    return "deleted" as const;
   });
 
+  if (result === "missing") return NextResponse.json({ error: "Movimiento no encontrado" }, { status: 404 });
+  if (result === "linked") {
+    return NextResponse.json({ error: "Este movimiento pertenece a un control sanitario. Elimínalo desde Sanidad." }, { status: 409 });
+  }
   return NextResponse.json({ ok: true });
 });

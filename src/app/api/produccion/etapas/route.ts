@@ -84,29 +84,50 @@ export const GET = withApiHandler(async () => {
 /** Crea un nuevo plan o etapa de alimentación con su programa nutricional */
 export const POST = withApiHandler(async (req: NextRequest) => {
   const body = await safeParseJson(req);
-  if (!body.value) return NextResponse.json({ error: "Nombre del plan o etapa requerido" }, { status: 400 });
+  if (!body || typeof body !== "object") return NextResponse.json({ error: "Cuerpo inválido" }, { status: 400 });
+  const value = typeof body.value === "string" ? body.value.trim() : "";
+  if (!value) return NextResponse.json({ error: "Nombre del plan o etapa requerido" }, { status: 400 });
 
-  const [createdStage] = await db.insert(catalogos).values({
-    category: "etapa_crecimiento",
-    value: body.value,
-    minWeeks: body.minWeeks !== undefined && body.minWeeks !== "" ? Number(body.minWeeks) : 0,
-    maxWeeks: body.maxWeeks !== undefined && body.maxWeeks !== "" ? Number(body.maxWeeks) : null,
-    sortOrder: body.sortOrder ? Number(body.sortOrder) : 20,
-    isActive: true,
-  }).returning();
-
-  if (Array.isArray(body.programs) && body.programs.length > 0) {
-    for (const p of body.programs) {
-      if (p.feedId && p.dailyAmountPerHen) {
-        await db.insert(feedPrograms).values({
-          stageCatalogoId: createdStage.id,
-          feedId: p.feedId,
-          percentage: String(p.percentage || 100),
-          dailyAmountPerHen: String(p.dailyAmountPerHen),
-        });
-      }
-    }
+  const minWeeks = body.minWeeks !== undefined && body.minWeeks !== "" ? Number(body.minWeeks) : 0;
+  const maxWeeks = body.maxWeeks !== undefined && body.maxWeeks !== "" && body.maxWeeks !== null ? Number(body.maxWeeks) : null;
+  const sortOrder = body.sortOrder !== undefined && body.sortOrder !== "" ? Number(body.sortOrder) : 20;
+  if (!Number.isSafeInteger(minWeeks) || minWeeks < 0 || (maxWeeks !== null && (!Number.isSafeInteger(maxWeeks) || maxWeeks < minWeeks)) || !Number.isSafeInteger(sortOrder) || sortOrder < 0) {
+    return NextResponse.json({ error: "Rango de semanas inválido" }, { status: 400 });
   }
+
+  if (!Array.isArray(body.programs) || body.programs.length === 0) {
+    return NextResponse.json({ error: "Agrega al menos un alimento al programa" }, { status: 400 });
+  }
+  const programs: { feedId: string; percentage: string; dailyAmountPerHen: string }[] = [];
+  for (const program of body.programs) {
+    const feedId = typeof program?.feedId === "string" ? program.feedId.trim() : "";
+    const percentage = Number(program?.percentage ?? 100);
+    const dailyAmount = Number(program?.dailyAmountPerHen);
+    if (!feedId || !Number.isFinite(percentage) || percentage < 0 || percentage > 100 || !Number.isFinite(dailyAmount) || dailyAmount <= 0) {
+      return NextResponse.json({ error: "Cada alimento requiere una dosis mayor a 0 y un porcentaje entre 0 y 100" }, { status: 400 });
+    }
+    if (programs.some((entry) => entry.feedId === feedId)) {
+      return NextResponse.json({ error: "No repitas un alimento en el mismo programa" }, { status: 400 });
+    }
+    programs.push({ feedId, percentage: percentage.toFixed(2), dailyAmountPerHen: dailyAmount.toFixed(2) });
+  }
+
+  const createdStage = await db.transaction(async (tx) => {
+    const [stage] = await tx.insert(catalogos).values({
+      category: "etapa_crecimiento",
+      value,
+      minWeeks,
+      maxWeeks,
+      sortOrder,
+      isActive: true,
+    }).returning();
+
+    await tx.insert(feedPrograms).values(programs.map((program) => ({
+      ...program,
+      stageCatalogoId: stage.id,
+    })));
+    return stage;
+  });
 
   return NextResponse.json(createdStage, { status: 201 });
 });

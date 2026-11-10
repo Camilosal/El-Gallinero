@@ -148,7 +148,7 @@ Expected: sin errores.
 
 Run:
 ```bash
-COOKIE=$(curl -s -X POST http://localhost:3001/api/auth/login -H "Content-Type: application/json" -d '{"username":"admin","password":"admin123"}' -c - | grep galli_session | awk '{print $NF}')
+COOKIE=$(curl -s -X POST http://localhost:3001/api/auth/login -H "Content-Type: application/json" -d "$(jq -nc --arg username "${E2E_ADMIN_USERNAME:-Camilosal}" --arg password "$E2E_ADMIN_PASSWORD" '{username:$username,password:$password}')" -c - | grep galli_session | awk '{print $NF}')
 curl -s -o /dev/null -w "%{http_code}\n" -b "galli_session=$COOKIE" "http://localhost:3001/produccion?tab=huevos"
 curl -s -o /dev/null -w "%{http_code}\n" -b "galli_session=$COOKIE" "http://localhost:3001/produccion?tab=carne"
 curl -s -o /dev/null -w "%{http_code}\n" -b "galli_session=$COOKIE" "http://localhost:3001/huevos" -L
@@ -1085,7 +1085,7 @@ Expected: todas las pruebas pasan (la suite existente opera sobre APIs; no debe 
 Run:
 ```bash
 cd "/Users/espaciosplus/Downloads/Sistema Gallinero"
-COOKIE=$(curl -s -X POST http://localhost:3001/api/auth/login -H "Content-Type: application/json" -d '{"username":"admin","password":"admin123"}' -c - | grep galli_session | awk '{print $NF}')
+COOKIE=$(curl -s -X POST http://localhost:3001/api/auth/login -H "Content-Type: application/json" -d "$(jq -nc --arg username "${E2E_ADMIN_USERNAME:-Camilosal}" --arg password "$E2E_ADMIN_PASSWORD" '{username:$username,password:$password}')" -c - | grep galli_session | awk '{print $NF}')
 for p in huevos sacrificio gallinas pollos gallinaza incubacion alimentacion mantenimiento sanidad; do
   echo "$p -> $(curl -s -o /dev/null -w "%{http_code} %{redirect_url}" -b "galli_session=$COOKIE" "http://localhost:3001/$p")"
 done

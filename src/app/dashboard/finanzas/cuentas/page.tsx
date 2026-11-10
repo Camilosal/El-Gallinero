@@ -67,9 +67,9 @@ export default function CuentasPage() {
 
   const load = useCallback(async () => {
     const [recRes, payRes, paymRes] = await Promise.all([
-      apiFetch("/api/finanzas/cuentas"),
-      apiFetch("/api/finanzas/cuentas"),
-      apiFetch("/api/finanzas/pagos"),
+      apiFetch("/api/cuentas-cobrar"),
+      apiFetch("/api/cuentas-pagar"),
+      apiFetch("/api/pagos"),
     ]);
     if (recRes.ok) setReceivables(await recRes.json());
     if (payRes.ok) setPayables(await payRes.json());
@@ -77,7 +77,7 @@ export default function CuentasPage() {
     setLoading(false);
   }, []);
 
-  useEffect(() => { load(); }, [load]);
+  useEffect(() => { void Promise.resolve().then(load); }, [load]);
 
   const totalPendingCobrar = receivables.reduce((s, a) => s + Number(a.pendingAmount), 0);
   const totalPendingPagar = payables.reduce((s, a) => s + Number(a.pendingAmount), 0);
@@ -112,7 +112,7 @@ export default function CuentasPage() {
       body.payableId = selectedAccount.id;
     }
 
-    const res = await apiFetch("/api/finanzas/pagos", {
+    const res = await apiFetch("/api/pagos", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(body),
@@ -129,7 +129,7 @@ export default function CuentasPage() {
 
   const removePayment = async (id: string) => {
     if (!confirm("¿Eliminar este pago? Se revertirá el abono.")) return;
-    await apiFetch(`/api/finanzas/pagos?id=${id}`, { method: "DELETE" });
+    await apiFetch(`/api/pagos?id=${id}`, { method: "DELETE" });
     load();
   };
 

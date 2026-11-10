@@ -9,6 +9,14 @@ export interface BirdGroupCount {
   kgPerBirdPerDay: number;
 }
 
+/** Reserved source for the idempotent daily estimate written to manureProduction. */
+export const AUTO_MANURE_SOURCE = "auto_diario";
+
+/** Stock events describe completed work and cannot be dated in the future. */
+export function isTodayOrEarlierManureDate(date: string): boolean {
+  return date <= new Date().toISOString().slice(0, 10);
+}
+
 /** Producción estimada kg/día de un grupo (2 decimales) */
 export function estimatedKgPerDay(group: BirdGroupCount): number {
   return Math.round(group.count * group.kgPerBirdPerDay * 100) / 100;

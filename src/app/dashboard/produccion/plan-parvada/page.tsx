@@ -69,6 +69,8 @@ interface ProjectionWeek {
   isPast: boolean;
 }
 
+const EMPTY_WEEKS: ProjectionWeek[] = [];
+
 interface PlanSummary {
   progressPct: number;
   daysToReplacement: number | null;
@@ -228,7 +230,7 @@ export default function PlanParvadaPage() {
   }, []);
 
   useEffect(() => {
-    load();
+    void Promise.resolve().then(load);
   }, [load]);
 
   const live = data?.live ?? null;
@@ -264,7 +266,7 @@ export default function PlanParvadaPage() {
     [live, planAlert],
   );
 
-  const weeks = data?.projection.weeks ?? [];
+  const weeks = data?.projection.weeks ?? EMPTY_WEEKS;
   const visibleWeeks = useMemo(
     () => (showAllWeeks ? weeks : weeks.filter((week) => week.offset >= -2 && week.offset <= 8)),
     [showAllWeeks, weeks],
