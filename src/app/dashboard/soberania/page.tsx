@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState, useCallback, useMemo } from "react";
+import Link from "next/link";
 import { PageHeader, Button, Card, StatCard, Table, Modal, Input, Select, Textarea, EmptyState, Badge } from "@/components/ui";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from "recharts";
 import { apiFetch } from "@/lib/fetch";
@@ -197,9 +198,17 @@ export default function SoberaniaPage() {
         description="Gestión integral de la proteína producida para el hogar y cuantificación del ahorro económico en la canasta familiar."
         help="Este módulo mide el impacto directo de la granja en la alimentación de la familia. Cada huevo o kilo de carne de pollo, pato, conejo o codorniz que se queda en casa se valoriza al precio que costaría comprarlo en el mercado, calculando el ahorro real generado."
         actions={
-          <Button variant="primary" onClick={() => setModalOpen(true)}>
-            + Registrar Consumo Hogar
-          </Button>
+          <div className="flex flex-wrap gap-2">
+            <Link
+              href="/dashboard/produccion/plan-parvada"
+              className="rounded-lg border border-green-300 bg-white px-3 py-2 text-sm font-medium text-green-700 transition-colors hover:bg-green-50"
+            >
+              🗓️ Plan de Parvada
+            </Link>
+            <Button variant="primary" onClick={() => setModalOpen(true)}>
+              + Registrar Consumo Hogar
+            </Button>
+          </div>
         }
       />
 

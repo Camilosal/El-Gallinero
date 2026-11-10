@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState, useCallback, useMemo } from "react";
+import Link from "next/link";
 import { PageHeader, Card, Table, Badge, StatCard, EmptyState } from "@/components/ui";
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip, Legend } from "recharts";
 import { apiFetch } from "@/lib/fetch";
@@ -253,10 +254,31 @@ export default function BalancePage() {
   return (
     <div>
       <PageHeader
-        title="⚖️ Balance de Inventario"
-        description="Vista consolidada de todos los stocks del gallinero: alimentos, huevos, animales y gallinaza"
-        help="Vista consolidada de todo el inventario del gallinero en un solo lugar: alimentos (stock actual, valor, alertas de mínimo), huevos (disponible por tamaño), animales (gallinas, gallos, pollos, codornices, patos y conejos) y gallinaza. Las aves incluyen gallinas, gallos, pollos, codornices y patos; los conejos se reportan aparte. Los indicadores en rojo señalan stock bajo. Incluye gráfico de distribución de valor por categoría para ver dónde se concentra el capital invertido en inventario."
+        title="⚖️ Inventarios y Valorización"
+        description="Todo el inventario del gallinero y su valor: animales, huevos, carne, gallinaza, alimentos e insumos."
+        help="Esta es la vista completa de existencias para valorizar la granja. Incluye animales en pie (gallinas, gallos, pollos, codornices, patos y conejos), huevos disponibles, carne, gallinaza, alimentos e insumos. El valor total suma todas las categorías con los precios de Catálogos y los costos registrados. Los indicadores en rojo señalan stock bajo. Usa los accesos rápidos para gestionar cada categoría y este balance para ver el capital invertido en inventario."
       />
+
+      <div className="mb-4 flex flex-wrap gap-2">
+        <Link href="/dashboard/animales" className="rounded-full bg-green-50 px-3 py-1.5 text-xs font-semibold text-green-700 hover:bg-green-100">
+          🐾 Animales
+        </Link>
+        <Link href="/dashboard/inventarios/huevos" className="rounded-full bg-yellow-50 px-3 py-1.5 text-xs font-semibold text-yellow-700 hover:bg-yellow-100">
+          🥚 Huevos
+        </Link>
+        <Link href="/dashboard/inventarios/carne" className="rounded-full bg-red-50 px-3 py-1.5 text-xs font-semibold text-red-700 hover:bg-red-100">
+          🍗 Carne
+        </Link>
+        <Link href="/dashboard/inventarios/gallinaza" className="rounded-full bg-lime-50 px-3 py-1.5 text-xs font-semibold text-lime-700 hover:bg-lime-100">
+          🌱 Gallinaza
+        </Link>
+        <Link href="/dashboard/inventarios/alimentacion" className="rounded-full bg-blue-50 px-3 py-1.5 text-xs font-semibold text-blue-700 hover:bg-blue-100">
+          🌾 Alimentos
+        </Link>
+        <Link href="/dashboard/inventarios/insumos" className="rounded-full bg-purple-50 px-3 py-1.5 text-xs font-semibold text-purple-700 hover:bg-purple-100">
+          🧰 Insumos
+        </Link>
+      </div>
 
       <div className="flex justify-end mb-4">
         <div className="flex items-center gap-2">

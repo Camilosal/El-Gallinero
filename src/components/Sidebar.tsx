@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname, useRouter } from "next/navigation";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useState, useEffect } from "react";
 import GlobalSearch from "@/components/GlobalSearch";
 import { navigationGroups, type MenuGroup } from "@/lib/navigation";
@@ -11,6 +11,7 @@ const COLLAPSED_KEY = "sidebar-collapsed";
 
 export default function Sidebar() {
   const pathname = usePathname();
+  const searchParams = useSearchParams();
   const router = useRouter();
   const [expandedGroups, setExpandedGroups] = useState<Set<string>>(new Set());
   const [mobileOpen, setMobileOpen] = useState(false);
@@ -27,10 +28,10 @@ export default function Sidebar() {
       try {
         setExpandedGroups(new Set(JSON.parse(stored)));
       } catch {
-        setExpandedGroups(new Set(["produccion"]));
+        setExpandedGroups(new Set(["animales"]));
       }
     } else {
-      setExpandedGroups(new Set(["produccion"]));
+      setExpandedGroups(new Set(["animales"]));
     }
   }, []);
 
@@ -68,12 +69,25 @@ export default function Sidebar() {
   };
 
   const isItemActive = (href: string) => {
-    return pathname === href || (href !== "/" && pathname.startsWith(href.split("?")[0]));
+    const [path, query = ""] = href.split("?");
+    const pathMatches = pathname === path || (path !== "/" && pathname.startsWith(path + "/"));
+    if (!pathMatches) return false;
+
+    if (query) {
+      const expected = new URLSearchParams(query);
+      for (const [key, value] of expected.entries()) {
+        if (searchParams.get(key) !== value) return false;
+      }
+      return true;
+    }
+
+    // Las páginas con pestañas activan su índice solo cuando no hay pestaña.
+    if (path === "/dashboard/produccion" && searchParams.get("tab")) return false;
+    return true;
   };
 
   const isGroupActive = (group: MenuGroup) => {
-    if (pathname === group.indexHref) return true;
-    return group.items.some((item) => isItemActive(item.href));
+    return isItemActive(group.indexHref) || group.items.some((item) => isItemActive(item.href));
   };
 
   const sidebarWidth = collapsed ? "w-16" : "w-64";

@@ -17,44 +17,72 @@ export interface MenuGroup {
 }
 
 // ─── Unified groups: single mode, no simple/advanced separation ───
+// Animales = registro e inventario de seres vivos.
+// Producción = productos generados (huevos, carne, gallinaza).
+// Inventarios = valorización de todas las existencias.
+// Almacén = alimentos, insumos y mantenimiento.
 export const navigationGroups: MenuGroup[] = [
+  {
+    id: "animales",
+    label: "Animales",
+    icon: "🐾",
+    indexHref: "/dashboard/animales",
+    keywords: ["animales", "aves", "gallinas", "gallos", "pollos", "conejos", "codornices", "patos", "lotes", "registro", "inventario animal"],
+    items: [
+      { href: "/dashboard/produccion?tab=gallinas", label: "Gallinas", icon: "🐔" },
+      { href: "/dashboard/produccion?tab=pollos", label: "Gallos y lotes", icon: "🐓" },
+      { href: "/dashboard/produccion/adquisiciones", label: "Adquisiciones", icon: "📥" },
+      { href: "/dashboard/produccion/mortalidad", label: "Mortalidad", icon: "💀" },
+      { href: "/dashboard/produccion?tab=incubacion", label: "Incubación", icon: "🐣" },
+    ],
+  },
   {
     id: "produccion",
     label: "Producción",
     icon: "🥚",
-    indexHref: "/dashboard/produccion?tab=huevos",
-    keywords: ["produccion", "granja", "aves", "huevos"],
+    indexHref: "/dashboard/produccion",
+    keywords: ["produccion", "productos", "granja", "huevos", "carne", "gallinaza"],
     items: [
       { href: "/dashboard/produccion?tab=huevos", label: "Huevos", icon: "🥚" },
-      { href: "/dashboard/produccion?tab=gallinas", label: "Gallinas", icon: "🐔" },
-      { href: "/dashboard/produccion?tab=pollos", label: "Pollos", icon: "🐓" },
       { href: "/dashboard/produccion?tab=carne", label: "Carne", icon: "🍗" },
       { href: "/dashboard/produccion?tab=gallinaza", label: "Gallinaza", icon: "🌱" },
     ],
   },
   {
-    id: "operaciones",
-    label: "Operaciones",
-    icon: "⚙️",
-    indexHref: "/dashboard/produccion?tab=alimentacion",
-    keywords: ["operaciones", "procesos", "alimentacion", "mantenimiento"],
+    id: "inventarios",
+    label: "Inventarios",
+    icon: "📦",
+    indexHref: "/dashboard/inventarios/balance",
+    keywords: ["inventarios", "stock", "existencias", "bodega", "valorizacion", "valor", "balance", "patrimonio"],
     items: [
-      { href: "/dashboard/produccion?tab=alimentacion", label: "Alimentación", icon: "🌾" },
-      { href: "/dashboard/produccion?tab=incubacion", label: "Incubación", icon: "🐣" },
-      { href: "/dashboard/produccion?tab=inventario", label: "Inventario", icon: "📦" },
-      { href: "/dashboard/produccion/adquisiciones", label: "Adquisiciones", icon: "📥" },
-      { href: "/dashboard/produccion/mortalidad", label: "Mortalidad", icon: "💀" },
-      { href: "/dashboard/produccion/plan-parvada", label: "Plan Parvada", icon: "🏠" },
+      { href: "/dashboard/inventarios/balance", label: "Valorización total", icon: "⚖️" },
+      { href: "/dashboard/inventarios/huevos", label: "Huevos", icon: "📦" },
+      { href: "/dashboard/inventarios/carne", label: "Carne", icon: "🍗" },
+      { href: "/dashboard/inventarios/gallinaza", label: "Gallinaza", icon: "🌱" },
+    ],
+  },
+  {
+    id: "almacen",
+    label: "Almacén",
+    icon: "🧰",
+    indexHref: "/dashboard/almacen",
+    keywords: ["almacen", "insumos", "materiales", "alimentos", "mantenimiento", "bodega", "compras"],
+    items: [
+      { href: "/dashboard/produccion?tab=alimentacion", label: "Gestión de alimentación", icon: "🌾" },
+      { href: "/dashboard/inventarios/alimentacion", label: "Inventario de alimentos", icon: "📊" },
+      { href: "/dashboard/inventarios/insumos", label: "Insumos", icon: "🧰" },
       { href: "/dashboard/operaciones/mantenimiento", label: "Mantenimiento", icon: "🔧" },
     ],
   },
   {
-    id: "soberania",
-    label: "Soberanía",
-    icon: "🏡",
+    id: "planificacion",
+    label: "Planificación y Soberanía",
+    icon: "🌱",
     indexHref: "/dashboard/soberania",
-    keywords: ["soberania", "autoconsumo", "seguridad alimentaria", "familia", "huerta"],
-    items: [],
+    keywords: ["planificacion", "soberania", "autoconsumo", "seguridad alimentaria", "familia", "huerta", "plan parvada", "proyeccion"],
+    items: [
+      { href: "/dashboard/produccion/plan-parvada", label: "Plan de Parvada", icon: "🗓️" },
+    ],
   },
   {
     id: "sanidad",
@@ -114,6 +142,8 @@ export const navigationGroups: MenuGroup[] = [
 
 // ─── Sinónimos y palabras clave por módulo (búsqueda "semántica") ───
 const ITEM_KEYWORDS: Record<string, string[]> = {
+  "/dashboard/animales": ["animales", "aves", "gallinas", "gallos", "pollos", "conejos", "codornices", "patos", "lotes", "registro", "inventario animal", "valorizacion"],
+  "/dashboard/produccion": ["produccion", "productos", "huevos", "carne", "gallinaza"],
   "/dashboard/produccion?tab=huevos": ["huevo", "huevos", "postura", "recoleccion", "recolecciones", "produccion", "diaria", "rotos", "incubables", "clasificacion", "tallas"],
   "/dashboard/produccion?tab=gallinas": ["gallina", "gallinas", "aves", "ponedoras", "gallinero", "lote", "codigo", "raza", "edad", "etapa", "empollando", "clueca"],
   "/dashboard/produccion?tab=pollos": ["pollo", "pollos", "gallos", "engorde", "broiler", "cria", "lote", "cantidad", "peso", "rooster"],
@@ -121,22 +151,22 @@ const ITEM_KEYWORDS: Record<string, string[]> = {
   "/dashboard/produccion?tab=gallinaza": ["gallinaza", "abono", "estiercol", "fertilizante", "compost", "venta", "ajuste", "pollinaza"],
   "/dashboard/produccion?tab=alimentacion": ["alimentacion", "alimento", "comida", "concentrado", "maiz", "racion", "dieta", "consumo", "programa", "nutricion", "forraje"],
   "/dashboard/produccion?tab=incubacion": ["incubacion", "incubar", "huevos", "fertil", "nacimiento", "pollitos", "eclosion", "empollando"],
-  "/dashboard/produccion?tab=inventario": ["inventario", "stock", "existencias", "bodega", "aves", "inventario aves"],
   "/dashboard/produccion/adquisiciones": ["adquisicion", "adquisiciones", "compra", "compras", "donacion", "ingreso", "aves", "proveedor", "inversion"],
   "/dashboard/produccion/mortalidad": ["mortalidad", "muerte", "muertes", "bajas", "fallecidas", "causa", "perdidas", "aves"],
-  "/dashboard/produccion/plan-parvada": ["plan", "parvada", "lotes", "planeacion", "proyeccion", "futuro", "aves", "produccion"],
+  "/dashboard/produccion/plan-parvada": ["plan", "parvada", "lotes", "planeacion", "proyeccion", "futuro", "aves", "produccion", "planificacion"],
+  "/dashboard/almacen": ["almacen", "insumos", "materiales", "alimentos", "mantenimiento", "bodega", "compras", "inventario"],
   "/dashboard/operaciones/mantenimiento": ["mantenimiento", "reparacion", "reparaciones", "tareas", "herramientas", "equipos", "infraestructura"],
-  "/dashboard/soberania": ["soberania", "autoconsumo", "seguridad alimentaria", "familia", "huerta", "consumo"],
+  "/dashboard/soberania": ["soberania", "autoconsumo", "seguridad alimentaria", "familia", "huerta", "consumo", "planificacion"],
   "/dashboard/sanidad": ["sanidad", "salud", "enfermedad", "prevencion"],
   "/dashboard/sanidad/control": ["sanidad", "salud", "vacuna", "vacunacion", "medicina", "medicamento", "tratamiento", "enfermedad", "control", "desparasitacion"],
   "/dashboard/sanidad/calendario": ["calendario", "sanidad", "vacunas", "fechas", "eventos", "programacion", "recordatorio"],
   "/dashboard/sanidad/alertas": ["alertas", "sanidad", "avisos", "vencidas", "proximas", "recordatorios"],
-  "/dashboard/inventarios": ["inventarios", "stock", "existencias", "bodega", "balance"],
+  "/dashboard/inventarios": ["inventarios", "stock", "existencias", "bodega", "balance", "valorizacion"],
   "/dashboard/inventarios/huevos": ["inventario", "huevos", "stock", "existencias", "tallas", "rotos"],
   "/dashboard/inventarios/carne": ["inventario", "carne", "stock", "congelador", "existencias", "kilos"],
   "/dashboard/inventarios/gallinaza": ["inventario", "gallinaza", "abono", "stock", "existencias"],
   "/dashboard/inventarios/alimentacion": ["inventario", "alimentacion", "alimento", "stock", "concentrado", "maiz", "comida", "dias", "proyeccion"],
-  "/dashboard/inventarios/balance": ["balance", "inventario", "valor", "patrimonio", "activos", "aves", "existencias"],
+  "/dashboard/inventarios/balance": ["balance", "inventario", "valor", "valorizacion", "patrimonio", "activos", "aves", "existencias", "total"],
   "/dashboard/inventarios/insumos": ["insumos", "inventario", "medicamentos", "vacunas", "herramientas", "limpieza", "stock", "proveedor"],
   "/dashboard/finanzas": ["finanzas", "dinero", "plata", "balance", "costos"],
   "/dashboard/finanzas/ventas": ["ventas", "vender", "ingresos", "facturacion", "clientes", "pedidos", "huevos", "carne", "aves", "plata", "dinero"],
@@ -292,13 +322,13 @@ function scoreEntry(entry: SearchEntry, tokens: string[], fullQuery: string): nu
 
 const DEFAULT_HREFS = [
   "/dashboard",
+  "/dashboard/animales",
   "/dashboard/produccion?tab=huevos",
-  "/dashboard/produccion?tab=gallinas",
   "/dashboard/produccion?tab=alimentacion",
-  "/dashboard/inventarios/insumos",
+  "/dashboard/inventarios/balance",
+  "/dashboard/almacen",
   "/dashboard/finanzas/ventas",
   "/dashboard/sanidad/control",
-  "/dashboard/analisis/reportes",
 ];
 
 /**

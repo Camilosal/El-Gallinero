@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useSearchParams } from "next/navigation";
+import { useSearchParams, useRouter } from "next/navigation";
 import { Suspense, lazy, useEffect, useState } from "react";
 import { apiFetch } from "@/lib/fetch";
 
@@ -12,7 +12,6 @@ const HuevosTab = lazy(() => import("./_components/HuevosTab"));
 const IncubacionTab = lazy(() => import("./_components/IncubacionTab"));
 const CarneTab = lazy(() => import("./_components/CarneTab"));
 const GallinazaTab = lazy(() => import("./_components/GallinazaTab"));
-const InventarioTab = lazy(() => import("./_components/InventarioTab"));
 
 const tabComponents: Record<string, React.ComponentType> = {
   gallinas: GallinasTab,
@@ -22,21 +21,12 @@ const tabComponents: Record<string, React.ComponentType> = {
   incubacion: IncubacionTab,
   carne: CarneTab,
   gallinaza: GallinazaTab,
-  inventario: InventarioTab,
 };
 
 const secciones = [
-  { href: "/dashboard/produccion/gallinas", label: "Gallinas", icon: "🐔", desc: "Parvada activa y lotes" },
-  { href: "/dashboard/produccion/pollos", label: "Pollos y Gallos", icon: "🐓", desc: "Levante y engorde" },
-  { href: "/dashboard/produccion/adquisiciones", label: "Adquisiciones", icon: "📥", desc: "Entrada de aves" },
-  { href: "/dashboard/produccion/alimentacion", label: "Alimentación", icon: "🌾", desc: "Consumo y programas" },
-  { href: "/dashboard/produccion/huevos", label: "Producción Huevos", icon: "🥚", desc: "Recolección diario" },
-  { href: "/dashboard/produccion/incubacion", label: "Incubación", icon: "🐣", desc: "Nacimientos y fertilidad" },
-  { href: "/dashboard/produccion/sacrificio", label: "Carne", icon: "🍗", desc: "Procesamiento" },
-  { href: "/dashboard/produccion?tab=gallinaza", label: "Gallinaza", icon: "🌱", desc: "Producción y ventas" },
-  { href: "/dashboard/produccion?tab=inventario", label: "Inventario", icon: "📦", desc: "Stock consolidado" },
-  { href: "/dashboard/produccion/mortalidad", label: "Mortalidad", icon: "💀", desc: "Bajas por lote" },
-  { href: "/dashboard/produccion/plan-parvada", label: "Plan Parvada", icon: "🏠", desc: "Proyecciones" },
+  { href: "/dashboard/produccion?tab=huevos", label: "Huevos", icon: "🥚", desc: "Recolección diaria y producción" },
+  { href: "/dashboard/produccion?tab=carne", label: "Carne", icon: "🍗", desc: "Faena, despiece y rendimiento" },
+  { href: "/dashboard/produccion?tab=gallinaza", label: "Gallinaza", icon: "🌱", desc: "Recolección, procesamiento y ventas" },
 ];
 
 interface ResumenProduccion {
@@ -75,8 +65,19 @@ export default function ProduccionPage() {
 
 function ProduccionContent() {
   const searchParams = useSearchParams();
+  const router = useRouter();
   const tab = searchParams.get("tab");
   const TabComponent = tab ? tabComponents[tab] : null;
+
+  useEffect(() => {
+    if (tab === "inventario") {
+      router.replace("/dashboard/inventarios/balance");
+    }
+  }, [tab, router]);
+
+  if (tab === "inventario") {
+    return <TabFallback />;
+  }
 
   if (TabComponent) {
     return (
@@ -110,11 +111,11 @@ function CategoryView() {
     <div className="p-8">
       <div className="mb-8">
         <h1 className="text-3xl font-bold flex items-center gap-3">
-          <span className="text-4xl">🐔</span>
+          <span className="text-4xl">🥚</span>
           Producción
         </h1>
         <p className="text-gray-600 mt-2">
-          Gestión de procesos productivos: parvada, alimentación, producción de huevos, incubación y sacrificio.
+          Productos generados por la granja: huevos, carne y gallinaza. Los animales y sus registros se gestionan en el grupo Animales.
         </p>
       </div>
 
@@ -141,13 +142,28 @@ function CategoryView() {
             <p className="text-sm text-gray-600 mb-1">🐾 Animales en Inventario</p>
             <p className="text-3xl font-bold text-gray-900">{resumen.totalAnimals ?? resumen.totalGallinas}</p>
             <p className="text-xs text-gray-500 mt-1">{speciesHint || `${resumen.totalBirds ?? 0} aves`}</p>
+            <Link href="/dashboard/animales" className="mt-1 inline-block text-xs font-semibold text-purple-700 hover:underline">
+              Ver animales →
+            </Link>
           </div>
           <div className="bg-white rounded-lg shadow-md p-6 border-l-4 border-red-500">
             <p className="text-sm text-gray-600 mb-1">💀 Mortalidad Semana</p>
             <p className="text-3xl font-bold text-gray-900">{resumen.mortalidadSemana}</p>
+            <Link href="/dashboard/produccion/mortalidad" className="mt-1 inline-block text-xs font-semibold text-red-700 hover:underline">
+              Ver registro →
+            </Link>
           </div>
         </div>
       ) : null}
+
+      <div className="mb-6 flex flex-col gap-2 rounded-xl border border-green-200 bg-green-50 p-4 text-sm text-green-900 sm:flex-row sm:items-center sm:justify-between">
+        <p>
+          <strong>🐾 ¿Buscas gallinas, gallos, pollos, conejos o lotes?</strong> Su registro e inventario están en Animales.
+        </p>
+        <Link href="/dashboard/animales" className="font-semibold text-green-800 hover:underline">
+          Ir a Animales →
+        </Link>
+      </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
         {secciones.map((sec) => (

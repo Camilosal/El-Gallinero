@@ -6,7 +6,7 @@ import { useCatalog } from "@/lib/useCatalog";
 import { apiFetch } from "@/lib/fetch";
 import TableSearch from "@/components/TableSearch";
 import { matchesTextQuery } from "@/lib/text";
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, LineChart, Line } from "recharts";
+import { BarChart, Bar, Cell, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from "recharts";
 
 interface Feed {
   id: string;
@@ -119,13 +119,6 @@ interface PredictionItem {
   expected7d: number;
   actual7d: number;
   suggestedOrderQty: number;
-  projectedStock: { day: number; date: string; projectedStockKg: number }[];
-}
-
-interface DailyProjection {
-  day: number;
-  date: string;
-  stocks: Record<string, number>;
 }
 
 interface PredictionData {
@@ -140,7 +133,6 @@ interface PredictionData {
     outCount: number;
   };
   predictions: PredictionItem[];
-  dailyProjection: DailyProjection[];
 }
 
 const alertLabels: Record<string, string> = {
@@ -178,27 +170,10 @@ const stageColors: Record<string, string> = {
   Postura: "green",
 };
 
-interface StockProjection {
-  feedId: string;
-  feedName: string;
-  dailyNeedKg: number;
-  currentStockKg: number;
-  daysRemaining: number | null;
-  calculatedMinStock: number | null;
-}
-
-interface ResumenData {
-  totalHens: number;
-  totalExpectedEggsPerDay: number;
-  stockProjection: StockProjection[];
-  consumptionVsExpected: { feedId: string; feedName: string; actual7d: number; expected7d: number; variance: number }[];
-}
-
 export default function AlimentacionPage() {
   const [feeds, setFeeds] = useState<Feed[]>([]);
   const [movements, setMovements] = useState<Movement[]>([]);
   const [stages, setStages] = useState<Stage[]>([]);
-  const [resumen, setResumen] = useState<ResumenData | null>(null);
   const [comparativo, setComparativo] = useState<ComparativoItem[]>([]);
   const [dailyData, setDailyData] = useState<DailyData[]>([]);
   const [comparativoDays, setComparativoDays] = useState<number>(14);
@@ -224,13 +199,10 @@ export default function AlimentacionPage() {
   });
   const [form, setForm] = useState({ name: "", category: "granja_fresco", feedType: "pastos_gramineas", unit: "kg", currentStock: "0", minStock: "10", costPerUnit: "0", supplier: "" });
   const [movForm, setMovForm] = useState({ feedId: "", quantity: "", isEntry: true, movementType: "compra", stageCatalogoId: "", henCount: "", date: new Date().toISOString().split("T")[0], notes: "" });
-  const [stockDays, setStockDays] = useState<number>(14);
   const [prediccion, setPrediccion] = useState<PredictionData | null>(null);
   const [prediccionDays, setPrediccionDays] = useState<number>(30);
   const [feedSearch, setFeedSearch] = useState("");
   const [movementSearch, setMovementSearch] = useState("");
-  const [projectionSearch, setProjectionSearch] = useState("");
-  const [consumptionSearch, setConsumptionSearch] = useState("");
   const [comparativoSearch, setComparativoSearch] = useState("");
   const [predictionSearch, setPredictionSearch] = useState("");
   const { values: supplierOptions } = useCatalog("proveedor");
@@ -243,19 +215,17 @@ export default function AlimentacionPage() {
       apiFetch("/api/produccion/alimentacion").then((r) => r.json()),
       apiFetch("/api/produccion/alimentacion/movimientos").then((r) => r.json()),
       apiFetch("/api/produccion/etapas").then((r) => r.json()),
-      apiFetch(`/api/produccion/etapas/resumen?days=${stockDays}`).then((r) => r.json()),
       apiFetch(`/api/produccion/alimentacion/comparativo?days=${comparativoDays}`).then((r) => r.json()),
       apiFetch(`/api/produccion/alimentacion/prediccion?days=${prediccionDays}`).then((r) => r.json()),
-    ]).then(([f, m, s, r, comp, pred]) => {
+    ]).then(([f, m, s, comp, pred]) => {
       setFeeds(normalizeFeedList(f));
       setMovements(Array.isArray(m) ? m : []);
       setStages(Array.isArray(s) ? s : []);
-      setResumen(r);
       setComparativo(comp?.comparativo || []);
       setDailyData(comp?.dailyData || []);
       setPrediccion(pred);
     }).finally(() => setLoading(false));
-  }, [stockDays, comparativoDays, prediccionDays]);
+  }, [comparativoDays, prediccionDays]);
 
   useEffect(() => { load(); }, [load]);
 
@@ -450,33 +420,6 @@ export default function AlimentacionPage() {
     );
   }, [movements, movementSearch]);
 
-  const filteredStockProjection = useMemo(() => {
-    const projection = resumen?.stockProjection ?? [];
-    if (!projectionSearch.trim()) return projection;
-    return projection.filter((item) =>
-      matchesTextQuery(projectionSearch, [
-        item.feedName,
-        item.currentStockKg,
-        item.dailyNeedKg,
-        item.daysRemaining,
-        item.calculatedMinStock,
-      ]),
-    );
-  }, [resumen, projectionSearch]);
-
-  const filteredConsumption = useMemo(() => {
-    const consumption = resumen?.consumptionVsExpected ?? [];
-    if (!consumptionSearch.trim()) return consumption;
-    return consumption.filter((item) =>
-      matchesTextQuery(consumptionSearch, [
-        item.feedName,
-        item.expected7d,
-        item.actual7d,
-        item.variance,
-      ]),
-    );
-  }, [resumen, consumptionSearch]);
-
   const filteredComparativo = useMemo(() => {
     if (!comparativoSearch.trim()) return comparativo;
     return comparativo.filter((item) =>
@@ -511,12 +454,43 @@ export default function AlimentacionPage() {
     );
   }, [prediccion, predictionSearch]);
 
+  // Totales diarios para una gráfica legible: una barra de planificado y otra de real.
+  const dailyTotals = useMemo(
+    () =>
+      dailyData.map((day) => ({
+        fecha: day.fecha,
+        planificado:
+          Math.round(
+            Object.values(day.planned).reduce((sum, value) => sum + value, 0) * 100,
+          ) / 100,
+        real:
+          Math.round(
+            Object.values(day.actual).reduce((sum, value) => sum + value, 0) * 100,
+          ) / 100,
+      })),
+    [dailyData],
+  );
+
+  // Días de stock restante por alimento: la lectura más directa para decidir compras.
+  const stockDaysData = useMemo(
+    () =>
+      (prediccion?.predictions ?? [])
+        .filter((item) => item.daysRemaining !== null)
+        .sort((a, b) => (a.daysRemaining ?? 0) - (b.daysRemaining ?? 0))
+        .slice(0, 10)
+        .map((item) => ({
+          name: item.feedName,
+          dias: item.daysRemaining ?? 0,
+        })),
+    [prediccion],
+  );
+
   return (
     <div>
       <PageHeader
         title="🌾 Gestión de Alimentación"
-        description="Alimentos, etapas de crecimiento y programas de alimentación por etapa"
-        help="Gestiona los alimentos de tus gallinas y su consumo.\n\n• Inventario: registra los alimentos que tienes (de granja o comprados), su stock y costo.\n• Movimientos: registra entradas (compras, donaciones) y salidas manuales. El consumo diario por programa se calcula automáticamente.\n• Etapas y Programas: define qué come cada grupo de gallinas según su etapa de crecimiento. El sistema calcula el consumo automático diario.\n• Planificado vs Real: compara lo que debieron comer vs lo que realmente consumieron.\n• Predicción de Stock: proyecta cuándo se agotará cada alimento según el consumo actual."
+        description="Alimentos, movimientos, programas por etapa y predicción de consumo"
+        help="Gestiona los alimentos de tus animales y su consumo.\n\n• Inventario: registra los alimentos que tienes (de granja o comprados), su stock y costo.\n• Movimientos: registra entradas (compras, donaciones) y salidas manuales. El consumo diario por programa se calcula automáticamente.\n• Etapas y Programas: define qué come cada grupo de animales según su etapa de crecimiento. El sistema calcula el consumo automático diario.\n• Planificado vs Real: compara lo que debieron comer vs lo que realmente consumieron.\n• Predicción de Stock: proyecta cuándo se agotará cada alimento según el consumo actual.\n\nLa proyección de stock y la comparación con lo esperado viven solo en sus pestañas, para no duplicar información."
         actions={
           <div className="flex gap-2">
             <Button onClick={openNewFeed}>+ Nuevo Alimento</Button>
@@ -784,136 +758,28 @@ export default function AlimentacionPage() {
               })
           )}
 
-          {/* Stock Projection */}
-          {resumen && resumen.stockProjection.length > 0 && (
-            <Card>
-              <div className="flex items-center justify-between mb-3">
-                <h3 className="font-semibold text-slate-700">📦 Proyección de Stock (según gallinas por etapa)</h3>
-                <div className="flex items-center gap-2">
-                  <label className="text-sm text-slate-600">Días de stock mínimo:</label>
-                  <select
-                    value={stockDays}
-                    onChange={(e) => setStockDays(Number(e.target.value))}
-                    className="border rounded-lg px-3 py-1.5 text-sm font-medium"
-                  >
-                    <option value={7}>7 días</option>
-                    <option value={14}>14 días</option>
-                    <option value={21}>21 días</option>
-                    <option value={30}>30 días</option>
-                    <option value={45}>45 días</option>
-                    <option value={60}>60 días</option>
-                  </select>
-                </div>
+          <Card className="border-blue-200 bg-blue-50">
+            <div className="flex flex-col gap-2 text-sm text-blue-900 sm:flex-row sm:items-center sm:justify-between">
+              <p>
+                <strong>La proyección de stock y el consumo esperado no se repiten aquí.</strong>{" "}
+                Consulta los días restantes en Predicción de Stock y la comparación con lo real en Planificado vs Real.
+              </p>
+              <div className="flex shrink-0 gap-2">
+                <button
+                  onClick={() => setTab("prediccion")}
+                  className="rounded-lg bg-blue-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-blue-700"
+                >
+                  Predicción de Stock
+                </button>
+                <button
+                  onClick={() => setTab("comparativo")}
+                  className="rounded-lg border border-blue-300 bg-white px-3 py-1.5 text-xs font-semibold text-blue-700 hover:bg-blue-50"
+                >
+                  Planificado vs Real
+                </button>
               </div>
-              <TableSearch
-                value={projectionSearch}
-                onChange={setProjectionSearch}
-                placeholder="Buscar por alimento o días restantes..."
-                resultCount={filteredStockProjection.length}
-                totalCount={resumen.stockProjection.length}
-                className="mb-4"
-              />
-              {filteredStockProjection.length === 0 ? (
-                <EmptyState
-                  icon="📦"
-                  message={
-                    projectionSearch.trim()
-                      ? "No hay alimentos que coincidan con la búsqueda"
-                      : "Sin proyección de stock"
-                  }
-                />
-              ) : (
-              <Table headers={["Alimento", "Stock Actual", "Consumo/día", "Días Restantes", `Mín. (${stockDays}d)`, "Acción"]}>
-                {filteredStockProjection.map((item) => {
-                  const isCritical = item.daysRemaining !== null && item.daysRemaining <= 7;
-                  const isWarning = item.daysRemaining !== null && item.daysRemaining > 7 && item.daysRemaining <= 14;
-                  const currentMin = Number(feeds.find((f) => f.id === item.feedId)?.minStock || 0);
-                  const calcMin = item.calculatedMinStock || 0;
-                  const needsUpdate = Math.abs(currentMin - calcMin) > 0.5;
-                  return (
-                    <tr key={item.feedId} className={isCritical ? "bg-red-50" : isWarning ? "bg-yellow-50" : ""}>
-                      <td className="px-4 py-2 font-medium">{item.feedName}</td>
-                      <td className="px-4 py-2">{item.currentStockKg} kg</td>
-                      <td className="px-4 py-2">{item.dailyNeedKg} kg/día</td>
-                      <td className="px-4 py-2">
-                        <span className={`font-bold ${isCritical ? "text-red-600" : isWarning ? "text-yellow-600" : "text-green-600"}`}>
-                          {item.daysRemaining !== null ? `${item.daysRemaining} días` : "Sin consumo"}
-                        </span>
-                      </td>
-                      <td className="px-4 py-2">
-                        <div className="flex items-center gap-2">
-                          <span className="font-semibold text-blue-600">{calcMin} kg</span>
-                          {needsUpdate && (
-                            <span className="text-xs text-orange-600">(actual: {currentMin} kg)</span>
-                          )}
-                        </div>
-                      </td>
-                      <td className="px-4 py-2">
-                        {needsUpdate && (
-                          <button
-                            onClick={async () => {
-                              const feed = feeds.find((f) => f.id === item.feedId);
-                              if (!feed) return;
-                              await apiFetch("/api/produccion/alimentacion", {
-                                method: "PUT",
-                                headers: { "Content-Type": "application/json" },
-                                body: JSON.stringify({ id: item.feedId, minStock: String(calcMin) }),
-                              });
-                              load();
-                            }}
-                            className="text-xs bg-blue-600 text-white px-2 py-1 rounded hover:bg-blue-700"
-                          >
-                            Actualizar mín.
-                          </button>
-                        )}
-                      </td>
-                    </tr>
-                  );
-                })}
-              </Table>
-              )}
-            </Card>
-          )}
-
-          {/* Consumption vs Expected */}
-          {resumen && resumen.consumptionVsExpected.length > 0 && (
-            <Card>
-              <h3 className="font-semibold text-slate-700 mb-3">📊 Consumo Real vs Esperado (últimos 7 días)</h3>
-              <TableSearch
-                value={consumptionSearch}
-                onChange={setConsumptionSearch}
-                placeholder="Buscar por alimento..."
-                resultCount={filteredConsumption.length}
-                totalCount={resumen.consumptionVsExpected.length}
-                className="mb-4"
-              />
-              {filteredConsumption.length === 0 ? (
-                <EmptyState
-                  icon="📊"
-                  message={
-                    consumptionSearch.trim()
-                      ? "No hay alimentos que coincidan con la búsqueda"
-                      : "Sin datos de consumo"
-                  }
-                />
-              ) : (
-              <Table headers={["Alimento", "Esperado (7d)", "Real (7d)", "Diferencia"]}>
-                {filteredConsumption.map((item) => (
-                  <tr key={item.feedId} className="hover:bg-slate-50">
-                    <td className="px-4 py-2 font-medium">{item.feedName}</td>
-                    <td className="px-4 py-2">{item.expected7d} kg</td>
-                    <td className="px-4 py-2">{item.actual7d} kg</td>
-                    <td className="px-4 py-2">
-                      <span className={`font-bold ${item.variance > 0 ? "text-red-600" : item.variance < 0 ? "text-green-600" : "text-slate-500"}`}>
-                        {item.variance > 0 ? "+" : ""}{item.variance} kg
-                      </span>
-                    </td>
-                  </tr>
-                ))}
-              </Table>
-              )}
-            </Card>
-          )}
+            </div>
+          </Card>
         </div>
       )}
 
@@ -992,28 +858,24 @@ export default function AlimentacionPage() {
             )}
           </Card>
 
-          {/* Chart: Daily planned vs actual */}
-          {dailyData.length > 0 && (
+          {/* Chart: Daily totals planned vs actual */}
+          {dailyTotals.length > 0 && (
             <Card>
-              <h3 className="font-semibold text-slate-700 mb-3">📊 Consumo Diario: Planificado vs Real</h3>
+              <h3 className="font-semibold text-slate-700 mb-1">📊 Consumo diario total: Planificado vs Real</h3>
+              <p className="text-xs text-slate-500 mb-3">
+                Suma de todos los alimentos por día. El detalle por alimento está en la tabla.
+              </p>
               <ResponsiveContainer width="100%" height={300}>
-                <LineChart data={dailyData}>
+                <BarChart data={dailyTotals}>
                   <CartesianGrid strokeDasharray="3 3" />
                   <XAxis dataKey="fecha" fontSize={11} />
                   <YAxis fontSize={11} label={{ value: "kg", angle: -90, position: "insideLeft" }} />
                   <Tooltip />
                   <Legend />
-                  {comparativo.map((item, idx) => {
-                    const colors = ["#3b82f6", "#ef4444", "#10b981", "#f59e0b", "#8b5cf6", "#ec4899"];
-                    const color = colors[idx % colors.length];
-                    return [
-                      <Line key={`p-${item.feedId}`} type="monotone" dataKey={(d: DailyData) => d.planned[item.feedId] || 0} stroke={color} strokeDasharray="5 5" name={`${item.feedName} (plan)`} dot={false} />,
-                      <Line key={`a-${item.feedId}`} type="monotone" dataKey={(d: DailyData) => d.actual[item.feedId] || 0} stroke={color} name={`${item.feedName} (real)`} dot={{ r: 3 }} />,
-                    ];
-                  })}
-                </LineChart>
+                  <Bar dataKey="planificado" name="Planificado" fill="#3b82f6" radius={[4, 4, 0, 0]} />
+                  <Bar dataKey="real" name="Real" fill="#22c55e" radius={[4, 4, 0, 0]} />
+                </BarChart>
               </ResponsiveContainer>
-              <p className="text-xs text-slate-500 mt-2">Líneas punteadas = planificado | Líneas sólidas = real</p>
             </Card>
           )}
 
@@ -1101,7 +963,7 @@ export default function AlimentacionPage() {
                     }
                   />
                 ) : (
-                <Table headers={["Alimento", "Stock Actual", "Consumo/día", "Se agota en", "Reponer antes de", "Compra sugerida", "Real vs Esperado (7d)", "Alerta"]}>
+                <Table headers={["Alimento", "Stock Actual", "Consumo/día", "Se agota en", "Reponer antes de", "Compra sugerida", "Alerta"]}>
                   {filteredPredictions.map((item) => (
                     <tr key={item.feedId} className={item.alertLevel === "critico" ? "bg-red-50" : item.alertLevel === "bajo" ? "bg-yellow-50" : "hover:bg-slate-50"}>
                       <td className="px-4 py-2 font-medium">{item.feedName}</td>
@@ -1122,11 +984,6 @@ export default function AlimentacionPage() {
                       </td>
                       <td className="px-4 py-2 font-semibold">{item.suggestedOrderQty} kg</td>
                       <td className="px-4 py-2">
-                        <span className={`text-sm font-semibold ${item.actual7d > item.expected7d ? "text-red-600" : "text-green-600"}`}>
-                          {item.actual7d} / {item.expected7d} kg
-                        </span>
-                      </td>
-                      <td className="px-4 py-2">
                         <Badge color={item.alertLevel === "ok" ? "green" : item.alertLevel === "bajo" ? "yellow" : item.alertLevel === "critico" ? "red" : "gray"}>
                           {alertLabels[item.alertLevel] || item.alertLevel}
                         </Badge>
@@ -1142,32 +999,28 @@ export default function AlimentacionPage() {
             )}
           </Card>
 
-          {/* Chart: Proyección de stock por alimento */}
-          {prediccion && prediccion.predictions.length > 0 && (
+          {/* Chart: Días de stock restante por alimento */}
+          {stockDaysData.length > 0 && (
             <Card>
-              <h3 className="font-semibold text-slate-700 mb-3">📉 Evolución Proyectada del Stock</h3>
-              <ResponsiveContainer width="100%" height={320}>
-                <LineChart data={prediccion.dailyProjection}>
-                  <CartesianGrid strokeDasharray="3 3" />
-                  <XAxis dataKey="day" fontSize={11} label={{ value: "Días", position: "insideBottom", offset: -2 }} />
-                  <YAxis fontSize={11} label={{ value: "kg", angle: -90, position: "insideLeft" }} />
-                  <Tooltip />
-                  <Legend />
-                  {prediccion.predictions.map((item, idx) => {
-                    const colors = ["#3b82f6", "#ef4444", "#10b981", "#f59e0b", "#8b5cf6", "#ec4899"];
-                    const color = colors[idx % colors.length];
-                    return (
-                      <Line
-                        key={item.feedId}
-                        type="monotone"
-                        dataKey={(d: DailyProjection) => d.stocks[item.feedName] ?? 0}
-                        stroke={color}
-                        name={item.feedName}
-                        dot={false}
+              <h3 className="font-semibold text-slate-700 mb-1">📉 Días de stock restante por alimento</h3>
+              <p className="text-xs text-slate-500 mb-3">
+                Los alimentos con menos días aparecen primero. Rojo: 7 días o menos; amarillo: entre 8 y 14 días; verde: más de 14 días.
+              </p>
+              <ResponsiveContainer width="100%" height={Math.max(220, stockDaysData.length * 38)}>
+                <BarChart data={stockDaysData} layout="vertical" margin={{ left: 8, right: 24 }}>
+                  <CartesianGrid strokeDasharray="3 3" horizontal={false} />
+                  <XAxis type="number" fontSize={11} unit=" d" />
+                  <YAxis type="category" dataKey="name" width={130} fontSize={11} />
+                  <Tooltip formatter={(value) => [`${value} días`, "Stock restante"]} />
+                  <Bar dataKey="dias" name="Días restantes" radius={[0, 4, 4, 0]}>
+                    {stockDaysData.map((item) => (
+                      <Cell
+                        key={item.name}
+                        fill={item.dias <= 7 ? "#ef4444" : item.dias <= 14 ? "#f59e0b" : "#22c55e"}
                       />
-                    );
-                  })}
-                </LineChart>
+                    ))}
+                  </Bar>
+                </BarChart>
               </ResponsiveContainer>
               <p className="text-xs text-slate-500 mt-2">Proyección lineal según consumo diario actual, sin entradas futuras.</p>
             </Card>

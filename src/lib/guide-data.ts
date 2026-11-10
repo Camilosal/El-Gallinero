@@ -46,12 +46,14 @@ export interface GuideModule {
 
 export const guideModules: GuideModule[] = [
   { id: "primeros-pasos", label: "Primeros Pasos", icon: "🚀", description: "Comienza a usar el sistema" },
-  { id: "produccion", label: "Producción", icon: "🐔", description: "Gestión diaria de la granja" },
+  { id: "animales", label: "Animales", icon: "🐾", description: "Registro e inventario de animales" },
+  { id: "produccion", label: "Producción", icon: "🥚", description: "Huevos, carne y gallinaza" },
   { id: "finanzas", label: "Finanzas", icon: "💰", description: "Ventas, egresos y balances" },
-  { id: "sanidad", label: "Sanidad", icon: "💊", description: "Salud y bienestar aviar" },
-  { id: "inventarios", label: "Inventarios", icon: "📦", description: "Stock y movimientos" },
+  { id: "sanidad", label: "Sanidad", icon: "💊", description: "Salud y bienestar animal" },
+  { id: "inventarios", label: "Inventarios", icon: "📦", description: "Valorización y stock de todo" },
+  { id: "almacen", label: "Almacén", icon: "🧰", description: "Alimentos, insumos y mantenimiento" },
+  { id: "planificacion", label: "Planificación", icon: "🌱", description: "Plan de parvada y soberanía" },
   { id: "analisis", label: "Análisis", icon: "📊", description: "KPIs, reportes y estándares" },
-  { id: "operaciones", label: "Operaciones", icon: "🔧", description: "Mantenimiento y procesos" },
   { id: "configuracion", label: "Configuración", icon: "⚙️", description: "Personalización del sistema" },
 ];
 
@@ -66,36 +68,45 @@ export const guides: Guide[] = [
     icon: "🚀",
     relatedHrefs: [
       { href: "/dashboard", label: "Dashboard" },
+      { href: "/dashboard/animales", label: "Animales" },
       { href: "/dashboard/produccion", label: "Producción" },
+      { href: "/dashboard/almacen", label: "Almacén" },
     ],
     sections: [
-      { type: "intro", text: "El Gallinero es un sistema integral para gestionar tu granja avícola: producción, finanzas, inventarios y sanidad, todo en un solo lugar. Esta guía te ayudará a comenzar." },
+      { type: "intro", text: "El Gallinero es un sistema integral para gestionar tu granja: animales, producción, inventarios, almacén, finanzas y sanidad, todo en un solo lugar. Esta guía te ayudará a comenzar." },
       { type: "diagram", title: "Arquitectura del Sistema", layout: "vertical", nodes: [
         { id: "dash", label: "Dashboard", icon: "📊", color: "green" },
-        { id: "prod", label: "Producción", icon: "🐔", color: "yellow" },
-        { id: "fin", label: "Finanzas", icon: "💰", color: "green" },
-        { id: "san", label: "Sanidad", icon: "💊", color: "blue" },
+        { id: "animal", label: "Animales", icon: "🐾", color: "yellow" },
+        { id: "prod", label: "Producción", icon: "🥚", color: "amber" },
+        { id: "alm", label: "Almacén", icon: "🧰", color: "slate" },
         { id: "inv", label: "Inventarios", icon: "📦", color: "amber" },
-        { id: "op", label: "Operaciones", icon: "🔧", color: "slate" },
+        { id: "plan", label: "Planificación y Soberanía", icon: "🌱", color: "green" },
+        { id: "san", label: "Sanidad", icon: "💊", color: "blue" },
+        { id: "fin", label: "Finanzas", icon: "💰", color: "green" },
         { id: "an", label: "Análisis", icon: "📈", color: "purple" },
       ], connections: [
-        { from: "dash", to: "prod", label: "Huevos, Gallinas, Alimentación" },
+        { from: "dash", to: "animal", label: "Registro e inventario" },
+        { from: "dash", to: "prod", label: "Huevos, carne, gallinaza" },
+        { from: "dash", to: "alm", label: "Alimentos e insumos" },
         { from: "dash", to: "fin", label: "Ventas, Egresos" },
         { from: "dash", to: "san", label: "Plan Sanitario" },
+        { from: "animal", to: "prod" },
+        { from: "alm", to: "prod" },
         { from: "prod", to: "inv" },
         { from: "prod", to: "fin" },
+        { from: "plan", to: "prod", label: "Proyección" },
         { from: "san", to: "fin" },
         { from: "inv", to: "an" },
         { from: "fin", to: "an" },
       ]},
       { type: "steps", title: "Configuración inicial", items: [
         "Accede al Dashboard principal: verás 4 tarjetas de tareas diarias (Recoger Huevos, Alimentación, Venta, Plan Sanitario) y un resumen rápido del estado de la granja.",
-        "Registra tus gallinas en Producción → Gallinas (puedes escanear códigos QR individuales).",
-        "Configura los programas de alimentación en Producción → Alimentación.",
+        "Registra tus gallinas en Animales → Gallinas (puedes escanear códigos QR individuales).",
+        "Configura los programas de alimentación en Almacén → Gestión de alimentación.",
         "Establece tus primeros registros de huevos en Producción → Huevos.",
-        "Revisa el Plan Sanitario en Sanidad para ver las acciones de salud según la etapa de tus aves.",
+        "Revisa el Plan Sanitario en Sanidad para ver las acciones de salud según la etapa de tus animales.",
       ]},
-      { type: "tip", title: "Modo Simple vs Avanzado", text: "El sidebar tiene dos modos. El Modo Simple muestra las secciones más usadas (Granja, Ventas, Egresos, Sanidad). Activa el Modo Avanzado para acceder a Análisis, Operaciones, Inventarios detallados y Configuración completa." },
+      { type: "tip", title: "Grupos de navegación", text: "El sidebar agrupa el sistema por responsabilidad: Animales (seres vivos), Producción (productos generados), Inventarios (valorización de todas las existencias), Almacén (alimentos, insumos y mantenimiento) y Planificación y Soberanía (plan de parvada y autoconsumo). Sanidad, Finanzas y Análisis complementan la operación." },
       { type: "tip", title: "Ayuda en cada página y campo", text: "Cada página tiene un botón 'Ayuda' (❓) arriba a la derecha que explica el módulo completo. Además, cada campo de formulario tiene un ícono (?) al lado del nombre con explicación detallada." },
       { type: "note", text: "El sistema funciona offline como PWA (Progressive Web App). Puedes instalarlo en tu celular desde el navegador para acceso rápido." },
     ],
@@ -151,10 +162,11 @@ export const guides: Guide[] = [
   {
     slug: "gestionar-gallinas",
     title: "Gestionar Gallinas",
-    module: "produccion",
+    module: "animales",
     icon: "🐔",
     relatedHrefs: [
       { href: "/dashboard/produccion?tab=gallinas", label: "Gallinas" },
+      { href: "/dashboard/animales", label: "Inventario de Animales" },
       { href: "/dashboard/escanear", label: "Escanear Ave" },
     ],
     sections: [
@@ -172,7 +184,7 @@ export const guides: Guide[] = [
         { from: "lay", to: "rec", label: "≥80 semanas Y ≥2.5 kg" },
       ]},
       { type: "steps", title: "Registrar una gallina", items: [
-        "Ve a Producción → Gallinas.",
+        "Ve a Animales → Gallinas.",
         "Haz clic en 'Agregar Gallina'.",
         "Completa los datos: nombre/ID, raza, fecha de nacimiento o compra, peso inicial.",
         "Opcionalmente escanea o genera un código QR para identificación individual.",
@@ -190,19 +202,20 @@ export const guides: Guide[] = [
   },
   {
     slug: "alimentar-aves",
-    title: "Alimentar Aves",
-    module: "produccion",
+    title: "Alimentar Animales",
+    module: "almacen",
     icon: "🌾",
     relatedHrefs: [
-      { href: "/dashboard/produccion?tab=alimentacion", label: "Alimentación" },
-      { href: "/dashboard/inventarios/insumos", label: "Inventario Insumos" },
+      { href: "/dashboard/almacen", label: "Almacén" },
+      { href: "/dashboard/produccion?tab=alimentacion", label: "Gestión de Alimentación" },
+      { href: "/dashboard/inventarios/alimentacion", label: "Inventario de Alimentos" },
     ],
     sections: [
-      { type: "intro", text: "Gestiona los programas de alimentación del plantel. El sistema calcula automáticamente el consumo estimado según el número y tipo de aves." },
+      { type: "intro", text: "Gestiona los alimentos y los programas de alimentación del plantel. El sistema calcula automáticamente el consumo estimado según el número y tipo de animales." },
       { type: "steps", title: "Configurar un programa de alimentación", items: [
-        "Ve a Producción → Alimentación.",
-        "Crea un nuevo programa definiendo el tipo de alimento, cantidad por ave y frecuencia.",
-        "Asigna el programa al grupo de aves correspondiente.",
+        "Ve a Almacén → Gestión de alimentación.",
+        "Crea un nuevo programa definiendo el tipo de alimento, cantidad por animal y frecuencia.",
+        "Asigna el programa al grupo de animales correspondiente.",
         "El sistema calculará el consumo diario estimado.",
       ]},
       { type: "steps", title: "Registrar alimentación", items: [
@@ -211,22 +224,23 @@ export const guides: Guide[] = [
         "El costo se registra automáticamente como egreso si el alimento está en el catálogo de productos.",
       ]},
       { type: "tip", title: "Auto-registro", text: "La alimentación se gestiona a través de programas. Una vez configurados, el sistema puede auto-registrar el consumo según los programas activos y los alimentos disponibles en inventario." },
-      { type: "warning", text: "Mantén actualizado el inventario de insumos alimenticios. Si el stock llega a cero, el sistema te alertará para que realices una compra." },
+      { type: "warning", text: "Mantén actualizado el inventario de alimentos. Si el stock llega a cero, el sistema te alertará para que realices una compra." },
     ],
   },
   {
     slug: "incubacion",
     title: "Incubación",
-    module: "produccion",
+    module: "animales",
     icon: "🐣",
     relatedHrefs: [
       { href: "/dashboard/produccion?tab=incubacion", label: "Incubación" },
+      { href: "/dashboard/animales", label: "Inventario de Animales" },
     ],
     sections: [
       { type: "intro", text: "Controla el proceso de incubación de huevos: desde la selección hasta el nacimiento de los pollitos." },
       { type: "steps", title: "Proceso de incubación", items: [
         "Al recoger huevos, marca los que destinarás a incubación.",
-        "Ve a Producción → Incubación para ver los lotes en proceso.",
+        "Ve a Animales → Incubación para ver los lotes en proceso.",
         "Registra la fecha de inicio de incubación (la incubadora toma ~21 días).",
         "Monitorea el progreso: el sistema muestra los días transcurridos y la fecha estimada de nacimiento.",
         "Al finalizar, registra los nacimientos y los huevos no fértiles.",
@@ -256,7 +270,7 @@ export const guides: Guide[] = [
         "Guarda el registro. La carne se agrega al inventario automáticamente.",
       ]},
       { type: "tip", title: "Peso en canal", text: "El peso en canal es el peso del ave después del sacrificio y limpieza. Representa aproximadamente el 70-75% del peso vivo." },
-      { type: "note", text: "Para vender la carne, ve a Inventario → Carne o Finanzas → Ventas (pestaña Carne). El sistema usa FIFO (primero en entrar, primero en salir) para el inventario." },
+      { type: "note", text: "Para vender la carne, ve a Inventarios → Carne o Finanzas → Ventas (pestaña Carne). El sistema usa FIFO (primero en entrar, primero en salir) para el inventario." },
     ],
   },
   {
@@ -265,7 +279,7 @@ export const guides: Guide[] = [
     module: "produccion",
     icon: "🔪",
     relatedHrefs: [
-      { href: "/dashboard/produccion?tab=sacrificio", label: "Sacrificio" },
+      { href: "/dashboard/produccion?tab=carne", label: "Producción Carne" },
       { href: "/dashboard/produccion?tab=gallinas", label: "Gallinas" },
     ],
     sections: [
@@ -277,7 +291,7 @@ export const guides: Guide[] = [
         "El estado cambia automáticamente y se registra en el historial.",
       ]},
       { type: "warning", text: "Solo se recomiendan para sacrificio gallinas que cumplen AMBOS criterios (edad Y peso). Una gallina joven con buen peso NO será recomendada, ya que puede seguir produciendo huevos." },
-      { type: "tip", title: "Registro de mortalidad", text: "Si un ave muere sin ser sacrificada (causa natural, enfermedad), regístralo en Producción → Mortalidad en lugar de Sacrificio." },
+      { type: "tip", title: "Registro de mortalidad", text: "Si un ave muere sin ser sacrificada (causa natural, enfermedad), regístralo en Animales → Mortalidad en lugar de Sacrificio." },
     ],
   },
   {
@@ -288,31 +302,31 @@ export const guides: Guide[] = [
     relatedHrefs: [
       { href: "/dashboard/produccion?tab=gallinaza", label: "Gallinaza" },
       { href: "/dashboard/inventarios/gallinaza", label: "Inventario Gallinaza" },
-      { href: "/dashboard/operaciones/gallinaza", label: "Factores y Ajustes" },
     ],
     sections: [
       { type: "intro", text: "La gallinaza es un subproducto valioso como abono orgánico. El sistema estima su producción automáticamente según el número de aves y factores de conversión." },
       { type: "steps", title: "Cómo funciona", items: [
         "La producción se calcula automáticamente: número de aves × factor de producción diario.",
-        "Puedes hacer ajustes manuales en Inventario → Gallinaza (por limpieza, humedad, etc.).",
+        "Puedes hacer ajustes manuales en Inventarios → Gallinaza (por limpieza, humedad, etc.).",
         "El stock disponible se muestra en el inventario.",
-        "Para vender gallinaza, registra la venta desde Inventario → Gallinaza.",
+        "Para vender gallinaza, registra la venta desde Inventarios → Gallinaza.",
       ]},
-      { type: "tip", title: "Configurar factores", text: "Ve a Operaciones → Gallinaza para ajustar los factores de conversión según tu tipo de gallinaza, método de limpieza y condiciones de humedad." },
+      { type: "tip", title: "Configurar factores", text: "Ve a Producción → Gallinaza para ajustar los factores de conversión según tu tipo de gallinaza, método de limpieza y condiciones de humedad." },
     ],
   },
   {
     slug: "plan-parvada",
     title: "Plan de Parvada",
-    module: "produccion",
+    module: "planificacion",
     icon: "📋",
     relatedHrefs: [
       { href: "/dashboard/produccion/plan-parvada", label: "Plan de Parvada" },
+      { href: "/dashboard/soberania", label: "Soberanía Alimentaria" },
     ],
     sections: [
       { type: "intro", text: "Diagnostica la parvada real y proyecta postura, alimento y reemplazo con la edad de cada gallina. El plan no usa curvas fijas: se calcula con los estándares de Catálogos y los datos reales de la granja." },
       { type: "steps", title: "Cómo usarlo", items: [
-        "Ve a Producción → Plan de Parvada.",
+        "Ve a Planificación y Soberanía → Plan de Parvada.",
         "Revisa el diagnóstico: animales en inventario, gallinas en postura, huevos de los últimos 7 días y alimento estimado.",
         "Atiende las alertas: gallinas fuera del ciclo, recomendadas para venta, postura baja y relación gallos/gallinas. Cada alerta enlaza a la pantalla donde se resuelve.",
         "Consulta la proyección de 17 semanas: esperado vs real y cumplimiento semanal.",
@@ -629,21 +643,22 @@ export const guides: Guide[] = [
   {
     slug: "inventario-insumos",
     title: "Inventario de Insumos",
-    module: "inventarios",
+    module: "almacen",
     icon: "🧰",
     relatedHrefs: [
       { href: "/dashboard/inventarios/insumos", label: "Inventario Insumos" },
+      { href: "/dashboard/almacen", label: "Almacén" },
       { href: "/dashboard/finanzas/egresos", label: "Egresos" },
     ],
     sections: [
-      { type: "intro", text: "Gestiona el stock de insumos: alimentos, medicamentos, materiales de limpieza y otros productos que compras." },
+      { type: "intro", text: "Gestiona el stock de insumos: medicamentos, vacunas, empaques, materiales de limpieza y otros productos que compras para la operación." },
       { type: "steps", title: "Gestionar insumos", items: [
-        "Ve a Inventarios → Insumos.",
+        "Ve a Almacén → Insumos.",
         "Ves la lista de insumos con su stock actual, mínimo y valor.",
         "Cuando el stock baja del mínimo, aparece una alerta para reabastecer.",
         "Al registrar una compra en Egresos, el stock del insumo se actualiza automáticamente.",
       ]},
-      { type: "tip", title: "Alertas de stock bajo", text: "Configura el stock mínimo de cada insumo. Cuando se acerque al mínimo, el sistema te alertará en el Dashboard y en la sección de Inventario." },
+      { type: "tip", title: "Alertas de stock bajo", text: "Configura el stock mínimo de cada insumo. Cuando se acerque al mínimo, el sistema te alertará en el Dashboard y en Almacén." },
     ],
   },
   {
@@ -653,9 +668,10 @@ export const guides: Guide[] = [
     icon: "⚖️",
     relatedHrefs: [
       { href: "/dashboard/inventarios/balance", label: "Balance Inventarios" },
+      { href: "/dashboard/animales", label: "Animales" },
     ],
     sections: [
-      { type: "intro", text: "Vista consolidada de todos tus inventarios: huevos, carne, gallinaza e insumos. Un solo lugar para ver el estado completo del stock." },
+      { type: "intro", text: "Vista consolidada y valorizada de todas las existencias: animales, huevos, carne, gallinaza, alimentos e insumos. Un solo lugar para ver el estado completo del patrimonio de la granja." },
       { type: "steps", title: "Usar el balance", items: [
         "Ve a Inventarios → Balance.",
         "Ves un resumen de cada categoría con su valor total.",
@@ -725,7 +741,7 @@ export const guides: Guide[] = [
   {
     slug: "mantenimiento",
     title: "Mantenimiento",
-    module: "operaciones",
+    module: "almacen",
     icon: "🔧",
     relatedHrefs: [
       { href: "/dashboard/operaciones/mantenimiento", label: "Mantenimiento" },
@@ -733,7 +749,7 @@ export const guides: Guide[] = [
     sections: [
       { type: "intro", text: "Programa y registra las tareas de mantenimiento de las instalaciones: limpieza de galpones, reparación de equipos, mantenimiento de incubadoras, etc." },
       { type: "steps", title: "Registrar mantenimiento", items: [
-        "Ve a Operaciones → Mantenimiento.",
+        "Ve a Almacén → Mantenimiento.",
         "Haz clic en 'Nueva Tarea'.",
         "Describe la tarea, selecciona el área/equipo affected.",
         "Define la prioridad y la fecha programada.",
@@ -745,7 +761,7 @@ export const guides: Guide[] = [
   {
     slug: "gestion-gallinaza",
     title: "Gestión de Gallinaza",
-    module: "operaciones",
+    module: "produccion",
     icon: "🌱",
     relatedHrefs: [
       { href: "/dashboard/operaciones/gallinaza", label: "Gestión Gallinaza" },
@@ -754,13 +770,13 @@ export const guides: Guide[] = [
     sections: [
       { type: "intro", text: "Configura los factores de producción de gallinaza y registra ajustes manuales por limpieza, humedad u otros motivos." },
       { type: "steps", title: "Configurar factores", items: [
-        "Ve a Operaciones → Gallinaza.",
+        "Ve a Producción → Gallinaza.",
         "Ajusta el factor de producción diaria (kg por ave por día).",
         "Configura el factor de humedad si es relevante para tu zona.",
         "Los cambios se aplican automáticamente al cálculo de producción.",
       ]},
       { type: "steps", title: "Registrar ajustes", items: [
-        "Si necesitas ajustar el inventario (por limpieza, pérdida, venta a granel), ve a Inventario → Gallinaza.",
+        "Si necesitas ajustar el inventario (por limpieza, pérdida, venta a granel), ve a Inventarios → Gallinaza.",
         "Registra el ajuste indicando el motivo y la cantidad.",
         "El inventario se actualiza inmediatamente.",
       ]},
