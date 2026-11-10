@@ -18,3 +18,8 @@ tsconfig.tsbuildinfo
 # editor harness artifacts
 .qoder/
 AGENTS_GALLINERO.md
+
+# playwright
+test-results/
+playwright-report/
+playwright/.cache/
