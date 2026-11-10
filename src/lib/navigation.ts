@@ -75,13 +75,14 @@ export const navigationGroups: MenuGroup[] = [
     ],
   },
   {
-    id: "planificacion",
-    label: "Planificación y Soberanía",
-    icon: "🌱",
-    indexHref: "/dashboard/soberania",
-    keywords: ["planificacion", "soberania", "autoconsumo", "seguridad alimentaria", "familia", "huerta", "plan parvada", "proyeccion"],
+    id: "planeacion",
+    label: "Planeación",
+    icon: "🗓️",
+    indexHref: "/dashboard/planeacion",
+    keywords: ["planeacion", "planificacion", "soberania", "autoconsumo", "seguridad alimentaria", "familia", "huerta", "plan parvada", "proyeccion"],
     items: [
-      { href: "/dashboard/produccion/plan-parvada", label: "Plan de Parvada", icon: "🗓️" },
+      { href: "/dashboard/produccion/plan-parvada", label: "Plan de Parvada", icon: "📋" },
+      { href: "/dashboard/soberania", label: "Soberanía Alimentaria", icon: "🏡" },
     ],
   },
   {
@@ -94,21 +95,6 @@ export const navigationGroups: MenuGroup[] = [
       { href: "/dashboard/sanidad/control", label: "Control", icon: "💊" },
       { href: "/dashboard/sanidad/calendario", label: "Calendario", icon: "📅" },
       { href: "/dashboard/sanidad/alertas", label: "Alertas", icon: "🔔" },
-    ],
-  },
-  {
-    id: "inventarios",
-    label: "Inventarios",
-    icon: "📦",
-    indexHref: "/dashboard/inventarios",
-    keywords: ["inventarios", "stock", "existencias", "bodega"],
-    items: [
-      { href: "/dashboard/inventarios/huevos", label: "Huevos", icon: "📦" },
-      { href: "/dashboard/inventarios/carne", label: "Carne", icon: "🍗" },
-      { href: "/dashboard/inventarios/gallinaza", label: "Gallinaza", icon: "🌱" },
-      { href: "/dashboard/inventarios/alimentacion", label: "Alimentación", icon: "🌾" },
-      { href: "/dashboard/inventarios/balance", label: "Balance", icon: "⚖️" },
-      { href: "/dashboard/inventarios/insumos", label: "Insumos", icon: "🧰" },
     ],
   },
   {
@@ -154,6 +140,7 @@ const ITEM_KEYWORDS: Record<string, string[]> = {
   "/dashboard/produccion/adquisiciones": ["adquisicion", "adquisiciones", "compra", "compras", "donacion", "ingreso", "aves", "proveedor", "inversion"],
   "/dashboard/produccion/mortalidad": ["mortalidad", "muerte", "muertes", "bajas", "fallecidas", "causa", "perdidas", "aves"],
   "/dashboard/produccion/plan-parvada": ["plan", "parvada", "lotes", "planeacion", "proyeccion", "futuro", "aves", "produccion", "planificacion"],
+  "/dashboard/planeacion": ["planeacion", "planificacion", "soberania", "autoconsumo", "seguridad alimentaria", "familia", "huerta", "plan parvada", "proyeccion"],
   "/dashboard/almacen": ["almacen", "insumos", "materiales", "alimentos", "mantenimiento", "bodega", "compras", "inventario"],
   "/dashboard/operaciones/mantenimiento": ["mantenimiento", "reparacion", "reparaciones", "tareas", "herramientas", "equipos", "infraestructura"],
   "/dashboard/soberania": ["soberania", "autoconsumo", "seguridad alimentaria", "familia", "huerta", "consumo", "planificacion"],
@@ -327,6 +314,7 @@ const DEFAULT_HREFS = [
   "/dashboard/produccion?tab=alimentacion",
   "/dashboard/inventarios/balance",
   "/dashboard/almacen",
+  "/dashboard/planeacion",
   "/dashboard/finanzas/ventas",
   "/dashboard/sanidad/control",
 ];
