@@ -6,16 +6,21 @@ import { Card, StatCard, PageHeader, Button, Input, Select, Textarea, Modal, Tab
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip, Legend } from "recharts";
 import TableSearch from "@/components/TableSearch";
 import { matchesTextQuery } from "@/lib/text";
+import { useFarmLocations } from "@/lib/useFarmLocations";
+import Link from "next/link";
 
 type MortalityRecord = {
   id: string;
   date: string;
   birdType: string;
+  species?: string | null;
   quantity: number;
   cause: string;
   henId: string | null;
   roosterId: string | null;
   batchId: string | null;
+  locationId: string | null;
+  locationName: string | null;
   healthControlId: string | null;
   henCode: string | null;
   roosterCode: string | null;
@@ -34,10 +39,24 @@ type EggLoss = {
 
 const CAUSE_LABELS: Record<string, string> = { enfermedad: "Enfermedad", depredador: "Depredador", accidente: "Accidente", sacrificio_sanitario: "Sacrificio sanitario", causa_natural: "Causa natural", otro: "Otro" };
 const CAUSE_COLORS = ["#ef4444", "#f97316", "#eab308", "#3b82f6", "#8b5cf6", "#6b7280"];
-const BIRD_LABELS: Record<string, string> = { gallina: "Gallina", gallo: "Gallo", lote_pollos: "Lote pollos" };
+const BATCH_TYPES = ["lote_pollos", "lote_codornices", "lote_patos", "lote_conejos"];
+const BATCH_SPECIES_BY_TYPE: Record<string, string> = {
+  lote_pollos: "pollo",
+  lote_codornices: "codorniz",
+  lote_patos: "pato",
+  lote_conejos: "conejo",
+};
+const BIRD_LABELS: Record<string, string> = {
+  gallina: "Gallina",
+  gallo: "Gallo",
+  lote_pollos: "Lote de pollos",
+  lote_codornices: "Lote de codornices",
+  lote_patos: "Lote de patos",
+  lote_conejos: "Lote de conejos",
+};
 const REASON_COLORS = ["#ef4444", "#f97316", "#eab308", "#6b7280"];
 
-const emptyForm = { date: new Date().toISOString().split("T")[0], birdType: "gallina", cause: "enfermedad", henId: "", roosterId: "", batchId: "", quantity: "1", description: "" };
+const emptyForm = { date: new Date().toISOString().split("T")[0], birdType: "gallina", cause: "enfermedad", henId: "", roosterId: "", batchId: "", locationId: "", quantity: "1", description: "" };
 const emptyLoss = { date: new Date().toISOString().split("T")[0], quantity: "1", size: "", reason: "roto", notes: "" };
 
 export default function MortalidadPage() {
@@ -52,12 +71,13 @@ export default function MortalidadPage() {
   const [lossError, setLossError] = useState("");
   const [stats, setStats] = useState<{ mortalityRate: number; totalDeaths: number; totalFlock: number; byCause: { cause: string; total: number }[] }>({ mortalityRate: 0, totalDeaths: 0, totalFlock: 0, byCause: [] });
   const [lossStats, setLossStats] = useState<{ totalLost: number; byReason: { reason: string; total: number }[] }>({ totalLost: 0, byReason: [] });
-  const [hens, setHens] = useState<{ id: string; code: string }[]>([]);
-  const [roosters, setRoosters] = useState<{ id: string; code: string }[]>([]);
-  const [batches, setBatches] = useState<{ id: string; code: string }[]>([]);
+  const [hens, setHens] = useState<{ id: string; code: string; locationId?: string | null }[]>([]);
+  const [roosters, setRoosters] = useState<{ id: string; code: string; locationId?: string | null }[]>([]);
+  const [batches, setBatches] = useState<{ id: string; code: string; species: string; locationId?: string | null }[]>([]);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [mortalitySearch, setMortalitySearch] = useState("");
   const [lossSearch, setLossSearch] = useState("");
+  const { locations } = useFarmLocations();
 
   const load = useCallback(async () => {
     const [mortRes, lossRes, hensRes, roostersRes, batchesRes] = await Promise.all([
@@ -77,9 +97,13 @@ export default function MortalidadPage() {
       setLosses(data.losses);
       setLossStats({ totalLost: data.totalLost, byReason: data.byReason });
     }
-    if (hensRes.ok) { const d = await hensRes.json(); setHens(d.map((h: any) => ({ id: h.id, code: h.code }))); }
-    if (roostersRes.ok) { const d = await roostersRes.json(); setRoosters(d.map((r: any) => ({ id: r.id, code: r.code }))); }
-    if (batchesRes.ok) { const d = await batchesRes.json(); setBatches(d.filter((b: any) => b.status === "activo" || b.status === "listo_sacrificio").map((b: any) => ({ id: b.id, code: b.code }))); }
+    if (hensRes.ok) { const d = await hensRes.json(); setHens(d.map((h: any) => ({ id: h.id, code: h.code, locationId: h.locationId }))); }
+    if (roostersRes.ok) { const d = await roostersRes.json(); setRoosters(d.map((r: any) => ({ id: r.id, code: r.code, locationId: r.locationId }))); }
+    if (batchesRes.ok) {
+      const d = await batchesRes.json();
+      setBatches(d.filter((b: any) => (b.status === "activo" || b.status === "listo_sacrificio") && b.currentQuantity > 0)
+        .map((b: any) => ({ id: b.id, code: b.code, species: b.species, locationId: b.locationId })));
+    }
     setLoading(false);
   }, []);
 
@@ -87,13 +111,14 @@ export default function MortalidadPage() {
 
   const save = async () => {
     setError("");
-    const payload: any = { date: form.date, birdType: form.birdType, cause: form.cause, description: form.description };
+    const payload: any = { date: form.date, birdType: form.birdType, cause: form.cause, description: form.description, locationId: form.locationId };
+    if (!form.locationId) return setError("Seleccione el lugar donde ocurrió la mortalidad");
     if (form.birdType === "gallina") payload.henId = form.henId || undefined;
     if (form.birdType === "gallo") payload.roosterId = form.roosterId || undefined;
-    if (form.birdType === "lote_pollos") { payload.batchId = form.batchId || undefined; payload.quantity = form.quantity; }
+    if (BATCH_TYPES.includes(form.birdType)) { payload.batchId = form.batchId || undefined; payload.quantity = form.quantity; }
     if (form.birdType === "gallina" && !form.henId) return setError("Seleccione una gallina");
     if (form.birdType === "gallo" && !form.roosterId) return setError("Seleccione un gallo");
-    if (form.birdType === "lote_pollos" && !form.batchId) return setError("Seleccione un lote");
+    if (BATCH_TYPES.includes(form.birdType) && !form.batchId) return setError("Seleccione un lote");
 
     const method = editingId ? "PUT" : "POST";
     const body = editingId ? JSON.stringify({ ...payload, id: editingId }) : JSON.stringify(payload);
@@ -136,6 +161,7 @@ export default function MortalidadPage() {
       henId: r.henId || "",
       roosterId: r.roosterId || "",
       batchId: r.batchId || "",
+      locationId: r.locationId || "",
       quantity: String(r.quantity || 1),
     });
     setError("");
@@ -160,6 +186,7 @@ export default function MortalidadPage() {
         record.henCode,
         record.roosterCode,
         record.batchCode,
+        record.locationName,
         CAUSE_LABELS[record.cause] || record.cause,
         record.description,
         record.quantity,
@@ -185,7 +212,7 @@ export default function MortalidadPage() {
       <PageHeader
         title="Mortalidad y Pérdidas"
         description="Registro de muertes por causa y pérdidas de huevo"
-        help="Registra las defunciones de aves (gallinas, gallos, lotes de pollos) con su causa: enfermedad, accidente, depredador, causas desconocidas, etc. También permite registrar pérdidas de huevo (rotos, deteriorados, contaminados). Muestra tasa de mortalidad a 30 días, gráfico de distribución por causa e historial completo. Importante para detectar problemas sanitarios recurrentes."
+        help="Registra muertes de gallinas y gallos individuales, o de animales en lotes de pollos, codornices, patos y conejos. Indica la causa para identificar problemas sanitarios. También puedes registrar pérdidas de huevo. El panel resume la mortalidad de los últimos 30 días y su distribución por causa."
         actions={
           <div className="flex gap-2">
             <Button variant="secondary" onClick={() => { setLossForm(emptyLoss); setLossError(""); setLossModalOpen(true); }}>Pérdida de huevos</Button>
@@ -237,12 +264,13 @@ export default function MortalidadPage() {
             }
           />
         ) : (
-          <Table headers={["Fecha", "Tipo", "Ave/Lote", "Causa", "Descripción", "Acciones"]}>
+          <Table headers={["Fecha", "Tipo", "Ave/Lote", "Lugar", "Causa", "Descripción", "Acciones"]}>
             {filteredRecords.map((r) => (
               <tr key={r.id} className="hover:bg-slate-50">
                 <td className="px-4 py-3 text-sm">{r.date}</td>
                 <td className="px-4 py-3 text-sm">{BIRD_LABELS[r.birdType] || r.birdType}</td>
                 <td className="px-4 py-3 text-sm">{r.henCode || r.roosterCode || r.batchCode || "—"}</td>
+                <td className="px-4 py-3 text-sm">{r.locationName || "Sin lugar asignado"}</td>
                 <td className="px-4 py-3"><Badge color="red">{CAUSE_LABELS[r.cause] || r.cause}</Badge></td>
                 <td className="px-4 py-3 text-sm text-slate-500">{r.description || "—"}</td>
                 <td className="px-4 py-3">
@@ -291,33 +319,42 @@ export default function MortalidadPage() {
         <div className="space-y-4">
           {error && <p className="text-sm text-red-600 bg-red-50 p-3 rounded-lg">{error}</p>}
           <Input label="Fecha" type="date" value={form.date} onChange={(e) => setForm({ ...form, date: e.target.value })} help="Fecha en que se encontró o ocurrió la muerte" />
-          <Select label="Tipo de ave" value={form.birdType} onChange={(e) => setForm({ ...form, birdType: e.target.value })} help="Selecciona qué tipo de ave falleció">
+          <Select label="Tipo de animal" value={form.birdType} onChange={(e) => setForm({ ...form, birdType: e.target.value, henId: "", roosterId: "", batchId: "", locationId: "", quantity: "1" })} help="Selecciona la especie o lote afectado">
             <option value="gallina">Gallina</option>
             <option value="gallo">Gallo</option>
             <option value="lote_pollos">Lote de pollos</option>
+            <option value="lote_codornices">Lote de codornices</option>
+            <option value="lote_patos">Lote de patos</option>
+            <option value="lote_conejos">Lote de conejos</option>
           </Select>
 
           {form.birdType === "gallina" && (
-            <Select label="Gallina" value={form.henId} onChange={(e) => setForm({ ...form, henId: e.target.value })} help="Selecciona la gallina específica (por su código QR)">
+            <Select label="Gallina" value={form.henId} onChange={(e) => { const selected = hens.find((hen) => hen.id === e.target.value); setForm({ ...form, henId: e.target.value, locationId: selected?.locationId || "" }); }} help="Selecciona la gallina específica (por su código QR)">
               <option value="">Seleccionar...</option>
               {hens.map((h) => <option key={h.id} value={h.id}>{h.code}</option>)}
             </Select>
           )}
           {form.birdType === "gallo" && (
-            <Select label="Gallo" value={form.roosterId} onChange={(e) => setForm({ ...form, roosterId: e.target.value })} help="Selecciona el gallo específico">
+            <Select label="Gallo" value={form.roosterId} onChange={(e) => { const selected = roosters.find((rooster) => rooster.id === e.target.value); setForm({ ...form, roosterId: e.target.value, locationId: selected?.locationId || "" }); }} help="Selecciona el gallo específico">
               <option value="">Seleccionar...</option>
               {roosters.map((r) => <option key={r.id} value={r.id}>{r.code}</option>)}
             </Select>
           )}
-          {form.birdType === "lote_pollos" && (
+          {BATCH_TYPES.includes(form.birdType) && (
             <>
-              <Select label="Lote" value={form.batchId} onChange={(e) => setForm({ ...form, batchId: e.target.value })} help="Selecciona el lote de pollos afectado">
+              <Select label={BIRD_LABELS[form.birdType] || "Lote"} value={form.batchId} onChange={(e) => { const selected = batches.find((batch) => batch.id === e.target.value); setForm({ ...form, batchId: e.target.value, locationId: selected?.locationId || "" }); }} help="Selecciona el lote afectado">
                 <option value="">Seleccionar...</option>
-                {batches.map((b) => <option key={b.id} value={b.id}>{b.code}</option>)}
+                {batches.filter((b) => b.species === BATCH_SPECIES_BY_TYPE[form.birdType]).map((b) => <option key={b.id} value={b.id}>{b.code}</option>)}
               </Select>
-              <Input label="Cantidad" type="number" min="1" value={form.quantity} onChange={(e) => setForm({ ...form, quantity: e.target.value })} help="Cuántas aves del lote fallecieron" />
+              <Input label="Cantidad" type="number" min="1" value={form.quantity} onChange={(e) => setForm({ ...form, quantity: e.target.value })} help="Cuántos animales del lote fallecieron" />
             </>
           )}
+
+          <Select label="Lugar donde ocurrió *" value={form.locationId} onChange={(e) => setForm({ ...form, locationId: e.target.value })} help="Se propone el alojamiento actual del animal. Corrígelo si el hecho ocurrió en otro lugar.">
+            <option value="">Selecciona un lugar…</option>
+            {locations.map((location) => <option key={location.id} value={location.id}>{location.name} · {location.type}</option>)}
+          </Select>
+          {locations.length === 0 && <p className="text-sm text-amber-700"><Link className="font-semibold underline" href="/dashboard/ubicaciones">Crea primero un lugar de manejo</Link>.</p>}
 
           <Select label="Causa" value={form.cause} onChange={(e) => setForm({ ...form, cause: e.target.value })} help="Causa principal de la muerte (enfermedad, accidente, depredador, etc.)">
             {Object.entries(CAUSE_LABELS).map(([k, v]) => <option key={k} value={k}>{v}</option>)}

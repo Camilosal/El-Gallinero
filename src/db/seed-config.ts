@@ -2,6 +2,7 @@ import { db, pool } from "@/db";
 import { appSettings, catalogos, vaccinationTemplates } from "@/db/schema";
 import { DEFAULT_SETTINGS } from "@/lib/settings";
 import { VACCINATION_SCHEDULES } from "@/lib/vaccination-schedules";
+import { canonicalBreedType, DEFAULT_BREEDS_BY_SPECIES } from "@/lib/animal-breeds";
 import { and, eq, gte, sql } from "drizzle-orm";
 
 /**
@@ -10,6 +11,7 @@ import { and, eq, gte, sql } from "drizzle-orm";
  * - Crea los parámetros globales con su valor por defecto (no sobrescribe
  *   valores ya editados por el usuario).
  * - Carga los planes de vacunación de referencia (no duplica plantillas).
+ * - Completa las razas base por especie y clasifica razas antiguas sin tipo.
  *
  * Seguro para ejecutar en producción: usa ON CONFLICT DO NOTHING y no borra
  * ningún dato existente.
@@ -71,6 +73,55 @@ async function ensureHenStatuses(): Promise<number> {
   return missing.length;
 }
 
+/** Agrega razas por especie y clasifica las razas históricas de gallina. */
+async function ensureAnimalBreeds(): Promise<{ added: number; associated: number }> {
+  const rows = await db
+    .select({ id: catalogos.id, value: catalogos.value, tipo: catalogos.tipo })
+    .from(catalogos)
+    .where(eq(catalogos.category, "raza"));
+  const normalizeValue = (value: string) => value.trim().toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+  const byValue = new Map(rows.map((row) => [normalizeValue(row.value), row]));
+  let added = 0;
+  let associated = 0;
+  let nextOrder = rows.length;
+
+  for (const row of rows) {
+    if (row.tipo) continue;
+    const species = canonicalBreedType(row.value) || "gallina";
+    await db.update(catalogos).set({ tipo: species }).where(eq(catalogos.id, row.id));
+    row.tipo = species;
+    associated += 1;
+  }
+
+  for (const [species, breeds] of Object.entries(DEFAULT_BREEDS_BY_SPECIES)) {
+    for (const value of breeds) {
+      const key = normalizeValue(value);
+      const existing = byValue.get(key);
+      if (existing) {
+        if (!existing.tipo) {
+          await db.update(catalogos).set({ tipo: species }).where(eq(catalogos.id, existing.id));
+          existing.tipo = species;
+          associated += 1;
+        }
+        continue;
+      }
+
+      const [created] = await db.insert(catalogos).values({
+        category: "raza",
+        value,
+        tipo: species,
+        sortOrder: nextOrder,
+      }).onConflictDoNothing().returning({ id: catalogos.id, value: catalogos.value, tipo: catalogos.tipo });
+      if (created) {
+        byValue.set(key, created);
+        added += 1;
+        nextOrder += 1;
+      }
+    }
+  }
+  return { added, associated };
+}
+
 async function main() {
   const settingsRows = Object.entries(DEFAULT_SETTINGS).map(([key, value]) => ({
     key,
@@ -103,10 +154,12 @@ async function main() {
     : [];
 
   const addedStatuses = await ensureHenStatuses();
+  const animalBreeds = await ensureAnimalBreeds();
 
   console.log(`Parámetros globales: ${insertedSettings.length} creados de ${settingsRows.length}.`);
   console.log(`Plantillas de vacunación: ${insertedTemplates.length} creadas de ${templateRows.length}.`);
   console.log(`Estados de gallina: ${addedStatuses} agregados de ${HEN_STATUSES.length}.`);
+  console.log(`Razas de animales: ${animalBreeds.added} agregadas, ${animalBreeds.associated} asociadas a su especie.`);
 }
 
 main()

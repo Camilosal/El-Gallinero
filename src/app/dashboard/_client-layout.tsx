@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react";
 import Sidebar from "@/components/Sidebar";
 import AssistantWidget from "@/components/AssistantWidget";
+import QuickCreateMenu from "@/components/QuickCreateMenu";
 
 const COLLAPSED_KEY = "sidebar-collapsed";
 
@@ -33,6 +34,9 @@ export default function ClientAppLayout({ children }: { children: React.ReactNod
     <div className="flex min-h-screen">
       <Sidebar />
       <main className={`flex-1 ${marginClass} p-4 md:p-6 overflow-auto transition-all duration-300`}>
+        <div className="mb-4 flex justify-end border-b border-slate-200 pb-3">
+          <QuickCreateMenu />
+        </div>
         {children}
       </main>
       <AssistantWidget />

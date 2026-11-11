@@ -5,6 +5,7 @@ import { db, pool } from "./index";
 import { hens, feedInventory, feedMovements, feedPrograms, eggProduction, eggProductionDetails, eggSales, eggSalesItems, transactions, maintenance, healthControl, incubation, users, sessions, catalogos, chickenSales, slaughter, roosters, broilerBatches, manureFactors, manureSales, manureAdjustments, birdAcquisitions, mortalityRecords, eggLosses, supplyInventory, supplyMovements, meatSales, meatLosses, manureProduction, budgets, budgetItems, accountsReceivable, accountsPayable, payments, sanitaryCalendar, flockPlans, flockPlanMilestones, weightLogs, breedWeightStandards, autoconsumoLogs } from "./schema";
 import { eq, sql } from "drizzle-orm";
 import { hashPassword } from "@/lib/auth";
+import { DEFAULT_BREEDS_BY_SPECIES } from "@/lib/animal-breeds";
 
 async function main() {
   if (process.env.NODE_ENV === "production") {
@@ -67,10 +68,15 @@ async function main() {
   await db.delete(users);
 
   // ——— Catálogos / Datos maestros ———
-  const catalogDefaults: { category: string; values: string[]; prices?: number[]; units?: number[] }[] = [
+  const chickenBreeds = DEFAULT_BREEDS_BY_SPECIES.gallina;
+  const speciesBreeds = (Object.entries(DEFAULT_BREEDS_BY_SPECIES) as [string, string[]][])
+    .filter(([species]) => species !== "gallina")
+    .flatMap(([species, values]) => values.map((value) => ({ value, species })));
+  const catalogDefaults: { category: string; values: string[]; prices?: number[]; units?: number[]; types?: (string | null)[] }[] = [
     {
       category: "raza",
-      values: ["Rhode Island Red", "Leghorn", "Plymouth Rock", "Sussex", "Marans", "Araucana", "Isa Brown", "Criolla", "Otra"],
+      values: [...chickenBreeds, ...speciesBreeds.map((item) => item.value)],
+      types: [...chickenBreeds.map(() => "gallina"), ...speciesBreeds.map((item) => item.species)],
     },
     {
       category: "comprador",
@@ -160,6 +166,7 @@ async function main() {
     c.values.map((v, i) => ({
       category: c.category,
       value: v,
+      tipo: c.types?.[i] ?? null,
       price: c.prices?.[i] != null ? String(c.prices[i]) : null,
       units: c.units?.[i] != null ? Number(c.units[i]) : null,
       sortOrder: i,

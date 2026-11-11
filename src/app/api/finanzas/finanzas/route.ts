@@ -4,7 +4,7 @@ import { transactions, feedInventory, feedMovements, accountsPayable, payments, 
 import { eq, desc, sql, gte, lte, and } from "drizzle-orm";
 import { NextRequest, NextResponse } from "next/server";
 import { withApiHandler, safeParseJson } from "@/lib/api-handler";
-import { deleteTransactionsAndUnpaidAccounts } from "@/lib/financial-records";
+import { deleteFeedMovementAndReverseStock, deleteTransactionsAndUnpaidAccounts } from "@/lib/financial-records";
 
 export const dynamic = "force-dynamic";
 
@@ -593,17 +593,25 @@ export const DELETE = withApiHandler(async (req: NextRequest) => {
 
   const [existing] = await db.select().from(transactions).where(eq(transactions.id, id));
   if (!existing) return NextResponse.json({ error: "Transacción no encontrada" }, { status: 404 });
-  if (existing.sourceType || existing.sourceId) {
+  const linkedFeedMovement = existing.sourceType === "alimento" && existing.sourceId;
+  if ((existing.sourceType || existing.sourceId) && !linkedFeedMovement) {
     return NextResponse.json({ error: "Esta transacción vinculada debe eliminarse desde el módulo que la creó" }, { status: 409 });
   }
 
-  await db.transaction(async (tx) => {
-    const [record] = await tx.select().from(transactions).where(eq(transactions.id, id)).for("update");
-    if (record && (record.sourceType || record.sourceId)) {
-      throw new Error("Transacción vinculada: debe eliminarse desde el módulo que la creó");
-    }
-    await deleteTransactionsAndUnpaidAccounts(tx, eq(transactions.id, id));
-  });
+  if (linkedFeedMovement) {
+    await db.transaction(async (tx) => {
+      await deleteFeedMovementAndReverseStock(tx, existing.sourceId!, id);
+    });
+  } else {
+    await db.transaction(async (tx) => {
+      const [record] = await tx.select().from(transactions).where(eq(transactions.id, id)).for("update");
+      if (!record) throw new Error("Transacción no encontrada");
+      if (record.sourceType || record.sourceId) {
+        throw new Error("Transacción vinculada: debe eliminarse desde el módulo que la creó");
+      }
+      await deleteTransactionsAndUnpaidAccounts(tx, eq(transactions.id, id));
+    });
+  }
 
   return NextResponse.json({ ok: true });
 });

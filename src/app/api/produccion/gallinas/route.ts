@@ -8,6 +8,7 @@ import { withApiHandler, safeParseJson } from "@/lib/api-handler";
 import { lockMeatInventory } from "@/lib/inventory-locks";
 import { deleteChickenSalesAndLinkedFinance } from "@/lib/animal-sales";
 import { computeMeatInventory, meatInventoryBookBalance } from "@/lib/inventory";
+import { validateBreedAssociation } from "@/lib/animal-breed-validation";
 
 export const dynamic = "force-dynamic";
 
@@ -52,42 +53,16 @@ export const GET = withApiHandler(async () => {
   return NextResponse.json(enriched);
 });
 
-export const POST = withApiHandler(async (req: NextRequest) => {
-  const body = await safeParseJson(req);
-  const [stages, lifecycleRules] = await Promise.all([getStages(), getLifecycleRules()]);
-
-  // Resolver estado automático a partir del estado inicial registrado
-  let status = body.status || "activa";
-  if (isAutoManaged(status)) {
-    status = evaluateLifecycle({ birthDate: body.birthDate, weight: body.weight || null, status }, stages, lifecycleRules).status;
-  }
-
-  const created = await db.transaction(async (tx) => {
-    await tx.execute(sql`LOCK TABLE ${hens} IN EXCLUSIVE MODE`);
-    const code = String(body.code || "").trim();
-    if (!code) throw new Error("Código requerido");
-    const [duplicate] = await tx.select({ id: hens.id }).from(hens).where(eq(hens.code, code)).limit(1);
-    if (duplicate) throw new Error("Código de gallina duplicado");
-    const [row] = await tx.insert(hens).values({
-      code,
-      breed: body.breed,
-      birthDate: body.birthDate,
-      status,
-      weight: body.weight || null,
-      notes: body.notes || null,
-      isBroody: body.isBroody || false,
-      clutchSize: body.clutchSize || 0,
-    }).returning();
-    return row;
-  });
-
-  const lc = evaluateLifecycle(created, stages, lifecycleRules);
-  return NextResponse.json({ ...created, stage: lc.stage, ageWeeks: lc.ageWeeks, lifecycleReasons: lc.reasons }, { status: 201 });
-});
+export const POST = withApiHandler(async () => NextResponse.json({
+  error: "Registra las nuevas gallinas desde Adquisiciones para conservar su origen.",
+  href: "/dashboard/produccion/adquisiciones?nuevo=gallina",
+}, { status: 409 }));
 
 export const PUT = withApiHandler(async (req: NextRequest) => {
   const body = await safeParseJson(req);
   if (!body.id) return NextResponse.json({ error: "ID requerido" }, { status: 400 });
+  const breedError = await validateBreedAssociation(db, String(body.breed || ""), "gallina");
+  if (breedError) return NextResponse.json({ error: breedError }, { status: 400 });
 
   const [stages, lifecycleRules] = await Promise.all([getStages(), getLifecycleRules()]);
 

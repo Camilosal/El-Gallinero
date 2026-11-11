@@ -236,12 +236,14 @@ export const GET = withApiHandler(async (req: NextRequest) => {
     date: m.date,
     source: m.birdType, // Using birdType as source since structure changed
     birdType: m.birdType,
+    species: m.species,
     quantityKg: Number(m.quantityKg),
     availableKg: Number(m.remainingKg),
-    costPerKg: 0, // Cost tracking removed in new structure
+    estimatedPriceKg: Number(m.estimatedPriceKg),
+    estimatedValue: Number(m.estimatedValue),
   }));
   const totalMeatKg = meat.reduce((s, m) => s + m.availableKg, 0);
-  const totalMeatValue = meat.reduce((s, m) => s + m.availableKg * m.costPerKg, 0);
+  const totalMeatValue = meatInv.estimatedValue;
 
   // Mortality section
   const mortalityByCause: Record<string, number> = {};

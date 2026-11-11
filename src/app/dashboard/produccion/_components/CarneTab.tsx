@@ -12,10 +12,13 @@ import {
   SPECIES_LABEL,
 } from "@/lib/species-params";
 import { useSpeciesCatalog } from "@/lib/use-species-params";
+import FarmLocationSelect from "@/components/FarmLocationSelect";
 
 interface SlaughterRecord {
   id: string;
   date: string;
+  locationId: string | null;
+  locationName: string | null;
   species?: string;
   birdType: string;
   quantity: number;
@@ -38,9 +41,9 @@ interface SlaughterRecord {
   batch?: { id: string; code: string; species?: string; status: string } | null;
 }
 
-interface Hen { id: string; code: string; weight: string; status: string; birthDate: string; }
-interface Rooster { id: string; code: string; weight: string | null; status: string; }
-interface Batch { id: string; code: string; species?: string; breed?: string; currentQuantity: number; status: string; avgWeightKg?: string | null; }
+interface Hen { id: string; code: string; weight: string; status: string; birthDate: string; locationId?: string | null; }
+interface Rooster { id: string; code: string; weight: string | null; status: string; locationId?: string | null; }
+interface Batch { id: string; code: string; species?: string; breed?: string; currentQuantity: number; status: string; avgWeightKg?: string | null; locationId?: string | null; }
 
 const birdTypeLabels: Record<string, string> = {
   gallina_descarte: "🐔 Gallina descarte",
@@ -88,6 +91,7 @@ export default function CarneTab() {
     henId: "",
     roosterId: "",
     batchId: "",
+    locationId: "",
     notes: "",
   });
 
@@ -133,6 +137,7 @@ export default function CarneTab() {
       henId: "",
       roosterId: "",
       batchId: "",
+      locationId: "",
       notes: "",
     });
     setModalOpen(true);
@@ -159,6 +164,7 @@ export default function CarneTab() {
       henId: r.henId || "",
       roosterId: r.roosterId || "",
       batchId: r.batchId || "",
+      locationId: r.locationId || "",
       notes: r.notes || "",
     });
     setModalOpen(true);
@@ -188,6 +194,7 @@ export default function CarneTab() {
       henId: "",
       roosterId: "",
       batchId: "",
+      locationId: "",
     }));
   };
 
@@ -203,6 +210,7 @@ export default function CarneTab() {
         henId,
         roosterId: "",
         batchId: "",
+        locationId: hen?.locationId || "",
         quantity: "1",
         liveWeightKg: String(weight),
         carcassYieldPercent: "65",
@@ -214,7 +222,7 @@ export default function CarneTab() {
         marketReferencePricePerKg: String(priceKg("gallina")),
       }));
     } else {
-      setForm((prev) => ({ ...prev, henId: "" }));
+      setForm((prev) => ({ ...prev, henId: "", locationId: "" }));
     }
   };
 
@@ -230,6 +238,7 @@ export default function CarneTab() {
         roosterId,
         henId: "",
         batchId: "",
+        locationId: rooster?.locationId || "",
         quantity: "1",
         liveWeightKg: String(weight),
         carcassYieldPercent: "70",
@@ -241,7 +250,7 @@ export default function CarneTab() {
         marketReferencePricePerKg: String(priceKg("pollo")),
       }));
     } else {
-      setForm((prev) => ({ ...prev, roosterId: "" }));
+      setForm((prev) => ({ ...prev, roosterId: "", locationId: "" }));
     }
   };
 
@@ -267,6 +276,7 @@ export default function CarneTab() {
         batchId,
         henId: "",
         roosterId: "",
+        locationId: batch?.locationId || "",
         quantity: String(qty),
         liveWeightKg: liveWeight,
         carcassYieldPercent: String(yieldPct),
@@ -278,7 +288,7 @@ export default function CarneTab() {
         marketReferencePricePerKg: String(priceKg(sp)),
       }));
     } else {
-      setForm((prev) => ({ ...prev, batchId: "" }));
+      setForm((prev) => ({ ...prev, batchId: "", locationId: "" }));
     }
   };
 
@@ -307,6 +317,7 @@ export default function CarneTab() {
     const qty = Number(form.quantity);
     const weightKg = Number(form.weightKg);
     if (!form.birdType) { setError("Tipo de animal requerido"); return; }
+    if (!form.locationId) { setError("Selecciona el lugar de procedencia de los animales"); return; }
     if (!form.henId && !form.roosterId && !form.batchId) { setError("Debe seleccionar una gallina, un gallo o un lote"); return; }
     if (!qty || qty < 1) { setError("Cantidad inválida"); return; }
     if (!weightKg || weightKg <= 0) { setError("Peso requerido"); return; }
@@ -336,6 +347,7 @@ export default function CarneTab() {
       henId: form.henId || null,
       roosterId: form.roosterId || null,
       batchId: form.batchId || null,
+      locationId: form.locationId,
       notes: form.notes || null,
     };
     if (editing) payload.id = editing.id;
@@ -380,6 +392,7 @@ export default function CarneTab() {
         record.hen?.code,
         record.rooster?.code,
         record.batch?.code,
+        record.locationName,
         sp,
         SPECIES_LABEL[sp],
         birdTypeLabels[record.birdType] || record.birdType,
@@ -498,7 +511,7 @@ export default function CarneTab() {
             }
           />
         ) : (
-          <Table headers={["Fecha", "Especie / Origen", "Tipo Animal", "Canal Total", "Destino / Partición", "Ahorro Hogar", ""]}>
+          <Table headers={["Fecha", "Especie / Origen", "Lugar", "Tipo Animal", "Canal Total", "Destino / Partición", "Ahorro Hogar", ""]}>
             {filteredRecords.map((r) => {
               const sp = r.species || "pollo";
               const icon = SPECIES_ICON[sp] || "🍗";
@@ -524,6 +537,7 @@ export default function CarneTab() {
                     </div>
                     <span className="text-[11px] text-slate-400">{r.quantity} {r.quantity === 1 ? "cabeza" : "cabezas"}</span>
                   </td>
+                  <td className="px-4 py-3 text-sm">{r.locationName || "Sin lugar asignado"}</td>
                   <td className="px-4 py-3 text-xs text-slate-600">
                     {birdTypeLabels[r.birdType] || r.birdType}
                   </td>
@@ -625,6 +639,8 @@ export default function CarneTab() {
               )}
             </div>
           )}
+
+          <FarmLocationSelect value={form.locationId} onChange={(locationId) => setForm({ ...form, locationId })} label="Lugar donde estaban alojados *" help="La faena se atribuye al lugar actual del animal o lote." />
 
           {/* Pesos y Rendimiento */}
           <div className="grid grid-cols-3 gap-3">

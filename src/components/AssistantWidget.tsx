@@ -31,9 +31,11 @@ const STORAGE_KEY = "gallinero-assistant-conversation";
 const SUGGESTIONS = [
   "¿Cómo está la granja hoy?",
   "¿Cuántos animales y huevos tengo?",
-  "Registra 120 huevos AA de hoy",
+  "¿Qué producción hubo en el galpón principal este mes?",
   "¿Cómo van las finanzas este mes?",
   "¿Qué vacunas están pendientes?",
+  "¿Qué tareas de mantenimiento están pendientes por lugar?",
+  "¿Qué equipos requieren atención y qué tareas vencen esta semana?",
 ];
 
 function uid(prefix: string): string {
@@ -43,6 +45,7 @@ function uid(prefix: string): string {
 export default function AssistantWidget() {
   const [open, setOpen] = useState(false);
   const [configured, setConfigured] = useState<boolean | null>(null);
+  const [jevRouting, setJevRouting] = useState(false);
   const [conversationId, setConversationId] = useState<string | null>(null);
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [pendingActions, setPendingActions] = useState<PendingAction[]>([]);
@@ -73,7 +76,10 @@ export default function AssistantWidget() {
 
     apiFetch("/api/asistente/estado")
       .then((res) => res.json())
-      .then((data) => setConfigured(Boolean(data.configured)))
+      .then((data) => {
+        setConfigured(Boolean(data.configured));
+        setJevRouting(Boolean(data.jevRouting));
+      })
       .catch(() => setConfigured(false));
   }, [open, configured]);
 
@@ -266,15 +272,15 @@ export default function AssistantWidget() {
                     configured === null
                       ? "bg-slate-300"
                       : configured
-                        ? "bg-green-300"
+                        ? "bg-blue-300"
                         : "bg-amber-300"
                   }`}
                 />
                 {configured === null
                   ? "Conectando..."
                   : configured
-                    ? "En línea · pregúntame lo que necesites"
-                    : "Sin conexión"}
+                    ? jevRouting ? "Asistente activo · Jev conectado" : "Asistente activo"
+                    : "Sin configuración"}
               </p>
             </div>
             <div className="flex shrink-0 items-center gap-1">
@@ -357,8 +363,9 @@ export default function AssistantWidget() {
               <div className="rounded-xl border border-slate-200 bg-white p-4 text-sm text-slate-600">
                 <p className="font-semibold text-slate-800">Hola 👋</p>
                 <p className="mt-1">
-                  Puedo consultar animales, huevos, lotes, finanzas y sanidad; también registrar producción y
-                  movimientos. Las ventas y los gastos siempre te los propongo para que los confirmes.
+                  Puedo consultar animales, lugares, linaje, producción, mantenimiento, inventarios, sanidad y
+                  finanzas; también registrar huevos, mortalidad, pesajes y consumo con su lugar cuando corresponda.
+                  Las ventas, gastos e ingresos quedan pendientes para que los confirmes.
                 </p>
                 <p className="mt-3 text-xs font-medium uppercase tracking-wide text-slate-400">Prueba con</p>
                 <div className="mt-2 flex flex-wrap gap-2">

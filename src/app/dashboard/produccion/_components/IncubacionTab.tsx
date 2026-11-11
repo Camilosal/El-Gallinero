@@ -7,10 +7,13 @@ import TableSearch from "@/components/TableSearch";
 import { matchesTextQuery } from "@/lib/text";
 
 interface Hen { id: string; code: string; status: string; }
+interface Rooster { id: string; code: string; breed: string; status: string; }
 interface Incubation {
   id: string;
   henId: string | null;
   henCode: string | null;
+  roosterId: string | null;
+  roosterCode: string | null;
   startDate: string;
   expectedHatchDate: string;
   eggsSet: number;
@@ -24,22 +27,26 @@ interface Incubation {
 export default function IncubacionPage() {
   const [incubations, setIncubations] = useState<Incubation[]>([]);
   const [hens, setHens] = useState<Hen[]>([]);
+  const [roosters, setRoosters] = useState<Rooster[]>([]);
   const [today, setToday] = useState(0);
   const [loading, setLoading] = useState(true);
   const [modalOpen, setModalOpen] = useState(false);
   const [completeModal, setCompleteModal] = useState<Incubation | null>(null);
-  const [form, setForm] = useState({ henId: "", startDate: new Date().toISOString().split("T")[0], eggsSet: 10, notes: "" });
+  const [form, setForm] = useState({ henId: "", roosterId: "", startDate: new Date().toISOString().split("T")[0], eggsSet: 10, notes: "" });
   const [hatchForm, setHatchForm] = useState({ eggsHatched: 0, femalesHatched: 0, malesHatched: 0, notes: "" });
   const [assignmentMsg, setAssignmentMsg] = useState("");
+  const [saveError, setSaveError] = useState("");
   const [search, setSearch] = useState("");
 
   const load = useCallback(() => {
     Promise.all([
       apiFetch("/api/produccion/incubacion").then((r) => r.json()),
       apiFetch("/api/produccion/gallinas").then((r) => r.json()),
-    ]).then(([i, h]) => {
+      apiFetch("/api/produccion/gallos").then((r) => r.json()),
+    ]).then(([i, h, r]) => {
       setIncubations(i);
       setHens(h);
+      setRoosters(r);
       setToday(Date.now());
     }).finally(() => setLoading(false));
   }, []);
@@ -47,11 +54,17 @@ export default function IncubacionPage() {
   useEffect(() => { load(); }, [load]);
 
   const save = async () => {
-    await apiFetch("/api/produccion/incubacion", {
+    setSaveError("");
+    const response = await apiFetch("/api/produccion/incubacion", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(form),
     });
+    if (!response.ok) {
+      const result = await response.json().catch(() => ({}));
+      setSaveError(result.error || "No se pudo iniciar la incubación");
+      return;
+    }
     setModalOpen(false);
     load();
   };
@@ -90,6 +103,7 @@ export default function IncubacionPage() {
     return completedInc.filter((incubation) =>
       matchesTextQuery(search, [
         incubation.henCode,
+        incubation.roosterCode,
         incubation.startDate,
         new Date(incubation.startDate + "T12:00:00").toLocaleDateString("es"),
         incubation.expectedHatchDate,
@@ -113,8 +127,8 @@ export default function IncubacionPage() {
       <PageHeader
         title="🐣 Incubación y Reproducción"
         description="Gestión de gallinas cluecas, empollamiento natural y eclosión de pollitos"
-        help="Aquí gestionas las incubaciones de huevos.\n\n• Selecciona una gallina clueca que esté empollando e ingresa los huevos que se le asignan.\n• El sistema calcula automáticamente la fecha de eclosión (21 días).\n• Cuando nacen los pollitos, registra la eclosión indicando cuántos nacieron y cuántos son hembras/machos.\n• Asignación automática: las hembras se registran como gallinas nuevas, los machos se asignan como gallos reproductores (según balance) o van a un lote de engorde."
-        actions={<Button onClick={() => { setForm({ henId: availableHens[0]?.id || "", startDate: new Date().toISOString().split("T")[0], eggsSet: 10, notes: "" }); setModalOpen(true); }}>+ Nueva Incubación</Button>}
+        help="Aquí gestionas las incubaciones de huevos. Registra gallina y gallo progenitores cuando se conozcan para que la descendencia conserve esa cadena de parentesco. Al nacer, las nuevas fichas quedan vinculadas a la incubación y a sus padres."
+        actions={<Button onClick={() => { setSaveError(""); setForm({ henId: availableHens[0]?.id || "", roosterId: "", startDate: new Date().toISOString().split("T")[0], eggsSet: 10, notes: "" }); setModalOpen(true); }}>+ Nueva Incubación</Button>}
       />
 
       {assignmentMsg && (
@@ -124,10 +138,9 @@ export default function IncubacionPage() {
         </div>
       )}
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 mb-6">
         <StatCard icon="🪺" label="Incubaciones Activas" value={activeInc.length} color="purple" />
         <StatCard icon="🐣" label="Pollitos Nacidos (total)" value={totalHatched} color="yellow" />
-        <StatCard icon="📊" label="Tasa de Eclosión" value={`${hatchRate}%`} color="green" />
         <StatCard icon="🐔" label="Gallinas Disponibles" value={availableHens.length} color="blue" />
       </div>
 
@@ -144,6 +157,7 @@ export default function IncubacionPage() {
                 <div className="flex justify-between items-start mb-3">
                   <div>
                     <p className="font-semibold">🐔 {inc.henCode || "Sin gallina asignada"}</p>
+                    {inc.roosterCode && <p className="text-sm text-slate-600">🐓 Padre: {inc.roosterCode}</p>}
                     <p className="text-sm text-slate-500">Inicio: {new Date(inc.startDate + "T12:00:00").toLocaleDateString("es")}</p>
                   </div>
                   <Badge color={days <= 3 ? "red" : days <= 7 ? "yellow" : "purple"}>
@@ -170,7 +184,7 @@ export default function IncubacionPage() {
         <TableSearch
           value={search}
           onChange={setSearch}
-          placeholder="Buscar por gallina, fecha o nota..."
+          placeholder="Buscar por madre, padre, fecha o nota..."
           resultCount={filteredCompleted.length}
           totalCount={completedInc.length}
           className="mb-4"
@@ -185,10 +199,11 @@ export default function IncubacionPage() {
             }
           />
         ) : (
-          <Table headers={["Gallina", "Inicio", "Eclosión", "Huevos", "Nacidos", "Tasa", "Notas"]}>
+          <Table headers={["Madre", "Padre", "Inicio", "Eclosión", "Huevos", "Nacidos", "Tasa", "Notas"]}>
             {filteredCompleted.map((inc) => (
               <tr key={inc.id} className="hover:bg-slate-50">
                 <td className="px-4 py-3 font-medium">{inc.henCode || "—"}</td>
+                <td className="px-4 py-3 font-medium">{inc.roosterCode || "—"}</td>
                 <td className="px-4 py-3">{new Date(inc.startDate + "T12:00:00").toLocaleDateString("es")}</td>
                 <td className="px-4 py-3">{new Date(inc.expectedHatchDate + "T12:00:00").toLocaleDateString("es")}</td>
                 <td className="px-4 py-3">{inc.eggsSet}</td>
@@ -213,9 +228,14 @@ export default function IncubacionPage() {
       {/* New Incubation Modal */}
       <Modal open={modalOpen} onClose={() => setModalOpen(false)} title="🐣 Nueva Incubación">
         <div className="space-y-4">
+          {saveError && <p className="rounded-lg bg-red-50 p-3 text-sm text-red-700">{saveError}</p>}
           <Select label="Gallina Clueca (opcional)" help="Gallina que está empollando. Si no asignas gallina, los huevos se consideran incubación artificial." value={form.henId} onChange={(e) => setForm({ ...form, henId: e.target.value })}>
             <option value="">Sin asignar</option>
             {availableHens.map((h) => <option key={h.id} value={h.id}>{h.code}</option>)}
+          </Select>
+          <Select label="Gallo progenitor (opcional)" help="Registra el padre cuando se conozca para guardar el linaje de la descendencia." value={form.roosterId} onChange={(e) => setForm({ ...form, roosterId: e.target.value })}>
+            <option value="">No identificado</option>
+            {roosters.map((rooster) => <option key={rooster.id} value={rooster.id}>{rooster.code} · {rooster.breed} · {rooster.status}</option>)}
           </Select>
           <Input label="Fecha de Inicio" help="Fecha en que iniziaron a incubar los huevos. La eclosión será 21 días después." type="date" value={form.startDate} onChange={(e) => setForm({ ...form, startDate: e.target.value })} />
           <Input label="Número de Huevos" help="Cantidad de huevos puestos bajo la gallina o en la incubadora." type="number" min="1" value={form.eggsSet} onChange={(e) => setForm({ ...form, eggsSet: parseInt(e.target.value) || 0 })} />
@@ -237,6 +257,7 @@ export default function IncubacionPage() {
             <>
               <div className="p-3 bg-green-50 rounded-lg text-sm">
                 <p>🐔 Gallina: <strong>{completeModal.henCode || "N/A"}</strong></p>
+                <p>🐓 Gallo progenitor: <strong>{completeModal.roosterCode || "No identificado"}</strong></p>
                 <p>🥚 Huevos incubados: <strong>{completeModal.eggsSet}</strong></p>
               </div>
               <Input label="Pollitos Nacidos" help="Total de pollitos que nacieron de los huevos incubados." type="number" min="0" max={completeModal.eggsSet} value={hatchForm.eggsHatched} onChange={(e) => setHatchForm({ ...hatchForm, eggsHatched: parseInt(e.target.value) || 0 })} />

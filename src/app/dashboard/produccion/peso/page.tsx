@@ -17,6 +17,8 @@ import {
   Scatter,
 } from "recharts";
 import { apiFetch } from "@/lib/fetch";
+import Link from "next/link";
+import FarmLocationSelect from "@/components/FarmLocationSelect";
 
 interface Standard {
   id: string;
@@ -32,29 +34,53 @@ interface WeightLog {
   id: string;
   date: string;
   batchId: string | null;
+  locationId: string | null;
+  locationName: string | null;
   henGroup: string | null;
   breed: string | null;
+  species?: string;
+  batchCode?: string | null;
   weekNumber: number | null;
   avgWeightKg: string;
   sampleSize: number;
   notes: string | null;
 }
 
+interface BatchOption {
+  id: string;
+  code: string;
+  species: string;
+  breed: string;
+  startDate: string;
+  currentQuantity: number;
+  locationId: string | null;
+}
+
 const BREEDS = ["ISA Brown", "Hy-Line W-36", "Cobb 500"];
-const GENDERS = ["hembra", "macho"];
+const SPECIES = [
+  { value: "gallina", label: "Gallina" },
+  { value: "pollo", label: "Pollo" },
+  { value: "codorniz", label: "Codorniz" },
+  { value: "pato", label: "Pato" },
+  { value: "conejo", label: "Conejo" },
+];
 
 export default function PesoPage() {
   const [standards, setStandards] = useState<Standard[]>([]);
   const [logs, setLogs] = useState<WeightLog[]>([]);
+  const [batches, setBatches] = useState<BatchOption[]>([]);
   const [breed, setBreed] = useState("ISA Brown");
-  const [gender, setGender] = useState("hembra");
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [modalOpen, setModalOpen] = useState(false);
   const [seeding, setSeeding] = useState(false);
+  const [error, setError] = useState("");
 
   const [form, setForm] = useState({
     date: new Date().toISOString().split("T")[0],
+    species: "gallina",
+    batchId: "",
+    locationId: "",
     henGroup: "",
     breed: "ISA Brown",
     weekNumber: "",
@@ -65,14 +91,11 @@ export default function PesoPage() {
 
   const load = useCallback(() => {
     setLoading(true);
-    apiFetch(`/api/produccion/peso?breed=${encodeURIComponent(breed)}&gender=${gender}`)
+    apiFetch(`/api/produccion/peso?breed=${encodeURIComponent(breed)}`)
       .then((r) => r.json())
-      .then((data) => {
-        setStandards(data.standards || []);
-        setLogs(data.logs || []);
-      })
+      .then((data) => { setStandards(data.standards || []); setLogs(data.logs || []); setBatches(data.batches || []); })
       .finally(() => setLoading(false));
-  }, [breed, gender]);
+  }, [breed]);
 
   useEffect(() => { void Promise.resolve().then(load); }, [load]);
 
@@ -87,7 +110,9 @@ export default function PesoPage() {
   };
 
   const createLog = async () => {
-    await apiFetch("/api/produccion/peso", {
+    setError("");
+    if (!form.locationId) return setError("Selecciona el lugar donde se realizó el pesaje");
+    const response = await apiFetch("/api/produccion/peso", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
@@ -96,8 +121,13 @@ export default function PesoPage() {
         sampleSize: parseInt(form.sampleSize) || 1,
       }),
     });
+    if (!response.ok) {
+      const result = await response.json().catch(() => ({}));
+      setError(result.error || "No se pudo guardar el pesaje");
+      return;
+    }
     setModalOpen(false);
-    setForm({ date: new Date().toISOString().split("T")[0], henGroup: "", breed: "ISA Brown", weekNumber: "", avgWeightKg: "", sampleSize: "1", notes: "" });
+    setForm({ date: new Date().toISOString().split("T")[0], species: "gallina", batchId: "", locationId: "", henGroup: "", breed: "ISA Brown", weekNumber: "", avgWeightKg: "", sampleSize: "1", notes: "" });
     load();
   };
 
@@ -137,7 +167,10 @@ export default function PesoPage() {
     return logs.filter((log) =>
       matchesTextQuery(search, [
         log.date,
+        log.species,
         log.breed,
+        log.batchCode,
+        log.locationName,
         log.henGroup,
         log.weekNumber,
         log.avgWeightKg,
@@ -151,16 +184,14 @@ export default function PesoPage() {
     <div className="space-y-6">
       <PageHeader
         title="📈 Curvas de Peso"
-        description="Seguimiento de peso vs estándares por raza"
-        help="Compara el peso real de tus aves contra las curvas estándar de su raza. La gráfica muestra el rango min-max, el peso objetivo (línea punteada) y los puntos de peso real registrados. Si el peso real está por debajo del objetivo puede indicar problemas de nutrición o salud. Registra pesajes periódicos (semanal o quincenal) para mantener el seguimiento."
+        description="Registra pesajes de lotes multiespecie y compáralos con referencias de crecimiento sin separar por sexo."
+        help="Vincula cada pesaje a un lote de pollos, codornices, patos o conejos para que el informe use la edad real del lote. Las gallinas se registran por grupo y semana. Para ver todas las curvas de postura y crecimiento, usa Comparación de desempeño."
         actions={
-          <div className="flex gap-2">
+          <div className="flex flex-wrap gap-2">
             <Select value={breed} onChange={(e) => setBreed(e.target.value)}>
               {BREEDS.map((b) => <option key={b} value={b}>{b}</option>)}
             </Select>
-            <Select value={gender} onChange={(e) => setGender(e.target.value)}>
-              {GENDERS.map((g) => <option key={g} value={g}>{g}</option>)}
-            </Select>
+            <Link href="/dashboard/analisis/razas" className="inline-flex items-center rounded-lg border border-green-700 px-3 py-2 text-sm font-semibold text-green-800 hover:bg-green-50">Comparación de desempeño</Link>
           </div>
         }
       />
@@ -178,7 +209,7 @@ export default function PesoPage() {
 
       {combinedData.length > 0 && (
         <Card>
-          <h3 className="font-semibold text-slate-700 mb-4">Curva de peso — {breed} ({gender})</h3>
+          <h3 className="font-semibold text-slate-700 mb-4">Curva de peso — {breed} (referencia combinada)</h3>
           <ResponsiveContainer width="100%" height={350}>
             <ComposedChart data={combinedData}>
               <CartesianGrid strokeDasharray="3 3" />
@@ -218,12 +249,14 @@ export default function PesoPage() {
           />
         ) : (
           <div className="overflow-x-auto">
-            <Table headers={["Fecha", "Raza", "Grupo", "Semana", "Peso (kg)", "Muestra", "Notas", ""]}>
+            <Table headers={["Fecha", "Especie", "Lugar", "Raza", "Grupo / lote", "Semana", "Peso (kg)", "Muestra", "Notas", ""]}>
               {filteredLogs.map((l) => (
                 <tr key={l.id} className="border-b border-slate-100">
                   <td className="py-2">{l.date}</td>
+                  <td className="py-2 capitalize">{l.species || "gallina"}</td>
+                  <td className="py-2">{l.locationName || "Sin lugar asignado"}</td>
                   <td className="py-2">{l.breed || "-"}</td>
-                  <td className="py-2">{l.henGroup || "-"}</td>
+                  <td className="py-2">{l.batchCode || l.henGroup || "-"}</td>
                   <td className="py-2">{l.weekNumber ?? "-"}</td>
                   <td className="py-2">{l.avgWeightKg}</td>
                   <td className="py-2">{l.sampleSize}</td>
@@ -240,12 +273,31 @@ export default function PesoPage() {
 
       <Modal open={modalOpen} onClose={() => setModalOpen(false)} title="Nuevo registro de peso">
         <div className="space-y-3">
+          {error && <p className="rounded-lg bg-red-50 p-3 text-sm text-red-700">{error}</p>}
           <Input label="Fecha" type="date" value={form.date} onChange={(e) => setForm({ ...form, date: e.target.value })} help="Fecha del pesaje" />
-          <Input label="Raza" value={form.breed} onChange={(e) => setForm({ ...form, breed: e.target.value })} help="Raza del grupo pesado (ej: ISA Brown, Cobb 500)" />
-          <Input label="Grupo" value={form.henGroup} onChange={(e) => setForm({ ...form, henGroup: e.target.value })} placeholder="gallinas, lote, etc." help="Identificador del grupo pesado" />
-          <Input label="Semana" type="number" value={form.weekNumber} onChange={(e) => setForm({ ...form, weekNumber: e.target.value })} help="Semana de edad del grupo (se calculará automáticamente si se conoce la fecha de nacimiento)" />
+          <Select label="Especie" value={form.species} onChange={(e) => setForm({ ...form, species: e.target.value, batchId: "", locationId: "", henGroup: "", breed: e.target.value === "gallina" ? "ISA Brown" : "" })}>
+            {SPECIES.map((item) => <option key={item.value} value={item.value}>{item.label}</option>)}
+          </Select>
+          {form.species === "gallina" ? (
+            <>
+              <Input label="Raza" value={form.breed} onChange={(e) => setForm({ ...form, breed: e.target.value })} help="Raza del grupo pesado" />
+              <Input label="Grupo" value={form.henGroup} onChange={(e) => setForm({ ...form, henGroup: e.target.value })} placeholder="Ej. gallinas jóvenes A" help="Identificador del grupo pesado" />
+              <Input label="Semana" type="number" min="0" value={form.weekNumber} onChange={(e) => setForm({ ...form, weekNumber: e.target.value })} help="Edad del grupo en semanas" />
+            </>
+          ) : (
+            <Select label="Lote" value={form.batchId} onChange={(e) => {
+              const selected = batches.find((batch) => batch.id === e.target.value);
+              setForm({ ...form, batchId: e.target.value, breed: selected?.breed || "", locationId: selected?.locationId || "" });
+            }} help="La edad del lote se calculará desde la fecha de ingreso">
+              <option value="">Seleccionar lote...</option>
+              {batches.filter((batch) => batch.species === form.species).map((batch) => (
+                <option key={batch.id} value={batch.id}>{batch.code} · {batch.breed} · {batch.currentQuantity} animales</option>
+              ))}
+            </Select>
+          )}
+          <FarmLocationSelect value={form.locationId} onChange={(locationId) => setForm({ ...form, locationId })} label="Lugar donde se realizó el pesaje *" help="Los pesos se comparan con los estándares dentro del lugar donde está el grupo." />
           <Input label="Peso promedio (kg)" type="number" step="0.01" value={form.avgWeightKg} onChange={(e) => setForm({ ...form, avgWeightKg: e.target.value })} help="Peso promedio del grupo en kilogramos" />
-          <Input label="Tamaño muestra" type="number" value={form.sampleSize} onChange={(e) => setForm({ ...form, sampleSize: e.target.value })} help="Cuántas aves se pesaron para obtener el promedio" />
+          <Input label="Tamaño muestra" type="number" value={form.sampleSize} onChange={(e) => setForm({ ...form, sampleSize: e.target.value })} help="Cuántos animales se pesaron para obtener el promedio" />
           <Input label="Notas" value={form.notes} onChange={(e) => setForm({ ...form, notes: e.target.value })} help="Observaciones del pesaje (condiciones, comentarios, etc.)" />
           <Button onClick={createLog} className="w-full">Guardar</Button>
         </div>

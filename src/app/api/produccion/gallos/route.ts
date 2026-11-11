@@ -7,23 +7,9 @@ import { withApiHandler, safeParseJson } from "@/lib/api-handler";
 import { lockMeatInventory } from "@/lib/inventory-locks";
 import { deleteChickenSalesAndLinkedFinance } from "@/lib/animal-sales";
 import { computeMeatInventory, meatInventoryBookBalance } from "@/lib/inventory";
+import { validateBreedAssociation } from "@/lib/animal-breed-validation";
 
 export const dynamic = "force-dynamic";
-
-/** Autogenera el siguiente código de gallo: GA-001, GA-002, ... */
-async function nextRoosterCode(client: any = db): Promise<string> {
-  const rows = await client
-    .select({ code: roosters.code })
-    .from(roosters)
-    .where(sql`${roosters.code} LIKE 'GA-%'`);
-
-  let max = 0;
-  for (const row of rows) {
-    const match = String(row.code).match(/^GA-(\d+)$/);
-    if (match) max = Number(match[1]);
-  }
-  return `GA-${String(max + 1).padStart(3, "0")}`;
-}
 
 function serialize(row: typeof roosters.$inferSelect) {
   return {
@@ -55,37 +41,18 @@ export const GET = withApiHandler(async (req: NextRequest) => {
   return NextResponse.json(rows.map(serialize));
 });
 
-/** POST /api/produccion/gallos — crea un gallo reproductor. */
-export const POST = withApiHandler(async (req: NextRequest) => {
-  const body = await safeParseJson(req);
-  if (!body.breed) return NextResponse.json({ error: "Raza requerida" }, { status: 400 });
-  if (!body.birthDate) return NextResponse.json({ error: "Fecha de nacimiento requerida" }, { status: 400 });
-
-  const created = await db.transaction(async (tx) => {
-    await tx.execute(sql`LOCK TABLE ${roosters} IN EXCLUSIVE MODE`);
-    const code = body.code ? String(body.code).trim() : await nextRoosterCode(tx);
-    const [duplicate] = await tx.select({ id: roosters.id }).from(roosters).where(eq(roosters.code, code)).limit(1);
-    if (duplicate) throw new Error("Código de gallo duplicado");
-    const [row] = await tx.insert(roosters).values({
-      code,
-      breed: String(body.breed).trim(),
-      birthDate: body.birthDate,
-      status: body.status || "activo",
-      weight: body.weight ? String(body.weight) : null,
-      notes: body.notes || null,
-      acquisitionId: body.acquisitionId || null,
-      acquisitionCost: body.acquisitionCost ? String(body.acquisitionCost) : null,
-    }).returning();
-    return row;
-  });
-
-  return NextResponse.json(serialize(created), { status: 201 });
-});
+/** Las nuevas altas deben quedar enlazadas a una adquisición. */
+export const POST = withApiHandler(async () => NextResponse.json({
+  error: "Registra los nuevos gallos desde Adquisiciones para conservar su origen.",
+  href: "/dashboard/produccion/adquisiciones?nuevo=gallo",
+}, { status: 409 }));
 
 /** PUT /api/produccion/gallos — actualiza un gallo existente. */
 export const PUT = withApiHandler(async (req: NextRequest) => {
   const body = await safeParseJson(req);
   if (!body.id) return NextResponse.json({ error: "ID requerido" }, { status: 400 });
+  const breedError = await validateBreedAssociation(db, String(body.breed || ""), "gallina");
+  if (breedError) return NextResponse.json({ error: breedError }, { status: 400 });
 
   const updated = await db.transaction(async (tx) => {
     await tx.execute(sql`LOCK TABLE ${roosters} IN EXCLUSIVE MODE`);

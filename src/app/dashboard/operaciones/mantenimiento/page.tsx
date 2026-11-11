@@ -6,6 +6,7 @@ import { useCatalog } from "@/lib/useCatalog";
 import { apiFetch } from "@/lib/fetch";
 import TableSearch from "@/components/TableSearch";
 import { matchesTextQuery } from "@/lib/text";
+import { useFarmLocations } from "@/lib/useFarmLocations";
 
 interface Maintenance {
   id: string;
@@ -15,6 +16,20 @@ interface Maintenance {
   completedDate: string | null;
   status: string;
   cost: string | null;
+  locationId: string | null;
+  locationName: string | null;
+  assetId: string | null;
+  assetCode: string | null;
+  assetName: string | null;
+  recurrenceIntervalDays: number | null;
+}
+
+interface FarmAssetOption {
+  id: string;
+  code: string;
+  name: string;
+  locationId: string | null;
+  status: string;
 }
 
 const statusLabels: Record<string, { label: string; color: string }> = {
@@ -38,16 +53,25 @@ const taskTemplates = [
 
 export default function MantenimientoPage() {
   const [tasks, setTasks] = useState<Maintenance[]>([]);
+  const [assets, setAssets] = useState<FarmAssetOption[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [modalOpen, setModalOpen] = useState(false);
   const [editing, setEditing] = useState<Maintenance | null>(null);
   const [error, setError] = useState("");
-  const [form, setForm] = useState({ title: "", description: "", scheduledDate: new Date().toISOString().split("T")[0], status: "pendiente", cost: "0", completedDate: "" });
+  const [form, setForm] = useState({ title: "", description: "", scheduledDate: new Date().toISOString().split("T")[0], status: "pendiente", cost: "0", completedDate: "", locationId: "", assetId: "", recurrenceIntervalDays: "" });
+  const { locations } = useFarmLocations();
   const { values: taskOptions } = useCatalog("tipo_mantenimiento", taskTemplates);
 
   const load = useCallback(() => {
-    apiFetch("/api/operaciones/mantenimiento").then((r) => r.json()).then(setTasks).finally(() => setLoading(false));
+    Promise.all([
+      apiFetch("/api/operaciones/mantenimiento").then((r) => r.json()),
+      apiFetch("/api/operaciones/activos?active=true").then((r) => r.json()),
+    ]).then(([taskRows, assetRows]) => {
+      setTasks(Array.isArray(taskRows) ? taskRows : []);
+      setAssets(Array.isArray(assetRows) ? assetRows : []);
+    }).catch(() => setError("No se pudieron cargar las tareas y equipos"))
+      .finally(() => setLoading(false));
   }, []);
 
   useEffect(() => { load(); }, [load]);
@@ -55,14 +79,14 @@ export default function MantenimientoPage() {
   const openNew = () => {
     setEditing(null);
     setError("");
-    setForm({ title: "", description: "", scheduledDate: new Date().toISOString().split("T")[0], status: "pendiente", cost: "0", completedDate: "" });
+    setForm({ title: "", description: "", scheduledDate: new Date().toISOString().split("T")[0], status: "pendiente", cost: "0", completedDate: "", locationId: "", assetId: "", recurrenceIntervalDays: "" });
     setModalOpen(true);
   };
 
   const openEdit = (t: Maintenance) => {
     setEditing(t);
     setError("");
-    setForm({ title: t.title, description: t.description || "", scheduledDate: t.scheduledDate, status: t.status, cost: t.cost || "0", completedDate: t.completedDate || "" });
+    setForm({ title: t.title, description: t.description || "", scheduledDate: t.scheduledDate, status: t.status, cost: t.cost || "0", completedDate: t.completedDate || "", locationId: t.locationId || "", assetId: t.assetId || "", recurrenceIntervalDays: t.recurrenceIntervalDays ? String(t.recurrenceIntervalDays) : "" });
     setModalOpen(true);
   };
 
@@ -107,6 +131,7 @@ export default function MantenimientoPage() {
         task.status,
         statusLabels[task.status]?.label,
         task.cost,
+        task.locationName,
       ]),
     );
   }, [tasks, search]);
@@ -116,9 +141,10 @@ export default function MantenimientoPage() {
       <PageHeader
         title="🔧 Mantenimiento del Gallinero"
         description="Programación y seguimiento de tareas de mantenimiento e infraestructura"
-        help="Gestiona las tareas de mantenimiento preventivo y correctivo del gallinero: bebederos, bebederos, iluminación, estructura, equipos, etc. Cada tarea tiene prioridad (alta/media/baja), estado (pendiente/en progreso/completada), fecha programada y costo estimado. Permite planificar mantenimiento regular para evitar fallas que afecten la producción."
-        actions={<Button onClick={openNew}>+ Nueva Tarea</Button>}
+        help="Registra tareas por lugar o por equipo. Al completar una tarea periódica se programa automáticamente la próxima fecha. El Inicio muestra los vencimientos de los próximos siete días."
+        actions={<div className="flex flex-wrap gap-2"><a href="/dashboard/operaciones/activos" className="inline-flex items-center rounded-lg border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50">🏗️ Activos y equipos</a><Button onClick={openNew}>+ Nueva Tarea</Button></div>}
       />
+      {error && !modalOpen && <p className="mb-4 rounded-lg bg-red-50 p-3 text-sm text-red-700">{error}</p>}
 
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
         <StatCard icon="⏳" label="Pendientes" value={pending} color={pending > 0 ? "yellow" : "green"} />
@@ -131,8 +157,8 @@ export default function MantenimientoPage() {
       <Card className="mb-6">
         <h3 className="font-semibold text-slate-700 mb-3">⚡ Tareas Rápidas (click para crear)</h3>
         <div className="flex flex-wrap gap-2">
-          {taskOptions.map((t) => (
-            <button key={t} onClick={() => { setEditing(null); setForm({ title: t, description: "", scheduledDate: new Date().toISOString().split("T")[0], status: "pendiente", cost: "0", completedDate: "" }); setModalOpen(true); }}
+              {taskOptions.map((t) => (
+            <button key={t} onClick={() => { setEditing(null); setError(""); setForm({ title: t, description: "", scheduledDate: new Date().toISOString().split("T")[0], status: "pendiente", cost: "0", completedDate: "", locationId: "", assetId: "", recurrenceIntervalDays: "" }); setModalOpen(true); }}
               className="px-3 py-1.5 text-xs bg-slate-100 hover:bg-green-100 rounded-full text-slate-600 hover:text-green-700 transition-colors">
               {t}
             </button>
@@ -161,14 +187,19 @@ export default function MantenimientoPage() {
             }
           />
         ) : (
-          <Table headers={["Tarea", "Programada", "Estado", "Completada", "Costo", "Acciones"]}>
+          <Table headers={["Tarea", "Equipo / lugar", "Programada", "Repetición", "Estado", "Completada", "Costo", "Acciones"]}>
             {filteredTasks.map((t) => (
               <tr key={t.id} className={`hover:bg-slate-50 ${t.status === "pendiente" ? "bg-yellow-50" : ""}`}>
                 <td className="px-4 py-3">
                   <p className="font-medium">{t.title}</p>
                   {t.description && <p className="text-xs text-slate-400 mt-1">{t.description}</p>}
                 </td>
+                <td className="px-4 py-3 text-sm">
+                  <p>{t.assetName ? `${t.assetName}${t.assetCode ? ` (${t.assetCode})` : ""}` : "Sin equipo asociado"}</p>
+                  <p className="text-xs text-slate-500">{t.locationName || "General de la finca"}</p>
+                </td>
                 <td className="px-4 py-3">{new Date(t.scheduledDate + "T12:00:00").toLocaleDateString("es")}</td>
+                <td className="px-4 py-3 text-xs">{t.recurrenceIntervalDays ? `Cada ${t.recurrenceIntervalDays} días` : "Una vez"}</td>
                 <td className="px-4 py-3">
                   <Badge color={statusLabels[t.status]?.color || "gray"}>{statusLabels[t.status]?.label || t.status}</Badge>
                 </td>
@@ -191,6 +222,18 @@ export default function MantenimientoPage() {
           {error && <p className="text-sm text-red-600 bg-red-50 p-3 rounded-lg">{error}</p>}
           <Input label="Título de la Tarea" value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })} placeholder="Ej: Limpieza del gallinero" required help="Nombre corto y descriptivo de la tarea" />
           <Textarea label="Descripción" value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} placeholder="Detalles de la tarea..." help="Detalles adicionales, materiales necesarios, instrucciones, etc." />
+          <Select label="Equipo asociado (opcional)" value={form.assetId} onChange={(e) => {
+            const asset = assets.find((item) => item.id === e.target.value);
+            setForm({ ...form, assetId: e.target.value, locationId: e.target.value ? asset?.locationId || "" : form.locationId });
+          }} help="Selecciona la ficha para conservar el historial de reparaciones por equipo.">
+            <option value="">Tarea general o solo por lugar</option>
+            {assets.map((asset) => <option key={asset.id} value={asset.id}>{asset.code} · {asset.name}</option>)}
+          </Select>
+          <Select label="Lugar asociado" value={form.locationId} disabled={Boolean(assets.find((asset) => asset.id === form.assetId)?.locationId)} onChange={(e) => setForm({ ...form, locationId: e.target.value })} help="Se completa con el lugar del equipo cuando su ficha ya tiene uno.">
+            <option value="">General de la finca / sin lugar específico</option>
+            {locations.map((location) => <option key={location.id} value={location.id}>{location.name}</option>)}
+          </Select>
+          <Input label="Repetir cada cierto número de días" type="number" min="1" max="3650" value={form.recurrenceIntervalDays} onChange={(e) => setForm({ ...form, recurrenceIntervalDays: e.target.value })} placeholder="Dejar vacío para una sola vez" help="Al completar la tarea, se crea la siguiente fecha automáticamente (por ejemplo, 7, 30 o 90 días)." />
           <div className="grid grid-cols-2 gap-3">
             <Input label="Fecha Programada" type="date" value={form.scheduledDate} onChange={(e) => setForm({ ...form, scheduledDate: e.target.value })} help="Fecha en que se planea realizar la tarea" />
             <Select label="Estado" value={form.status} onChange={(e) => setForm({ ...form, status: e.target.value })} help="Pendiente, En Progreso o Completado">

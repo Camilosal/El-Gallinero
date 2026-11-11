@@ -1,6 +1,6 @@
 import { db } from "@/db";
-import { accountsPayable, accountsReceivable, payments, transactions } from "@/db/schema";
-import { eq, inArray, or, type SQL } from "drizzle-orm";
+import { accountsPayable, accountsReceivable, feedInventory, feedMovements, payments, transactions } from "@/db/schema";
+import { and, eq, inArray, or, sql, type SQL } from "drizzle-orm";
 
 type DbTransaction = Parameters<Parameters<typeof db.transaction>[0]>[0];
 
@@ -108,4 +108,58 @@ export async function deleteTransactionsAndUnpaidAccounts(tx: DbTransaction, con
     await tx.delete(accountsPayable).where(inArray(accountsPayable.id, payables.map((account) => account.id)));
   }
   await tx.delete(transactions).where(condition);
+}
+
+/** Reverses the stock effect and linked expense before removing a feed movement. */
+export async function deleteFeedMovementAndReverseStock(
+  tx: DbTransaction,
+  movementId: string,
+  transactionId?: string,
+): Promise<void> {
+  const [movement] = await tx.select().from(feedMovements)
+    .where(eq(feedMovements.id, movementId)).for("update");
+  if (!movement) throw new Error("Movimiento de alimento no encontrado");
+
+  const [feed] = await tx.select().from(feedInventory)
+    .where(eq(feedInventory.id, movement.feedId)).for("update");
+  if (!feed) throw new Error("Alimento no encontrado");
+
+  if (transactionId) {
+    const [transaction] = await tx.select({ id: transactions.id, sourceType: transactions.sourceType, sourceId: transactions.sourceId })
+      .from(transactions).where(eq(transactions.id, transactionId)).for("update");
+    if (!transaction || transaction.sourceType !== "alimento" || transaction.sourceId !== movementId) {
+      throw new Error("Transacción vinculada: la compra de alimento cambió mientras se eliminaba");
+    }
+  }
+
+  const quantity = Number(movement.quantity);
+  const currentStock = Number(feed.currentStock);
+  if (movement.isEntry && currentStock + 0.0001 < quantity) {
+    throw new Error("No se puede eliminar una compra de alimento que ya fue consumida");
+  }
+  const nextStock = movement.isEntry ? currentStock - quantity : currentStock + quantity;
+  let nextCostPerUnit = Number(feed.costPerUnit);
+
+  if (movement.isEntry && movement.movementType === "compra") {
+    const [purchase] = await tx.select({ unitPrice: transactions.unitPrice }).from(transactions)
+      .where(and(eq(transactions.sourceType, "alimento"), eq(transactions.sourceId, movementId)))
+      .limit(1);
+    const purchaseUnitPrice = Number(purchase?.unitPrice);
+    if (Number.isFinite(purchaseUnitPrice) && purchaseUnitPrice >= 0) {
+      const remainingValue = currentStock * nextCostPerUnit - quantity * purchaseUnitPrice;
+      nextCostPerUnit = nextStock > 0 ? Math.max(0, remainingValue / nextStock) : 0;
+    }
+  }
+
+  await tx.update(feedInventory).set({
+    currentStock: nextStock.toFixed(2),
+    costPerUnit: nextCostPerUnit.toFixed(2),
+    updatedAt: new Date(),
+  }).where(eq(feedInventory.id, movement.feedId));
+
+  await deleteTransactionsAndUnpaidAccounts(
+    tx,
+    and(eq(transactions.sourceType, "alimento"), eq(transactions.sourceId, movementId)),
+  );
+  await tx.delete(feedMovements).where(eq(feedMovements.id, movementId));
 }

@@ -1,11 +1,12 @@
 import { describe, it, expect, beforeAll, afterAll, afterEach } from "vitest";
-import { eq, and, sql } from "drizzle-orm";
+import { eq, and, sql, inArray } from "drizzle-orm";
 import {
   db, pool, mockRequest, parseJson, createCleanup, cleanup,
   createTestFeed, getSeedFeed, getSeedStage, purgeManureData,
+  createTestFarmLocation,
   type TestCleanup,
 } from "./helpers";
-import { transactions, eggSales, eggSalesItems, feedInventory, feedMovements, eggProduction, eggProductionDetails, hens, roosters, broilerBatches, manureSales, manureAdjustments, manureProduction } from "@/db/schema";
+import { transactions, eggSales, eggSalesItems, feedInventory, feedMovements, eggProduction, eggProductionDetails, hens, roosters, broilerBatches, birdAcquisitions, manureSales, manureAdjustments, manureProduction } from "@/db/schema";
 import { requiredRoosters, assignMales, batchReadiness, flockBalance } from "@/lib/flock";
 import { isAvailableForExit } from "@/lib/lifecycle";
 
@@ -16,17 +17,69 @@ import { POST as huevosPOST, PUT as huevosPUT, DELETE as huevosDELETE, GET as hu
 import { GET as dashboardGET } from "@/app/api/dashboard/route";
 import { GET as resumenGET } from "@/app/api/produccion/etapas/resumen/route";
 import { POST as finanzasPOST, DELETE as finanzasDELETE } from "@/app/api/finanzas/finanzas/route";
-import { GET as gallinasGET, POST as gallinasPOST, PUT as gallinasPUT } from "@/app/api/produccion/gallinas/route";
+import { GET as gallinasGET, PUT as gallinasPUT } from "@/app/api/produccion/gallinas/route";
 import { POST as incubacionPOST, PUT as incubacionPUT, DELETE as incubacionDELETE } from "@/app/api/produccion/incubacion/route";
-import { GET as lotesGET, POST as lotesPOST } from "@/app/api/produccion/pollos/route";
+import { GET as lotesGET } from "@/app/api/produccion/pollos/route";
+import { GET as adquisicionesGET, POST as adquisicionesPOST } from "@/app/api/produccion/adquisiciones/route";
 import { POST as sacrificioPOST, DELETE as sacrificioDELETE } from "@/app/api/produccion/sacrificio/route";
 import { GET as gallinazaGET, POST as gallinazaPOST, DELETE as gallinazaDELETE } from "@/app/api/operaciones/gallinaza/route";
 
 let cleanupData: TestCleanup & { productionDetailIds?: string[] };
 
+async function ensureTestLocation() {
+  if (cleanupData.locationIds.length) return cleanupData.locationIds[0];
+  const location = await createTestFarmLocation();
+  cleanupData.locationIds.push(location.id);
+  return location.id;
+}
+
 /** Call a GET route handler that does not need request parameters */
 function callGET(handler: (...a: any[]) => any) {
   return handler(mockRequest("http://localhost/api", { method: "GET" }));
+}
+
+async function acquireTestAnimal(input: {
+  birdType: "gallina" | "lote_pollos" | "pato";
+  quantity: number;
+  breed: string;
+  birthDate: string;
+  purpose?: string;
+}) {
+  const today = new Date().toISOString().split("T")[0];
+  const destinationLocationId = await ensureTestLocation();
+  const response = await adquisicionesPOST(mockRequest("http://localhost/api/produccion/adquisiciones", {
+    method: "POST",
+    body: {
+      date: today,
+      acquisitionType: "donacion",
+      birdType: input.birdType,
+      quantity: input.quantity,
+      breed: input.breed,
+      birthDate: input.birthDate,
+      purpose: input.purpose || "engorde_carne",
+      destinationLocationId,
+    },
+  }));
+  expect(response.status).toBe(201);
+  const acquisition = await parseJson(response);
+  cleanupData.acquisitionIds.push(acquisition.id);
+  const id = acquisition.createdBirdIds[0] as string;
+
+  if (input.birdType === "gallina") {
+    cleanupData.henIds.push(id);
+    const hensData = await parseJson(await callGET(gallinasGET));
+    const hen = hensData.find((item: { id: string }) => item.id === id);
+    if (!hen) throw new Error("No se encontró la gallina creada por la adquisición de prueba");
+    return hen;
+  }
+
+  cleanupData.batchIds.push(id);
+  return { id, locationId: destinationLocationId };
+}
+
+async function createTestLayingHen() {
+  const birthDate = new Date(Date.now() - 365 * 86400000).toISOString().split("T")[0];
+  return acquireTestAnimal({ birdType: "gallina", quantity: 1, breed: "ISA Brown", birthDate });
 }
 
 beforeAll(async () => {
@@ -231,6 +284,17 @@ describe("Income Flow (Ventas → Transactions)", () => {
     cleanupData = createCleanup();
     const today = new Date().toISOString().split("T")[0];
 
+    // Keep this flow independent from seed sales, which may consume all of either size.
+    const [testProduction] = await db.insert(eggProduction).values({
+      date: today, totalCollected: 44, broken: 0, forIncubation: 0,
+      notes: "Test stock for multi-size sale",
+    }).returning();
+    cleanupData.productionIds.push(testProduction.id);
+    await db.insert(eggProductionDetails).values([
+      { productionId: testProduction.id, size: "Grande", quantity: 20 },
+      { productionId: testProduction.id, size: "Mediano", quantity: 24 },
+    ]);
+
     const res = await ventasPOST(mockRequest("http://localhost/api/ventas", {
       method: "POST",
       body: {
@@ -318,13 +382,14 @@ describe("Expense Flow (Alimentación → Stock + Transactions)", () => {
 
   it("POST consumption reduces stock correctly", async () => {
     cleanupData = createCleanup();
+    const locationId = await ensureTestLocation();
     const feed = await createTestFeed({ currentStock: "80" });
     cleanupData.feedIds.push(feed.id);
     const today = new Date().toISOString().split("T")[0];
 
     const res = await movimientosPOST(mockRequest("http://localhost/api/alimentacion/movimientos", {
       method: "POST",
-      body: { feedId: feed.id, quantity: "30", isEntry: false, date: today },
+      body: { feedId: feed.id, quantity: "30", isEntry: false, date: today, locationId },
     }));
 
     expect(res.status).toBe(201);
@@ -338,13 +403,14 @@ describe("Expense Flow (Alimentación → Stock + Transactions)", () => {
 
   it("POST consumption rejects if stock is insufficient", async () => {
     cleanupData = createCleanup();
+    const locationId = await ensureTestLocation();
     const feed = await createTestFeed({ currentStock: "10" });
     cleanupData.feedIds.push(feed.id);
     const today = new Date().toISOString().split("T")[0];
 
     const res = await movimientosPOST(mockRequest("http://localhost/api/alimentacion/movimientos", {
       method: "POST",
-      body: { feedId: feed.id, quantity: "50", isEntry: false, date: today },
+      body: { feedId: feed.id, quantity: "50", isEntry: false, date: today, locationId },
     }));
 
     expect(res.status).toBe(400);
@@ -354,6 +420,7 @@ describe("Expense Flow (Alimentación → Stock + Transactions)", () => {
 
   it("DELETE movement reverses stock change correctly", async () => {
     cleanupData = createCleanup();
+    const locationId = await ensureTestLocation();
     const feed = await createTestFeed({ currentStock: "100" });
     cleanupData.feedIds.push(feed.id);
     const today = new Date().toISOString().split("T")[0];
@@ -361,7 +428,7 @@ describe("Expense Flow (Alimentación → Stock + Transactions)", () => {
     // Create a consumption movement
     const createRes = await movimientosPOST(mockRequest("http://localhost/api/alimentacion/movimientos", {
       method: "POST",
-      body: { feedId: feed.id, quantity: "40", isEntry: false, date: today },
+      body: { feedId: feed.id, quantity: "40", isEntry: false, date: today, locationId },
     }));
     const mov = await parseJson(createRes);
     cleanupData.movementIds.push(mov.id);
@@ -413,11 +480,14 @@ describe("Production Flow (Huevos)", () => {
   it("POST /api/huevos creates production record with size details", async () => {
     cleanupData = createCleanup();
     const today = new Date().toISOString().split("T")[0];
+    const layingHen = await createTestLayingHen();
+    const locationId = layingHen.locationId;
 
     const res = await huevosPOST(mockRequest("http://localhost/api/huevos", {
       method: "POST",
       body: {
         date: today,
+        locationId,
         sizes: [
           { size: "Grande", quantity: 45 },
           { size: "Mediano", quantity: 20 },
@@ -451,18 +521,22 @@ describe("Production Flow (Huevos)", () => {
   it("PUT /api/huevos updates record and replaces size details", async () => {
     cleanupData = createCleanup();
     const today = new Date().toISOString().split("T")[0];
+    const layingHen = await createTestLayingHen();
+    const locationId = layingHen.locationId;
 
     // Create initial record
     const createRes = await huevosPOST(mockRequest("http://localhost/api/huevos", {
       method: "POST",
       body: {
         date: today,
+        locationId,
         sizes: [{ size: "Grande", quantity: 30 }],
         broken: 2,
         forIncubation: 1,
         overrideValidation: true,
       },
     }));
+    expect(createRes.status).toBe(201);
     const created = await parseJson(createRes);
     cleanupData.productionIds.push(created.id);
 
@@ -472,6 +546,7 @@ describe("Production Flow (Huevos)", () => {
       body: {
         id: created.id,
         date: today,
+        locationId,
         sizes: [
           { size: "Extra", quantity: 50 },
           { size: "Pequeño", quantity: 15 },
@@ -501,17 +576,21 @@ describe("Production Flow (Huevos)", () => {
   it("DELETE /api/huevos removes record and cascades details", async () => {
     cleanupData = createCleanup();
     const today = new Date().toISOString().split("T")[0];
+    const layingHen = await createTestLayingHen();
+    const locationId = layingHen.locationId;
 
     const createRes = await huevosPOST(mockRequest("http://localhost/api/huevos", {
       method: "POST",
       body: {
         date: today,
+        locationId,
         sizes: [{ size: "Grande", quantity: 25 }],
         broken: 1,
         forIncubation: 0,
         overrideValidation: true,
       },
     }));
+    expect(createRes.status).toBe(201);
     const created = await parseJson(createRes);
 
     // Delete it
@@ -533,38 +612,46 @@ describe("Production Flow (Huevos)", () => {
   it("GET /api/huevos returns records with nested details", async () => {
     cleanupData = createCleanup();
     const today = new Date().toISOString().split("T")[0];
+    const layingHen = await createTestLayingHen();
+    const locationId = layingHen.locationId;
 
     // Create a production record
-    await huevosPOST(mockRequest("http://localhost/api/huevos", {
+    const createResponse = await huevosPOST(mockRequest("http://localhost/api/huevos", {
       method: "POST",
       body: {
         date: today,
+        locationId,
         sizes: [{ size: "Grande", quantity: 40 }, { size: "Mediano", quantity: 10 }],
         broken: 2,
         forIncubation: 1,
         overrideValidation: true,
       },
     }));
+    expect(createResponse.status).toBe(201);
+    const created = await parseJson(createResponse);
+    cleanupData.productionIds.push(created.id);
 
     const res = await callGET(huevosGET);
     const records = await parseJson(res);
 
     // The record we just created should be in the list
-    const found = records.find((r: any) => r.date === today && r.totalCollected === 53);
+    const found = records.find((r: any) => r.id === created.id);
     expect(found).toBeDefined();
     expect(found.details.length).toBe(2);
-    cleanupData.productionIds.push(found.id);
   });
 
   it("POST /api/huevos returns 409 when production greatly exceeds expected", async () => {
     cleanupData = createCleanup();
     const today = new Date().toISOString().split("T")[0];
+    const layingHen = await createTestLayingHen();
+    const locationId = layingHen.locationId;
 
     // Try to register an absurdly high production (no override)
     const res = await huevosPOST(mockRequest("http://localhost/api/huevos", {
       method: "POST",
       body: {
         date: today,
+        locationId,
         sizes: [{ size: "Grande", quantity: 99999 }],
         broken: 0,
         forIncubation: 0,
@@ -877,47 +964,35 @@ describe("Expense Presentations (Finanzas)", () => {
 // HEN LIFECYCLE: transiciones automáticas de estado por edad/peso
 // ═══════════════════════════════════════════════════════════════
 describe("Hen Lifecycle (Estados automáticos)", () => {
-  it("POST /api/gallinas resuelve automáticamente recomendada_sacrificio por edad (fin de postura)", async () => {
+  it("La gallina adquirida pasa automáticamente a recomendada_sacrificio por edad", async () => {
     cleanupData = createCleanup();
     const oldDate = new Date(Date.now() - 85 * 7 * 86400000).toISOString().split("T")[0];
-    const res = await gallinasPOST(mockRequest("http://localhost/api/gallinas", {
-      method: "POST",
-      body: { code: "TEST-LC-OLD", breed: "Criolla", birthDate: oldDate, status: "activa", weight: "1.8" },
-    }));
-    expect(res.status).toBe(201);
-    const hen = await parseJson(res);
-    cleanupData.henIds.push(hen.id);
+    const hen = await acquireTestAnimal({ birdType: "gallina", quantity: 1, breed: "Criolla", birthDate: oldDate });
 
     expect(hen.status).toBe("recomendada_sacrificio");
     expect(hen.stage).toBe("Postura");
     expect(hen.lifecycleReasons.some((r: string) => r.includes("postura"))).toBe(true);
   });
 
-  it("POST /api/gallinas recomienda sacrificio cuando el peso es adecuado para venta", async () => {
+  it("La gallina adquirida se recomienda para sacrificio cuando alcanza el peso objetivo", async () => {
     cleanupData = createCleanup();
     const youngDate = new Date(Date.now() - 25 * 7 * 86400000).toISOString().split("T")[0];
-    const res = await gallinasPOST(mockRequest("http://localhost/api/gallinas", {
-      method: "POST",
-      body: { code: "TEST-LC-WEIGHT", breed: "Criolla", birthDate: youngDate, status: "activa", weight: "2.9" },
-    }));
-    expect(res.status).toBe(201);
-    const hen = await parseJson(res);
-    cleanupData.henIds.push(hen.id);
+    const hen = await acquireTestAnimal({ birdType: "gallina", quantity: 1, breed: "Criolla", birthDate: youngDate });
 
-    expect(hen.status).toBe("recomendada_sacrificio");
-    expect(hen.lifecycleReasons.some((r: string) => r.includes("Peso"))).toBe(true);
+    await gallinasPUT(mockRequest("http://localhost/api/produccion/gallinas", {
+      method: "PUT",
+      body: { id: hen.id, code: hen.code, breed: hen.breed, birthDate: hen.birthDate, status: "activa", weight: "2.9", notes: hen.notes, isBroody: hen.isBroody, clutchSize: hen.clutchSize },
+    }));
+    const updated = (await parseJson(await callGET(gallinasGET))).find((item: { id: string }) => item.id === hen.id);
+
+    expect(updated.status).toBe("recomendada_sacrificio");
+    expect(updated.lifecycleReasons.some((r: string) => r.includes("Peso"))).toBe(true);
   });
 
   it("Gallina joven y liviana permanece activa y los estados terminales nunca se revierten", async () => {
     cleanupData = createCleanup();
     const youngDate = new Date(Date.now() - 10 * 7 * 86400000).toISOString().split("T")[0];
-    const res = await gallinasPOST(mockRequest("http://localhost/api/gallinas", {
-      method: "POST",
-      body: { code: "TEST-LC-YOUNG", breed: "Leghorn", birthDate: youngDate, status: "activa", weight: "1.0" },
-    }));
-    expect(res.status).toBe(201);
-    const hen = await parseJson(res);
-    cleanupData.henIds.push(hen.id);
+    const hen = await acquireTestAnimal({ birdType: "gallina", quantity: 1, breed: "Leghorn", birthDate: youngDate });
     expect(hen.status).toBe("activa");
     expect(hen.lifecycleReasons).toHaveLength(0);
 
@@ -988,9 +1063,31 @@ describe("Flock Rules (Regla de parvada)", () => {
 // INCUBACIÓN → ASIGNACIÓN AUTOMÁTICA DE MACHOS
 // ═══════════════════════════════════════════════════════════════
 describe("Incubación (asignación automática de machos)", () => {
-  it("Al completar eclosión crea gallinas, gallos según regla y lote con el resto", async () => {
+  it("conserva la cadena de ambos progenitores en las fichas y lotes nacidos", async () => {
     cleanupData = createCleanup();
     const today = new Date().toISOString().split("T")[0];
+
+    const motherResponse = await adquisicionesPOST(mockRequest("http://localhost/api/produccion/adquisiciones", {
+      method: "POST",
+      body: { date: today, acquisitionType: "donacion", birdType: "gallina", quantity: 1, breed: "Criolla", birthDate: today, destinationLocationId: await ensureTestLocation(), geneticLine: "Línea materna A", generation: "G1", originFarm: "Granja materna", originLocation: "Zona norte", sourceBatchCode: "MAD-001", geneticEvidenceReference: "CERT-MAD-001", healthEvidenceReference: "VAC-MAD-001" },
+    }));
+    expect(motherResponse.status).toBe(201);
+    const motherAcquisition = await parseJson(motherResponse);
+    expect(motherAcquisition.geneticLine).toBe("Línea materna A");
+    expect(motherAcquisition.healthEvidenceReference).toBe("VAC-MAD-001");
+    cleanupData.acquisitionIds.push(motherAcquisition.id);
+    const motherHenId = motherAcquisition.createdBirdIds[0] as string;
+    cleanupData.henIds.push(motherHenId);
+
+    const fatherResponse = await adquisicionesPOST(mockRequest("http://localhost/api/produccion/adquisiciones", {
+      method: "POST",
+      body: { date: today, acquisitionType: "donacion", birdType: "gallo", quantity: 1, breed: "Criolla", birthDate: today, destinationLocationId: await ensureTestLocation(), geneticLine: "Línea paterna B", generation: "G1", originFarm: "Granja paterna", sourceBatchCode: "PAD-001" },
+    }));
+    expect(fatherResponse.status).toBe(201);
+    const fatherAcquisition = await parseJson(fatherResponse);
+    cleanupData.acquisitionIds.push(fatherAcquisition.id);
+    const fatherRoosterId = fatherAcquisition.createdBirdIds[0] as string;
+    cleanupData.roosterIds.push(fatherRoosterId);
 
     // Estado previo de la parvada (computado directamente desde DB)
     const [roosterCount] = await db.select({ count: sql<number>`count(*)::int` })
@@ -1000,10 +1097,10 @@ describe("Incubación (asignación automática de machos)", () => {
     const balBefore = flockBalance(activeHens, roosterCount?.count || 0);
     const expected = assignMales(4, balBefore.active, balBefore.required);
 
-    // Iniciar incubación sin gallina asignada
+    // Iniciar incubación con ambos progenitores registrados
     const incRes = await incubacionPOST(mockRequest("http://localhost/api/incubacion", {
       method: "POST",
-      body: { startDate: new Date(Date.now() - 21 * 86400000).toISOString().split("T")[0], eggsSet: 10 },
+      body: { henId: motherHenId, roosterId: fatherRoosterId, startDate: new Date(Date.now() - 21 * 86400000).toISOString().split("T")[0], eggsSet: 10 },
     }));
     expect(incRes.status).toBe(201);
     const inc = await parseJson(incRes);
@@ -1024,14 +1121,22 @@ describe("Incubación (asignación automática de machos)", () => {
       expect(result.assignment.batchCode).toBeNull();
     }
 
-    // Rastrear registros creados para limpieza (nacidos hoy, sin madre = raza Criolla)
-    const newHens = await db.select({ id: hens.id }).from(hens)
-      .where(and(eq(hens.birthDate, today), eq(hens.breed, "Criolla")));
+    const childAcquisitions = await db.select().from(birdAcquisitions).where(eq(birdAcquisitions.sourceBatchCode, `INC-${inc.id}`));
+    cleanupData.acquisitionIds.push(...childAcquisitions.map((a) => a.id));
+    expect(childAcquisitions.length).toBe((2 > 0 ? 1 : 0) + (expected.toRoosters > 0 ? 1 : 0) + (expected.toSlaughter > 0 ? 1 : 0));
+    for (const acquisition of childAcquisitions) {
+      expect(acquisition.motherHenId).toBe(motherHenId);
+      expect(acquisition.fatherRoosterId).toBe(fatherRoosterId);
+      expect(acquisition.motherIdentifier).toBeDefined();
+      expect(acquisition.fatherIdentifier).toBeDefined();
+      expect(acquisition.geneticLine).toBe("Cruce: Línea materna A × Línea paterna B");
+    }
+
+    const newHens = await db.select({ id: hens.id }).from(hens).where(inArray(hens.acquisitionId, childAcquisitions.map((a) => a.id)));
+    const newRoosters = await db.select({ id: roosters.id }).from(roosters).where(inArray(roosters.acquisitionId, childAcquisitions.map((a) => a.id)));
+    const newBatches = await db.select({ id: broilerBatches.id }).from(broilerBatches).where(inArray(broilerBatches.acquisitionId, childAcquisitions.map((a) => a.id)));
     cleanupData.henIds.push(...newHens.map((h) => h.id));
-    const newRoosters = await db.select({ id: roosters.id }).from(roosters).where(eq(roosters.birthDate, today));
     cleanupData.roosterIds.push(...newRoosters.map((r) => r.id));
-    const newBatches = await db.select({ id: broilerBatches.id }).from(broilerBatches)
-      .where(and(eq(broilerBatches.startDate, today), eq(broilerBatches.breed, "Pollo de engorde")));
     cleanupData.batchIds.push(...newBatches.map((b) => b.id));
 
     expect(newHens.length).toBeGreaterThanOrEqual(2);
@@ -1039,6 +1144,10 @@ describe("Incubación (asignación automática de machos)", () => {
     if (expected.toSlaughter > 0) {
       expect(newBatches.length).toBeGreaterThanOrEqual(1);
     }
+
+    const acquisitionList = await parseJson(await adquisicionesGET(mockRequest("http://localhost/api/produccion/adquisiciones", { method: "GET" })));
+    const femaleTrace = acquisitionList.find((item: { id: string }) => item.id === childAcquisitions.find((a) => a.birdType === "gallina")?.id);
+    expect(femaleTrace.registeredCodes).toHaveLength(2);
   });
 });
 
@@ -1051,13 +1160,7 @@ describe("Lotes de engorde (readiness y sacrificio)", () => {
     const sixtyDaysAgo = new Date(Date.now() - 60 * 86400000).toISOString().split("T")[0];
 
     // Crear lote ya pasado de edad objetivo
-    const createRes = await lotesPOST(mockRequest("http://localhost/api/lotes-pollos", {
-      method: "POST",
-      body: { breed: "Cobb 500", startDate: sixtyDaysAgo, initialQuantity: 5, targetWeeks: 7, targetWeightKg: "2.5" },
-    }));
-    expect(createRes.status).toBe(201);
-    const batch = await parseJson(createRes);
-    cleanupData.batchIds.push(batch.id);
+    const batch = await acquireTestAnimal({ birdType: "lote_pollos", quantity: 5, breed: "Cobb 500", birthDate: sixtyDaysAgo });
 
     // GET debe persistir el estado listo_sacrificio (lazy-sync)
     const list = await parseJson(await callGET(lotesGET));
@@ -1068,7 +1171,7 @@ describe("Lotes de engorde (readiness y sacrificio)", () => {
     // Sacrificio total del lote
     const sacRes = await sacrificioPOST(mockRequest("http://localhost/api/sacrificio", {
       method: "POST",
-      body: { date: new Date().toISOString().split("T")[0], birdType: "pollo", quantity: 5, weightKg: 10, destination: "consumo_propio", batchId: batch.id },
+      body: { date: new Date().toISOString().split("T")[0], birdType: "pollo", quantity: 5, weightKg: 10, destination: "consumo_propio", batchId: batch.id, locationId: batch.locationId },
     }));
     expect(sacRes.status).toBe(201);
     const sac = await parseJson(sacRes);
@@ -1086,16 +1189,11 @@ describe("Lotes de engorde (readiness y sacrificio)", () => {
 
   it("Sacrificio con cantidad mayor al stock del lote es rechazado", async () => {
     cleanupData = createCleanup();
-    const createRes = await lotesPOST(mockRequest("http://localhost/api/lotes-pollos", {
-      method: "POST",
-      body: { breed: "Cobb 500", startDate: new Date().toISOString().split("T")[0], initialQuantity: 3 },
-    }));
-    const batch = await parseJson(createRes);
-    cleanupData.batchIds.push(batch.id);
+    const batch = await acquireTestAnimal({ birdType: "lote_pollos", quantity: 3, breed: "Cobb 500", birthDate: new Date().toISOString().split("T")[0] });
 
     const sacRes = await sacrificioPOST(mockRequest("http://localhost/api/sacrificio", {
       method: "POST",
-      body: { date: new Date().toISOString().split("T")[0], birdType: "pollo", quantity: 5, weightKg: 10, destination: "consumo_propio", batchId: batch.id },
+      body: { date: new Date().toISOString().split("T")[0], birdType: "pollo", quantity: 5, weightKg: 10, destination: "consumo_propio", batchId: batch.id, locationId: batch.locationId },
     }));
     expect(sacRes.status).toBe(400);
   });

@@ -29,10 +29,10 @@ export const navigationGroups: MenuGroup[] = [
     indexHref: "/dashboard/animales",
     keywords: ["animales", "aves", "gallinas", "gallos", "pollos", "conejos", "codornices", "patos", "lotes", "registro", "inventario animal"],
     items: [
-      { href: "/dashboard/produccion?tab=gallinas", label: "Gallinas", icon: "🐔" },
-      { href: "/dashboard/produccion?tab=pollos", label: "Gallos y lotes", icon: "🐓" },
-      { href: "/dashboard/produccion/adquisiciones", label: "Adquisiciones", icon: "📥" },
+      { href: "/dashboard/produccion/adquisiciones", label: "Adquisiciones y entradas", icon: "📥" },
+      { href: "/dashboard/produccion?tab=animales", label: "Gestión de Animales", icon: "🐾" },
       { href: "/dashboard/produccion/mortalidad", label: "Mortalidad", icon: "💀" },
+      { href: "/dashboard/ubicaciones", label: "Lugares de manejo", icon: "📍" },
       { href: "/dashboard/produccion?tab=incubacion", label: "Incubación", icon: "🐣" },
     ],
   },
@@ -71,6 +71,7 @@ export const navigationGroups: MenuGroup[] = [
       { href: "/dashboard/produccion?tab=alimentacion", label: "Gestión de alimentación", icon: "🌾" },
       { href: "/dashboard/inventarios/alimentacion", label: "Inventario de alimentos", icon: "📊" },
       { href: "/dashboard/inventarios/insumos", label: "Insumos", icon: "🧰" },
+      { href: "/dashboard/operaciones/activos", label: "Activos y equipos", icon: "🏗️" },
       { href: "/dashboard/operaciones/mantenimiento", label: "Mantenimiento", icon: "🔧" },
     ],
   },
@@ -120,7 +121,7 @@ export const navigationGroups: MenuGroup[] = [
     items: [
       { href: "/dashboard/analisis/kpis", label: "KPIs", icon: "🎯" },
       { href: "/dashboard/analisis/reportes", label: "Reportes", icon: "📋" },
-      { href: "/dashboard/analisis/razas", label: "Estándares de Raza", icon: "🧬" },
+      { href: "/dashboard/analisis/razas", label: "Curvas y desempeño", icon: "📈" },
       { href: "/dashboard/configuracion/catalogos", label: "Catálogos y Datos Maestros", icon: "🗂️" },
     ],
   },
@@ -137,12 +138,14 @@ const ITEM_KEYWORDS: Record<string, string[]> = {
   "/dashboard/produccion?tab=gallinaza": ["gallinaza", "abono", "estiercol", "fertilizante", "compost", "venta", "ajuste", "pollinaza"],
   "/dashboard/produccion?tab=alimentacion": ["alimentacion", "alimento", "comida", "concentrado", "maiz", "racion", "dieta", "consumo", "programa", "nutricion", "forraje"],
   "/dashboard/produccion?tab=incubacion": ["incubacion", "incubar", "huevos", "fertil", "nacimiento", "pollitos", "eclosion", "empollando"],
-  "/dashboard/produccion/adquisiciones": ["adquisicion", "adquisiciones", "compra", "compras", "donacion", "ingreso", "aves", "proveedor", "inversion"],
+  "/dashboard/produccion/adquisiciones": ["adquisicion", "adquisiciones", "compra", "compras", "donacion", "ingreso", "aves", "proveedor", "inversion", "genetica", "genetico", "linaje", "genealogia", "pedigri", "origen genetico", "criador", "granja de origen", "generacion", "progenitores", "madre", "padre", "lote de origen", "lugar de destino"],
   "/dashboard/produccion/mortalidad": ["mortalidad", "muerte", "muertes", "bajas", "fallecidas", "causa", "perdidas", "aves"],
+  "/dashboard/ubicaciones": ["ubicaciones", "lugares", "alojamiento", "sitio", "espacio", "corrales", "jaulas", "galpones", "potreros", "jardin", "patio", "georreferencia", "coordenadas", "gps", "mapa", "traslados", "capacidad", "estado operativo", "bioseguridad", "especificaciones sanitarias", "sanidad por lugar", "desempeño por lugar", "produccion por lugar", "mantenimiento del lugar", "adecuaciones"],
   "/dashboard/produccion/plan-parvada": ["plan", "parvada", "lotes", "planeacion", "proyeccion", "futuro", "aves", "produccion", "planificacion"],
   "/dashboard/planeacion": ["planeacion", "planificacion", "soberania", "autoconsumo", "seguridad alimentaria", "familia", "huerta", "plan parvada", "proyeccion"],
   "/dashboard/almacen": ["almacen", "insumos", "materiales", "alimentos", "mantenimiento", "bodega", "compras", "inventario"],
-  "/dashboard/operaciones/mantenimiento": ["mantenimiento", "reparacion", "reparaciones", "tareas", "herramientas", "equipos", "infraestructura"],
+  "/dashboard/operaciones/activos": ["activos", "activo fijo", "equipos", "herramientas", "infraestructura", "maquina", "bebedero", "comedero", "incubadora", "motobomba", "bomba de agua", "numero de serie", "garantia"],
+  "/dashboard/operaciones/mantenimiento": ["mantenimiento", "reparacion", "reparaciones", "tareas", "herramientas", "equipos", "infraestructura", "activo fijo", "activos", "maquina", "bebedero", "comedero", "incubadora", "motobomba", "cerca", "techo", "mantenimiento preventivo", "mantenimiento correctivo", "adecuacion", "recurrente", "periodico", "vencido"],
   "/dashboard/soberania": ["soberania", "autoconsumo", "seguridad alimentaria", "familia", "huerta", "consumo", "planificacion"],
   "/dashboard/sanidad": ["sanidad", "salud", "enfermedad", "prevencion"],
   "/dashboard/sanidad/control": ["sanidad", "salud", "vacuna", "vacunacion", "medicina", "medicamento", "tratamiento", "enfermedad", "control", "desparasitacion"],
@@ -164,7 +167,7 @@ const ITEM_KEYWORDS: Record<string, string[]> = {
   "/dashboard/analisis": ["analisis", "reportes", "metricas", "estadisticas"],
   "/dashboard/analisis/kpis": ["kpis", "indicadores", "metricas", "metas", "rendimiento", "produccion", "eficiencia"],
   "/dashboard/analisis/reportes": ["reportes", "informes", "exportar", "pdf", "excel", "estadisticas", "datos"],
-  "/dashboard/analisis/razas": ["razas", "estandares", "pesos", "genetica", "crecimiento", "gallina", "pollo"],
+  "/dashboard/analisis/razas": ["razas", "estandares", "curvas", "desempeño", "postura", "pesos", "genetica", "crecimiento", "gallina", "pollo", "codorniz", "pato", "conejo"],
   "/dashboard/configuracion/catalogos": ["catalogos", "datos maestros", "configuracion", "etapas", "categorias", "tipos", "valores", "ajustes"],
 };
 
@@ -172,6 +175,10 @@ const FIXED_ENTRIES: SearchEntry[] = [
   { href: "/dashboard", label: "Inicio", icon: "📊", group: "General", groupIcon: "🏠", keywords: ["inicio", "panel", "dashboard", "resumen", "home", "principal"] },
   { href: "/dashboard/escanear", label: "Escanear Ave", icon: "📷", group: "General", groupIcon: "🏠", keywords: ["escanear", "qr", "codigo", "ave", "lote", "identificar", "camara"] },
   { href: "/dashboard/guia", label: "Guía de Usuario", icon: "📖", group: "General", groupIcon: "🏠", keywords: ["guia", "ayuda", "manual", "tutorial", "documentacion", "como"] },
+  { href: "/dashboard/guia/trazabilidad-genetica", label: "Guía: trazabilidad genética", icon: "🧬", group: "Guía", groupIcon: "📖", keywords: ["genetica", "genetico", "linaje", "genealogia", "pedigri", "madre", "padre", "progenitores", "origen genetico", "procedencia"] },
+  { href: "/dashboard/guia/lugares-manejo", label: "Guía: lugares de manejo", icon: "📍", group: "Guía", groupIcon: "📖", keywords: ["lugar", "lugares", "corral", "jaula", "galpon", "potrero", "jardin", "patio", "gps", "coordenadas", "capacidad", "desempeno por lugar"] },
+  { href: "/dashboard/guia/infraestructura-equipos", label: "Guía: infraestructura y equipos", icon: "🔧", group: "Guía", groupIcon: "📖", keywords: ["activos", "infraestructura", "equipo", "mantenimiento", "reparacion", "instalaciones"] },
+  { href: "/dashboard/operaciones/activos", label: "Activos y equipos", icon: "🏗️", group: "Almacén", groupIcon: "🧰", keywords: ["activo", "activos", "equipos", "herramientas", "infraestructura", "garantia", "numero de serie"] },
 ];
 
 export interface SearchEntry {

@@ -8,31 +8,31 @@ const jsonLd = {
   "@graph": [
     {
       "@type": "WebPage",
-      "@id": "https://iwage.co/granja/gallinero#webpage",
-      url: "https://iwage.co/granja/gallinero",
+      "@id": "https://gallinero.iwage.co/#webpage",
+      url: "https://gallinero.iwage.co/",
       name: "El Gallinero — Iwagé Granja",
       description:
-        "Software abierto que gestiona la parvada real de Iwagé Granja en la vereda Ambalá: identidad individual por ave, trazabilidad financiera automática y modo simple/avanzado para el registro diario.",
+        "Sistema abierto para gestionar aves y pequeños animales con trazabilidad de origen y genética, lugares de manejo georreferenciados, activos y equipos, mantenimiento periódico, producción, sanidad, finanzas y un agente de IA.",
       inLanguage: "es-CO",
       isPartOf: { "@id": "https://iwage.co#website" },
-      about: { "@id": "https://iwage.co/granja/gallinero#software" },
-      breadcrumb: { "@id": "https://iwage.co/granja/gallinero#breadcrumb" },
+      about: { "@id": "https://gallinero.iwage.co/#software" },
+      breadcrumb: { "@id": "https://gallinero.iwage.co/#breadcrumb" },
     },
     {
       "@type": "BreadcrumbList",
-      "@id": "https://iwage.co/granja/gallinero#breadcrumb",
+      "@id": "https://gallinero.iwage.co/#breadcrumb",
       itemListElement: [
         { "@type": "ListItem", position: 1, name: "Iwagé", item: "https://iwage.co" },
         { "@type": "ListItem", position: 2, name: "Granja", item: "https://iwage.co/granja" },
-        { "@type": "ListItem", position: 3, name: "El Gallinero", item: "https://iwage.co/granja/gallinero" },
+        { "@type": "ListItem", position: 3, name: "El Gallinero", item: "https://gallinero.iwage.co/" },
       ],
     },
     {
       "@type": "SoftwareApplication",
-      "@id": "https://iwage.co/granja/gallinero#software",
+      "@id": "https://gallinero.iwage.co/#software",
       name: "El Gallinero",
       description:
-        "Sistema de gestión avícola de código abierto: identidad individual por ave, trazabilidad financiera automática (PEPS por talla de huevo), sanidad, inventarios y modo simple/avanzado. En producción real en Iwagé Granja, Ambalá, Colombia.",
+        "Sistema de gestión de producción animal de código abierto: trazabilidad de origen y genética desde la adquisición, manejo multiespecie por lugar, activos y equipos, mantenimiento periódico, control de huevos y carne, sanidad, inventarios valorizados, finanzas, curvas de referencia y un agente de IA para consultas y registros operativos.",
       applicationCategory: "BusinessApplication",
       applicationSubCategory: "Farm Management Software",
       operatingSystem: "Web, PWA",
@@ -40,7 +40,7 @@ const jsonLd = {
       programmingLanguage: ["TypeScript", "React"],
       codeRepository: "https://github.com/Camilosal/El-Gallinero",
       license: "https://github.com/Camilosal/El-Gallinero/blob/main/LICENSE",
-      url: "https://iwage.co/granja/gallinero",
+      url: "https://gallinero.iwage.co/",
       sameAs: ["https://github.com/Camilosal/El-Gallinero"],
       offers: { "@type": "Offer", price: "0", priceCurrency: "USD" },
       creator: { "@id": "https://iwage.co#organization" },
@@ -75,10 +75,10 @@ export default function LandingPage() {
               El Gallinero <small>&nbsp;· IWAGÉ GRANJA</small>
             </div>
             <div className="land-navlinks">
-              <a href="#historia">Historia</a>
-              <a href="#funcionalidades">Funcionalidades</a>
-              <a href="#caminos">Probarlo</a>
-              <a href="#cierre">Sobre el criterio</a>
+              <a href="#alcance">El sistema</a>
+              <a href="#funcionalidades">Qué puedes gestionar</a>
+              <a href="#flujo">Trazabilidad</a>
+              <a href="#acceso">Acceso</a>
             </div>
             <MobileNav />
           </div>
@@ -89,56 +89,53 @@ export default function LandingPage() {
           <div className="land-wrap land-hero-grid">
             <div>
               <div className="land-eyebrow">
-                Agroecosistema productivo — producción animal integrada
+                Gestión de producción animal · Ambalá, Colombia
               </div>
               <h1 className="land-h1">
-                Un gallinero real,
+                Del ingreso del animal
                 <br />
-                trazado <em>día a día</em>.
+                al resultado <em>de la granja</em>.
               </h1>
               <p className="lede">
-                Software abierto que gestiona la parvada de la granja de Ambalá
-                desde 2026 — cada ave, cada huevo y cada peso, con trazabilidad
-                completa. No es una demo: es la herramienta con la que se lleva
-                el gallinero.
+                El Gallinero conecta animales, producción, sanidad, inventarios
+                y finanzas. Registra gallinas, gallos, pollos, patos,
+                codornices y conejos con procedencia, genética y lugar de manejo,
+                para seguir cómo evoluciona cada grupo dentro de la finca.
               </p>
               <div className="land-cta-row">
                 <Link href="/login" className="land-btn land-btn-primary">
-                  Ingresar a la app →
+                  Entrar al sistema →
                 </Link>
-                <a
-                  href="https://github.com/Camilosal/El-Gallinero"
-                  className="land-btn land-btn-ghost"
-                >
-                  Ver el código en GitHub
+                <a href="#funcionalidades" className="land-btn land-btn-ghost">
+                  Conocer el sistema
                 </a>
               </div>
             </div>
 
             <div className="land-logcard">
-              <div className="stamp">HOY EN EL GALLINERO</div>
-              <h3>Bitácora — corredor Ambalá</h3>
+              <div className="stamp">DEL ORIGEN AL RESULTADO</div>
+              <h3>Una ruta conectada para cada registro</h3>
               <div className="land-logrow">
                 <div className="land-logstat">
-                  <div className="n">26</div>
-                  <div className="l">gallinas activas</div>
+                  <div className="n">01</div>
+                  <div className="l">Ingreso y procedencia</div>
                 </div>
                 <div className="land-logstat">
-                  <div className="n">13</div>
-                  <div className="l">huevos / día (prom.)</div>
+                  <div className="n">02</div>
+                  <div className="l">Ficha individual o lote</div>
                 </div>
                 <div className="land-logstat">
-                  <div className="n">28d</div>
-                  <div className="l">stock de alimento</div>
+                  <div className="n">03</div>
+                  <div className="l">Salud y producción</div>
                 </div>
                 <div className="land-logstat">
-                  <div className="n">7</div>
-                  <div className="l">módulos conectados</div>
+                  <div className="n">04</div>
+                  <div className="l">Inventario y resultado</div>
                 </div>
               </div>
               <div className="land-logfoot">
-                <span>fuente: el-gallinero, prod.</span>
-                <span>PEPS · trazabilidad automática</span>
+                <span>animales · lotes · especies</span>
+                <span>costos · ventas · reportes</span>
               </div>
             </div>
           </div>
@@ -146,14 +143,18 @@ export default function LandingPage() {
           <div className="land-wrap">
             <div className="land-microstrip land-reveal">
               <span>
-                <strong>7</strong> módulos conectados
+                Animales y producción multiespecie
               </span>
               <span className="sep">·</span>
-              <span>Auto-registro financiero</span>
+              <span>Trazabilidad desde adquisiciones</span>
               <span className="sep">·</span>
-              <span>Funciona sin conexión (PWA)</span>
+              <span>Resultados por lugar de manejo</span>
               <span className="sep">·</span>
-              <span>Código abierto — MIT</span>
+              <span>Activos, equipos y mantenimiento periódico</span>
+              <span className="sep">·</span>
+              <span>Agente de IA para consultar y registrar</span>
+              <span className="sep">·</span>
+              <span>Código abierto · MIT</span>
             </div>
           </div>
 
@@ -169,54 +170,69 @@ export default function LandingPage() {
           </div>
         </header>
 
-        {/* ── HISTORIA ── */}
-        <section className="land-section land-historia" id="historia">
+        {/* ── ALCANCE DEL SISTEMA ── */}
+        <section className="land-section land-historia" id="alcance">
           <div className="land-wrap">
-            <div className="land-eyebrow">Por qué existe</div>
+            <div className="land-eyebrow">El sistema hoy</div>
             <h2 className="land-h2 land-reveal">
-              Nació de una pregunta operativa, no de una idea de producto.
+              Un mismo registro para animales distintos, con reglas para cada especie.
             </h2>
             <div className="land-historia-grid">
               <p className="land-pull land-reveal">
-                «¿Cuánto cuesta realmente una docena de huevos en Ambalá — y
-                cuánto se gana vendiéndola?»
+                «¿De dónde vino cada animal, cómo está, qué produce y cuánto
+                cuesta sostenerlo?»
               </p>
               <div className="land-factline-list">
                 <div className="land-factline land-reveal">
-                  <span className="k">Identidad</span>
+                  <span className="k">Especies</span>
                   <span className="v">
-                    Cada gallina con raza, edad y etapa — no un número en un
-                    lote.
+                    Gallinas y gallos con ficha individual; pollos, patos,
+                    codornices y conejos con su especie, raza y tipo de manejo.
                   </span>
                 </div>
                 <div className="land-factline land-reveal">
-                  <span className="k">Trazabilidad</span>
+                  <span className="k">Procedencia</span>
                   <span className="v">
-                    Cada huevo rastreable hasta su venta.
+                    El seguimiento empieza en adquisiciones: origen, línea,
+                    generación, progenitores y referencias documentales enlazadas
+                    al animal o lote cuando esos datos se conocen.
                   </span>
                 </div>
                 <div className="land-factline land-reveal">
-                  <span className="k">Costo real</span>
+                  <span className="k">Lugar</span>
                   <span className="v">
-                    Cada peso de alimento o vacuna, conectado al evento que lo
-                    generó.
+                    Cada grupo puede asociarse con un corral, jaula, galpón,
+                    potrero, jardín o patio para consultar resultados y condiciones
+                    operativas por espacio.
+                  </span>
+                </div>
+                <div className="land-factline land-reveal">
+                  <span className="k">Producción</span>
+                  <span className="v">
+                    Huevos cuando las aves están en etapa productiva; además de
+                    pesajes, faena y existencias de carne.
                   </span>
                 </div>
                 <div className="land-factline end land-reveal">
-                  <span className="k">Hoy</span>
+                  <span className="k">Decisiones</span>
                   <span className="v">
-                    26 aves activas, trazabilidad financiera automática, cero
-                    cuaderno.
+                    Costos, inventarios e indicadores conectados con reportes y
+                    curvas de referencia por especie.
                   </span>
                 </div>
               </div>
             </div>
 
             {/* Traceability flow illustration */}
-            <div className="land-trace-illust land-reveal">
+            <div className="land-trace-illust land-reveal" id="flujo">
+              <div className="land-eyebrow">Un recorrido trazable</div>
+              <p className="land-lead-short">
+                Del origen y alojamiento a la producción, el inventario, la
+                venta y su efecto financiero.
+              </p>
               <Image
                 src="/traceability-flow.png"
-                alt="Diagrama de trazabilidad: gallina pone huevo, se clasifica por tamaño, y se genera transacción financiera automática"
+                alt="Flujo de trazabilidad del huevo: producción, clasificación por tamaño, inventario y venta relacionada con finanzas"
                 width={1080}
                 height={617}
                 style={{ objectFit: "cover" }}
@@ -231,75 +247,93 @@ export default function LandingPage() {
             <div className="land-func-head">
               <div className="land-eyebrow">Qué hace El Gallinero</div>
               <h2 className="land-h2 land-reveal">
-                Siete módulos que cubren todo lo que pasa en el gallinero.
+                Las áreas de trabajo comparten el mismo origen y los mismos datos.
               </h2>
               <p className="land-reveal">
-                Cada módulo se conecta automáticamente con el financiero: no hay
-                que registrar dos veces lo mismo. Lo que operas se traza, se
-                cuenta y se reporta solo.
+                Registra una operación y sigue su relación con animales,
+                producción, existencias y cuentas. Los indicadores consideran
+                especie, etapa y propósito productivo.
               </p>
             </div>
 
             <div className="land-func-grid">
               <div className="land-func-card land-reveal">
-                <div className="ficon">🐔</div>
-                <h3>Producción</h3>
+                <div className="ficon">🐾</div>
+                <h3>Animales y procedencia</h3>
                 <p>
-                  Parvada individual con código, raza, edad y etapa. Ciclo de
-                  vida automático de 8 estados. Lotes de engorde, incubación,
-                  sacrificios y mortalidad con trazabilidad completa.
+                  Registra adquisiciones y cría propia. Gestiona gallinas y
+                  gallos por ficha, y otros animales por especie, raza y lote,
+                  conservando procedencia, línea genética, progenitores y
+                  generación cuando estén disponibles.
                 </p>
                 <div className="ftags">
                   <span className="ftag">gallinas</span>
-                  <span className="ftag">pollos</span>
-                  <span className="ftag">incubación</span>
-                  <span className="ftag">mortalidad</span>
+                  <span className="ftag">gallos y pollos</span>
+                  <span className="ftag">patos · codornices · conejos</span>
+                </div>
+              </div>
+
+              <div className="land-func-card land-reveal">
+                <div className="ficon">📍</div>
+                <h3>Lugares e infraestructura</h3>
+                <p>
+                  Ubica corrales, jaulas, galpones, potreros, jardines o patios.
+                  Registra coordenadas, capacidad, condiciones sanitarias y
+                  operativas, traslados y necesidades de adecuación. Vincula
+                  equipos e infraestructura para mantener su ubicación e historial.
+                </p>
+                <div className="ftags">
+                  <span className="ftag">ficha georreferenciada</span>
+                  <span className="ftag">desempeño por lugar</span>
+                  <span className="ftag">fichas de equipos</span>
+                  <span className="ftag">mantenimiento periódico</span>
                 </div>
               </div>
 
               <div className="land-func-card land-reveal">
                 <div className="ficon">🥚</div>
-                <h3>Inventarios</h3>
+                <h3>Producción</h3>
                 <p>
-                  Huevos con PEPS por talla y alerta de envejecimiento. Stock de
-                  aves, insumos y gallinaza. Balance consolidado con valor total
-                  del inventario en tiempo real.
+                  Registra postura cuando las aves están en etapa productiva,
+                  además de incubación, pesajes, mortalidad, faena y rendimiento
+                  de carne.
                 </p>
                 <div className="ftags">
-                  <span className="ftag">huevos PEPS</span>
-                  <span className="ftag">aves</span>
-                  <span className="ftag">insumos</span>
-                  <span className="ftag">gallinaza</span>
+                  <span className="ftag">huevos</span>
+                  <span className="ftag">incubación</span>
+                  <span className="ftag">carne</span>
+                  <span className="ftag">mortalidad</span>
                 </div>
               </div>
 
               <div className="land-func-card land-reveal">
                 <div className="ficon">💊</div>
-                <h3>Sanidad</h3>
+                <h3>Inventarios valorizados</h3>
                 <p>
-                  Control sanitario con eventos de vacunación, desparasitación y
-                  tratamiento. Calendario preventivo con recordatorios y días de
-                  retiro. Trazabilidad por ave o lote.
+                  Consulta existencias y valor de huevos, carne, animales,
+                  alimentos, insumos y gallinaza en sus secciones de inventario.
                 </p>
                 <div className="ftags">
-                  <span className="ftag">vacunas</span>
-                  <span className="ftag">calendario</span>
-                  <span className="ftag">tratamientos</span>
+                  <span className="ftag">huevos</span>
+                  <span className="ftag">carne</span>
+                  <span className="ftag">animales</span>
+                  <span className="ftag">alimentos e insumos</span>
                 </div>
               </div>
 
               <div className="land-func-card land-reveal">
-                <div className="ficon">🔧</div>
-                <h3>Operaciones</h3>
+                <div className="ficon">🌾</div>
+                <h3>Almacén y alimentación</h3>
                 <p>
-                  Tareas de mantenimiento con estado, costo y plantillas rápidas.
-                  Gallinaza con factores de producción por grupo, ajustes
-                  manuales y ventas con ingreso automático.
+                  Controla entradas, consumo y existencias de alimento; organiza
+                  programas por especie y etapa. Administra equipos, garantías,
+                  revisiones periódicas e insumos desde la misma área.
                 </p>
                 <div className="ftags">
+                  <span className="ftag">consumo</span>
+                  <span className="ftag">programas</span>
+                  <span className="ftag">insumos</span>
                   <span className="ftag">mantenimiento</span>
-                  <span className="ftag">gallinaza</span>
-                  <span className="ftag">tareas</span>
                 </div>
               </div>
 
@@ -307,9 +341,9 @@ export default function LandingPage() {
                 <div className="ficon">💰</div>
                 <h3>Finanzas</h3>
                 <p>
-                  Cada venta, compra o evento sanitario genera su transacción
-                  automática. KPIs, presupuestos, cuentas por cobrar y pagar, y
-                  gráficos de evolución financiera.
+                  Relaciona ventas, compras y movimientos con sus registros de
+                  origen. Consulta ingresos, egresos, presupuestos, cuentas y
+                  evolución financiera.
                 </p>
                 <div className="ftags">
                   <span className="ftag">ventas</span>
@@ -320,56 +354,117 @@ export default function LandingPage() {
               </div>
 
               <div className="land-func-card land-reveal">
-                <div className="ficon">📊</div>
-                <h3>Análisis</h3>
+                <div className="ficon">🤖</div>
+                <h3>Agente de IA</h3>
                 <p>
-                  KPIs de productividad, mortalidad, conversión alimenticia y
-                  rentabilidad. Reportes exportables por período. Alertas de
-                  desviaciones en indicadores clave.
+                  Desde el botón Asistente, consulta animales, lotes, producción,
+                  lugares, linaje, mantenimiento, inventarios, sanidad y finanzas
+                  en lenguaje natural. Puede registrar huevos, mortalidad,
+                  pesajes, consumo de alimento y autoconsumo; también consulta
+                  equipos y mantenimientos. Las ventas, gastos e ingresos esperan
+                  tu confirmación.
                 </p>
                 <div className="ftags">
-                  <span className="ftag">KPIs</span>
+                  <span className="ftag">consultas en lenguaje natural</span>
+                  <span className="ftag">lugares y linaje</span>
+                  <span className="ftag">registros operativos</span>
+                  <span className="ftag">confirmación financiera</span>
+                </div>
+              </div>
+
+              <div className="land-func-card land-reveal">
+                <div className="ficon">💊</div>
+                <h3>Sanidad</h3>
+                <p>
+                  Registra mortalidad, vacunación, desparasitación y
+                  tratamientos. Programa controles y revisa alertas en animales
+                  o lotes.
+                </p>
+                <div className="ftags">
+                  <span className="ftag">controles</span>
+                  <span className="ftag">calendario</span>
+                  <span className="ftag">alertas</span>
+                  <span className="ftag">tratamientos</span>
+                </div>
+              </div>
+
+              <div className="land-func-card land-reveal">
+                <div className="ficon">📊</div>
+                <h3>Análisis y estándares</h3>
+                <p>
+                  Compara postura y crecimiento con curvas de referencia por
+                  especie. Revisa KPIs y reportes para detectar diferencias de
+                  desempeño.
+                </p>
+                <div className="ftags">
+                  <span className="ftag">postura</span>
+                  <span className="ftag">crecimiento</span>
+                  <span className="ftag">costo por huevo y kg de carne</span>
                   <span className="ftag">reportes</span>
-                  <span className="ftag">tendencias</span>
+                </div>
+              </div>
+
+              <div className="land-func-card land-reveal">
+                <div className="ficon">🗓️</div>
+                <h3>Planeación</h3>
+                <p>
+                  Proyecta la parvada y organiza el autoconsumo y la producción
+                  de la granja con información de su operación.
+                </p>
+                <div className="ftags">
+                  <span className="ftag">plan de parvada</span>
+                  <span className="ftag">autoconsumo</span>
+                  <span className="ftag">proyecciones</span>
                 </div>
               </div>
 
               <div className="land-func-card land-reveal">
                 <div className="ficon">⚙️</div>
-                <h3>Configuración</h3>
+                <h3>Catálogos y configuración</h3>
                 <p>
-                  Catálogos maestros: tamaños de huevo, razas, compradores,
-                  proveedores, categorías y unidades de medida. Todo parametrizable
-                  sin tocar código.
+                  Organiza razas y especies asociadas, etapas, vacunas,
+                  alimentación y otros datos maestros que usan los formularios
+                  y los cálculos.
                 </p>
                 <div className="ftags">
-                  <span className="ftag">catálogos</span>
-                  <span className="ftag">razas</span>
-                  <span className="ftag">proveedores</span>
+                  <span className="ftag">especies y razas</span>
+                  <span className="ftag">etapas</span>
+                  <span className="ftag">vacunas</span>
+                  <span className="ftag">parámetros</span>
                 </div>
               </div>
             </div>
 
-            {/* Modules diagram illustration */}
-            <div className="land-modules-illust land-reveal">
-              <Image
-                src="/modules-diagram.png"
-                alt="Diagrama de los 7 módulos conectados de El Gallinero: Producción, Inventarios, Sanidad, Operaciones, Finanzas, Análisis y Configuración"
-                width={520}
-                height={520}
-                style={{ objectFit: "contain" }}
-              />
+            <div className="mt-12" aria-labelledby="land-flow-heading">
+              <div className="land-eyebrow">La información conserva su relación</div>
+              <h3 id="land-flow-heading" className="land-h3 mt-2 text-2xl">
+                De la entrada al análisis
+              </h3>
+              <div className="mt-5 grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
+                {[
+                  ["01", "Registrar", "Origen, especie y propósito"],
+                  ["02", "Acompañar", "Peso, alimentación y sanidad"],
+                  ["03", "Producir", "Huevos, carne y gallinaza"],
+                  ["04", "Decidir", "Inventario, costos e indicadores"],
+                ].map(([number, title, description]) => (
+                  <div key={number} className="rounded-xl border border-[var(--line)] bg-[var(--cream)] p-5">
+                    <div className="font-mono text-xs tracking-widest text-[var(--amber-deep)]">{number}</div>
+                    <h4 className="mt-2 font-semibold text-[var(--forest-deep)]">{title}</h4>
+                    <p className="mt-1 text-sm text-[var(--moss)]">{description}</p>
+                  </div>
+                ))}
+              </div>
             </div>
 
             {/* ── Manual de usuario banner ── */}
             <div className="land-manual land-reveal">
               <div className="land-manual-text">
                 <div className="land-eyebrow">Documentación</div>
-                <h3>Manual de usuario</h3>
+                <h3>Una operación que cabe en la rutina diaria</h3>
                 <p>
-                  Guía paso a paso para configurar tu gallinero, registrar la
-                  producción diaria y aprovechar cada módulo. Incluye primeros
-                  pasos, flujos operativos y preguntas frecuentes.
+                  Para la persona que lleva la finca: registra primero lugares y
+                  procedencia, acompaña sanidad y producción durante el recorrido,
+                  y revisa pendientes e indicadores al cierre.
                 </p>
               </div>
               <Link href="/dashboard/guia" className="land-manual-btn">
@@ -379,53 +474,47 @@ export default function LandingPage() {
           </div>
         </section>
 
-        {/* ── CAMINOS ── */}
-        <section className="land-section" id="caminos">
+        {/* ── ACCESO ── */}
+        <section className="land-section" id="acceso">
           <div className="land-wrap">
             <div className="land-caminos-head">
-              <div className="land-eyebrow">Dos formas de entrar</div>
+              <div className="land-eyebrow">Acceso y proyecto abierto</div>
               <h2 className="land-h2 land-reveal">
-                Elige tu camino según lo que necesitas resolver.
+                Para operar la granja o adaptar el sistema a otra.
               </h2>
             </div>
             <div className="land-paths">
               <div className="land-path land-reveal">
-                <div className="tag">Para quien lleva un gallinero</div>
-                <h3 className="land-h3">Pruébalo antes de instalar nada</h3>
+                <div className="tag">Para la gestión diaria</div>
+                <h3 className="land-h3">Entra al sistema de la granja</h3>
                 <p>
-                  La demo pública corre con meses de historial simulado — huevos,
-                  ventas, alimento, sanidad — para explorar el sistema completo
-                  sin tocar tus propios datos.
+                  Accede al panel operativo para registrar movimientos y
+                  consultar animales, producción, inventarios, tareas e
+                  indicadores.
                 </p>
                 <ul>
-                  <li>Cada ave con ficha propia: código, raza, edad, etapa</li>
-                  <li>Vista de acceso rápido para el registro diario</li>
-                  <li>Modo simple y modo avanzado, sin abrumar desde el día uno</li>
-                  <li>Cada venta o tratamiento genera su transacción automáticamente</li>
-                  <li>Funciona sin conexión — registra en el gallinero aunque no haya señal</li>
+                  <li>Conserva el origen de cada animal desde su adquisición</li>
+                  <li>Consulta salud, producción y mantenimiento por lugar</li>
+                  <li>Usa fichas o lotes según la especie y su manejo</li>
+                  <li>Controla postura, carne, alimento, sanidad y costos</li>
+                  <li>Compara crecimiento y postura con referencias por especie</li>
                 </ul>
                 <Link href="/login" className="go">
-                  Ingresar a la app →
+                  Entrar a El Gallinero →
                 </Link>
               </div>
               <div className="land-path land-reveal">
-                <div className="tag">Para quien desarrolla o gestiona sistemas</div>
-                <h3 className="land-h3">La ficha técnica</h3>
+                <div className="tag">Para quien desarrolla o adapta software</div>
+                <h3 className="land-h3">Explora el proyecto abierto</h3>
                 <p>
-                  Software libre publicado en GitHub bajo licencia abierta,
-                  pensado para que cualquier gallinero pequeño o mediano lo
-                  despliegue con su propia base de datos.
+                  El código está publicado bajo licencia MIT y puede adaptarse
+                  a las necesidades de otros proyectos de producción animal.
                 </p>
                 <ul>
-                  <li>Next.js 16 + React 19 · Drizzle ORM sobre PostgreSQL · Tailwind CSS 4</li>
-                  <li>7 módulos, 25 tablas, reglas de negocio explícitas</li>
-                  <li>
-                    <code style={{ fontFamily: "var(--font-mono, 'IBM Plex Mono'), monospace" }}>
-                      docker compose up
-                    </code>{" "}
-                    levanta app y base de datos en un paso
-                  </li>
-                  <li>README con arquitectura, diccionario de datos y guía de contribución</li>
+                  <li>Next.js y React para la aplicación web</li>
+                  <li>PostgreSQL y Drizzle ORM para los datos y sus relaciones</li>
+                  <li>Reglas de negocio para producción, inventarios y finanzas</li>
+                  <li>Repositorio con documentación técnica y guía de instalación</li>
                 </ul>
                 <a
                   href="https://github.com/Camilosal/El-Gallinero"
@@ -442,32 +531,32 @@ export default function LandingPage() {
         <section className="land-section land-cierre" id="cierre">
           <div className="land-wrap land-cierre-grid">
             <div>
-              <div className="land-eyebrow">El criterio de fondo</div>
+              <div className="land-eyebrow">El propósito</div>
               <h2 className="land-h2 land-reveal">
-                La misma disciplina que se aplica a cualquier sistema.
+                Cada decisión parte de un dato que se puede seguir.
               </h2>
               <p className="land-lead-short land-reveal">
-                No es un caso aislado. Es evidencia de que el criterio se
-                sostiene fuera de una presentación.
+                El sistema ayuda a explicar el origen, el estado y el destino de
+                los animales y de lo que produce la granja.
               </p>
               <ul className="land-chiplist land-reveal">
-                <li>Modelar el proceso real antes que la pantalla</li>
-                <li>Conectar cada operación con su impacto financiero</li>
-                <li>Trazabilidad completa, sin reportes reconstruidos a mano</li>
+                <li>Registrar procedencia antes de iniciar el seguimiento</li>
+                <li>Relacionar producción, existencias y movimientos financieros</li>
+                <li>Comparar el desempeño con referencias de cada especie</li>
               </ul>
             </div>
             <div className="land-cierre-card land-reveal">
               <div className="row">
-                <span>Sistema</span>
-                <span>Agroecosistema productivo</span>
+                <span>Animales</span>
+                <span>Aves y especies menores</span>
               </div>
               <div className="row">
-                <span>Línea</span>
-                <span>Producción animal integrada</span>
+                <span>Seguimiento</span>
+                <span>Origen, salud y producción</span>
               </div>
               <div className="row">
-                <span>Territorio</span>
-                <span>Vereda Ambalá</span>
+                <span>Control</span>
+                <span>Inventario y finanzas</span>
               </div>
               <div className="row">
                 <span>Licencia</span>

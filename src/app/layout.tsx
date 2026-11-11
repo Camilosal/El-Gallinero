@@ -6,7 +6,9 @@ import PwaRegister from "@/components/PwaRegister";
 export const metadata: Metadata = {
   title: "El Gallinero — Iwagé Granja",
   description:
-    "Software abierto que gestiona la parvada real de Iwagé Granja en la vereda Ambalá: identidad individual por ave, trazabilidad financiera automática y modo simple/avanzado para el registro diario.",
+    "Gestiona animales y producción multiespecie con trazabilidad, inventarios, finanzas y un agente de IA para consultar y registrar operaciones.",
+  metadataBase: new URL("https://gallinero.iwage.co"),
+  alternates: { canonical: "/" },
   manifest: "/manifest.json",
   appleWebApp: {
     capable: true,

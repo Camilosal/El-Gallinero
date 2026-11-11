@@ -1,6 +1,6 @@
 import { db } from "@/db";
-import { healthControl, transactions, hens, roosters, broilerBatches, chickenSales, slaughter, mortalityRecords, supplyInventory, supplyMovements, sanitaryCalendar } from "@/db/schema";
-import { eq, desc, and, inArray, sql, or } from "drizzle-orm";
+import { healthControl, transactions, hens, roosters, broilerBatches, chickenSales, slaughter, mortalityRecords, supplyInventory, supplyMovements, sanitaryCalendar, farmLocations } from "@/db/schema";
+import { eq, desc, and, inArray, sql, or, getTableColumns } from "drizzle-orm";
 import { NextRequest, NextResponse } from "next/server";
 import { withApiHandler, safeParseJson } from "@/lib/api-handler";
 import { deleteTransactionsAndUnpaidAccounts, upsertExpenseTransaction } from "@/lib/financial-records";
@@ -10,7 +10,9 @@ import { applyBatchExit, validateBatchForExit, validateRoosterForExit } from "@/
 export const dynamic = "force-dynamic";
 
 export const GET = withApiHandler(async () => {
-  const data = await db.select().from(healthControl).orderBy(desc(healthControl.date));
+  const data = await db.select({ ...getTableColumns(healthControl), locationName: farmLocations.name })
+    .from(healthControl).leftJoin(farmLocations, eq(healthControl.locationId, farmLocations.id))
+    .orderBy(desc(healthControl.date));
   return NextResponse.json(data);
 });
 
@@ -89,11 +91,15 @@ export const POST = withApiHandler(async (req: NextRequest) => {
   if (!body.date || typeof body.date !== "string" || !/^\d{4}-\d{2}-\d{2}$/.test(body.date) || Number.isNaN(new Date(`${body.date}T00:00:00.000Z`).getTime()) || new Date(`${body.date}T00:00:00.000Z`).toISOString().slice(0, 10) !== body.date) {
     return NextResponse.json({ error: "Fecha inválida" }, { status: 400 });
   }
+  if (typeof body.locationId !== "string" || !body.locationId) return NextResponse.json({ error: "Selecciona el lugar donde se realizó el control sanitario" }, { status: 400 });
+  const [controlLocation] = await db.select().from(farmLocations).where(eq(farmLocations.id, body.locationId));
+  if (!controlLocation || controlLocation.status !== "activa") return NextResponse.json({ error: "El lugar del control debe estar activo" }, { status: 400 });
 
   const created = await db.transaction(async (tx) => {
     // 1. Insert health control record
     const [record] = await tx.insert(healthControl).values({
       date: body.date,
+      locationId: body.locationId,
       type: body.type,
       description: body.description,
       affectedHens: body.affectedHens || null,
@@ -167,6 +173,7 @@ export const POST = withApiHandler(async (req: NextRequest) => {
 
         await tx.insert(mortalityRecords).values({
           date: body.date,
+          locationId: body.locationId,
           birdType,
           quantity,
           cause,
@@ -235,6 +242,9 @@ export const PUT = withApiHandler(async (req: NextRequest) => {
   if (!body.date || typeof body.date !== "string" || !/^\d{4}-\d{2}-\d{2}$/.test(body.date) || Number.isNaN(new Date(`${body.date}T00:00:00.000Z`).getTime()) || new Date(`${body.date}T00:00:00.000Z`).toISOString().slice(0, 10) !== body.date) {
     return NextResponse.json({ error: "Fecha inválida" }, { status: 400 });
   }
+  if (typeof body.locationId !== "string" || !body.locationId) return NextResponse.json({ error: "Selecciona el lugar donde se realizó el control sanitario" }, { status: 400 });
+  const [requestedLocation] = await db.select({ id: farmLocations.id }).from(farmLocations).where(eq(farmLocations.id, body.locationId));
+  if (!requestedLocation) return NextResponse.json({ error: "El lugar seleccionado no existe" }, { status: 400 });
 
   const updated = await db.transaction(async (tx) => {
     const [existing] = await tx.select().from(healthControl).where(eq(healthControl.id, body.id)).for("update");
@@ -253,6 +263,7 @@ export const PUT = withApiHandler(async (req: NextRequest) => {
     // 1. Update health control record
     const [record] = await tx.update(healthControl).set({
       date: body.date,
+      locationId: body.locationId,
       type: nextType,
       description: nextDescription,
       affectedHens: nextAffectedHens || null,
@@ -264,7 +275,7 @@ export const PUT = withApiHandler(async (req: NextRequest) => {
     }).where(eq(healthControl.id, body.id)).returning();
 
     if (!record) throw new Error("No encontrado");
-    await tx.update(mortalityRecords).set({ date: body.date }).where(eq(mortalityRecords.healthControlId, body.id));
+    await tx.update(mortalityRecords).set({ date: body.date, locationId: body.locationId }).where(eq(mortalityRecords.healthControlId, body.id));
     await tx.update(supplyMovements).set({ date: body.date }).where(eq(supplyMovements.healthControlId, body.id));
 
     // Update the source transaction in place so credit status and payment links survive edits.

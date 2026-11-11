@@ -7,6 +7,7 @@ export interface CatalogItem {
   id: string;
   category: string;
   value: string;
+  tipo: string | null;
   price: string | null;
   units: number | null;
   sortOrder: number;

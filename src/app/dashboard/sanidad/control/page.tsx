@@ -7,10 +7,14 @@ import { apiFetch } from "@/lib/fetch";
 import { useCatalog } from "@/lib/useCatalog";
 import TableSearch from "@/components/TableSearch";
 import { matchesTextQuery } from "@/lib/text";
+import { useFarmLocations } from "@/lib/useFarmLocations";
+import Link from "next/link";
 
 interface HealthRecord {
   id: string;
   date: string;
+  locationId: string | null;
+  locationName: string | null;
   type: string;
   description: string;
   affectedHens: string | null;
@@ -73,6 +77,7 @@ function SanidadPageInner() {
   const [search, setSearch] = useState("");
   const [form, setForm] = useState({
     date: new Date().toISOString().split("T")[0],
+    locationId: "",
     type: "inspeccion",
     description: "",
     affectedHens: "todas",
@@ -81,6 +86,7 @@ function SanidadPageInner() {
     nextScheduled: "",
     notes: "",
   });
+  const { locations } = useFarmLocations();
   const { values: typeOptions } = useCatalog("tipo_sanidad", eventTypes.map((t) => t.value));
 
   const load = useCallback(() => {
@@ -103,7 +109,7 @@ function SanidadPageInner() {
   const openNew = () => {
     setEditing(null);
     setError("");
-    setForm({ date: new Date().toISOString().split("T")[0], type: "inspeccion", description: "", affectedHens: "todas", product: "", cost: "0", nextScheduled: "", notes: "" });
+    setForm({ date: new Date().toISOString().split("T")[0], locationId: "", type: "inspeccion", description: "", affectedHens: "todas", product: "", cost: "0", nextScheduled: "", notes: "" });
     setModalOpen(true);
   };
 
@@ -119,6 +125,7 @@ function SanidadPageInner() {
     }
     setForm({
       date: new Date().toISOString().split("T")[0],
+      locationId: "",
       type: event.type,
       description: `${event.name}${event.description ? ` — ${event.description}` : ""}`,
       affectedHens: event.targetBirds || "todas",
@@ -164,6 +171,7 @@ function SanidadPageInner() {
     setError("");
     setForm({
       date: r.date,
+      locationId: r.locationId || "",
       type: r.type,
       description: r.description,
       affectedHens: r.affectedHens || "",
@@ -177,6 +185,7 @@ function SanidadPageInner() {
 
   const save = async () => {
     setError("");
+    if (!form.locationId) return setError("Selecciona el lugar donde se realizó el control");
     const method = editing ? "PUT" : "POST";
     const body = editing ? { ...form, id: editing.id } : form;
     const res = await apiFetch("/api/sanidad/control", {
@@ -205,6 +214,7 @@ function SanidadPageInner() {
   const filteredRecords = !search.trim() ? records : records.filter((record) =>
       matchesTextQuery(search, [
         record.date,
+    record.locationName,
         new Date(record.date + "T12:00:00").toLocaleDateString("es"),
         record.type,
         eventTypes.find((type) => type.value === record.type)?.label,
@@ -272,10 +282,11 @@ function SanidadPageInner() {
             }
           />
         ) : (
-          <Table headers={["Fecha", "Tipo", "Descripción", "Gallinas", "Producto", "Costo", "Próximo", ""]}>
+          <Table headers={["Fecha", "Lugar", "Tipo", "Descripción", "Gallinas", "Producto", "Costo", "Próximo", ""]}>
             {filteredRecords.map((r) => (
               <tr key={r.id} className="hover:bg-slate-50">
                 <td className="px-4 py-3">{new Date(r.date + "T12:00:00").toLocaleDateString("es")}</td>
+                <td className="px-4 py-3 text-sm">{r.locationName || "Sin lugar asignado"}</td>
                 <td className="px-4 py-3"><Badge color={typeColors[r.type] || "gray"}>{eventTypes.find((t) => t.value === r.type)?.label || r.type}</Badge></td>
                 <td className="px-4 py-3 text-sm max-w-[200px]">{r.description}</td>
                 <td className="px-4 py-3 text-sm">{r.affectedHens || "—"}</td>
@@ -332,6 +343,11 @@ function SanidadPageInner() {
               {typeOptions.map((v) => <option key={v} value={v}>{eventTypes.find((t) => t.value === v)?.label || v}</option>)}
             </Select>
           </div>
+          <Select label="Lugar de la revisión o tratamiento *" value={form.locationId} onChange={(e) => setForm({ ...form, locationId: e.target.value })} help="El control queda asociado a este lugar para consultar su historial sanitario.">
+            <option value="">Selecciona un lugar…</option>
+            {locations.map((location) => <option key={location.id} value={location.id}>{location.name} · {location.type}</option>)}
+          </Select>
+          {locations.length === 0 && <p className="text-sm text-amber-700"><Link className="font-semibold underline" href="/dashboard/ubicaciones">Crea primero un lugar de manejo</Link>.</p>}
           <Textarea label="Descripción" value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} placeholder="Detalle del evento sanitario..." required />
           <Input label="Gallinas Afectadas" value={form.affectedHens} onChange={(e) => setForm({ ...form, affectedHens: e.target.value })} placeholder="'todas' o códigos: G-001, G-002" />
           <Input label="Producto Utilizado" value={form.product} onChange={(e) => setForm({ ...form, product: e.target.value })} placeholder="Ej: Newcastle B1, Ivermectina..." />

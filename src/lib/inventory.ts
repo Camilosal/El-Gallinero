@@ -282,6 +282,8 @@ export interface MeatLot {
   lostKg: number;
   remainingKg: number;
   ageDays: number;
+  estimatedPriceKg: number;
+  estimatedValue: number;
 }
 
 export interface MeatSpeciesSummary {
@@ -351,7 +353,12 @@ export async function computeMeatInventory(
   const lots: MeatLot[] = [];
   for (const p of productions) {
     const initialKg = saleableWeightKg(p);
-    const species = p.species || (p.birdType === "gallina_descarte" ? "gallina" : "pollo");
+    const birdTypeSpecies = p.birdType === "gallina_descarte" || p.birdType === "gallo"
+      ? "gallina"
+      : ["pollo", "codorniz", "pato", "conejo"].includes(p.birdType)
+        ? p.birdType
+        : null;
+    const species = birdTypeSpecies || p.species || "pollo";
     let soldThisLot = 0;
     let lostThisLot = 0;
     const remainingSales = remainingSalesBySpecies.get(species) || [];
@@ -373,6 +380,8 @@ export async function computeMeatInventory(
     const lotDate = new Date(p.date + "T12:00:00");
     lotDate.setHours(0, 0, 0, 0);
     const ageDays = Math.max(0, Math.floor((today.getTime() - lotDate.getTime()) / 86400000));
+    const estimatedPriceKg = speciesPrices[species] ?? 14000;
+    const remainingKg = Math.max(0, initialKg - soldThisLot - lostThisLot);
     lots.push({
       id: p.id,
       date: p.date,
@@ -384,8 +393,10 @@ export async function computeMeatInventory(
       quantityKg: initialKg,
       soldKg: soldThisLot,
       lostKg: lostThisLot,
-      remainingKg: Math.max(0, initialKg - soldThisLot - lostThisLot),
+      remainingKg,
       ageDays,
+      estimatedPriceKg,
+      estimatedValue: Math.round(remainingKg * estimatedPriceKg),
     });
   }
 

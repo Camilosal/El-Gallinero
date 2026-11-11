@@ -119,6 +119,7 @@ function normalizeMortalityCause(value: string): string {
 interface HenRow {
   id: string;
   code: string;
+  locationId?: string | null;
   breed?: string | null;
   birthDate?: string | null;
   status: string;
@@ -129,6 +130,7 @@ interface HenRow {
 interface RoosterRow {
   id: string;
   code: string;
+  locationId?: string | null;
   breed?: string | null;
   birthDate?: string | null;
   status: string;
@@ -141,6 +143,7 @@ interface BatchRow {
   code: string;
   species: string;
   purpose?: string | null;
+  locationId?: string | null;
   breed?: string | null;
   startDate?: string | null;
   currentQuantity: number;
@@ -169,6 +172,72 @@ function asArray<T>(value: unknown): T[] {
     return (value as any).data as T[];
   }
   return [];
+}
+
+interface FarmLocationRow {
+  id: string;
+  name: string;
+  status?: string;
+  operationalStatus?: string;
+  sanitaryStatus?: string;
+  [key: string]: unknown;
+}
+
+function normalizeLookup(value: unknown): string {
+  return String(value ?? "")
+    .trim()
+    .toLocaleLowerCase("es-CO")
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/\s+/g, " ");
+}
+
+async function loadFarmLocations(ctx: ToolContext): Promise<FarmLocationRow[]> {
+  return asArray<FarmLocationRow>(await ctx.api.get("/api/ubicaciones?active=true"));
+}
+
+/** Resuelve por nombre o usa el lugar actual del registro; si hay ambigüedad, pide el nombre. */
+async function resolveFarmLocation(
+  ctx: ToolContext,
+  requestedName?: unknown,
+  preferredId?: string | null,
+): Promise<FarmLocationRow> {
+  const locations = await loadFarmLocations(ctx);
+  let selected: FarmLocationRow | undefined;
+  const requested = normalizeLookup(requestedName);
+
+  if (requested) {
+    const exact = locations.filter((location) => normalizeLookup(location.name) === requested);
+    const matches = exact.length > 0
+      ? exact
+      : locations.filter((location) => normalizeLookup(location.name).includes(requested));
+    if (matches.length === 0) {
+      throw new Error(`No encontré un lugar activo llamado "${String(requestedName).trim()}". Lugares disponibles: ${locations.map((item) => item.name).join(", ") || "ninguno"}`);
+    }
+    if (matches.length > 1) {
+      throw new Error(`El nombre "${String(requestedName).trim()}" coincide con varios lugares: ${matches.map((item) => item.name).join(", ")}. Indica el nombre completo.`);
+    }
+    selected = matches[0];
+    if (preferredId && selected.id !== preferredId) {
+      const current = locations.find((location) => location.id === preferredId);
+      throw new Error(`El registro corresponde a ${current?.name || "otro lugar"}. Indica ese lugar o corrige primero el alojamiento actual.`);
+    }
+  } else if (preferredId) {
+    selected = locations.find((location) => location.id === preferredId);
+    if (!selected) throw new Error("El lugar actual del animal no está activo. Indica el lugar real del registro.");
+  } else if (locations.length === 1) {
+    selected = locations[0];
+  } else if (locations.length === 0) {
+    throw new Error("Primero crea un lugar de manejo en Animales → Lugares de manejo.");
+  } else {
+    throw new Error(`Indica el lugar donde ocurrió el registro. Lugares activos: ${locations.map((item) => item.name).join(", ")}.`);
+  }
+
+  if (!selected || selected.status === "inactiva") throw new Error("El lugar debe estar activo para registrar esta operación.");
+  if (["restringida", "fuera_servicio"].includes(String(selected.operationalStatus))) {
+    throw new Error(`${selected.name} está restringido o fuera de servicio y no admite este registro.`);
+  }
+  return selected;
 }
 
 function activeHens(rows: HenRow[]): HenRow[] {
@@ -314,6 +383,7 @@ const consultarAves: AgentTool = {
         type: "boolean",
         description: "Si es true (por defecto), excluye animales vendidos, faenados o muertos.",
       },
+      lugar: { type: "string", description: "Filtra por nombre del lugar de manejo. Opcional." },
     },
     additionalProperties: false,
   },
@@ -329,11 +399,14 @@ const consultarAves: AgentTool = {
     const wantsRoosters = rawSpecies.startsWith("gallo");
     const requested = args.especie && !wantsRoosters ? normalizeSpecies(rawSpecies) : null;
 
-    const [hensRaw, roostersRaw, batchesRaw] = await Promise.all([
+    const [hensRaw, roostersRaw, batchesRaw, locationRows] = await Promise.all([
       loadHens(ctx),
       loadRoosters(ctx),
       loadBatches(ctx),
+      ctx.api.get<any>("/api/ubicaciones"),
     ]);
+    const places = asArray<any>(locationRows);
+    const placeNameById = new Map(places.map((place) => [place.id, place.name]));
 
     const hens = (onlyActive ? activeHens(hensRaw) : hensRaw).map((hen) => ({
       id: hen.id,
@@ -344,6 +417,8 @@ const consultarAves: AgentTool = {
       estado: hen.status,
       edadSemanas: hen.ageWeeks ?? null,
       pesoKg: hen.weight != null ? Number(hen.weight) : null,
+      lugarId: hen.locationId || null,
+      lugar: hen.locationId ? placeNameById.get(hen.locationId) || null : null,
     }));
 
     const roosters = (onlyActive ? activeRoosters(roostersRaw) : roostersRaw).map((rooster) => ({
@@ -355,6 +430,8 @@ const consultarAves: AgentTool = {
       estado: rooster.status,
       edadSemanas: rooster.ageWeeks ?? null,
       pesoKg: rooster.weight != null ? Number(rooster.weight) : null,
+      lugarId: rooster.locationId || null,
+      lugar: rooster.locationId ? placeNameById.get(rooster.locationId) || null : null,
     }));
 
     const batches = (onlyActive ? activeBatches(batchesRaw) : batchesRaw).map((batch) => ({
@@ -369,6 +446,8 @@ const consultarAves: AgentTool = {
       pesoObjetivoKg: batch.targetWeightKg != null ? Number(batch.targetWeightKg) : null,
       edadSemanas: batch.ageWeeks ?? null,
       proposito: batch.purpose || null,
+      lugarId: batch.locationId || null,
+      lugar: batch.locationId ? placeNameById.get(batch.locationId) || null : null,
     }));
 
     let animals = [...hens, ...roosters, ...batches];
@@ -376,6 +455,14 @@ const consultarAves: AgentTool = {
       animals = animals.filter((row) => row.especie === "gallo");
     } else if (requested) {
       animals = animals.filter((row) => row.especie === requested);
+    }
+    const requestedLocation = normalizeLookup(args.lugar);
+    if (requestedLocation) {
+      const exact = places.filter((place) => normalizeLookup(place.name) === requestedLocation);
+      const matches = exact.length > 0 ? exact : places.filter((place) => normalizeLookup(place.name).includes(requestedLocation));
+      if (matches.length === 0) throw new Error(`No encontré el lugar "${String(args.lugar).trim()}".`);
+      if (matches.length > 1) throw new Error(`El lugar coincide con varios nombres: ${matches.map((place) => place.name).join(", ")}. Indica el nombre completo.`);
+      animals = animals.filter((animal) => animal.lugarId === matches[0].id);
     }
 
     return {
@@ -389,6 +476,233 @@ const consultarAves: AgentTool = {
   },
 };
 
+const consultarUbicaciones: AgentTool = {
+  name: "consultar_ubicaciones",
+  description:
+    "Consulta la ficha y el desempeño por lugar de manejo: ocupación, especies, huevos, carne, pesajes, bajas, consumo, sanidad y mantenimiento. Los indicadores operativos resumidos son de los últimos 30 días salvo que se indique el período disponible.",
+  parameters: {
+    type: "object",
+    properties: {
+      lugar: { type: "string", description: "Nombre o parte inequívoca del nombre del corral, jaula, galpón, potrero, jardín o patio. Opcional." },
+      periodo_dias: { type: "integer", description: "Período para los indicadores resumidos, entre 1 y 365 días. Por defecto 30.", minimum: 1, maximum: 365 },
+    },
+    additionalProperties: false,
+  },
+  kind: "read",
+  requiresConfirmation: false,
+  async execute(args, ctx) {
+    const days = args.periodo_dias ? asNumber(args.periodo_dias, "periodo_dias", { min: 1, integer: true }) : 30;
+    if (days > 365) throw new Error("El período máximo para consultar lugares es 365 días.");
+    const locations = asArray<any>(await ctx.api.get(`/api/ubicaciones?period=${days}`));
+    const requested = normalizeLookup(args.lugar);
+    let matches = locations;
+    if (requested) {
+      const exact = locations.filter((place) => normalizeLookup(place.name) === requested);
+      matches = exact.length > 0 ? exact : locations.filter((place) => normalizeLookup(place.name).includes(requested));
+      if (matches.length === 0) throw new Error(`No encontré el lugar "${String(args.lugar).trim()}". Lugares disponibles: ${locations.map((place) => place.name).join(", ") || "ninguno"}`);
+      if (matches.length > 1) throw new Error(`El nombre coincide con varios lugares: ${matches.map((place) => place.name).join(", ")}. Indica el nombre completo.`);
+    }
+    return {
+      periodoDias: days,
+      totalLugares: matches.length,
+      lugares: matches.slice(0, 50).map((place: any) => ({
+        codigo: place.code,
+        nombre: place.name,
+        tipo: place.type,
+        lugarSuperior: place.parentName || null,
+        estado: place.status,
+        estadoOperativo: place.operationalStatus,
+        estadoSanitario: place.sanitaryStatus,
+        especificacionesSanitarias: place.sanitaryRequirements || null,
+        ultimaRevisionSanitaria: place.sanitaryReviewedAt || null,
+        ultimaRevisionOperativa: place.operationalReviewedAt || null,
+        referenciaLocal: place.localReference || null,
+        coordenadas: place.latitude && place.longitude ? { latitud: place.latitude, longitud: place.longitude } : null,
+        areaM2: place.areaM2 || null,
+        animales: place.animals || 0,
+        capacidad: place.capacity ?? null,
+        especies: place.speciesCounts || [],
+        huevos: place.eggsPeriod || 0,
+        huevosPorEspecie: place.eggsBySpeciesPeriod || [],
+        carneKg: Number(place.meatProducedKgPeriod || 0),
+        carnePorEspecie: place.meatBySpeciesPeriod || [],
+        pesajes: place.weightSamplesPeriod || 0,
+        pesoPromedioPorEspecie: place.averageWeightBySpeciesPeriod || [],
+        bajas: place.deathsPeriod || 0,
+        consumoAlimento: place.feedConsumptionLabel || "Sin registros",
+        controlesSanitarios: place.healthControlsPeriod || 0,
+        tareasMantenimientoPendientes: place.pendingMaintenance || 0,
+        necesidadesMantenimiento: place.maintenanceNeeds || null,
+        costoMantenimientoCompletado: Number(place.maintenanceCost || 0),
+      })),
+      nota: "El estado sanitario y operativo refleja lo que registró la finca; no constituye una certificación automática.",
+    };
+  },
+};
+
+const consultarTrazabilidadGenetica: AgentTool = {
+  name: "consultar_trazabilidad_genetica",
+  description:
+    "Consulta procedencia y trazabilidad genética desde adquisiciones o cría propia: línea, generación, finca y lugar de origen, lote de origen, progenitores, lugar de destino y referencia documental. Busca por código de animal/lote o línea genética.",
+  parameters: {
+    type: "object",
+    properties: {
+      codigo: { type: "string", description: "Código de animal o lote, código de progenitor o código de lote de origen." },
+      linea_genetica: { type: "string", description: "Nombre o parte de una línea genética." },
+    },
+    additionalProperties: false,
+  },
+  kind: "read",
+  requiresConfirmation: false,
+  async execute(args, ctx) {
+    const acquisitions = asArray<any>(await ctx.api.get("/api/produccion/adquisiciones"));
+    const code = normalizeLookup(args.codigo);
+    const line = normalizeLookup(args.linea_genetica);
+    if (!code && !line) {
+      return { registros: [], nota: "Indica un código de animal o lote, o una línea genética para consultar su trazabilidad." };
+    }
+    const matches = acquisitions.filter((row) => {
+      const codeMatch = !code || [
+        ...(Array.isArray(row.registeredCodes) ? row.registeredCodes : []),
+        row.sourceBatchCode,
+        row.motherIdentifier,
+        row.fatherIdentifier,
+      ].some((value) => normalizeLookup(value) === code);
+      const lineMatch = !line || normalizeLookup(row.geneticLine).includes(line);
+      return codeMatch && lineMatch;
+    });
+    return {
+      total: matches.length,
+      registros: matches.slice(0, 40).map((row) => ({
+        fecha: row.date,
+        ingreso: row.acquisitionType,
+        especie: row.species,
+        tipoAnimal: row.birdType,
+        cantidad: row.quantity,
+        codigosRegistrados: row.registeredCodes || [],
+        razaDeclarada: row.breed || null,
+        lineaGenetica: row.geneticLine || null,
+        generacion: row.generation || null,
+        fincaDeOrigen: row.originFarm || null,
+        lugarDeOrigen: row.originLocation || null,
+        loteDeOrigen: row.sourceBatchCode || null,
+        madre: row.motherIdentifier || null,
+        padre: row.fatherIdentifier || null,
+        lugarDeDestino: row.destinationLocationName || null,
+        evidenciaGenetica: row.geneticEvidenceReference || null,
+        evidenciaSanitaria: row.healthEvidenceReference || null,
+        parentescoConCodigo: code
+          ? (Array.isArray(row.registeredCodes) && row.registeredCodes.some((value: string) => normalizeLookup(value) === code)
+            ? "registro del animal o lote"
+            : normalizeLookup(row.motherIdentifier) === code
+              ? "descendencia registrada por línea materna"
+              : normalizeLookup(row.fatherIdentifier) === code
+                ? "descendencia registrada por línea paterna"
+                : normalizeLookup(row.sourceBatchCode) === code
+                  ? "lote de origen"
+                  : "coincidencia")
+          : undefined,
+      })),
+      nota: "La app consulta los datos y referencias que ingresó la finca; no autentica certificados ni confirma pureza genética.",
+    };
+  },
+};
+
+const consultarMantenimiento: AgentTool = {
+  name: "consultar_mantenimiento",
+  description:
+    "Consulta tareas de mantenimiento por estado, lugar y equipo asociado. Sirve para revisar vencimientos, repeticiones programadas, costos e historial.",
+  parameters: {
+    type: "object",
+    properties: {
+      lugar: { type: "string", description: "Nombre del lugar asociado. Opcional." },
+      solo_pendientes: { type: "boolean", description: "Por defecto true; si es false incluye tareas completadas." },
+    },
+    additionalProperties: false,
+  },
+  kind: "read",
+  requiresConfirmation: false,
+  async execute(args, ctx) {
+    const tasks = asArray<any>(await ctx.api.get("/api/operaciones/mantenimiento"));
+    const requested = normalizeLookup(args.lugar);
+    let filtered = tasks;
+    if (requested) {
+      const exact = tasks.filter((task) => normalizeLookup(task.locationName) === requested);
+      filtered = exact.length > 0 ? exact : tasks.filter((task) => normalizeLookup(task.locationName).includes(requested));
+      if (filtered.length === 0) throw new Error(`No encontré tareas asociadas al lugar "${String(args.lugar).trim()}".`);
+      if (filtered.length > 1) {
+        const names = [...new Set(filtered.map((task) => String(task.locationName || "General de la finca")))];
+        if (names.length > 1) throw new Error(`El nombre coincide con varios lugares: ${names.join(", ")}. Indica el nombre completo.`);
+      }
+    }
+    if (args.solo_pendientes !== false) filtered = filtered.filter((task) => task.status !== "completado");
+    return {
+      total: filtered.length,
+      tareas: filtered.slice(0, 100).map((task) => ({
+        titulo: task.title,
+        descripcion: task.description || null,
+        equipo: task.assetName ? `${task.assetName}${task.assetCode ? ` (${task.assetCode})` : ""}` : null,
+        lugar: task.locationName || "General de la finca",
+        estado: task.status,
+        fechaProgramada: task.scheduledDate,
+        fechaCompletada: task.completedDate || null,
+        repetirCadaDias: task.recurrenceIntervalDays || null,
+        costoCOP: Number(task.cost || 0),
+      })),
+    };
+  },
+};
+
+const consultarActivos: AgentTool = {
+  name: "consultar_activos",
+  description: "Consulta equipos, herramientas e infraestructura por código, nombre, serie, lugar o estado. Incluye ubicación, garantía, costo registrado y estado operativo.",
+  parameters: {
+    type: "object",
+    properties: {
+      buscar: { type: "string", description: "Código, nombre, marca, modelo o número de serie. Opcional." },
+      lugar: { type: "string", description: "Nombre del lugar asociado. Opcional." },
+      estado: { type: "string", description: "operativo, requiere_mantenimiento, fuera_servicio o retirado. Opcional." },
+      incluir_retirados: { type: "boolean", description: "Por defecto false; si es true incluye activos retirados con historial." },
+    },
+    additionalProperties: false,
+  },
+  kind: "read",
+  requiresConfirmation: false,
+  async execute(args, ctx) {
+    const assets = asArray<any>(await ctx.api.get("/api/operaciones/activos"));
+    const requested = normalizeLookup(args.buscar);
+    const place = normalizeLookup(args.lugar);
+    const status = normalizeLookup(args.estado);
+    const filtered = assets.filter((asset) => {
+      if (args.incluir_retirados !== true && asset.status === "retirado") return false;
+      if (status && normalizeLookup(asset.status) !== status) return false;
+      if (place && !normalizeLookup(asset.locationName).includes(place)) return false;
+      if (requested && ![
+        asset.code, asset.name, asset.brand, asset.model, asset.serialNumber,
+      ].some((value) => normalizeLookup(value).includes(requested))) return false;
+      return true;
+    });
+    return {
+      total: filtered.length,
+      activos: filtered.slice(0, 100).map((asset) => ({
+        codigo: asset.code,
+        nombre: asset.name,
+        tipo: asset.category,
+        marca: asset.brand || null,
+        modelo: asset.model || null,
+        serie: asset.serialNumber || null,
+        lugar: asset.locationName || "Finca / sin lugar específico",
+        estado: asset.status,
+        fechaAdquisicion: asset.acquisitionDate || null,
+        garantiaHasta: asset.warrantyUntil || null,
+        costoRegistradoCOP: Number(asset.acquisitionCost || 0),
+        descripcion: asset.description || null,
+      })),
+      nota: "El costo corresponde al valor registrado por la finca; no representa depreciación ni avalúo contable.",
+    };
+  },
+};
+
 const consultarProduccion: AgentTool = {
   name: "consultar_produccion",
   description:
@@ -397,6 +711,7 @@ const consultarProduccion: AgentTool = {
     type: "object",
     properties: {
       especie: { type: "string", description: "gallina, codorniz, pato, etc. Opcional." },
+      lugar: { type: "string", description: "Nombre del lugar de manejo. Opcional; filtra la producción registrada allí." },
       dias: { type: "integer", description: "Días hacia atrás. Por defecto 14.", minimum: 1, maximum: 365 },
     },
     additionalProperties: false,
@@ -411,11 +726,23 @@ const consultarProduccion: AgentTool = {
       : "/api/produccion/huevos";
 
     const rows = asArray<any>(await ctx.api.get(path));
+    let selectedLocation: any | null = null;
+    const requestedLocation = normalizeLookup(args.lugar);
+    if (requestedLocation) {
+      const locations = asArray<any>(await ctx.api.get("/api/ubicaciones"));
+      const exact = locations.filter((place) => normalizeLookup(place.name) === requestedLocation);
+      const matches = exact.length > 0 ? exact : locations.filter((place) => normalizeLookup(place.name).includes(requestedLocation));
+      if (matches.length === 0) throw new Error(`No encontré el lugar "${String(args.lugar).trim()}".`);
+      if (matches.length > 1) throw new Error(`El lugar coincide con varios nombres: ${matches.map((place) => place.name).join(", ")}. Indica el nombre completo.`);
+      selectedLocation = matches[0];
+    }
     const cutoff = new Date(`${todayISO()}T12:00:00`);
     cutoff.setDate(cutoff.getDate() - days);
     const cutoffStr = cutoff.toISOString().split("T")[0];
 
-    const filtered = rows.filter((row) => String(row.date) >= cutoffStr);
+    const filtered = rows.filter((row) =>
+      String(row.date) >= cutoffStr && (!selectedLocation || row.locationId === selectedLocation.id),
+    );
     const bySize = new Map<string, number>();
     let totalCollected = 0;
     let broken = 0;
@@ -435,6 +762,7 @@ const consultarProduccion: AgentTool = {
     return {
       periodoDias: days,
       especie: speciesParam || "todas",
+      lugar: selectedLocation?.name || "todos",
       registros: filtered.length,
       totalRecolectado: totalCollected,
       roto: broken,
@@ -444,6 +772,7 @@ const consultarProduccion: AgentTool = {
       ultimos: filtered.slice(0, 20).map((row) => ({
         fecha: row.date,
         especie: row.species,
+        lugar: row.locationName || null,
         total: row.totalCollected,
         roto: row.broken,
         incubacion: row.forIncubation,
@@ -637,6 +966,8 @@ const registrarProduccionHuevos: AgentTool = {
     properties: {
       fecha: { type: "string", description: "Fecha AAAA-MM-DD. Por defecto hoy." },
       especie: { type: "string", description: "gallina (por defecto), codorniz, pato, etc." },
+      lugar: { type: "string", description: "Lugar donde se recogieron los huevos. Si hay varios lugares, indica el nombre." },
+      lote: { type: "string", description: "Código del lote de postura; obligatorio para codornices y patos." },
       tamanos: {
         type: "array",
         description: "Detalle por tamaño de huevo. Si se envía, no es necesario total_recolectado.",
@@ -664,9 +995,19 @@ const registrarProduccionHuevos: AgentTool = {
   },
   kind: "write",
   requiresConfirmation: false,
-  async prepare(args) {
+  async prepare(args, ctx) {
     const date = normalizeDate(args.fecha);
     const species = args.especie ? normalizeSpecies(String(args.especie)) || "gallina" : "gallina";
+    let batch: BatchRow | undefined;
+    if (species !== "gallina") {
+      if (!args.lote) throw new Error(`Indica el código del lote de ${speciesLabel(species, true).toLowerCase()} destinado a postura.`);
+      const batches = await loadBatches(ctx);
+      batch = findByIdOrCode(batches, String(args.lote));
+      if (!batch || batch.species !== species || batch.purpose !== "postura_huevo" || batch.currentQuantity < 1 || !isBatchPresent(batch.status, batch.currentQuantity)) {
+        throw new Error(`No encontré un lote activo de ${speciesLabel(species, true).toLowerCase()} con destino de postura y código ${String(args.lote)}.`);
+      }
+    }
+    const location = await resolveFarmLocation(ctx, args.lugar, batch?.locationId);
     const sizes = Array.isArray(args.tamanos)
       ? args.tamanos
           .map((item: any) => ({ size: String(item.tamano || item.size || "").trim(), quantity: Number(item.cantidad || item.quantity || 0) }))
@@ -681,6 +1022,7 @@ const registrarProduccionHuevos: AgentTool = {
     const body: Record<string, unknown> = {
       date,
       species,
+      locationId: location.id,
       totalCollected: total,
       broken: args.roto ? asNumber(args.roto, "roto", { min: 0, integer: true }) : 0,
       forIncubation: args.para_incubacion ? asNumber(args.para_incubacion, "para_incubacion", { min: 0, integer: true }) : 0,
@@ -688,6 +1030,7 @@ const registrarProduccionHuevos: AgentTool = {
       notes: args.notas ? String(args.notas) : null,
       overrideValidation: args.confirmar_exceso === true,
     };
+    if (batch) body.batchId = batch.id;
     if (sizes.length > 0) body.sizes = sizes;
     if (args.precio_referencia !== undefined && args.precio_referencia !== null && args.precio_referencia !== "") {
       body.referenceUnitPrice = String(asNumber(args.precio_referencia, "precio_referencia", { min: 0 }));
@@ -698,7 +1041,7 @@ const registrarProduccionHuevos: AgentTool = {
       : "";
     return {
       args: body,
-      summary: `Registrar ${total} huevos de ${speciesLabel(species, true).toLowerCase()} del ${formatDateEs(date)}${sizeText}.`,
+      summary: `Registrar ${total} huevos de ${speciesLabel(species, true).toLowerCase()} en ${location.name}${batch ? ` (lote ${batch.code})` : ""} del ${formatDateEs(date)}${sizeText}.`,
     };
   },
   async execute(args, ctx) {
@@ -721,7 +1064,7 @@ const registrarMortalidad: AgentTool = {
   name: "registrar_mortalidad",
   description:
     "Registra la muerte de un animal o de varias aves de un lote. Se ejecuta automáticamente. " +
-    "Si no se indica código, usa el primer animal activo compatible.",
+    "Debe identificar el animal o lote y registrar el lugar donde ocurrió; si hay varias opciones, solicita código y lugar.",
   parameters: {
     type: "object",
     properties: {
@@ -732,7 +1075,8 @@ const registrarMortalidad: AgentTool = {
       },
       cantidad: { type: "integer", minimum: 1, description: "Por defecto 1. Solo lotes admiten más de 1." },
       causa: { type: "string", description: "Causa de la muerte." },
-      codigo: { type: "string", description: "Código o id del animal o lote, si se conoce." },
+      codigo: { type: "string", description: "Código o id del animal o lote. Obligatorio si hay más de una opción." },
+      lugar: { type: "string", description: "Lugar donde ocurrió la mortalidad. Puede inferirse del alojamiento actual del animal o lote." },
       descripcion: { type: "string" },
     },
     required: ["causa"],
@@ -751,22 +1095,27 @@ const registrarMortalidad: AgentTool = {
     if (rawSpecies.startsWith("gallina") || rawSpecies === "gallos" || rawSpecies === "gallo") {
       const isRooster = rawSpecies.startsWith("gallo");
       const rows = isRooster ? await loadRoosters(ctx) : await loadHens(ctx);
-      const active = isRooster ? activeRoosters(rows as RoosterRow[]) : activeHens(rows as HenRow[]);
-      const selected = findByIdOrCode(active as any, args.codigo);
+      const active: (HenRow | RoosterRow)[] = isRooster
+        ? activeRoosters(rows as RoosterRow[])
+        : activeHens(rows as HenRow[]);
+      const selected = findByIdOrCode(active, args.codigo);
       if (args.codigo && !selected) throw new Error(`No se encontró un ${isRooster ? "gallo" : "gallina"} activo con código ${args.codigo}`);
+      if (!selected && active.length > 1) throw new Error(`Hay ${active.length} ${isRooster ? "gallos" : "gallinas"} activos. Indica el código del animal que falleció.`);
       const animal = selected || active[0];
       if (!animal) throw new Error(`No hay ${isRooster ? "gallos" : "gallinas"} activos para registrar la muerte`);
+      const location = await resolveFarmLocation(ctx, args.lugar, animal.locationId);
 
       return {
         args: {
           date,
+          locationId: location.id,
           birdType: isRooster ? "gallo" : "gallina",
           quantity: 1,
           cause,
           [isRooster ? "roosterId" : "henId"]: animal.id,
           description: args.descripcion ? String(args.descripcion) : `Registrado por asistente IA (${animal.code})`,
         },
-        summary: `Registrar muerte de ${isRooster ? "el gallo" : "la gallina"} ${animal.code} por ${causeText} el ${formatDateEs(date)}.`,
+        summary: `Registrar muerte de ${isRooster ? "el gallo" : "la gallina"} ${animal.code} en ${location.name} por ${causeText} el ${formatDateEs(date)}.`,
       };
     }
 
@@ -775,22 +1124,25 @@ const registrarMortalidad: AgentTool = {
     const batches = activeBatches(await loadBatches(ctx)).filter((batch) => batch.species === species);
     const selected = findByIdOrCode(batches, args.codigo);
     if (args.codigo && !selected) throw new Error(`No se encontró un lote activo de ${species} con código ${args.codigo}`);
+    if (!selected && batches.length > 1) throw new Error(`Hay ${batches.length} lotes activos de ${speciesLabel(species, true).toLowerCase()}. Indica el código del lote.`);
     const batch = selected || batches[0];
     if (!batch) throw new Error(`No hay lotes activos de ${species}`);
     if (quantity > Number(batch.currentQuantity)) {
       throw new Error(`El lote ${batch.code} solo tiene ${batch.currentQuantity} animales`);
     }
+    const location = await resolveFarmLocation(ctx, args.lugar, batch.locationId);
 
     return {
       args: {
         date,
+        locationId: location.id,
         birdType: "lote_pollos",
         quantity,
         cause,
         batchId: batch.id,
         description: args.descripcion ? String(args.descripcion) : `Registrado por asistente IA (lote ${batch.code})`,
       },
-      summary: `Registrar muerte de ${quantity} ${speciesLabel(species, true).toLowerCase()} del lote ${batch.code} por ${causeText} el ${formatDateEs(date)}.`,
+      summary: `Registrar muerte de ${quantity} ${speciesLabel(species, true).toLowerCase()} del lote ${batch.code} en ${location.name} por ${causeText} el ${formatDateEs(date)}.`,
     };
   },
   async execute(args, ctx) {
@@ -809,6 +1161,7 @@ const registrarPeso: AgentTool = {
       peso_promedio_kg: { type: "number", minimum: 0.001, description: "Peso promedio en kilogramos." },
       especie: { type: "string", description: "Especie a la que corresponde el pesaje." },
       lote: { type: "string", description: "Código o id del lote, si aplica." },
+      lugar: { type: "string", description: "Lugar del pesaje; si se indica un lote, puede inferirse de su ubicación actual." },
       raza: { type: "string" },
       semana: { type: "integer", minimum: 0, description: "Edad en semanas." },
       tamano_muestra: { type: "integer", minimum: 1, description: "Número de animales pesados." },
@@ -822,21 +1175,27 @@ const registrarPeso: AgentTool = {
   async prepare(args, ctx) {
     const date = normalizeDate(args.fecha);
     const weight = asNumber(args.peso_promedio_kg, "peso_promedio_kg", { min: 0.001 });
-    const species = args.especie ? normalizeSpecies(String(args.especie)) : null;
-    let batchId: string | null = null;
+    const requestedSpecies = args.especie ? normalizeSpecies(String(args.especie)) : null;
+    let batch: BatchRow | undefined;
 
     if (args.lote) {
       const batches = await loadBatches(ctx);
-      const batch = findByIdOrCode(batches, args.lote);
+      batch = findByIdOrCode(batches, String(args.lote));
       if (!batch) throw new Error(`No se encontró el lote ${args.lote}`);
-      batchId = batch.id;
+      if (!isBatchPresent(batch.status, batch.currentQuantity)) throw new Error(`El lote ${batch.code} no tiene animales activos para pesar.`);
+      if (requestedSpecies && requestedSpecies !== batch.species) throw new Error(`El lote ${batch.code} corresponde a ${batch.species}, no a ${requestedSpecies}.`);
     }
+    const species = batch?.species || requestedSpecies || "gallina";
+    if (!batch && species !== "gallina") throw new Error(`Selecciona el código del lote activo de ${speciesLabel(species, true).toLowerCase()} que vas a pesar.`);
+    const location = await resolveFarmLocation(ctx, args.lugar, batch?.locationId);
 
     const weightText = weight.toLocaleString("es-CO", { maximumFractionDigits: 2 });
     return {
       args: {
         date,
-        batchId,
+        batchId: batch?.id || null,
+        locationId: location.id,
+        species,
         henGroup: species || args.especie || null,
         breed: args.raza ? String(args.raza) : null,
         weekNumber: args.semana !== undefined ? asNumber(args.semana, "semana", { min: 0, integer: true }) : null,
@@ -846,7 +1205,7 @@ const registrarPeso: AgentTool = {
           : 1,
         notes: args.notas ? String(args.notas) : null,
       },
-      summary: `Registrar peso promedio de ${weightText} kg${args.lote ? ` en el lote ${args.lote}` : ""} el ${formatDateEs(date)}.`,
+      summary: `Registrar peso promedio de ${weightText} kg${batch ? ` en el lote ${batch.code}` : ` de ${speciesLabel(species, true).toLowerCase()}`} en ${location.name} el ${formatDateEs(date)}.`,
     };
   },
   async execute(args, ctx) {
@@ -864,6 +1223,7 @@ const registrarConsumoAlimento: AgentTool = {
       fecha: { type: "string", description: "Fecha AAAA-MM-DD. Por defecto hoy." },
       alimento: { type: "string", description: "Nombre o id del alimento." },
       cantidad: { type: "number", minimum: 0.001, description: "Cantidad consumida en la unidad del alimento." },
+      lugar: { type: "string", description: "Lugar donde se suministró el alimento. Si hay varios lugares, indica el nombre." },
       notas: { type: "string" },
     },
     required: ["alimento", "cantidad"],
@@ -891,17 +1251,19 @@ const registrarConsumoAlimento: AgentTool = {
     if (quantity > stock) {
       throw new Error(`Stock insuficiente de ${feed.name}: hay ${stock} ${feed.unit}`);
     }
+    const location = await resolveFarmLocation(ctx, args.lugar);
 
     return {
       args: {
         date,
         feedId: feed.id,
+        locationId: location.id,
         quantity,
         isEntry: false,
         movementType: "consumo_manual",
         notes: args.notas ? String(args.notas) : "Registrado por asistente IA",
       },
-      summary: `Registrar consumo de ${quantity} ${feed.unit} de ${feed.name} el ${formatDateEs(date)}.`,
+      summary: `Registrar consumo de ${quantity} ${feed.unit} de ${feed.name} en ${location.name} el ${formatDateEs(date)}.`,
     };
   },
   async execute(args, ctx) {
@@ -1252,6 +1614,10 @@ export const AGENT_TOOLS: AgentTool[] = [
   consultarResumenGranja,
   consultarInventario,
   consultarAves,
+  consultarUbicaciones,
+  consultarTrazabilidadGenetica,
+  consultarMantenimiento,
+  consultarActivos,
   consultarProduccion,
   consultarFinanzas,
   consultarLotes,

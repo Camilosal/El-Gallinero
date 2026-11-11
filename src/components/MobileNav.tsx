@@ -3,10 +3,10 @@
 import { useState, useCallback } from "react";
 
 const LINKS = [
-  { href: "#historia", label: "Historia" },
-  { href: "#funcionalidades", label: "Funcionalidades" },
-  { href: "#caminos", label: "Probarlo" },
-  { href: "#cierre", label: "Sobre el criterio" },
+  { href: "#alcance", label: "El sistema" },
+  { href: "#funcionalidades", label: "Qué puedes gestionar" },
+  { href: "#flujo", label: "Trazabilidad" },
+  { href: "#acceso", label: "Acceso" },
 ];
 
 export default function MobileNav() {

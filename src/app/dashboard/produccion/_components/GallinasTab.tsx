@@ -6,6 +6,7 @@ import { useSearchParams } from "next/navigation";
 import { PageHeader, Button, Card, Table, Badge, Modal, Input, Select, Textarea, EmptyState } from "@/components/ui";
 import TableSearch from "@/components/TableSearch";
 import { useCatalog } from "@/lib/useCatalog";
+import { getBreedsForSpecies } from "@/lib/animal-breeds";
 import { apiFetch } from "@/lib/fetch";
 import { matchesTextQuery } from "@/lib/text";
 import { isHenPresent } from "@/lib/animal-status";
@@ -91,7 +92,7 @@ function getHenAgeWeeks(birthDate: string): number {
   return Math.floor((today.getTime() - birth.getTime()) / (7 * 24 * 60 * 60 * 1000));
 }
 
-export default function GallinasPage() {
+export default function GallinasPage({ embedded = false }: { embedded?: boolean } = {}) {
   const [hens, setHens] = useState<Hen[]>([]);
   const [stages, setStages] = useState<Stage[]>([]);
   const [loading, setLoading] = useState(true);
@@ -114,7 +115,8 @@ export default function GallinasPage() {
     });
     return () => { active = false; };
   }, [estadoParam]);
-  const { values: breedOptions } = useCatalog("raza", breeds);
+  const { items: breedItems } = useCatalog("raza", breeds);
+  const breedOptions = getBreedsForSpecies(breedItems, "gallina", editing ? form.breed : null);
   const { values: statusOptions } = useCatalog("estado_gallina", statusFallback);
 
   const load = useCallback(() => {
@@ -136,12 +138,6 @@ export default function GallinasPage() {
 
   useEffect(() => { void Promise.resolve().then(load); }, [load]);
 
-  const openNew = () => {
-    setEditing(null);
-    setForm({ code: "", breed: breeds[0], birthDate: new Date().toISOString().split("T")[0], status: "activa", weight: "", notes: "", isBroody: false, clutchSize: 0 });
-    setModalOpen(true);
-  };
-
   const openEdit = (h: Hen) => {
     setEditing(h);
     setForm({ code: h.code, breed: h.breed, birthDate: h.birthDate, status: h.status, weight: h.weight || "", notes: h.notes || "", isBroody: h.isBroody, clutchSize: h.clutchSize || 0 });
@@ -149,9 +145,8 @@ export default function GallinasPage() {
   };
 
   const save = async () => {
-    const method = editing ? "PUT" : "POST";
-    const body = editing ? { ...form, id: editing.id } : form;
-    await apiFetch("/api/produccion/gallinas", { method, headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
+    if (!editing) return;
+    await apiFetch("/api/produccion/gallinas", { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ ...form, id: editing.id }) });
     setModalOpen(false);
     load();
   };
@@ -228,17 +223,20 @@ export default function GallinasPage() {
 
   return (
     <div>
-      <PageHeader
-        title="🐔 Gestión de Gallinas"
-        description="Registro, seguimiento y estado de todas las gallinas. Los gallos y pollos se gestionan aparte."
-        help="Aquí registras cada gallina del gallinero con su código, raza, fecha de nacimiento y estado.\n\n• Esta vista solo lista gallinas; los gallos y pollos están en Producción → Pollos y Gallos.\n• El sistema calcula automáticamente la etapa de crecimiento y cambia el estado según la edad y condición.\n• Las gallinas marcadas como 'recomendada sacrificio' son candidatos para venta o faena según su rendimiento.\n• Usa el botón 'Etiquetas QR' para generar códigos QR que puedes imprimir y pegar en bandas de pata. Luego escanéalo con tu celular para acceder rápido a cada ave.\n• Filtra por estado o etapa para encontrar gallinas específicas."
+      {!embedded && <PageHeader
+        title="🐔 Seguimiento de Gallinas"
+        description="Estado, postura y evolución de las gallinas ya ingresadas"
+        help="Esta vista sirve para dar seguimiento a gallinas que ya están registradas. Toda gallina nueva debe ingresar primero por Adquisiciones con su origen (compra, donación o cría propia); las gallinas nacidas por incubación quedan vinculadas automáticamente a ese proceso.\n\n• Los gallos y lotes se gestionan aparte en Animales.\n• El sistema calcula automáticamente la etapa de crecimiento y cambia el estado según la edad y condición.\n• Las gallinas marcadas como 'recomendada sacrificio' son candidatas para venta o faena según su rendimiento.\n• Usa el botón 'Etiquetas QR' para generar códigos QR que puedes imprimir y pegar en bandas de pata. Luego escanéalo con tu celular para acceder rápido a cada ave.\n• Filtra por estado o etapa para encontrar gallinas específicas."
         actions={
           <div className="flex gap-2">
             <QrGeneratorButton hens={hens} />
-            <Button onClick={openNew}>+ Nueva Gallina</Button>
+            <Link href="/dashboard/produccion/adquisiciones?nuevo=gallina" className="inline-flex items-center rounded-lg bg-green-700 px-4 py-2 text-sm font-semibold text-white hover:bg-green-800">
+              Registrar ingreso
+            </Link>
           </div>
         }
-      />
+      />}
+      {embedded && <div className="mb-4 flex justify-end"><QrGeneratorButton hens={hens} /></div>}
 
       {/* Resumen de inventario: esta vista solo lista gallinas */}
       <div className="mb-4 rounded-xl border border-slate-200 bg-white px-4 py-3">
@@ -387,7 +385,7 @@ export default function GallinasPage() {
         )}
       </Card>
 
-      <Modal open={modalOpen} onClose={() => setModalOpen(false)} title={editing ? "Editar Gallina" : "Nueva Gallina"}>
+      <Modal open={modalOpen} onClose={() => setModalOpen(false)} title="Editar Gallina">
         <div className="space-y-4">
           <Input label="Código / Identificación" help="Código único para identificar a esta gallina. Ej: G-001, A-012. Debe ser único." value={form.code} onChange={(e) => setForm({ ...form, code: e.target.value })} placeholder="Ej: G-001" required />
           <Select label="Raza" help="Raza de la gallina. Cada raza tiene diferentes niveles de postura, peso y comportamiento." value={form.breed} onChange={(e) => setForm({ ...form, breed: e.target.value })}>
@@ -400,7 +398,7 @@ export default function GallinasPage() {
           <Input label="Peso (kg)" help="Peso actual de la gallina en kilogramos. Importante para monitorear salud y rendimiento." type="number" step="0.01" value={form.weight} onChange={(e) => setForm({ ...form, weight: e.target.value })} placeholder="Ej: 2.5" />
           <Textarea label="Notas" help="Observaciones sobre la gallina: comportamiento, salud, tratamientos, etc." value={form.notes} onChange={(e) => setForm({ ...form, notes: e.target.value })} placeholder="Observaciones sobre la gallina..." />
           <div className="flex gap-3">
-            <Button onClick={save} disabled={!form.code || !form.breed}>{editing ? "Actualizar" : "Registrar"}</Button>
+            <Button onClick={save} disabled={!form.code || !form.breed}>Actualizar</Button>
             <Button variant="secondary" onClick={() => setModalOpen(false)}>Cancelar</Button>
           </div>
         </div>

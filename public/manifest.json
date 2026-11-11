@@ -1,7 +1,7 @@
 {
   "name": "Sistema Gallinero",
   "short_name": "Gallinero",
-  "description": "Sistema integral de gestión avícola",
+  "description": "Gestión de animales, producción, sanidad, inventarios y finanzas de la granja",
   "start_url": "/",
   "display": "standalone",
   "background_color": "#14532d",

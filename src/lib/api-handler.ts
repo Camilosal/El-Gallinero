@@ -108,6 +108,7 @@ export function withApiHandler(handler: Handler): Handler {
         msg.startsWith("Stock insuficiente") ||
         msg.includes("excede") ||
         msg.includes("no puede quedar por debajo") ||
+        msg.includes("No hay suficientes huevos") ||
         msg.includes("No se puede convertir a contado") ||
         msg.startsWith("No se puede reducir") ||
         msg.startsWith("No se puede eliminar") ||
@@ -125,6 +126,9 @@ export function withApiHandler(handler: Handler): Handler {
         msg.includes("Código requerido") ||
         msg.includes("La cantidad de huevos") ||
         msg.includes("Estado de eclosión inválido") ||
+        msg.toLowerCase().includes("capacidad") ||
+        msg.toLowerCase().includes("lugar de destino") ||
+        msg.toLowerCase().includes("lugar seleccionado") ||
         msg.includes("no está disponible")
       ) {
         return NextResponse.json({ error: msg }, { status: 400 });

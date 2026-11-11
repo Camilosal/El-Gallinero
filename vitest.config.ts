@@ -9,6 +9,7 @@ export default defineConfig({
   },
   test: {
     include: ["tests/**/*.test.ts"],
+    setupFiles: ["./tests/setup.ts"],
     sequence: { concurrent: false },
     testTimeout: 30000,
   },

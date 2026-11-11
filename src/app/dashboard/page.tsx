@@ -80,6 +80,9 @@ interface TareasPendientes {
   eggCollectedToday: boolean;
   feedMovedToday: boolean;
   pendingSanitary: { id: string; name: string; type: string; dueDate: string; isOverdue: boolean } | null;
+  maintenanceDue: { id: string; title: string; scheduledDate: string; locationName: string | null; assetName: string | null; isOverdue: boolean }[];
+  maintenanceDueCount: number;
+  assetsNeedAttention: number;
 }
 
 export default function Dashboard() {
@@ -230,17 +233,19 @@ export default function Dashboard() {
     <div>
       {/* Header */}
       <div className="mb-6">
-        <div className="flex items-start justify-between">
+        <div className="flex items-start justify-between gap-3">
           <div>
             <h1 className="text-2xl font-bold text-slate-800">🏡 Buenos días, Gallinero</h1>
             <p className="text-slate-500 text-sm mt-1">Esto es lo que necesita tu atención hoy</p>
           </div>
-          <button onClick={() => setDashHelp(!dashHelp)} className="text-xs px-3 py-1.5 rounded-lg bg-blue-50 text-blue-600 hover:bg-blue-100 transition-colors mt-1">❓ Ayuda</button>
+          <div className="flex shrink-0 items-center gap-2">
+            <button onClick={() => setDashHelp(!dashHelp)} className="text-xs px-3 py-1.5 rounded-lg bg-blue-50 text-blue-600 hover:bg-blue-100 transition-colors mt-1">❓ Ayuda</button>
+          </div>
         </div>
         {dashHelp && (
           <div className="mt-3 p-4 bg-blue-50 border border-blue-200 rounded-xl text-sm text-blue-800">
             <p className="font-semibold mb-1">💡 Panel Principal</p>
-            <p>Este es tu centro de control diario. Aquí verás alertas críticas (stock bajo, tareas pendientes, sanitarias), tareas del día, un resumen rápido de producción/huevos/mortalidad y el estado del alimento. Desde aquí puedes acceder rápidamente a las acciones más comunes: registrar huevos, ventas rápidas y check-ins. Usa el menú lateral para navegar a las demás secciones.</p>
+            <p>Este es tu centro de control diario. Aquí verás alertas críticas (stock bajo, tareas pendientes, sanitarias), tareas del día, un resumen rápido de producción/huevos/mortalidad y el estado del alimento. Usa <strong>Crear</strong> para encontrar los registros y formularios de los distintos módulos; las tareas del día y el menú lateral siguen disponibles para tus accesos frecuentes.</p>
           </div>
         )}
       </div>
@@ -280,9 +285,9 @@ export default function Dashboard() {
       )}
 
       {/* ─── 2. Daily Check-ins ─── */}
-      {tareas && (!tareas.eggCollectedToday || !tareas.feedMovedToday || tareas.pendingSanitary) && (
+      {tareas && (!tareas.eggCollectedToday || !tareas.feedMovedToday || tareas.pendingSanitary || tareas.maintenanceDue.length > 0 || tareas.assetsNeedAttention > 0) && (
         <div className="mb-6">
-          <h2 className="text-sm font-semibold text-slate-500 uppercase tracking-wide mb-3">Pendientes de hoy</h2>
+          <h2 className="text-sm font-semibold text-slate-500 uppercase tracking-wide mb-3">Pendientes y próximos 7 días</h2>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             {!tareas.eggCollectedToday && (
               <div className="flex items-center gap-3 p-4 bg-yellow-50 border border-yellow-200 rounded-xl">
@@ -313,7 +318,29 @@ export default function Dashboard() {
                 </a>
               </div>
             )}
+            {tareas.maintenanceDue.map((task) => (
+              <div key={task.id} className={`flex items-center gap-3 rounded-xl border p-4 ${task.isOverdue ? "border-red-200 bg-red-50" : "border-orange-200 bg-orange-50"}`}>
+                <span className="text-2xl">🔧</span>
+                <span className={`flex-1 text-sm font-medium ${task.isOverdue ? "text-red-700" : "text-orange-800"}`}>
+                  {task.isOverdue ? "Vencido: " : "Próximo: "}{task.title}
+                  <span className="mt-1 block text-xs font-normal">{task.assetName ? `${task.assetName} · ` : ""}{task.locationName || "Finca"} · {new Date(`${task.scheduledDate}T12:00:00`).toLocaleDateString("es-CO")}</span>
+                </span>
+                <a href="/dashboard/operaciones/mantenimiento" className={`rounded-lg px-3 py-1.5 text-xs font-medium text-white ${task.isOverdue ? "bg-red-600 hover:bg-red-700" : "bg-orange-600 hover:bg-orange-700"}`}>Revisar</a>
+              </div>
+            ))}
+            {tareas.assetsNeedAttention > 0 && (
+              <div className="flex items-center gap-3 rounded-xl border border-orange-200 bg-orange-50 p-4">
+                <span className="text-2xl">🧰</span>
+                <span className="flex-1 text-sm font-medium text-orange-800">{tareas.assetsNeedAttention} equipo{tareas.assetsNeedAttention === 1 ? "" : "s"} requiere{tareas.assetsNeedAttention === 1 ? "" : "n"} atención</span>
+                <a href="/dashboard/operaciones/activos" className="rounded-lg bg-orange-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-orange-700">Ver equipos</a>
+              </div>
+            )}
           </div>
+          {tareas.maintenanceDueCount > tareas.maintenanceDue.length && (
+            <a href="/dashboard/operaciones/mantenimiento" className="mt-3 inline-block text-sm font-medium text-green-700 hover:underline">
+              Ver las {tareas.maintenanceDueCount - tareas.maintenanceDue.length} tareas restantes →
+            </a>
+          )}
         </div>
       )}
 
@@ -407,7 +434,9 @@ export default function Dashboard() {
                           <span className="text-sm font-medium">{stage.name}</span>
                           <span className="text-xs text-slate-500">{stage.count} aves</span>
                         </div>
-                        <span className="text-sm font-bold text-yellow-700">{stage.expectedEggsPerDay} huevos/día</span>
+                        {stage.expectedEggsPerDay > 0 && (
+                          <span className="text-sm font-bold text-yellow-700">{stage.expectedEggsPerDay} huevos/día</span>
+                        )}
                       </div>
                     ))}
                     <div className="flex justify-between p-2 bg-green-50 rounded-lg border border-green-200">

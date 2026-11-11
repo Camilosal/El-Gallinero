@@ -71,6 +71,34 @@ export const GET = withApiHandler(async (req?: NextRequest) => {
     const henCount = countResult?.[0]?.count ?? 0;
     totalHens += henCount;
 
+    // Solo las gallinas activas en una etapa configurada para postura aportan
+    // producción esperada. Las aves en cría, empollando o en descarte no se
+    // deben presentar como ponedoras.
+    let layingCountResult;
+    if (maxWeeks === null) {
+      layingCountResult = await db
+        .select({ count: sql<number>`count(*)::int` })
+        .from(hens)
+        .where(and(
+          sql`${hens.birthDate}::date <= ${minDate.toISOString().split("T")[0]}::date`,
+          eq(hens.status, "activa"),
+        ));
+    } else {
+      const maxDate = new Date(today);
+      maxDate.setDate(maxDate.getDate() - maxWeeks * 7);
+      layingCountResult = await db
+        .select({ count: sql<number>`count(*)::int` })
+        .from(hens)
+        .where(and(
+          sql`${hens.birthDate}::date <= ${minDate.toISOString().split("T")[0]}::date`,
+          sql`${hens.birthDate}::date > ${maxDate.toISOString().split("T")[0]}::date`,
+          eq(hens.status, "activa"),
+        ));
+    }
+    const layingHenCount = Number(stage.expectedEggsPerHen || 0) > 0
+      ? (layingCountResult?.[0]?.count ?? 0)
+      : 0;
+
     // Programa alimenticio de esta etapa
     const programs = await db
       .select({
@@ -105,7 +133,7 @@ export const GET = withApiHandler(async (req?: NextRequest) => {
 
     // Producción esperada de huevos para esta etapa
     const eggsPerHen = Number(stage.expectedEggsPerHen || 0);
-    const expectedEggs = Math.round(eggsPerHen * henCount * 10) / 10;
+    const expectedEggs = Math.round(eggsPerHen * layingHenCount * 10) / 10;
 
     totalExpectedEggs += expectedEggs;
 
@@ -130,6 +158,7 @@ export const GET = withApiHandler(async (req?: NextRequest) => {
       minWeeks: stage.minWeeks,
       maxWeeks: stage.maxWeeks,
       henCount,
+      layingHenCount,
       expectedEggsPerHen: eggsPerHen,
       expectedEggs,
       totalDailyFeedGrams: totalDailyGrams,

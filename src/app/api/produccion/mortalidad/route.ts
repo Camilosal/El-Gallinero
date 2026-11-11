@@ -1,6 +1,6 @@
 import { isDateOnly } from "@/lib/date-validation";
 import { db } from "@/db";
-import { mortalityRecords, hens, roosters, broilerBatches, slaughter, chickenSales } from "@/db/schema";
+import { mortalityRecords, hens, roosters, broilerBatches, slaughter, chickenSales, farmLocations } from "@/db/schema";
 import { eq, desc, and, gte, sql } from "drizzle-orm";
 import { NextRequest, NextResponse } from "next/server";
 import { HEN_PRESENT_STATUSES } from "@/lib/animal-status";
@@ -17,8 +17,18 @@ import { withApiHandler, safeParseJson } from "@/lib/api-handler";
 
 export const dynamic = "force-dynamic";
 
-const MORTALITY_TYPES = new Set(["gallina", "gallo", "lote_pollos"]);
+const BATCH_MORTALITY_SPECIES: Record<string, "pollo" | "codorniz" | "pato" | "conejo"> = {
+  lote_pollos: "pollo",
+  lote_codornices: "codorniz",
+  lote_patos: "pato",
+  lote_conejos: "conejo",
+};
+const MORTALITY_TYPES = new Set(["gallina", "gallo", ...Object.keys(BATCH_MORTALITY_SPECIES)]);
 const MORTALITY_CAUSES = new Set(["enfermedad", "depredador", "accidente", "sacrificio_sanitario", "causa_natural", "otro"]);
+
+function isBatchMortalityType(birdType: string): boolean {
+  return Object.hasOwn(BATCH_MORTALITY_SPECIES, birdType);
+}
 
 
 async function lockMortalityTarget(client: any, record: { henId: string | null; roosterId: string | null; batchId: string | null }) {
@@ -42,7 +52,10 @@ export const GET = withApiHandler(async (req: NextRequest) => {
     .select({
       id: mortalityRecords.id,
       date: mortalityRecords.date,
+      locationId: mortalityRecords.locationId,
+      locationName: farmLocations.name,
       birdType: mortalityRecords.birdType,
+      species: mortalityRecords.species,
       quantity: mortalityRecords.quantity,
       cause: mortalityRecords.cause,
       henId: mortalityRecords.henId,
@@ -54,11 +67,13 @@ export const GET = withApiHandler(async (req: NextRequest) => {
       henCode: hens.code,
       roosterCode: roosters.code,
       batchCode: broilerBatches.code,
+      batchSpecies: broilerBatches.species,
     })
     .from(mortalityRecords)
     .leftJoin(hens, eq(mortalityRecords.henId, hens.id))
     .leftJoin(roosters, eq(mortalityRecords.roosterId, roosters.id))
     .leftJoin(broilerBatches, eq(mortalityRecords.batchId, broilerBatches.id))
+    .leftJoin(farmLocations, eq(mortalityRecords.locationId, farmLocations.id))
     .orderBy(desc(mortalityRecords.createdAt));
 
   const cutoff = new Date();
@@ -92,12 +107,15 @@ export const POST = withApiHandler(async (req: NextRequest) => {
   if (!isDateOnly(date) || !MORTALITY_TYPES.has(birdType) || !MORTALITY_CAUSES.has(cause)) {
     return NextResponse.json({ error: "Fecha, tipo de ave y causa son requeridos" }, { status: 400 });
   }
+  if (typeof body.locationId !== "string" || !body.locationId) return NextResponse.json({ error: "Selecciona el lugar donde ocurrió la mortalidad" }, { status: 400 });
+  const [mortalityLocation] = await db.select().from(farmLocations).where(eq(farmLocations.id, body.locationId));
+  if (!mortalityLocation || mortalityLocation.status !== "activa") return NextResponse.json({ error: "El lugar debe estar activo" }, { status: 400 });
 
   if (birdType === "gallina" && (!henId || roosterId || batchId)) return NextResponse.json({ error: "Seleccione una sola gallina" }, { status: 400 });
   if (birdType === "gallo" && (!roosterId || henId || batchId)) return NextResponse.json({ error: "Seleccione un solo gallo" }, { status: 400 });
-  if (birdType === "lote_pollos" && (!batchId || henId || roosterId)) return NextResponse.json({ error: "Seleccione un solo lote" }, { status: 400 });
+  if (isBatchMortalityType(birdType) && (!batchId || henId || roosterId)) return NextResponse.json({ error: "Seleccione un solo lote" }, { status: 400 });
 
-  const qty = birdType === "lote_pollos" ? Number(quantity ?? 1) : 1;
+  const qty = isBatchMortalityType(birdType) ? Number(quantity ?? 1) : 1;
   if (!Number.isSafeInteger(qty) || qty < 1) return NextResponse.json({ error: "Cantidad inválida" }, { status: 400 });
 
   try {
@@ -105,6 +123,7 @@ export const POST = withApiHandler(async (req: NextRequest) => {
       if (birdType === "gallina" && henId) {
         const [hen] = await tx.select().from(hens).where(eq(hens.id, henId)).for("update");
         if (!hen) throw new Error("Gallina no encontrada");
+        if (hen.locationId && hen.locationId !== body.locationId) throw new Error("El lugar debe coincidir con el alojamiento actual de la gallina");
         if (!HEN_PRESENT_STATUSES.includes(hen.status)) {
           throw new Error(`La gallina no está disponible (status: ${hen.status})`);
         }
@@ -113,9 +132,15 @@ export const POST = withApiHandler(async (req: NextRequest) => {
       if (birdType === "gallo" && roosterId) {
         const roosterError = await validateRoosterForExit(roosterId, tx);
         if (roosterError) throw new Error(roosterError);
+        const [rooster] = await tx.select({ locationId: roosters.locationId }).from(roosters).where(eq(roosters.id, roosterId));
+        if (rooster?.locationId && rooster.locationId !== body.locationId) throw new Error("El lugar debe coincidir con el alojamiento actual del gallo");
       }
 
-      if (birdType === "lote_pollos" && batchId) {
+      if (isBatchMortalityType(birdType) && batchId) {
+        const [batch] = await tx.select({ species: broilerBatches.species, locationId: broilerBatches.locationId }).from(broilerBatches).where(eq(broilerBatches.id, batchId)).for("update");
+        if (!batch) throw new Error("Lote no encontrado");
+        if (batch.locationId && batch.locationId !== body.locationId) throw new Error("El lugar debe coincidir con el alojamiento actual del lote");
+        if (batch.species !== BATCH_MORTALITY_SPECIES[birdType]) throw new Error("El lote seleccionado no corresponde al tipo de animal");
         const batchError = await validateBatchForExit(batchId, qty, tx);
         if (batchError) throw new Error(batchError);
       }
@@ -137,12 +162,14 @@ export const POST = withApiHandler(async (req: NextRequest) => {
 
       const [created] = await tx.insert(mortalityRecords).values({
         date,
+        species: birdType === "gallina" || birdType === "gallo" ? "gallina" : BATCH_MORTALITY_SPECIES[birdType],
         birdType,
         quantity: qty,
         cause,
         henId: henId || null,
         roosterId: roosterId || null,
         batchId: batchId || null,
+        locationId: body.locationId,
         description: description || null,
         previousAnimalStates,
       }).returning();
@@ -236,6 +263,9 @@ export const PUT = withApiHandler(async (req: NextRequest) => {
   if (!isDateOnly(date) || !MORTALITY_TYPES.has(birdType) || !MORTALITY_CAUSES.has(cause)) {
     return NextResponse.json({ error: "Fecha, tipo de ave y causa son requeridos" }, { status: 400 });
   }
+  if (typeof body.locationId !== "string" || !body.locationId) return NextResponse.json({ error: "Selecciona el lugar donde ocurrió la mortalidad" }, { status: 400 });
+  const [requestedLocation] = await db.select({ id: farmLocations.id }).from(farmLocations).where(eq(farmLocations.id, body.locationId));
+  if (!requestedLocation) return NextResponse.json({ error: "El lugar seleccionado no existe" }, { status: 400 });
 
   const [existing] = await db.select().from(mortalityRecords).where(eq(mortalityRecords.id, body.id));
   if (!existing) return NextResponse.json({ error: "No encontrado" }, { status: 404 });
@@ -249,16 +279,16 @@ export const PUT = withApiHandler(async (req: NextRequest) => {
   const roosterId = birdType === "gallo"
     ? (body.roosterId || (existing.birdType === birdType ? existing.roosterId : null))
     : null;
-  const batchId = birdType === "lote_pollos"
+  const batchId = isBatchMortalityType(birdType)
     ? (body.batchId || (existing.birdType === birdType ? existing.batchId : null))
     : null;
-  const quantity = birdType === "lote_pollos"
+  const quantity = isBatchMortalityType(birdType)
     ? Number(body.quantity ?? existing.quantity)
     : 1;
 
   if (birdType === "gallina" && !henId) return NextResponse.json({ error: "Seleccione una gallina" }, { status: 400 });
   if (birdType === "gallo" && !roosterId) return NextResponse.json({ error: "Seleccione un gallo" }, { status: 400 });
-  if (birdType === "lote_pollos" && !batchId) return NextResponse.json({ error: "Seleccione un lote" }, { status: 400 });
+  if (isBatchMortalityType(birdType) && !batchId) return NextResponse.json({ error: "Seleccione un lote" }, { status: 400 });
   if (!Number.isSafeInteger(quantity) || quantity < 1) return NextResponse.json({ error: "Cantidad inválida" }, { status: 400 });
 
   try {
@@ -326,6 +356,9 @@ export const PUT = withApiHandler(async (req: NextRequest) => {
         await tx.update(roosters).set({ status: "muerto", updatedAt: new Date() }).where(eq(roosters.id, roosterId));
       }
       if (batchId) {
+        const [batchSpecies] = await tx.select({ species: broilerBatches.species }).from(broilerBatches).where(eq(broilerBatches.id, batchId)).for("update");
+        if (!batchSpecies) throw new Error("Lote no encontrado");
+        if (batchSpecies.species !== BATCH_MORTALITY_SPECIES[birdType]) throw new Error("El lote seleccionado no corresponde al tipo de animal");
         const batchError = await validateBatchForExit(batchId, quantity, tx);
         if (batchError) throw new Error(batchError);
         const [batch] = await tx.select().from(broilerBatches).where(eq(broilerBatches.id, batchId));
@@ -341,6 +374,8 @@ export const PUT = withApiHandler(async (req: NextRequest) => {
 
       await tx.update(mortalityRecords).set({
         date,
+        locationId: body.locationId,
+        species: birdType === "gallina" || birdType === "gallo" ? "gallina" : BATCH_MORTALITY_SPECIES[birdType],
         birdType,
         quantity,
         cause,

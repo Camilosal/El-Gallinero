@@ -10,6 +10,7 @@ import TableSearch from "@/components/TableSearch";
 import { matchesTextQuery } from "@/lib/text";
 import { SPECIES_ICON, SPECIES_LABEL } from "@/lib/species-params";
 import { useSpeciesCatalog } from "@/lib/use-species-params";
+import { useFarmLocations } from "@/lib/useFarmLocations";
 
 interface EggDetail {
   size: string;
@@ -21,6 +22,8 @@ interface EggRecord {
   date: string;
   species?: string;
   batchId?: string | null;
+  locationId?: string | null;
+  locationName?: string | null;
   totalCollected: number;
   broken: number;
   forIncubation: number;
@@ -41,8 +44,10 @@ interface BroilerBatch {
   id: string;
   code: string;
   species: string;
+  purpose: string;
   currentQuantity: number;
   status: string;
+  locationId?: string | null;
 }
 
 const SIZE_COLORS: Record<string, string> = {
@@ -62,6 +67,7 @@ const stageColors: Record<string, string> = {
 
 export default function HuevosPage() {
   const { priceEgg } = useSpeciesCatalog();
+  const { locations } = useFarmLocations();
   const [records, setRecords] = useState<EggRecord[]>([]);
   const [stageData, setStageData] = useState<StageEggData[]>([]);
   const [batches, setBatches] = useState<BroilerBatch[]>([]);
@@ -76,6 +82,7 @@ export default function HuevosPage() {
     date: string;
     species: string;
     batchId: string;
+    locationId: string;
     totalUnits: number;
     sizes: Record<string, number>;
     broken: number;
@@ -88,6 +95,7 @@ export default function HuevosPage() {
     date: new Date().toISOString().split("T")[0],
     species: "gallina",
     batchId: "",
+    locationId: "",
     totalUnits: 0,
     sizes: {},
     broken: 0,
@@ -114,10 +122,22 @@ export default function HuevosPage() {
       apiFetch("/api/produccion/pollos").then((r) => r.json()),
     ]).then(([eggs, resumen, lotes]) => {
       setRecords(Array.isArray(eggs) ? eggs : []);
-      setStageData(resumen.stages || []);
+      const productiveStages = (Array.isArray(resumen.stages) ? resumen.stages : [])
+        .filter((stage: any) => Number(stage.expectedEggsPerHen) > 0 && Number(stage.layingHenCount) > 0)
+        .map((stage: any) => ({
+          name: stage.stageName,
+          count: Number(stage.layingHenCount),
+          expectedEggsPerDay: Number(stage.expectedEggs || 0),
+        }));
+      setStageData(productiveStages);
       setTotalExpected(resumen.totalExpectedEggsPerDay || 0);
       const lotesList = Array.isArray(lotes) ? lotes : [];
-      setBatches(lotesList.filter((b: BroilerBatch) => b.species === "codorniz" || b.species === "pato"));
+      setBatches(lotesList.filter((b: BroilerBatch) =>
+        ["codorniz", "pato"].includes(b.species)
+        && b.purpose === "postura_huevo"
+        && b.currentQuantity > 0
+        && ["activo", "listo_sacrificio"].includes(b.status),
+      ));
     }).finally(() => setLoading(false));
   }, []);
 
@@ -178,6 +198,7 @@ export default function HuevosPage() {
       species,
       referenceUnitPrice: String(refPrice),
       batchId: "",
+      locationId: "",
       totalUnits: 0,
       sizes: {},
       broken: 0,
@@ -198,6 +219,7 @@ export default function HuevosPage() {
       date: new Date().toISOString().split("T")[0],
       species: "gallina",
       batchId: "",
+      locationId: "",
       totalUnits: 0,
       sizes: {},
       broken: 0,
@@ -226,6 +248,7 @@ export default function HuevosPage() {
       date: r.date,
       species: sp,
       batchId: r.batchId || "",
+      locationId: r.locationId || "",
       totalUnits: r.totalCollected - r.broken - r.forIncubation,
       sizes,
       broken: r.broken,
@@ -254,6 +277,10 @@ export default function HuevosPage() {
     setError("");
     const method = editing ? "PUT" : "POST";
     const isGallina = form.species === "gallina";
+    if (!isGallina && !form.batchId) {
+      setError("Asigna la recolección a un lote cuyo destino sea postura de huevos");
+      return;
+    }
 
     let sizesToSave: { size: string; quantity: number }[] = [];
     let totalGood = 0;
@@ -311,6 +338,7 @@ export default function HuevosPage() {
       date: form.date,
       species: form.species,
       batchId: form.batchId || null,
+      locationId: form.locationId,
       totalCollected: totalToSave,
       broken,
       forIncubation,
@@ -382,6 +410,7 @@ export default function HuevosPage() {
         sp,
         SPECIES_LABEL[sp],
         record.notes,
+        record.locationName,
         record.broken,
         record.forIncubation,
         ...record.details.map((detail) => `${detail.size} ${detail.quantity}`),
@@ -432,7 +461,7 @@ export default function HuevosPage() {
       {/* Producción esperada de gallinas (si hay gallinas activas) */}
       {selectedSpeciesFilter !== "codorniz" && selectedSpeciesFilter !== "pato" && stageData.length > 0 && (
         <Card className="mb-6">
-          <h3 className="font-semibold text-slate-700 mb-3">🎯 Producción Esperada de Gallinas por Etapa</h3>
+            <h3 className="font-semibold text-slate-700 mb-3">🎯 Postura esperada — gallinas en etapa productiva</h3>
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
             {stageData.map((stage) => (
               <div key={stage.name} className="flex items-center justify-between p-3 bg-slate-50 rounded-lg">
@@ -520,7 +549,7 @@ export default function HuevosPage() {
             }
           />
         ) : (
-          <Table headers={["Fecha", "Especie", "Total Recogido", "Para el Hogar", "Para Venta", "Ahorro ($)", "Rotos / Inc.", ""]}>
+          <Table headers={["Fecha", "Especie", "Lugar", "Total Recogido", "Para el Hogar", "Para Venta", "Ahorro ($)", "Rotos / Inc.", ""]}>
             {filteredRecords.map((r) => {
               const sp = r.species || "gallina";
               const icon = SPECIES_ICON[sp] || "🥚";
@@ -536,6 +565,7 @@ export default function HuevosPage() {
                   <td className="px-4 py-3 text-sm">
                     <span className="font-semibold text-slate-800">{icon} {SPECIES_LABEL[sp] || sp}</span>
                   </td>
+                  <td className="px-4 py-3 text-sm">{r.locationName || "Sin lugar asignado"}</td>
                   <td className="px-4 py-3 font-bold text-slate-800 text-base">
                     {r.totalCollected} <span className="text-xs text-slate-400 font-normal">uds</span>
                   </td>
@@ -594,23 +624,48 @@ export default function HuevosPage() {
             </Select>
           </div>
 
-          {/* Si es codorniz o pato, permitir asociar a lote */}
-          {form.species !== "gallina" && batches.length > 0 && (
-            <Select
-              label="Lote de procedencia (opcional)"
-              value={form.batchId}
-              onChange={(e) => setForm({ ...form, batchId: e.target.value })}
-            >
-              <option value="">-- Sin lote asignado --</option>
-              {batches
-                .filter((b) => b.species === form.species)
-                .map((b) => (
-                  <option key={b.id} value={b.id}>
-                    {b.code} ({b.currentQuantity} aves)
-                  </option>
-                ))}
-            </Select>
+          {form.species !== "gallina" && (
+            <div className="space-y-1">
+              <Select
+                label="Lote ponedor de procedencia *"
+                value={form.batchId}
+                onChange={(e) => {
+                  const selected = batches.find((batch) => batch.id === e.target.value);
+                  setForm({ ...form, batchId: e.target.value, locationId: selected?.locationId || form.locationId });
+                }}
+              >
+                <option value="">-- Selecciona un lote de postura --</option>
+                {batches
+                  .filter((b) => b.species === form.species)
+                  .map((b) => (
+                    <option key={b.id} value={b.id}>
+                      {b.code} ({b.currentQuantity} animales)
+                    </option>
+                  ))}
+              </Select>
+              {batches.filter((b) => b.species === form.species).length === 0 && (
+                <p className="text-xs text-amber-700">
+                  Aún no hay lotes activos de esta especie destinados a postura. {" "}
+                  <Link href={`/dashboard/produccion/adquisiciones?nuevo=${form.species}&proposito=postura_huevo`} className="font-semibold underline">
+                    Registrar lote ponedor
+                  </Link>
+                </p>
+              )}
+            </div>
           )}
+
+          <div>
+            <Select
+              label="Lugar donde se recogieron los huevos *"
+              value={form.locationId}
+              onChange={(e) => setForm({ ...form, locationId: e.target.value })}
+              help="Los indicadores de postura se validan y resumen para este lugar. En lotes, debe coincidir con su alojamiento actual."
+            >
+              <option value="">Selecciona un lugar…</option>
+              {locations.map((location) => <option key={location.id} value={location.id}>{location.name} · {location.type}</option>)}
+            </Select>
+            {locations.length === 0 && <p className="mt-1 text-xs text-amber-700"><Link className="font-semibold underline" href="/dashboard/ubicaciones">Crea primero un lugar de manejo</Link>.</p>}
+          </div>
 
           {/* Formulario específico según especie */}
           {form.species === "gallina" ? (

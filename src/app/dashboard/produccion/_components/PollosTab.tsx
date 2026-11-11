@@ -1,11 +1,15 @@
 "use client";
 
 import { useState, useEffect, useCallback, useMemo } from "react";
+import Link from "next/link";
+import { useSearchParams } from "next/navigation";
 import { apiFetch } from "@/lib/fetch";
 import { PageHeader, StatCard, Card, Button, Input, Select, Textarea, Badge, Modal, Table, EmptyState } from "@/components/ui";
 import TableSearch from "@/components/TableSearch";
 import { matchesTextQuery } from "@/lib/text";
 import { isRoosterPresent } from "@/lib/animal-status";
+import { getBreedsForSpecies, normalizeManagedSpecies, type ManagedAnimalSpecies } from "@/lib/animal-breeds";
+import { useCatalog } from "@/lib/useCatalog";
 import {
   calcularRentabilidadLote,
   SPECIES_ICON,
@@ -83,9 +87,11 @@ const systemTypeLabels: Record<string, string> = {
 
 type Tab = "gallos" | "lotes";
 
-export default function PollosPage() {
-  const [tab, setTab] = useState<Tab>("gallos");
+export default function PollosPage({ embedded = false, initialTab, initialSpeciesFilter = "all" }: { embedded?: boolean; initialTab?: Tab; initialSpeciesFilter?: string } = {}) {
+  const searchParams = useSearchParams();
+  const [tab, setTab] = useState<Tab>(initialTab || (searchParams.get("subtab") === "lotes" ? "lotes" : "gallos"));
   const { getParams } = useSpeciesCatalog();
+  const { items: breedCatalog } = useCatalog("raza", []);
 
   // ─── Gallos state ───
   const [roosters, setRoosters] = useState<Rooster[]>([]);
@@ -107,7 +113,7 @@ export default function PollosPage() {
   const [batchModalOpen, setBatchModalOpen] = useState(false);
   const [editingBatch, setEditingBatch] = useState<Batch | null>(null);
   const [batchError, setBatchError] = useState("");
-  const [selectedSpeciesFilter, setSelectedSpeciesFilter] = useState<string>("all");
+  const [selectedSpeciesFilter, setSelectedSpeciesFilter] = useState<string>(initialSpeciesFilter);
 
   const [batchForm, setBatchForm] = useState({
     code: "",
@@ -131,6 +137,9 @@ export default function PollosPage() {
 
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
+  const roosterBreedOptions = getBreedsForSpecies(breedCatalog, "gallina", editingRooster ? roosterForm.breed : null);
+  const batchBreedSpecies = normalizeManagedSpecies(batchForm.species) || "pollo";
+  const batchBreedOptions = getBreedsForSpecies(breedCatalog, batchBreedSpecies as ManagedAnimalSpecies, editingBatch ? batchForm.breed : null);
 
   const load = useCallback(() => {
     Promise.all([
@@ -149,8 +158,10 @@ export default function PollosPage() {
   // Al cambiar de especie en el formulario de lote, auto-rellenar valores de referencia
   const handleSpeciesChange = (species: string) => {
     const p = getParams(species);
+    const associatedSpecies = normalizeManagedSpecies(species) || "pollo";
+    const firstBreed = getBreedsForSpecies(breedCatalog, associatedSpecies)[0] || p?.breed || "";
     if (!p) {
-      setBatchForm((prev) => ({ ...prev, species }));
+      setBatchForm((prev) => ({ ...prev, species, breed: firstBreed }));
       return;
     }
     const qty = Number(batchForm.initialQuantity) || 20;
@@ -159,7 +170,7 @@ export default function PollosPage() {
     setBatchForm((prev) => ({
       ...prev,
       species,
-      breed: p.breed,
+      breed: firstBreed,
       targetWeeks: String(p.cycleWeeks),
       targetDays: String(p.cycleDays),
       targetWeightKg: String(p.targetWeightKg),
@@ -170,13 +181,6 @@ export default function PollosPage() {
   };
 
   // ─── Gallos CRUD ───
-  const openNewRooster = () => {
-    setEditingRooster(null);
-    setRoosterError("");
-    setRoosterForm({ code: "", breed: "", birthDate: new Date().toISOString().split("T")[0], status: "activo", weight: "", notes: "" });
-    setRoosterModalOpen(true);
-  };
-
   const openEditRooster = (r: Rooster) => {
     setEditingRooster(r);
     setRoosterError("");
@@ -186,6 +190,7 @@ export default function PollosPage() {
 
   const saveRooster = async () => {
     setRoosterError("");
+    if (!editingRooster) { setRoosterError("Las altas nuevas deben registrarse desde Adquisiciones"); return; }
     if (!roosterForm.breed) { setRoosterError("Raza requerida"); return; }
     if (!roosterForm.birthDate) { setRoosterError("Fecha de nacimiento requerida"); return; }
 
@@ -197,10 +202,9 @@ export default function PollosPage() {
       weight: roosterForm.weight || null,
       notes: roosterForm.notes || null,
     };
-    if (editingRooster) payload.id = editingRooster.id;
+    payload.id = editingRooster.id;
 
-    const method = editingRooster ? "PUT" : "POST";
-    const res = await apiFetch("/api/produccion/gallos", { method, headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) });
+    const res = await apiFetch("/api/produccion/gallos", { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) });
     if (!res.ok) { const data = await res.json().catch(() => ({})); setRoosterError(data.error || "Error al guardar"); return; }
     setRoosterModalOpen(false);
     load();
@@ -218,32 +222,6 @@ export default function PollosPage() {
   };
 
   // ─── Lotes CRUD ───
-  const openNewBatch = () => {
-    setEditingBatch(null);
-    setBatchError("");
-    const defaultParams = getParams("pollo");
-    setBatchForm({
-      code: "",
-      species: "pollo",
-      purpose: "engorde_carne",
-      systemType: defaultParams?.systemType || "piso",
-      breed: defaultParams?.breed || "Cobb 500 / Ross 308",
-      startDate: new Date().toISOString().split("T")[0],
-      initialQuantity: "20",
-      currentQuantity: "",
-      targetWeeks: String(defaultParams?.cycleWeeks || 7),
-      targetDays: String(defaultParams?.cycleDays || 49),
-      targetWeightKg: String(defaultParams?.targetWeightKg || 2.5),
-      avgWeightKg: "",
-      feedConversionTarget: defaultParams ? String(defaultParams.feedConversionRatio) : "",
-      status: "activo",
-      notes: "",
-      acquisitionCostEst: "0",
-      headsAutoconsumoEst: "4",
-    });
-    setBatchModalOpen(true);
-  };
-
   const openEditBatch = (b: Batch) => {
     setEditingBatch(b);
     setBatchError("");
@@ -273,6 +251,7 @@ export default function PollosPage() {
 
   const saveBatch = async () => {
     setBatchError("");
+    if (!editingBatch) { setBatchError("Las altas nuevas deben registrarse desde Adquisiciones"); return; }
     if (!batchForm.breed) { setBatchError("Raza requerida"); return; }
     const initialQty = Number(batchForm.initialQuantity);
     if (!initialQty || initialQty < 1) { setBatchError("Cantidad inicial inválida"); return; }
@@ -299,10 +278,9 @@ export default function PollosPage() {
       status: batchForm.status,
       notes: batchForm.notes || null,
     };
-    if (editingBatch) payload.id = editingBatch.id;
+    payload.id = editingBatch.id;
 
-    const method = editingBatch ? "PUT" : "POST";
-    const res = await apiFetch("/api/produccion/pollos", { method, headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) });
+    const res = await apiFetch("/api/produccion/pollos", { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) });
     if (!res.ok) { const data = await res.json().catch(() => ({})); setBatchError(data.error || "Error al guardar"); return; }
     setBatchModalOpen(false);
     load();
@@ -386,20 +364,20 @@ export default function PollosPage() {
 
   return (
     <div>
-      <PageHeader
+      {!embedded && <PageHeader
         title="🌿 Lotes Multiespecie y Gallos"
         description="Gestión integral de lotes de engorde (pollos, codornices, patos y conejos) y gallos reproductores"
         help="Aquí gestionas los lotes de crianza y engorde de todas las especies de la granja:\n\n• Pollos de engorde (ciclo ~7 sem, ~2.5 kg)\n• Codornices (ciclo ~6 sem, postura o carne)\n• Patos Pekín y Criollos (ciclo 8-12 sem, carne tierna)\n• Conejos de engorde (ciclo ~11 sem / 77 días, carne magra)\n\nEl sistema evalúa automáticamente si el lote cumplió la edad o peso objetivo para faena."
         actions={
           <div className="flex gap-2">
-            {tab === "gallos" && <Button onClick={openNewRooster}>+ Nuevo Gallo</Button>}
-            {tab === "lotes" && <Button onClick={openNewBatch}>+ Nuevo Lote</Button>}
+            {tab === "gallos" && <Link href="/dashboard/produccion/adquisiciones?nuevo=gallo" className="inline-flex items-center rounded-lg bg-green-700 px-4 py-2 text-sm font-semibold text-white hover:bg-green-800">Registrar ingreso de gallos</Link>}
+            {tab === "lotes" && <Link href="/dashboard/produccion/adquisiciones?nuevo=lote_pollos" className="inline-flex items-center rounded-lg bg-green-700 px-4 py-2 text-sm font-semibold text-white hover:bg-green-800">Registrar lote nuevo</Link>}
           </div>
         }
-      />
+      />}
 
       {/* Banner de balance gallos/gallinas */}
-      {balance && (
+      {!embedded && balance && (
         <div className={`p-4 rounded-xl mb-6 text-sm font-medium ${balance.deficit > 0 ? "bg-orange-50 border border-orange-200 text-orange-800" : "bg-green-50 border border-green-200 text-green-800"}`}>
           {balance.deficit > 0 ? (
             <>⚠️ Faltan <strong>{balance.deficit}</strong> gallo{balance.deficit > 1 ? "s" : ""} reproductor{balance.deficit > 1 ? "es" : ""}: se requieren <strong>{balance.required}</strong> para las gallinas activas y hay <strong>{balance.active}</strong> activos.</>
@@ -410,7 +388,7 @@ export default function PollosPage() {
       )}
 
       {/* StatCards Principales */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-6">
+      {!embedded && <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-6">
         <StatCard icon="🐓" label="Gallos Activos" value={activeRoosters} color="red" />
         <StatCard icon="🐣" label="Total Animales en Lotes" value={totalInBatches} color="yellow" />
         <StatCard icon="✅" label="Lotes Listos para Faena" value={readyBatches.length} color="green" />
@@ -423,10 +401,10 @@ export default function PollosPage() {
             <span>🐇 {animalsBySpecies.conejo || 0}</span>
           </div>
         </div>
-      </div>
+      </div>}
 
       {/* Tabs Principales: Gallos vs Lotes */}
-      <div className="flex gap-1 mb-6 bg-slate-100 p-1 rounded-lg w-fit">
+      {!embedded && <div className="flex gap-1 mb-6 bg-slate-100 p-1 rounded-lg w-fit">
         <button
           onClick={() => { setTab("gallos"); setSearch(""); }}
           className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${tab === "gallos" ? "bg-white text-green-700 shadow-sm" : "text-slate-600 hover:text-slate-800"}`}
@@ -439,7 +417,7 @@ export default function PollosPage() {
         >
           🧺 Lotes de Crianza / Engorde
         </button>
-      </div>
+      </div>}
 
       {/* ─── TAB: GALLOS ─── */}
       {tab === "gallos" && (
@@ -493,7 +471,7 @@ export default function PollosPage() {
         <Card>
           {/* Filtro por Especie (Pills) */}
           <div className="flex flex-wrap items-center justify-between gap-3 mb-4 pb-3 border-b border-slate-100">
-            <div className="flex flex-wrap gap-1">
+            {!embedded && <div className="flex flex-wrap gap-1">
               {[
                 { id: "all", label: "Todas", icon: "🌐" },
                 { id: "pollo", label: "Pollos", icon: "🐓" },
@@ -519,7 +497,7 @@ export default function PollosPage() {
                   </button>
                 );
               })}
-            </div>
+            </div>}
 
             <TableSearch
               value={search}
@@ -607,12 +585,14 @@ export default function PollosPage() {
       )}
 
       {/* ─── Modal Gallo ─── */}
-      <Modal open={roosterModalOpen} onClose={() => setRoosterModalOpen(false)} title={editingRooster ? "✏️ Editar Gallo" : "🐓 Nuevo Gallo Reproductor"}>
+      <Modal open={roosterModalOpen} onClose={() => setRoosterModalOpen(false)} title="✏️ Editar Gallo">
         <div className="space-y-4">
           {roosterError && <p className="text-sm text-red-600 bg-red-50 p-3 rounded-lg">{roosterError}</p>}
           <div className="grid grid-cols-2 gap-3">
             <Input label="Código (opcional)" help="Código del gallo. Si lo dejas vacío se genera automáticamente (GA-###)." placeholder="Autogenerado GA-###" value={roosterForm.code} onChange={(e) => setRoosterForm({ ...roosterForm, code: e.target.value })} disabled={!!editingRooster} />
-            <Input label="Raza *" help="Raza del gallo." placeholder="Ej: Rhode Island" value={roosterForm.breed} onChange={(e) => setRoosterForm({ ...roosterForm, breed: e.target.value })} />
+            <Select label="Raza *" help="Solo razas asociadas a gallinas y gallos." value={roosterForm.breed} onChange={(e) => setRoosterForm({ ...roosterForm, breed: e.target.value })}>
+              {roosterBreedOptions.map((breed) => <option key={breed} value={breed}>{breed}</option>)}
+            </Select>
           </div>
           <div className="grid grid-cols-2 gap-3">
             <Input label="Fecha de nacimiento *" help="Fecha de nacimiento del gallo." type="date" value={roosterForm.birthDate} onChange={(e) => setRoosterForm({ ...roosterForm, birthDate: e.target.value })} />
@@ -625,7 +605,7 @@ export default function PollosPage() {
           </Select>
           <Textarea label="Notas" help="Observaciones sobre el gallo." value={roosterForm.notes} onChange={(e) => setRoosterForm({ ...roosterForm, notes: e.target.value })} />
           <div className="flex gap-3">
-            <Button onClick={saveRooster}>{editingRooster ? "Actualizar" : "Registrar"}</Button>
+            <Button onClick={saveRooster}>Actualizar</Button>
             <Button variant="secondary" onClick={() => setRoosterModalOpen(false)}>Cancelar</Button>
           </div>
         </div>
@@ -635,7 +615,7 @@ export default function PollosPage() {
       <Modal
         open={batchModalOpen}
         onClose={() => setBatchModalOpen(false)}
-        title={editingBatch ? `✏️ Editar Lote ${editingBatch.code}` : "🧺 Nuevo Lote de Crianza / Engorde"}
+        title={`✏️ Editar Lote ${editingBatch?.code || ""}`}
       >
         <div className="space-y-4">
           {batchError && <p className="text-sm text-red-600 bg-red-50 p-3 rounded-lg">{batchError}</p>}
@@ -677,12 +657,14 @@ export default function PollosPage() {
               onChange={(e) => setBatchForm({ ...batchForm, code: e.target.value })}
               disabled={!!editingBatch}
             />
-            <Input
-              label="Raza o Línea genética *"
-              help="Ej: Cobb 500, Coturnix japónica, Pekín, Nueva Zelanda."
+            <Select
+              label="Raza o tipo *"
+              help={`Opciones asociadas a ${batchBreedSpecies}. Agrega más desde Catálogos → Razas por especie.`}
               value={batchForm.breed}
               onChange={(e) => setBatchForm({ ...batchForm, breed: e.target.value })}
-            />
+            >
+              {batchBreedOptions.map((breed) => <option key={breed} value={breed}>{breed}</option>)}
+            </Select>
           </div>
 
           <div className="grid grid-cols-2 gap-3">
@@ -841,7 +823,7 @@ export default function PollosPage() {
           <Textarea label="Notas" help="Observaciones o registros particulares sobre el lote." value={batchForm.notes} onChange={(e) => setBatchForm({ ...batchForm, notes: e.target.value })} />
 
           <div className="flex gap-3">
-            <Button onClick={saveBatch}>{editingBatch ? "Actualizar" : "Registrar Lote"}</Button>
+            <Button onClick={saveBatch}>Actualizar</Button>
             <Button variant="secondary" onClick={() => setBatchModalOpen(false)}>Cancelar</Button>
           </div>
         </div>

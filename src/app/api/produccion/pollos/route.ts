@@ -7,30 +7,10 @@ import { withApiHandler, safeParseJson } from "@/lib/api-handler";
 import { lockEggInventory, lockMeatInventory } from "@/lib/inventory-locks";
 import { deleteChickenSalesAndLinkedFinance } from "@/lib/animal-sales";
 import { computeEggInventory, eggInventoryBookBalance, computeMeatInventory, meatInventoryBookBalance } from "@/lib/inventory";
+import { validateBreedAssociation } from "@/lib/animal-breed-validation";
+import { normalizeManagedSpecies } from "@/lib/animal-breeds";
 
 export const dynamic = "force-dynamic";
-
-/** Autogenera el siguiente código de lote según la especie */
-async function nextBatchCode(species: string | undefined, client: any = db): Promise<string> {
-  const prefix = species === "codorniz" ? "L-COD-"
-    : species === "pato" ? "L-PAT-"
-    : species === "conejo" ? "L-CON-"
-    : "L-";
-
-  const rows = await client.select({ code: broilerBatches.code })
-    .from(broilerBatches)
-    .where(sql`${broilerBatches.code} LIKE ${prefix + '%'}`);
-
-  let max = 0;
-  {
-    const regex = new RegExp(`^${prefix.replace("-", "\\-")}(\\d+)$`);
-    for (const row of rows) {
-      const m = String(row.code).match(regex);
-      if (m) max = Math.max(max, Number(m[1]));
-    }
-  }
-  return `${prefix}${String(max + 1).padStart(3, "0")}`;
-}
 
 export const GET = withApiHandler(async (req: NextRequest) => {
   const { searchParams } = new URL(req.url);
@@ -59,54 +39,19 @@ export const GET = withApiHandler(async (req: NextRequest) => {
   return NextResponse.json(enriched);
 });
 
-export const POST = withApiHandler(async (req: NextRequest) => {
-  const body = await safeParseJson(req);
-  const qty = Number(body.initialQuantity);
-  if (!body.breed) return NextResponse.json({ error: "Raza requerida" }, { status: 400 });
-  if (!qty || qty < 1) return NextResponse.json({ error: "Cantidad inválida" }, { status: 400 });
-
-  const species = body.species || "pollo";
-  const defaultTargetWeeks = species === "codorniz" ? 5
-    : species === "pato" ? 9
-    : species === "conejo" ? 11
-    : 7;
-
-  const defaultTargetWeight = species === "codorniz" ? "0.15"
-    : species === "pato" ? "3.2"
-    : species === "conejo" ? "2.4"
-    : "2.5";
-
-  const created = await db.transaction(async (tx) => {
-    await tx.execute(sql`LOCK TABLE ${broilerBatches} IN EXCLUSIVE MODE`);
-    const code = body.code ? String(body.code).trim() : await nextBatchCode(species, tx);
-    const [duplicate] = await tx.select({ id: broilerBatches.id }).from(broilerBatches).where(eq(broilerBatches.code, code)).limit(1);
-    if (duplicate) throw new Error("Código de lote duplicado");
-    const [row] = await tx.insert(broilerBatches).values({
-      code,
-      species,
-      purpose: body.purpose || "engorde_carne",
-      systemType: body.systemType || "piso",
-      breed: body.breed,
-      startDate: body.startDate || new Date().toISOString().split("T")[0],
-      initialQuantity: qty,
-      currentQuantity: qty,
-      targetWeeks: body.targetWeeks || defaultTargetWeeks,
-      targetDays: body.targetDays || (body.targetWeeks ? body.targetWeeks * 7 : defaultTargetWeeks * 7),
-      targetWeightKg: body.targetWeightKg || defaultTargetWeight,
-      avgWeightKg: body.avgWeightKg || null,
-      feedConversionTarget: body.feedConversionTarget || null,
-      notes: body.notes || null,
-    }).returning();
-    return row;
-  });
-
-  const rd = batchReadiness(created);
-  return NextResponse.json({ ...created, ageWeeks: rd.ageWeeks, readinessReasons: rd.reasons }, { status: 201 });
-});
+/** Las nuevas altas de lotes deben registrarse en Adquisiciones. */
+export const POST = withApiHandler(async () => NextResponse.json({
+  error: "Registra los nuevos lotes desde Adquisiciones para conservar su especie, destino y origen.",
+  href: "/dashboard/produccion/adquisiciones?nuevo=lote_pollos",
+}, { status: 409 }));
 
 export const PUT = withApiHandler(async (req: NextRequest) => {
   const body = await safeParseJson(req);
   if (!body.id) return NextResponse.json({ error: "ID requerido" }, { status: 400 });
+  const species = normalizeManagedSpecies(String(body.species || ""));
+  if (!species || species === "gallina") return NextResponse.json({ error: "Especie de lote inválida" }, { status: 400 });
+  const breedError = await validateBreedAssociation(db, String(body.breed || ""), species);
+  if (breedError) return NextResponse.json({ error: breedError }, { status: 400 });
 
   const updated = await db.transaction(async (tx) => {
     await tx.execute(sql`LOCK TABLE ${broilerBatches} IN EXCLUSIVE MODE`);

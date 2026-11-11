@@ -4,8 +4,10 @@ import {
   eggProduction, eggProductionDetails, eggSales, eggSalesItems,
   transactions, catalogos, roosters, broilerBatches, incubation,
   chickenSales, slaughter, manureSales, manureAdjustments, manureProduction,
+  birdAcquisitions,
+  farmLocations, animalLocationMovements,
 } from "@/db/schema";
-import { eq, inArray, and } from "drizzle-orm";
+import { eq, inArray, and, or } from "drizzle-orm";
 
 /** Build a Next.js-compatible Request object for API route testing */
 export function mockRequest(
@@ -32,6 +34,7 @@ export interface TestCleanup {
   movementIds: string[];
   productionIds: string[];
   feedIds: string[];
+  acquisitionIds: string[];
   henIds: string[];
   catalogoIds: string[];
   programIds: string[];
@@ -40,6 +43,7 @@ export interface TestCleanup {
   incubationIds: string[];
   chickenSaleIds: string[];
   slaughterIds: string[];
+  locationIds: string[];
 }
 
 export function createCleanup(): TestCleanup {
@@ -50,6 +54,7 @@ export function createCleanup(): TestCleanup {
     productionIds: [],
     productionDetailIds: [],
     feedIds: [],
+    acquisitionIds: [],
     henIds: [],
     catalogoIds: [],
     programIds: [],
@@ -58,11 +63,18 @@ export function createCleanup(): TestCleanup {
     incubationIds: [],
     chickenSaleIds: [],
     slaughterIds: [],
+    locationIds: [],
   } as TestCleanup & { productionDetailIds: string[] };
 }
 
 /** Clean up all test data by tracked IDs */
 export async function cleanup(c: TestCleanup & { productionDetailIds?: string[] }) {
+  if (c.locationIds.length) {
+    await db.delete(animalLocationMovements).where(or(
+      inArray(animalLocationMovements.fromLocationId, c.locationIds),
+      inArray(animalLocationMovements.toLocationId, c.locationIds),
+    ));
+  }
   if (c.productionDetailIds?.length) {
     await db.delete(eggProductionDetails).where(inArray(eggProductionDetails.productionId, c.productionIds));
   }
@@ -81,14 +93,37 @@ export async function cleanup(c: TestCleanup & { productionDetailIds?: string[] 
     await db.delete(eggSalesItems).where(inArray(eggSalesItems.saleId, c.saleIds));
     await db.delete(eggSales).where(inArray(eggSales.id, c.saleIds));
   }
-  if (c.movementIds.length) await db.delete(feedMovements).where(inArray(feedMovements.id, c.movementIds));
+  const feedMovementRows = c.feedIds.length
+    ? await db.select({ id: feedMovements.id }).from(feedMovements).where(inArray(feedMovements.feedId, c.feedIds))
+    : [];
+  const allTestMovementIds = [...new Set([...c.movementIds, ...feedMovementRows.map((row) => row.id)])];
+  if (allTestMovementIds.length) {
+    await db.delete(transactions).where(and(
+      eq(transactions.sourceType, "alimento"),
+      inArray(transactions.sourceId, allTestMovementIds),
+    ));
+    await db.delete(feedMovements).where(inArray(feedMovements.id, allTestMovementIds));
+  }
   if (c.productionIds.length) await db.delete(eggProduction).where(inArray(eggProduction.id, c.productionIds));
   if (c.feedIds.length) await db.delete(feedInventory).where(inArray(feedInventory.id, c.feedIds));
   if (c.henIds.length) await db.delete(hens).where(inArray(hens.id, c.henIds));
   if (c.roosterIds.length) await db.delete(roosters).where(inArray(roosters.id, c.roosterIds));
   if (c.batchIds.length) await db.delete(broilerBatches).where(inArray(broilerBatches.id, c.batchIds));
+  if (c.acquisitionIds.length) await db.delete(birdAcquisitions).where(inArray(birdAcquisitions.id, c.acquisitionIds));
+  if (c.locationIds.length) await db.delete(farmLocations).where(inArray(farmLocations.id, c.locationIds));
   if (c.catalogoIds.length) await db.delete(catalogos).where(inArray(catalogos.id, c.catalogoIds));
   if (c.programIds.length) await db.delete(feedPrograms).where(inArray(feedPrograms.id, c.programIds));
+}
+
+/** Create an isolated place used by API tests that require a known destination. */
+export async function createTestFarmLocation() {
+  const suffix = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+  const [location] = await db.insert(farmLocations).values({
+    code: `TEST-${suffix}`,
+    name: `Lugar de prueba ${suffix}`,
+    type: "galpon",
+  }).returning();
+  return location;
 }
 
 /** Purge all manure transactional data (sales, adjustments, production) to ensure clean state */

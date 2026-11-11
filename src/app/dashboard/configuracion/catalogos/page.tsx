@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState, useCallback, useMemo } from "react";
-import { PageHeader, Button, Card, Table, Badge, Modal, Input, EmptyState } from "@/components/ui";
+import { PageHeader, Button, Card, Table, Badge, Modal, Input, Select, EmptyState } from "@/components/ui";
 import { apiFetch } from "@/lib/fetch";
 import TableSearch from "@/components/TableSearch";
 import { matchesTextQuery } from "@/lib/text";
@@ -11,6 +11,7 @@ import VacunasTab from "./_components/VacunasTab";
 import PesosTab from "./_components/PesosTab";
 import GallinazaTab from "./_components/GallinazaTab";
 import AlimentacionTab from "./_components/AlimentacionTab";
+import { MANAGED_SPECIES } from "@/lib/animal-breeds";
 
 interface CatalogItem {
   id: string;
@@ -30,7 +31,7 @@ interface CatalogItem {
 }
 
 const CATEGORIES: { key: string; label: string; icon: string }[] = [
-  { key: "raza", label: "Razas", icon: "🐔" },
+  { key: "raza", label: "Razas por especie", icon: "🐾" },
   { key: "comprador", label: "Compradores", icon: "🤝" },
   { key: "proveedor", label: "Proveedores", icon: "🚚" },
   { key: "tamano_huevo", label: "Tamaños de huevo", icon: "🥚" },
@@ -111,7 +112,7 @@ function ListasTab() {
     setValue(item.value);
     setPrice(item.price || "");
     setUnits(item.units != null ? String(item.units) : "");
-    setTipo(item.tipo || "");
+    setTipo(activeCat === "raza" ? item.tipo || "gallina" : item.tipo || "");
     setMinWeeks(item.minWeeks != null ? String(item.minWeeks) : "");
     setMaxWeeks(item.maxWeeks != null ? String(item.maxWeeks) : "");
     setExpectedEggsPerHen(item.expectedEggsPerHen || "");
@@ -126,6 +127,7 @@ function ListasTab() {
     setError("");
     const v = value.trim();
     if (!v) { setError("El valor no puede estar vacío"); return; }
+    if (activeCat === "raza" && !tipo) { setError("Selecciona la especie asociada a esta raza"); return; }
     const method = editing ? "PUT" : "POST";
     const body = editing
       ? { id: editing.id, value: v, price, units, tipo, minWeeks, maxWeeks, expectedEggsPerHen, dailyFeedG, targetWeightKg, feedCostPerKg }
@@ -207,7 +209,9 @@ function ListasTab() {
             />
           ) : (
           <Table headers={
-            activeCat === "etapa_crecimiento"
+            activeCat === "raza"
+              ? ["Raza / tipo", "Especie", "Precio", "Unidades", "Orden", "Estado", ""]
+              : activeCat === "etapa_crecimiento"
               ? ["Etapa", "Especie (tipo)", "Sem. Mín", "Sem. Máx", "Huevos/día", "Estado", ""]
               : activeCat === "params_especie"
               ? ["Especie / Raza", "$/kg canal", "Rdto. canal %", "Ciclo sem.", "g/día/ave", "Estado", ""]
@@ -216,7 +220,14 @@ function ListasTab() {
             {searched.map((item) => (
               <tr key={item.id} className="hover:bg-slate-50">
                 <td className="px-4 py-3 font-medium">{item.value}</td>
-                {activeCat === "etapa_crecimiento" ? (
+                {activeCat === "raza" ? (
+                  <>
+                    <td className="px-4 py-3 text-sm">{MANAGED_SPECIES.find((species) => species.value === (item.tipo || "gallina"))?.label || item.tipo || "Gallina"}</td>
+                    <td className="px-4 py-3 text-sm">{item.price ? `$${Number(item.price).toLocaleString()}` : "—"}</td>
+                    <td className="px-4 py-3 text-sm">{item.units != null ? item.units : "—"}</td>
+                    <td className="px-4 py-3 text-sm text-slate-400">{item.sortOrder}</td>
+                  </>
+                ) : activeCat === "etapa_crecimiento" ? (
                   <>
                     <td className="px-4 py-3 text-sm">{item.tipo || "—"}</td>
                     <td className="px-4 py-3 text-sm">{item.minWeeks != null ? `${item.minWeeks} sem` : "—"}</td>
@@ -296,7 +307,12 @@ function ListasTab() {
               help="Cuántas unidades contiene esta presentación (ej: docena = 12)"
             />
           )}
-          {/* Especie/tipo — para params_especie y etapa_crecimiento */}
+          {activeCat === "raza" && (
+            <Select label="Especie asociada" value={tipo} onChange={(e) => setTipo(e.target.value)} help="Esta raza solo aparecerá al registrar o filtrar animales de la especie seleccionada.">
+              {MANAGED_SPECIES.map((species) => <option key={species.value} value={species.value}>{species.label}</option>)}
+            </Select>
+          )}
+          {/* Especie/tipo — para parámetros y etapas */}
           {(activeCat === "params_especie" || activeCat === "etapa_crecimiento") && (
             <Input
               label="Especie (tipo)"
@@ -438,7 +454,7 @@ export default function CatalogosPage() {
       <PageHeader
         title="🗂️ Catálogos y Datos Maestros"
         description="Administra listas, parámetros de cálculo y tablas técnicas que alimentan todo el sistema"
-        help="Este es el centro de datos maestros del gallinero. En 'Listas' están las opciones de los campos de selección (razas, compradores, proveedores, unidades, tamaños, etc.). En 'Parámetros globales' están los valores de cálculo (ciclo de vida, parvada, precios de valoración, validaciones). En las demás pestañas se administran los parámetros por especie, las plantillas de vacunación, los estándares de peso, los factores de gallinaza y los programas de alimentación. Todo lo que cambie aquí se refleja de inmediato en los formularios, cálculos y reportes."
+        help="Este es el centro de datos maestros del gallinero. En 'Listas' están las opciones de selección; cada raza se asocia a su especie para que los formularios no mezclen animales incompatibles. En 'Parámetros globales' están los valores de cálculo y en las demás pestañas se administran parámetros por especie, vacunas, estándares de peso, factores de gallinaza y programas de alimentación."
       />
 
       <div className="flex flex-wrap gap-2 mb-6">

@@ -2,7 +2,7 @@
 FROM node:22-alpine AS deps
 WORKDIR /app
 COPY package.json package-lock.json ./
-RUN npm ci
+RUN npm ci --no-audit --fund=false
 
 # Operational runtime needs tsx for idempotent seeding and admin commands,
 # but does not need build, lint, or test dependencies.

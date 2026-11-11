@@ -1,6 +1,6 @@
 import { isDateOnly } from "@/lib/date-validation";
 import { db } from "@/db";
-import { slaughter, hens, roosters, broilerBatches, chickenSales, mortalityRecords, autoconsumoLogs } from "@/db/schema";
+import { slaughter, hens, roosters, broilerBatches, chickenSales, mortalityRecords, autoconsumoLogs, farmLocations } from "@/db/schema";
 import { eq, desc, and, sql } from "drizzle-orm";
 import { NextRequest, NextResponse } from "next/server";
 import { isAvailableForExit } from "@/lib/lifecycle";
@@ -39,6 +39,8 @@ export const GET = withApiHandler(async (req: NextRequest) => {
     ? await query.where(eq(slaughter.species, speciesFilter as any)).orderBy(desc(slaughter.date)).limit(100)
     : await query.orderBy(desc(slaughter.date)).limit(100);
 
+  const locations = await db.select({ id: farmLocations.id, name: farmLocations.name }).from(farmLocations);
+  const locationNames = new Map(locations.map((location) => [location.id, location.name]));
   const enriched = await Promise.all(
     data.map(async (record) => {
       const [hen] = record.henId
@@ -50,7 +52,7 @@ export const GET = withApiHandler(async (req: NextRequest) => {
       const [batch] = record.batchId
         ? await db.select().from(broilerBatches).where(eq(broilerBatches.id, record.batchId))
         : [undefined];
-      return { ...record, hen: hen || null, rooster: rooster || null, batch: batch || null };
+      return { ...record, locationName: record.locationId ? locationNames.get(record.locationId) || null : null, hen: hen || null, rooster: rooster || null, batch: batch || null };
     })
   );
 
@@ -68,6 +70,9 @@ export const POST = withApiHandler(async (req: NextRequest) => {
   if (!Number.isSafeInteger(qty) || qty < 1) return NextResponse.json({ error: "Cantidad inválida" }, { status: 400 });
   const referenceError = normalizeExitReferences(body, qty);
   if (referenceError) return NextResponse.json({ error: referenceError }, { status: 400 });
+  if (!body.locationId) return NextResponse.json({ error: "Selecciona el lugar de procedencia de los animales" }, { status: 400 });
+  const [selectedLocation] = await db.select().from(farmLocations).where(eq(farmLocations.id, String(body.locationId)));
+  if (!selectedLocation || selectedLocation.status !== "activa") return NextResponse.json({ error: "El lugar de procedencia debe estar activo" }, { status: 400 });
 
   const weightKg = Number(body.weightKg);
   if (!Number.isFinite(weightKg) || weightKg <= 0) return NextResponse.json({ error: "Peso requerido" }, { status: 400 });
@@ -75,6 +80,7 @@ export const POST = withApiHandler(async (req: NextRequest) => {
   if (body.henId) {
     const [hen] = await db.select().from(hens).where(eq(hens.id, body.henId));
     if (!hen) return NextResponse.json({ error: "Gallina no encontrada" }, { status: 404 });
+    if (hen.locationId && hen.locationId !== body.locationId) return NextResponse.json({ error: "El lugar debe coincidir con el alojamiento actual de la gallina" }, { status: 400 });
     if (!isAvailableForExit(hen.status)) {
       return NextResponse.json({ error: `La gallina no está disponible para sacrificio (estado: ${hen.status})` }, { status: 400 });
     }
@@ -83,11 +89,15 @@ export const POST = withApiHandler(async (req: NextRequest) => {
   if (body.roosterId) {
     const err = await validateRoosterForExit(body.roosterId);
     if (err) return NextResponse.json({ error: err }, { status: err === "Gallo no encontrado" ? 404 : 400 });
+    const [rooster] = await db.select({ locationId: roosters.locationId }).from(roosters).where(eq(roosters.id, body.roosterId));
+    if (rooster?.locationId && rooster.locationId !== body.locationId) return NextResponse.json({ error: "El lugar debe coincidir con el alojamiento actual del gallo" }, { status: 400 });
   }
 
   if (body.batchId) {
     const err = await validateBatchForExit(body.batchId, qty);
     if (err) return NextResponse.json({ error: err }, { status: err === "Lote no encontrado" ? 404 : 400 });
+    const [batch] = await db.select({ locationId: broilerBatches.locationId }).from(broilerBatches).where(eq(broilerBatches.id, body.batchId));
+    if (batch?.locationId && batch.locationId !== body.locationId) return NextResponse.json({ error: "El lugar debe coincidir con el alojamiento actual del lote" }, { status: 400 });
   }
 
   const destination = body.destination || "consumo_propio";
@@ -136,6 +146,7 @@ export const POST = withApiHandler(async (req: NextRequest) => {
     });
     const [inserted] = await tx.insert(slaughter).values({
       date: body.date,
+      locationId: body.locationId,
       species,
       birdType: body.birdType,
       quantity: qty,
@@ -205,6 +216,9 @@ export const PUT = withApiHandler(async (req: NextRequest) => {
   if (!Number.isFinite(weightKg) || weightKg <= 0) return NextResponse.json({ error: "Peso requerido" }, { status: 400 });
   const referenceError = normalizeExitReferences(body, qty);
   if (referenceError) return NextResponse.json({ error: referenceError }, { status: 400 });
+  if (!body.locationId) return NextResponse.json({ error: "Selecciona el lugar donde se alojaban los animales" }, { status: 400 });
+  const [requestedLocation] = await db.select({ id: farmLocations.id }).from(farmLocations).where(eq(farmLocations.id, String(body.locationId)));
+  if (!requestedLocation) return NextResponse.json({ error: "El lugar seleccionado no existe" }, { status: 400 });
 
   const [existing] = await db.select().from(slaughter).where(eq(slaughter.id, body.id));
   if (!existing) return NextResponse.json({ error: "No encontrado" }, { status: 404 });
@@ -304,6 +318,7 @@ export const PUT = withApiHandler(async (req: NextRequest) => {
 
       const [upd] = await tx.update(slaughter).set({
         date: body.date,
+        locationId: body.locationId,
         species,
         birdType: body.birdType,
         quantity: qty,

@@ -40,9 +40,11 @@ interface MeatItem {
   date: string;
   source: string;
   birdType: string;
+  species: string;
   quantityKg: number;
   availableKg: number;
-  costPerKg: number;
+  estimatedPriceKg: number;
+  estimatedValue: number;
 }
 
 interface EggSize {
@@ -244,9 +246,11 @@ export default function BalancePage() {
         item.date,
         item.source,
         item.birdType,
+        item.species,
         item.quantityKg,
         item.availableKg,
-        item.costPerKg,
+        item.estimatedPriceKg,
+        item.estimatedValue,
       ]),
     );
   }, [data, meatSearch]);
@@ -331,7 +335,7 @@ export default function BalancePage() {
             <Card>
               <p className="text-sm text-slate-500">🍗 Valor en Carne</p>
               <p className="text-2xl font-bold text-red-600">{fmtMoney(data.summary.meatValue)}</p>
-              <p className="text-xs text-slate-400">{data.summary.totalMeatKg} kg disponibles</p>
+              <p className="text-xs text-slate-400">{data.summary.totalMeatKg} kg disponibles · precio estimado por especie</p>
             </Card>
             <Card>
               <p className="text-sm text-slate-500">🌱 Valor Gallinaza</p>
@@ -593,16 +597,18 @@ export default function BalancePage() {
               ) : (
               <table className="w-full text-sm">
                 <thead><tr className="border-b text-left text-gray-500">
-                  <th className="py-2">Fecha</th><th>Origen</th><th>Tipo Ave</th><th>Kg</th><th>Disponible</th>
+                  <th className="py-2">Fecha</th><th>Origen</th><th>Especie</th><th>Kg</th><th>Disponible</th><th>Precio estimado/kg</th><th>Valor estimado</th>
                 </tr></thead>
                 <tbody>
                   {filteredMeat.map((m) => (
                     <tr key={m.id} className="border-b">
                       <td className="py-2">{m.date}</td>
                       <td>{m.source}</td>
-                      <td>{m.birdType}</td>
+                      <td>{m.species}</td>
                       <td>{m.quantityKg} kg</td>
                       <td>{m.availableKg} kg</td>
+                      <td>{fmtMoney(m.estimatedPriceKg)}</td>
+                      <td className="font-medium">{fmtMoney(m.estimatedValue)}</td>
                     </tr>
                   ))}
                 </tbody>

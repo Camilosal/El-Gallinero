@@ -1,8 +1,9 @@
 import { db } from "@/db";
-import { incubation, hens, roosters, broilerBatches } from "@/db/schema";
-import { eq, desc, sql, and } from "drizzle-orm";
+import { incubation, hens, roosters, broilerBatches, birdAcquisitions, animalLocationMovements, farmLocations } from "@/db/schema";
+import { eq, desc, sql, and, inArray } from "drizzle-orm";
 import { NextRequest, NextResponse } from "next/server";
 import { isAvailableForExit } from "@/lib/lifecycle";
+import { HEN_PRESENT_STATUSES } from "@/lib/animal-status";
 import { assignMales, requiredRoosters } from "@/lib/flock";
 import { getFlockRules, getIncubationDays } from "@/lib/settings";
 import { withApiHandler, safeParseJson } from "@/lib/api-handler";
@@ -15,6 +16,8 @@ export const GET = withApiHandler(async () => {
       id: incubation.id,
       henId: incubation.henId,
       henCode: hens.code,
+      roosterId: incubation.roosterId,
+      roosterCode: sql<string | null>`COALESCE(${roosters.code}, ${incubation.roosterCode})`,
       startDate: incubation.startDate,
       expectedHatchDate: incubation.expectedHatchDate,
       eggsSet: incubation.eggsSet,
@@ -27,6 +30,7 @@ export const GET = withApiHandler(async () => {
     })
     .from(incubation)
     .leftJoin(hens, eq(incubation.henId, hens.id))
+    .leftJoin(roosters, eq(incubation.roosterId, roosters.id))
     .orderBy(desc(incubation.createdAt));
   return NextResponse.json(data);
 });
@@ -55,8 +59,17 @@ export const POST = withApiHandler(async (req: NextRequest) => {
       if (openIncubation) throw new Error("La gallina ya tiene una incubación activa");
     }
 
+    let roosterCode: string | null = null;
+    if (body.roosterId) {
+      const [rooster] = await tx.select({ id: roosters.id, code: roosters.code }).from(roosters).where(eq(roosters.id, body.roosterId));
+      if (!rooster) throw new Error("Padre no encontrado");
+      roosterCode = rooster.code;
+    }
+
     const [row] = await tx.insert(incubation).values({
       henId: body.henId || null,
+      roosterId: body.roosterId || null,
+      roosterCode,
       startDate: body.startDate,
       expectedHatchDate: expectedHatch.toISOString().split("T")[0],
       eggsSet,
@@ -156,23 +169,30 @@ export const PUT = withApiHandler(async (req: NextRequest) => {
       const females = femalesHatched || 0;
       const males = malesHatched || 0;
 
-      // Raza base: heredada de la madre, o "Criolla" si no hay gallina asignada
-      let breed = "Criolla";
-      if (updated.henId) {
-        const [mother] = await tx.select({ breed: hens.breed }).from(hens).where(eq(hens.id, updated.henId));
-        if (mother) breed = mother.breed;
-      }
+      const mother = updated.henId
+        ? (await tx.select({ breed: hens.breed, code: hens.code, acquisitionId: hens.acquisitionId, locationId: hens.locationId }).from(hens).where(eq(hens.id, updated.henId)))[0]
+        : undefined;
+      const father = updated.roosterId
+        ? (await tx.select({ breed: roosters.breed, code: roosters.code, acquisitionId: roosters.acquisitionId, locationId: roosters.locationId }).from(roosters).where(eq(roosters.id, updated.roosterId)))[0]
+        : undefined;
+      const destinationLocationId = mother?.locationId || father?.locationId || null;
+      const motherAcquisition = mother?.acquisitionId
+        ? (await tx.select({ geneticLine: birdAcquisitions.geneticLine }).from(birdAcquisitions).where(eq(birdAcquisitions.id, mother.acquisitionId)))[0]
+        : undefined;
+      const fatherAcquisition = father?.acquisitionId
+        ? (await tx.select({ geneticLine: birdAcquisitions.geneticLine }).from(birdAcquisitions).where(eq(birdAcquisitions.id, father.acquisitionId)))[0]
+        : undefined;
+      // Preserve the mother's registered breed as before; parent identities and genetic lines
+      // are captured separately so a cross is not mislabeled as a pure breed.
+      const breed = mother?.breed || "Criolla";
+      const maternalLine = motherAcquisition?.geneticLine || mother?.breed || null;
+      const paternalLine = fatherAcquisition?.geneticLine || father?.breed || null;
+      const geneticLine = maternalLine && paternalLine
+        ? maternalLine === paternalLine ? maternalLine : `Cruce: ${maternalLine} × ${paternalLine}`.slice(0, 150)
+        : maternalLine || paternalLine;
 
-      const today = new Date().toISOString().split("T")[0];
-
-      if (females > 0) {
-        const codes = await nextCodesInTx(tx, hens, "G", females);
-        await tx.insert(hens).values(
-          codes.map((code) => ({ code, breed, birthDate: today, status: "activa" as const, isBroody: false }))
-        );
-        assignment.hensCreated = females;
-      }
-
+      let assignedRoosters = 0;
+      let assignedBatchQuantity = 0;
       if (males > 0) {
         // Regla de parvada: 1 gallo por cada 10 gallinas del gallinero
         const [henRows, roosterRows] = await Promise.all([
@@ -180,21 +200,118 @@ export const PUT = withApiHandler(async (req: NextRequest) => {
           tx.select({ id: roosters.id }).from(roosters).where(eq(roosters.status, "activo")),
         ]);
         const hensInCoop = henRows.filter((h) => isAvailableForExit(h.status)).length;
-        const { toRoosters, toSlaughter } = assignMales(
+        const assignmentPlan = assignMales(
           males,
           roosterRows.length,
           requiredRoosters(hensInCoop, flockRules.hensPerRooster),
         );
+        assignedRoosters = assignmentPlan.toRoosters;
+        assignedBatchQuantity = assignmentPlan.toSlaughter;
+      }
 
-        if (toRoosters > 0) {
-          const codes = await nextCodesInTx(tx, roosters, "GA", toRoosters);
-          await tx.insert(roosters).values(
-            codes.map((code) => ({ code, breed, birthDate: today, status: "activo" as const }))
-          );
-          assignment.roostersCreated = toRoosters;
+      const hatchlings = females + assignedRoosters + assignedBatchQuantity;
+      if (destinationLocationId && hatchlings > 0) {
+        const [destination] = await tx.select().from(farmLocations)
+          .where(eq(farmLocations.id, destinationLocationId)).for("update");
+        if (!destination || destination.status !== "activa" || ["restringida", "fuera_servicio"].includes(destination.operationalStatus)) {
+          throw new Error("El lugar actual de los progenitores no admite nuevas crías; actualiza su alojamiento antes de completar la incubación");
+        }
+        if (destination.capacity != null) {
+          const [[henCount], [roosterCount], [batchCount]] = await Promise.all([
+            tx.select({ total: sql<number>`count(*)::int` }).from(hens)
+              .where(and(eq(hens.locationId, destination.id), inArray(hens.status, HEN_PRESENT_STATUSES as (typeof hens.status.enumValues)[number][]))),
+            tx.select({ total: sql<number>`count(*)::int` }).from(roosters)
+              .where(and(eq(roosters.locationId, destination.id), inArray(roosters.status, ["activo", "enfermo"]))),
+            tx.select({ total: sql<number>`coalesce(sum(${broilerBatches.currentQuantity}), 0)::int` }).from(broilerBatches)
+              .where(and(eq(broilerBatches.locationId, destination.id), inArray(broilerBatches.status, ["activo", "listo_sacrificio"]))),
+          ]);
+          const occupied = Number(henCount?.total || 0) + Number(roosterCount?.total || 0) + Number(batchCount?.total || 0);
+          if (occupied + hatchlings > destination.capacity) {
+            throw new Error(`La capacidad de ${destination.name} no alcanza para alojar las ${hatchlings} crías; registra otro lugar o ajusta su capacidad`);
+          }
+        }
+      }
+
+      const today = new Date().toISOString().split("T")[0];
+      const originNote = `Cría propia por incubación ${updated.id}`;
+
+      if (females > 0) {
+        const [acquisition] = await tx.insert(birdAcquisitions).values({
+          date: today,
+          acquisitionType: "cria_propia",
+          species: "gallina",
+          birdType: "gallina",
+          quantity: females,
+          breed,
+          geneticLine,
+          sourceBatchCode: `INC-${updated.id}`,
+          motherHenId: updated.henId,
+          fatherRoosterId: updated.roosterId,
+          destinationLocationId,
+          motherIdentifier: mother?.code || null,
+          fatherIdentifier: father?.code || updated.roosterCode || null,
+          birthDate: today,
+          notes: originNote,
+        }).returning({ id: birdAcquisitions.id });
+        const codes = await nextCodesInTx(tx, hens, "G", females);
+        const insertedHens = await tx.insert(hens).values(
+          codes.map((code) => ({ code, breed, birthDate: today, status: "activa" as const, isBroody: false, acquisitionId: acquisition.id, locationId: destinationLocationId }))
+        ).returning({ id: hens.id });
+        if (destinationLocationId) await tx.insert(animalLocationMovements).values(insertedHens.map((hen) => ({
+          henId: hen.id, fromLocationId: null, toLocationId: destinationLocationId, quantity: 1, date: today,
+          reason: "Nacimiento por incubación", notes: `Adquisición ${acquisition.id}`,
+        })));
+        assignment.hensCreated = females;
+      }
+
+      if (males > 0) {
+        if (assignedRoosters > 0) {
+          const [acquisition] = await tx.insert(birdAcquisitions).values({
+            date: today,
+            acquisitionType: "cria_propia",
+            species: "gallina",
+            birdType: "gallo",
+            quantity: assignedRoosters,
+            breed,
+            geneticLine,
+            sourceBatchCode: `INC-${updated.id}`,
+            motherHenId: updated.henId,
+            fatherRoosterId: updated.roosterId,
+            destinationLocationId,
+            motherIdentifier: mother?.code || null,
+            fatherIdentifier: father?.code || updated.roosterCode || null,
+            birthDate: today,
+            notes: originNote,
+          }).returning({ id: birdAcquisitions.id });
+          const codes = await nextCodesInTx(tx, roosters, "GA", assignedRoosters);
+          const insertedRoosters = await tx.insert(roosters).values(
+            codes.map((code) => ({ code, breed, birthDate: today, status: "activo" as const, acquisitionId: acquisition.id, locationId: destinationLocationId }))
+          ).returning({ id: roosters.id });
+          if (destinationLocationId) await tx.insert(animalLocationMovements).values(insertedRoosters.map((rooster) => ({
+            roosterId: rooster.id, fromLocationId: null, toLocationId: destinationLocationId, quantity: 1, date: today,
+            reason: "Nacimiento por incubación", notes: `Adquisición ${acquisition.id}`,
+          })));
+          assignment.roostersCreated = assignedRoosters;
         }
 
-        if (toSlaughter > 0) {
+        if (assignedBatchQuantity > 0) {
+          const [acquisition] = await tx.insert(birdAcquisitions).values({
+            date: today,
+            acquisitionType: "cria_propia",
+            species: "pollo",
+            birdType: "lote_pollos",
+            quantity: assignedBatchQuantity,
+            breed: "Pollo de engorde",
+            geneticLine,
+            sourceBatchCode: `INC-${updated.id}`,
+            motherHenId: updated.henId,
+            fatherRoosterId: updated.roosterId,
+            destinationLocationId,
+            motherIdentifier: mother?.code || null,
+            fatherIdentifier: father?.code || updated.roosterCode || null,
+            birthDate: today,
+            notes: originNote,
+          }).returning({ id: birdAcquisitions.id });
           const existingCodes = await tx.select({ code: broilerBatches.code }).from(broilerBatches);
           let max = 0;
           for (const row of existingCodes) {
@@ -207,12 +324,18 @@ export const PUT = withApiHandler(async (req: NextRequest) => {
             code,
             breed: "Pollo de engorde",
             startDate: today,
-            initialQuantity: toSlaughter,
-            currentQuantity: toSlaughter,
+            initialQuantity: assignedBatchQuantity,
+            currentQuantity: assignedBatchQuantity,
+            acquisitionId: acquisition.id,
+            locationId: destinationLocationId,
             targetWeeks: flockRules.defaultTargetWeeks,
             targetWeightKg: String(flockRules.defaultTargetWeightKg),
             notes: `Machos de eclosión (${updated.eggsHatched ?? 0} nacidos)`,
           }).returning();
+          if (destinationLocationId) await tx.insert(animalLocationMovements).values({
+            batchId: batch.id, fromLocationId: null, toLocationId: destinationLocationId, quantity: assignedBatchQuantity, date: today,
+            reason: "Nacimiento por incubación", notes: `Adquisición ${acquisition.id}`,
+          });
           assignment.batchCode = batch.code;
         }
       }

@@ -11,6 +11,8 @@ import {
   pgEnum,
   uniqueIndex,
   jsonb,
+  check,
+  type AnyPgColumn,
 } from "drizzle-orm/pg-core";
 import { sql } from "drizzle-orm";
 
@@ -111,6 +113,40 @@ export const mortalityCauseEnum = pgEnum("mortality_cause", [
   "otro",
 ]);
 
+// ─── Ubicaciones físicas de la finca ───
+export const farmLocations = pgTable("farm_locations", {
+  id: uuid("id").defaultRandom().primaryKey(),
+  code: varchar("code", { length: 50 }).notNull(),
+  name: varchar("name", { length: 150 }).notNull(),
+  type: varchar("type", { length: 30 }).notNull(), // corral, jaula, galpon, potrero, jardin, patio, otro
+  parentLocationId: uuid("parent_location_id").references((): AnyPgColumn => farmLocations.id, { onDelete: "set null" }),
+  description: text("description"),
+  localReference: text("local_reference"), // instrucciones para encontrarla dentro del predio
+  latitude: decimal("latitude", { precision: 10, scale: 7 }),
+  longitude: decimal("longitude", { precision: 10, scale: 7 }),
+  areaM2: decimal("area_m2", { precision: 12, scale: 2 }),
+  capacity: integer("capacity"),
+  status: varchar("status", { length: 20 }).default("activa").notNull(),
+  operationalStatus: varchar("operational_status", { length: 30 }).default("operativa").notNull(),
+  sanitaryStatus: varchar("sanitary_status", { length: 30 }).default("pendiente_revision").notNull(),
+  sanitaryRequirements: text("sanitary_requirements"),
+  sanitaryReviewedAt: date("sanitary_reviewed_at"),
+  operationalReviewedAt: date("operational_reviewed_at"),
+  maintenanceNeeds: text("maintenance_needs"),
+  notes: text("notes"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+}, (t) => [
+  uniqueIndex("farm_locations_code_unique_idx").on(t.code),
+  check("farm_locations_type_valid", sql`${t.type} IN ('corral', 'jaula', 'galpon', 'potrero', 'jardin', 'patio', 'otro')`),
+  check("farm_locations_status_valid", sql`${t.status} IN ('activa', 'inactiva')`),
+  check("farm_locations_operational_status_valid", sql`${t.operationalStatus} IN ('operativa', 'mantenimiento', 'restringida', 'fuera_servicio')`),
+  check("farm_locations_sanitary_status_valid", sql`${t.sanitaryStatus} IN ('pendiente_revision', 'cumple', 'requiere_atencion', 'no_cumple')`),
+  check("farm_locations_latitude_range", sql`${t.latitude} IS NULL OR (${t.latitude} >= -90 AND ${t.latitude} <= 90)`),
+  check("farm_locations_longitude_range", sql`${t.longitude} IS NULL OR (${t.longitude} >= -180 AND ${t.longitude} <= 180)`),
+  check("farm_locations_capacity_nonnegative", sql`${t.capacity} IS NULL OR ${t.capacity} >= 0`),
+]);
+
 // ─── Gallinas ───
 export const hens = pgTable("hens", {
   id: uuid("id").defaultRandom().primaryKey(),
@@ -122,8 +158,9 @@ export const hens = pgTable("hens", {
   notes: text("notes"),
   isBroody: boolean("is_broody").default(false).notNull(),
   clutchSize: integer("clutch_size").default(0),
-  acquisitionId: uuid("acquisition_id").references(() => birdAcquisitions.id),
+  acquisitionId: uuid("acquisition_id").references((): AnyPgColumn => birdAcquisitions.id),
   acquisitionCost: decimal("acquisition_cost", { precision: 10, scale: 2 }),
+  locationId: uuid("location_id").references(() => farmLocations.id, { onDelete: "set null" }),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 }, (t) => [uniqueIndex("hens_code_unique_idx").on(t.code)]);
@@ -143,6 +180,31 @@ export const feedInventory = pgTable("feed_inventory", {
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
 
+// ─── Activos y equipos de la finca ───
+export const farmAssets = pgTable("farm_assets", {
+  id: uuid("id").defaultRandom().primaryKey(),
+  code: varchar("code", { length: 50 }).notNull(),
+  name: varchar("name", { length: 200 }).notNull(),
+  category: varchar("category", { length: 30 }).default("equipo").notNull(),
+  brand: varchar("brand", { length: 120 }),
+  model: varchar("model", { length: 120 }),
+  serialNumber: varchar("serial_number", { length: 150 }),
+  acquisitionDate: date("acquisition_date"),
+  acquisitionCost: decimal("acquisition_cost", { precision: 12, scale: 2 }).default("0").notNull(),
+  warrantyUntil: date("warranty_until"),
+  locationId: uuid("location_id").references(() => farmLocations.id, { onDelete: "set null" }),
+  status: varchar("status", { length: 30 }).default("operativo").notNull(),
+  description: text("description"),
+  notes: text("notes"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+}, (t) => [
+  uniqueIndex("farm_assets_code_unique_idx").on(t.code),
+  check("farm_assets_category_valid", sql`${t.category} IN ('equipo', 'herramienta', 'estructura', 'vehiculo', 'otro')`),
+  check("farm_assets_status_valid", sql`${t.status} IN ('operativo', 'requiere_mantenimiento', 'fuera_servicio', 'retirado')`),
+  check("farm_assets_acquisition_cost_nonnegative", sql`${t.acquisitionCost} >= 0`),
+]);
+
 // ─── Movimientos de alimento ───
 export const feedMovements = pgTable("feed_movements", {
   id: uuid("id").defaultRandom().primaryKey(),
@@ -153,6 +215,7 @@ export const feedMovements = pgTable("feed_movements", {
   autoGenerated: boolean("auto_generated").default(false).notNull(), // true = generado por programa alimenticio
   stageCatalogoId: uuid("stage_catalogo_id").references(() => catalogos.id), // etapa destino (solo consumo)
   henCount: integer("hen_count"), // gallinas en el grupo al momento del consumo
+  locationId: uuid("location_id").references(() => farmLocations.id, { onDelete: "set null" }),
   date: date("date").notNull(),
   notes: text("notes"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
@@ -164,6 +227,7 @@ export const eggProduction = pgTable("egg_production", {
   date: date("date").notNull(),
   species: animalSpeciesEnum("species").default("gallina").notNull(),
   batchId: uuid("batch_id").references(() => broilerBatches.id), // lote atribuible (ej. lote de codornices)
+  locationId: uuid("location_id").references(() => farmLocations.id, { onDelete: "set null" }),
   totalCollected: integer("total_collected").notNull(),
   broken: integer("broken").default(0).notNull(),
   forIncubation: integer("for_incubation").default(0).notNull(),
@@ -188,6 +252,8 @@ export const eggProductionDetails = pgTable("egg_production_details", {
 export const incubation = pgTable("incubation", {
   id: uuid("id").defaultRandom().primaryKey(),
   henId: uuid("hen_id").references(() => hens.id),
+  roosterId: uuid("rooster_id").references(() => roosters.id, { onDelete: "set null" }),
+  roosterCode: varchar("rooster_code", { length: 50 }), // snapshot in case the rooster is later removed
   startDate: date("start_date").notNull(),
   expectedHatchDate: date("expected_hatch_date").notNull(),
   eggsSet: integer("eggs_set").notNull(),
@@ -208,8 +274,9 @@ export const roosters = pgTable("roosters", {
   status: roosterStatusEnum("status").default("activo").notNull(),
   weight: decimal("weight", { precision: 6, scale: 2 }),
   notes: text("notes"),
-  acquisitionId: uuid("acquisition_id").references(() => birdAcquisitions.id),
+  acquisitionId: uuid("acquisition_id").references((): AnyPgColumn => birdAcquisitions.id),
   acquisitionCost: decimal("acquisition_cost", { precision: 10, scale: 2 }),
+  locationId: uuid("location_id").references(() => farmLocations.id, { onDelete: "set null" }),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 }, (t) => [uniqueIndex("roosters_code_unique_idx").on(t.code)]);
@@ -233,10 +300,30 @@ export const broilerBatches = pgTable("broiler_batches", {
   status: broilerBatchStatusEnum("status").default("activo").notNull(),
   notes: text("notes"),
   acquisitionId: uuid("acquisition_id").references(() => birdAcquisitions.id),
+  locationId: uuid("location_id").references(() => farmLocations.id, { onDelete: "set null" }),
   totalProductionCost: decimal("total_production_cost", { precision: 12, scale: 2 }),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 }, (t) => [uniqueIndex("broiler_batches_code_unique_idx").on(t.code)]);
+
+// ─── Traslados entre ubicaciones: una ficha individual o un lote completo ───
+export const animalLocationMovements = pgTable("animal_location_movements", {
+  id: uuid("id").defaultRandom().primaryKey(),
+  henId: uuid("hen_id").references(() => hens.id, { onDelete: "restrict" }),
+  roosterId: uuid("rooster_id").references(() => roosters.id, { onDelete: "restrict" }),
+  batchId: uuid("batch_id").references(() => broilerBatches.id, { onDelete: "restrict" }),
+  fromLocationId: uuid("from_location_id").references(() => farmLocations.id, { onDelete: "set null" }),
+  toLocationId: uuid("to_location_id").references(() => farmLocations.id, { onDelete: "restrict" }).notNull(),
+  quantity: integer("quantity").default(1).notNull(),
+  date: date("date").notNull(),
+  reason: varchar("reason", { length: 100 }).notNull(),
+  notes: text("notes"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+}, (t) => [
+  check("animal_location_movement_single_target", sql`num_nonnulls(${t.henId}, ${t.roosterId}, ${t.batchId}) = 1`),
+  check("animal_location_movement_distinct_places", sql`${t.fromLocationId} IS NULL OR ${t.fromLocationId} <> ${t.toLocationId}`),
+  check("animal_location_movement_quantity_positive", sql`${t.quantity} > 0`),
+]);
 
 // ─── Ventas de huevos ───
 export const eggSales = pgTable("egg_sales", {
@@ -274,13 +361,23 @@ export const maintenance = pgTable("maintenance", {
   completedDate: date("completed_date"),
   status: maintenanceStatusEnum("status").default("pendiente").notNull(),
   cost: decimal("cost", { precision: 10, scale: 2 }).default("0"),
+  locationId: uuid("location_id").references(() => farmLocations.id, { onDelete: "set null" }),
+  assetId: uuid("asset_id").references(() => farmAssets.id, { onDelete: "set null" }),
+  recurrenceSeriesId: uuid("recurrence_series_id").defaultRandom().notNull(),
+  recurrenceParentId: uuid("recurrence_parent_id").references((): AnyPgColumn => maintenance.id, { onDelete: "set null" }),
+  recurrenceIntervalDays: integer("recurrence_interval_days"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
-});
+}, (t) => [
+  uniqueIndex("maintenance_series_date_unique_idx").on(t.recurrenceSeriesId, t.scheduledDate),
+  uniqueIndex("maintenance_parent_unique_idx").on(t.recurrenceParentId),
+  check("maintenance_recurrence_interval_valid", sql`${t.recurrenceIntervalDays} IS NULL OR ${t.recurrenceIntervalDays} BETWEEN 1 AND 3650`),
+]);
 
 // ─── Control fitosanitario ───
 export const healthControl = pgTable("health_control", {
   id: uuid("id").defaultRandom().primaryKey(),
   date: date("date").notNull(),
+  locationId: uuid("location_id").references(() => farmLocations.id, { onDelete: "set null" }),
   type: varchar("type", { length: 100 }).notNull(), // vacunación, desparasitación, tratamiento, inspección
   description: text("description").notNull(),
   affectedHens: text("affected_hens"), // JSON array of hen IDs or "todas"
@@ -380,6 +477,7 @@ export const chickenSales = pgTable("chicken_sales", {
 export const slaughter = pgTable("slaughter", {
   id: uuid("id").defaultRandom().primaryKey(),
   date: date("date").notNull(),
+  locationId: uuid("location_id").references(() => farmLocations.id, { onDelete: "set null" }),
   species: animalSpeciesEnum("species").default("pollo").notNull(),
   birdType: varchar("bird_type", { length: 50 }).notNull(), // gallina_descarte, pollo, gallo, codorniz, pato, conejo
   quantity: integer("quantity").notNull(), // número de animales sacrificados
@@ -475,6 +573,18 @@ export const birdAcquisitions = pgTable("bird_acquisitions", {
   totalCost: decimal("total_cost", { precision: 12, scale: 2 }),
   supplier: varchar("supplier", { length: 200 }),
   breed: varchar("breed", { length: 100 }),
+  geneticLine: varchar("genetic_line", { length: 150 }),
+  generation: varchar("generation", { length: 50 }),
+  originFarm: varchar("origin_farm", { length: 200 }),
+  originLocation: varchar("origin_location", { length: 200 }),
+  sourceBatchCode: varchar("source_batch_code", { length: 100 }),
+  motherHenId: uuid("mother_hen_id").references((): AnyPgColumn => hens.id, { onDelete: "set null" }),
+  fatherRoosterId: uuid("father_rooster_id").references((): AnyPgColumn => roosters.id, { onDelete: "set null" }),
+  destinationLocationId: uuid("destination_location_id").references(() => farmLocations.id, { onDelete: "set null" }),
+  motherIdentifier: varchar("mother_identifier", { length: 100 }),
+  fatherIdentifier: varchar("father_identifier", { length: 100 }),
+  geneticEvidenceReference: text("genetic_evidence_reference"),
+  healthEvidenceReference: text("health_evidence_reference"),
   birthDate: date("birth_date"),
   notes: text("notes"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
@@ -484,6 +594,7 @@ export const birdAcquisitions = pgTable("bird_acquisitions", {
 export const mortalityRecords = pgTable("mortality_records", {
   id: uuid("id").defaultRandom().primaryKey(),
   date: date("date").notNull(),
+  locationId: uuid("location_id").references(() => farmLocations.id, { onDelete: "set null" }),
   species: animalSpeciesEnum("species").default("pollo"),
   birdType: varchar("bird_type", { length: 50 }).notNull(),
   quantity: integer("quantity").notNull(),
@@ -724,6 +835,7 @@ export const breedWeightStandards = pgTable("breed_weight_standards", {
 export const weightLogs = pgTable("weight_logs", {
   id: uuid("id").defaultRandom().primaryKey(),
   date: date("date").notNull(),
+  locationId: uuid("location_id").references(() => farmLocations.id, { onDelete: "set null" }),
   batchId: uuid("batch_id").references(() => broilerBatches.id),
   henGroup: text("hen_group"),
   breed: text("breed"),

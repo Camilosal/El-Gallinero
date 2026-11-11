@@ -1,12 +1,13 @@
 import { isDateOnly } from "@/lib/date-validation";
 import { db } from "@/db";
-import { eggProduction, eggProductionDetails, catalogos, hens, autoconsumoLogs } from "@/db/schema";
-import { eq, desc, inArray, and, or, sql } from "drizzle-orm";
+import { eggProduction, eggProductionDetails, catalogos, hens, autoconsumoLogs, broilerBatches, farmLocations } from "@/db/schema";
+import { eq, desc, inArray, and, sql } from "drizzle-orm";
 import { NextRequest, NextResponse } from "next/server";
 import { getEggValidationThreshold } from "@/lib/settings";
 import { withApiHandler, safeParseJson } from "@/lib/api-handler";
 import { lockEggInventory } from "@/lib/inventory-locks";
 import { computeEggInventory, eggInventoryBookBalance } from "@/lib/inventory";
+import { loadSpeciesParams } from "@/lib/species-db";
 
 export const dynamic = "force-dynamic";
 
@@ -14,8 +15,8 @@ export const dynamic = "force-dynamic";
  * Calculate expected daily egg production based on active hens and their growth stages.
  * Returns the total expected eggs per day.
  */
-async function getExpectedDailyProduction(): Promise<number> {
-  const today = new Date();
+async function getExpectedDailyProduction(referenceDate: string, locationId?: string | null): Promise<number> {
+  const day = new Date(`${referenceDate}T12:00:00`);
 
   const stages = await db
     .select()
@@ -30,7 +31,7 @@ async function getExpectedDailyProduction(): Promise<number> {
 
     const minWeeks = stage.minWeeks ?? 0;
     const maxWeeks = stage.maxWeeks;
-    const minDate = new Date(today);
+    const minDate = new Date(day);
     minDate.setDate(minDate.getDate() - minWeeks * 7);
 
     let countResult;
@@ -41,11 +42,12 @@ async function getExpectedDailyProduction(): Promise<number> {
         .where(
           and(
             sql`${hens.birthDate}::date <= ${minDate.toISOString().split("T")[0]}::date`,
-            or(eq(hens.status, "activa"), eq(hens.status, "empollando"))
+            eq(hens.status, "activa")
+            , ...(locationId ? [eq(hens.locationId, locationId)] : [])
           )
         );
     } else {
-      const maxDate = new Date(today);
+      const maxDate = new Date(day);
       maxDate.setDate(maxDate.getDate() - maxWeeks * 7);
       countResult = await db
         .select({ count: sql<number>`count(*)::int` })
@@ -54,7 +56,8 @@ async function getExpectedDailyProduction(): Promise<number> {
           and(
             sql`${hens.birthDate}::date <= ${minDate.toISOString().split("T")[0]}::date`,
             sql`${hens.birthDate}::date > ${maxDate.toISOString().split("T")[0]}::date`,
-            or(eq(hens.status, "activa"), eq(hens.status, "empollando"))
+            eq(hens.status, "activa")
+            , ...(locationId ? [eq(hens.locationId, locationId)] : [])
           )
         );
     }
@@ -85,7 +88,9 @@ export const GET = withApiHandler(async (req: NextRequest) => {
     arr.push({ size: d.size, quantity: d.quantity });
     byProd.set(d.productionId, arr);
   }
-  return NextResponse.json(records.map((r) => ({ ...r, details: byProd.get(r.id) || [] })));
+  const locations = await db.select({ id: farmLocations.id, name: farmLocations.name }).from(farmLocations);
+  const locationNames = new Map(locations.map((item) => [item.id, item.name]));
+  return NextResponse.json(records.map((r) => ({ ...r, locationName: r.locationId ? locationNames.get(r.locationId) || null : null, details: byProd.get(r.id) || [] })));
 });
 
 
@@ -97,6 +102,36 @@ async function handleSave(req: NextRequest, isUpdate: boolean) {
   const species = body.species || "gallina";
   if (!["gallina", "codorniz", "pato"].includes(species)) {
     return NextResponse.json({ error: "Especie de postura no válida" }, { status: 400 });
+  }
+  if (typeof body.locationId !== "string" || !body.locationId) {
+    return NextResponse.json({ error: "Selecciona el lugar donde se recogieron los huevos" }, { status: 400 });
+  }
+  const [eggLocation] = await db.select().from(farmLocations).where(eq(farmLocations.id, body.locationId));
+  if (!eggLocation || eggLocation.status !== "activa" || ["fuera_servicio", "restringida"].includes(eggLocation.operationalStatus)) {
+    return NextResponse.json({ error: "El lugar de recolección debe estar activo y disponible" }, { status: 400 });
+  }
+  if (species !== "gallina") {
+    if (typeof body.batchId !== "string" || !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(body.batchId)) {
+      return NextResponse.json({ error: "Asigna la recolección a un lote de procedencia" }, { status: 400 });
+    }
+    const [batch] = await db.select({ species: broilerBatches.species, purpose: broilerBatches.purpose, status: broilerBatches.status, currentQuantity: broilerBatches.currentQuantity, startDate: broilerBatches.startDate, breed: broilerBatches.breed, locationId: broilerBatches.locationId })
+      .from(broilerBatches)
+      .where(eq(broilerBatches.id, body.batchId))
+      .limit(1);
+    if (!batch || batch.species !== species || batch.purpose !== "postura_huevo" || batch.currentQuantity <= 0 || !["activo", "listo_sacrificio"].includes(batch.status)) {
+      return NextResponse.json({ error: "El lote debe ser de la misma especie, seguir activo y tener destino de postura" }, { status: 400 });
+    }
+    if (batch.locationId && batch.locationId !== body.locationId) return NextResponse.json({ error: "El lugar debe coincidir con el alojamiento actual del lote" }, { status: 400 });
+    const speciesParams = await loadSpeciesParams(species);
+    const breedText = String(batch.breed || "").toLowerCase();
+    const maturity = speciesParams.find((param) => breedText && param.breed.toLowerCase().includes(breedText))
+      || speciesParams[0];
+    const start = new Date(`${batch.startDate}T12:00:00`);
+    const collected = new Date(`${body.date}T12:00:00`);
+    const ageDays = Math.floor((collected.getTime() - start.getTime()) / 86400000);
+    if (maturity && ageDays < maturity.cycleWeeks * 7) {
+      return NextResponse.json({ error: `Este lote aún no llega a la edad de postura (${maturity.cycleWeeks} semanas)` }, { status: 400 });
+    }
   }
 
   const broken = Number(body.broken ?? 0);
@@ -149,10 +184,13 @@ async function handleSave(req: NextRequest, isUpdate: boolean) {
     return NextResponse.json({ error: "Precio de referencia inválido" }, { status: 400 });
   }
 
-  // Validate against expected production only for chicken eggs (unless override is set)
-  if (species === "gallina" && totalCollected > 0 && !body.overrideValidation) {
-    const expected = await getExpectedDailyProduction();
-    if (expected > 0) {
+  // Las gallinas fuera de las etapas productivas no pueden recibir registro de postura.
+  if (species === "gallina" && totalCollected > 0) {
+    const expected = await getExpectedDailyProduction(body.date, body.locationId);
+    if (expected <= 0) {
+      return NextResponse.json({ error: "Solo se pueden registrar huevos cuando hay gallinas activas en etapa productiva" }, { status: 400 });
+    }
+    if (!body.overrideValidation) {
       const threshold = await getEggValidationThreshold();
       const limit = Math.ceil(expected * threshold);
       if (totalCollected > limit) {
@@ -178,6 +216,7 @@ async function handleSave(req: NextRequest, isUpdate: boolean) {
         date: body.date,
         species,
         batchId: body.batchId || null,
+        locationId: body.locationId,
         totalCollected,
         broken,
         forIncubation,
@@ -248,6 +287,7 @@ async function handleSave(req: NextRequest, isUpdate: boolean) {
       date: body.date,
       species,
       batchId: body.batchId || null,
+      locationId: body.locationId,
       totalCollected,
       broken,
       forIncubation,

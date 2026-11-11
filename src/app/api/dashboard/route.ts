@@ -1,6 +1,6 @@
 import { db } from "@/db";
 import { hens, eggProduction, eggSales, feedInventory, transactions, incubation, maintenance, catalogos, feedPrograms, feedMovements, chickenSales, slaughter, roosters, broilerBatches, manureFactors, mortalityRecords, sanitaryCalendar, supplyInventory, manureSales, meatSales } from "@/db/schema";
-import { eq, sql, desc, and, gte, or } from "drizzle-orm";
+import { eq, sql, desc, and, gte, lte, or } from "drizzle-orm";
 import { NextResponse } from "next/server";
 import { ageInWeeks, stageForAge } from "@/lib/lifecycle";
 import { isHenPresent, summarizeHens } from "@/lib/animal-status";
@@ -16,8 +16,9 @@ export const dynamic = "force-dynamic";
 export const GET = withApiHandler(async () => {
   try {
     const thirtyDaysAgo = new Date();
-    thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+    thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 29);
     const dateStr = thirtyDaysAgo.toISOString().split("T")[0];
+    const todayStr = new Date().toISOString().split("T")[0];
 
     const [
       henStats,
@@ -72,7 +73,7 @@ export const GET = withApiHandler(async () => {
       db.select({
         type: transactions.type,
         total: sql<string>`coalesce(sum(${transactions.amount}), 0)::text`,
-      }).from(transactions).where(gte(transactions.date, dateStr)).groupBy(transactions.type),
+      }).from(transactions).where(and(gte(transactions.date, dateStr), lte(transactions.date, todayStr))).groupBy(transactions.type),
 
       db.select().from(catalogos)
         .where(and(eq(catalogos.category, "etapa_crecimiento"), eq(catalogos.isActive, true)))
@@ -120,20 +121,30 @@ export const GET = withApiHandler(async () => {
       maxWeeks: s.maxWeeks,
     }));
     const hensPerStage = new Map<string, number>();
+    const layingHensPerStage = new Map<string, number>();
     for (const hen of allHens) {
       if (!isHenPresent(hen.status)) continue;
       const stage = stageForAge(stageRangeList, ageInWeeks(hen.birthDate, today));
-      if (stage) hensPerStage.set(stage.id, (hensPerStage.get(stage.id) || 0) + 1);
+      if (stage) {
+        hensPerStage.set(stage.id, (hensPerStage.get(stage.id) || 0) + 1);
+        if (hen.status === "activa") {
+          layingHensPerStage.set(stage.id, (layingHensPerStage.get(stage.id) || 0) + 1);
+        }
+      }
     }
 
     const stageDistribution = stages
       .map((stage) => {
         const count = hensPerStage.get(stage.id) || 0;
+        const layingCount = Number(stage.expectedEggsPerHen || 0) > 0
+          ? (layingHensPerStage.get(stage.id) || 0)
+          : 0;
         const eggsPerHen = Number(stage.expectedEggsPerHen || 0);
         return {
           name: stage.value,
           count,
-          expectedEggsPerDay: Math.round(eggsPerHen * count * 10) / 10,
+          layingCount,
+          expectedEggsPerDay: Math.round(eggsPerHen * layingCount * 10) / 10,
         };
       })
       .filter((stage) => stage.count > 0);

@@ -1,17 +1,23 @@
 import { describe, it, expect, afterEach } from "vitest";
 import { GET as soberaniaGET, POST as soberaniaPOST, DELETE as soberaniaDELETE } from "@/app/api/soberania/route";
-import { POST as lotesPOST, DELETE as lotesDELETE } from "@/app/api/produccion/pollos/route";
+import { POST as adquisicionesPOST } from "@/app/api/produccion/adquisiciones/route";
 import { POST as sacrificioPOST, DELETE as sacrificioDELETE } from "@/app/api/produccion/sacrificio/route";
-import { mockRequest, parseJson, db } from "./helpers";
-import { autoconsumoLogs, broilerBatches, slaughter } from "@/db/schema";
-import { eq } from "drizzle-orm";
+import { mockRequest, parseJson, db, createTestFarmLocation } from "./helpers";
+import { autoconsumoLogs, birdAcquisitions, broilerBatches, slaughter, animalLocationMovements, farmLocations } from "@/db/schema";
+import { eq, inArray, or } from "drizzle-orm";
 
 describe("Soberanía Alimentaria API & Flujos Multiespecie", () => {
   const cleanupBatchIds: string[] = [];
+  const cleanupAcquisitionIds: string[] = [];
   const cleanupSlaughterIds: string[] = [];
   const cleanupLogIds: string[] = [];
+  const cleanupLocationIds: string[] = [];
 
   afterEach(async () => {
+    if (cleanupLocationIds.length) await db.delete(animalLocationMovements).where(or(
+      inArray(animalLocationMovements.fromLocationId, cleanupLocationIds),
+      inArray(animalLocationMovements.toLocationId, cleanupLocationIds),
+    ));
     for (const id of cleanupLogIds) {
       await db.delete(autoconsumoLogs).where(eq(autoconsumoLogs.id, id));
     }
@@ -21,9 +27,15 @@ describe("Soberanía Alimentaria API & Flujos Multiespecie", () => {
     for (const id of cleanupBatchIds) {
       await db.delete(broilerBatches).where(eq(broilerBatches.id, id));
     }
+    for (const id of cleanupAcquisitionIds) {
+      await db.delete(birdAcquisitions).where(eq(birdAcquisitions.id, id));
+    }
+    if (cleanupLocationIds.length) await db.delete(farmLocations).where(inArray(farmLocations.id, cleanupLocationIds));
     cleanupLogIds.length = 0;
+    cleanupLocationIds.length = 0;
     cleanupSlaughterIds.length = 0;
     cleanupBatchIds.length = 0;
+    cleanupAcquisitionIds.length = 0;
   });
 
   it("POST /api/soberania crea un registro manual de autoconsumo y calcula ahorro", async () => {
@@ -60,21 +72,29 @@ describe("Soberanía Alimentaria API & Flujos Multiespecie", () => {
 
   it("POST /api/produccion/sacrificio con destino consumo_propio auto-registra en autoconsumo_logs", async () => {
     const today = new Date().toISOString().split("T")[0];
+    const location = await createTestFarmLocation();
+    cleanupLocationIds.push(location.id);
 
     // 1. Crear lote de patos
-    const loteRes = await lotesPOST(mockRequest("http://localhost/api/produccion/pollos", {
+    const loteRes = await adquisicionesPOST(mockRequest("http://localhost/api/produccion/adquisiciones", {
       method: "POST",
       body: {
-        breed: "Pato Pekín Americano",
-        species: "pato",
-        initialQuantity: 10,
-        targetWeeks: 9,
-        targetWeightKg: "3.2",
+        date: today,
+        acquisitionType: "donacion",
+        birdType: "pato",
+        quantity: 10,
+        breed: "Pato Pekín",
+        birthDate: today,
+        purpose: "engorde_carne",
+        destinationLocationId: location.id,
       },
     }));
     expect(loteRes.status).toBe(201);
-    const lote = await parseJson(loteRes);
-    cleanupBatchIds.push(lote.id);
+    const acquisition = await parseJson(loteRes);
+    cleanupAcquisitionIds.push(acquisition.id);
+    const loteId = acquisition.createdBirdIds[0] as string;
+    cleanupBatchIds.push(loteId);
+    const [lote] = await db.select().from(broilerBatches).where(eq(broilerBatches.id, loteId));
     expect(lote.code).toMatch(/^L-PAT-\d+$/);
 
     // 2. Registrar faena para consumo propio
@@ -90,7 +110,8 @@ describe("Soberanía Alimentaria API & Flujos Multiespecie", () => {
         headsAutoconsumo: 2,
         weightKgAutoconsumo: "4.5",
         marketReferencePricePerKg: "24000",
-        batchId: lote.id,
+        batchId: loteId,
+        locationId: location.id,
         notes: "2 patos para la cena de fin de mes",
       },
     }));

@@ -5,6 +5,7 @@ import { getAgentConfig, type AgentConfig } from "./config";
 import { callLlm, type LlmMessage, type LlmToolCall } from "./llm";
 import { InternalApiClient, resolveInternalBaseUrl } from "./internal-api";
 import { buildSystemPrompt } from "./prompt";
+import { isJevRoutingEnabled, routeAgentTools } from "./jev-routing";
 import {
   getAgentTool,
   llmToolDefinitions,
@@ -533,7 +534,8 @@ export async function runAgentTurn(input: AgentTurnInput): Promise<AgentTurnResu
   const history = toLlmHistory(historyRows.reverse());
   const systemPrompt = await buildSystemPrompt(input.userName);
   const llmMessages: LlmMessage[] = [{ role: "system", content: systemPrompt }, ...history];
-  const tools = llmToolDefinitions();
+  const routing = await routeAgentTools(text, llmToolDefinitions());
+  const tools = routing.tools;
   const ctx = makeContext(input);
 
   let reply = "";
@@ -687,5 +689,6 @@ export function agentStatus(config: AgentConfig | null) {
     configured: Boolean(config),
     model: config?.model || null,
     baseUrl: config?.baseUrl || null,
+    jevRouting: isJevRoutingEnabled(),
   };
 }

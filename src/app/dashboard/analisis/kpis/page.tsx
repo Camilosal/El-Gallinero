@@ -15,6 +15,8 @@ interface KpiData {
   laying: {
     rate: number;
     totalEggs: number;
+    eligibleEggs: number;
+    eligibleAnimals: number;
     avgDaily: number;
     series: { date: string; total: number }[];
   };
@@ -22,6 +24,7 @@ interface KpiData {
     perEgg: number;
     perKgMeat: number;
     totalExpenses: number;
+    saleableMeatKg: number;
   };
   flock: {
     avgAgeWeeks: number;
@@ -30,16 +33,6 @@ interface KpiData {
   };
   expenseByCategory: { category: string; total: string }[];
   periodDays: number;
-  costMetrics: {
-    costoPorAve: number;
-    costoPorDocena: number;
-    costoPorHuevo: number;
-    costoPorKgCarne: number;
-    totalExpenses: number;
-    totalBirds: number;
-    totalEggs: number;
-    dozens: number;
-  };
   peakProduction: {
     peakWeek: string | null;
     peakDate: string | null;
@@ -98,7 +91,7 @@ export default function KpisPage() {
       <PageHeader
         title="📊 Indicadores Clave (KPIs)"
         description="Métricas de productividad, mortalidad, postura y costos"
-        help="Panel de indicadores clave de rendimiento. Muestra tasa de postura (huevos/gallina/día), mortalidad, costo por unidad producida, edad promedio de la parvada y ratio productivo. Puedes filtrar por período (7, 30, 90 días o todo). Los gráficos de series históricas te permiten ver la evolución temporal. Ideal para tomar decisiones basadas en datos."
+        help="La tasa de postura cuenta huevos asociados a gallinas en edad y estado de postura, y a lotes maduros marcados para postura. El costo por huevo estima alimento de esa población. El costo por kg de carne estima adquisición y alimento para la carne destinada a venta; excluye autoconsumo. Los egresos se muestran aparte como total financiero del período."
         actions={
           <Select value={period} onChange={(e) => setPeriod(e.target.value)}>
             <option value="7">Últimos 7 días</option>
@@ -128,28 +121,21 @@ export default function KpisPage() {
           <h2 className="text-lg font-bold text-slate-700">🥚 Postura</h2>
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
             <StatCard icon="📈" label="Tasa de postura" value={`${data.laying.rate}%`} color="green" />
-            <StatCard icon="🥚" label="Total huevos" value={String(data.laying.totalEggs)} color="yellow" />
-            <StatCard icon="📅" label="Promedio diario" value={String(data.laying.avgDaily)} color="blue" />
-            <StatCard icon="🐾" label="Animales en parvada" value={String(data.mortality.totalFlock)} color="earth" />
+            <StatCard icon="🥚" label="Huevos elegibles" value={String(data.laying.eligibleEggs)} color="yellow" />
+            <StatCard icon="📊" label="Huevos registrados" value={String(data.laying.totalEggs)} color="blue" />
+            <StatCard icon="🐔" label="Animales aptos para postura" value={String(data.laying.eligibleAnimals)} color="earth" />
           </div>
+          <p className="-mt-3 text-xs text-slate-500">Solo cuenta gallinas activas en edad de postura y lotes maduros de codornices o patos marcados para postura; registra en esos lotes únicamente las hembras ponedoras. Para el período se supone que la población apta actual estuvo presente todos los días.</p>
 
           {/* Cost KPIs */}
           <h2 className="text-lg font-bold text-slate-700">💰 Costos</h2>
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-            <StatCard icon="🥚" label="Costo por huevo" value={`$${data.costPerUnit.perEgg.toFixed(0)}`} color="green" />
-            <StatCard icon="🍗" label="Costo por kg carne" value={`$${data.costPerUnit.perKgMeat.toFixed(0)}`} color="red" />
+            <StatCard icon="🥚" label="Alimento estimado / huevo" value={data.laying.eligibleEggs > 0 ? fmt(data.costPerUnit.perEgg) : "—"} color="green" />
+            <StatCard icon="🍗" label="Costo estimado / kg vendible" value={data.costPerUnit.saleableMeatKg > 0 ? fmt(data.costPerUnit.perKgMeat) : "—"} color="red" />
             <StatCard icon="💸" label="Total egresos" value={fmt(data.costPerUnit.totalExpenses)} color="purple" />
             <StatCard icon="📊" label="Días en período" value={String(data.periodDays)} color="blue" />
           </div>
-
-          {/* Enhanced Cost Metrics */}
-          <h2 className="text-lg font-bold text-slate-700">💲 Costos Unitarios Detallados</h2>
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-            <StatCard icon="🐔" label="Costo por ave" value={`$${data.costMetrics.costoPorAve.toFixed(0)}`} color="blue" />
-            <StatCard icon="🥚" label="Costo por docena" value={`$${data.costMetrics.costoPorDocena.toFixed(0)}`} color="yellow" />
-            <StatCard icon="🥚" label="Costo por huevo" value={`$${data.costMetrics.costoPorHuevo.toFixed(0)}`} color="green" />
-            <StatCard icon="🍗" label="Costo por kg carne" value={`$${data.costMetrics.costoPorKgCarne.toFixed(0)}`} color="red" />
-          </div>
+          <p className="-mt-3 text-xs text-slate-500">Los costos unitarios son estimaciones con costos de adquisición registrados y parámetros estándar de alimento. Los egresos no se reparten entre huevos y carne.</p>
 
           {/* Peak Production */}
           {data.peakProduction.peakWeek && (
@@ -193,7 +179,7 @@ export default function KpisPage() {
 
             {layingSeries.length > 0 && (
               <Card>
-                <h3 className="font-semibold text-slate-700 mb-4">🥚 Producción Diaria de Huevos</h3>
+                <h3 className="font-semibold text-slate-700 mb-4">🥚 Huevos diarios de población apta</h3>
                 <ResponsiveContainer width="100%" height={280}>
                   <AreaChart data={layingSeries}>
                     <defs>

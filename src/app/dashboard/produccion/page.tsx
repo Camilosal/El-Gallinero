@@ -5,8 +5,7 @@ import { useSearchParams, useRouter } from "next/navigation";
 import { Suspense, lazy, useEffect, useState } from "react";
 import { apiFetch } from "@/lib/fetch";
 
-const GallinasTab = lazy(() => import("./_components/GallinasTab"));
-const PollosTab = lazy(() => import("./_components/PollosTab"));
+const AnimalesTab = lazy(() => import("./_components/AnimalesTab"));
 const AlimentacionTab = lazy(() => import("./_components/AlimentacionTab"));
 const HuevosTab = lazy(() => import("./_components/HuevosTab"));
 const IncubacionTab = lazy(() => import("./_components/IncubacionTab"));
@@ -14,8 +13,14 @@ const CarneTab = lazy(() => import("./_components/CarneTab"));
 const GallinazaTab = lazy(() => import("./_components/GallinazaTab"));
 
 const tabComponents: Record<string, React.ComponentType> = {
-  gallinas: GallinasTab,
-  pollos: PollosTab,
+  animales: AnimalesTab,
+  gallinas: AnimalesTab,
+  gallos: AnimalesTab,
+  pollos: AnimalesTab,
+  codornices: AnimalesTab,
+  patos: AnimalesTab,
+  conejos: AnimalesTab,
+  lotes: AnimalesTab,
   alimentacion: AlimentacionTab,
   huevos: HuevosTab,
   incubacion: IncubacionTab,

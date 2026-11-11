@@ -63,10 +63,25 @@ const sourceColors: Record<AnimalGroup["source"], "green" | "red" | "blue"> = {
   batch: "blue",
 };
 
+const animalFilters = [
+  { id: "gallina", label: "Gallinas", icon: "🐔" },
+  { id: "gallo", label: "Gallos", icon: "🐓" },
+  { id: "pollo", label: "Lotes de pollos", icon: "🐤" },
+  { id: "codorniz", label: "Lotes de codornices", icon: "🥚" },
+  { id: "pato", label: "Lotes de patos", icon: "🦆" },
+  { id: "conejo", label: "Lotes de conejos", icon: "🐇" },
+];
+
+function groupMatchesAnimalFilter(group: AnimalGroup, filter: string): boolean {
+  if (filter === "all") return true;
+  if (filter === "gallina") return group.source === "hen";
+  if (filter === "gallo") return group.source === "rooster";
+  return group.source === "batch" && group.species === filter;
+}
+
 const quickLinks = [
-  { href: "/dashboard/produccion?tab=gallinas", label: "Gallinas", icon: "🐔", desc: "Registro individual y postura" },
-  { href: "/dashboard/produccion?tab=pollos", label: "Gallos y lotes", icon: "🐓", desc: "Reproductores y lotes multiespecie" },
-  { href: "/dashboard/produccion/adquisiciones", label: "Adquisiciones", icon: "📥", desc: "Compras, donaciones y entradas" },
+  { href: "/dashboard/produccion/adquisiciones", label: "Adquisiciones", icon: "📥", desc: "Origen y destino de nuevas entradas" },
+  { href: "/dashboard/produccion?tab=animales", label: "Gestión de Animales", icon: "🐾", desc: "Gallinas, gallos y lotes separados por especie" },
   { href: "/dashboard/produccion/mortalidad", label: "Mortalidad", icon: "💀", desc: "Bajas y causas por lote" },
   { href: "/dashboard/produccion?tab=incubacion", label: "Incubación", icon: "🐣", desc: "Nacimientos y fertilidad" },
 ];
@@ -78,6 +93,7 @@ export default function AnimalesPage() {
   const [data, setData] = useState<AnimalInventory | null>(null);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
+  const [speciesFilter, setSpeciesFilter] = useState("all");
 
   useEffect(() => {
     let cancelled = false;
@@ -97,7 +113,7 @@ export default function AnimalesPage() {
   }, []);
 
   const groups = useMemo(() => {
-    const list = data?.groups ?? [];
+    const list = (data?.groups ?? []).filter((group) => groupMatchesAnimalFilter(group, speciesFilter));
     if (!search.trim()) return list;
     return list.filter((group) =>
       matchesTextQuery(search, [
@@ -111,7 +127,7 @@ export default function AnimalesPage() {
         group.estimatedValue,
       ]),
     );
-  }, [data, search]);
+  }, [data, search, speciesFilter]);
 
   const visibleSpecies = (data?.species ?? []).filter((species) => species.count > 0);
   const inventoryValue = data?.summary.totalValue ?? 0;
@@ -119,28 +135,16 @@ export default function AnimalesPage() {
   return (
     <div>
       <PageHeader
-        title="🐾 Animales"
-        description="Inventario y registro unificado de gallinas, gallos, pollos, codornices, patos y conejos."
-        help="Aquí ves todos los animales que hoy están en la granja, sin importar la especie ni si están en un lote. El inventario incluye únicamente animales no vendidos, faenados ni muertos. El valor se calcula con el peso real o el peso objetivo y los precios de Catálogos.\n\n• Gallinas: registro individual, estado y postura.\n• Gallos y lotes: reproductores y lotes de crianza o engorde multiespecie.\n• Adquisiciones: compras, donaciones y entradas de animales.\n• Mortalidad: bajas y causas.\n• Incubación: nacimientos y fertilidad."
+        title="🐾 Inventario de Animales"
+        description="Inventario y seguimiento unificado de gallinas, gallos, pollos, codornices, patos y conejos."
+        help="Aquí ves los animales que están en la granja, separados por especie en los filtros. Para registrar una entrada nueva, empieza por Adquisiciones: ahí indicas el tipo, su raza asociada y el origen. El inventario incluye únicamente animales no vendidos, faenados ni muertos."
         actions={
           <div className="flex flex-wrap gap-2">
             <Link
-              href="/dashboard/produccion?tab=gallinas"
+              href="/dashboard/produccion/adquisiciones"
               className="rounded-lg bg-green-600 px-3 py-2 text-sm font-medium text-white transition-colors hover:bg-green-700"
             >
-              + Gallina
-            </Link>
-            <Link
-              href="/dashboard/produccion?tab=pollos"
-              className="rounded-lg bg-blue-600 px-3 py-2 text-sm font-medium text-white transition-colors hover:bg-blue-700"
-            >
-              + Lote / Gallo
-            </Link>
-            <Link
-              href="/dashboard/produccion/adquisiciones"
-              className="rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm font-medium text-slate-700 transition-colors hover:bg-slate-50"
-            >
-              Registrar adquisición
+              + Registrar ingreso
             </Link>
           </div>
         }
@@ -186,7 +190,7 @@ export default function AnimalesPage() {
             </div>
           </Card>
 
-          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-5">
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
             {quickLinks.map((link) => (
               <Link
                 key={link.href}
@@ -227,7 +231,7 @@ export default function AnimalesPage() {
               <div>
                 <h2 className="text-lg font-semibold text-slate-800">Registro unificado</h2>
                 <p className="text-sm text-slate-500">
-                  Gallinas y gallos individuales, más los lotes multiespecie, en una sola lista.
+                  Gallinas y gallos individuales, con lotes agrupados y filtrables por especie.
                 </p>
               </div>
               <span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-medium text-slate-600">
@@ -240,9 +244,35 @@ export default function AnimalesPage() {
               onChange={setSearch}
               placeholder="Buscar por código, especie, origen o valor..."
               resultCount={groups.length}
-              totalCount={data.groups.length}
+              totalCount={data.groups.filter((group) => groupMatchesAnimalFilter(group, speciesFilter)).length}
               className="mb-4"
             />
+
+            <div className="mb-4 flex flex-wrap gap-2" aria-label="Filtrar inventario por tipo de animal">
+              <button
+                type="button"
+                aria-pressed={speciesFilter === "all"}
+                onClick={() => setSpeciesFilter("all")}
+                className={`rounded-full px-3 py-1.5 text-xs font-medium ${speciesFilter === "all" ? "bg-green-700 text-white" : "bg-slate-100 text-slate-600 hover:bg-slate-200"}`}
+              >
+                Todos ({data.summary.totalAnimals})
+              </button>
+              {animalFilters.map((filter) => {
+                const count = data.groups.filter((group) => groupMatchesAnimalFilter(group, filter.id)).reduce((sum, group) => sum + group.count, 0);
+                if (count === 0) return null;
+                return (
+                <button
+                  key={filter.id}
+                  type="button"
+                  aria-pressed={speciesFilter === filter.id}
+                  onClick={() => setSpeciesFilter(filter.id)}
+                  className={`rounded-full px-3 py-1.5 text-xs font-medium ${speciesFilter === filter.id ? "bg-green-700 text-white" : "bg-slate-100 text-slate-600 hover:bg-slate-200"}`}
+                >
+                  {filter.icon} {filter.label} ({count})
+                </button>
+                );
+              })}
+            </div>
 
             {groups.length === 0 ? (
               <EmptyState
@@ -250,7 +280,7 @@ export default function AnimalesPage() {
                 message={
                   search.trim()
                     ? "No hay animales que coincidan con la búsqueda"
-                    : "No hay animales en inventario"
+                    : speciesFilter !== "all" ? "No hay animales de esta especie en inventario" : "No hay animales en inventario"
                 }
               />
             ) : (
