@@ -77,8 +77,11 @@ interface Alert {
 }
 
 interface TareasPendientes {
+  eggApplicable: boolean;
   eggCollectedToday: boolean;
+  feedApplicable: boolean;
   feedMovedToday: boolean;
+  setup: { locationsConfigured: boolean; animalsRegistered: boolean; feedConfigured: boolean; sanitaryConfigured: boolean };
   pendingSanitary: { id: string; name: string; type: string; dueDate: string; isOverdue: boolean } | null;
   maintenanceDue: { id: string; title: string; scheduledDate: string; locationName: string | null; assetName: string | null; isOverdue: boolean }[];
   maintenanceDueCount: number;
@@ -132,6 +135,18 @@ export default function Dashboard() {
   if (!data) {
     return <p className="text-red-500">Error cargando datos</p>;
   }
+
+  const dailyChecklistPending = Boolean(tareas && (
+    (tareas.eggApplicable && !tareas.eggCollectedToday)
+    || (tareas.feedApplicable && !tareas.feedMovedToday)
+    || tareas.pendingSanitary || tareas.maintenanceDue.length > 0 || tareas.assetsNeedAttention > 0
+  ));
+  const setupSteps = tareas ? [
+    { done: tareas.setup.locationsConfigured, title: "Define los lugares de manejo", description: "Crea corrales, galpones, jaulas o potreros.", href: "/dashboard/ubicaciones", icon: "📍" },
+    { done: tareas.setup.animalsRegistered, title: "Registra el primer ingreso", description: "Deja documentados especie, origen y destino.", href: "/dashboard/produccion/adquisiciones", icon: "🐾" },
+    { done: tareas.setup.feedConfigured, title: "Prepara el inventario de alimento", description: "Agrega los alimentos que usas en la finca.", href: "/dashboard/produccion?tab=alimentacion&subtab=inventario&nuevo=alimento", icon: "🌾" },
+    { done: tareas.setup.sanitaryConfigured, title: "Programa el manejo sanitario", description: "Crea controles y recordatorios futuros.", href: "/dashboard/sanidad/calendario?nuevo=evento", icon: "💊" },
+  ].filter((step) => !step.done) : [];
 
   // ─── Build actionable alerts ───
   const alerts: Alert[] = [];
@@ -276,33 +291,55 @@ export default function Dashboard() {
             </a>
           ))}
         </div>
-      ) : (
+      ) : tareas && !dailyChecklistPending ? (
         <div className="mb-6 p-6 bg-green-50 border border-green-200 rounded-xl text-center">
           <p className="text-3xl mb-2">✅</p>
-          <p className="text-green-700 font-medium">Todo en orden hoy</p>
-          <p className="text-green-600 text-sm mt-1">No hay alertas pendientes</p>
+          <p className="text-green-700 font-medium">Sin alertas operativas para atender hoy</p>
+          <p className="text-green-600 text-sm mt-1">Las tareas de postura y alimentación solo aparecen cuando aplican a tus animales y programas.</p>
         </div>
+      ) : null}
+
+      {setupSteps.length > 0 && (
+        <section className="mb-6 rounded-xl border border-blue-200 bg-blue-50 p-5" aria-labelledby="setup-title">
+          <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
+            <div>
+              <h2 id="setup-title" className="font-semibold text-blue-950">Prepara tu granja</h2>
+              <p className="mt-1 text-sm text-blue-800">Sigue estos pasos para dejar listos los registros básicos.</p>
+            </div>
+            <span className="text-xs font-medium text-blue-700">{4 - setupSteps.length} de 4 pasos listos</span>
+          </div>
+          <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-4">
+            {setupSteps.map((step) => (
+              <a key={step.title} href={step.href} className="rounded-lg border border-blue-200 bg-white p-3 transition hover:border-blue-400 hover:bg-blue-50">
+                <span className="text-xl" aria-hidden="true">{step.icon}</span>
+                <span className="mt-2 block text-xs font-semibold uppercase tracking-wide text-blue-600">Siguiente paso</span>
+                <span className="mt-1 block text-sm font-semibold text-slate-800">{step.title}</span>
+                <span className="mt-1 block text-xs text-slate-500">{step.description}</span>
+              </a>
+            ))}
+          </div>
+        </section>
       )}
 
       {/* ─── 2. Daily Check-ins ─── */}
-      {tareas && (!tareas.eggCollectedToday || !tareas.feedMovedToday || tareas.pendingSanitary || tareas.maintenanceDue.length > 0 || tareas.assetsNeedAttention > 0) && (
+      {tareas && ((tareas.eggApplicable && !tareas.eggCollectedToday) || (tareas.feedApplicable && !tareas.feedMovedToday) || tareas.pendingSanitary || tareas.maintenanceDue.length > 0 || tareas.assetsNeedAttention > 0) && (
         <div className="mb-6">
           <h2 className="text-sm font-semibold text-slate-500 uppercase tracking-wide mb-3">Pendientes y próximos 7 días</h2>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-            {!tareas.eggCollectedToday && (
+            {tareas.eggApplicable && !tareas.eggCollectedToday && (
               <div className="flex items-center gap-3 p-4 bg-yellow-50 border border-yellow-200 rounded-xl">
                 <span className="text-2xl">🥚</span>
                 <span className="flex-1 text-sm font-medium text-yellow-700">¿Ya recogiste huevos hoy?</span>
-                <a href="/dashboard/produccion?tab=huevos" className="px-3 py-1.5 bg-yellow-600 text-white text-xs font-medium rounded-lg hover:bg-yellow-700">
+                <a href="/dashboard/produccion?tab=huevos&nuevo=1" className="px-3 py-1.5 bg-yellow-600 text-white text-xs font-medium rounded-lg hover:bg-yellow-700">
                   Recoger ahora
                 </a>
               </div>
             )}
-            {!tareas.feedMovedToday && (
+            {tareas.feedApplicable && !tareas.feedMovedToday && (
               <div className="flex items-center gap-3 p-4 bg-amber-50 border border-amber-200 rounded-xl">
                 <span className="text-2xl">🌾</span>
                 <span className="flex-1 text-sm font-medium text-amber-700">No hay registro de alimentación hoy</span>
-                <a href="/dashboard/produccion?tab=alimentacion" className="px-3 py-1.5 bg-amber-600 text-white text-xs font-medium rounded-lg hover:bg-amber-700">
+                <a href="/dashboard/produccion?tab=alimentacion&subtab=movimientos&nuevo=movimiento" className="px-3 py-1.5 bg-amber-600 text-white text-xs font-medium rounded-lg hover:bg-amber-700">
                   Ver alimentación
                 </a>
               </div>
@@ -348,16 +385,16 @@ export default function Dashboard() {
       <div className="mb-6">
         <h2 className="text-sm font-semibold text-slate-500 uppercase tracking-wide mb-3">Tareas del día</h2>
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-          <a
-            href="/dashboard/produccion?tab=huevos"
+          {(!tareas || tareas.eggApplicable) && <a
+            href="/dashboard/produccion?tab=huevos&nuevo=1"
             className="flex flex-col items-center gap-3 p-6 bg-yellow-50 border-2 border-yellow-200 rounded-2xl hover:bg-yellow-100 hover:border-yellow-300 transition-all"
           >
             <span className="text-4xl">🥚</span>
             <span className="text-sm font-semibold text-yellow-800 text-center">Recoger Huevos</span>
             <span className="text-xs text-yellow-600">{data.eggs.avgDaily} prom/día</span>
-          </a>
-          <a
-            href="/dashboard/produccion?tab=alimentacion"
+          </a>}
+          {(!tareas || tareas.feedApplicable) && <a
+            href="/dashboard/produccion?tab=alimentacion&subtab=movimientos&nuevo=movimiento"
             className="flex flex-col items-center gap-3 p-6 bg-amber-50 border-2 border-amber-200 rounded-2xl hover:bg-amber-100 hover:border-amber-300 transition-all"
           >
             <span className="text-4xl">🌾</span>
@@ -365,7 +402,7 @@ export default function Dashboard() {
             <span className="text-xs text-amber-600">
               {minFeedDays === Infinity ? "Stock OK" : `${minFeedDays} días de stock`}
             </span>
-          </a>
+          </a>}
           <a
             href="#"
             onClick={(e) => { e.preventDefault(); setQuickSaleOpen(true); }}

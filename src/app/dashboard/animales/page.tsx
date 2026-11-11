@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { PageHeader, Card, StatCard, Table, Badge, EmptyState } from "@/components/ui";
 import TableSearch from "@/components/TableSearch";
@@ -20,8 +20,20 @@ interface AnimalGroup {
   estimatedValue: number;
   weightEstimated: boolean;
   source: "hen" | "rooster" | "batch";
+  locationName: string | null;
   detail?: string | null;
 }
+
+interface UnassignedAnimal {
+  id: string;
+  code: string;
+  status: string;
+  animalType: "gallina" | "gallo" | "lote";
+  species: string;
+  quantity: number;
+}
+
+interface AssignmentLocation { id: string; name: string; status: string; operationalStatus: string; }
 
 interface AnimalSpecies {
   species: string;
@@ -94,23 +106,57 @@ export default function AnimalesPage() {
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [speciesFilter, setSpeciesFilter] = useState("all");
+  const [unassignedAnimals, setUnassignedAnimals] = useState<UnassignedAnimal[]>([]);
+  const [locations, setLocations] = useState<AssignmentLocation[]>([]);
+  const [targetByAnimal, setTargetByAnimal] = useState<Record<string, string>>({});
+  const [assigningId, setAssigningId] = useState("");
+  const [assignmentError, setAssignmentError] = useState("");
+
+  const loadInventory = useCallback(async () => {
+    try {
+      const [inventoryResult, queueResult, locationResult] = await Promise.allSettled([
+        apiFetch("/api/inventarios/animales"), apiFetch("/api/ubicaciones/sin-asignar"), apiFetch("/api/ubicaciones"),
+      ]);
+      if (inventoryResult.status === "fulfilled" && inventoryResult.value.ok) setData(await inventoryResult.value.json());
+      if (queueResult.status === "fulfilled" && queueResult.value.ok) setUnassignedAnimals(await queueResult.value.json());
+      if (locationResult.status === "fulfilled" && locationResult.value.ok) setLocations(await locationResult.value.json());
+    } finally {
+      setLoading(false);
+    }
+  }, []);
 
   useEffect(() => {
-    let cancelled = false;
-    apiFetch("/api/inventarios/animales")
-      .then((response) => (response.ok ? response.json() : null))
-      .then((result) => {
-        if (!cancelled) setData(result);
-      })
-      .catch(console.error)
-      .finally(() => {
-        if (!cancelled) setLoading(false);
-      });
+    const frame = requestAnimationFrame(() => { void loadInventory().catch(console.error); });
+    return () => cancelAnimationFrame(frame);
+  }, [loadInventory]);
 
-    return () => {
-      cancelled = true;
-    };
-  }, []);
+  const assignLocation = async (animal: UnassignedAnimal) => {
+    const toLocationId = targetByAnimal[animal.id];
+    if (!toLocationId) return setAssignmentError("Elige un lugar de destino para cada registro.");
+    setAssignmentError("");
+    setAssigningId(animal.id);
+    try {
+      const response = await apiFetch("/api/ubicaciones/movimientos", {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          animalType: animal.animalType, animalId: animal.id, toLocationId,
+          date: new Intl.DateTimeFormat("en-CA", { timeZone: "America/Bogota", year: "numeric", month: "2-digit", day: "2-digit" }).format(new Date()),
+          reason: "Asignación de ubicación pendiente",
+        }),
+      });
+      if (!response.ok) {
+        const result = await response.json().catch(() => ({}));
+        setAssignmentError(result.error || "No se pudo asignar el lugar.");
+        return;
+      }
+      setTargetByAnimal((current) => { const next = { ...current }; delete next[animal.id]; return next; });
+      await loadInventory();
+    } catch {
+      setAssignmentError("No se pudo conectar para asignar el lugar.");
+    } finally {
+      setAssigningId("");
+    }
+  };
 
   const groups = useMemo(() => {
     const list = (data?.groups ?? []).filter((group) => groupMatchesAnimalFilter(group, speciesFilter));
@@ -226,6 +272,31 @@ export default function AnimalesPage() {
             </div>
           )}
 
+          {unassignedAnimals.length > 0 && (
+            <Card className="border-amber-200 bg-amber-50/60">
+              <div className="mb-3 flex flex-wrap items-start justify-between gap-2">
+                <div>
+                  <h2 className="text-lg font-semibold text-amber-950">Pendientes de asignar lugar</h2>
+                  <p className="mt-1 text-sm text-amber-800">{unassignedAnimals.reduce((sum, animal) => sum + animal.quantity, 0)} animales activos no tienen una ubicación actual registrada. Asignarlos conserva el historial de traslado.</p>
+                </div>
+                {locations.length === 0 && <Link href="/dashboard/ubicaciones" className="rounded-lg bg-amber-700 px-3 py-2 text-sm font-semibold text-white">Crear un lugar</Link>}
+              </div>
+              {assignmentError && <p role="alert" className="mb-3 rounded-lg bg-red-50 p-3 text-sm text-red-700">{assignmentError}</p>}
+              <div className="space-y-2">
+                {unassignedAnimals.map((animal) => (
+                  <div key={animal.id} className="grid gap-2 rounded-lg border border-amber-200 bg-white p-3 sm:grid-cols-[1fr_1fr_auto] sm:items-center">
+                    <div><strong className="text-sm text-slate-800">{animal.code}</strong><p className="text-xs text-slate-500">{animal.species} · {animal.quantity} · {animal.status}</p></div>
+                    <select aria-label={`Lugar de ${animal.code}`} value={targetByAnimal[animal.id] || ""} onChange={(event) => setTargetByAnimal((current) => ({ ...current, [animal.id]: event.target.value }))} className="rounded-lg border border-slate-300 px-3 py-2 text-sm">
+                      <option value="">Selecciona un lugar…</option>
+                      {locations.filter((location) => location.status === "activa" && !["fuera_servicio", "restringida"].includes(location.operationalStatus)).map((location) => <option key={location.id} value={location.id}>{location.name}</option>)}
+                    </select>
+                    <button type="button" disabled={assigningId === animal.id || locations.length === 0} onClick={() => void assignLocation(animal)} className="rounded-lg bg-green-700 px-3 py-2 text-sm font-semibold text-white disabled:opacity-50">{assigningId === animal.id ? "Guardando…" : "Asignar lugar"}</button>
+                  </div>
+                ))}
+              </div>
+            </Card>
+          )}
+
           <Card>
             <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
               <div>
@@ -289,6 +360,7 @@ export default function AnimalesPage() {
                   "Grupo",
                   "Especie",
                   "Origen",
+                  "Lugar actual",
                   "Cantidad",
                   "Peso prom.",
                   "Peso total",
@@ -307,6 +379,7 @@ export default function AnimalesPage() {
                     <td className="px-4 py-3">
                       <Badge color={sourceColors[group.source]}>{sourceLabels[group.source]}</Badge>
                     </td>
+                    <td className="px-4 py-3 text-sm">{group.locationName || <span className="font-medium text-amber-700">Sin lugar asignado</span>}</td>
                     <td className="px-4 py-3 font-semibold">{group.count}</td>
                     <td className="px-4 py-3 text-sm">
                       {fmtKg(group.avgWeightKg)}

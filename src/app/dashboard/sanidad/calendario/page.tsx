@@ -5,6 +5,8 @@ import { PageHeader, Button, Card, Table, Badge, Modal, Input, Select, Textarea,
 import { apiFetch } from "@/lib/fetch";
 import TableSearch from "@/components/TableSearch";
 import { matchesTextQuery } from "@/lib/text";
+import { useSearchParams } from "next/navigation";
+import { useActionQuery } from "@/lib/useActionQuery";
 
 interface SanitaryEvent {
   id: string;
@@ -33,6 +35,7 @@ const TYPE_LABELS: Record<string, string> = {
 };
 
 export default function CalendarioSanitarioPage() {
+  const searchParams = useSearchParams();
   const [events, setEvents] = useState<SanitaryEvent[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
@@ -58,6 +61,9 @@ export default function CalendarioSanitarioPage() {
   }, []);
 
   useEffect(() => { void Promise.resolve().then(load); }, [load]);
+  useActionQuery(searchParams.get("nuevo"), {
+    evento: () => { setEditingId(null); setForm({ type: eventTypes[0], name: "", description: "", targetBirds: "todas", frequencyDays: "", nextDueDate: new Date().toISOString().split("T")[0], withdrawalDays: "" }); setError(""); setModalOpen(true); },
+  });
 
   const overdueEvents = events.filter((e) => e.isOverdue);
   const dueSoonEvents = events.filter((e) => e.isDueSoon);

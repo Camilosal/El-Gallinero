@@ -8,6 +8,8 @@ import TableSearch from "@/components/TableSearch";
 import { matchesTextQuery } from "@/lib/text";
 import { useFarmLocations } from "@/lib/useFarmLocations";
 import Link from "next/link";
+import { useSearchParams } from "next/navigation";
+import { useActionQuery } from "@/lib/useActionQuery";
 
 type MortalityRecord = {
   id: string;
@@ -60,6 +62,7 @@ const emptyForm = { date: new Date().toISOString().split("T")[0], birdType: "gal
 const emptyLoss = { date: new Date().toISOString().split("T")[0], quantity: "1", size: "", reason: "roto", notes: "" };
 
 export default function MortalidadPage() {
+  const searchParams = useSearchParams();
   const [records, setRecords] = useState<MortalityRecord[]>([]);
   const [losses, setLosses] = useState<EggLoss[]>([]);
   const [loading, setLoading] = useState(true);
@@ -108,6 +111,10 @@ export default function MortalidadPage() {
   }, []);
 
   useEffect(() => { void Promise.resolve().then(load); }, [load]);
+  useActionQuery(searchParams.get("nuevo"), {
+    perdida: () => { setLossForm(emptyLoss); setLossError(""); setLossModalOpen(true); },
+    "1": () => { setForm(emptyForm); setError(""); setEditingId(null); setModalOpen(true); },
+  });
 
   const save = async () => {
     setError("");

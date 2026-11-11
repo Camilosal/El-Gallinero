@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState, useCallback, useMemo } from "react";
-import { useSearchParams } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { PageHeader, Button, Card, Table, Badge, Modal, Input, Select, Textarea, EmptyState, StatCard } from "@/components/ui";
 import { useCatalog } from "@/lib/useCatalog";
 import { apiFetch } from "@/lib/fetch";
@@ -9,6 +9,7 @@ import TableSearch from "@/components/TableSearch";
 import { matchesTextQuery } from "@/lib/text";
 import { BarChart, Bar, Cell, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from "recharts";
 import FarmLocationSelect from "@/components/FarmLocationSelect";
+import { useActionQuery } from "@/lib/useActionQuery";
 
 interface Feed {
   id: string;
@@ -176,7 +177,10 @@ const stageColors: Record<string, string> = {
 
 export default function AlimentacionPage() {
   const searchParams = useSearchParams();
+  const router = useRouter();
   const requestedTab = searchParams.get("subtab");
+  const feedingTabs = ["inventario", "movimientos", "etapas", "comparativo", "prediccion"] as const;
+  const tab = feedingTabs.includes(requestedTab as (typeof feedingTabs)[number]) ? requestedTab as (typeof feedingTabs)[number] : "inventario";
   const [feeds, setFeeds] = useState<Feed[]>([]);
   const [movements, setMovements] = useState<Movement[]>([]);
   const [stages, setStages] = useState<Stage[]>([]);
@@ -184,9 +188,6 @@ export default function AlimentacionPage() {
   const [dailyData, setDailyData] = useState<DailyData[]>([]);
   const [comparativoDays, setComparativoDays] = useState<number>(14);
   const [loading, setLoading] = useState(true);
-  const [tab, setTab] = useState<"inventario" | "movimientos" | "etapas" | "comparativo" | "prediccion">(() =>
-    requestedTab === "movimientos" || requestedTab === "etapas" ? requestedTab : "inventario",
-  );
   const [modalOpen, setModalOpen] = useState(false);
   const [movModalOpen, setMovModalOpen] = useState(false);
   const [programModalOpen, setProgramModalOpen] = useState(false);
@@ -338,6 +339,34 @@ export default function AlimentacionPage() {
     });
     setNewPlanModalOpen(true);
   };
+
+  const selectTab = (nextTab: (typeof feedingTabs)[number]) => {
+    const params = new URLSearchParams(searchParams.toString());
+    params.set("tab", "alimentacion");
+    params.set("subtab", nextTab);
+    params.delete("nuevo");
+    router.replace(`/dashboard/produccion?${params.toString()}`, { scroll: false });
+  };
+  useActionQuery(searchParams.get("nuevo"), {
+    alimento: () => {
+      selectTab("inventario");
+      setEditing(null);
+      setForm({ name: "", category: "granja_fresco", feedType: "pastos_gramineas", unit: "kg", currentStock: "0", minStock: "10", costPerUnit: "0", supplier: "" });
+      setModalOpen(true);
+    },
+    movimiento: () => {
+      selectTab("movimientos");
+      setMovForm({ feedId: "", quantity: "", isEntry: false, movementType: "consumo_manual", stageCatalogoId: "", henCount: "", date: new Date().toISOString().split("T")[0], locationId: "", notes: "" });
+      setMovementError("");
+      setMovModalOpen(true);
+    },
+    plan: () => {
+      selectTab("etapas");
+      setNewPlanError("");
+      setNewPlanForm({ species: "pollo", name: "", minWeeks: "0", maxWeeks: "7", entries: [{ feedId: "", percentage: "100", dailyAmountPerHen: "100" }] });
+      setNewPlanModalOpen(true);
+    },
+  });
 
   const addPlanEntry = () => {
     setNewPlanForm((prev) => ({
@@ -543,19 +572,19 @@ export default function AlimentacionPage() {
 
       {/* Tabs */}
       <div className="flex gap-2 mb-4 flex-wrap">
-        <button onClick={() => setTab("inventario")} className={`px-4 py-2 rounded-lg text-sm font-medium ${tab === "inventario" ? "bg-green-600 text-white" : "bg-white text-slate-600 border"}`}>
+        <button onClick={() => selectTab("inventario")} className={`px-4 py-2 rounded-lg text-sm font-medium ${tab === "inventario" ? "bg-green-600 text-white" : "bg-white text-slate-600 border"}`}>
           📋 Inventario
         </button>
-        <button onClick={() => setTab("movimientos")} className={`px-4 py-2 rounded-lg text-sm font-medium ${tab === "movimientos" ? "bg-green-600 text-white" : "bg-white text-slate-600 border"}`}>
+        <button onClick={() => selectTab("movimientos")} className={`px-4 py-2 rounded-lg text-sm font-medium ${tab === "movimientos" ? "bg-green-600 text-white" : "bg-white text-slate-600 border"}`}>
           📦 Movimientos
         </button>
-        <button onClick={() => setTab("etapas")} className={`px-4 py-2 rounded-lg text-sm font-medium ${tab === "etapas" ? "bg-green-600 text-white" : "bg-white text-slate-600 border"}`}>
+        <button onClick={() => selectTab("etapas")} className={`px-4 py-2 rounded-lg text-sm font-medium ${tab === "etapas" ? "bg-green-600 text-white" : "bg-white text-slate-600 border"}`}>
           📊 Etapas y Programas
         </button>
-        <button onClick={() => setTab("comparativo")} className={`px-4 py-2 rounded-lg text-sm font-medium ${tab === "comparativo" ? "bg-green-600 text-white" : "bg-white text-slate-600 border"}`}>
+        <button onClick={() => selectTab("comparativo")} className={`px-4 py-2 rounded-lg text-sm font-medium ${tab === "comparativo" ? "bg-green-600 text-white" : "bg-white text-slate-600 border"}`}>
           📈 Planificado vs Real
         </button>
-        <button onClick={() => setTab("prediccion")} className={`px-4 py-2 rounded-lg text-sm font-medium ${tab === "prediccion" ? "bg-green-600 text-white" : "bg-white text-slate-600 border"}`}>
+        <button onClick={() => selectTab("prediccion")} className={`px-4 py-2 rounded-lg text-sm font-medium ${tab === "prediccion" ? "bg-green-600 text-white" : "bg-white text-slate-600 border"}`}>
           🔮 Predicción de Stock
         </button>
       </div>
@@ -785,13 +814,13 @@ export default function AlimentacionPage() {
               </p>
               <div className="flex shrink-0 gap-2">
                 <button
-                  onClick={() => setTab("prediccion")}
+                  onClick={() => selectTab("prediccion")}
                   className="rounded-lg bg-blue-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-blue-700"
                 >
                   Predicción de Stock
                 </button>
                 <button
-                  onClick={() => setTab("comparativo")}
+                  onClick={() => selectTab("comparativo")}
                   className="rounded-lg border border-blue-300 bg-white px-3 py-1.5 text-xs font-semibold text-blue-700 hover:bg-blue-50"
                 >
                   Planificado vs Real

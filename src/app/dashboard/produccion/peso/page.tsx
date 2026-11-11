@@ -18,6 +18,8 @@ import {
 } from "recharts";
 import { apiFetch } from "@/lib/fetch";
 import Link from "next/link";
+import { useSearchParams } from "next/navigation";
+import { useActionQuery } from "@/lib/useActionQuery";
 import FarmLocationSelect from "@/components/FarmLocationSelect";
 
 interface Standard {
@@ -66,6 +68,7 @@ const SPECIES = [
 ];
 
 export default function PesoPage() {
+  const searchParams = useSearchParams();
   const [standards, setStandards] = useState<Standard[]>([]);
   const [logs, setLogs] = useState<WeightLog[]>([]);
   const [batches, setBatches] = useState<BatchOption[]>([]);
@@ -98,6 +101,7 @@ export default function PesoPage() {
   }, [breed]);
 
   useEffect(() => { void Promise.resolve().then(load); }, [load]);
+  useActionQuery(searchParams.get("nuevo"), { "1": () => setModalOpen(true) });
 
   const seedStandards = async () => {
     setSeeding(true);

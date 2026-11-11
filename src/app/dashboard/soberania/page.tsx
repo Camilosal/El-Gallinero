@@ -7,6 +7,8 @@ import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContaine
 import { apiFetch } from "@/lib/fetch";
 import TableSearch from "@/components/TableSearch";
 import { matchesTextQuery } from "@/lib/text";
+import { useSearchParams } from "next/navigation";
+import { useActionQuery } from "@/lib/useActionQuery";
 
 interface AutoconsumoLog {
   id: string;
@@ -53,6 +55,7 @@ const productTypeLabels: Record<string, string> = {
 };
 
 export default function SoberaniaPage() {
+  const searchParams = useSearchParams();
   const [data, setData] = useState<SoberaniaData | null>(null);
   const [loading, setLoading] = useState(true);
   const [speciesFilter, setSpeciesFilter] = useState("all");
@@ -91,6 +94,7 @@ export default function SoberaniaPage() {
   useEffect(() => {
     void Promise.resolve().then(loadData);
   }, [loadData]);
+  useActionQuery(searchParams.get("nuevo"), { consumo: () => setModalOpen(true) });
 
   const filteredLogs = useMemo(() => {
     const logs = data?.logs ?? [];

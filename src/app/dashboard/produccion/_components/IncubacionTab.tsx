@@ -1,10 +1,12 @@
 "use client";
 
 import { useEffect, useState, useCallback, useMemo } from "react";
+import { useSearchParams } from "next/navigation";
 import { PageHeader, Button, Card, Table, Badge, Modal, Input, Select, Textarea, EmptyState, StatCard } from "@/components/ui";
 import { apiFetch } from "@/lib/fetch";
 import TableSearch from "@/components/TableSearch";
 import { matchesTextQuery } from "@/lib/text";
+import { useActionQuery } from "@/lib/useActionQuery";
 
 interface Hen { id: string; code: string; status: string; }
 interface Rooster { id: string; code: string; breed: string; status: string; }
@@ -25,16 +27,19 @@ interface Incubation {
 }
 
 export default function IncubacionPage() {
+  const searchParams = useSearchParams();
   const [incubations, setIncubations] = useState<Incubation[]>([]);
   const [hens, setHens] = useState<Hen[]>([]);
   const [roosters, setRoosters] = useState<Rooster[]>([]);
   const [today, setToday] = useState(0);
   const [loading, setLoading] = useState(true);
   const [modalOpen, setModalOpen] = useState(false);
+  const [hatchSelectorOpen, setHatchSelectorOpen] = useState(false);
   const [completeModal, setCompleteModal] = useState<Incubation | null>(null);
   const [form, setForm] = useState({ henId: "", roosterId: "", startDate: new Date().toISOString().split("T")[0], eggsSet: 10, notes: "" });
   const [hatchForm, setHatchForm] = useState({ eggsHatched: 0, femalesHatched: 0, malesHatched: 0, notes: "" });
   const [assignmentMsg, setAssignmentMsg] = useState("");
+  const [actionError, setActionError] = useState("");
   const [saveError, setSaveError] = useState("");
   const [search, setSearch] = useState("");
 
@@ -52,6 +57,22 @@ export default function IncubacionPage() {
   }, []);
 
   useEffect(() => { load(); }, [load]);
+  useActionQuery(searchParams.get("nuevo"), {
+    incubacion: () => { setSaveError(""); setForm({ henId: "", roosterId: "", startDate: new Date().toISOString().split("T")[0], eggsSet: 10, notes: "" }); setModalOpen(true); },
+    eclosion: async () => {
+      try {
+        setActionError("");
+        const response = await apiFetch("/api/produccion/incubacion");
+        if (!response.ok) return setActionError("No se pudieron cargar las incubaciones.");
+        const rows = await response.json();
+        setIncubations(rows);
+        if (rows.some((incubation: Incubation) => !incubation.isComplete)) setHatchSelectorOpen(true);
+        else setActionError("No hay una incubación abierta para registrar su eclosión.");
+      } catch {
+        setActionError("No se pudieron cargar las incubaciones.");
+      }
+    },
+  });
 
   const save = async () => {
     setSaveError("");
@@ -130,6 +151,8 @@ export default function IncubacionPage() {
         help="Aquí gestionas las incubaciones de huevos. Registra gallina y gallo progenitores cuando se conozcan para que la descendencia conserve esa cadena de parentesco. Al nacer, las nuevas fichas quedan vinculadas a la incubación y a sus padres."
         actions={<Button onClick={() => { setSaveError(""); setForm({ henId: availableHens[0]?.id || "", roosterId: "", startDate: new Date().toISOString().split("T")[0], eggsSet: 10, notes: "" }); setModalOpen(true); }}>+ Nueva Incubación</Button>}
       />
+
+      {actionError && <p role="alert" className="mb-4 rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900">{actionError}</p>}
 
       {assignmentMsg && (
         <div className="p-4 rounded-xl mb-6 text-sm font-medium bg-green-50 border border-green-200 text-green-800 flex justify-between items-center">
@@ -247,6 +270,18 @@ export default function IncubacionPage() {
             <Button onClick={save} disabled={form.eggsSet < 1}>Iniciar Incubación</Button>
             <Button variant="secondary" onClick={() => setModalOpen(false)}>Cancelar</Button>
           </div>
+        </div>
+      </Modal>
+
+      <Modal open={hatchSelectorOpen} onClose={() => setHatchSelectorOpen(false)} title="Selecciona la incubación">
+        <div className="space-y-3">
+          <p className="text-sm text-slate-600">Elige el registro que vas a completar para asignar los nacimientos correctamente.</p>
+          {incubations.filter((incubation) => !incubation.isComplete).map((incubation) => (
+            <button key={incubation.id} type="button" onClick={() => { setHatchSelectorOpen(false); setCompleteModal(incubation); setHatchForm({ eggsHatched: 0, femalesHatched: 0, malesHatched: 0, notes: "" }); }} className="w-full rounded-lg border border-slate-200 p-3 text-left hover:border-green-400 hover:bg-green-50">
+              <strong className="block text-sm text-slate-800">Inicio: {incubation.startDate} · {incubation.eggsSet} huevos</strong>
+              <span className="text-xs text-slate-500">Eclosión esperada: {incubation.expectedHatchDate}{incubation.henCode ? ` · ${incubation.henCode}` : ""}</span>
+            </button>
+          ))}
         </div>
       </Modal>
 

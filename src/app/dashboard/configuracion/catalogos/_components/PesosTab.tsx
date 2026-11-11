@@ -3,6 +3,8 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { Button, Card, EmptyState, Input, Modal, Select, Table } from "@/components/ui";
 import { apiFetch } from "@/lib/fetch";
+import { useSearchParams } from "next/navigation";
+import { useActionQuery } from "@/lib/useActionQuery";
 
 interface WeightStandard {
   id: string;
@@ -24,6 +26,7 @@ const EMPTY = {
 };
 
 export default function PesosTab() {
+  const searchParams = useSearchParams();
   const [items, setItems] = useState<WeightStandard[]>([]);
   const [loading, setLoading] = useState(true);
   const [breedFilter, setBreedFilter] = useState("todas");
@@ -61,6 +64,7 @@ export default function PesosTab() {
     setError("");
     setModalOpen(true);
   };
+  useActionQuery(searchParams.get("nuevo"), { "1": openNew });
 
   const openEdit = (item: WeightStandard) => {
     setEditing(item);

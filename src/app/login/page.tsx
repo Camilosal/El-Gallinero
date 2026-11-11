@@ -115,6 +115,9 @@ export default function LoginPage() {
                   "Iniciar Sesión"
                 )}
               </button>
+              <div className="text-center">
+                <Link href="/login/recuperar" className="text-sm font-medium text-earth-700 hover:underline">¿Olvidaste tu contraseña?</Link>
+              </div>
             </form>
           </div>
 

@@ -1,6 +1,8 @@
 "use client";
 
 import Link from "next/link";
+import { useSearchParams } from "next/navigation";
+import { useActionQuery } from "@/lib/useActionQuery";
 import { useCallback, useEffect, useState } from "react";
 import { Badge, Button, Card, EmptyState, Input, Modal, PageHeader, Select, StatCard, Textarea } from "@/components/ui";
 import { apiFetch } from "@/lib/fetch";
@@ -19,6 +21,7 @@ const EMPTY_FORM = {
 type LocationForm = typeof EMPTY_FORM;
 
 export default function UbicacionesPage() {
+  const searchParams = useSearchParams();
   const [locations, setLocations] = useState<FarmLocation[]>([]);
   const [loading, setLoading] = useState(true);
   const [editing, setEditing] = useState<FarmLocation | null>(null);
@@ -37,12 +40,14 @@ export default function UbicacionesPage() {
     return () => cancelAnimationFrame(frame);
   }, [load]);
 
+
   const startNew = () => {
     setEditing(null);
     setForm(EMPTY_FORM);
     setError("");
     setOpen(true);
   };
+  useActionQuery(searchParams.get("nuevo"), { "1": startNew });
 
   const editLocation = (location: FarmLocation) => {
     setEditing(location);

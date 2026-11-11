@@ -6,6 +6,8 @@ import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContaine
 import { apiFetch } from "@/lib/fetch";
 import TableSearch from "@/components/TableSearch";
 import { matchesTextQuery } from "@/lib/text";
+import { useSearchParams } from "next/navigation";
+import { useActionQuery } from "@/lib/useActionQuery";
 
 interface BudgetItem {
   id: string;
@@ -35,6 +37,7 @@ const budgetTypes = ["ingreso", "egreso", "mixto"];
 const fmt = (n: number) => `$${Math.round(n).toLocaleString()}`;
 
 export default function PresupuestosPage() {
+  const searchParams = useSearchParams();
   const [budgets, setBudgets] = useState<Budget[]>([]);
   const [loading, setLoading] = useState(true);
   const [modalOpen, setModalOpen] = useState(false);
@@ -56,6 +59,9 @@ export default function PresupuestosPage() {
   }, []);
 
   useEffect(() => { void Promise.resolve().then(load); }, [load]);
+  useActionQuery(searchParams.get("nuevo"), {
+    "1": () => { setEditingId(null); setForm({ name: "", periodStart: "", periodEnd: "", type: budgetTypes[0] }); setItems([]); setError(""); setModalOpen(true); },
+  });
 
   const openDetail = async (b: Budget) => {
     setDetailBudget(b);

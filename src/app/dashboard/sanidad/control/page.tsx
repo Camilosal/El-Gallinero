@@ -8,6 +8,7 @@ import { useCatalog } from "@/lib/useCatalog";
 import TableSearch from "@/components/TableSearch";
 import { matchesTextQuery } from "@/lib/text";
 import { useFarmLocations } from "@/lib/useFarmLocations";
+import { useActionQuery } from "@/lib/useActionQuery";
 import Link from "next/link";
 
 interface HealthRecord {
@@ -112,6 +113,7 @@ function SanidadPageInner() {
     setForm({ date: new Date().toISOString().split("T")[0], locationId: "", type: "inspeccion", description: "", affectedHens: "todas", product: "", cost: "0", nextScheduled: "", notes: "" });
     setModalOpen(true);
   };
+  useActionQuery(searchParams.get("nuevo"), { "1": openNew });
 
   const openNewWithEvent = useCallback((event: CalendarEvent) => {
     setEditing(null);

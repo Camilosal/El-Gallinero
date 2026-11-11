@@ -7,6 +7,8 @@ import { apiFetch } from "@/lib/fetch";
 import { useCatalog, CatalogItem } from "@/lib/useCatalog";
 import TableSearch from "@/components/TableSearch";
 import { matchesTextQuery } from "@/lib/text";
+import { useSearchParams } from "next/navigation";
+import { useActionQuery } from "@/lib/useActionQuery";
 
 interface Transaction {
   id: string;
@@ -129,6 +131,7 @@ const defaultForm = (): EgresoForm => ({
 });
 
 export default function EgresosPage() {
+  const searchParams = useSearchParams();
   const [expenses, setExpenses] = useState<Transaction[]>([]);
   const [loading, setLoading] = useState(true);
   const [period, setPeriod] = useState("30");
@@ -366,6 +369,7 @@ export default function EgresosPage() {
     setForm({ ...defaultForm(), presentation: first?.label || "", factor: first ? String(first.factor) : "" });
     setModalOpen(true);
   };
+  useActionQuery(searchParams.get("nuevo"), { "1": openNew, producto: openProductNew, proveedor: openSupplierNew });
 
   const openEdit = (t: Transaction) => {
     setEditing(t);

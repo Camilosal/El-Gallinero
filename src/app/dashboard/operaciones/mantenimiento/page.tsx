@@ -7,6 +7,8 @@ import { apiFetch } from "@/lib/fetch";
 import TableSearch from "@/components/TableSearch";
 import { matchesTextQuery } from "@/lib/text";
 import { useFarmLocations } from "@/lib/useFarmLocations";
+import { useSearchParams } from "next/navigation";
+import { useActionQuery } from "@/lib/useActionQuery";
 
 interface Maintenance {
   id: string;
@@ -52,6 +54,7 @@ const taskTemplates = [
 ];
 
 export default function MantenimientoPage() {
+  const searchParams = useSearchParams();
   const [tasks, setTasks] = useState<Maintenance[]>([]);
   const [assets, setAssets] = useState<FarmAssetOption[]>([]);
   const [loading, setLoading] = useState(true);
@@ -82,6 +85,7 @@ export default function MantenimientoPage() {
     setForm({ title: "", description: "", scheduledDate: new Date().toISOString().split("T")[0], status: "pendiente", cost: "0", completedDate: "", locationId: "", assetId: "", recurrenceIntervalDays: "" });
     setModalOpen(true);
   };
+  useActionQuery(searchParams.get("nuevo"), { "1": openNew });
 
   const openEdit = (t: Maintenance) => {
     setEditing(t);

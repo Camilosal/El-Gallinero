@@ -6,6 +6,8 @@ import { apiFetch } from "@/lib/fetch";
 import { useFarmLocations } from "@/lib/useFarmLocations";
 import TableSearch from "@/components/TableSearch";
 import { matchesTextQuery } from "@/lib/text";
+import { useSearchParams } from "next/navigation";
+import { useActionQuery } from "@/lib/useActionQuery";
 
 interface FarmAsset {
   id: string;
@@ -42,6 +44,7 @@ function dateLabel(value: string | null) {
 }
 
 export default function ActivosPage() {
+  const searchParams = useSearchParams();
   const [assets, setAssets] = useState<FarmAsset[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
@@ -74,6 +77,7 @@ export default function ActivosPage() {
     setError("");
     setModalOpen(true);
   };
+  useActionQuery(searchParams.get("nuevo"), { "1": openNew });
 
   const openEdit = (asset: FarmAsset) => {
     setEditing(asset);

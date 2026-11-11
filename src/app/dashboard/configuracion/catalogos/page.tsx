@@ -5,6 +5,8 @@ import { PageHeader, Button, Card, Table, Badge, Modal, Input, Select, EmptyStat
 import { apiFetch } from "@/lib/fetch";
 import TableSearch from "@/components/TableSearch";
 import { matchesTextQuery } from "@/lib/text";
+import { useRouter, useSearchParams } from "next/navigation";
+import { useActionQuery } from "@/lib/useActionQuery";
 import ParametrosTab from "./_components/ParametrosTab";
 import EspeciesTab from "./_components/EspeciesTab";
 import VacunasTab from "./_components/VacunasTab";
@@ -51,6 +53,7 @@ const CATEGORIES: { key: string; label: string; icon: string }[] = [
 ];
 
 function ListasTab() {
+  const searchParams = useSearchParams();
   const [items, setItems] = useState<CatalogItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [activeCat, setActiveCat] = useState("raza");
@@ -106,6 +109,7 @@ function ListasTab() {
     setError("");
     setModalOpen(true);
   };
+  useActionQuery(searchParams.get("nuevo"), { "1": openNew });
 
   const openEdit = (item: CatalogItem) => {
     setEditing(item);
@@ -447,7 +451,16 @@ const TABS = [
 ];
 
 export default function CatalogosPage() {
-  const [tab, setTab] = useState("listas");
+  const searchParams = useSearchParams();
+  const router = useRouter();
+  const requestedTab = searchParams.get("tab");
+  const tab = TABS.some((item) => item.key === requestedTab) ? requestedTab! : "listas";
+  const selectTab = (key: string) => {
+    const params = new URLSearchParams(searchParams.toString());
+    params.set("tab", key);
+    params.delete("nuevo");
+    router.replace(`/dashboard/configuracion/catalogos?${params.toString()}`, { scroll: false });
+  };
 
   return (
     <div>
@@ -461,7 +474,7 @@ export default function CatalogosPage() {
         {TABS.map((item) => (
           <button
             key={item.key}
-            onClick={() => setTab(item.key)}
+            onClick={() => selectTab(item.key)}
             className={`px-4 py-2 rounded-xl text-sm font-medium transition-colors border ${
               tab === item.key
                 ? "bg-green-700 text-white border-green-700"

@@ -16,6 +16,7 @@ El repositorio no contiene configuración versionada para un proveedor de hostin
    psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f scripts/enforce_manure_factor_integrity.sql
    psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f scripts/add_animal_genetic_traceability.sql
    psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f scripts/add_farm_locations.sql
+   psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f scripts/add_admin_recovery_code.sql
    ```
 
    `enforce_manure_daily_integrity.sql` se detiene si existen registros automáticos duplicados. `enforce_manure_factor_integrity.sql` conserva el factor editado más recientemente por grupo y etapa y elimina los duplicados restantes; revisa primero esos registros en la copia de ensayo.
@@ -24,6 +25,7 @@ El repositorio no contiene configuración versionada para un proveedor de hostin
 5. Ejecuta `npm run db:seed-config` una vez después de aplicar el esquema. Es idempotente y conserva los valores existentes.
 6. Si la base todavía no tiene usuarios, crea el primer administrador con `npm run db:create-admin`, proporcionando `ADMIN_USERNAME` y `ADMIN_PASSWORD` como variables de entorno. La contraseña debe tener al menos 12 caracteres. El comando aborta si ya existe una cuenta.
 7. Si la instancia usó el seed anterior, rota la clave de ese administrador con `npm run db:rotate-admin-password`. El comando cambia solo la cuenta indicada y revoca sus sesiones activas.
+8. Para habilitar la recuperación de acceso, emite el código de un solo uso después de desplegar la columna: `ADMIN_USERNAME='admin' npm run db:issue-admin-recovery-code`. Entrégalo al usuario por un canal seguro; el código no se guarda en texto claro, vence a los 30 días y queda invalidado después del primer uso.
 
 La clave de bootstrap debe suministrarse al comando de aprovisionamiento desde un entorno seguro; no la incluyas en la imagen ni en archivos versionados.
 

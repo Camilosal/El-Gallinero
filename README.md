@@ -77,6 +77,8 @@ En producción, crea el primer administrador después de aplicar el esquema con 
 
 Si una instalación ya usó el seed antiguo, cambia la contraseña con `npm run db:rotate-admin-password`; el comando invalida las sesiones abiertas de esa cuenta.
 
+Para habilitar la recuperación desde la pantalla de acceso, aplica `scripts/add_admin_recovery_code.sql` y emite un código de un solo uso con `ADMIN_USERNAME='admin' npm run db:issue-admin-recovery-code`. Guarda el código cuando se muestre: solo se almacena su hash, vence a los 30 días y se invalida al cambiar la contraseña.
+
 ## Módulos
 
 La navegación está agrupada en **7 secciones** con páginas índice que muestran KPIs en tiempo real y accesos rápidos a sub-módulos:

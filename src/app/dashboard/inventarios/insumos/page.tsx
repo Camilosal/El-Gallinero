@@ -6,6 +6,8 @@ import { apiFetch } from "@/lib/fetch";
 import { useCatalog } from "@/lib/useCatalog";
 import TableSearch from "@/components/TableSearch";
 import { matchesTextQuery } from "@/lib/text";
+import { useSearchParams } from "next/navigation";
+import { useActionQuery } from "@/lib/useActionQuery";
 
 interface Supply {
   id: string;
@@ -38,6 +40,7 @@ const movementTypes = ["compra", "donacion", "ajuste", "consumo", "merma", "otro
 const fmt = (n: number) => `$${Math.round(n).toLocaleString()}`;
 
 export default function InsumosPage() {
+  const searchParams = useSearchParams();
   const [supplies, setSupplies] = useState<Supply[]>([]);
   const [movements, setMovements] = useState<Movement[]>([]);
   const [loading, setLoading] = useState(true);
@@ -62,6 +65,10 @@ export default function InsumosPage() {
   }, []);
 
   useEffect(() => { void Promise.resolve().then(load); }, [load]);
+  useActionQuery(searchParams.get("nuevo"), {
+    insumo: () => { setEditingId(null); setForm({ name: "", category: supplyCategories[0], unit: "unidades", currentStock: "", minStock: "", costPerUnit: "", supplier: "", expiryDate: "" }); setError(""); setSupplyModalOpen(true); },
+    movimiento: () => { setMovForm({ supplyId: "", quantity: "", isEntry: true, movementType: movementTypes[0], date: new Date().toISOString().split("T")[0], notes: "" }); setMovError(""); setMovementModalOpen(true); },
+  });
 
   const lowStockItems = supplies.filter((s) => Number(s.currentStock) <= Number(s.minStock));
   const totalValue = supplies.reduce((s, item) => s + Number(item.currentStock) * Number(item.costPerUnit), 0);

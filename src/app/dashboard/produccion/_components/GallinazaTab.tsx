@@ -6,6 +6,8 @@ import { apiFetch } from "@/lib/fetch";
 import { useCatalog } from "@/lib/useCatalog";
 import TableSearch from "@/components/TableSearch";
 import { matchesTextQuery } from "@/lib/text";
+import { useSearchParams } from "next/navigation";
+import { useActionQuery } from "@/lib/useActionQuery";
 
 interface EstimationGroup {
   key: string;
@@ -44,6 +46,7 @@ interface ManureData {
 const dateFmt = (d: string) => new Date(d + "T12:00:00").toLocaleDateString("es", { day: "2-digit", month: "short", year: "numeric" });
 
 export default function GallinazaPage() {
+  const searchParams = useSearchParams();
   const [data, setData] = useState<ManureData | null>(null);
   const [loading, setLoading] = useState(true);
   const [factorEdits, setFactorEdits] = useState<Record<string, string>>({});
@@ -69,6 +72,10 @@ export default function GallinazaPage() {
   }, []);
 
   useEffect(() => { load(); }, [load]);
+  useActionQuery(searchParams.get("nuevo"), {
+    venta: () => { setError(""); setSaleModal(true); },
+    ajuste: () => { setError(""); setAdjustModal(true); },
+  });
 
   const saveFactor = async (factorId: string) => {
     const value = Number(factorEdits[factorId]);

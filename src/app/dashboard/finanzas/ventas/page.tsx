@@ -1,7 +1,7 @@
 "use client";
 
 import { Suspense, useEffect, useState, useCallback, useMemo } from "react";
-import { useSearchParams } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { PageHeader, Button, Card, Table, Modal, Input, Select, Textarea, EmptyState, StatCard, Badge } from "@/components/ui";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from "recharts";
 import { apiFetch } from "@/lib/fetch";
@@ -9,6 +9,7 @@ import { useCatalog } from "@/lib/useCatalog";
 import KgSaleTab from "./_components/KgSaleTab";
 import TableSearch from "@/components/TableSearch";
 import { matchesTextQuery } from "@/lib/text";
+import { useActionQuery } from "@/lib/useActionQuery";
 
 // ─── Types ───
 interface SaleItem {
@@ -132,13 +133,15 @@ export default function VentasPage() {
 
 function VentasContent() {
   const searchParams = useSearchParams();
-  const [tab, setTab] = useState<Tab>(() => parseSalesTab(searchParams.get("tab")));
+  const router = useRouter();
+  const requestedTab = searchParams.get("tab");
+  const tab = parseSalesTab(requestedTab);
 
   const selectTab = (nextTab: Tab) => {
-    setTab(nextTab);
-    const nextUrl = new URL(window.location.href);
-    nextUrl.searchParams.set("tab", nextTab);
-    window.history.replaceState(window.history.state, "", nextUrl);
+    const params = new URLSearchParams(searchParams.toString());
+    params.set("tab", nextTab);
+    params.delete("nuevo");
+    router.replace(`/dashboard/finanzas/ventas?${params.toString()}`, { scroll: false });
   };
 
   // ─── Egg sales state ───
@@ -353,6 +356,12 @@ function VentasContent() {
     setBirdForm({ date: new Date().toISOString().split("T")[0], birdType: "gallina_descarte", quantity: "1", weightKg: "", priceMode: "por_ave", pricePerUnit: "25000", buyer: "", presentation: "", henId: "", roosterId: "", batchId: "", notes: "" });
     setBirdModalOpen(true);
   };
+  useActionQuery(searchParams.get("tab") === "carne" ? null : searchParams.get("nuevo"), {
+    "1": () => {
+      if (searchParams.get("tab") === "aves") openNewBird();
+      else if (searchParams.get("tab") === "huevos") openNew();
+    },
+  });
 
   const openEditBird = (s: ChickenSale) => {
     setEditingBird(s);

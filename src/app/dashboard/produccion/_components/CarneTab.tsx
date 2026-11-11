@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState, useCallback, useMemo } from "react";
+import { useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { PageHeader, Button, Card, Table, Modal, Input, Select, Textarea, EmptyState, StatCard, Badge } from "@/components/ui";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from "recharts";
@@ -12,6 +13,7 @@ import {
   SPECIES_LABEL,
 } from "@/lib/species-params";
 import { useSpeciesCatalog } from "@/lib/use-species-params";
+import { useActionQuery } from "@/lib/useActionQuery";
 import FarmLocationSelect from "@/components/FarmLocationSelect";
 
 interface SlaughterRecord {
@@ -62,6 +64,7 @@ const destinationLabels: Record<string, string> = {
 };
 
 export default function CarneTab() {
+  const searchParams = useSearchParams();
   const { getParams, priceKg } = useSpeciesCatalog();
   const [records, setRecords] = useState<SlaughterRecord[]>([]);
   const [hens, setHens] = useState<Hen[]>([]);
@@ -142,6 +145,7 @@ export default function CarneTab() {
     });
     setModalOpen(true);
   };
+  useActionQuery(searchParams.get("nuevo"), { faena: openNew });
 
   const openEdit = (r: SlaughterRecord) => {
     setEditing(r);

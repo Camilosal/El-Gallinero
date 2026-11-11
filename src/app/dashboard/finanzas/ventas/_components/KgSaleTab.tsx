@@ -8,6 +8,8 @@ import TableSearch from "@/components/TableSearch";
 import { matchesTextQuery } from "@/lib/text";
 import { SPECIES_ICON, SPECIES_LABEL } from "@/lib/species-params";
 import { useSpeciesCatalog } from "@/lib/use-species-params";
+import { useSearchParams } from "next/navigation";
+import { useActionQuery } from "@/lib/useActionQuery";
 
 interface KgSale {
   id: string;
@@ -38,6 +40,7 @@ interface KgSaleTabProps {
 }
 
 export default function KgSaleTab({ apiEndpoint, labels }: KgSaleTabProps) {
+  const searchParams = useSearchParams();
   const { priceKg } = useSpeciesCatalog();
   const isMeat = apiEndpoint.includes("/carne");
   const [sales, setSales] = useState<KgSale[]>([]);
@@ -122,6 +125,7 @@ export default function KgSaleTab({ apiEndpoint, labels }: KgSaleTabProps) {
     });
     setModalOpen(true);
   };
+  useActionQuery(searchParams.get("nuevo"), { "1": openNew });
 
   const openEdit = (s: KgSale) => {
     setEditing(s);

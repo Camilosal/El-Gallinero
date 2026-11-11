@@ -7,6 +7,8 @@ import { apiFetch } from "@/lib/fetch";
 import { useCatalog } from "@/lib/useCatalog";
 import TableSearch from "@/components/TableSearch";
 import { matchesTextQuery } from "@/lib/text";
+import { useSearchParams } from "next/navigation";
+import { useActionQuery } from "@/lib/useActionQuery";
 
 interface Transaction {
   id: string;
@@ -108,6 +110,7 @@ const pct = (n: number) => `${Math.round(n * 100)}%`;
 const dateFmt = (d: string) => new Date(d + "T12:00:00").toLocaleDateString("es", { day: "2-digit", month: "short" });
 
 export default function FinanzasPage() {
+  const searchParams = useSearchParams();
   const [data, setData] = useState<FinanceData | null>(null);
   const [loading, setLoading] = useState(true);
   const [period, setPeriod] = useState("30");
@@ -146,6 +149,7 @@ export default function FinanzasPage() {
     setForm({ date: new Date().toISOString().split("T")[0], type: "egreso", category: expenseCategories[0], description: "", counterparty: "", quantity: "", unitPrice: "", unit: "unidades", presentation: "", amount: "", notes: "" });
     setModalOpen(true);
   };
+  useActionQuery(searchParams.get("nuevo"), { "1": openNew });
 
   const openEdit = (t: Transaction) => {
     setEditing(t);

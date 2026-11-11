@@ -3,90 +3,7 @@
 import Link from "next/link";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { matchesTextQuery } from "@/lib/text";
-
-interface CreateAction {
-  label: string;
-  description: string;
-  icon: string;
-  href: string;
-  keywords?: string[];
-}
-
-interface CreateActionGroup {
-  label: string;
-  actions: CreateAction[];
-}
-
-const CREATE_ACTION_GROUPS: CreateActionGroup[] = [
-  {
-    label: "Animales",
-    actions: [
-      { label: "Ingresar gallinas", description: "Registra si fueron compradas, donadas o nacieron en la granja", icon: "🐔", href: "/dashboard/produccion/adquisiciones?nuevo=gallina", keywords: ["ave", "ponedora", "origen"] },
-      { label: "Ingresar gallos reproductores", description: "Registra el origen antes de gestionar cada ficha", icon: "🐓", href: "/dashboard/produccion/adquisiciones?nuevo=gallo", keywords: ["ave", "macho", "origen"] },
-      { label: "Ingresar un lote de animales", description: "Elige especie y destino: carne, postura o pie de cría", icon: "🐣", href: "/dashboard/produccion/adquisiciones?nuevo=lote_pollos", keywords: ["pollo", "pollitos", "codorniz", "pato", "conejo", "lote"] },
-      { label: "Registrar cría propia", description: "Da de alta nacimientos que no se registraron desde Incubación", icon: "🐣", href: "/dashboard/produccion/adquisiciones?origen=cria_propia", keywords: ["nacimiento", "eclosion", "pollitos"] },
-      { label: "Registrar adquisición de aves", description: "Compra, donación u otro ingreso de animales", icon: "📥", href: "/dashboard/produccion/adquisiciones", keywords: ["compra", "donacion", "ingreso", "proveedor"] },
-      { label: "Registrar mortalidad", description: "Registra muerte o baja de animales", icon: "🕊️", href: "/dashboard/produccion/mortalidad", keywords: ["muerte", "baja", "perdida"] },
-      { label: "Crear lugar de manejo", description: "Registra corral, jaula, galpón, potrero, jardín o patio", icon: "📍", href: "/dashboard/ubicaciones", keywords: ["ubicacion", "corral", "galpon", "georreferencia"] },
-      { label: "Registrar traslado de animal", description: "Cambia de lugar y conserva el historial del traslado", icon: "↔️", href: "/dashboard/ubicaciones", keywords: ["mover", "traslado", "cambio de corral"] },
-      { label: "Registrar peso de un ave", description: "Guarda una medición de peso", icon: "⚖️", href: "/dashboard/produccion/peso", keywords: ["pesaje", "medicion"] },
-      { label: "Iniciar incubación", description: "Registra huevos puestos a incubar", icon: "🐣", href: "/dashboard/produccion?tab=incubacion", keywords: ["incubar", "eclosion", "nacimiento"] },
-      { label: "Registrar eclosión", description: "Completa una incubación y registra los pollitos nacidos", icon: "🐥", href: "/dashboard/produccion?tab=incubacion", keywords: ["nacimiento", "nacieron", "pollitos"] },
-      { label: "Crear plan de parvada", description: "Proyecta reemplazos y producción", icon: "📋", href: "/dashboard/produccion/plan-parvada", keywords: ["planificacion", "proyeccion"] },
-    ],
-  },
-  {
-    label: "Producción y ventas",
-    actions: [
-      { label: "Registrar recolección de huevos", description: "Captura producción, clasificación y autoconsumo", icon: "🥚", href: "/dashboard/produccion?tab=huevos", keywords: ["recoger", "postura", "produccion diaria"] },
-      { label: "Registrar pérdida de huevos", description: "Registra huevos rotos o descartados", icon: "🥚", href: "/dashboard/produccion/mortalidad", keywords: ["rotos", "descarte", "merma"] },
-      { label: "Registrar faena", description: "Registra el sacrificio y rendimiento de animales", icon: "🍗", href: "/dashboard/produccion?tab=carne", keywords: ["sacrificio", "beneficio", "canal"] },
-      { label: "Registrar venta de huevos", description: "Venta por talla y presentación", icon: "💰", href: "/dashboard/finanzas/ventas?tab=huevos", keywords: ["huevo", "cliente"] },
-      { label: "Registrar venta de aves", description: "Venta de gallinas, gallos o pollos", icon: "🐓", href: "/dashboard/finanzas/ventas?tab=aves", keywords: ["pollo", "gallina", "gallo"] },
-      { label: "Registrar venta de carne", description: "Venta por peso o presentación", icon: "🍗", href: "/dashboard/finanzas/ventas?tab=carne", keywords: ["kilogramos", "kg"] },
-      { label: "Registrar venta de gallinaza", description: "Salida y cobro de abono o gallinaza", icon: "🌱", href: "/dashboard/produccion?tab=gallinaza", keywords: ["abono", "estiercol", "fertilizante"] },
-      { label: "Ajustar inventario de gallinaza", description: "Corrige existencias o registra un ajuste", icon: "⚖️", href: "/dashboard/produccion?tab=gallinaza", keywords: ["abono", "inventario", "correccion"] },
-    ],
-  },
-  {
-    label: "Almacén y operaciones",
-    actions: [
-      { label: "Registrar movimiento de alimento", description: "Captura una entrada o consumo de alimento", icon: "🌾", href: "/dashboard/produccion?tab=alimentacion&subtab=movimientos", keywords: ["comida", "concentrado", "consumo", "entrada", "salida"] },
-      { label: "Crear alimento", description: "Agrega un alimento al inventario", icon: "🌽", href: "/dashboard/produccion?tab=alimentacion&subtab=inventario", keywords: ["comida", "concentrado", "existencias"] },
-      { label: "Crear plan de alimentación", description: "Define un programa para una especie o etapa", icon: "🗒️", href: "/dashboard/produccion?tab=alimentacion&subtab=etapas", keywords: ["dieta", "racion", "programa"] },
-      { label: "Crear insumo", description: "Agrega medicamentos, vacunas, herramientas o materiales", icon: "🧰", href: "/dashboard/inventarios/insumos", keywords: ["inventario", "existencias", "stock"] },
-      { label: "Registrar movimiento de insumo", description: "Captura una entrada, consumo o ajuste", icon: "📦", href: "/dashboard/inventarios/insumos", keywords: ["entrada", "salida", "ajuste", "consumo"] },
-      { label: "Registrar equipo o activo", description: "Crea una ficha con su lugar, estado y garantía", icon: "🏗️", href: "/dashboard/operaciones/activos", keywords: ["activo", "maquina", "herramienta", "bomba", "incubadora"] },
-      { label: "Crear tarea de mantenimiento", description: "Programa o registra una reparación", icon: "🔧", href: "/dashboard/operaciones/mantenimiento", keywords: ["reparacion", "equipo", "infraestructura"] },
-      { label: "Crear producto", description: "Agrega un producto que puedas asociar a una compra", icon: "🏷️", href: "/dashboard/finanzas/egresos", keywords: ["compra", "articulo", "insumo"] },
-      { label: "Crear proveedor", description: "Agrega un proveedor desde el formulario de egreso", icon: "🚚", href: "/dashboard/finanzas/egresos", keywords: ["compra", "suministrador"] },
-    ],
-  },
-  {
-    label: "Sanidad y hogar",
-    actions: [
-      { label: "Registrar tratamiento o control sanitario", description: "Vacunación, medicamento o revisión aplicada", icon: "💊", href: "/dashboard/sanidad/control", keywords: ["vacuna", "medicina", "enfermedad", "desparasitacion"] },
-      { label: "Programar evento sanitario", description: "Crea una vacuna, revisión o recordatorio futuro", icon: "📅", href: "/dashboard/sanidad/calendario", keywords: ["calendario", "recordatorio", "vacunacion"] },
-      { label: "Registrar consumo del hogar", description: "Captura autoconsumo y ahorro familiar", icon: "🏡", href: "/dashboard/soberania", keywords: ["autoconsumo", "familia", "ahorro"] },
-    ],
-  },
-  {
-    label: "Finanzas",
-    actions: [
-      { label: "Registrar egreso o compra", description: "Guarda gastos, costos y compras", icon: "📤", href: "/dashboard/finanzas/egresos", keywords: ["gasto", "pago", "compra"] },
-      { label: "Registrar transacción financiera", description: "Registra un ingreso u otro movimiento y elige su tipo", icon: "📥", href: "/dashboard/finanzas/finanzas", keywords: ["ingreso", "dinero", "abono", "cobro"] },
-      { label: "Crear presupuesto", description: "Define un período y sus partidas", icon: "💵", href: "/dashboard/finanzas/presupuestos", keywords: ["plan", "meta", "gasto"] },
-      { label: "Registrar pago o abono", description: "Aplica un pago a una cuenta pendiente", icon: "💳", href: "/dashboard/finanzas/cuentas", keywords: ["cuenta", "deuda", "cobrar", "pagar"] },
-    ],
-  },
-  {
-    label: "Catálogos y configuración",
-    actions: [
-      { label: "Agregar especie, raza o dato de catálogo", description: "Mantén listas y opciones usadas en los formularios", icon: "🗂️", href: "/dashboard/configuracion/catalogos", keywords: ["especie", "raza", "vacuna", "categorias", "etapas"] },
-      { label: "Agregar estándar de peso", description: "Actualiza referencias por especie y edad", icon: "🧬", href: "/dashboard/configuracion/catalogos", keywords: ["raza", "crecimiento", "genetica"] },
-    ],
-  },
-];
+import { CREATE_ACTION_GROUPS } from "@/lib/create-actions";
 
 export default function QuickCreateMenu() {
   const [open, setOpen] = useState(false);
@@ -182,7 +99,7 @@ export default function QuickCreateMenu() {
             <div className="flex items-start justify-between gap-4 border-b border-slate-200 px-5 py-4 sm:px-6">
               <div>
                 <h2 id="quick-create-title" className="text-xl font-bold text-slate-800">¿Qué quieres crear?</h2>
-                <p className="mt-1 text-sm text-slate-500">Elige un registro para abrir la sección donde se captura.</p>
+                <p className="mt-1 text-sm text-slate-500">Busca y abre el registro que necesitas. Los datos de contexto se completan en el formulario.</p>
               </div>
               <button
                 type="button"
@@ -246,7 +163,7 @@ export default function QuickCreateMenu() {
             </div>
 
             <div className="border-t border-slate-200 bg-slate-50 px-5 py-3 text-xs text-slate-500 sm:px-6">
-              Selecciona una opción; el botón de registro está disponible en la sección indicada.
+              Abre el formulario; si requiere elegir un animal, una cuenta o un lugar, te lleva al paso de selección.
             </div>
           </section>
         </div>

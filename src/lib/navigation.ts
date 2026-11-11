@@ -1,4 +1,5 @@
 import { normalizeText } from "./text";
+import { CREATE_ACTION_GROUPS } from "./create-actions";
 
 export interface MenuItem {
   href: string;
@@ -218,6 +219,19 @@ function buildSearchEntries(): SearchEntry[] {
   }
 
   entries.push(...FIXED_ENTRIES);
+
+  for (const group of CREATE_ACTION_GROUPS) {
+    for (const action of group.actions) {
+      entries.push({
+        href: action.href,
+        label: action.label,
+        icon: action.icon,
+        group: `Crear · ${group.label}`,
+        groupIcon: "＋",
+        keywords: [action.description, group.label, ...(action.keywords ?? [])],
+      });
+    }
+  }
 
   const seen = new Set<string>();
   return entries.filter((entry) => {

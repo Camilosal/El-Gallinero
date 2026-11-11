@@ -13,6 +13,7 @@
     "db:seed-config": "tsx src/db/seed-config.ts",
     "db:create-admin": "tsx src/db/create-admin.ts",
     "db:rotate-admin-password": "tsx src/db/rotate-admin-password.ts",
+    "db:issue-admin-recovery-code": "tsx src/db/issue-admin-recovery-code.ts",
     "test": "vitest run",
     "test:watch": "vitest",
     "e2e": "playwright test",

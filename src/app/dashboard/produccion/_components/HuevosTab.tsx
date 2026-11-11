@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState, useCallback, useMemo } from "react";
+import { useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { PageHeader, Button, Card, Table, Modal, Input, Textarea, EmptyState, StatCard, Badge, Select } from "@/components/ui";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend, ComposedChart, Line } from "recharts";
@@ -11,6 +12,7 @@ import { matchesTextQuery } from "@/lib/text";
 import { SPECIES_ICON, SPECIES_LABEL } from "@/lib/species-params";
 import { useSpeciesCatalog } from "@/lib/use-species-params";
 import { useFarmLocations } from "@/lib/useFarmLocations";
+import { useActionQuery } from "@/lib/useActionQuery";
 
 interface EggDetail {
   size: string;
@@ -66,6 +68,7 @@ const stageColors: Record<string, string> = {
 };
 
 export default function HuevosPage() {
+  const searchParams = useSearchParams();
   const { priceEgg } = useSpeciesCatalog();
   const { locations } = useFarmLocations();
   const [records, setRecords] = useState<EggRecord[]>([]);
@@ -231,6 +234,14 @@ export default function HuevosPage() {
     });
     setModalOpen(true);
   };
+
+  useActionQuery(searchParams.get("nuevo"), {
+    "1": () => {
+      setEditing(null); setError(""); setConfirmOverLimit(false); setOverLimitMsg(""); setQuickMode(true); setQuickTotal(0);
+      setForm({ date: new Date().toISOString().split("T")[0], species: "gallina", batchId: "", locationId: "", totalUnits: 0, sizes: {}, broken: 0, forIncubation: 0, quantityAutoconsumo: 0, quantityExcedente: 0, referenceUnitPrice: "600", notes: "" });
+      setModalOpen(true);
+    },
+  });
 
   const openEdit = (r: EggRecord) => {
     setEditing(r);

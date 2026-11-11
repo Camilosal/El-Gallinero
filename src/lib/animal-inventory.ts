@@ -1,5 +1,5 @@
 import { db } from "@/db";
-import { broilerBatches, hens, roosters } from "@/db/schema";
+import { broilerBatches, farmLocations, hens, roosters } from "@/db/schema";
 import {
   SPECIES_ORDER,
   isBirdSpecies,
@@ -39,6 +39,7 @@ export interface AnimalGroup {
   estimatedValue: number;
   weightEstimated: boolean;
   source: AnimalSource;
+  locationName: string | null;
   detail?: string | null;
 }
 
@@ -112,16 +113,18 @@ function buildTargetWeightMap(params: SpeciesDbParams[]) {
 }
 
 export async function computeAnimalInventory(): Promise<AnimalInventory> {
-  const [henRows, roosterRows, batchRows, speciesParams, fallbackLivePrice] = await Promise.all([
+  const [henRows, roosterRows, batchRows, locationRows, speciesParams, fallbackLivePrice] = await Promise.all([
     db.select().from(hens),
     db.select().from(roosters),
     db.select().from(broilerBatches),
+    db.select({ id: farmLocations.id, name: farmLocations.name }).from(farmLocations),
     loadSpeciesParams(),
     getNumberSetting("inventory.bird_price_per_kg"),
   ]);
 
   const priceMap = buildPriceMap(speciesParams);
   const targetWeightMap = buildTargetWeightMap(speciesParams);
+  const locationNames = new Map(locationRows.map((location) => [location.id, location.name]));
 
   const livePriceFor = (species: string): number => {
     const priceSpecies = species === "gallo" ? "gallina" : species;
@@ -142,6 +145,7 @@ export async function computeAnimalInventory(): Promise<AnimalInventory> {
     avgWeightKg: number;
     weightEstimated: boolean;
     source: AnimalSource;
+    locationName: string | null;
     detail?: string | null;
   }) => {
     if (input.count <= 0) return;
@@ -161,41 +165,50 @@ export async function computeAnimalInventory(): Promise<AnimalInventory> {
   // ─── Gallinas ───
   const presentHens = henRows.filter((h) => isHenPresent(h.status));
   const henTargetWeight = targetWeightMap.get("gallina") ?? 2.5;
-  const henWeights = presentHens.map((h) => {
-    const real = h.weight != null ? Number(h.weight) : 0;
-    return real > 0 ? real : henTargetWeight;
-  });
-  const henAvgWeight = henWeights.length > 0
-    ? henWeights.reduce((sum, w) => sum + w, 0) / henWeights.length
-    : henTargetWeight;
-  addGroup({
-    key: "gallinas",
-    label: "Gallinas",
-    species: "gallina",
-    count: presentHens.length,
-    avgWeightKg: henAvgWeight,
-    weightEstimated: presentHens.length === 0 || presentHens.every((h) => h.weight == null || Number(h.weight) <= 0),
-    source: "hen",
-    detail: "Hembras en el gallinero",
-  });
+  const hensByLocation = new Map<string, typeof presentHens>();
+  for (const hen of presentHens) {
+    const key = hen.locationId || "unassigned";
+    hensByLocation.set(key, [...(hensByLocation.get(key) || []), hen]);
+  }
+  for (const [locationId, rows] of hensByLocation) {
+    const weights = rows.map((hen) => Number(hen.weight || 0)).filter((weight) => weight > 0);
+    const locationName = locationId === "unassigned" ? null : locationNames.get(locationId) || null;
+    addGroup({
+      key: `gallinas:${locationId}`,
+      label: locationName ? `Gallinas · ${locationName}` : "Gallinas · Sin lugar asignado",
+      species: "gallina",
+      count: rows.length,
+      avgWeightKg: weights.length ? weights.reduce((sum, weight) => sum + weight, 0) / weights.length : henTargetWeight,
+      weightEstimated: weights.length === 0,
+      source: "hen",
+      detail: "Hembras en el gallinero",
+      locationName,
+    });
+  }
 
   // ─── Gallos ───
   const presentRoosters = roosterRows.filter((r) => isRoosterPresent(r.status));
   const roosterTargetWeight = targetWeightMap.get("gallina") ?? 3;
-  const roosterWeights = presentRoosters.map((r) => (r.weight != null ? Number(r.weight) : 0)).filter((w) => w > 0);
-  const roosterAvgWeight = roosterWeights.length > 0
-    ? roosterWeights.reduce((sum, w) => sum + w, 0) / roosterWeights.length
-    : roosterTargetWeight;
-  addGroup({
-    key: "gallos",
-    label: "Gallos",
-    species: "gallo",
-    count: presentRoosters.length,
-    avgWeightKg: roosterAvgWeight,
-    weightEstimated: roosterWeights.length === 0,
-    source: "rooster",
-    detail: "Machos reproductores",
-  });
+  const roostersByLocation = new Map<string, typeof presentRoosters>();
+  for (const rooster of presentRoosters) {
+    const key = rooster.locationId || "unassigned";
+    roostersByLocation.set(key, [...(roostersByLocation.get(key) || []), rooster]);
+  }
+  for (const [locationId, rows] of roostersByLocation) {
+    const weights = rows.map((rooster) => Number(rooster.weight || 0)).filter((weight) => weight > 0);
+    const locationName = locationId === "unassigned" ? null : locationNames.get(locationId) || null;
+    addGroup({
+      key: `gallos:${locationId}`,
+      label: locationName ? `Gallos · ${locationName}` : "Gallos · Sin lugar asignado",
+      species: "gallo",
+      count: rows.length,
+      avgWeightKg: weights.length ? weights.reduce((sum, weight) => sum + weight, 0) / weights.length : roosterTargetWeight,
+      weightEstimated: weights.length === 0,
+      source: "rooster",
+      detail: "Machos reproductores",
+      locationName,
+    });
+  }
 
   // ─── Lotes multiespecie ───
   const presentBatches = batchRows.filter((b) => isBatchPresent(b.status, b.currentQuantity));
@@ -212,6 +225,7 @@ export async function computeAnimalInventory(): Promise<AnimalInventory> {
       weightEstimated: real <= 0,
       source: "batch",
       detail: PURPOSE_LABEL[batch.purpose] || batch.purpose,
+      locationName: batch.locationId ? locationNames.get(batch.locationId) || null : null,
     });
   }
 
