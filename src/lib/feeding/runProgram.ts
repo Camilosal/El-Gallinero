@@ -1,7 +1,8 @@
 import { isDateOnly } from "@/lib/date-validation";
 import { db } from "@/db";
-import { catalogos, hens, feedPrograms, feedInventory, feedMovements, appSettings } from "@/db/schema";
-import { eq, and, sql, or } from "drizzle-orm";
+import { catalogos, hens, roosters, broilerBatches, feedPrograms, feedInventory, feedMovements, appSettings } from "@/db/schema";
+import { eq, and, sql, inArray, gt } from "drizzle-orm";
+import { getStageSpecies, type FeedingSpecies } from "@/lib/feeding/stage-species";
 
 export const dynamic = "force-dynamic";
 
@@ -20,64 +21,49 @@ function addDays(dateStrValue: string, days: number): string {
 }
 
 
-/**
- * Cuenta gallinas activas por etapa con corte a una fecha concreta.
- * Misma lógica que GET /api/produccion/etapas pero parametrizada por fecha, de modo que
- * la ejecución histórica del programa respete cuántas gallinas había en cada
- * etapa en cada día (según su fecha de nacimiento).
- */
-export async function countHensByStageForDate(asOf: Date, client: any = db): Promise<Record<string, number>> {
-  const stages = await client
-    .select()
-    .from(catalogos)
-    .where(and(eq(catalogos.category, "etapa_crecimiento"), eq(catalogos.isActive, true)));
-
-  const counts: Record<string, number> = {};
-  for (const stage of stages) {
-    const minWeeks = stage.minWeeks ?? 0;
-    const maxWeeks = stage.maxWeeks;
-    const minDate = new Date(asOf);
-    minDate.setDate(minDate.getDate() - minWeeks * 7);
-
-    let countResult;
-    if (maxWeeks === null) {
-      countResult = await client
-        .select({ count: sql<number>`count(*)::int` })
-        .from(hens)
-        .where(
-          and(
-            sql`${hens.birthDate}::date <= ${dateStr(minDate)}::date`,
-            or(eq(hens.status, "activa"), eq(hens.status, "empollando"), eq(hens.status, "recomendada_sacrificio"))
-          )
-        );
-    } else {
-      const maxDate = new Date(asOf);
-      maxDate.setDate(maxDate.getDate() - maxWeeks * 7);
-      countResult = await client
-        .select({ count: sql<number>`count(*)::int` })
-        .from(hens)
-        .where(
-          and(
-            sql`${hens.birthDate}::date <= ${dateStr(minDate)}::date`,
-            sql`${hens.birthDate}::date > ${dateStr(maxDate)}::date`,
-            or(eq(hens.status, "activa"), eq(hens.status, "empollando"), eq(hens.status, "recomendada_sacrificio"))
-          )
-        );
-    }
-    counts[stage.id] = countResult?.[0]?.count ?? 0;
-  }
-  return counts;
-}
-
-/** Cuenta las aves de cada etapa separadas por su alojamiento actual. */
-export async function countHensByStageAndLocationForDate(
+/** Cuenta los animales de cada etapa por especie y alojamiento a una fecha dada. */
+export async function countAnimalsByStageAndLocationForDate(
   asOf: Date,
   client: any = db,
 ): Promise<Record<string, { locationId: string | null; count: number }[]>> {
-  const stages = await client
-    .select()
-    .from(catalogos)
-    .where(and(eq(catalogos.category, "etapa_crecimiento"), eq(catalogos.isActive, true)));
+  const [stages, henRows, roosterRows, batchRows] = await Promise.all([
+    client
+      .select()
+      .from(catalogos)
+      .where(and(eq(catalogos.category, "etapa_crecimiento"), eq(catalogos.isActive, true))),
+    client
+      .select({ birthDate: hens.birthDate, locationId: hens.locationId })
+      .from(hens)
+      .where(inArray(hens.status, ["activa", "empollando", "recomendada_sacrificio"])),
+    client
+      .select({ birthDate: roosters.birthDate, locationId: roosters.locationId })
+      .from(roosters)
+      .where(inArray(roosters.status, ["activo", "enfermo"])),
+    client
+      .select({ species: broilerBatches.species, birthDate: broilerBatches.startDate, currentQuantity: broilerBatches.currentQuantity, locationId: broilerBatches.locationId })
+      .from(broilerBatches)
+      .where(and(
+        inArray(broilerBatches.status, ["activo", "listo_sacrificio"]),
+        gt(broilerBatches.currentQuantity, 0),
+      )),
+  ]);
+
+  type Population = { birthDate: string; locationId: string | null; count: number };
+  const populationsBySpecies = new Map<FeedingSpecies, Population[]>([
+    ["gallina", henRows.map((row: { birthDate: string; locationId: string | null }) => ({ ...row, count: 1 }))],
+    ["gallo", roosterRows.map((row: { birthDate: string; locationId: string | null }) => ({ ...row, count: 1 }))],
+    ["pollo", []],
+    ["codorniz", []],
+    ["pato", []],
+    ["conejo", []],
+  ]);
+  for (const batch of batchRows) {
+    populationsBySpecies.get(batch.species)?.push({
+      birthDate: batch.birthDate,
+      locationId: batch.locationId,
+      count: batch.currentQuantity,
+    });
+  }
 
   const counts: Record<string, { locationId: string | null; count: number }[]> = {};
   for (const stage of stages) {
@@ -85,27 +71,38 @@ export async function countHensByStageAndLocationForDate(
     const maxWeeks = stage.maxWeeks;
     const minDate = new Date(asOf);
     minDate.setDate(minDate.getDate() - minWeeks * 7);
-    const conditions = [
-      sql`${hens.birthDate}::date <= ${dateStr(minDate)}::date`,
-      or(eq(hens.status, "activa"), eq(hens.status, "empollando"), eq(hens.status, "recomendada_sacrificio")),
-    ];
+    const minimumBirthDate = dateStr(minDate);
+    let maximumBirthDate: string | null = null;
     if (maxWeeks !== null) {
       const maxDate = new Date(asOf);
       maxDate.setDate(maxDate.getDate() - maxWeeks * 7);
-      conditions.push(sql`${hens.birthDate}::date > ${dateStr(maxDate)}::date`);
+      maximumBirthDate = dateStr(maxDate);
     }
-    const rows = await client
-      .select({ locationId: hens.locationId, count: sql<number>`count(*)::int` })
-      .from(hens)
-      .where(and(...conditions))
-      .groupBy(hens.locationId);
-    counts[stage.id] = rows.map((row: { locationId: string | null; count: number }) => ({
-      locationId: row.locationId,
-      count: Number(row.count),
-    }));
+    const byLocation = new Map<string | null, number>();
+    for (const animal of populationsBySpecies.get(getStageSpecies(stage)) ?? []) {
+      if (animal.birthDate > minimumBirthDate) continue;
+      if (maximumBirthDate !== null && animal.birthDate <= maximumBirthDate) continue;
+      byLocation.set(animal.locationId, (byLocation.get(animal.locationId) ?? 0) + animal.count);
+    }
+    counts[stage.id] = Array.from(byLocation, ([locationId, count]) => ({ locationId, count }));
   }
   return counts;
 }
+
+/** Conteo agregado de animales por etapa, para predicciones y resúmenes. */
+export async function countAnimalsByStageForDate(asOf: Date, client: any = db): Promise<Record<string, number>> {
+  const byLocation = await countAnimalsByStageAndLocationForDate(asOf, client);
+  return Object.fromEntries(
+    Object.entries(byLocation).map(([stageId, groups]) => [
+      stageId,
+      groups.reduce((total, group) => total + group.count, 0),
+    ]),
+  );
+}
+
+/** Backward-compatible exports used by older callers and tests. */
+export const countHensByStageForDate = countAnimalsByStageForDate;
+export const countHensByStageAndLocationForDate = countAnimalsByStageAndLocationForDate;
 
 /**
  * Ejecuta (catch-up) los programas de alimentación hasta la fecha de consulta.
@@ -177,10 +174,10 @@ export async function runFeedProgramCatchup(asOf?: Date): Promise<void> {
     let cur = startStr;
     while (cur <= asOfStr) {
       const dayDate = new Date(cur + "T12:00:00");
-      const henCounts = await countHensByStageAndLocationForDate(dayDate, tx);
+      const animalCounts = await countAnimalsByStageAndLocationForDate(dayDate, tx);
 
       for (const [stageId, entries] of programByStage) {
-        for (const group of henCounts[stageId] ?? []) {
+        for (const group of animalCounts[stageId] ?? []) {
           if (group.count <= 0) continue;
           for (const e of entries) {
             const kg = (e.gramsPerHen * group.count) / 1000;

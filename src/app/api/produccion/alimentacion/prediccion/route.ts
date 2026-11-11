@@ -1,8 +1,8 @@
 import { db } from "@/db";
-import { catalogos, hens, feedPrograms, feedInventory, feedMovements } from "@/db/schema";
-import { eq, and, sql, or, gte } from "drizzle-orm";
+import { feedPrograms, feedInventory, feedMovements } from "@/db/schema";
+import { eq, and, sql, gte } from "drizzle-orm";
 import { NextRequest, NextResponse } from "next/server";
-import { runFeedProgramCatchup, countHensByStageForDate } from "@/lib/feeding/runProgram";
+import { runFeedProgramCatchup, countAnimalsByStageForDate } from "@/lib/feeding/runProgram";
 import { withApiHandler, safeParseJson } from "@/lib/api-handler";
 
 export const dynamic = "force-dynamic";
@@ -44,8 +44,8 @@ async function buildPrediction(horizonDays: number, updateMinimums: boolean) {
   // Asegurar que stock y consumo estén al día
   await runFeedProgramCatchup();
 
-  // 1. Consumo esperado por alimento (kg/día) según gallinas actuales por etapa
-  const henCounts = await countHensByStageForDate(today);
+  // 1. Consumo esperado por alimento (kg/día) según la especie y etapa del programa
+  const animalCounts = await countAnimalsByStageForDate(today);
 
   const programs = await db
     .select({
@@ -75,10 +75,10 @@ async function buildPrediction(horizonDays: number, updateMinimums: boolean) {
 
   for (const p of programs) {
     if (!p.feedId) continue;
-    const henCount = henCounts[p.stageCatalogoId] || 0;
+    if (p.currentStock === null) continue;
+    const animalCount = animalCounts[p.stageCatalogoId] || 0;
     const gramsPerHen = Number(p.dailyAmountPerHen);
-    const dailyKg = (gramsPerHen * henCount) / 1000;
-    if (dailyKg <= 0) continue;
+    const dailyKg = (gramsPerHen * animalCount) / 1000;
 
     if (!needByFeed[p.feedId]) {
       needByFeed[p.feedId] = {

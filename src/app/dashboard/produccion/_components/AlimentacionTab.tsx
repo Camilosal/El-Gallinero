@@ -19,6 +19,7 @@ import {
   isPurchasedFeedCategory,
   normalizeFeedType,
 } from "@/lib/feed-classification";
+import { getStageSpecies, type FeedingSpecies } from "@/lib/feeding/stage-species";
 
 interface Feed {
   id: string;
@@ -44,11 +45,22 @@ interface FeedProgramEntry {
 interface Stage {
   id: string;
   value: string;
+  tipo?: string | null;
   minWeeks: number | null;
   maxWeeks: number | null;
+  animalCount?: number;
   henCount: number;
   programs: FeedProgramEntry[];
 }
+
+const speciesPresentation: Record<FeedingSpecies, { icon: string; singular: string; plural: string }> = {
+  gallina: { icon: "🐔", singular: "gallina", plural: "gallinas" },
+  gallo: { icon: "🐓", singular: "gallo", plural: "gallos" },
+  pollo: { icon: "🐓", singular: "pollo", plural: "pollos" },
+  codorniz: { icon: "🥚", singular: "codorniz", plural: "codornices" },
+  pato: { icon: "🦆", singular: "pato", plural: "patos" },
+  conejo: { icon: "🐇", singular: "conejo", plural: "conejos" },
+};
 
 interface Movement {
   id: string;
@@ -474,6 +486,7 @@ export default function AlimentacionPage() {
     }
 
     const payload = {
+      species: newPlanForm.species,
       value: newPlanForm.name.trim(),
       minWeeks: Number(newPlanForm.minWeeks) || 0,
       maxWeeks: newPlanForm.maxWeeks ? Number(newPlanForm.maxWeeks) : null,
@@ -499,7 +512,7 @@ export default function AlimentacionPage() {
   const lowStock = feeds.filter((f) => Number(f.currentStock) <= Number(f.minStock));
   const farmFeeds = feeds.filter((f) => !isPurchasedFeedCategory(f.category));
   const purchasedFeeds = feeds.filter((f) => isPurchasedFeedCategory(f.category));
-  const totalHens = stages.reduce((sum, s) => sum + s.henCount, 0);
+  const totalAnimals = stages.reduce((sum, stage) => sum + Number(stage.animalCount ?? stage.henCount ?? 0), 0);
 
   const filteredFeeds = useMemo(() => {
     if (!feedSearch.trim()) return feeds;
@@ -625,7 +638,7 @@ export default function AlimentacionPage() {
         <StatCard icon="🛒" label="Suplementarios" value={purchasedFeeds.length} color="blue" />
         <StatCard icon="⚠️" label="Stock Bajo" value={lowStock.length} color={lowStock.length > 0 ? "red" : "green"} />
         <StatCard icon="📦" label="Movimientos" value={movements.length} color="purple" />
-        <StatCard icon="🐔" label="Gallinas en Producción" value={totalHens} color="green" />
+        <StatCard icon="🐾" label="Animales en Programas" value={totalAnimals} color="green" />
       </div>
 
       {/* Low stock alerts */}
@@ -800,43 +813,28 @@ export default function AlimentacionPage() {
             stages
               .filter((stage) => {
                 if (selectedProgramSpeciesFilter === "all") return true;
-                const v = stage.value.toLowerCase();
-                if (selectedProgramSpeciesFilter === "pollo") return v.includes("pollo");
-                if (selectedProgramSpeciesFilter === "codorniz") return v.includes("codorniz");
-                if (selectedProgramSpeciesFilter === "pato") return v.includes("pato");
-                if (selectedProgramSpeciesFilter === "conejo") return v.includes("conejo");
-                if (selectedProgramSpeciesFilter === "gallina") return !v.includes("pollo") && !v.includes("codorniz") && !v.includes("pato") && !v.includes("conejo");
-                return true;
+                return getStageSpecies(stage) === selectedProgramSpeciesFilter;
               })
               .map((stage) => {
                 const totalPercentage = stage.programs.reduce((s, p) => s + Number(p.percentage), 0);
                 const totalGrams = stage.programs.reduce((s, p) => s + Number(p.dailyAmountPerHen), 0);
-                const totalDailyKg = (stage.henCount * totalGrams / 1000).toFixed(1);
-
-                const v = stage.value.toLowerCase();
-                const speciesIcon = v.includes("conejo") ? "🐇"
-                  : v.includes("pato") ? "🦆"
-                  : v.includes("codorniz") ? "🥚"
-                  : v.includes("pollo") ? "🐓"
-                  : "🐔";
-
-                const animalLabel = v.includes("conejo") ? "conejo" : "ave";
+                const animalCount = Number(stage.animalCount ?? stage.henCount ?? 0);
+                const species = speciesPresentation[getStageSpecies(stage)];
+                const totalDailyKg = (animalCount * totalGrams / 1000).toFixed(1);
 
                 return (
                   <Card key={stage.id}>
                     <div className="flex items-center justify-between mb-3">
                       <div className="flex items-center gap-3">
                         <Badge color={stageColors[stage.value] || "green"}>
-                          {speciesIcon} {stage.value}
+                          {species.icon} {stage.value}
                         </Badge>
                         <span className="text-sm text-slate-500">
                           {stage.minWeeks}–{stage.maxWeeks ? `${stage.maxWeeks} sem` : "+ sem"}
                         </span>
-                        {speciesIcon === "🐔" && (
-                          <span className="text-sm font-semibold text-slate-700">
-                            🐔 {stage.henCount} gallina{stage.henCount !== 1 ? "s" : ""}
-                          </span>
-                        )}
+                        <span className="text-sm font-semibold text-slate-700">
+                          {species.icon} {animalCount} {animalCount === 1 ? species.singular : species.plural}
+                        </span>
                       </div>
                       <Button onClick={() => openProgramEditor(stage)}>
                         ✏️ Editar Dieta
@@ -847,15 +845,15 @@ export default function AlimentacionPage() {
                       <p className="text-sm text-slate-400 py-2">Sin programa alimenticio definido</p>
                     ) : (
                       <div>
-                        <Table headers={["Alimento / Ingrediente", "% Dieta", `g/${animalLabel}/día`, stage.henCount > 0 ? `Total/día (${stage.henCount} aves)` : "Dosis unitaria"]}>
+                        <Table headers={["Alimento / Ingrediente", "% Dieta", `g/${species.singular}/día`, animalCount > 0 ? `Total/día (${animalCount} animales)` : "Dosis unitaria"]}>
                           {stage.programs.map((p) => (
                             <tr key={p.id || p.feedId} className="hover:bg-slate-50">
                               <td className="px-4 py-2 font-medium">{p.feedName || "—"}</td>
                               <td className="px-4 py-2">{p.percentage}%</td>
                               <td className="px-4 py-2 font-semibold text-slate-800">{p.dailyAmountPerHen} g</td>
                               <td className="px-4 py-2">
-                                {stage.henCount > 0 ? (
-                                  <span className="font-semibold">{((Number(p.dailyAmountPerHen) * stage.henCount) / 1000).toFixed(2)} kg</span>
+                                {animalCount > 0 ? (
+                                  <span className="font-semibold">{((Number(p.dailyAmountPerHen) * animalCount) / 1000).toFixed(2)} kg</span>
                                 ) : (
                                   <span className="text-slate-400">{p.dailyAmountPerHen} g/cabeza</span>
                                 )}
@@ -867,7 +865,7 @@ export default function AlimentacionPage() {
                             <td className="px-4 py-2">{totalPercentage}%</td>
                             <td className="px-4 py-2">{totalGrams} g</td>
                             <td className="px-4 py-2">
-                              {stage.henCount > 0 ? `${totalDailyKg} kg` : `${totalGrams} g/animal`}
+                              {animalCount > 0 ? `${totalDailyKg} kg` : `${totalGrams} g/animal`}
                             </td>
                           </tr>
                         </Table>

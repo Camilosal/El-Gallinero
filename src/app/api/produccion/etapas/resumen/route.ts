@@ -2,8 +2,9 @@ import { db } from "@/db";
 import { catalogos, hens, feedPrograms, feedInventory, feedMovements } from "@/db/schema";
 import { eq, and, sql, or, desc } from "drizzle-orm";
 import { NextRequest, NextResponse } from "next/server";
-import { runFeedProgramCatchup } from "@/lib/feeding/runProgram";
+import { countAnimalsByStageForDate, runFeedProgramCatchup } from "@/lib/feeding/runProgram";
 import { withApiHandler, safeParseJson } from "@/lib/api-handler";
+import { getStageSpecies } from "@/lib/feeding/stage-species";
 
 export const dynamic = "force-dynamic";
 
@@ -33,17 +34,20 @@ export const GET = withApiHandler(async (req?: NextRequest) => {
   // 2. Para cada etapa, contar gallinas y calcular métricas
   const stageMetrics = [];
   const feedNeedsAggregated: Record<string, { feedName: string; feedUnit: string; dailyGrams: number; currentStock: string; costPerUnit: string }> = {};
+  const stageAnimalCounts = await countAnimalsByStageForDate(today);
   let totalExpectedEggs = 0;
   let totalHens = 0;
+  let totalAnimals = 0;
 
   for (const stage of stages) {
+    const species = getStageSpecies(stage);
     const minWeeks = stage.minWeeks ?? 0;
     const maxWeeks = stage.maxWeeks;
     const minDate = new Date(today);
     minDate.setDate(minDate.getDate() - minWeeks * 7);
 
     let countResult;
-    if (maxWeeks === null) {
+    if (species === "gallina" && maxWeeks === null) {
       countResult = await db
         .select({ count: sql<number>`count(*)::int` })
         .from(hens)
@@ -53,7 +57,7 @@ export const GET = withApiHandler(async (req?: NextRequest) => {
             or(eq(hens.status, "activa"), eq(hens.status, "empollando"), eq(hens.status, "recomendada_sacrificio"))
           )
         );
-    } else {
+    } else if (species === "gallina" && maxWeeks !== null) {
       const maxDate = new Date(today);
       maxDate.setDate(maxDate.getDate() - maxWeeks * 7);
       countResult = await db
@@ -68,34 +72,38 @@ export const GET = withApiHandler(async (req?: NextRequest) => {
         );
     }
 
-    const henCount = countResult?.[0]?.count ?? 0;
+    const henCount = species === "gallina" ? (countResult?.[0]?.count ?? 0) : 0;
+    const animalCount = stageAnimalCounts[stage.id] ?? 0;
     totalHens += henCount;
+    totalAnimals += animalCount;
 
     // Solo las gallinas activas en una etapa configurada para postura aportan
     // producción esperada. Las aves en cría, empollando o en descarte no se
     // deben presentar como ponedoras.
     let layingCountResult;
-    if (maxWeeks === null) {
-      layingCountResult = await db
-        .select({ count: sql<number>`count(*)::int` })
-        .from(hens)
-        .where(and(
-          sql`${hens.birthDate}::date <= ${minDate.toISOString().split("T")[0]}::date`,
-          eq(hens.status, "activa"),
-        ));
-    } else {
-      const maxDate = new Date(today);
-      maxDate.setDate(maxDate.getDate() - maxWeeks * 7);
-      layingCountResult = await db
-        .select({ count: sql<number>`count(*)::int` })
-        .from(hens)
-        .where(and(
-          sql`${hens.birthDate}::date <= ${minDate.toISOString().split("T")[0]}::date`,
-          sql`${hens.birthDate}::date > ${maxDate.toISOString().split("T")[0]}::date`,
-          eq(hens.status, "activa"),
-        ));
+    if (species === "gallina") {
+      if (maxWeeks === null) {
+        layingCountResult = await db
+          .select({ count: sql<number>`count(*)::int` })
+          .from(hens)
+          .where(and(
+            sql`${hens.birthDate}::date <= ${minDate.toISOString().split("T")[0]}::date`,
+            eq(hens.status, "activa"),
+          ));
+      } else {
+        const maxDate = new Date(today);
+        maxDate.setDate(maxDate.getDate() - maxWeeks * 7);
+        layingCountResult = await db
+          .select({ count: sql<number>`count(*)::int` })
+          .from(hens)
+          .where(and(
+            sql`${hens.birthDate}::date <= ${minDate.toISOString().split("T")[0]}::date`,
+            sql`${hens.birthDate}::date > ${maxDate.toISOString().split("T")[0]}::date`,
+            eq(hens.status, "activa"),
+          ));
+      }
     }
-    const layingHenCount = Number(stage.expectedEggsPerHen || 0) > 0
+    const layingHenCount = species === "gallina" && Number(stage.expectedEggsPerHen || 0) > 0
       ? (layingCountResult?.[0]?.count ?? 0)
       : 0;
 
@@ -118,7 +126,7 @@ export const GET = withApiHandler(async (req?: NextRequest) => {
     // Calcular consumo diario total para esta etapa
     const dailyFeedPerFeed = programs.map((p) => {
       const gramsPerHen = Number(p.dailyAmountPerHen);
-      const dailyGrams = gramsPerHen * henCount;
+      const dailyGrams = gramsPerHen * animalCount;
       return {
         feedId: p.feedId,
         feedName: p.feedName || "",
@@ -155,9 +163,11 @@ export const GET = withApiHandler(async (req?: NextRequest) => {
     stageMetrics.push({
       stageId: stage.id,
       stageName: stage.value,
+      species,
       minWeeks: stage.minWeeks,
       maxWeeks: stage.maxWeeks,
       henCount,
+      animalCount,
       layingHenCount,
       expectedEggsPerHen: eggsPerHen,
       expectedEggs,
@@ -233,6 +243,7 @@ export const GET = withApiHandler(async (req?: NextRequest) => {
 
   return NextResponse.json({
     totalHens,
+    totalAnimals,
     totalExpectedEggsPerDay: Math.round(totalExpectedEggs * 10) / 10,
     expectedEggs7d,
     actualEggs7d,

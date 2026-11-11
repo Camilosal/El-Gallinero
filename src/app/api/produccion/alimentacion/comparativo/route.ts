@@ -1,8 +1,8 @@
 import { db } from "@/db";
-import { catalogos, hens, feedPrograms, feedInventory, feedMovements } from "@/db/schema";
-import { eq, and, sql, or, desc, gte } from "drizzle-orm";
+import { feedPrograms, feedInventory, feedMovements } from "@/db/schema";
+import { eq, and, sql, desc, gte } from "drizzle-orm";
 import { NextRequest, NextResponse } from "next/server";
-import { runFeedProgramCatchup } from "@/lib/feeding/runProgram";
+import { runFeedProgramCatchup, countAnimalsByStageForDate } from "@/lib/feeding/runProgram";
 import { withApiHandler, safeParseJson } from "@/lib/api-handler";
 
 export const dynamic = "force-dynamic";
@@ -28,49 +28,10 @@ export const GET = withApiHandler(async (req: NextRequest) => {
   // Ejecutar el programa hasta hoy para que el consumo real esté al día
   await runFeedProgramCatchup();
 
-  // 1. Obtener programas alimenticios activos
-  const stages = await db
-    .select()
-    .from(catalogos)
-    .where(and(eq(catalogos.category, "etapa_crecimiento"), eq(catalogos.isActive, true)));
+  // 1. Contar los animales correspondientes a cada programa alimenticio.
+  const stageAnimalCounts = await countAnimalsByStageForDate(today);
 
-  // 2. Contar gallinas por etapa
-  const stageHenCounts: Record<string, number> = {};
-  for (const stage of stages) {
-    const minWeeks = stage.minWeeks ?? 0;
-    const maxWeeks = stage.maxWeeks;
-    const minDate = new Date(today);
-    minDate.setDate(minDate.getDate() - minWeeks * 7);
-
-    let countResult;
-    if (maxWeeks === null) {
-      countResult = await db
-        .select({ count: sql<number>`count(*)::int` })
-        .from(hens)
-        .where(
-          and(
-            sql`${hens.birthDate}::date <= ${minDate.toISOString().split("T")[0]}::date`,
-            or(eq(hens.status, "activa"), eq(hens.status, "empollando"))
-          )
-        );
-    } else {
-      const maxDate = new Date(today);
-      maxDate.setDate(maxDate.getDate() - maxWeeks * 7);
-      countResult = await db
-        .select({ count: sql<number>`count(*)::int` })
-        .from(hens)
-        .where(
-          and(
-            sql`${hens.birthDate}::date <= ${minDate.toISOString().split("T")[0]}::date`,
-            sql`${hens.birthDate}::date > ${maxDate.toISOString().split("T")[0]}::date`,
-            or(eq(hens.status, "activa"), eq(hens.status, "empollando"))
-          )
-        );
-    }
-    stageHenCounts[stage.id] = countResult?.[0]?.count ?? 0;
-  }
-
-  // 3. Calcular consumo planificado por alimento (kg/día)
+  // 2. Calcular consumo planificado por alimento (kg/día)
   const programs = await db
     .select({
       feedId: feedPrograms.feedId,
@@ -87,8 +48,8 @@ export const GET = withApiHandler(async (req: NextRequest) => {
   const plannedByFeed: Record<string, { feedName: string; dailyKg: number; costPerUnit: number; currentStock: number }> = {};
   for (const p of programs) {
     if (!p.feedId) continue;
-    const henCount = stageHenCounts[p.stageCatalogoId] || 0;
-    const dailyGrams = Number(p.dailyAmountPerHen) * henCount;
+    const animalCount = stageAnimalCounts[p.stageCatalogoId] || 0;
+    const dailyGrams = Number(p.dailyAmountPerHen) * animalCount;
     const dailyKg = dailyGrams / 1000;
 
     if (!plannedByFeed[p.feedId]) {

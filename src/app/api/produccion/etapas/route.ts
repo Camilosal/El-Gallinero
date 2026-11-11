@@ -1,12 +1,14 @@
 import { db } from "@/db";
-import { catalogos, hens, feedPrograms, feedInventory } from "@/db/schema";
-import { eq, and, sql, isNull, gte, lt, or } from "drizzle-orm";
+import { catalogos, feedPrograms, feedInventory } from "@/db/schema";
+import { eq, and, sql } from "drizzle-orm";
 import { NextRequest, NextResponse } from "next/server";
 import { withApiHandler, safeParseJson } from "@/lib/api-handler";
+import { countAnimalsByStageForDate } from "@/lib/feeding/runProgram";
+import { getStageSpecies } from "@/lib/feeding/stage-species";
 
 export const dynamic = "force-dynamic";
 
-/** Lista todas las etapas de crecimiento con conteo de gallinas por etapa */
+/** Lista todas las etapas de crecimiento con conteo de animales por especie y etapa. */
 export const GET = withApiHandler(async () => {
   const stages = await db
     .select()
@@ -14,48 +16,11 @@ export const GET = withApiHandler(async () => {
     .where(and(eq(catalogos.category, "etapa_crecimiento"), eq(catalogos.isActive, true)))
     .orderBy(sql`${catalogos.sortOrder}`);
 
-  // Contar gallinas activas por etapa usando su fecha de nacimiento
-  const today = new Date();
+  const animalCounts = await countAnimalsByStageForDate(new Date());
   const result = [];
 
   for (const stage of stages) {
-    const minWeeks = stage.minWeeks ?? 0;
-    const maxWeeks = stage.maxWeeks;
-
-    // Calcular la fecha de nacimiento límite para esta etapa
-    const minDate = new Date(today);
-    minDate.setDate(minDate.getDate() - minWeeks * 7);
-
-    // Contar gallinas cuya edad en semanas está en el rango [minWeeks, maxWeeks)
-    let countResult;
-    if (maxWeeks === null) {
-      // Etapa abierta (ej: Postura 20+ semanas)
-      countResult = await db
-        .select({ count: sql<number>`count(*)::int` })
-        .from(hens)
-        .where(
-          and(
-            sql`${hens.birthDate}::date <= ${minDate.toISOString().split("T")[0]}::date`,
-            or(eq(hens.status, "activa"), eq(hens.status, "empollando"), eq(hens.status, "recomendada_sacrificio"))
-          )
-        );
-    } else {
-      const maxDate = new Date(today);
-      maxDate.setDate(maxDate.getDate() - maxWeeks * 7);
-
-      countResult = await db
-        .select({ count: sql<number>`count(*)::int` })
-        .from(hens)
-        .where(
-          and(
-            sql`${hens.birthDate}::date <= ${minDate.toISOString().split("T")[0]}::date`,
-            sql`${hens.birthDate}::date > ${maxDate.toISOString().split("T")[0]}::date`,
-            or(eq(hens.status, "activa"), eq(hens.status, "empollando"), eq(hens.status, "recomendada_sacrificio"))
-          )
-        );
-    }
-
-    const henCount = countResult?.[0]?.count ?? 0;
+    const animalCount = animalCounts[stage.id] ?? 0;
 
     // Obtener el programa alimenticio de esta etapa
     const programs = await db
@@ -73,7 +38,9 @@ export const GET = withApiHandler(async () => {
 
     result.push({
       ...stage,
-      henCount,
+      animalCount,
+      // Compatibility for older clients; this value now counts the stage's species.
+      henCount: animalCount,
       programs,
     });
   }
@@ -87,6 +54,15 @@ export const POST = withApiHandler(async (req: NextRequest) => {
   if (!body || typeof body !== "object") return NextResponse.json({ error: "Cuerpo inválido" }, { status: 400 });
   const value = typeof body.value === "string" ? body.value.trim() : "";
   if (!value) return NextResponse.json({ error: "Nombre del plan o etapa requerido" }, { status: 400 });
+  const supportedSpecies = ["gallina", "pollo", "codorniz", "pato", "conejo"] as const;
+  const requestedSpecies = typeof body.species === "string" ? body.species.trim().toLocaleLowerCase("es") : "";
+  if (requestedSpecies && !supportedSpecies.includes(requestedSpecies as typeof supportedSpecies[number])) {
+    return NextResponse.json({ error: "Especie del plan no válida" }, { status: 400 });
+  }
+  const species = requestedSpecies || getStageSpecies({ value });
+  if (!supportedSpecies.includes(species as typeof supportedSpecies[number])) {
+    return NextResponse.json({ error: "La especie del plan no está soportada" }, { status: 400 });
+  }
 
   const minWeeks = body.minWeeks !== undefined && body.minWeeks !== "" ? Number(body.minWeeks) : 0;
   const maxWeeks = body.maxWeeks !== undefined && body.maxWeeks !== "" && body.maxWeeks !== null ? Number(body.maxWeeks) : null;
@@ -116,6 +92,7 @@ export const POST = withApiHandler(async (req: NextRequest) => {
     const [stage] = await tx.insert(catalogos).values({
       category: "etapa_crecimiento",
       value,
+      tipo: species,
       minWeeks,
       maxWeeks,
       sortOrder,
