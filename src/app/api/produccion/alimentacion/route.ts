@@ -5,6 +5,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getFeedInventoryProjection } from "@/lib/feeding/inventory";
 import { withApiHandler, safeParseJson } from "@/lib/api-handler";
 import { deleteTransactionsAndUnpaidAccounts } from "@/lib/financial-records";
+import { normalizeFeedCategory, normalizeFeedType } from "@/lib/feed-classification";
 
 export const dynamic = "force-dynamic";
 
@@ -26,11 +27,15 @@ export const POST = withApiHandler(async (req: NextRequest) => {
   if (!Number.isFinite(initialStock) || initialStock < 0) {
     return NextResponse.json({ error: "Stock inicial inválido" }, { status: 400 });
   }
+  const category = normalizeFeedCategory(body.category);
+  const feedType = normalizeFeedType(body.feedType);
+  if (!category) return NextResponse.json({ error: "Categoría de alimento no reconocida. Revisa el catálogo de categorías." }, { status: 400 });
+  if (!feedType) return NextResponse.json({ error: "Tipo de alimento no reconocido. Revisa el catálogo de tipos." }, { status: 400 });
   const [created] = await db.transaction(async (tx) => {
     const [row] = await tx.insert(feedInventory).values({
       name: body.name,
-      category: body.category,
-      feedType: body.feedType,
+      category,
+      feedType,
       unit: body.unit,
       currentStock: initialStock.toFixed(2),
       minStock: body.minStock || "0",
@@ -58,6 +63,15 @@ export const PUT = withApiHandler(async (req: NextRequest) => {
   if (!body || typeof body !== "object") return NextResponse.json({ error: "Cuerpo inválido" }, { status: 400 });
   if (!body.id) return NextResponse.json({ error: "ID requerido" }, { status: 400 });
 
+  const requestedCategory = body.category == null ? undefined : normalizeFeedCategory(body.category);
+  const requestedFeedType = body.feedType == null ? undefined : normalizeFeedType(body.feedType);
+  if (body.category != null && !requestedCategory) {
+    return NextResponse.json({ error: "Categoría de alimento no reconocida. Revisa el catálogo de categorías." }, { status: 400 });
+  }
+  if (body.feedType != null && !requestedFeedType) {
+    return NextResponse.json({ error: "Tipo de alimento no reconocido. Revisa el catálogo de tipos." }, { status: 400 });
+  }
+
   const [updated] = await db.transaction(async (tx) => {
     const [existing] = await tx.select().from(feedInventory).where(eq(feedInventory.id, body.id)).for("update");
     if (!existing) return [];
@@ -66,8 +80,8 @@ export const PUT = withApiHandler(async (req: NextRequest) => {
     const previousStock = Number(existing.currentStock);
     const [row] = await tx.update(feedInventory).set({
       name: body.name ?? existing.name,
-      category: body.category ?? existing.category,
-      feedType: body.feedType ?? existing.feedType,
+      category: requestedCategory ?? existing.category,
+      feedType: requestedFeedType ?? existing.feedType,
       unit: body.unit ?? existing.unit,
       currentStock: nextStock.toFixed(2),
       minStock: body.minStock ?? existing.minStock,

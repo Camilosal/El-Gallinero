@@ -65,6 +65,9 @@ const categoryLabels: Record<string, string> = {
   granja_fresco: "🌿 Granja fresco",
   granja_procesado: "⚙️ Granja procesado",
   suplementario: "🛒 Suplementario",
+  Concentrado: "🛒 Concentrado",
+  "En Fresco": "🌿 En Fresco",
+  Preparados: "⚙️ Preparados",
 };
 
 const fmtMoney = (value: number) => `$${Math.round(value).toLocaleString("es-CO")}`;

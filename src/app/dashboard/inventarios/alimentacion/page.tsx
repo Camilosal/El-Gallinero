@@ -8,6 +8,7 @@ import {
 } from "@/components/ui";
 import { getFeedInventoryProjection } from "@/lib/feeding/inventory";
 import { matchesTextQuery } from "@/lib/text";
+import { feedCategoryLabel, isFreshFeedCategory, isPurchasedFeedCategory } from "@/lib/feed-classification";
 
 export const dynamic = "force-dynamic";
 
@@ -56,18 +57,18 @@ function FeedTable({
           <td className="px-4 py-3 text-sm">
             <Badge
               color={
-                f.category === "suplementario"
+                isPurchasedFeedCategory(f.category)
                   ? "blue"
-                  : f.category === "granja_fresco"
+                  : isFreshFeedCategory(f.category)
                     ? "green"
                     : "purple"
               }
             >
-              {f.category === "suplementario"
-                ? "🛒 Suplementario"
-                : f.category === "granja_fresco"
-                  ? "🌿 Granja Fresco"
-                  : "⚙️ Procesado"}
+              {isPurchasedFeedCategory(f.category)
+                ? `🛒 ${feedCategoryLabel(f.category)}`
+                : isFreshFeedCategory(f.category)
+                  ? `🌿 ${feedCategoryLabel(f.category)}`
+                  : `⚙️ ${feedCategoryLabel(f.category)}`}
             </Badge>
           </td>
           <td className="px-4 py-3 font-semibold">
@@ -120,9 +121,9 @@ export default async function AlimentacionInventoryPage({
         matchesTextQuery(query, [
           f.name,
           f.category,
-          f.category === "suplementario"
+          isPurchasedFeedCategory(f.category)
             ? "suplementario comprado"
-            : f.category === "granja_fresco"
+            : isFreshFeedCategory(f.category)
               ? "granja fresco"
               : "procesado",
           f.unit,

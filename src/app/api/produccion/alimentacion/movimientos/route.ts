@@ -5,6 +5,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { runFeedProgramCatchup } from "@/lib/feeding/runProgram";
 import { withApiHandler, safeParseJson } from "@/lib/api-handler";
 import { deleteFeedMovementAndReverseStock } from "@/lib/financial-records";
+import { isPurchasedFeedCategory } from "@/lib/feed-classification";
 
 export const dynamic = "force-dynamic";
 
@@ -100,7 +101,7 @@ export const POST = withApiHandler(async (req: NextRequest) => {
     }).where(eq(feedInventory.id, body.feedId));
 
     // Purchased (suplementario) feed entry registers an expense in finances
-    if (body.isEntry && feed.category === "suplementario" && Number(feed.costPerUnit) > 0) {
+    if (body.isEntry && isPurchasedFeedCategory(feed.category) && Number(feed.costPerUnit) > 0) {
       const amount = (qty * Number(feed.costPerUnit)).toFixed(2);
       await tx.insert(transactions).values({
         date: body.date,

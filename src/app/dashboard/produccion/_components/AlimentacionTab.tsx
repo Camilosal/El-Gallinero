@@ -10,6 +10,15 @@ import { matchesTextQuery } from "@/lib/text";
 import { BarChart, Bar, Cell, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from "recharts";
 import FarmLocationSelect from "@/components/FarmLocationSelect";
 import { useActionQuery } from "@/lib/useActionQuery";
+import {
+  FEED_CURRENT_CATEGORIES,
+  FEED_CURRENT_TYPES,
+  currentFeedCategory,
+  currentFeedType,
+  feedTypeLabel,
+  isPurchasedFeedCategory,
+  normalizeFeedType,
+} from "@/lib/feed-classification";
 
 interface Feed {
   id: string;
@@ -154,6 +163,9 @@ const categoryLabels: Record<string, string> = {
   granja_fresco: "🌿 Granja Fresco",
   granja_procesado: "⚙️ Granja Procesado",
   suplementario: "🛒 Suplementario",
+  Concentrado: "🛒 Concentrado",
+  "En Fresco": "🌿 En Fresco",
+  Preparados: "⚙️ Preparados",
 };
 
 const feedTypeLabels: Record<string, string> = {
@@ -165,10 +177,20 @@ const feedTypeLabels: Record<string, string> = {
   maiz_comprado: "Maíz Comprado",
   concentrado_comercial: "Concentrado Comercial",
   otro: "Otro",
+  "Bore o Raices": "Bore o Raices",
+  "Concentrado Aves": "Concentrado Aves",
+  "Concentrado Codorniz": "Concentrado Codorniz",
+  "Concentrado Conejos": "Concentrado Conejos",
+  "Forraje Verde": "Forraje Verde",
+  "Maiz en Grano": "Maiz en Grano",
+  "Maíz Germinado": "Maíz Germinado",
+  "Mosca Soldado": "Mosca Soldado",
+  "Pastos y gramíneas": "Pastos y gramíneas",
+  Purinas: "Purinas",
 };
 
-const categoryFallback = ["granja_fresco", "granja_procesado", "suplementario"];
-const feedTypeFallback = ["pastos_gramineas", "bore_raices", "mosca_soldado", "maiz_germinado", "purinas", "maiz_comprado", "concentrado_comercial", "otro"];
+const categoryFallback = [...FEED_CURRENT_CATEGORIES];
+const feedTypeFallback = [...FEED_CURRENT_TYPES];
 
 const stageColors: Record<string, string> = {
   Pollito: "yellow",
@@ -208,7 +230,9 @@ export default function AlimentacionPage() {
     maxWeeks: "7",
     entries: [{ feedId: "", percentage: "100", dailyAmountPerHen: "100" }],
   });
-  const [form, setForm] = useState({ name: "", category: "granja_fresco", feedType: "pastos_gramineas", unit: "kg", currentStock: "0", minStock: "0", costPerUnit: "0", supplier: "" });
+  const [form, setForm] = useState({ name: "", category: "En Fresco", feedType: "Pastos y gramíneas", unit: "kg", currentStock: "0", minStock: "0", costPerUnit: "0", supplier: "" });
+  const [feedError, setFeedError] = useState("");
+  const [savingFeed, setSavingFeed] = useState(false);
   const [movForm, setMovForm] = useState({ feedId: "", quantity: "", isEntry: true, movementType: "compra", stageCatalogoId: "", henCount: "", date: new Date().toISOString().split("T")[0], locationId: "", notes: "" });
   const [movementError, setMovementError] = useState("");
   const [prediccion, setPrediccion] = useState<PredictionData | null>(null);
@@ -221,6 +245,33 @@ export default function AlimentacionPage() {
   const { values: unitOptions } = useCatalog("unidad_medida", ["kg", "lb", "litros"]);
   const { values: categoryOptions } = useCatalog("categoria_alimento", categoryFallback);
   const { values: feedTypeOptions } = useCatalog("tipo_alimento", feedTypeFallback);
+  const categorySelectOptions = useMemo(() => {
+    const labels = new Map<string, string>();
+    for (const option of categoryOptions) {
+      const value = currentFeedCategory(option);
+      if (value && !labels.has(value)) labels.set(value, option);
+    }
+    return categoryFallback.map((value) => ({
+      value,
+      label: labels.get(value) || categoryLabels[value] || value,
+    }));
+  }, [categoryOptions]);
+  const feedTypeSelectOptions = useMemo(() => {
+    const labels = new Map<string, string>();
+    for (const option of feedTypeOptions) {
+      const value = currentFeedType(option);
+      if (value && !labels.has(value)) labels.set(value, option);
+    }
+    const options: { value: string; label: string }[] = feedTypeFallback.map((value) => ({
+      value,
+      label: labels.get(value) || feedTypeLabels[value] || value,
+    }));
+    const selectedValue = normalizeFeedType(form.feedType);
+    if (selectedValue && !options.some((option) => option.value === selectedValue)) {
+      options.push({ value: selectedValue, label: feedTypeLabel(selectedValue) });
+    }
+    return options;
+  }, [feedTypeOptions, form.feedType]);
 
   const load = useCallback(() => {
     apiFetch("/api/produccion/alimentacion/prediccion", {
@@ -246,22 +297,37 @@ export default function AlimentacionPage() {
 
   const openNewFeed = () => {
     setEditing(null);
-    setForm({ name: "", category: "granja_fresco", feedType: "pastos_gramineas", unit: "kg", currentStock: "0", minStock: "0", costPerUnit: "0", supplier: "" });
+    setFeedError("");
+    setForm({ name: "", category: "En Fresco", feedType: "Pastos y gramíneas", unit: "kg", currentStock: "0", minStock: "0", costPerUnit: "0", supplier: "" });
     setModalOpen(true);
   };
 
   const openEditFeed = (f: Feed) => {
     setEditing(f);
-    setForm({ name: f.name, category: f.category, feedType: f.feedType, unit: f.unit, currentStock: f.currentStock, minStock: f.minStock, costPerUnit: f.costPerUnit, supplier: f.supplier || "" });
+    setFeedError("");
+    setForm({ name: f.name, category: currentFeedCategory(f.category) || f.category, feedType: currentFeedType(f.feedType) || f.feedType, unit: f.unit, currentStock: f.currentStock, minStock: f.minStock, costPerUnit: f.costPerUnit, supplier: f.supplier || "" });
     setModalOpen(true);
   };
 
   const saveFeed = async () => {
     const method = editing ? "PUT" : "POST";
     const body = editing ? { ...form, id: editing.id } : form;
-    await apiFetch("/api/produccion/alimentacion", { method, headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
-    setModalOpen(false);
-    load();
+    setFeedError("");
+    setSavingFeed(true);
+    try {
+      const response = await apiFetch("/api/produccion/alimentacion", { method, headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
+      const result = await response.json().catch(() => ({}));
+      if (!response.ok) {
+        setFeedError(result.error || "No se pudo guardar el alimento. Revisa los datos e inténtalo de nuevo.");
+        return;
+      }
+      setModalOpen(false);
+      load();
+    } catch (error) {
+      setFeedError(error instanceof Error ? error.message : "No se pudo guardar el alimento. Inténtalo de nuevo.");
+    } finally {
+      setSavingFeed(false);
+    }
   };
 
   const removeFeed = async (id: string) => {
@@ -356,7 +422,7 @@ export default function AlimentacionPage() {
     alimento: () => {
       selectTab("inventario");
       setEditing(null);
-      setForm({ name: "", category: "granja_fresco", feedType: "pastos_gramineas", unit: "kg", currentStock: "0", minStock: "0", costPerUnit: "0", supplier: "" });
+      setForm({ name: "", category: "En Fresco", feedType: "Pastos y gramíneas", unit: "kg", currentStock: "0", minStock: "0", costPerUnit: "0", supplier: "" });
       setModalOpen(true);
     },
     movimiento: () => {
@@ -431,8 +497,8 @@ export default function AlimentacionPage() {
   };
 
   const lowStock = feeds.filter((f) => Number(f.currentStock) <= Number(f.minStock));
-  const farmFeeds = feeds.filter((f) => f.category !== "suplementario");
-  const purchasedFeeds = feeds.filter((f) => f.category === "suplementario");
+  const farmFeeds = feeds.filter((f) => !isPurchasedFeedCategory(f.category));
+  const purchasedFeeds = feeds.filter((f) => isPurchasedFeedCategory(f.category));
   const totalHens = stages.reduce((sum, s) => sum + s.henCount, 0);
 
   const filteredFeeds = useMemo(() => {
@@ -1087,10 +1153,10 @@ export default function AlimentacionPage() {
         <div className="space-y-4">
           <Input label="Nombre del Alimento" help="Nombre descriptivo del alimento. Ej: 'Larvas de BSF', 'Maíz molido', 'Concentrado postura'." value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} placeholder="Ej: Larvas de BSF deshidratadas" required />
           <Select label="Categoría" help="Clasificación del alimento: de granja (producido por ti) o suplementario (comprado)." value={form.category} onChange={(e) => setForm({ ...form, category: e.target.value })}>
-            {categoryOptions.map((c) => <option key={c} value={c}>{categoryLabels[c] || c}</option>)}
+            {categorySelectOptions.map((c) => <option key={c.value} value={c.value}>{c.label}</option>)}
           </Select>
           <Select label="Tipo de Alimento" help="Tipo específico de alimento según su origen o composición." value={form.feedType} onChange={(e) => setForm({ ...form, feedType: e.target.value })}>
-            {feedTypeOptions.map((t) => <option key={t} value={t}>{feedTypeLabels[t] || t}</option>)}
+            {feedTypeSelectOptions.map((t) => <option key={t.value} value={t.value}>{t.label}</option>)}
           </Select>
           <div className="grid grid-cols-2 gap-3">
             <Select label="Unidad de medida" help="Unidad en que se mide este alimento (kg, libras, litros, etc.)." value={form.unit} onChange={(e) => setForm({ ...form, unit: e.target.value })}>
@@ -1107,9 +1173,10 @@ export default function AlimentacionPage() {
             {supplierOptions.map((s) => <option key={s} value={s} />)}
           </datalist>
           <div className="flex gap-3">
-            <Button onClick={saveFeed} disabled={!form.name}>{editing ? "Actualizar" : "Registrar"}</Button>
+            <Button onClick={saveFeed} disabled={!form.name || savingFeed}>{savingFeed ? "Guardando…" : editing ? "Actualizar" : "Registrar"}</Button>
             <Button variant="secondary" onClick={() => setModalOpen(false)}>Cancelar</Button>
           </div>
+          {feedError && <p className="text-sm text-red-700" role="alert">{feedError}</p>}
         </div>
       </Modal>
 

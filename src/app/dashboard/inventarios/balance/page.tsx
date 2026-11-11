@@ -7,6 +7,7 @@ import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip, Legend } from "recha
 import { apiFetch } from "@/lib/fetch";
 import TableSearch from "@/components/TableSearch";
 import { matchesTextQuery } from "@/lib/text";
+import { feedCategoryLabel, isPurchasedFeedCategory } from "@/lib/feed-classification";
 
 interface FoodItem {
   feedId: string;
@@ -370,8 +371,8 @@ export default function BalancePage() {
                   <tr key={f.feedId} className={f.isLow ? "bg-red-50" : "hover:bg-slate-50"}>
                     <td className="px-4 py-3 font-medium">{f.name}</td>
                     <td className="px-4 py-3 text-sm">
-                      <Badge color={f.category === "suplementario" ? "blue" : "green"}>
-                        {f.category === "suplementario" ? "🛒 Suplementario" : "🌿 Granja"}
+                      <Badge color={isPurchasedFeedCategory(f.category) ? "blue" : "green"}>
+                        {isPurchasedFeedCategory(f.category) ? `🛒 ${feedCategoryLabel(f.category)}` : `🌿 ${feedCategoryLabel(f.category)}`}
                       </Badge>
                     </td>
                     <td className="px-4 py-3 font-semibold">{f.currentStock} {f.unit}</td>

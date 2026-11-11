@@ -44,12 +44,18 @@ export const henStatusEnum = pgEnum("hen_status", [
 ]);
 
 export const feedCategoryEnum = pgEnum("feed_category", [
+  // Valores históricos; se mantienen para los registros existentes.
   "granja_fresco",
   "granja_procesado",
   "suplementario",
+  // Valores actuales del catálogo categoria_alimento.
+  "Concentrado",
+  "En Fresco",
+  "Preparados",
 ]);
 
 export const feedTypeEnum = pgEnum("feed_type", [
+  // Valores históricos; se mantienen para los registros existentes.
   "mosca_soldado",
   "pastos_gramineas",
   "maiz_germinado",
@@ -58,6 +64,18 @@ export const feedTypeEnum = pgEnum("feed_type", [
   "maiz_comprado",
   "concentrado_comercial",
   "otro",
+  // Valores actuales del catálogo tipo_alimento.
+  "Bore o Raices",
+  "Concentrado Aves",
+  "Concentrado Codorniz",
+  "Concentrado Conejos",
+  "Forraje Verde",
+  "Maiz en Grano",
+  "Maíz Germinado",
+  "Mosca Soldado",
+  "Otro",
+  "Pastos y gramíneas",
+  "Purinas",
 ]);
 
 export const transactionTypeEnum = pgEnum("transaction_type", [
