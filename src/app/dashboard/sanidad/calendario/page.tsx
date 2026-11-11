@@ -24,6 +24,11 @@ interface SanitaryEvent {
   daysUntilDue: number;
 }
 
+interface SanitaryReviewStatus {
+  reviewed: boolean;
+  reviewedAt: string | null;
+}
+
 const eventTypes = ["vacunacion", "desparasitacion", "inspeccion", "tratamiento", "limpieza", "otro"];
 const TYPE_LABELS: Record<string, string> = {
   vacunacion: "Vacunación",
@@ -39,6 +44,9 @@ export default function CalendarioSanitarioPage() {
   const [events, setEvents] = useState<SanitaryEvent[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
+  const [reviewStatus, setReviewStatus] = useState<SanitaryReviewStatus | null>(null);
+  const [reviewError, setReviewError] = useState("");
+  const [reviewSaving, setReviewSaving] = useState(false);
   const [modalOpen, setModalOpen] = useState(false);
   const [error, setError] = useState("");
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -54,9 +62,14 @@ export default function CalendarioSanitarioPage() {
 
   const load = useCallback(() => {
     setLoading(true);
-    apiFetch("/api/sanidad/calendario")
-      .then((r) => r.json())
-      .then(setEvents)
+    Promise.all([
+      apiFetch("/api/sanidad/calendario").then((r) => r.json()),
+      apiFetch("/api/dashboard/setup/sanitary-review").then((r) => r.json()),
+    ])
+      .then(([calendar, review]: [SanitaryEvent[], SanitaryReviewStatus]) => {
+        setEvents(calendar);
+        setReviewStatus(review);
+      })
       .finally(() => setLoading(false));
   }, []);
 
@@ -68,6 +81,10 @@ export default function CalendarioSanitarioPage() {
   const overdueEvents = events.filter((e) => e.isOverdue);
   const dueSoonEvents = events.filter((e) => e.isDueSoon);
   const upcomingEvents = events.filter((e) => !e.isOverdue && !e.isDueSoon && e.isActive);
+  const reviewedDate = reviewStatus?.reviewedAt
+    ? new Intl.DateTimeFormat("es-CO", { dateStyle: "medium", timeStyle: "short", timeZone: "America/Bogota" })
+      .format(new Date(reviewStatus.reviewedAt))
+    : null;
 
   const filteredEvents = useMemo(() => {
     if (!search.trim()) return events;
@@ -114,6 +131,24 @@ export default function CalendarioSanitarioPage() {
     load();
   };
 
+  const confirmSanitaryReview = async () => {
+    setReviewError("");
+    setReviewSaving(true);
+    try {
+      const res = await apiFetch("/api/dashboard/setup/sanitary-review", { method: "POST" });
+      const result = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        setReviewError(result.error || "No se pudo confirmar la revisión");
+        return;
+      }
+      setReviewStatus({ reviewed: true, reviewedAt: result.reviewedAt });
+    } catch {
+      setReviewError("No se pudo confirmar la revisión. Intenta de nuevo.");
+    } finally {
+      setReviewSaving(false);
+    }
+  };
+
   const removeEvent = async (id: string) => {
     if (!confirm("¿Eliminar este evento del calendario?")) return;
     await apiFetch(`/api/sanidad/calendario?id=${id}`, { method: "DELETE" });
@@ -156,8 +191,8 @@ export default function CalendarioSanitarioPage() {
     <div className="space-y-6">
       <PageHeader
         title="📅 Calendario Sanitario"
-        description="Programación de actividades sanitarias preventivas"
-        help="Aquí se muestran las actividades sanitarias programadas automáticamente según las razas y edades de tus gallinas.\n\n• Cada evento tiene una fecha de vencimiento. Si está vencido, aparece en rojo.\n• Puedes marcar un evento como completado cuando lo realices.\n• Los eventos se generan automáticamente según los esquemas de vacunación de cada raza.\n• También puedes agregar eventos manuales (inspecciones, fumigaciones, etc.)."
+        description="Revisa y ajusta las actividades sanitarias sugeridas para tus animales"
+        help="Valida el manejo sanitario inicial para las especies, etapas y prácticas de tu granja. Ajusta fechas, frecuencias, actividades y tiempos de retiro según corresponda.\n\n• Cada evento tiene una fecha programada y un estado de vencimiento.\n• Puedes editar, completar o desactivar eventos.\n• Los eventos sugeridos pueden provenir de esquemas sanitarios y también puedes agregar actividades manuales.\n• Al confirmar la revisión, el sistema deja constancia para completar el paso de preparación de la granja."
         actions={
           <Button onClick={() => { setEditingId(null); setForm({ type: eventTypes[0], name: "", description: "", targetBirds: "todas", frequencyDays: "", nextDueDate: new Date().toISOString().split("T")[0], withdrawalDays: "" }); setError(""); setModalOpen(true); }}>
             + Nuevo Evento
@@ -171,6 +206,30 @@ export default function CalendarioSanitarioPage() {
         <StatCard icon="🟡" label="Próximos (7 días)" value={String(dueSoonEvents.length)} color="yellow" />
         <StatCard icon="🟢" label="Al día" value={String(upcomingEvents.length)} color="green" />
       </div>
+
+      <Card className={reviewStatus?.reviewed ? "border-green-200 bg-green-50" : "border-amber-200 bg-amber-50"}>
+        <div className="flex flex-col justify-between gap-4 sm:flex-row sm:items-center">
+          <div>
+            <h3 className={`font-semibold ${reviewStatus?.reviewed ? "text-green-800" : "text-amber-900"}`}>
+              {reviewStatus?.reviewed ? "Manejo sanitario inicial validado" : "Revisa el manejo sanitario inicial"}
+            </h3>
+            <p className={`mt-1 text-sm ${reviewStatus?.reviewed ? "text-green-700" : "text-amber-800"}`}>
+              {reviewStatus?.reviewed
+                ? `Revisión confirmada${reviewedDate ? ` el ${reviewedDate}` : ""}. Puedes seguir ajustando el calendario cuando cambie tu manejo.`
+                : "Verifica qué actividades aplican a tus animales y ajusta fechas, frecuencias y tiempos de retiro antes de confirmar."}
+            </p>
+            {!reviewStatus?.reviewed && events.length === 0 && !loading && (
+              <p className="mt-2 text-sm text-amber-800">Agrega o genera las actividades sanitarias que sí aplican a tu granja para poder confirmar la revisión.</p>
+            )}
+            {reviewError && <p className="mt-2 text-sm text-red-700">{reviewError}</p>}
+          </div>
+          {!reviewStatus?.reviewed && (
+            <Button onClick={confirmSanitaryReview} disabled={reviewSaving || loading || events.length === 0}>
+              {reviewSaving ? "Guardando..." : "Confirmar revisión"}
+            </Button>
+          )}
+        </div>
+      </Card>
 
       {/* Alert panel */}
       {(overdueEvents.length > 0 || dueSoonEvents.length > 0) && (

@@ -81,7 +81,16 @@ interface TareasPendientes {
   eggCollectedToday: boolean;
   feedApplicable: boolean;
   feedMovedToday: boolean;
-  setup: { locationsConfigured: boolean; animalsRegistered: boolean; feedConfigured: boolean; sanitaryConfigured: boolean };
+  setup: {
+    farmProfileConfigured: boolean;
+    locationsConfigured: boolean;
+    animalsRegistered: boolean;
+    starterInventoryConfigured: boolean;
+    contactsConfigured: boolean;
+    budgetConfigured: boolean;
+    assetsRegistered: boolean;
+    sanitaryConfigured: boolean;
+  };
   pendingSanitary: { id: string; name: string; type: string; dueDate: string; isOverdue: boolean } | null;
   maintenanceDue: { id: string; title: string; scheduledDate: string; locationName: string | null; assetName: string | null; isOverdue: boolean }[];
   maintenanceDueCount: number;
@@ -142,11 +151,16 @@ export default function Dashboard() {
     || tareas.pendingSanitary || tareas.maintenanceDue.length > 0 || tareas.assetsNeedAttention > 0
   ));
   const setupSteps = tareas ? [
+    { done: tareas.setup.farmProfileConfigured, title: "Completa los datos de la granja", description: "Indica nombre, municipio y responsable; la ubicación y fechas se pueden ampliar.", href: "/dashboard/configuracion/catalogos?tab=parametros", icon: "🏡" },
     { done: tareas.setup.locationsConfigured, title: "Define los lugares de manejo", description: "Crea corrales, galpones, jaulas o potreros.", href: "/dashboard/ubicaciones", icon: "📍" },
     { done: tareas.setup.animalsRegistered, title: "Registra el primer ingreso", description: "Deja documentados especie, origen y destino.", href: "/dashboard/produccion/adquisiciones", icon: "🐾" },
-    { done: tareas.setup.feedConfigured, title: "Prepara el inventario de alimento", description: "Agrega los alimentos que usas en la finca.", href: "/dashboard/produccion?tab=alimentacion&subtab=inventario&nuevo=alimento", icon: "🌾" },
-    { done: tareas.setup.sanitaryConfigured, title: "Programa el manejo sanitario", description: "Crea controles y recordatorios futuros.", href: "/dashboard/sanidad/calendario?nuevo=evento", icon: "💊" },
-  ].filter((step) => !step.done) : [];
+    { done: tareas.setup.starterInventoryConfigured, title: "Carga los inventarios de arranque", description: "Registra existencias iniciales de alimentos e insumos.", href: "/dashboard/almacen", icon: "🌾" },
+    { done: tareas.setup.contactsConfigured, title: "Registra clientes y proveedores", description: "Agrega al menos un cliente y un proveedor propios.", href: "/dashboard/configuracion/catalogos?tab=listas&category=proveedor", icon: "🤝" },
+    { done: tareas.setup.budgetConfigured, title: "Crea el presupuesto inicial", description: "Comienza en $0 y agrega las metas cuando las definas.", href: "/dashboard/finanzas/presupuestos?nuevo=base", icon: "💰" },
+    { done: tareas.setup.sanitaryConfigured, title: "Revisa el manejo sanitario inicial", description: "Valida las actividades sugeridas y ajusta el calendario a tus animales.", href: "/dashboard/sanidad/calendario", icon: "💊" },
+    { done: tareas.setup.assetsRegistered, title: "Registra activos y equipos", description: "Incluye equipos, herramientas y estructuras de la granja.", href: "/dashboard/operaciones/activos", icon: "🏗️" },
+  ] : [];
+  const completedSetupSteps = setupSteps.filter((step) => step.done).length;
 
   // ─── Build actionable alerts ───
   const alerts: Alert[] = [];
@@ -299,23 +313,36 @@ export default function Dashboard() {
         </div>
       ) : null}
 
-      {setupSteps.length > 0 && (
+      {completedSetupSteps < setupSteps.length && setupSteps.length > 0 && (
         <section className="mb-6 rounded-xl border border-blue-200 bg-blue-50 p-5" aria-labelledby="setup-title">
           <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
             <div>
               <h2 id="setup-title" className="font-semibold text-blue-950">Prepara tu granja</h2>
               <p className="mt-1 text-sm text-blue-800">Sigue estos pasos para dejar listos los registros básicos.</p>
             </div>
-            <span className="text-xs font-medium text-blue-700">{4 - setupSteps.length} de 4 pasos listos</span>
+            <span className="text-xs font-medium text-blue-700">{completedSetupSteps} de {setupSteps.length} pasos completados</span>
           </div>
           <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-4">
             {setupSteps.map((step) => (
-              <a key={step.title} href={step.href} className="rounded-lg border border-blue-200 bg-white p-3 transition hover:border-blue-400 hover:bg-blue-50">
-                <span className="text-xl" aria-hidden="true">{step.icon}</span>
-                <span className="mt-2 block text-xs font-semibold uppercase tracking-wide text-blue-600">Siguiente paso</span>
-                <span className="mt-1 block text-sm font-semibold text-slate-800">{step.title}</span>
-                <span className="mt-1 block text-xs text-slate-500">{step.description}</span>
-              </a>
+              step.done ? (
+                <div key={step.title} className="rounded-lg border border-green-200 bg-green-50 p-3" aria-label={`${step.title}: completado`}>
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="text-xl" aria-hidden="true">{step.icon}</span>
+                    <span className="text-xs font-semibold uppercase tracking-wide text-green-700">✓ Completado</span>
+                  </div>
+                  <span className="mt-2 block text-sm font-semibold text-slate-800">{step.title}</span>
+                  <span className="mt-1 block text-xs text-slate-600">{step.description}</span>
+                </div>
+              ) : (
+                <a key={step.title} href={step.href} className="rounded-lg border border-blue-200 bg-white p-3 transition hover:border-blue-400 hover:bg-blue-50">
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="text-xl" aria-hidden="true">{step.icon}</span>
+                    <span className="text-xs font-semibold uppercase tracking-wide text-blue-600">Por completar</span>
+                  </div>
+                  <span className="mt-2 block text-sm font-semibold text-slate-800">{step.title}</span>
+                  <span className="mt-1 block text-xs text-slate-500">{step.description}</span>
+                </a>
+              )
             ))}
           </div>
         </section>

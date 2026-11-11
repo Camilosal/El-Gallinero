@@ -1,7 +1,7 @@
 import { db } from "@/db";
 import {
   eggProduction, feedMovements, sanitaryCalendar, maintenance, farmLocations, farmAssets,
-  hens, roosters, broilerBatches, catalogos, feedPrograms, feedInventory,
+  hens, roosters, broilerBatches, catalogos, feedPrograms, feedInventory, supplyInventory, appSettings, budgets,
 } from "@/db/schema";
 import { eq, and, sql, inArray, asc, ne } from "drizzle-orm";
 import { NextResponse } from "next/server";
@@ -9,6 +9,7 @@ import { withApiHandler } from "@/lib/api-handler";
 import { ageInWeeks, stageForAge } from "@/lib/lifecycle";
 import { isHenPresent, isRoosterPresent, isBatchPresent } from "@/lib/animal-status";
 import { loadSpeciesParams } from "@/lib/species-db";
+import { SANITARY_CALENDAR_REVIEW_KEY } from "@/lib/onboarding";
 
 export const dynamic = "force-dynamic";
 
@@ -18,7 +19,8 @@ export const GET = withApiHandler(async () => {
   }).format(new Date());
   const [stages, henRows, roosterRows, batchRows, speciesParams, programRows, eggRows, feedRows,
     pendingSanitary, maintenanceDue, maintenanceDueCount, assetsNeedAttention,
-    locationsCount, feedCount, sanitaryCount] = await Promise.all([
+    locationsCount, feedStockCount, supplyStockCount, registeredAssetsCount, sanitaryCount, sanitaryReview,
+    clientCount, supplierCount, farmProfileValues, budgetCount] = await Promise.all([
     db.select().from(catalogos).where(and(eq(catalogos.category, "etapa_crecimiento"), eq(catalogos.isActive, true))),
     db.select({ birthDate: hens.birthDate, status: hens.status }).from(hens),
     db.select({ birthDate: roosters.birthDate, status: roosters.status }).from(roosters),
@@ -44,8 +46,23 @@ export const GET = withApiHandler(async () => {
       .where(and(ne(maintenance.status, "completado"), sql`${maintenance.scheduledDate} <= ${today}::date + interval '7 days'`)),
     db.select({ total: sql<number>`count(*)::int` }).from(farmAssets).where(inArray(farmAssets.status, ["requiere_mantenimiento", "fuera_servicio"])),
     db.select({ total: sql<number>`count(*)::int` }).from(farmLocations).where(eq(farmLocations.status, "activa")),
-    db.select({ total: sql<number>`count(*)::int` }).from(feedInventory),
-    db.select({ total: sql<number>`count(*)::int` }).from(sanitaryCalendar),
+    db.select({ total: sql<number>`count(*)::int` }).from(feedInventory)
+      .where(sql`${feedInventory.currentStock}::numeric > 0`),
+    db.select({ total: sql<number>`count(*)::int` }).from(supplyInventory)
+      .where(sql`${supplyInventory.currentStock}::numeric > 0`),
+    db.select({ total: sql<number>`count(*)::int` }).from(farmAssets)
+      .where(ne(farmAssets.status, "retirado")),
+    db.select({ total: sql<number>`count(*)::int` }).from(sanitaryCalendar)
+      .where(eq(sanitaryCalendar.isActive, true)),
+    db.select({ value: appSettings.value }).from(appSettings)
+      .where(eq(appSettings.key, SANITARY_CALENDAR_REVIEW_KEY)).limit(1),
+    db.select({ total: sql<number>`count(*)::int` }).from(catalogos)
+      .where(and(eq(catalogos.category, "comprador"), eq(catalogos.isActive, true))),
+    db.select({ total: sql<number>`count(*)::int` }).from(catalogos)
+      .where(and(eq(catalogos.category, "proveedor"), eq(catalogos.isActive, true))),
+    db.select({ key: appSettings.key, value: appSettings.value }).from(appSettings)
+      .where(inArray(appSettings.key, ["farm.name", "farm.city", "farm.admin_name"])),
+    db.select({ total: sql<number>`count(*)::int` }).from(budgets),
   ]);
 
   const productiveStages = stages.filter((stage) => Number(stage.expectedEggsPerHen || 0) > 0);
@@ -85,10 +102,15 @@ export const GET = withApiHandler(async () => {
     feedApplicable,
     feedMovedToday: feedRows.length > 0,
     setup: {
+      farmProfileConfigured: ["farm.name", "farm.city", "farm.admin_name"].every((key) =>
+        Boolean(farmProfileValues.find((item) => item.key === key)?.value.trim())),
       locationsConfigured: (locationsCount[0]?.total || 0) > 0,
       animalsRegistered: presentAnimals > 0,
-      feedConfigured: (feedCount[0]?.total || 0) > 0,
-      sanitaryConfigured: (sanitaryCount[0]?.total || 0) > 0,
+      starterInventoryConfigured: (feedStockCount[0]?.total || 0) > 0 && (supplyStockCount[0]?.total || 0) > 0,
+      contactsConfigured: (clientCount[0]?.total || 0) > 0 && (supplierCount[0]?.total || 0) > 0,
+      budgetConfigured: (budgetCount[0]?.total || 0) > 0,
+      assetsRegistered: (registeredAssetsCount[0]?.total || 0) > 0,
+      sanitaryConfigured: (sanitaryCount[0]?.total || 0) > 0 && Boolean(sanitaryReview[0]?.value),
     },
     pendingSanitary: sanitaryEvent ? {
       id: sanitaryEvent.id, name: sanitaryEvent.name, type: sanitaryEvent.type,

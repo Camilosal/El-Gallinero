@@ -73,18 +73,11 @@ async function main() {
     .filter(([species]) => species !== "gallina")
     .flatMap(([species, values]) => values.map((value) => ({ value, species })));
   const catalogDefaults: { category: string; values: string[]; prices?: number[]; units?: number[]; types?: (string | null)[] }[] = [
+    // Clientes y proveedores son propios de cada granja y se registran al comenzar.
     {
       category: "raza",
       values: [...chickenBreeds, ...speciesBreeds.map((item) => item.value)],
       types: [...chickenBreeds.map(() => "gallina"), ...speciesBreeds.map((item) => item.species)],
-    },
-    {
-      category: "comprador",
-      values: ["Tienda Doña Rosa", "Venta callejera", "Restaurante La Granja", "Mercado Don Juan", "Pedidos por encargo"],
-    },
-    {
-      category: "proveedor",
-      values: ["Producción propia", "Agrosupply", "Mercado local", "Agrocentro El Campo", "Tienda veterinaria"],
     },
     {
       category: "tamano_huevo",

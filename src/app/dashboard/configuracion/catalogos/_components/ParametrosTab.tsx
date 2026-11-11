@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { Button, Card, Input } from "@/components/ui";
+import { Button, Card, Input, Textarea } from "@/components/ui";
 import { apiFetch } from "@/lib/fetch";
 
 interface SettingItem {
@@ -16,6 +16,9 @@ interface SettingItem {
   min?: number;
   max?: number;
   step?: number;
+  inputType?: "text" | "date" | "email" | "tel";
+  multiline?: boolean;
+  setupRequired?: boolean;
 }
 
 export default function ParametrosTab() {
@@ -68,7 +71,7 @@ export default function ParametrosTab() {
       }
       setItems(data);
       setValues(Object.fromEntries((data as SettingItem[]).map((item) => [item.key, item.value])));
-      setMessage("Parámetros actualizados. Los cálculos ya usan los nuevos valores.");
+      setMessage("Datos de la granja y parámetros guardados correctamente.");
     } finally {
       setSaving(false);
     }
@@ -81,10 +84,9 @@ export default function ParametrosTab() {
       <Card>
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
           <div>
-            <h3 className="font-semibold text-slate-700">⚙️ Parámetros globales de cálculo</h3>
+            <h3 className="font-semibold text-slate-700">⚙️ Parámetros y datos de la granja</h3>
             <p className="text-xs text-slate-500 mt-1">
-              Estos valores alimentan el ciclo de vida, la parvada, la valoración de inventario y las validaciones.
-              Los cambios se aplican de inmediato a los próximos cálculos.
+              Completa primero los datos generales de la granja y el responsable. Luego podrás editar esta información y los parámetros de cálculo desde aquí.
             </p>
           </div>
           <Button onClick={save} disabled={saving}>{saving ? "Guardando..." : "Guardar cambios"}</Button>
@@ -99,16 +101,25 @@ export default function ParametrosTab() {
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             {groupItems.map((item) => (
               <div key={item.key} className="border border-slate-200 rounded-lg p-3">
-                <Input
-                  label={`${item.label}${item.unit ? ` (${item.unit})` : ""}`}
-                  type={item.type === "number" || item.type === "integer" ? "number" : "text"}
-                  step={item.step}
-                  min={item.min}
-                  max={item.max}
-                  value={values[item.key] ?? item.value}
-                  onChange={(e) => setValues((prev) => ({ ...prev, [item.key]: e.target.value }))}
-                  help={item.description}
-                />
+                {item.multiline ? (
+                  <Textarea
+                    label={`${item.label}${item.setupRequired ? " · requerido para el inicio" : ""}`}
+                    value={values[item.key] ?? item.value}
+                    onChange={(e) => setValues((prev) => ({ ...prev, [item.key]: e.target.value }))}
+                    help={item.description}
+                  />
+                ) : (
+                  <Input
+                    label={`${item.label}${item.unit ? ` (${item.unit})` : ""}${item.setupRequired ? " · requerido para el inicio" : ""}`}
+                    type={item.type === "number" || item.type === "integer" ? "number" : item.inputType || "text"}
+                    step={item.step}
+                    min={item.min}
+                    max={item.max}
+                    value={values[item.key] ?? item.value}
+                    onChange={(e) => setValues((prev) => ({ ...prev, [item.key]: e.target.value }))}
+                    help={item.description}
+                  />
+                )}
                 <p className="text-[11px] text-slate-400 mt-2">
                   Clave: <code>{item.key}</code> · Valor por defecto: <code>{item.default}</code>
                 </p>

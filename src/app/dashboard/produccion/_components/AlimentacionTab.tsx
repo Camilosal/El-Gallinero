@@ -129,6 +129,8 @@ interface PredictionItem {
 interface PredictionData {
   days: number;
   generatedAt: string;
+  minimumStockCoverageDays?: number;
+  minimumStockUpdatedCount?: number;
   summary: {
     totalFeeds: number;
     totalCurrentStockKg: number;
@@ -206,11 +208,11 @@ export default function AlimentacionPage() {
     maxWeeks: "7",
     entries: [{ feedId: "", percentage: "100", dailyAmountPerHen: "100" }],
   });
-  const [form, setForm] = useState({ name: "", category: "granja_fresco", feedType: "pastos_gramineas", unit: "kg", currentStock: "0", minStock: "10", costPerUnit: "0", supplier: "" });
+  const [form, setForm] = useState({ name: "", category: "granja_fresco", feedType: "pastos_gramineas", unit: "kg", currentStock: "0", minStock: "0", costPerUnit: "0", supplier: "" });
   const [movForm, setMovForm] = useState({ feedId: "", quantity: "", isEntry: true, movementType: "compra", stageCatalogoId: "", henCount: "", date: new Date().toISOString().split("T")[0], locationId: "", notes: "" });
   const [movementError, setMovementError] = useState("");
   const [prediccion, setPrediccion] = useState<PredictionData | null>(null);
-  const [prediccionDays, setPrediccionDays] = useState<number>(30);
+  const [prediccionDays, setPrediccionDays] = useState<number>(14);
   const [feedSearch, setFeedSearch] = useState("");
   const [movementSearch, setMovementSearch] = useState("");
   const [comparativoSearch, setComparativoSearch] = useState("");
@@ -221,27 +223,30 @@ export default function AlimentacionPage() {
   const { values: feedTypeOptions } = useCatalog("tipo_alimento", feedTypeFallback);
 
   const load = useCallback(() => {
-    Promise.all([
+    apiFetch("/api/produccion/alimentacion/prediccion", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ days: prediccionDays }),
+    }).then((r) => r.json()).then((pred) => Promise.all([
       apiFetch("/api/produccion/alimentacion").then((r) => r.json()),
       apiFetch("/api/produccion/alimentacion/movimientos").then((r) => r.json()),
       apiFetch("/api/produccion/etapas").then((r) => r.json()),
       apiFetch(`/api/produccion/alimentacion/comparativo?days=${comparativoDays}`).then((r) => r.json()),
-      apiFetch(`/api/produccion/alimentacion/prediccion?days=${prediccionDays}`).then((r) => r.json()),
-    ]).then(([f, m, s, comp, pred]) => {
+    ]).then(([f, m, s, comp]) => {
       setFeeds(normalizeFeedList(f));
       setMovements(Array.isArray(m) ? m : []);
       setStages(Array.isArray(s) ? s : []);
       setComparativo(comp?.comparativo || []);
       setDailyData(comp?.dailyData || []);
       setPrediccion(pred);
-    }).finally(() => setLoading(false));
+    })).finally(() => setLoading(false));
   }, [comparativoDays, prediccionDays]);
 
   useEffect(() => { load(); }, [load]);
 
   const openNewFeed = () => {
     setEditing(null);
-    setForm({ name: "", category: "granja_fresco", feedType: "pastos_gramineas", unit: "kg", currentStock: "0", minStock: "10", costPerUnit: "0", supplier: "" });
+    setForm({ name: "", category: "granja_fresco", feedType: "pastos_gramineas", unit: "kg", currentStock: "0", minStock: "0", costPerUnit: "0", supplier: "" });
     setModalOpen(true);
   };
 
@@ -351,7 +356,7 @@ export default function AlimentacionPage() {
     alimento: () => {
       selectTab("inventario");
       setEditing(null);
-      setForm({ name: "", category: "granja_fresco", feedType: "pastos_gramineas", unit: "kg", currentStock: "0", minStock: "10", costPerUnit: "0", supplier: "" });
+      setForm({ name: "", category: "granja_fresco", feedType: "pastos_gramineas", unit: "kg", currentStock: "0", minStock: "0", costPerUnit: "0", supplier: "" });
       setModalOpen(true);
     },
     movimiento: () => {
@@ -528,6 +533,7 @@ export default function AlimentacionPage() {
         .map((item) => ({
           name: item.feedName,
           dias: item.daysRemaining ?? 0,
+          alertLevel: item.alertLevel,
         })),
     [prediccion],
   );
@@ -971,7 +977,7 @@ export default function AlimentacionPage() {
             </div>
 
             {!prediccion || prediccion.predictions.length === 0 ? (
-              <EmptyState icon="🔮" message="No hay predicciones disponibles" />
+              <EmptyState icon="🔮" message="No hay consumo previsto. Registra animales y programas de alimentación para calcular la predicción y el stock mínimo." />
             ) : (
               <>
                 <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-4">
@@ -1018,7 +1024,7 @@ export default function AlimentacionPage() {
                       <td className="px-4 py-2">{item.currentStockKg} kg</td>
                       <td className="px-4 py-2">{item.dailyNeedKg} kg/día</td>
                       <td className="px-4 py-2">
-                        <span className={`font-bold ${item.daysRemaining !== null && item.daysRemaining <= 7 ? "text-red-600" : "text-slate-700"}`}>
+                        <span className={`font-bold ${item.alertLevel === "critico" ? "text-red-600" : item.alertLevel === "bajo" ? "text-yellow-700" : "text-slate-700"}`}>
                           {item.daysRemaining !== null ? `${item.daysRemaining} días` : "—"}
                         </span>
                         {item.outOfStockDate && <span className="block text-xs text-slate-500">{item.outOfStockDate}</span>}
@@ -1041,7 +1047,7 @@ export default function AlimentacionPage() {
                 </Table>
                 )}
                 <p className="text-xs text-slate-500 mt-2">
-                  Consumo estimado según gallinas por etapa y programas alimenticios activos. La compra sugerida cubre 14 días de consumo.
+                  El mínimo de stock y la compra sugerida se actualizan automáticamente con el consumo estimado para {prediccion.days} días. Solo se ajustan alimentos con consumo previsto por programas activos.
                 </p>
               </>
             )}
@@ -1052,7 +1058,7 @@ export default function AlimentacionPage() {
             <Card>
               <h3 className="font-semibold text-slate-700 mb-1">📉 Días de stock restante por alimento</h3>
               <p className="text-xs text-slate-500 mb-3">
-                Los alimentos con menos días aparecen primero. Rojo: 7 días o menos; amarillo: entre 8 y 14 días; verde: más de 14 días.
+                Los alimentos con menos días aparecen primero. Rojo: 3 días o menos; amarillo: deben reponerse dentro del horizonte seleccionado ({prediccion?.days ?? 14} días).
               </p>
               <ResponsiveContainer width="100%" height={Math.max(220, stockDaysData.length * 38)}>
                 <BarChart data={stockDaysData} layout="vertical" margin={{ left: 8, right: 24 }}>
@@ -1064,7 +1070,7 @@ export default function AlimentacionPage() {
                     {stockDaysData.map((item) => (
                       <Cell
                         key={item.name}
-                        fill={item.dias <= 7 ? "#ef4444" : item.dias <= 14 ? "#f59e0b" : "#22c55e"}
+                        fill={item.alertLevel === "critico" ? "#ef4444" : item.alertLevel === "bajo" ? "#f59e0b" : "#22c55e"}
                       />
                     ))}
                   </Bar>
@@ -1093,7 +1099,7 @@ export default function AlimentacionPage() {
             <Input label="Stock actual" help="Cantidad actual disponible de este alimento." type="number" step="0.01" value={form.currentStock} onChange={(e) => setForm({ ...form, currentStock: e.target.value })} />
           </div>
           <div className="grid grid-cols-2 gap-3">
-            <Input label="Stock mínimo" help="Cantidad mínima antes de generar alerta de stock bajo. El sistema puede sugerir un valor automático." type="number" step="0.01" value={form.minStock} onChange={(e) => setForm({ ...form, minStock: e.target.value })} />
+            <Input label="Stock mínimo" help="Se actualiza automáticamente en la predicción según el consumo estimado y el horizonte elegido. Mientras no haya consumo programado, puedes definirlo manualmente." type="number" step="0.01" value={form.minStock} onChange={(e) => setForm({ ...form, minStock: e.target.value })} />
             <Input label="Costo por unidad ($)" help="Costo de cada unidad de este alimento. Se usa para calcular gastos." type="number" step="0.01" value={form.costPerUnit} onChange={(e) => setForm({ ...form, costPerUnit: e.target.value })} />
           </div>
           <Input label="Proveedor (vacío si es producción propia)" help="Nombre del proveedor de este alimento. Déjalo vacío si lo produces tú mismo." value={form.supplier} onChange={(e) => setForm({ ...form, supplier: e.target.value })} placeholder="Nombre del proveedor" list="catalog-proveedores" />

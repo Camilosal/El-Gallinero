@@ -1,7 +1,7 @@
 import Link from "next/link";
 
 const secciones = [
-  { href: "/dashboard/configuracion/catalogos", label: "Catálogos", icon: "🗂️", desc: "Tablas maestras del sistema" },
+  { href: "/dashboard/configuracion/catalogos", label: "Catálogos y datos de la granja", icon: "🗂️", desc: "Perfil del predio, clientes, proveedores y parámetros del sistema" },
 ];
 
 export default function ConfiguracionPage() {

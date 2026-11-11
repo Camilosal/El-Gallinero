@@ -23,20 +23,20 @@ function addDays(dateStrValue: string, days: number): string {
  * según el consumo diario esperado (programas por etapa × gallinas actuales).
  *
  * Query params:
- * - days: horizonte de predicción en días (default: 30)
+ * - days: horizonte de predicción en días (default: 14)
  *
  * Cada alimento devuelve:
  * - currentStockKg / dailyNeedKg: punto de partida y ritmo de consumo
  * - daysRemaining y outOfStockDate: cuándo se agota si no se repone
  * - projectedStock: evolución diaria del stock dentro del horizonte
  * - alertLevel: ok | bajo | critico | agotado | sin_programa
- * - suggestedOrderQty: compra sugerida (14 días de consumo)
+ * - suggestedOrderQty: compra sugerida para el horizonte seleccionado
  * - reorderDate: fecha sugerida para reponer antes de llegar al mínimo
+ * POST actualiza automáticamente el stock mínimo de los alimentos con consumo previsto.
  */
-export const GET = withApiHandler(async (req: NextRequest) => {
-  const { searchParams } = new URL(req.url);
-  const horizonDays = parseInt(searchParams.get("days") || "30", 10);
-  const safeHorizon = Math.min(Math.max(horizonDays, 1), 365);
+async function buildPrediction(horizonDays: number, updateMinimums: boolean) {
+  const parsedDays = Number.isFinite(horizonDays) ? Math.trunc(horizonDays) : 14;
+  const safeHorizon = Math.min(Math.max(parsedDays, 1), 365);
 
   const today = new Date();
   const todayStr = dateStr(today);
@@ -93,6 +93,22 @@ export const GET = withApiHandler(async (req: NextRequest) => {
     needByFeed[p.feedId].dailyNeedKg += dailyKg;
   }
 
+  let minStockUpdatedCount = 0;
+  if (updateMinimums && Object.keys(needByFeed).length > 0) {
+    await db.transaction(async (tx) => {
+      for (const [feedId, data] of Object.entries(needByFeed)) {
+        const recommendedMinimum = Math.round(data.dailyNeedKg * safeHorizon * 100) / 100;
+        if (Math.abs(data.minStockKg - recommendedMinimum) >= 0.005) {
+          await tx.update(feedInventory)
+            .set({ minStock: recommendedMinimum.toFixed(2), updatedAt: new Date() })
+            .where(eq(feedInventory.id, feedId));
+          minStockUpdatedCount += 1;
+        }
+        data.minStockKg = recommendedMinimum;
+      }
+    });
+  }
+
   // 2. Consumo real de los últimos 7 días (referencia de desviación)
   const sevenDaysAgo = new Date(today);
   sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
@@ -117,8 +133,8 @@ export const GET = withApiHandler(async (req: NextRequest) => {
   }
 
   // 3. Construir proyección diaria y métricas por alimento
-  const REORDER_DAYS = 7; // días de stock de seguridad antes de reponer
-  const SUGGESTED_COVERAGE_DAYS = 14; // compra sugerida para cubrir N días
+  const REORDER_DAYS = safeHorizon;
+  const SUGGESTED_COVERAGE_DAYS = safeHorizon;
 
   const predictions = [];
   const dailyProjection: { day: number; date: string; stocks: Record<string, number> }[] = [];
@@ -208,9 +224,11 @@ export const GET = withApiHandler(async (req: NextRequest) => {
 
   predictions.sort((a, b) => (a.alertLevel === b.alertLevel ? 0 : a.alertLevel === "critico" ? -1 : a.alertLevel === "bajo" && b.alertLevel !== "critico" ? -1 : 1));
 
-  return NextResponse.json({
+  return {
     days: safeHorizon,
     generatedAt: todayStr,
+    minimumStockCoverageDays: safeHorizon,
+    minimumStockUpdatedCount: minStockUpdatedCount,
     summary: {
       totalFeeds: predictions.length,
       totalCurrentStockKg: Math.round(totalStock * 100) / 100,
@@ -221,5 +239,17 @@ export const GET = withApiHandler(async (req: NextRequest) => {
     },
     predictions,
     dailyProjection,
-  });
+  };
+}
+
+export const GET = withApiHandler(async (req: NextRequest) => {
+  const { searchParams } = new URL(req.url);
+  const requestedDays = Number.parseInt(searchParams.get("days") || "14", 10);
+  return NextResponse.json(await buildPrediction(Number.isFinite(requestedDays) ? requestedDays : 14, false));
+});
+
+export const POST = withApiHandler(async (req: NextRequest) => {
+  const body = await safeParseJson(req);
+  const requestedDays = Number(body.days ?? 14);
+  return NextResponse.json(await buildPrediction(Number.isFinite(requestedDays) ? requestedDays : 14, true));
 });

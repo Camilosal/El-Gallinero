@@ -1,8 +1,10 @@
 import { loadVaccinationSchedule } from "@/lib/vaccination-db";
 import { db } from "@/db";
-import { sanitaryCalendar } from "@/db/schema";
+import { appSettings, sanitaryCalendar } from "@/db/schema";
+import { eq } from "drizzle-orm";
 import { NextRequest, NextResponse } from "next/server";
 import { withApiHandler, safeParseJson } from "@/lib/api-handler";
+import { SANITARY_CALENDAR_REVIEW_KEY } from "@/lib/onboarding";
 
 export const POST = withApiHandler(async (req: NextRequest) => {
   const { breed, startDate, targetBirds } = await safeParseJson(req);
@@ -27,5 +29,6 @@ export const POST = withApiHandler(async (req: NextRequest) => {
   });
 
   const inserted = await db.insert(sanitaryCalendar).values(events).returning();
+  await db.delete(appSettings).where(eq(appSettings.key, SANITARY_CALENDAR_REVIEW_KEY));
   return NextResponse.json({ created: inserted.length, events: inserted });
 });

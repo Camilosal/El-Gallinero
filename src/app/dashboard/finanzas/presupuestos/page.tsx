@@ -35,6 +35,17 @@ interface Budget {
 
 const budgetTypes = ["ingreso", "egreso", "mixto"];
 const fmt = (n: number) => `$${Math.round(n).toLocaleString()}`;
+const initialBudgetForm = () => {
+  const today = new Date();
+  const year = today.getFullYear();
+  const periodStart = `${year}-${String(today.getMonth() + 1).padStart(2, "0")}-${String(today.getDate()).padStart(2, "0")}`;
+  return {
+    name: `Presupuesto inicial ${year}`,
+    periodStart,
+    periodEnd: `${year}-12-31`,
+    type: "mixto",
+  };
+};
 
 export default function PresupuestosPage() {
   const searchParams = useSearchParams();
@@ -61,6 +72,7 @@ export default function PresupuestosPage() {
   useEffect(() => { void Promise.resolve().then(load); }, [load]);
   useActionQuery(searchParams.get("nuevo"), {
     "1": () => { setEditingId(null); setForm({ name: "", periodStart: "", periodEnd: "", type: budgetTypes[0] }); setItems([]); setError(""); setModalOpen(true); },
+    base: () => { setEditingId(null); setForm(initialBudgetForm()); setItems([]); setError(""); setModalOpen(true); },
   });
 
   const openDetail = async (b: Budget) => {
@@ -73,7 +85,7 @@ export default function PresupuestosPage() {
   };
 
   const addItem = () => {
-    setItems([...items, { category: "", description: "", monthlyTarget: "", unit: "" }]);
+    setItems([...items, { category: "", description: "", monthlyTarget: "0", unit: "" }]);
   };
 
   const updateItem = (index: number, field: string, value: string) => {
@@ -91,10 +103,9 @@ export default function PresupuestosPage() {
     if (!form.name || !form.periodStart || !form.periodEnd) {
       return setError("Nombre y período son requeridos");
     }
-    const validItems = items.filter((i) => i.category && i.monthlyTarget);
-    if (validItems.length === 0) {
-      return setError("Agregue al menos un item con categoría y meta");
-    }
+    const validItems = items
+      .filter((item) => item.category.trim())
+      .map((item) => ({ ...item, monthlyTarget: item.monthlyTarget.trim() || "0" }));
 
     const res = await apiFetch("/api/presupuestos", {
       method: editingId ? "PUT" : "POST",
@@ -168,7 +179,7 @@ export default function PresupuestosPage() {
       <PageHeader
         title="📅 Presupuestos"
         description="Planificación y control presupuestario"
-        help="Planifica y controla los ingresos y gastos del gallinero por período.\n\n• Crea presupuestos con metas mensuales por categoría (ej: $500.000/mes en venta de huevos).\n• El sistema compara automáticamente lo presupuestado vs lo real.\n• Las variaciones se muestran en porcentaje para identificar desviaciones.\n• Útil para planificar el crecimiento del negocio."
+        help="Planifica y controla ingresos y gastos por período. Puedes crear un presupuesto base en $0 y agregar categorías y metas cuando las definas.\n\n• El sistema compara automáticamente lo presupuestado vs lo real.\n• Las variaciones ayudan a identificar desviaciones y planificar el crecimiento."
         actions={
           <Button onClick={() => { setEditingId(null); setForm({ name: "", periodStart: "", periodEnd: "", type: budgetTypes[0] }); setItems([]); setError(""); setModalOpen(true); }}>
             + Nuevo Presupuesto
@@ -179,7 +190,7 @@ export default function PresupuestosPage() {
       {loading ? (
         <Card><p className="text-center py-8 text-slate-400">Cargando...</p></Card>
       ) : budgets.length === 0 ? (
-        <EmptyState icon="📅" message="No hay presupuestos creados" />
+        <EmptyState icon="📅" message="No hay presupuestos. Crea el presupuesto inicial en $0 y complétalo a medida que definas tus metas." />
       ) : (
         <>
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
@@ -239,7 +250,7 @@ export default function PresupuestosPage() {
           </div>
 
           {comparativo.length === 0 ? (
-            <EmptyState icon="📊" message="Sin datos de comparativo" />
+            <EmptyState icon="📊" message={detailBudget.items.length === 0 ? "Este presupuesto comienza en $0. Agrega categorías y metas para ver el comparativo." : "Sin datos de comparativo"} />
           ) : (
             <>
               <TableSearch
@@ -323,6 +334,10 @@ export default function PresupuestosPage() {
             {budgetTypes.map((t) => <option key={t} value={t}>{t}</option>)}
           </Select>
 
+          <p className="rounded-lg bg-blue-50 p-3 text-sm text-blue-800">
+            Puedes guardar este presupuesto sin categorías para comenzar en $0. Cuando definas tus metas, agrega categorías; las metas nuevas empiezan en $0.
+          </p>
+
           <div className="border-t pt-4">
             <div className="flex justify-between items-center mb-2">
               <h4 className="text-sm font-semibold text-slate-700">Items del presupuesto</h4>
@@ -334,7 +349,7 @@ export default function PresupuestosPage() {
                   <Input placeholder="Categoría" value={item.category} onChange={(e) => updateItem(i, "category", e.target.value)} />
                 </div>
                 <div className="w-32">
-                  <Input placeholder="Meta mensual $" type="number" value={item.monthlyTarget} onChange={(e) => updateItem(i, "monthlyTarget", e.target.value)} />
+                  <Input placeholder="Meta mensual $" type="number" min="0" step="0.01" value={item.monthlyTarget} onChange={(e) => updateItem(i, "monthlyTarget", e.target.value)} />
                 </div>
                 <button onClick={() => removeItem(i)} className="text-red-500 hover:text-red-700 pb-2 px-1">&times;</button>
               </div>

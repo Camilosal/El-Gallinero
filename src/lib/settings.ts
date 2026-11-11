@@ -21,9 +21,153 @@ export interface SettingDef {
   min?: number;
   max?: number;
   step?: number;
+  optional?: boolean;
+  inputType?: "text" | "date" | "email" | "tel";
+  multiline?: boolean;
+  setupRequired?: boolean;
 }
 
 export const SETTING_DEFS: SettingDef[] = [
+  {
+    key: "farm.name",
+    label: "Nombre de la granja",
+    description: "Nombre con el que identificas tu granja o unidad productiva. Completa este dato para cerrar la configuración inicial.",
+    group: "Datos generales de la granja",
+    type: "string",
+    default: "",
+    optional: true,
+    setupRequired: true,
+  },
+  {
+    key: "farm.production_focus",
+    label: "Actividad principal",
+    description: "Ej.: producción de huevos, carne, doble propósito o crianza de pequeños animales.",
+    group: "Datos generales de la granja",
+    type: "string",
+    default: "",
+    optional: true,
+  },
+  {
+    key: "farm.description",
+    label: "Descripción general",
+    description: "Describe brevemente el sistema productivo, sus objetivos y características importantes.",
+    group: "Datos generales de la granja",
+    type: "string",
+    default: "",
+    optional: true,
+    multiline: true,
+  },
+  {
+    key: "farm.country",
+    label: "País",
+    description: "País donde se ubica la granja.",
+    group: "Ubicación general",
+    type: "string",
+    default: "",
+    optional: true,
+  },
+  {
+    key: "farm.department",
+    label: "Departamento / provincia",
+    description: "División territorial donde está ubicada.",
+    group: "Ubicación general",
+    type: "string",
+    default: "",
+    optional: true,
+  },
+  {
+    key: "farm.city",
+    label: "Ciudad o municipio",
+    description: "Municipio donde se ubica la granja. Completa este dato para cerrar la configuración inicial.",
+    group: "Ubicación general",
+    type: "string",
+    default: "",
+    optional: true,
+    setupRequired: true,
+  },
+  {
+    key: "farm.general_location",
+    label: "Localización o dirección general",
+    description: "Vereda, sector, dirección o indicaciones generales para localizar el predio.",
+    group: "Ubicación general",
+    type: "string",
+    default: "",
+    optional: true,
+  },
+  {
+    key: "farm.latitude",
+    label: "Latitud general",
+    description: "Coordenada aproximada del predio; las ubicaciones internas pueden tener coordenadas propias.",
+    group: "Ubicación general",
+    type: "number",
+    default: "",
+    optional: true,
+    min: -90,
+    max: 90,
+    step: 0.000001,
+  },
+  {
+    key: "farm.longitude",
+    label: "Longitud general",
+    description: "Coordenada aproximada del predio; las ubicaciones internas pueden tener coordenadas propias.",
+    group: "Ubicación general",
+    type: "number",
+    default: "",
+    optional: true,
+    min: -180,
+    max: 180,
+    step: 0.000001,
+  },
+  {
+    key: "farm.operation_start_date",
+    label: "Inicio de operaciones",
+    description: "Fecha desde la que funciona esta unidad productiva.",
+    group: "Fechas clave",
+    type: "string",
+    default: "",
+    optional: true,
+    inputType: "date",
+  },
+  {
+    key: "farm.registration_date",
+    label: "Fecha de registro o constitución",
+    description: "Fecha de constitución o registro, si aplica.",
+    group: "Fechas clave",
+    type: "string",
+    default: "",
+    optional: true,
+    inputType: "date",
+  },
+  {
+    key: "farm.admin_name",
+    label: "Administrador o responsable",
+    description: "Persona responsable del manejo de la granja. Completa este dato para cerrar la configuración inicial.",
+    group: "Datos del administrador",
+    type: "string",
+    default: "",
+    optional: true,
+    setupRequired: true,
+  },
+  {
+    key: "farm.admin_phone",
+    label: "Teléfono de contacto",
+    description: "Teléfono del administrador o responsable.",
+    group: "Datos del administrador",
+    type: "string",
+    default: "",
+    optional: true,
+    inputType: "tel",
+  },
+  {
+    key: "farm.admin_email",
+    label: "Correo electrónico",
+    description: "Correo de contacto del administrador o responsable.",
+    group: "Datos del administrador",
+    type: "string",
+    default: "",
+    optional: true,
+    inputType: "email",
+  },
   {
     key: "lifecycle.fin_postura_weeks",
     label: "Fin de postura (semanas)",
@@ -143,13 +287,24 @@ let cache: { values: Record<string, string>; loadedAt: number } | null = null;
 function coerceValue(def: SettingDef, raw: unknown): string {
   const text = raw === null || raw === undefined ? "" : String(raw).trim();
   if (def.type === "string") {
+    if (!text && def.optional) return "";
     if (!text) throw new Error(`El parámetro "${def.label}" no puede estar vacío`);
+    if (def.inputType === "date") {
+      const date = new Date(`${text}T12:00:00Z`);
+      if (!/^\d{4}-\d{2}-\d{2}$/.test(text) || Number.isNaN(date.getTime()) || date.toISOString().slice(0, 10) !== text) {
+        throw new Error(`El parámetro "${def.label}" debe ser una fecha válida`);
+      }
+    }
+    if (def.inputType === "email" && text && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(text)) {
+      throw new Error(`El parámetro "${def.label}" debe ser un correo válido`);
+    }
     return text;
   }
   if (def.type === "boolean") {
     if (text === "true" || text === "false") return text;
     throw new Error(`El parámetro "${def.label}" debe ser true o false`);
   }
+  if (!text && def.optional) return "";
   const num = Number(text);
   if (!Number.isFinite(num)) throw new Error(`El parámetro "${def.label}" debe ser numérico`);
   if (def.type === "integer" && !Number.isInteger(num)) {

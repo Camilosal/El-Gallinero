@@ -1,8 +1,9 @@
 import { db } from "@/db";
-import { sanitaryCalendar } from "@/db/schema";
+import { appSettings, sanitaryCalendar } from "@/db/schema";
 import { eq, and, asc, sql } from "drizzle-orm";
 import { NextRequest, NextResponse } from "next/server";
 import { withApiHandler, safeParseJson } from "@/lib/api-handler";
+import { SANITARY_CALENDAR_REVIEW_KEY } from "@/lib/onboarding";
 
 export const dynamic = "force-dynamic";
 
@@ -71,6 +72,8 @@ export const POST = withApiHandler(async (req: NextRequest) => {
     })
     .returning();
 
+  await db.delete(appSettings).where(eq(appSettings.key, SANITARY_CALENDAR_REVIEW_KEY));
+
   return NextResponse.json(created, { status: 201 });
 });
 
@@ -103,6 +106,12 @@ export const PUT = withApiHandler(async (req: NextRequest) => {
     return NextResponse.json({ error: "Evento no encontrado" }, { status: 404 });
   }
 
+  const changedDefinition = ["type", "name", "description", "targetBirds", "targetStageId", "frequencyDays", "withdrawalDays", "isActive"]
+    .some((key) => body[key] !== undefined);
+  if (changedDefinition) {
+    await db.delete(appSettings).where(eq(appSettings.key, SANITARY_CALENDAR_REVIEW_KEY));
+  }
+
   return NextResponse.json(updated);
 });
 
@@ -118,6 +127,8 @@ export const DELETE = withApiHandler(async (req: NextRequest) => {
     .update(sanitaryCalendar)
     .set({ isActive: false, updatedAt: new Date() })
     .where(eq(sanitaryCalendar.id, id));
+
+  await db.delete(appSettings).where(eq(appSettings.key, SANITARY_CALENDAR_REVIEW_KEY));
 
   return NextResponse.json({ ok: true });
 });

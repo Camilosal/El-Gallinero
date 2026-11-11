@@ -34,7 +34,7 @@ interface CatalogItem {
 
 const CATEGORIES: { key: string; label: string; icon: string }[] = [
   { key: "raza", label: "Razas por especie", icon: "🐾" },
-  { key: "comprador", label: "Compradores", icon: "🤝" },
+  { key: "comprador", label: "Clientes", icon: "🤝" },
   { key: "proveedor", label: "Proveedores", icon: "🚚" },
   { key: "tamano_huevo", label: "Tamaños de huevo", icon: "🥚" },
   { key: "presentacion_venta", label: "Presentaciones de venta", icon: "📦" },
@@ -56,7 +56,10 @@ function ListasTab() {
   const searchParams = useSearchParams();
   const [items, setItems] = useState<CatalogItem[]>([]);
   const [loading, setLoading] = useState(true);
-  const [activeCat, setActiveCat] = useState("raza");
+  const [activeCat, setActiveCat] = useState(() => {
+    const category = searchParams.get("category");
+    return category && CATEGORIES.some((item) => item.key === category) ? category : "raza";
+  });
   const [modalOpen, setModalOpen] = useState(false);
   const [editing, setEditing] = useState<CatalogItem | null>(null);
   const [value, setValue] = useState("");
@@ -80,6 +83,11 @@ function ListasTab() {
 
   const filtered = items.filter((i) => i.category === activeCat);
   const activeCount = filtered.filter((i) => i.isActive).length;
+  const emptyCatalogMessage = activeCat === "comprador"
+    ? "Aún no hay clientes. Agrega tus propios clientes para que aparezcan en los registros de venta."
+    : activeCat === "proveedor"
+      ? "Aún no hay proveedores. Agrega tus propios proveedores para utilizarlos en compras y adquisiciones."
+      : "No hay valores en este catálogo";
 
   const searched = useMemo(() => {
     if (!search.trim()) return filtered;
@@ -191,7 +199,7 @@ function ListasTab() {
         {loading ? (
           <p className="text-center py-8 text-slate-400">Cargando...</p>
         ) : filtered.length === 0 ? (
-          <EmptyState icon="🗂️" message="No hay valores en este catálogo" />
+          <EmptyState icon="🗂️" message={emptyCatalogMessage} />
         ) : (
           <>
           <TableSearch
@@ -208,7 +216,7 @@ function ListasTab() {
               message={
                 search.trim()
                   ? "No hay valores que coincidan con la búsqueda"
-                  : "No hay valores en este catálogo"
+                  : emptyCatalogMessage
               }
             />
           ) : (
@@ -442,7 +450,7 @@ function ListasTab() {
 
 const TABS = [
   { key: "listas", label: "Listas", icon: "🗂️" },
-  { key: "parametros", label: "Parámetros globales", icon: "⚙️" },
+  { key: "parametros", label: "Datos de la granja y parámetros", icon: "⚙️" },
   { key: "especies", label: "Especies", icon: "📊" },
   { key: "vacunas", label: "Vacunas", icon: "💉" },
   { key: "pesos", label: "Estándares de peso", icon: "⚖️" },
@@ -466,8 +474,8 @@ export default function CatalogosPage() {
     <div>
       <PageHeader
         title="🗂️ Catálogos y Datos Maestros"
-        description="Administra listas, parámetros de cálculo y tablas técnicas que alimentan todo el sistema"
-        help="Este es el centro de datos maestros del gallinero. En 'Listas' están las opciones de selección; cada raza se asocia a su especie para que los formularios no mezclen animales incompatibles. En 'Parámetros globales' están los valores de cálculo y en las demás pestañas se administran parámetros por especie, vacunas, estándares de peso, factores de gallinaza y programas de alimentación."
+        description="Administra los datos de tu granja, sus listas maestras y los parámetros que alimentan el sistema"
+        help="Este es el centro de datos maestros del gallinero. En 'Datos de la granja y parámetros' puedes editar el perfil del predio, sus responsables y los valores de cálculo. En 'Listas' están las opciones de selección; cada raza se asocia a su especie para que los formularios no mezclen animales incompatibles. Las demás pestañas contienen parámetros por especie, vacunas, estándares de peso, factores de gallinaza y programas de alimentación."
       />
 
       <div className="flex flex-wrap gap-2 mb-6">

@@ -1,9 +1,10 @@
 import { db } from "@/db";
-import { catalogos, sanitaryCalendar, healthControl, supplyInventory, hens } from "@/db/schema";
+import { catalogos, sanitaryCalendar, healthControl, supplyInventory, hens, appSettings } from "@/db/schema";
 import { eq, and, desc, sql } from "drizzle-orm";
 import { NextRequest, NextResponse } from "next/server";
 import { withApiHandler, safeParseJson } from "@/lib/api-handler";
 import { ageInWeeks, stageForAge, isAvailableForExit, type StageRange } from "@/lib/lifecycle";
+import { SANITARY_CALENDAR_REVIEW_KEY } from "@/lib/onboarding";
 
 export const dynamic = "force-dynamic";
 
@@ -229,6 +230,7 @@ export const POST = withApiHandler(async (req: NextRequest) => {
   });
 
   const inserted = await db.insert(sanitaryCalendar).values(events).returning();
+  await db.delete(appSettings).where(eq(appSettings.key, SANITARY_CALENDAR_REVIEW_KEY));
   return NextResponse.json({ created: inserted.length, events: inserted });
 });
 
