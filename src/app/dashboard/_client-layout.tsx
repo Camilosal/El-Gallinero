@@ -6,6 +6,7 @@ import AssistantWidget from "@/components/AssistantWidget";
 import QuickCreateMenu from "@/components/QuickCreateMenu";
 import OfflineSyncStatus from "@/components/OfflineSyncStatus";
 import GlobalSearch from "@/components/GlobalSearch";
+import { initOfflineMirrorAutoSync } from "@/lib/offline/offlineMirror";
 
 const COLLAPSED_KEY = "sidebar-collapsed";
 
@@ -18,6 +19,8 @@ export default function ClientAppLayout({ children }: { children: React.ReactNod
       if (active) setCollapsed(localStorage.getItem(COLLAPSED_KEY) === "true");
     });
 
+    const cleanupMirror = initOfflineMirrorAutoSync();
+
     // Listen for sidebar toggle events
     const handler = (e: Event) => {
       const detail = (e as CustomEvent).detail;
@@ -26,6 +29,7 @@ export default function ClientAppLayout({ children }: { children: React.ReactNod
     window.addEventListener("sidebar-toggle", handler);
     return () => {
       active = false;
+      cleanupMirror();
       window.removeEventListener("sidebar-toggle", handler);
     };
   }, []);

@@ -288,6 +288,11 @@ export async function setCachedRecords<T>(key: string, data: T): Promise<void> {
 }
 
 export async function getCachedRecords<T>(key: string): Promise<T | null> {
+  const entry = await getCachedRecordEntry<T>(key);
+  return entry ? entry.data : null;
+}
+
+export async function getCachedRecordEntry<T>(key: string): Promise<CachedRecordEntry<T> | null> {
   if (!isIndexedDBSupported()) return null;
   const db = await getOfflineDB();
 
@@ -298,8 +303,81 @@ export async function getCachedRecords<T>(key: string): Promise<T | null> {
 
     req.onsuccess = () => {
       const entry = req.result as CachedRecordEntry<T> | undefined;
-      resolve(entry ? entry.data : null);
+      resolve(entry ?? null);
     };
     req.onerror = () => reject(req.error);
   });
+}
+
+export async function getAllCachedRecordKeys(): Promise<string[]> {
+  if (!isIndexedDBSupported()) return [];
+  const db = await getOfflineDB();
+
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction("cached_records", "readonly");
+    const store = tx.objectStore("cached_records");
+    const req = store.getAllKeys();
+
+    req.onsuccess = () => {
+      const keys = Array.isArray(req.result) ? req.result.map(String) : [];
+      resolve(keys);
+    };
+    req.onerror = () => reject(req.error);
+  });
+}
+
+export interface OfflineStorageStats {
+  cachedEndpointCount: number;
+  cachedCatalogCount: number;
+  lastEndpointUpdateAt: number | null;
+}
+
+export async function getOfflineStorageStats(): Promise<OfflineStorageStats> {
+  if (!isIndexedDBSupported()) {
+    return { cachedEndpointCount: 0, cachedCatalogCount: 0, lastEndpointUpdateAt: null };
+  }
+  const db = await getOfflineDB();
+
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction(["cached_records", "catalogs"], "readonly");
+    const recordsReq = tx.objectStore("cached_records").getAll();
+    const catalogsReq = tx.objectStore("catalogs").getAllKeys();
+
+    let records: CachedRecordEntry[] = [];
+    let catalogKeys: string[] = [];
+
+    recordsReq.onsuccess = () => {
+      records = (recordsReq.result as CachedRecordEntry[]) || [];
+    };
+    catalogsReq.onsuccess = () => {
+      catalogKeys = Array.isArray(catalogsReq.result)
+        ? catalogsReq.result.map(String).filter((k) => !k.startsWith("__offline_"))
+        : [];
+    };
+
+    tx.oncomplete = () => {
+      let lastEndpointUpdateAt: number | null = null;
+      for (const entry of records) {
+        if (typeof entry.updatedAt === "number") {
+          if (lastEndpointUpdateAt === null || entry.updatedAt > lastEndpointUpdateAt) {
+            lastEndpointUpdateAt = entry.updatedAt;
+          }
+        }
+      }
+      resolve({
+        cachedEndpointCount: records.length,
+        cachedCatalogCount: catalogKeys.length,
+        lastEndpointUpdateAt,
+      });
+    };
+    tx.onerror = () => reject(tx.error);
+  });
+}
+
+export async function setMetaValue<T>(key: string, value: T): Promise<void> {
+  return setCachedCatalog<T>(`__offline_meta_${key}`, value);
+}
+
+export async function getMetaValue<T>(key: string): Promise<T | null> {
+  return getCachedCatalog<T>(`__offline_meta_${key}`);
 }

@@ -165,7 +165,19 @@ export default function Dashboard() {
   }
 
   if (!data) {
-    return <p className="text-red-500">Error cargando datos</p>;
+    const isOffline = typeof navigator !== "undefined" && navigator.onLine === false;
+    return (
+      <div className="rounded-xl border border-amber-200 bg-amber-50 p-6 text-center max-w-lg mx-auto my-8">
+        <p className="text-sm font-semibold text-amber-900">
+          {isOffline ? "Sin conexión y sin copia local para el inicio" : "Error cargando datos"}
+        </p>
+        <p className="text-xs text-amber-700 mt-1">
+          {isOffline
+            ? "Conéctate a Internet una vez y abre 'Guardar copia offline' en el indicador superior para descargar toda la app en este dispositivo."
+            : "Intenta recargar la página o verifica la conexión con el servidor."}
+        </p>
+      </div>
+    );
   }
 
   const dailyChecklistPending = Boolean(tareas && (

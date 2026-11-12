@@ -3,6 +3,12 @@
 import { useEffect, useState, useCallback } from "react";
 import { syncManager, SyncStatusEventDetail } from "./syncManager";
 import {
+  OfflineMirrorState,
+  getOfflineMirrorState,
+  subscribeOfflineMirror,
+  syncFullOfflineCopy,
+} from "./offlineMirror";
+import {
   OutboxMutation,
   getAllOutboxMutations,
   removeOutboxMutation,
@@ -21,6 +27,7 @@ export function useOfflineSync() {
     syncError: null,
   });
   const [outboxItems, setOutboxItems] = useState<OutboxMutation[]>([]);
+  const [mirrorState, setMirrorState] = useState<OfflineMirrorState>(() => getOfflineMirrorState());
 
   const refreshOutbox = useCallback(async () => {
     try {
@@ -32,16 +39,30 @@ export function useOfflineSync() {
   }, []);
 
   useEffect(() => {
-    // Suscribirse a cambios de estado de syncManager
+    let active = true;
+
+    // Suscribirse a cambios de estado de syncManager y de la copia offline
     const unsubscribe = syncManager.subscribe((newStatus) => {
+      if (!active) return;
       setStatus(newStatus);
       void refreshOutbox();
     });
+    const unsubscribeMirror = subscribeOfflineMirror((newMirrorState) => {
+      if (active) setMirrorState(newMirrorState);
+    });
 
-    void refreshOutbox();
+    void getAllOutboxMutations()
+      .then((items) => {
+        if (active) setOutboxItems(items);
+      })
+      .catch((err) => {
+        console.error("Error al obtener elementos de outbox", err);
+      });
 
     return () => {
+      active = false;
       unsubscribe();
+      unsubscribeMirror();
     };
   }, [refreshOutbox]);
 
@@ -50,6 +71,10 @@ export function useOfflineSync() {
     await refreshOutbox();
     return res;
   }, [refreshOutbox]);
+
+  const saveOfflineCopy = useCallback(async () => {
+    return syncFullOfflineCopy({ force: true });
+  }, []);
 
   const discardItem = useCallback(
     async (id: string) => {
@@ -61,8 +86,10 @@ export function useOfflineSync() {
 
   return {
     ...status,
+    mirrorState,
     outboxItems,
     syncNow,
+    saveOfflineCopy,
     discardItem,
     refreshOutbox,
     executeMutation: syncManager.executeMutation.bind(syncManager),

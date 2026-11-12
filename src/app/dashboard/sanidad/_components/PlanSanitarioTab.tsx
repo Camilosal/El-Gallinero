@@ -325,7 +325,14 @@ export default function PlanSanitarioTab() {
   }
 
   if (!plan) {
-    return <p className="text-red-500 text-center py-8">Error cargando plan sanitario</p>;
+    const isOffline = typeof navigator !== "undefined" && navigator.onLine === false;
+    return (
+      <p className="text-amber-700 bg-amber-50 border border-amber-200 rounded-lg px-4 py-6 text-center text-sm">
+        {isOffline
+          ? "Sin conexión y sin copia local del plan sanitario. Conéctate una vez para descargarlo en este dispositivo."
+          : "Error cargando plan sanitario"}
+      </p>
+    );
   }
 
   const { stages, protocols, overdueActions, upcomingActions, supplyStatus, recentExecutions, summary } = plan;

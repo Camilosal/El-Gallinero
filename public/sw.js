@@ -1,7 +1,10 @@
-const CACHE_VERSION = 'v4';
+const CACHE_VERSION = 'v5';
 const APP_CACHE = `gallinero-app-${CACHE_VERSION}`;
 const PRECACHE = [
   '/',
+  '/login',
+  '/login/recuperar',
+  '/dashboard/guia',
   '/manifest.json',
   '/icon-192.svg',
   '/icon-512.svg',
@@ -9,9 +12,40 @@ const PRECACHE = [
   '/icon-512.png',
 ];
 
+function isRedirectedToLogin(requestUrl, response) {
+  if (!response || !response.url) return false;
+  try {
+    const finalUrl = new URL(response.url);
+    return !requestUrl.pathname.startsWith('/login') && finalUrl.pathname.startsWith('/login');
+  } catch {
+    return false;
+  }
+}
+
+function buildRscCacheKey(url, includeQuery) {
+  const canonical = new URL(url.origin + url.pathname);
+  if (includeQuery) {
+    url.searchParams.forEach((value, key) => {
+      if (key !== '_rsc') canonical.searchParams.append(key, value);
+    });
+  }
+  canonical.searchParams.set('__sw_rsc', '1');
+  return canonical.toString();
+}
+
 self.addEventListener('install', (e) => {
   e.waitUntil(
-    caches.open(APP_CACHE).then((c) => c.addAll(PRECACHE))
+    caches.open(APP_CACHE).then((cache) =>
+      Promise.allSettled(
+        PRECACHE.map((url) =>
+          fetch(url, { credentials: 'include' }).then((res) => {
+            if (res.ok) {
+              return cache.put(url, res);
+            }
+          })
+        )
+      )
+    )
   );
   self.skipWaiting();
 });
@@ -23,7 +57,7 @@ self.addEventListener('activate', (e) => {
       .then((keys) =>
         Promise.all(
           keys
-            .filter((k) => !k.endsWith(CACHE_VERSION))
+            .filter((k) => k.startsWith('gallinero-') && k !== APP_CACHE)
             .map((k) => caches.delete(k))
         )
       )
@@ -38,61 +72,100 @@ self.addEventListener('fetch', (e) => {
   const url = new URL(request.url);
   if (url.origin !== self.location.origin) return;
 
-  // Los datos de la API nunca se cachean a nivel HTTP para evitar respuestas obsoletas.
-  // La persistencia de datos offline se gestiona de forma estructurada e idempotente en IndexedDB.
+  // Los datos de la API se gestionan de forma estructurada e idempotente en IndexedDB.
   if (url.pathname.startsWith('/api/')) return;
 
-  // Navegaciones de páginas y payloads RSC de Next.js: Network-first con fallback al caché.
-  const isRscRequest = url.searchParams.has('_rsc');
-  if (request.mode === 'navigate' || isRscRequest) {
+  const accept = request.headers.get('accept') || '';
+  const isRscRequest = url.searchParams.has('_rsc') || request.headers.get('rsc') === '1';
+  const isHtmlRequest = request.mode === 'navigate' || (!isRscRequest && accept.includes('text/html'));
+
+  // 1. Payloads RSC de Next.js App Router (navegación SPA entre módulos)
+  if (isRscRequest) {
+    const specificRscKey = buildRscCacheKey(url, true);
+    const pathRscKey = buildRscCacheKey(url, false);
+
     e.respondWith(
       fetch(request)
         .then((res) => {
-          if (res.ok) {
+          if (res.ok && !isRedirectedToLogin(url, res)) {
             const clone = res.clone();
             caches.open(APP_CACHE).then((c) => {
-              c.put(request, clone);
-              if (request.mode === 'navigate') {
-                c.put(url.pathname, clone.clone());
+              c.put(request, clone.clone());
+              c.put(specificRscKey, clone.clone());
+              if (pathRscKey !== specificRscKey) {
+                c.put(pathRscKey, clone.clone());
               }
             });
           }
           return res;
         })
         .catch(async () => {
-          // 1. Intentar servir la ruta solicitada guardada previamente
-          const cachedExact = await caches.match(request);
+          const cachedExact = await caches.match(request, { ignoreVary: true });
           if (cachedExact) return cachedExact;
 
-          if (isRscRequest) {
-            return new Response('', { status: 503 });
-          }
+          const cachedSpecific = await caches.match(specificRscKey, { ignoreVary: true });
+          if (cachedSpecific) return cachedSpecific;
 
-          const cachedPath = await caches.match(url.pathname);
+          const cachedPath = await caches.match(pathRscKey, { ignoreVary: true });
           if (cachedPath) return cachedPath;
 
-          // 2. Fallback a la ruta dashboard si aplica
-          if (url.pathname.startsWith('/dashboard')) {
-            const cachedDashboard = await caches.match('/dashboard');
-            if (cachedDashboard) return cachedDashboard;
-          }
-
-          // 3. Fallback a la raíz precacheada
-          const rootFallback = await caches.match('/');
-          if (rootFallback) return rootFallback;
-
-          return new Response('Sin conexión a Internet. Por favor reconecta para cargar esta sección por primera vez.', {
-            status: 503,
-            headers: { 'Content-Type': 'text/plain; charset=utf-8' },
-          });
+          return new Response('', { status: 503 });
         })
     );
     return;
   }
 
-  // Assets estáticos (JS, CSS, imágenes, iconos, fuentes): Stale-While-Revalidate.
+  // 2. Documentos HTML (navegaciones completas y espejo offline de páginas)
+  if (isHtmlRequest) {
+    const canonicalPageKey = url.origin + url.pathname;
+
+    e.respondWith(
+      fetch(request)
+        .then((res) => {
+          if (res.ok && !isRedirectedToLogin(url, res)) {
+            const clone = res.clone();
+            caches.open(APP_CACHE).then((c) => {
+              c.put(request, clone.clone());
+              c.put(canonicalPageKey, clone.clone());
+            });
+          }
+          return res;
+        })
+        .catch(async () => {
+          const cachedExact = await caches.match(request, { ignoreVary: true });
+          if (cachedExact) return cachedExact;
+
+          const cachedPage = await caches.match(canonicalPageKey, { ignoreVary: true });
+          if (cachedPage) return cachedPage;
+
+          if (url.pathname.startsWith('/dashboard')) {
+            const cachedDashboard = await caches.match(url.origin + '/dashboard', { ignoreVary: true });
+            if (cachedDashboard) return cachedDashboard;
+          }
+
+          const rootFallback = await caches.match(url.origin + '/', { ignoreVary: true });
+          if (rootFallback) return rootFallback;
+
+          return new Response(
+            'Sin conexión a Internet. Conéctate una vez y guarda la copia offline para usar este módulo sin señal.',
+            {
+              status: 503,
+              headers: { 'Content-Type': 'text/plain; charset=utf-8' },
+            }
+          );
+        })
+    );
+    return;
+  }
+
+  // 3. Assets estáticos (chunks JS/CSS de Next, imágenes, íconos, fuentes)
+  const isImmutableNextStatic = url.pathname.startsWith('/_next/static/');
   e.respondWith(
-    caches.match(request).then((cached) => {
+    caches.match(request, { ignoreVary: true }).then((cached) => {
+      if (cached && isImmutableNextStatic) {
+        return cached;
+      }
+
       const network = fetch(request)
         .then((res) => {
           if (res.ok && res.type === 'basic') {
@@ -101,7 +174,8 @@ self.addEventListener('fetch', (e) => {
           }
           return res;
         })
-        .catch(() => cached);
+        .catch(() => cached || new Response('', { status: 504 }));
+
       return cached || network;
     })
   );
@@ -117,5 +191,12 @@ self.addEventListener('sync', (event) => {
         });
       })
     );
+  }
+});
+
+// Mensajes opcionales del cliente para activar inmediatamente el SW actualizado
+self.addEventListener('message', (event) => {
+  if (event.data && event.data.type === 'SKIP_WAITING') {
+    self.skipWaiting();
   }
 });

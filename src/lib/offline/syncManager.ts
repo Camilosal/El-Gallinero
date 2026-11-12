@@ -14,6 +14,60 @@ import {
 } from "./db";
 import { v4 as uuidv4 } from "uuid";
 
+const BATCHABLE_ENTITIES = new Set<OutboxMutation["entity"]>([
+  "huevos",
+  "mortalidad",
+  "alimentacion",
+]);
+
+export const SYNC_COMPLETED_EVENT = "gallinero-sync-completed";
+
+export function partitionPendingMutations(pending: OutboxMutation[]): {
+  batchable: OutboxMutation[];
+  individual: OutboxMutation[];
+} {
+  const batchable: OutboxMutation[] = [];
+  const individual: OutboxMutation[] = [];
+  for (const m of pending) {
+    if (m.method === "POST" && BATCHABLE_ENTITIES.has(m.entity)) {
+      batchable.push(m);
+    } else {
+      individual.push(m);
+    }
+  }
+  return { batchable, individual };
+}
+
+export function buildIndividualSyncRequestInit(mutation: OutboxMutation): RequestInit {
+  const payload = mutation.payload && typeof mutation.payload === "object" ? mutation.payload : {};
+  const hasPayloadKeys = Object.keys(payload).length > 0;
+  const omitBody = mutation.method === "DELETE" && !hasPayloadKeys;
+  const headers: Record<string, string> = {
+    "X-Client-Mutation-Id": mutation.id,
+    "X-Client-Timestamp": mutation.clientTimestamp,
+  };
+
+  if (!omitBody) {
+    headers["Content-Type"] = "application/json";
+  }
+
+  const serializedPayload =
+    mutation.entity === "general"
+      ? payload
+      : {
+          ...payload,
+          id: mutation.id, // Idempotencia: enviar el UUID generado en el móvil
+          clientTimestamp: mutation.clientTimestamp,
+        };
+
+  return {
+    method: mutation.method,
+    credentials: "include",
+    headers,
+    ...(omitBody ? {} : { body: JSON.stringify(serializedPayload) }),
+  };
+}
+
 export type SyncState = "idle" | "syncing" | "error" | "success";
 
 export interface SyncStatusEventDetail {
@@ -131,17 +185,25 @@ class SyncManager {
     let failedCount = 0;
 
     try {
-      // 1. Intentar sincronización en lote
-      const batchSuccess = await this.attemptBatchSync(pending);
+      const { batchable, individual } = partitionPendingMutations(pending);
+      const fallbackIndividual = [...individual];
 
-      if (batchSuccess.handled) {
-        syncedCount = batchSuccess.synced;
-        failedCount = batchSuccess.failed;
-      } else {
-        // 2. Si el endpoint batch no está disponible, enviar uno a uno
-        const individualResult = await this.syncIndividually(pending);
-        syncedCount = individualResult.synced;
-        failedCount = individualResult.failed;
+      // 1. Intentar sincronización en lote solo para entidades compatibles (POST)
+      if (batchable.length > 0) {
+        const batchSuccess = await this.attemptBatchSync(batchable);
+        if (batchSuccess.handled) {
+          syncedCount += batchSuccess.synced;
+          failedCount += batchSuccess.failed;
+        } else {
+          fallbackIndividual.unshift(...batchable);
+        }
+      }
+
+      // 2. Enviar individualmente mutaciones generales, PUT, DELETE o fallback de lote
+      if (fallbackIndividual.length > 0) {
+        const individualResult = await this.syncIndividually(fallbackIndividual);
+        syncedCount += individualResult.synced;
+        failedCount += individualResult.failed;
       }
 
       this.lastSyncTime = Date.now();
@@ -149,6 +211,14 @@ class SyncManager {
         this.syncError = `${failedCount} registro(s) no pudieron sincronizarse. Revisa los detalles.`;
       } else {
         this.syncError = null;
+      }
+
+      if (syncedCount > 0 && typeof window !== "undefined") {
+        window.dispatchEvent(
+          new CustomEvent(SYNC_COMPLETED_EVENT, {
+            detail: { syncedCount, failedCount },
+          })
+        );
       }
     } catch (err: any) {
       console.error("Error en sincronización", err);
@@ -171,6 +241,7 @@ class SyncManager {
     try {
       const response = await fetch("/api/sync/batch", {
         method: "POST",
+        credentials: "include",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ mutations }),
       });
@@ -220,19 +291,7 @@ class SyncManager {
       try {
         await updateOutboxMutation(mutation.id, { status: "syncing" });
 
-        const res = await fetch(mutation.endpoint, {
-          method: mutation.method,
-          headers: {
-            "Content-Type": "application/json",
-            "X-Client-Mutation-Id": mutation.id,
-            "X-Client-Timestamp": mutation.clientTimestamp,
-          },
-          body: JSON.stringify({
-            ...mutation.payload,
-            id: mutation.id, // Idempotencia: enviar el UUID generado en el móvil
-            clientTimestamp: mutation.clientTimestamp,
-          }),
-        });
+        const res = await fetch(mutation.endpoint, buildIndividualSyncRequestInit(mutation));
 
         if (res.ok || res.status === 409) {
           // 200/201 o 409 (ya existía por idempotencia)
@@ -259,6 +318,32 @@ class SyncManager {
     }
 
     return { synced, failed };
+  }
+
+  /**
+   * Encola directamente en IndexedDB sin intentar red (usado por el fallback offline de apiFetch).
+   * Preserva el payload original sin inyectar campos extra.
+   */
+  public async enqueueOfflineMutation(params: {
+    endpoint: string;
+    method: "POST" | "PUT" | "DELETE";
+    description: string;
+    payload?: Record<string, any>;
+    entity?: OutboxMutation["entity"];
+  }): Promise<OutboxMutation> {
+    const id = typeof crypto !== "undefined" && crypto.randomUUID ? crypto.randomUUID() : uuidv4();
+    const clientTimestamp = new Date().toISOString();
+    const stored = await addOutboxMutation({
+      id,
+      endpoint: params.endpoint,
+      method: params.method,
+      entity: params.entity ?? "general",
+      description: params.description,
+      payload: params.payload ?? {},
+      clientTimestamp,
+    });
+    await this.notifyListeners();
+    return stored;
   }
 
   /**

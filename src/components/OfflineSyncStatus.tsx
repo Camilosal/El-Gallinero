@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useOfflineSync } from "@/lib/offline/useOfflineSync";
-import { Cloud, CloudOff, RefreshCw, AlertCircle, CheckCircle2, Trash2, X } from "lucide-react";
+import { Cloud, CloudOff, Download, RefreshCw, AlertCircle, CheckCircle2, Smartphone, Trash2, X } from "lucide-react";
 
 export default function OfflineSyncStatus() {
   const {
@@ -11,8 +11,10 @@ export default function OfflineSyncStatus() {
     pendingCount,
     lastSyncTime,
     syncError,
+    mirrorState,
     outboxItems,
     syncNow,
+    saveOfflineCopy,
     discardItem,
   } = useOfflineSync();
 
@@ -30,6 +32,20 @@ export default function OfflineSyncStatus() {
     setTimeout(() => setSyncFeedback(null), 5000);
   };
 
+  const handleSaveOfflineCopy = async () => {
+    setSyncFeedback(null);
+    const result = await saveOfflineCopy();
+    if (result.lastError) {
+      setSyncFeedback(result.lastError);
+    } else {
+      setSyncFeedback(`Copia offline guardada (${result.routesCached} pantallas y ${result.endpointsCached} módulos).`);
+    }
+    setTimeout(() => setSyncFeedback(null), 6000);
+  };
+
+  const mirrorProgressPct =
+    mirrorState.total > 0 ? Math.min(100, Math.round((mirrorState.completed / mirrorState.total) * 100)) : 0;
+
   // Determinar apariencia del botón principal
   let badgeColor = "bg-emerald-50 text-emerald-700 border-emerald-200";
   let Icon = Cloud;
@@ -39,6 +55,10 @@ export default function OfflineSyncStatus() {
     badgeColor = "bg-blue-50 text-blue-700 border-blue-200 animate-pulse";
     Icon = RefreshCw;
     text = "Sincronizando...";
+  } else if (mirrorState.isMirroring && isOnline) {
+    badgeColor = "bg-blue-50 text-blue-700 border-blue-200";
+    Icon = Download;
+    text = `Copiando (${mirrorProgressPct}%)`;
   } else if (!isOnline) {
     badgeColor = "bg-amber-50 text-amber-700 border-amber-200";
     Icon = CloudOff;
@@ -59,7 +79,7 @@ export default function OfflineSyncStatus() {
         type="button"
         onClick={() => setIsOpen(true)}
         className={`inline-flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 sm:py-2 rounded-lg text-xs sm:text-sm font-medium border shadow-xs transition-colors hover:brightness-95 shrink-0 ${badgeColor}`}
-        title="Ver estado de conexión y sincronización offline"
+        title="Ver estado de conexión, copia offline y sincronización"
       >
         <Icon className={`w-3.5 h-3.5 sm:w-4 sm:h-4 shrink-0 ${isSyncing ? "animate-spin" : ""}`} />
         <span className="whitespace-nowrap">{text}</span>
@@ -112,6 +132,62 @@ export default function OfflineSyncStatus() {
                   <p>{syncError}</p>
                 </div>
               )}
+
+              {/* Copia local de la app en este dispositivo */}
+              <div className="rounded-lg border border-slate-200 bg-slate-50/70 p-3 space-y-2">
+                <div className="flex items-start justify-between gap-2">
+                  <div className="flex items-start gap-2">
+                    <Smartphone className="w-4 h-4 text-emerald-600 mt-0.5 shrink-0" />
+                    <div>
+                      <p className="text-xs font-semibold text-slate-800">Copia completa en el dispositivo</p>
+                      <p className="text-[11px] text-slate-500">
+                        {mirrorState.lastSyncedAt
+                          ? `Guardada: ${mirrorState.routesCached} pantallas · ${mirrorState.endpointsCached} módulos de datos`
+                          : "Guarda toda la app y datos para navegar cualquier módulo sin internet"}
+                      </p>
+                      {mirrorState.lastSyncedAt && (
+                        <p className="text-[10px] text-slate-400 mt-0.5">
+                          Última copia:{" "}
+                          {new Date(mirrorState.lastSyncedAt).toLocaleString([], {
+                            dateStyle: "short",
+                            timeStyle: "short",
+                          })}
+                        </p>
+                      )}
+                    </div>
+                  </div>
+
+                  <button
+                    type="button"
+                    onClick={handleSaveOfflineCopy}
+                    disabled={!isOnline || mirrorState.isMirroring}
+                    className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-md text-[11px] font-semibold bg-white border border-slate-200 text-slate-700 hover:bg-slate-100 disabled:opacity-50 disabled:cursor-not-allowed shrink-0 shadow-2xs"
+                  >
+                    <Download className={`w-3.5 h-3.5 ${mirrorState.isMirroring ? "animate-bounce text-blue-600" : ""}`} />
+                    {mirrorState.isMirroring
+                      ? `${mirrorProgressPct}%`
+                      : mirrorState.lastSyncedAt
+                      ? "Actualizar copia"
+                      : "Guardar copia"}
+                  </button>
+                </div>
+
+                {mirrorState.isMirroring && (
+                  <div className="space-y-1">
+                    <div className="w-full h-1.5 bg-slate-200 rounded-full overflow-hidden">
+                      <div
+                        className="h-full bg-blue-600 transition-all duration-200"
+                        style={{ width: `${mirrorProgressPct}%` }}
+                      />
+                    </div>
+                    <p className="text-[10px] text-slate-500 truncate">{mirrorState.currentLabel}</p>
+                  </div>
+                )}
+
+                {mirrorState.lastError && !mirrorState.isMirroring && (
+                  <p className="text-[10px] text-rose-600 font-medium">{mirrorState.lastError}</p>
+                )}
+              </div>
 
               {/* Estado de la cola */}
               <div>
