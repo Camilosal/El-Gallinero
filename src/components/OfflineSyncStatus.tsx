@@ -1,8 +1,10 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { getPendingVoiceNotesCount } from "@/lib/offline/db";
+import { VOICE_NOTES_CHANGED_EVENT } from "@/lib/offline/voiceNotes";
 import { useOfflineSync } from "@/lib/offline/useOfflineSync";
-import { Cloud, CloudOff, Download, RefreshCw, AlertCircle, CheckCircle2, Smartphone, Trash2, X } from "lucide-react";
+import { Cloud, CloudOff, Download, Mic, RefreshCw, AlertCircle, CheckCircle2, Smartphone, Trash2, X } from "lucide-react";
 
 export default function OfflineSyncStatus() {
   const {
@@ -20,6 +22,16 @@ export default function OfflineSyncStatus() {
 
   const [isOpen, setIsOpen] = useState(false);
   const [syncFeedback, setSyncFeedback] = useState<string | null>(null);
+  const [voiceCount, setVoiceCount] = useState(0);
+
+  useEffect(() => {
+    const refresh = () => {
+      void getPendingVoiceNotesCount().then(setVoiceCount).catch(() => {});
+    };
+    refresh();
+    window.addEventListener(VOICE_NOTES_CHANGED_EVENT, refresh);
+    return () => window.removeEventListener(VOICE_NOTES_CHANGED_EVENT, refresh);
+  }, []);
 
   const handleSyncClick = async () => {
     setSyncFeedback(null);
@@ -188,6 +200,15 @@ export default function OfflineSyncStatus() {
                   <p className="text-[10px] text-rose-600 font-medium">{mirrorState.lastError}</p>
                 )}
               </div>
+
+              {voiceCount > 0 && (
+                <div className="rounded-lg border border-amber-200 bg-amber-50 p-3 flex items-center justify-between gap-2 text-xs text-amber-900">
+                  <span className="flex items-center gap-1.5 font-medium">
+                    <Mic className="w-4 h-4 text-amber-700 shrink-0" />
+                    {voiceCount} nota(s) de voz pendiente(s) en el Asistente
+                  </span>
+                </div>
+              )}
 
               {/* Estado de la cola */}
               <div>

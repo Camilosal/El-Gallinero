@@ -176,9 +176,13 @@ const FIXED_ENTRIES: SearchEntry[] = [
   { href: "/dashboard", label: "Inicio", icon: "bar-chart", group: "General", groupIcon: "home", keywords: ["inicio", "panel", "dashboard", "resumen", "home", "principal"] },
   { href: "/dashboard/escanear", label: "Escanear Ave", icon: "qrcode", group: "General", groupIcon: "home", keywords: ["escanear", "qr", "codigo", "ave", "lote", "identificar", "camara"] },
   { href: "/dashboard/guia", label: "Guía de Usuario", icon: "book-open", group: "General", groupIcon: "home", keywords: ["guia", "ayuda", "manual", "tutorial", "documentacion", "como"] },
+  { href: "/dashboard/guia/modo-offline-voz", label: "Guía: modo offline y voz", icon: "smartphone", group: "Guía", groupIcon: "book-open", keywords: ["offline", "sin conexion", "copia", "voz", "dictado", "audio", "celular"] },
+  { href: "/dashboard/guia/escanear-qr", label: "Guía: escáner QR y etiquetas", icon: "qrcode", group: "Guía", groupIcon: "book-open", keywords: ["qr", "escanear", "camara", "etiqueta", "imprimir", "codigo"] },
   { href: "/dashboard/guia/trazabilidad-genetica", label: "Guía: trazabilidad genética", icon: "dna", group: "Guía", groupIcon: "book-open", keywords: ["genetica", "genetico", "linaje", "genealogia", "pedigri", "madre", "padre", "progenitores", "origen genetico", "procedencia"] },
   { href: "/dashboard/guia/lugares-manejo", label: "Guía: lugares de manejo", icon: "map-pin", group: "Guía", groupIcon: "book-open", keywords: ["lugar", "lugares", "corral", "jaula", "galpon", "potrero", "jardin", "patio", "gps", "coordenadas", "capacidad", "desempeno por lugar"] },
   { href: "/dashboard/guia/infraestructura-equipos", label: "Guía: infraestructura y equipos", icon: "wrench", group: "Guía", groupIcon: "book-open", keywords: ["activos", "infraestructura", "equipo", "mantenimiento", "reparacion", "instalaciones"] },
+  { href: "/dashboard/guia/cuentas-cobrar-pagar", label: "Guía: cuentas cobrar y pagar", icon: "receipt", group: "Guía", groupIcon: "book-open", keywords: ["cxc", "cxp", "cuentas", "credito", "fiado", "abono", "deuda"] },
+  { href: "/dashboard/guia/soberania-alimentaria", label: "Guía: soberanía alimentaria", icon: "sprout", group: "Guía", groupIcon: "book-open", keywords: ["soberania", "autoconsumo", "hogar", "ahorro"] },
   { href: "/dashboard/operaciones/activos", label: "Activos y equipos", icon: "equipment", group: "Almacén", groupIcon: "warehouse", keywords: ["activo", "activos", "equipos", "herramientas", "infraestructura", "garantia", "numero de serie"] },
 ];
 

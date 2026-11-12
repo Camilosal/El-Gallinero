@@ -684,6 +684,7 @@ export default function AlimentacionPage() {
   return (
     <div>
       <PageHeader
+        theme="alimentacion"
         title="Gestión de Alimentación"
         description="Alimentos, movimientos, programas por etapa y predicción de consumo"
         help="Gestiona los alimentos de tus animales y su consumo.\n\n• Inventario: registra los alimentos que tienes (de granja o comprados), su stock y costo.\n• Movimientos: registra entradas (compras, donaciones) y salidas manuales. El consumo diario por programa se calcula automáticamente.\n• Etapas y Programas: define qué come cada grupo de animales según su etapa de crecimiento. El sistema calcula el consumo automático diario.\n• Planificado vs Real: compara lo que debieron comer vs lo que realmente consumieron.\n• Predicción de Stock: proyecta cuándo se agotará cada alimento según el consumo actual.\n\nLa proyección de stock y la comparación con lo esperado viven solo en sus pestañas, para no duplicar información."

@@ -1,7 +1,7 @@
 import { db } from "@/db";
 import { aiActions, aiConversations, aiMessages } from "@/db/schema";
 import { and, asc, desc, eq } from "drizzle-orm";
-import { getAgentConfig, type AgentConfig } from "./config";
+import { getAgentConfig, isSttConfigured, type AgentConfig } from "./config";
 import { callLlm, type LlmMessage, type LlmToolCall } from "./llm";
 import { InternalApiClient, resolveInternalBaseUrl } from "./internal-api";
 import { buildSystemPrompt } from "./prompt";
@@ -687,6 +687,7 @@ export async function deleteConversation(userId: string, conversationId: string)
 export function agentStatus(config: AgentConfig | null) {
   return {
     configured: Boolean(config),
+    sttConfigured: isSttConfigured(),
     model: config?.model || null,
     baseUrl: config?.baseUrl || null,
     jevRouting: isJevRoutingEnabled(),

@@ -225,6 +225,7 @@ export default function GallinasPage({ embedded = false }: { embedded?: boolean 
   return (
     <div>
       {!embedded && <PageHeader
+        theme="aves"
         title="Seguimiento de Gallinas"
         description="Estado, postura y evolución de las gallinas ya ingresadas"
         help="Esta vista sirve para dar seguimiento a gallinas que ya están registradas. Toda gallina nueva debe ingresar primero por Adquisiciones con su origen (compra, donación o cría propia); las gallinas nacidas por incubación quedan vinculadas automáticamente a ese proceso.\n\n• Los gallos y lotes se gestionan aparte en Animales.\n• El sistema calcula automáticamente la etapa de crecimiento y cambia el estado según la edad y condición.\n• Las gallinas marcadas como 'recomendada sacrificio' son candidatas para venta o faena según su rendimiento.\n• Usa el botón 'Etiquetas QR' para generar códigos QR que puedes imprimir y pegar en bandas de pata. Luego escanéalo con tu celular para acceder rápido a cada ave.\n• Filtra por estado o etapa para encontrar gallinas específicas."

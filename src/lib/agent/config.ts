@@ -36,3 +36,24 @@ export function getAgentConfig(): AgentConfig | null {
 export function isAgentConfigured(): boolean {
   return getAgentConfig() !== null;
 }
+
+export interface SttConfig {
+  baseUrl: string;
+  apiKey: string;
+  model: string;
+}
+
+export function getSttConfig(): SttConfig | null {
+  const apiKey = process.env.ASSISTANT_STT_API_KEY || process.env.OPENAI_API_KEY || "";
+  if (!apiKey.trim()) return null;
+
+  return {
+    baseUrl: normalizeBaseUrl(process.env.ASSISTANT_STT_BASE_URL || "https://api.openai.com/v1"),
+    apiKey: apiKey.trim(),
+    model: process.env.ASSISTANT_STT_MODEL || "whisper-1",
+  };
+}
+
+export function isSttConfigured(): boolean {
+  return getSttConfig() !== null;
+}

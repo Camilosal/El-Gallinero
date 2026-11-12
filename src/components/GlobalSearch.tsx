@@ -59,6 +59,11 @@ export default function GlobalSearch({
 
   const navigate = (href: string) => {
     setOpen(false);
+    if (href === "/dashboard/guia" || href.startsWith("/dashboard/guia/")) {
+      const standaloneHref = href.replace(/^\/dashboard\/guia/, "/guia");
+      window.open(standaloneHref, "_blank", "noopener,noreferrer");
+      return;
+    }
     router.push(href);
   };
 
@@ -235,7 +240,7 @@ function SearchResultRow({
         </span>
       </span>
       <span className={`text-xs ${active ? "text-green-700" : "text-slate-300"}`}>
-        ↵
+        {entry.href.startsWith("/dashboard/guia") ? "↗" : "↵"}
       </span>
     </button>
   );

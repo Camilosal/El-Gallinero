@@ -13,6 +13,21 @@ describe("public access routes", () => {
     expect(response.headers.get("x-middleware-next")).toBe("1");
   });
 
+  it("allows the standalone manual routes without a session", async () => {
+    const indexReq = new NextRequest("https://gallinero.test/guia", {
+      headers: { accept: "text/html" },
+    });
+    const articleReq = new NextRequest("https://gallinero.test/guia/escanear-qr", {
+      headers: { accept: "text/html" },
+    });
+
+    const indexRes = await proxy(indexReq);
+    const articleRes = await proxy(articleReq);
+
+    expect(indexRes.headers.get("x-middleware-next")).toBe("1");
+    expect(articleRes.headers.get("x-middleware-next")).toBe("1");
+  });
+
   it("still redirects other protected pages without a session", async () => {
     const request = new NextRequest("https://gallinero.test/dashboard/animales", {
       headers: { accept: "text/html" },

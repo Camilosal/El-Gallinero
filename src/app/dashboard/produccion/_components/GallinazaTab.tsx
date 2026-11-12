@@ -187,6 +187,7 @@ export default function GallinazaPage() {
   return (
     <div>
       <PageHeader
+        theme="gallinaza"
         title="Producción de Gallinaza"
         description="Estimación según aves y etapa, inventario de abono y ventas integradas con finanzas"
         help="Gestiona la producción y venta de gallinaza (abono).\n\n• La estimación se calcula automáticamente según las aves por etapa y los factores de producción (kg/ave/día).\n• Puedes ajustar los factores según tus mediciones reales.\n• Usa 'Ajustes' para corregir el stock cuando haces mediciones reales de la pila de compostaje.\n• Registra ventas de gallinaza y el ingreso se refleja automáticamente en finanzas."

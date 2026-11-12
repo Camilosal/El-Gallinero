@@ -52,6 +52,92 @@
   --moss: #5c7a5e;
   --line: rgba(28, 36, 25, 0.12);
   --radius: 3px;
+  --in-oklab: ;
+  --in-oklch: ;
+}
+
+@supports (background: linear-gradient(in oklab, white, black)) {
+  :root {
+    --in-oklab: in oklab;
+    --in-oklch: in oklch;
+  }
+}
+
+/* ---------- MODULE HERO BANNERS ---------- */
+.gallinero-hero {
+  position: relative;
+  overflow: hidden;
+  background-color: var(--forest-deep);
+}
+.gallinero-hero-picture {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+  user-select: none;
+}
+.gallinero-hero-img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: right center;
+  display: block;
+}
+.gallinero-hero-scrim {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: linear-gradient(
+    96deg,
+    rgba(19, 42, 30, 0.94) 0%,
+    rgba(19, 42, 30, 0.84) 40%,
+    rgba(19, 42, 30, 0.48) 72%,
+    rgba(19, 42, 30, 0.24) 100%
+  );
+  background: linear-gradient(
+    96deg var(--in-oklab),
+    rgba(19, 42, 30, 0.94) 0%,
+    rgba(19, 42, 30, 0.84) 40%,
+    rgba(19, 42, 30, 0.48) 72%,
+    rgba(19, 42, 30, 0.24) 100%
+  );
+}
+@media (max-width: 640px) {
+  .gallinero-hero-img {
+    object-position: 75% center;
+  }
+  .gallinero-hero-scrim {
+    background: linear-gradient(
+      180deg,
+      rgba(19, 42, 30, 0.92) 0%,
+      rgba(19, 42, 30, 0.82) 55%,
+      rgba(19, 42, 30, 0.68) 100%
+    );
+    background: linear-gradient(
+      180deg var(--in-oklab),
+      rgba(19, 42, 30, 0.92) 0%,
+      rgba(19, 42, 30, 0.82) 55%,
+      rgba(19, 42, 30, 0.68) 100%
+    );
+  }
+}
+
+.land-hero-backdrop {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  user-select: none;
+  opacity: 0.22;
+  mask-image: linear-gradient(95deg, transparent 8%, rgba(0, 0, 0, 0.72) 55%, rgba(0, 0, 0, 0.9) 100%);
+  -webkit-mask-image: linear-gradient(95deg, transparent 8%, rgba(0, 0, 0, 0.72) 55%, rgba(0, 0, 0, 0.9) 100%);
+}
+.land-hero-backdrop img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: right center;
+  display: block;
 }
 
 html {
@@ -347,3 +433,18 @@ html {
 /* ---------- REVEAL ---------- */
 .land-reveal { opacity: 0; transform: translateY(14px); transition: opacity 0.6s ease, transform 0.6s ease; }
 .land-reveal.in { opacity: 1; transform: none; }
+
+/* ---------- GUIDE READER & DIALOG SCROLL CONTAINMENT ---------- */
+dialog:modal {
+  overscroll-behavior: contain;
+}
+
+dialog::backdrop {
+  overflow: hidden;
+  overscroll-behavior: contain;
+}
+
+.guide-scroll-pane {
+  scrollbar-gutter: stable;
+  overscroll-behavior: contain;
+}

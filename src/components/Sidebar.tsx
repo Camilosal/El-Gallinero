@@ -11,6 +11,7 @@ import {
   BookOpen,
   ChevronLeft,
   ChevronRight,
+  ExternalLink,
   LogOut,
   Menu,
   QrCode,
@@ -234,18 +235,25 @@ export default function Sidebar() {
 
         {/* Footer: guide + logout */}
         <div className={`border-t border-green-700 space-y-2 ${collapsed ? "p-2" : "p-4"}`}>
-          <Link
-            href="/dashboard/guia"
-            className={`w-full py-1.5 rounded-lg text-xs font-medium transition-colors flex items-center justify-center gap-2 ${collapsed ? "px-1" : ""
-              } ${pathname.startsWith("/dashboard/guia")
+          <a
+            href="/guia"
+            target="_blank"
+            rel="noopener noreferrer"
+            className={`w-full py-1.5 rounded-lg text-xs font-medium transition-colors flex items-center justify-center gap-2 ${collapsed ? "px-1" : "px-3"
+              } ${pathname.startsWith("/dashboard/guia") || pathname.startsWith("/guia")
                 ? "bg-green-600 text-white"
-                : "bg-green-800 hover:bg-green-700 text-green-200"
+                : "bg-green-800 hover:bg-green-700 text-green-100"
               }`}
-            title={collapsed ? "Guía de Usuario" : undefined}
+            title={collapsed ? "Guía de Usuario (abre en hoja aparte)" : "Abrir manual completo en hoja aparte"}
           >
-            <BookOpen className="w-3.5 h-3.5 shrink-0" />
-            {!collapsed && <span>Guía de Usuario</span>}
-          </Link>
+            <BookOpen className="w-3.5 h-3.5 shrink-0" aria-hidden="true" />
+            {!collapsed && (
+              <>
+                <span className="flex-1 text-left">Guía de Usuario</span>
+                <ExternalLink className="w-3 h-3 opacity-80 shrink-0" aria-hidden="true" />
+              </>
+            )}
+          </a>
           <button
             onClick={logout}
             className={`w-full py-1.5 rounded-lg bg-green-700 hover:bg-green-600 text-green-100 text-xs font-medium transition-colors flex items-center justify-center gap-2 ${collapsed ? "px-1" : ""

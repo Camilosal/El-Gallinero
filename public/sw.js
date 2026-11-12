@@ -1,9 +1,10 @@
-const CACHE_VERSION = 'v5';
+const CACHE_VERSION = 'v7';
 const APP_CACHE = `gallinero-app-${CACHE_VERSION}`;
 const PRECACHE = [
   '/',
   '/login',
   '/login/recuperar',
+  '/guia',
   '/dashboard/guia',
   '/manifest.json',
   '/icon-192.svg',

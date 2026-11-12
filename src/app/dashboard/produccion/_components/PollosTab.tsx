@@ -3,7 +3,8 @@
 import { useState, useEffect, useCallback, useMemo } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
-import { AlertTriangle, BarChart3, CheckCircle2 } from "lucide-react";
+import { AlertTriangle, BarChart3, CheckCircle2, QrCode } from "lucide-react";
+import EntityQrModal from "@/components/EntityQrModal";
 import { apiFetch } from "@/lib/fetch";
 import { PageHeader, StatCard, Card, Button, Input, Select, Textarea, Badge, Modal, Table, EmptyState } from "@/components/ui";
 import { AppIcon } from "@/components/AppIcon";
@@ -92,6 +93,7 @@ type Tab = "gallos" | "lotes";
 export default function PollosPage({ embedded = false, initialTab, initialSpeciesFilter = "all" }: { embedded?: boolean; initialTab?: Tab; initialSpeciesFilter?: string } = {}) {
   const searchParams = useSearchParams();
   const [tab, setTab] = useState<Tab>(initialTab || (searchParams.get("subtab") === "lotes" ? "lotes" : "gallos"));
+  const [qrBatch, setQrBatch] = useState<Batch | null>(null);
   const { getParams } = useSpeciesCatalog();
   const { items: breedCatalog } = useCatalog("raza", []);
 
@@ -367,6 +369,7 @@ export default function PollosPage({ embedded = false, initialTab, initialSpecie
   return (
     <div>
       {!embedded && <PageHeader
+        theme="aves"
         title="Lotes Multiespecie y Gallos"
         description="Gestión integral de lotes de engorde (pollos, codornices, patos y conejos) y gallos reproductores"
         help="Aquí gestionas los lotes de crianza y engorde de todas las especies de la granja:\n\n• Pollos de engorde (ciclo ~7 sem, ~2.5 kg)\n• Codornices (ciclo ~6 sem, postura o carne)\n• Patos Pekín y Criollos (ciclo 8-12 sem, carne tierna)\n• Conejos de engorde (ciclo ~11 sem / 77 días, carne magra)\n\nEl sistema evalúa automáticamente si el lote cumplió la edad o peso objetivo para faena."
@@ -587,7 +590,11 @@ export default function PollosPage({ embedded = false, initialTab, initialSpecie
                       )}
                     </td>
                     <td className="px-4 py-3">
-                      <div className="flex gap-2">
+                      <div className="flex items-center gap-2">
+                        <button onClick={() => setQrBatch(b)} className="inline-flex items-center gap-1 text-emerald-700 hover:underline text-xs font-medium" title="Etiqueta QR del lote">
+                          <QrCode className="h-3.5 w-3.5" aria-hidden="true" />
+                          <span>QR</span>
+                        </button>
                         <button onClick={() => openEditBatch(b)} className="text-blue-600 hover:underline text-xs">Editar</button>
                         <button onClick={() => removeBatch(b.id)} className="text-red-600 hover:underline text-xs">Eliminar</button>
                       </div>
@@ -847,6 +854,16 @@ export default function PollosPage({ embedded = false, initialTab, initialSpecie
           </div>
         </div>
       </Modal>
+
+      <EntityQrModal
+        open={Boolean(qrBatch)}
+        onClose={() => setQrBatch(null)}
+        entityType="lote"
+        entityId={qrBatch?.id || ""}
+        code={qrBatch?.code}
+        title={qrBatch ? `Lote ${qrBatch.code}` : "Lote"}
+        subtitle={qrBatch ? `${SPECIES_LABEL[qrBatch.species || "pollo"] || qrBatch.species} · ${qrBatch.breed} (${qrBatch.currentQuantity} aves)` : undefined}
+      />
     </div>
   );
 }

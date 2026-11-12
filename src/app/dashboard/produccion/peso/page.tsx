@@ -195,7 +195,7 @@ export default function PesoPage() {
             <Select value={breed} onChange={(e) => setBreed(e.target.value)}>
               {BREEDS.map((b) => <option key={b} value={b}>{b}</option>)}
             </Select>
-            <Link href="/dashboard/analisis/razas" className="inline-flex items-center rounded-lg border border-green-700 px-3 py-2 text-sm font-semibold text-green-800 hover:bg-green-50">Comparación de desempeño</Link>
+            <Link href="/dashboard/analisis/razas" className="inline-flex items-center rounded-lg border border-white/40 bg-white/95 px-3 py-2 text-sm font-semibold text-green-800 hover:bg-white transition-colors">Comparación de desempeño</Link>
           </div>
         }
       />

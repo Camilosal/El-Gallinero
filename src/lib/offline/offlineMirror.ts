@@ -1,7 +1,10 @@
 "use client";
 
+import { startOfColombiaYearIso, todayColombiaIso } from "@/lib/date-validation";
+
 import { apiFetch, getApiCacheKey } from "@/lib/fetch";
-import { guides } from "@/lib/guide-data";
+import { getAllGuideAssetUrls, guides } from "@/lib/guide-data";
+import { getAllHeroAssetUrls } from "@/lib/hero-themes";
 import { navigationGroups } from "@/lib/navigation";
 import { getStandardCurves, type CurveSpecies } from "@/lib/standard-curves";
 import {
@@ -14,7 +17,7 @@ import { SYNC_COMPLETED_EVENT } from "./syncManager";
 
 export const OFFLINE_MIRROR_EVENT = "gallinero-offline-mirror";
 const MIRROR_META_KEY = "offline_mirror_v1";
-const SW_CACHE_VERSION = "v5";
+const SW_CACHE_VERSION = "v7";
 const DEFAULT_MIRROR_COOLDOWN_MS = 15 * 60 * 1000;
 const ASSET_REGEX = /\/_next\/static\/[^\s"'<>\\`)]+/g;
 
@@ -159,6 +162,7 @@ export async function loadSavedOfflineMirrorMeta(): Promise<OfflineMirrorMeta | 
 
 export function buildStaticDashboardRoutes(): string[] {
   const routes = new Set<string>(STATIC_DASHBOARD_ROUTES);
+  routes.add("/guia");
 
   for (const group of navigationGroups) {
     if (group.indexHref) routes.add(group.indexHref.split("?")[0]);
@@ -167,15 +171,18 @@ export function buildStaticDashboardRoutes(): string[] {
     }
   }
   for (const guide of guides) {
-    if (guide.slug) routes.add(`/dashboard/guia/${guide.slug}`);
+    if (guide.slug) {
+      routes.add(`/dashboard/guia/${guide.slug}`);
+      routes.add(`/guia/${guide.slug}`);
+    }
   }
 
   return Array.from(routes);
 }
 
 export function buildCoreApiEndpoints(now = new Date()): string[] {
-  const yearStart = new Date(now.getFullYear(), 0, 1).toISOString().split("T")[0];
-  const today = now.toISOString().split("T")[0];
+  const yearStart = startOfColombiaYearIso(now);
+  const today = todayColombiaIso(now);
 
   const endpoints = new Set<string>([
     "/api/auth/me",
@@ -183,6 +190,8 @@ export function buildCoreApiEndpoints(now = new Date()): string[] {
     "/api/dashboard/tareas-pendientes",
     "/api/ubicaciones",
     "/api/ubicaciones?active=true",
+    "/api/ubicaciones/sin-asignar",
+    "/api/dashboard/setup/sanitary-review",
     "/api/configuracion/catalogos",
     "/api/configuracion/parametros",
     "/api/configuracion/vacunas",
@@ -231,7 +240,13 @@ export function buildCoreApiEndpoints(now = new Date()): string[] {
     "/api/calendario-sanitario",
     "/api/calendario-sanitario/alertas",
     "/api/finanzas/resumen",
+    "/api/finanzas/finanzas?period=7",
     "/api/finanzas/finanzas?period=30",
+    "/api/finanzas/finanzas?period=90",
+    "/api/produccion/carne/perdidas",
+    "/api/produccion/sacrificio",
+    "/api/produccion/carne/ventas",
+    "/api/produccion/gallinaza/ventas",
     "/api/finanzas/finanzas/ventas",
     "/api/finanzas/finanzas/ventas-aves",
     "/api/presupuestos",
@@ -450,6 +465,13 @@ export async function syncFullOfflineCopy(options?: { force?: boolean }): Promis
         throw new Error("Inicia sesión primero para guardar una copia offline completa");
       }
 
+      for (const heroUrl of getAllHeroAssetUrls({ highDpi: true, includeFallbackJpg: true })) {
+        discoveredAssets.add(heroUrl);
+      }
+      for (const guideImgUrl of getAllGuideAssetUrls()) {
+        discoveredAssets.add(guideImgUrl);
+      }
+
       const assetList = Array.from(discoveredAssets);
       await runWithConcurrency(assetList, 6, async (assetUrl) => {
         try {
@@ -471,6 +493,10 @@ export async function syncFullOfflineCopy(options?: { force?: boolean }): Promis
       let rawLocationsAll: unknown = null;
       let rawLocationsActive: unknown = null;
       let rawHens: unknown = null;
+      let rawRoosters: unknown = null;
+      let rawBatches: unknown = null;
+      let rawAssets: unknown = null;
+      let rawEggInv: unknown = null;
       let rawCatalogs: unknown = null;
       let rawFeeds: unknown = null;
       let rawFeedMovements: unknown = null;
@@ -482,6 +508,10 @@ export async function syncFullOfflineCopy(options?: { force?: boolean }): Promis
           if (endpoint === "/api/ubicaciones") rawLocationsAll = result.data;
           else if (endpoint === "/api/ubicaciones?active=true") rawLocationsActive = result.data;
           else if (endpoint === "/api/produccion/gallinas") rawHens = result.data;
+          else if (endpoint === "/api/produccion/gallos") rawRoosters = result.data;
+          else if (endpoint === "/api/produccion/pollos") rawBatches = result.data;
+          else if (endpoint === "/api/operaciones/activos?active=true") rawAssets = result.data;
+          else if (endpoint === "/api/produccion/huevos/inventario") rawEggInv = result.data;
           else if (endpoint === "/api/configuracion/catalogos") rawCatalogs = result.data;
           else if (endpoint === "/api/produccion/alimentacion") rawFeeds = result.data;
           else if (endpoint === "/api/produccion/alimentacion/movimientos") rawFeedMovements = result.data;
@@ -509,6 +539,21 @@ export async function syncFullOfflineCopy(options?: { force?: boolean }): Promis
       }
       if (Array.isArray(rawFeedMovements)) {
         await setCachedRecords("feed_movements", rawFeedMovements);
+      }
+      if (Array.isArray(rawHens)) {
+        await setCachedCatalog("hens_all", rawHens);
+      }
+      if (Array.isArray(rawRoosters)) {
+        await setCachedCatalog("roosters_all", rawRoosters);
+      }
+      if (Array.isArray(rawBatches)) {
+        await setCachedCatalog("broiler_batches_all", rawBatches);
+      }
+      if (Array.isArray(rawAssets)) {
+        await setCachedCatalog("farm_assets_active", rawAssets);
+      }
+      if (rawEggInv && typeof rawEggInv === "object") {
+        await setCachedCatalog("egg_inventory_summary", rawEggInv);
       }
 
       // Detalles dinámicos (ubicaciones individuales y gallinas activas recientes)

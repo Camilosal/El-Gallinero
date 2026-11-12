@@ -502,6 +502,7 @@ export default function HuevosPage() {
   return (
     <div>
       <PageHeader
+        theme="huevos"
         title="Producción de Huevos Multiespecie"
         description="Recolección de huevos de Gallinas, Codornices y Patos con partición para el hogar y venta"
         help="Aquí registras la recolección diaria de huevos de todas las aves ponedoras:\n\n• Gallinas: clasificación por tamaño comercial o modo rápido.\n• Codornices: alta densidad y postura continua desde semana 6.\n• Patos: huevos grandes de alto valor culinario.\n\nCada registro permite destinar unidades al hogar (autoconsumo familiar) y a la venta de excedentes."

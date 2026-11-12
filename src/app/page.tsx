@@ -99,7 +99,24 @@ export default function LandingPage() {
 
         {/* ── HERO ── */}
         <header className="land-hero">
-          <div className="land-wrap land-hero-grid">
+          <div className="land-hero-backdrop" aria-hidden="true">
+            <picture>
+              <source
+                type="image/webp"
+                srcSet="/images/heroes/inicio-1x.webp 1x, /images/heroes/inicio-2x.webp 2x"
+              />
+              <img
+                src="/images/heroes/inicio-1x.jpg"
+                alt=""
+                aria-hidden="true"
+                width={1600}
+                height={560}
+                decoding="async"
+                fetchPriority="high"
+              />
+            </picture>
+          </div>
+          <div className="land-wrap land-hero-grid relative z-10">
             <div>
               <div className="land-eyebrow">
                 Gestión de producción animal · Ambalá, Colombia
@@ -153,7 +170,7 @@ export default function LandingPage() {
             </div>
           </div>
 
-          <div className="land-wrap">
+          <div className="land-wrap relative z-10">
             <div className="land-microstrip land-reveal">
               <span>
                 Animales y producción multiespecie
@@ -480,9 +497,14 @@ export default function LandingPage() {
                   y revisa pendientes e indicadores al cierre.
                 </p>
               </div>
-              <Link href="/dashboard/guia" className="land-manual-btn">
-                Abrir el manual →
-              </Link>
+              <a
+                href="/guia"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="land-manual-btn"
+              >
+                Abrir el manual ↗
+              </a>
             </div>
           </div>
         </section>

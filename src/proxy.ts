@@ -10,11 +10,12 @@ const SESSION_COOKIE = "galli_session";
 const PUBLIC_PREFIXES = [
   "/api/auth/",
   "/lote/",
+  "/guia/",
   "/dashboard/guia/",
 ];
 
 /** Routes that are public without allowing prefix-sharing paths through. */
-const PUBLIC_EXACT = ["/", "/login", "/login/recuperar", "/api/health", "/dashboard/guia"];
+const PUBLIC_EXACT = ["/", "/login", "/login/recuperar", "/api/health", "/guia", "/dashboard/guia"];
 
 export async function proxy(req: NextRequest) {
   const { pathname } = req.nextUrl;

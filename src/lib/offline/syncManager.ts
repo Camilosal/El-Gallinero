@@ -13,6 +13,7 @@ import {
   addOutboxMutation,
 } from "./db";
 import { v4 as uuidv4 } from "uuid";
+import { applyOptimisticMutationToCache } from "./optimisticCache";
 
 const BATCHABLE_ENTITIES = new Set<OutboxMutation["entity"]>([
   "huevos",
@@ -333,15 +334,17 @@ class SyncManager {
   }): Promise<OutboxMutation> {
     const id = typeof crypto !== "undefined" && crypto.randomUUID ? crypto.randomUUID() : uuidv4();
     const clientTimestamp = new Date().toISOString();
+    const payload = params.payload ?? {};
     const stored = await addOutboxMutation({
       id,
       endpoint: params.endpoint,
       method: params.method,
       entity: params.entity ?? "general",
       description: params.description,
-      payload: params.payload ?? {},
+      payload,
       clientTimestamp,
     });
+    await applyOptimisticMutationToCache(params.endpoint, params.method, payload, id);
     await this.notifyListeners();
     return stored;
   }
@@ -358,7 +361,7 @@ class SyncManager {
     description: string;
     payload: Record<string, any>;
     onOptimisticUpdate?: (item: OutboxMutation) => void;
-  }): Promise<{ ok: boolean; data?: T; error?: string; offline: boolean; mutationId: string }> {
+  }): Promise<{ ok: boolean; status?: number; data?: T; error?: string; offline: boolean; mutationId: string }> {
     const id = params.payload.id || (typeof crypto !== "undefined" && crypto.randomUUID ? crypto.randomUUID() : uuidv4());
     const method = params.method || "POST";
     const clientTimestamp = new Date().toISOString();
@@ -380,6 +383,7 @@ class SyncManager {
         clientTimestamp,
       });
 
+      await applyOptimisticMutationToCache(params.endpoint, method, mutationPayload, id);
       if (params.onOptimisticUpdate) {
         params.onOptimisticUpdate(stored);
       }
@@ -409,16 +413,42 @@ class SyncManager {
         const data = await response.json().catch(() => ({}));
         return {
           ok: true,
+          status: response.status,
           offline: false,
           mutationId: id,
           data,
         };
       }
 
-      // Si fue un error de validación o del servidor (4xx / 5xx) pero con conexión activa:
+      // Si el proxy o servidor no está disponible (502/503/504), respaldar en Outbox
+      if (response.status >= 502) {
+        const stored = await addOutboxMutation({
+          id,
+          endpoint: params.endpoint,
+          method,
+          entity: params.entity,
+          description: params.description,
+          payload: mutationPayload,
+          clientTimestamp,
+        });
+        await applyOptimisticMutationToCache(params.endpoint, method, mutationPayload, id);
+        if (params.onOptimisticUpdate) {
+          params.onOptimisticUpdate(stored);
+        }
+        await this.notifyListeners();
+        return {
+          ok: true,
+          offline: true,
+          mutationId: id,
+          data: mutationPayload as unknown as T,
+        };
+      }
+
+      // Si fue un error de validación (4xx / 500) con conexión activa:
       const errJson = await response.json().catch(() => ({}));
       return {
         ok: false,
+        status: response.status,
         offline: false,
         mutationId: id,
         error: errJson.error || `Error del servidor (HTTP ${response.status})`,
@@ -435,6 +465,7 @@ class SyncManager {
         clientTimestamp,
       });
 
+      await applyOptimisticMutationToCache(params.endpoint, method, mutationPayload, id);
       if (params.onOptimisticUpdate) {
         params.onOptimisticUpdate(stored);
       }

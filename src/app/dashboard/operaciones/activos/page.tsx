@@ -7,6 +7,8 @@ import { useFarmLocations } from "@/lib/useFarmLocations";
 import TableSearch from "@/components/TableSearch";
 import { matchesTextQuery } from "@/lib/text";
 import { useSearchParams } from "next/navigation";
+import { QrCode } from "lucide-react";
+import EntityQrModal from "@/components/EntityQrModal";
 import { useActionQuery } from "@/lib/useActionQuery";
 
 interface FarmAsset {
@@ -52,6 +54,7 @@ export default function ActivosPage() {
   const [editing, setEditing] = useState<FarmAsset | null>(null);
   const [form, setForm] = useState(emptyForm);
   const [error, setError] = useState("");
+  const [qrAsset, setQrAsset] = useState<FarmAsset | null>(null);
   const { locations } = useFarmLocations();
 
   const load = useCallback(async () => {
@@ -181,7 +184,11 @@ export default function ActivosPage() {
                   <td className="px-4 py-3"><Badge color={statusLabels[asset.status]?.color || "gray"}>{statusLabels[asset.status]?.label || asset.status}</Badge></td>
                   <td className="px-4 py-3">{dateLabel(asset.warrantyUntil)}</td>
                   <td className="px-4 py-3">{Number(asset.acquisitionCost) > 0 ? `$${Number(asset.acquisitionCost).toLocaleString("es-CO")}` : "—"}</td>
-                  <td className="px-4 py-3"><div className="flex gap-2 whitespace-nowrap">
+                  <td className="px-4 py-3"><div className="flex items-center gap-2 whitespace-nowrap">
+                    <button onClick={() => setQrAsset(asset)} className="inline-flex items-center gap-1 text-xs font-medium text-emerald-700 hover:underline" title="Etiqueta QR del activo">
+                      <QrCode className="h-3.5 w-3.5" aria-hidden="true" />
+                      <span>QR</span>
+                    </button>
                     <button onClick={() => openEdit(asset)} className="text-xs text-blue-700 hover:underline">Editar</button>
                     {asset.status !== "retirado" && <button onClick={() => void retire(asset)} className="text-xs text-slate-600 hover:underline">Retirar</button>}
                   </div></td>
@@ -224,6 +231,16 @@ export default function ActivosPage() {
           <div className="flex gap-3"><Button onClick={() => void save()} disabled={!form.name.trim()}>{editing ? "Guardar cambios" : "Crear ficha"}</Button><Button variant="secondary" onClick={() => setModalOpen(false)}>Cancelar</Button></div>
         </div>
       </Modal>
+
+      <EntityQrModal
+        open={Boolean(qrAsset)}
+        onClose={() => setQrAsset(null)}
+        entityType="activo"
+        entityId={qrAsset?.id || ""}
+        code={qrAsset?.code}
+        title={qrAsset?.name || "Activo"}
+        subtitle={qrAsset ? `${qrAsset.category}${qrAsset.locationName ? ` · ${qrAsset.locationName}` : ""}` : undefined}
+      />
     </div>
   );
 }

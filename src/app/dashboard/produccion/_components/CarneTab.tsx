@@ -425,6 +425,7 @@ export default function CarneTab() {
   return (
     <div>
       <PageHeader
+        theme="carne"
         title="Faena y Producción de Carne"
         description="Registro multiespecie de faena con partición dual: autoconsumo del hogar y venta de excedentes"
         help="Aquí registras la faena de pollos, codornices, patos, conejos o aves de descarte.\n\n• Partición Dual: divide cada faena entre carne para el hogar (calcula el ahorro familiar según precios locales) y carne para la venta (va al inventario comercial).\n• El peso en canal es el peso limpio listo para cocina.\n• Cada registro con destino hogar se sincroniza automáticamente con el módulo de Soberanía Alimentaria."

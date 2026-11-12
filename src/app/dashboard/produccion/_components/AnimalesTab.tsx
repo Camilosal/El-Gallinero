@@ -69,6 +69,7 @@ export default function AnimalesTab() {
   return (
     <div className="space-y-5">
       <PageHeader
+        theme="aves"
         title="Gestión de Animales"
         description="Registro, seguimiento y estado de gallinas, gallos, pollos, codornices, patos y conejos."
         help="Cada pestaña muestra una especie o tipo de animal por separado. Las gallinas y gallos tienen ficha individual; pollos, codornices, patos y conejos se manejan por lote. Adquisiciones conserva el criador, ubicación, lote de origen, línea genética, generación, progenitores y referencias documentales enlazadas a cada ficha o lote."

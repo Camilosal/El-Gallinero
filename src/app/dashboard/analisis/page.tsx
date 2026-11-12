@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useEffect, useState } from "react";
 import { BarChart3, Egg, PawPrint, Skull, Target } from "lucide-react";
 import { AppIcon } from "@/components/AppIcon";
+import { HeroBanner } from "@/components/HeroBanner";
 import TableSearch from "@/components/TableSearch";
 import { EmptyState } from "@/components/ui";
 import { apiFetch } from "@/lib/fetch";
@@ -49,15 +50,12 @@ export default function AnalisisPage() {
 
   return (
     <div className="p-8">
-      <div className="mb-6">
-        <h1 className="text-3xl font-bold flex items-center gap-3">
-          <BarChart3 className="w-8 h-8 text-green-700 shrink-0" aria-hidden="true" />
-          Análisis
-        </h1>
-        <p className="text-gray-600 mt-2">
-          Indicadores clave y reportes: KPIs de productividad, mortalidad, conversión alimenticia y más.
-        </p>
-      </div>
+      <HeroBanner
+        theme="analisis"
+        icon={<BarChart3 className="w-3.5 h-3.5 text-amber-200" aria-hidden="true" />}
+        title="Análisis"
+        description="Indicadores clave y reportes: KPIs de productividad, mortalidad, conversión alimenticia y más."
+      />
 
       <TableSearch
         value={search}

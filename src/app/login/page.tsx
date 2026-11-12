@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { ArrowLeft, Bird, Leaf } from "lucide-react";
+import { HeroFrame } from "@/components/HeroFrame";
 
 export default function LoginPage() {
   const router = useRouter();
@@ -52,14 +53,16 @@ export default function LoginPage() {
       {/* Main Content */}
       <div className="flex-1 flex items-center justify-center px-4 pb-12">
         <div className="w-full max-w-md">
-          {/* Logo Section */}
-          <div className="text-center mb-8">
-            <div className="inline-flex items-center justify-center w-20 h-20 bg-earth-100 rounded-2xl mb-4">
-              <Bird className="w-10 h-10 text-earth-700" aria-hidden="true" />
-            </div>
-            <h1 className="text-3xl font-bold text-earth-900 mb-2">El Gallinero</h1>
-            <p className="text-earth-600">Sistema de Gestión Avícola</p>
-          </div>
+          {/* Hero Header */}
+          <HeroFrame
+            theme="inicio"
+            compact
+            icon={<Bird className="w-4 h-4 text-amber-200" aria-hidden="true" />}
+            eyebrow="Acceso al sistema"
+            title="El Gallinero"
+            description="Sistema de Gestión Avícola"
+            className="mb-6"
+          />
 
           {/* Login Form */}
           <div className="bg-white rounded-2xl shadow-xl p-8 border border-earth-100">

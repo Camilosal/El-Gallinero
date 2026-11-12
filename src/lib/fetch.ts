@@ -96,22 +96,27 @@ export async function apiFetch(url: string, options?: RequestInit, cookies?: str
   const queueableMutation = Boolean(
     isSameOriginApi && parsedUrl && shouldQueueApiMutation(parsedUrl.pathname, method) && !headers.has("X-Skip-Offline-Queue")
   );
-  if (queueableMutation && isBrowser && navigator.onLine === false) {
+  const enqueueOfflineAndRespond = async (): Promise<Response | null> => {
+    if (!queueableMutation || !parsedUrl) return null;
     const parsedBody = parseJsonBody(options?.body);
-    if (parsedBody.valid) {
-      const stored = await syncManager.enqueueOfflineMutation({
-        endpoint,
-        method: method as "POST" | "PUT" | "DELETE",
-        entity: "general",
-        description: describeOfflineMutation(method, parsedUrl!.pathname),
-        payload: parsedBody.data,
-      });
-      return buildJsonResponse(
-        { ...parsedBody.data, ok: true, offline: true, queued: true, mutationId: stored.id, id: stored.id },
-        202,
-        { "X-Gallinero-Offline-Queued": "1" }
-      );
-    }
+    if (!parsedBody.valid) return null;
+    const stored = await syncManager.enqueueOfflineMutation({
+      endpoint,
+      method: method as "POST" | "PUT" | "DELETE",
+      entity: "general",
+      description: describeOfflineMutation(method, parsedUrl.pathname),
+      payload: parsedBody.data,
+    });
+    return buildJsonResponse(
+      { ...parsedBody.data, ok: true, offline: true, queued: true, mutationId: stored.id, id: stored.id },
+      202,
+      { "X-Gallinero-Offline-Queued": "1" }
+    );
+  };
+
+  if (queueableMutation && isBrowser && navigator.onLine === false) {
+    const queuedRes = await enqueueOfflineAndRespond();
+    if (queuedRes) return queuedRes;
   }
 
   try {
@@ -143,12 +148,16 @@ export async function apiFetch(url: string, options?: RequestInit, cookies?: str
       return res;
     }
 
-    // Si el servidor o proxy respondió 5xx de disponibilidad, servir caché local si existe
-    if (cacheableGet && res.status >= 502) {
-      const cached = await getCachedRecords(cacheKey).catch(() => null);
-      if (cached !== null) {
-        return buildJsonResponse(cached, 200, { "X-Gallinero-Offline-Cache": "1" });
+    // Si el servidor o proxy respondió 5xx de disponibilidad, servir caché local o encolar mutación
+    if (res.status >= 502) {
+      if (cacheableGet) {
+        const cached = await getCachedRecords(cacheKey).catch(() => null);
+        if (cached !== null) {
+          return buildJsonResponse(cached, 200, { "X-Gallinero-Offline-Cache": "1" });
+        }
       }
+      const queuedRes = await enqueueOfflineAndRespond();
+      if (queuedRes) return queuedRes;
     }
 
     return res;
@@ -166,23 +175,8 @@ export async function apiFetch(url: string, options?: RequestInit, cookies?: str
     }
 
     // Fallback offline para mutaciones cuando la red falla en caliente
-    if (queueableMutation && parsedUrl) {
-      const parsedBody = parseJsonBody(options?.body);
-      if (parsedBody.valid) {
-        const stored = await syncManager.enqueueOfflineMutation({
-          endpoint,
-          method: method as "POST" | "PUT" | "DELETE",
-          entity: "general",
-          description: describeOfflineMutation(method, parsedUrl.pathname),
-          payload: parsedBody.data,
-        });
-        return buildJsonResponse(
-          { ...parsedBody.data, ok: true, offline: true, queued: true, mutationId: stored.id, id: stored.id },
-          202,
-          { "X-Gallinero-Offline-Queued": "1" }
-        );
-      }
-    }
+    const queuedRes = await enqueueOfflineAndRespond();
+    if (queuedRes) return queuedRes;
 
     throw err;
   }

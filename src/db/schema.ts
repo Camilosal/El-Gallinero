@@ -941,3 +941,13 @@ export const purchaseProducts = pgTable("purchase_products", {
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
+
+// ─── Idempotencia para mutaciones offline generales (X-Client-Mutation-Id) ───
+export const offlineMutationReceipts = pgTable("offline_mutation_receipts", {
+  mutationId: varchar("mutation_id", { length: 100 }).primaryKey(),
+  method: varchar("method", { length: 10 }).notNull(),
+  path: varchar("path", { length: 255 }).notNull(),
+  statusCode: integer("status_code").notNull(),
+  responseBody: jsonb("response_body"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});

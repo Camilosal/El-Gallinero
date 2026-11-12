@@ -92,12 +92,31 @@ async function processHuevosMutation(item: MutationItem) {
   const qtyAutoconsumo = Number(body.quantityAutoconsumo) || 0;
   const qtyExcedente = Number(body.quantityExcedente) || 0;
   const refPrice = body.referenceUnitPrice || null;
-  const sizes: { size: string; quantity: number }[] = Array.isArray(body.details)
-    ? body.details.map((x: any) => ({ size: String(x.size), quantity: Number(x.quantity) || 0 }))
-    : [];
+  const rawSizes = Array.isArray(body.details)
+    ? body.details
+    : Array.isArray(body.sizes)
+      ? body.sizes
+      : body.sizes && typeof body.sizes === "object"
+        ? Object.entries(body.sizes).map(([size, quantity]) => ({ size, quantity }))
+        : [];
+  const sizes: { size: string; quantity: number }[] = rawSizes
+    .map((x: any) => ({ size: String(x.size), quantity: Number(x.quantity) || 0 }))
+    .filter((x: { size: string; quantity: number }) => x.quantity > 0);
+
+  if (typeof body.locationId !== "string" || !body.locationId.trim()) {
+    throw new Error("Falta el lugar (locationId) para registrar huevos");
+  }
 
   await db.transaction(async (tx) => {
     await lockEggInventory(tx);
+
+    const [loc] = await tx
+      .select({ id: farmLocations.id })
+      .from(farmLocations)
+      .where(eq(farmLocations.id, body.locationId));
+    if (!loc) {
+      throw new Error("El lugar seleccionado para los huevos no existe");
+    }
 
     const [row] = await tx
       .insert(eggProduction)
@@ -279,6 +298,8 @@ async function processAlimentacionMutation(item: MutationItem) {
         unitPrice: feed.costPerUnit,
         unit: feed.unit,
         counterparty: feed.supplier || null,
+        sourceType: "alimento",
+        sourceId: id,
       });
     }
   });

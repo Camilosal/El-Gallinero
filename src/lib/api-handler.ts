@@ -1,5 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getSessionUser } from "@/lib/auth";
+import { db } from "@/db";
+import { offlineMutationReceipts } from "@/db/schema";
+import { eq } from "drizzle-orm";
 
 type Handler = (req: NextRequest, ...args: any[]) => Promise<NextResponse>;
 
@@ -41,9 +44,55 @@ export function withApiHandler(handler: Handler): Handler {
       }
     }
 
+    // ─── Idempotencia para mutaciones offline (X-Client-Mutation-Id) ───
+    const method = req?.method?.toUpperCase?.() ?? "GET";
+    const rawMutationId = req?.headers?.get?.("x-client-mutation-id")?.trim() ?? "";
+    const shouldDedupe =
+      Boolean(rawMutationId) &&
+      rawMutationId.length <= 100 &&
+      (method === "POST" || method === "PUT" || method === "DELETE") &&
+      !pathname.startsWith("/api/sync/") &&
+      !pathname.startsWith("/api/asistente/");
+
+    if (shouldDedupe) {
+      try {
+        const [existingReceipt] = await db
+          .select()
+          .from(offlineMutationReceipts)
+          .where(eq(offlineMutationReceipts.mutationId, rawMutationId))
+          .limit(1);
+        if (existingReceipt && existingReceipt.method === method && existingReceipt.path === pathname.slice(0, 255)) {
+          return NextResponse.json(existingReceipt.responseBody ?? { ok: true }, {
+            status: existingReceipt.statusCode,
+            headers: { "X-Idempotent-Replay": "1" },
+          });
+        }
+      } catch (receiptError) {
+        console.warn("Offline receipt lookup skipped:", receiptError);
+      }
+    }
+
     // ─── Error-handling wrapper ───
     try {
-      return await handler(req, ...args);
+      const response = await handler(req, ...args);
+      if (shouldDedupe && response.ok) {
+        try {
+          const responseBody = await response.clone().json().catch(() => null);
+          await db
+            .insert(offlineMutationReceipts)
+            .values({
+              mutationId: rawMutationId,
+              method,
+              path: pathname.slice(0, 255),
+              statusCode: response.status,
+              responseBody,
+            })
+            .onConflictDoNothing();
+        } catch (persistError) {
+          console.warn("Offline receipt persist skipped:", persistError);
+        }
+      }
+      return response;
     } catch (e: any) {
       // Malformed JSON
       if (e instanceof SyntaxError) {

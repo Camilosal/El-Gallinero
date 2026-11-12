@@ -4,6 +4,7 @@ import { eq, desc } from "drizzle-orm";
 import { notFound } from "next/navigation";
 import { daysSince } from "@/lib/manure";
 import { isUuid } from "@/lib/ids";
+import { HeroFrame } from "@/components/HeroFrame";
 
 export const metadata = {
   title: "Trazabilidad de lote | El Gallinero",
@@ -56,19 +57,18 @@ export default async function LoteTraceabilityPage({ params }: Props) {
     <div className="bg-gray-50 min-h-screen">
       <div className="max-w-2xl mx-auto px-4 py-8">
         {/* Header */}
-        <div className="text-center mb-8">
-          <div className="inline-flex items-center justify-center w-16 h-16 bg-green-700 rounded-full mb-4">
-            <svg className="w-8 h-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <HeroFrame
+          theme="aves"
+          eyebrow="Trazabilidad pública"
+          title="Trazabilidad - Sistema Gallinero"
+          description="Información de producción avícola y ciclo del lote"
+          className="mb-8"
+          icon={
+            <svg className="w-4 h-4 text-amber-200" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
             </svg>
-          </div>
-          <h1 className="text-2xl font-bold text-gray-800">
-            Trazabilidad - Sistema Gallinero
-          </h1>
-          <p className="text-sm text-gray-500 mt-1">
-            Informacion de produccion avicola
-          </p>
-        </div>
+          }
+        />
 
         {/* Batch Info Card */}
         <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6 mb-6">

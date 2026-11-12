@@ -4,7 +4,8 @@ import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { useActionQuery } from "@/lib/useActionQuery";
 import { useCallback, useEffect, useState } from "react";
-import { MapPin, Wrench } from "lucide-react";
+import { MapPin, QrCode, Wrench } from "lucide-react";
+import EntityQrModal from "@/components/EntityQrModal";
 import { Badge, Button, Card, EmptyState, Input, Modal, PageHeader, Select, StatCard, Textarea } from "@/components/ui";
 import TableSearch from "@/components/TableSearch";
 import { apiFetch } from "@/lib/fetch";
@@ -32,6 +33,7 @@ export default function UbicacionesPage() {
   const [open, setOpen] = useState(false);
   const [error, setError] = useState("");
   const [search, setSearch] = useState("");
+  const [qrLocation, setQrLocation] = useState<FarmLocation | null>(null);
 
   const visibleLocations = locations.filter((location) =>
     matchesTextQuery(search, [
@@ -191,6 +193,10 @@ export default function UbicacionesPage() {
                 {(location.maintenanceNeeds || Number(location.pendingMaintenance || 0) > 0) && <p className="rounded-lg bg-amber-50 p-3 text-sm text-amber-900 flex items-center gap-2"><Wrench className="w-4 h-4 shrink-0 text-amber-700" aria-hidden="true" /> {location.maintenanceNeeds || `${location.pendingMaintenance} tareas de mantenimiento pendientes`}</p>}
                 <div className="flex flex-wrap gap-2 border-t border-slate-100 pt-3">
                   <Link className="rounded-lg bg-blue-50 px-3 py-2 text-sm font-semibold text-blue-800 hover:bg-blue-100" href={`/dashboard/ubicaciones/${location.id}`}>Abrir ficha</Link>
+                  <Button variant="secondary" onClick={() => setQrLocation(location)} className="inline-flex items-center gap-1.5">
+                    <QrCode className="h-4 w-4" aria-hidden="true" />
+                    <span>QR</span>
+                  </Button>
                   <Button variant="secondary" onClick={() => editLocation(location)}>Editar ficha</Button>
                   {location.status === "activa" && <Button variant="secondary" onClick={() => deactivate(location)}>Marcar inactiva</Button>}
                 </div>
@@ -234,6 +240,16 @@ export default function UbicacionesPage() {
           <div className="flex justify-end gap-2"><Button variant="secondary" onClick={() => setOpen(false)}>Cancelar</Button><Button onClick={save}>{editing ? "Guardar cambios" : "Crear lugar"}</Button></div>
         </div>
       </Modal>
+
+      <EntityQrModal
+        open={Boolean(qrLocation)}
+        onClose={() => setQrLocation(null)}
+        entityType="ubicacion"
+        entityId={qrLocation?.id || ""}
+        code={qrLocation?.code}
+        title={qrLocation?.name || "Lugar"}
+        subtitle={qrLocation ? `${LOCATION_TYPE_LABELS[qrLocation.type] || qrLocation.type}${qrLocation.localReference ? ` · ${qrLocation.localReference}` : ""}` : undefined}
+      />
     </div>
   );
 }

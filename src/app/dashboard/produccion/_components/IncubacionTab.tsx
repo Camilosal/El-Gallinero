@@ -148,6 +148,7 @@ export default function IncubacionPage() {
   return (
     <div>
       <PageHeader
+        theme="incubacion"
         title="Incubación y Reproducción"
         description="Gestión de gallinas cluecas, empollamiento natural y eclosión de pollitos"
         help="Aquí gestionas las incubaciones de huevos. Registra gallina y gallo progenitores cuando se conozcan para que la descendencia conserve esa cadena de parentesco. Al nacer, las nuevas fichas quedan vinculadas a la incubación y a sus padres."

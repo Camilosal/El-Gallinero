@@ -6,6 +6,7 @@ import Link from "next/link";
 import { Bird, CheckCircle2, CircleDollarSign, ClipboardList, Egg, FileEdit, Pill, Skull } from "lucide-react";
 import { Card, Badge, Button, Modal, Input, Select, Textarea, EmptyState } from "@/components/ui";
 import { AppIcon } from "@/components/AppIcon";
+import { HeroBanner } from "@/components/HeroBanner";
 import TableSearch from "@/components/TableSearch";
 import { apiFetch } from "@/lib/fetch";
 import { matchesTextQuery } from "@/lib/text";
@@ -220,25 +221,27 @@ export default function HenDetailPage() {
     <div className="max-w-2xl mx-auto">
       {/* Header */}
       <div className="mb-6">
-        <Link href="/dashboard/escanear" className="text-sm text-green-600 hover:text-green-700 mb-2 inline-block">
+        <Link href="/dashboard/escanear" className="text-sm text-green-700 hover:text-green-800 mb-3 inline-flex items-center gap-1 font-medium">
           ← Volver al escáner
         </Link>
-        <div className="flex items-start gap-4">
-          <div className="w-16 h-16 rounded-xl bg-gradient-to-br from-green-500 to-green-700 flex items-center justify-center text-white shadow-xs">
-            <AppIcon icon="hen" className="w-8 h-8" />
-          </div>
-          <div className="flex-1">
-            <div className="flex items-center gap-2 flex-wrap">
-              <h1 className="text-2xl font-bold text-slate-800">{hen.code}</h1>
+        <HeroBanner
+          theme="aves"
+          compact
+          icon={<AppIcon icon="hen" className="w-4 h-4 text-amber-200" />}
+          eyebrow="Ficha individual de ave"
+          title={hen.code}
+          description={hen.breed}
+          badge={
+            <div className="flex items-center gap-1.5 flex-wrap">
               <Badge color={statusColors[hen.status] || "gray"}>{statusLabels[hen.status] || hen.status}</Badge>
               {hen.stage && <Badge color={stageColors[hen.stage] || "gray"}>{hen.stage}</Badge>}
             </div>
-            <p className="text-slate-500 mt-1">{hen.breed}</p>
-            {hen.lifecycleReasons && hen.lifecycleReasons.length > 0 && (
-              <p className="text-xs text-orange-600 mt-1">{hen.lifecycleReasons.join(" · ")}</p>
-            )}
-          </div>
-        </div>
+          }
+          className="mb-0"
+        />
+        {hen.lifecycleReasons && hen.lifecycleReasons.length > 0 && (
+          <p className="text-xs text-orange-600 mt-2">{hen.lifecycleReasons.join(" · ")}</p>
+        )}
       </div>
 
       {/* Stats */}

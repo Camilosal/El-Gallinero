@@ -1,30 +1,10 @@
 "use client";
 
-import { ReactNode, useState, ButtonHTMLAttributes, InputHTMLAttributes, SelectHTMLAttributes, TextareaHTMLAttributes } from "react";
-import { HelpCircle, Lightbulb, X } from "lucide-react";
+import { ReactNode, ButtonHTMLAttributes, InputHTMLAttributes, SelectHTMLAttributes, TextareaHTMLAttributes } from "react";
+import { X } from "lucide-react";
 import { AppIcon } from "@/components/AppIcon";
-
-/** Parse help text that may contain \n (real newlines or literal \\n) and • bullets into JSX */
-function renderHelpText(text: string) {
-  // Normalize: replace literal \n (from double-escaping) with real newlines
-  const normalized = text.replace(/\\n/g, "\n");
-  const parts = normalized.split(/\n/).filter(p => p.trim());
-  if (parts.length <= 1) return <>{text}</>;
-  return (
-    <div className="space-y-1">
-      {parts.map((part, i) => {
-        const trimmed = part.replace(/^[•\-]\s*/, "").trim();
-        const isBullet = part.trim().startsWith("•") || part.trim().startsWith("-");
-        return (
-          <div key={i} className="flex gap-2">
-            {isBullet && <span className="text-blue-500 flex-shrink-0">•</span>}
-            <span>{trimmed}</span>
-          </div>
-        );
-      })}
-    </div>
-  );
-}
+import { HeroBanner } from "@/components/HeroBanner";
+import type { HeroThemeKey } from "@/lib/hero-themes";
 
 // ─── Tooltip ───
 export function Tooltip({ text, children }: { text: string; children?: ReactNode }) {
@@ -83,44 +63,33 @@ export function StatCard({ label, value, icon, color = "green" }: { label: strin
   );
 }
 
-export function PageHeader({ title, description, actions, help }: { title: string; description?: string; actions?: ReactNode; help?: string }) {
-  const [helpOpen, setHelpOpen] = useState(false);
+export function PageHeader({
+  title,
+  description,
+  actions,
+  help,
+  theme,
+  eyebrow,
+  icon,
+}: {
+  title: string;
+  description?: string;
+  actions?: ReactNode;
+  help?: string;
+  theme?: HeroThemeKey;
+  eyebrow?: string;
+  icon?: string | ReactNode;
+}) {
   return (
-    <div className="mb-6">
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-        <div>
-          <h1 className="text-2xl font-bold text-slate-800">{title}</h1>
-          {description && <p className="text-slate-500 mt-1">{description}</p>}
-        </div>
-        <div className="flex items-center gap-2">
-          {help && (
-            <button
-              onClick={() => setHelpOpen(!helpOpen)}
-              className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-lg border transition-colors bg-blue-50 border-blue-200 text-blue-700 hover:bg-blue-100"
-            >
-              <HelpCircle className="w-3.5 h-3.5" />
-              <span>{helpOpen ? "Ocultar ayuda" : "Ayuda"}</span>
-            </button>
-          )}
-          {actions && <div className="flex gap-2">{actions}</div>}
-        </div>
-      </div>
-      {help && helpOpen && (
-        <div className="mt-3 p-4 bg-blue-50 border border-blue-200 rounded-xl text-sm text-blue-800 leading-relaxed">
-          <div className="flex gap-2.5">
-            <Lightbulb className="w-4 h-4 text-blue-600 flex-shrink-0 mt-0.5" />
-            <div>{renderHelpText(help)}</div>
-          </div>
-          <button
-            onClick={() => setHelpOpen(false)}
-            className="mt-2 inline-flex items-center gap-1 text-xs text-blue-600 hover:text-blue-800 font-medium"
-          >
-            <span>Cerrar</span>
-            <X className="w-3.5 h-3.5" />
-          </button>
-        </div>
-      )}
-    </div>
+    <HeroBanner
+      theme={theme}
+      title={title}
+      description={description}
+      actions={actions}
+      help={help}
+      eyebrow={eyebrow}
+      icon={icon}
+    />
   );
 }
 

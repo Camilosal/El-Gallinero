@@ -10,9 +10,7 @@ import {
   ChevronRight,
   CircleDollarSign,
   Egg,
-  HelpCircle,
   Home,
-  Lightbulb,
   Package,
   PackageOpen,
   Pill,
@@ -21,6 +19,7 @@ import {
   Wrench,
 } from "lucide-react";
 import { AppIcon } from "@/components/AppIcon";
+import { HeroBanner } from "@/components/HeroBanner";
 import { Card, Modal, Input, Select, Button, EmptyState } from "@/components/ui";
 import TableSearch from "@/components/TableSearch";
 import { matchesTextQuery } from "@/lib/text";
@@ -124,7 +123,6 @@ export default function Dashboard() {
   const [loading, setLoading] = useState(true);
   const [showDetails, setShowDetails] = useState(false);
   const [tareas, setTareas] = useState<TareasPendientes | null>(null);
-  const [dashHelp, setDashHelp] = useState(false);
   const [search, setSearch] = useState("");
 
   // ─── Quick sale state ───
@@ -145,12 +143,12 @@ export default function Dashboard() {
     apiFetch("/api/dashboard/tareas-pendientes")
       .then((r) => r.json())
       .then(setTareas)
-      .catch(() => {});
+      .catch(() => { });
     // Load egg inventory for quick sale
     apiFetch("/api/produccion/huevos/inventario")
       .then((r) => r.json())
       .then((d) => setQuickSaleInv(d.summary?.sizes || []))
-      .catch(() => {});
+      .catch(() => { });
   }, []);
 
   if (loading) {
@@ -307,29 +305,29 @@ export default function Dashboard() {
     : [];
   const showPendingEgg = Boolean(
     tareas &&
-      tareas.eggApplicable &&
-      !tareas.eggCollectedToday &&
-      (!hasSearch || matchesTextQuery(search, ["huevos hoy recoger recoleccion pendiente"])),
+    tareas.eggApplicable &&
+    !tareas.eggCollectedToday &&
+    (!hasSearch || matchesTextQuery(search, ["huevos hoy recoger recoleccion pendiente"])),
   );
   const showPendingFeed = Boolean(
     tareas &&
-      tareas.feedApplicable &&
-      !tareas.feedMovedToday &&
-      (!hasSearch || matchesTextQuery(search, ["alimentacion alimento comida consumo registro pendiente"])),
+    tareas.feedApplicable &&
+    !tareas.feedMovedToday &&
+    (!hasSearch || matchesTextQuery(search, ["alimentacion alimento comida consumo registro pendiente"])),
   );
   const showPendingSanitary = Boolean(
     tareas?.pendingSanitary &&
-      (!hasSearch ||
-        matchesTextQuery(search, [
-          tareas.pendingSanitary.name,
-          tareas.pendingSanitary.type,
-          tareas.pendingSanitary.isOverdue ? "vencido sanidad vacuna" : "pendiente sanidad vacuna",
-        ])),
+    (!hasSearch ||
+      matchesTextQuery(search, [
+        tareas.pendingSanitary.name,
+        tareas.pendingSanitary.type,
+        tareas.pendingSanitary.isOverdue ? "vencido sanidad vacuna" : "pendiente sanidad vacuna",
+      ])),
   );
   const showAssetsAttention = Boolean(
     tareas &&
-      tareas.assetsNeedAttention > 0 &&
-      (!hasSearch || matchesTextQuery(search, ["equipos activos mantenimiento atencion"])),
+    tareas.assetsNeedAttention > 0 &&
+    (!hasSearch || matchesTextQuery(search, ["equipos activos mantenimiento atencion"])),
   );
   const hasVisiblePending =
     showPendingEgg || showPendingFeed || showPendingSanitary || visibleMaintenanceDue.length > 0 || showAssetsAttention;
@@ -381,32 +379,14 @@ export default function Dashboard() {
   return (
     <div>
       {/* Header */}
-      <div className="mb-6">
-        <div className="flex items-start justify-between gap-3">
-          <div>
-            <h1 className="text-2xl font-bold text-slate-800 flex items-center gap-2">
-              <Home className="w-6 h-6 text-green-700 shrink-0" aria-hidden="true" />
-              <span>Buenos días, Gallinero</span>
-            </h1>
-            <p className="text-slate-500 text-sm mt-1">Esto es lo que necesita tu atención hoy</p>
-          </div>
-          <div className="flex shrink-0 items-center gap-2">
-            <button onClick={() => setDashHelp(!dashHelp)} className="inline-flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-lg bg-blue-50 text-blue-600 hover:bg-blue-100 transition-colors mt-1">
-              <HelpCircle className="w-3.5 h-3.5" aria-hidden="true" />
-              <span>Ayuda</span>
-            </button>
-          </div>
-        </div>
-        {dashHelp && (
-          <div className="mt-3 p-4 bg-blue-50 border border-blue-200 rounded-xl text-sm text-blue-800">
-            <p className="font-semibold mb-1 flex items-center gap-1.5">
-              <Lightbulb className="w-4 h-4 text-amber-500 shrink-0" aria-hidden="true" />
-              <span>Panel Principal</span>
-            </p>
-            <p>Este es tu centro de control diario. Aquí verás alertas críticas (stock bajo, tareas pendientes, sanitarias), tareas del día, un resumen rápido de producción/huevos/mortalidad y el estado del alimento. Usa <strong>Crear</strong> para encontrar los registros y formularios de los distintos módulos; las tareas del día y el menú lateral siguen disponibles para tus accesos frecuentes.</p>
-          </div>
-        )}
-      </div>
+      <HeroBanner
+        theme="inicio"
+        icon={<Home className="w-3.5 h-3.5 text-amber-200" aria-hidden="true" />}
+        title="Buenos días, Gallinero"
+        description="Esto es lo que necesita tu atención hoy"
+        helpTitle="Panel Principal"
+        help="Este es tu centro de control diario. Aquí verás alertas críticas (stock bajo, tareas pendientes, sanitarias), tareas del día, un resumen rápido de producción/huevos/mortalidad y el estado del alimento. Usa Crear para encontrar los registros y formularios de los distintos módulos; las tareas del día y el menú lateral siguen disponibles para tus accesos frecuentes."
+      />
 
       <TableSearch
         value={search}

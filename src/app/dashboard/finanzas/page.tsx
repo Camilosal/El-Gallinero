@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useEffect, useState } from "react";
 import { ArrowUpFromLine, BarChart3, CircleDollarSign, ClipboardList } from "lucide-react";
 import { AppIcon } from "@/components/AppIcon";
+import { HeroBanner } from "@/components/HeroBanner";
 import TableSearch from "@/components/TableSearch";
 import { EmptyState } from "@/components/ui";
 import { apiFetch } from "@/lib/fetch";
@@ -43,15 +44,12 @@ export default function FinanzasPage() {
 
   return (
     <div className="p-8">
-      <div className="mb-6">
-        <h1 className="text-3xl font-bold flex items-center gap-3">
-          <CircleDollarSign className="w-8 h-8 text-green-700 shrink-0" aria-hidden="true" />
-          Finanzas
-        </h1>
-        <p className="text-gray-600 mt-2">
-          Gestión financiera: ventas, egresos, balance, presupuestos y cuentas por cobrar/pagar.
-        </p>
-      </div>
+      <HeroBanner
+        theme="finanzas"
+        icon={<CircleDollarSign className="w-3.5 h-3.5 text-amber-200" aria-hidden="true" />}
+        title="Finanzas"
+        description="Gestión financiera: ventas, egresos, balance, presupuestos y cuentas por cobrar/pagar."
+      />
 
       <TableSearch
         value={search}

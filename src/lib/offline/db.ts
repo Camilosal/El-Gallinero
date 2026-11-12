@@ -25,6 +25,18 @@ export interface CatalogEntry<T = any> {
   updatedAt: number;
 }
 
+export interface VoiceNoteEntry {
+  id: string;
+  audioBlob: Blob;
+  mimeType: string;
+  durationSec: number;
+  transcriptHint?: string;
+  status: "pending" | "transcribed" | "sent" | "error";
+  error?: string;
+  createdAt: number;
+  conversationId?: string | null;
+}
+
 export interface CachedRecordEntry<T = any> {
   key: string;
   data: T;
@@ -32,7 +44,7 @@ export interface CachedRecordEntry<T = any> {
 }
 
 const DB_NAME = "gallinero_offline_db";
-const DB_VERSION = 1;
+const DB_VERSION = 2;
 
 let dbPromise: Promise<IDBDatabase> | null = null;
 
@@ -72,6 +84,13 @@ export function getOfflineDB(): Promise<IDBDatabase> {
       // 3. Store: cached_records (registros recientes para consulta offline)
       if (!db.objectStoreNames.contains("cached_records")) {
         db.createObjectStore("cached_records", { keyPath: "key" });
+      }
+
+      // 4. Store: voice_notes (notas de voz grabadas en campo sin conexión)
+      if (!db.objectStoreNames.contains("voice_notes")) {
+        const voiceStore = db.createObjectStore("voice_notes", { keyPath: "id" });
+        voiceStore.createIndex("status", "status", { unique: false });
+        voiceStore.createIndex("createdAt", "createdAt", { unique: false });
       }
     };
 
@@ -380,4 +399,84 @@ export async function setMetaValue<T>(key: string, value: T): Promise<void> {
 
 export async function getMetaValue<T>(key: string): Promise<T | null> {
   return getCachedCatalog<T>(`__offline_meta_${key}`);
+}
+
+// ─────────────────────────────────────────────────────────────
+// Operaciones de Voice Notes (Notas de voz offline)
+// ─────────────────────────────────────────────────────────────
+
+export async function addVoiceNote(
+  note: Omit<VoiceNoteEntry, "status" | "createdAt"> & { status?: VoiceNoteEntry["status"] }
+): Promise<VoiceNoteEntry> {
+  if (!isIndexedDBSupported()) {
+    throw new Error("No hay soporte de IndexedDB");
+  }
+  const db = await getOfflineDB();
+  const entry: VoiceNoteEntry = {
+    ...note,
+    status: note.status || "pending",
+    createdAt: Date.now(),
+  };
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction("voice_notes", "readwrite");
+    const req = tx.objectStore("voice_notes").put(entry);
+    req.onsuccess = () => resolve(entry);
+    req.onerror = () => reject(req.error);
+  });
+}
+
+export async function getAllVoiceNotes(): Promise<VoiceNoteEntry[]> {
+  if (!isIndexedDBSupported()) return [];
+  const db = await getOfflineDB();
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction("voice_notes", "readonly");
+    const req = tx.objectStore("voice_notes").getAll();
+    req.onsuccess = () => {
+      const list: VoiceNoteEntry[] = req.result || [];
+      resolve(list.sort((a, b) => b.createdAt - a.createdAt));
+    };
+    req.onerror = () => reject(req.error);
+  });
+}
+
+export async function getPendingVoiceNotes(): Promise<VoiceNoteEntry[]> {
+  const all = await getAllVoiceNotes();
+  return all.filter((n) => n.status === "pending" || n.status === "error").sort((a, b) => a.createdAt - b.createdAt);
+}
+
+export async function getPendingVoiceNotesCount(): Promise<number> {
+  const pending = await getPendingVoiceNotes();
+  return pending.length;
+}
+
+export async function updateVoiceNote(id: string, patch: Partial<VoiceNoteEntry>): Promise<void> {
+  if (!isIndexedDBSupported()) return;
+  const db = await getOfflineDB();
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction("voice_notes", "readwrite");
+    const store = tx.objectStore("voice_notes");
+    const getReq = store.get(id);
+    getReq.onsuccess = () => {
+      const current = getReq.result as VoiceNoteEntry | undefined;
+      if (!current) {
+        resolve();
+        return;
+      }
+      const putReq = store.put({ ...current, ...patch });
+      putReq.onsuccess = () => resolve();
+      putReq.onerror = () => reject(putReq.error);
+    };
+    getReq.onerror = () => reject(getReq.error);
+  });
+}
+
+export async function removeVoiceNote(id: string): Promise<void> {
+  if (!isIndexedDBSupported()) return;
+  const db = await getOfflineDB();
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction("voice_notes", "readwrite");
+    const req = tx.objectStore("voice_notes").delete(id);
+    req.onsuccess = () => resolve();
+    req.onerror = () => reject(req.error);
+  });
 }

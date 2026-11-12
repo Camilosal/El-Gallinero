@@ -1,15 +1,38 @@
 "use client";
 
 import { useEffect, useState, useRef, useCallback, useMemo } from "react";
+import Link from "next/link";
 import { Html5Qrcode } from "html5-qrcode";
-import { Bird, Camera, CheckCircle2, CircleDollarSign, ClipboardList, HelpCircle, Lightbulb, Pill, Skull } from "lucide-react";
+import {
+  Bird,
+  Camera,
+  CheckCircle2,
+  CircleDollarSign,
+  ClipboardList,
+  Egg,
+  ExternalLink,
+  HeartPulse,
+  Layers,
+  MapPin,
+  Pill,
+  Receipt,
+  Skull,
+  Wheat,
+  WifiOff,
+  Wrench,
+} from "lucide-react";
+import { HeroBanner } from "@/components/HeroBanner";
 import { Card, Button, Badge, Modal, Input, Select, Textarea } from "@/components/ui";
 import TableSearch from "@/components/TableSearch";
 import { matchesTextQuery } from "@/lib/text";
 import { apiFetch } from "@/lib/fetch";
-import { parseQrPayload } from "@/lib/qr";
+import { todayColombiaIso } from "@/lib/date-validation";
+import { parseQrTarget } from "@/lib/qr";
 import { HEN_PRESENT_STATUSES, isHenAvailableForExit } from "@/lib/animal-status";
-import Link from "next/link";
+import { LOCATION_TYPE_LABELS, type FarmLocation, useFarmLocations } from "@/lib/useFarmLocations";
+import { getCachedCatalog } from "@/lib/offline/db";
+import { openQuickCapture, QUICK_CAPTURE_SAVED_EVENT } from "@/lib/quick-capture-events";
+import { SPECIES_LABEL } from "@/lib/species-params";
 
 interface Hen {
   id: string;
@@ -20,6 +43,50 @@ interface Hen {
   weight: string | null;
   stage?: string | null;
   ageWeeks?: number;
+  locationId?: string | null;
+}
+
+interface Batch {
+  id: string;
+  code: string;
+  species: string;
+  breed: string;
+  purpose?: string | null;
+  currentQuantity: number;
+  initialQuantity: number;
+  status: string;
+  ageWeeks?: number;
+  locationId?: string | null;
+  locationName?: string | null;
+}
+
+interface FarmAsset {
+  id: string;
+  code: string;
+  name: string;
+  category: string;
+  brand?: string | null;
+  model?: string | null;
+  serialNumber?: string | null;
+  status: string;
+  locationId?: string | null;
+  locationName?: string | null;
+}
+
+type ScannedSelection =
+  | { type: "gallina"; hen: Hen }
+  | { type: "ubicacion"; location: FarmLocation }
+  | { type: "lote"; batch: Batch }
+  | { type: "activo"; asset: FarmAsset };
+
+interface UnifiedMatch {
+  key: string;
+  type: "gallina" | "ubicacion" | "lote" | "activo";
+  title: string;
+  subtitle: string;
+  badgeText: string;
+  badgeColor: string;
+  selection: ScannedSelection;
 }
 
 const statusLabels: Record<string, string> = {
@@ -27,107 +94,122 @@ const statusLabels: Record<string, string> = {
   empollando: "Empollando",
   enferma: "Enferma",
   descarte: "Descarte",
-  recomendada_sacrificio: "Recomendada sacrificio",
+  recomendada_sacrificio: "Sugerida faena",
   vendida: "Vendida",
-  faena: "Faena",
   muerta: "Muerta",
+  sacrificada: "Sacrificada",
 };
 
 const statusColors: Record<string, string> = {
   activa: "green",
   empollando: "purple",
   enferma: "red",
-  descarte: "orange",
+  descarte: "yellow",
   recomendada_sacrificio: "orange",
-  vendida: "gray",
-  faena: "blue",
+  vendida: "blue",
   muerta: "gray",
+  sacrificada: "gray",
+};
+
+const batchStatusLabels: Record<string, { label: string; color: string }> = {
+  activo: { label: "En crianza", color: "green" },
+  listo_sacrificio: { label: "Listo sacrificio", color: "orange" },
+  vendido: { label: "Vendido", color: "blue" },
+  faena: { label: "Faena", color: "gray" },
+};
+
+const assetStatusLabels: Record<string, { label: string; color: string }> = {
+  operativo: { label: "Operativo", color: "green" },
+  requiere_mantenimiento: { label: "Requiere atención", color: "yellow" },
+  fuera_servicio: { label: "Fuera de servicio", color: "red" },
+  retirado: { label: "Retirado", color: "gray" },
 };
 
 export default function EscanearPage() {
-  const [scanning, setScanning] = useState(false);
-  const [error, setError] = useState("");
-  const [hen, setHen] = useState<Hen | null>(null);
+  const { locations } = useFarmLocations(false);
   const [hens, setHens] = useState<Hen[]>([]);
+  const [batches, setBatches] = useState<Batch[]>([]);
+  const [assets, setAssets] = useState<FarmAsset[]>([]);
+  const [online, setOnline] = useState(true);
+
+  const [scanning, setScanning] = useState(false);
+  const [selected, setSelected] = useState<ScannedSelection | null>(null);
+  const [error, setError] = useState("");
   const [manualInput, setManualInput] = useState("");
-  const [scanHelp, setScanHelp] = useState(false);
-  const scannerRef = useRef<Html5Qrcode | null>(null);
-  const containerRef = useRef<HTMLDivElement>(null);
+  const [quickToast, setQuickToast] = useState("");
+
+  // Hen-specific quick modals preserved for compatibility
   const [actionModal, setActionModal] = useState<"vender" | "tratar" | "muerte" | null>(null);
   const [actionForm, setActionForm] = useState<Record<string, string>>({});
-  const [actionError, setActionError] = useState("");
   const [actionSuccess, setActionSuccess] = useState("");
+  const [actionError, setActionError] = useState("");
   const [actionSubmitting, setActionSubmitting] = useState(false);
-  const actionSubmittingRef = useRef(false);
 
-  // Load all hens for lookup
-  useEffect(() => {
-    apiFetch("/api/produccion/gallinas")
-      .then((r) => r.json())
-      .then(setHens)
-      .catch(() => { });
+  const scannerRef = useRef<Html5Qrcode | null>(null);
+  const containerRef = useRef<HTMLDivElement>(null);
+  const actionSubmittingRef = useRef(false);
+  const queryAppliedRef = useRef(false);
+
+  const refreshCatalogs = useCallback(async () => {
+    const [cHens, cBatches, cAssets] = await Promise.all([
+      getCachedCatalog<Hen[]>("hens_all"),
+      getCachedCatalog<Batch[]>("broiler_batches_all"),
+      getCachedCatalog<FarmAsset[]>("farm_assets_active"),
+    ]);
+    if (Array.isArray(cHens)) setHens(cHens);
+    if (Array.isArray(cBatches)) setBatches(cBatches);
+    if (Array.isArray(cAssets)) setAssets(cAssets);
+
+    if (typeof navigator !== "undefined" && navigator.onLine !== false) {
+      try {
+        const [hRes, bRes, aRes] = await Promise.all([
+          apiFetch("/api/produccion/gallinas").catch(() => null),
+          apiFetch("/api/produccion/pollos").catch(() => null),
+          apiFetch("/api/operaciones/activos").catch(() => null),
+        ]);
+        if (hRes?.ok) {
+          const data = await hRes.json().catch(() => null);
+          if (Array.isArray(data)) setHens(data);
+        }
+        if (bRes?.ok) {
+          const data = await bRes.json().catch(() => null);
+          if (Array.isArray(data)) setBatches(data);
+        }
+        if (aRes?.ok) {
+          const data = await aRes.json().catch(() => null);
+          if (Array.isArray(data)) setAssets(data);
+        }
+      } catch {
+        // Offline: mantener datos en caché
+      }
+    }
   }, []);
 
-  const lookupHen = useCallback(
-    (henId: string) => {
-      const found = hens.find((h) => h.id === henId);
-      if (found) {
-        setHen(found);
-        setError("");
-      } else {
-        // Try fetching directly if not in cache
-        apiFetch("/api/produccion/gallinas")
-          .then((r) => r.json())
-          .then((allHens: Hen[]) => {
-            setHens(allHens);
-            const h = allHens.find((x: Hen) => x.id === henId);
-            if (h) {
-              setHen(h);
-              setError("");
-            } else {
-              setError("Gallina no encontrada");
-              setHen(null);
-            }
-          })
-          .catch(() => {
-            setError("Error buscando gallina");
-          });
+  useEffect(() => {
+    void Promise.resolve().then(() => {
+      if (typeof navigator !== "undefined") setOnline(navigator.onLine);
+      void refreshCatalogs();
+    });
+    const onOnline = () => setOnline(true);
+    const onOffline = () => setOnline(false);
+    const onSaved = () => {
+      setQuickToast("Registro guardado correctamente.");
+      void refreshCatalogs();
+    };
+    window.addEventListener("online", onOnline);
+    window.addEventListener("offline", onOffline);
+    window.addEventListener(QUICK_CAPTURE_SAVED_EVENT, onSaved);
+    return () => {
+      window.removeEventListener("online", onOnline);
+      window.removeEventListener("offline", onOffline);
+      window.removeEventListener(QUICK_CAPTURE_SAVED_EVENT, onSaved);
+      if (scannerRef.current) {
+        scannerRef.current.stop().catch(() => {});
       }
-    },
-    [hens],
-  );
+    };
+  }, [refreshCatalogs]);
 
-  const startScanner = async () => {
-    setError("");
-    setHen(null);
-    try {
-      const scanner = new Html5Qrcode("qr-reader");
-      scannerRef.current = scanner;
-      setScanning(true);
-      await scanner.start(
-        { facingMode: "environment" },
-        { fps: 10, qrbox: { width: 250, height: 250 } },
-        (decodedText) => {
-          const henId = parseQrPayload(decodedText);
-          if (henId) {
-            lookupHen(henId);
-            scanner.stop().catch(() => { });
-            setScanning(false);
-          } else {
-            setError("QR no reconocido. Formato esperado: GALLINERO:<id>");
-          }
-        },
-        () => {
-          // scan failure callback (called each frame when no QR found) — ignore
-        },
-      );
-    } catch (err) {
-      setError("No se pudo acceder a la cámara. Verifica los permisos.");
-      setScanning(false);
-    }
-  };
-
-  const stopScanner = async () => {
+  const stopScanner = useCallback(async () => {
     if (scannerRef.current) {
       try {
         await scannerRef.current.stop();
@@ -137,55 +219,233 @@ export default function EscanearPage() {
       scannerRef.current = null;
     }
     setScanning(false);
-  };
-
-  // Cleanup on unmount
-  useEffect(() => {
-    return () => {
-      if (scannerRef.current) {
-        scannerRef.current.stop().catch(() => { });
-      }
-    };
   }, []);
 
-  const handleManualLookup = (codeOrId?: string) => {
-    const query = (codeOrId ?? manualInput).trim();
-    if (!query) return;
-    const found = hens.find((h) => h.code.toLowerCase() === query.toLowerCase() || h.id === query);
-    if (found) {
-      setHen(found);
-      setError("");
-      setManualInput("");
+  const resolvePayload = useCallback(
+    (raw: string): boolean => {
+      const clean = raw.trim();
+      if (!clean) return false;
+
+      const parsed = parseQrTarget(clean);
+      if (parsed) {
+        if (parsed.type === "ubicacion") {
+          const foundLoc = locations.find(
+            (l) => l.id === parsed.id || l.code.toLowerCase() === parsed.id.toLowerCase(),
+          );
+          if (foundLoc) {
+            setSelected({ type: "ubicacion", location: foundLoc });
+            setError("");
+            return true;
+          }
+          setError(`No se encontró la ubicación "${parsed.id}" en caché.`);
+          return false;
+        }
+        if (parsed.type === "lote") {
+          const foundBatch = batches.find(
+            (b) => b.id === parsed.id || b.code.toLowerCase() === parsed.id.toLowerCase(),
+          );
+          if (foundBatch) {
+            setSelected({ type: "lote", batch: foundBatch });
+            setError("");
+            return true;
+          }
+          setError(`No se encontró el lote "${parsed.id}" en caché.`);
+          return false;
+        }
+        if (parsed.type === "activo") {
+          const foundAsset = assets.find(
+            (a) => a.id === parsed.id || a.code.toLowerCase() === parsed.id.toLowerCase(),
+          );
+          if (foundAsset) {
+            setSelected({ type: "activo", asset: foundAsset });
+            setError("");
+            return true;
+          }
+          setError(`No se encontró el activo "${parsed.id}" en caché.`);
+          return false;
+        }
+        const foundHen = hens.find(
+          (h) => h.id === parsed.id || h.code.toLowerCase() === parsed.id.toLowerCase(),
+        );
+        if (foundHen) {
+          setSelected({ type: "gallina", hen: foundHen });
+          setError("");
+          return true;
+        }
+        setError(`No se encontró el ave "${parsed.id}" en caché.`);
+        return false;
+      }
+
+      // Direct search by code or ID across entities
+      const lower = clean.toLowerCase();
+      const locExact = locations.find(
+        (l) => l.id === clean || l.code.toLowerCase() === lower || l.name.toLowerCase() === lower,
+      );
+      if (locExact) {
+        setSelected({ type: "ubicacion", location: locExact });
+        setError("");
+        return true;
+      }
+      const batchExact = batches.find((b) => b.id === clean || b.code.toLowerCase() === lower);
+      if (batchExact) {
+        setSelected({ type: "lote", batch: batchExact });
+        setError("");
+        return true;
+      }
+      const assetExact = assets.find(
+        (a) => a.id === clean || a.code.toLowerCase() === lower || a.name.toLowerCase() === lower,
+      );
+      if (assetExact) {
+        setSelected({ type: "activo", asset: assetExact });
+        setError("");
+        return true;
+      }
+      const henExact = hens.find((h) => h.id === clean || h.code.toLowerCase() === lower);
+      if (henExact) {
+        setSelected({ type: "gallina", hen: henExact });
+        setError("");
+        return true;
+      }
+
+      setError(`No se encontró ningún lugar, lote, equipo ni ave con "${clean}".`);
+      return false;
+    },
+    [assets, batches, hens, locations],
+  );
+
+  // Resolve ?qr=... URL parameter once catalogs arrive
+  useEffect(() => {
+    if (queryAppliedRef.current || typeof window === "undefined") return;
+    const qrParam = new URLSearchParams(window.location.search).get("qr");
+    if (!qrParam) {
+      queryAppliedRef.current = true;
       return;
     }
-    lookupHen(query);
-    setManualInput("");
+    if (locations.length === 0 && hens.length === 0 && batches.length === 0 && assets.length === 0) {
+      return;
+    }
+    void Promise.resolve().then(() => {
+      if (resolvePayload(qrParam)) {
+        queryAppliedRef.current = true;
+      }
+    });
+  }, [assets.length, batches.length, hens.length, locations.length, resolvePayload]);
+
+  const startScanner = async () => {
+    setError("");
+    setSelected(null);
+    setQuickToast("");
+    setScanning(true);
+
+    try {
+      const scanner = new Html5Qrcode("qr-reader");
+      scannerRef.current = scanner;
+      await scanner.start(
+        { facingMode: "environment" },
+        { fps: 10, qrbox: { width: 250, height: 250 } },
+        (decodedText) => {
+          void stopScanner();
+          resolvePayload(decodedText);
+        },
+        () => {},
+      );
+    } catch {
+      setScanning(false);
+      setError("No se pudo acceder a la cámara. Verifica los permisos o usa el buscador manual.");
+    }
   };
 
-  const matchingHens = useMemo(() => {
-    if (!manualInput.trim()) return [];
-    return hens
-      .filter((h) =>
-        matchesTextQuery(manualInput, [
-          h.code,
-          h.breed,
-          h.stage,
-          statusLabels[h.status] || h.status,
-          h.weight,
-        ]),
-      )
-      .slice(0, 8);
-  }, [hens, manualInput]);
+  const unifiedMatches = useMemo((): UnifiedMatch[] => {
+    const q = manualInput.trim();
+    if (!q) return [];
+    const results: UnifiedMatch[] = [];
 
-  const openAction = (action: "vender" | "tratar" | "muerte") => {
+    for (const loc of locations) {
+      if (matchesTextQuery(q, [loc.code, loc.name, LOCATION_TYPE_LABELS[loc.type] || loc.type, loc.localReference])) {
+        results.push({
+          key: `loc-${loc.id}`,
+          type: "ubicacion",
+          title: `${loc.name} (${loc.code})`,
+          subtitle: `Lugar · ${LOCATION_TYPE_LABELS[loc.type] || loc.type}${loc.animals ? ` · ${loc.animals} aves` : ""}`,
+          badgeText: loc.status === "activa" ? "Activa" : "Inactiva",
+          badgeColor: loc.status === "activa" ? "green" : "gray",
+          selection: { type: "ubicacion", location: loc },
+        });
+      }
+    }
+
+    for (const batch of batches) {
+      const sp = SPECIES_LABEL[batch.species || "pollo"] || batch.species;
+      const st = batchStatusLabels[batch.status] || { label: batch.status, color: "gray" };
+      if (matchesTextQuery(q, [batch.code, batch.breed, sp, st.label])) {
+        results.push({
+          key: `lote-${batch.id}`,
+          type: "lote",
+          title: `${batch.code} · ${sp}`,
+          subtitle: `Lote · ${batch.breed} · ${batch.currentQuantity} aves`,
+          badgeText: st.label,
+          badgeColor: st.color,
+          selection: { type: "lote", batch },
+        });
+      }
+    }
+
+    for (const asset of assets) {
+      const st = assetStatusLabels[asset.status] || { label: asset.status, color: "gray" };
+      if (matchesTextQuery(q, [asset.code, asset.name, asset.category, asset.locationName, asset.brand])) {
+        results.push({
+          key: `act-${asset.id}`,
+          type: "activo",
+          title: `${asset.name} (${asset.code})`,
+          subtitle: `Equipo · ${asset.category}${asset.locationName ? ` · ${asset.locationName}` : ""}`,
+          badgeText: st.label,
+          badgeColor: st.color,
+          selection: { type: "activo", asset },
+        });
+      }
+    }
+
+    for (const h of hens) {
+      if (matchesTextQuery(q, [h.code, h.breed, h.stage, statusLabels[h.status] || h.status])) {
+        results.push({
+          key: `hen-${h.id}`,
+          type: "gallina",
+          title: `${h.code} · ${h.breed}`,
+          subtitle: `Ave · ${h.stage || "Sin etapa"}${h.ageWeeks ? ` · ${h.ageWeeks} sem` : ""}`,
+          badgeText: statusLabels[h.status] || h.status,
+          badgeColor: statusColors[h.status] || "gray",
+          selection: { type: "gallina", hen: h },
+        });
+      }
+    }
+
+    return results.slice(0, 10);
+  }, [assets, batches, hens, locations, manualInput]);
+
+  const handleManualSubmit = () => {
+    if (unifiedMatches.length === 1) {
+      setSelected(unifiedMatches[0].selection);
+      setManualInput("");
+      setError("");
+      return;
+    }
+    if (resolvePayload(manualInput)) {
+      setManualInput("");
+    }
+  };
+
+  const scannedHen = selected?.type === "gallina" ? selected.hen : null;
+
+  const openHenAction = (action: "vender" | "tratar" | "muerte") => {
+    if (!scannedHen) return;
     setActionModal(action);
     setActionError("");
     setActionSuccess("");
     if (action === "vender") {
-      setActionForm({ buyer: "", pricePerUnit: "15000", weightKg: hen?.weight || "" });
+      setActionForm({ buyer: "", pricePerUnit: "15000", weightKg: scannedHen.weight || "" });
     } else if (action === "tratar") {
       setActionForm({
-        date: new Date().toISOString().split("T")[0],
+        date: todayColombiaIso(),
         type: "tratamiento",
         description: "",
         product: "",
@@ -193,15 +453,15 @@ export default function EscanearPage() {
       });
     } else {
       setActionForm({
-        date: new Date().toISOString().split("T")[0],
+        date: todayColombiaIso(),
         cause: "causa_natural",
         description: "",
       });
     }
   };
 
-  const submitAction = async () => {
-    if (!hen || actionSubmittingRef.current) return;
+  const submitHenAction = async () => {
+    if (!scannedHen || actionSubmittingRef.current) return;
     actionSubmittingRef.current = true;
     setActionSubmitting(true);
     setActionError("");
@@ -215,7 +475,7 @@ export default function EscanearPage() {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
-            date: new Date().toISOString().split("T")[0],
+            date: todayColombiaIso(),
             birdType: "gallina_descarte",
             quantity: 1,
             weightKg: actionForm.weightKg ? weight : null,
@@ -223,32 +483,35 @@ export default function EscanearPage() {
             priceMode: "por_ave",
             totalAmount: price,
             buyer: actionForm.buyer,
-            henId: hen.id,
+            henId: scannedHen.id,
           }),
         });
-        if (!res.ok) {
+        const queued = res.headers.get("X-Gallinero-Offline-Queued") === "1";
+        if (!res.ok && !queued) {
           const d = await res.json().catch(() => ({}));
           throw new Error(d.error || "Error al registrar venta");
         }
-        setActionSuccess("Venta registrada correctamente");
+        setActionSuccess(queued ? "Venta guardada en modo offline" : "Venta registrada correctamente");
       } else if (actionModal === "tratar") {
         const res = await apiFetch("/api/sanidad/control", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
             date: actionForm.date,
+            locationId: scannedHen.locationId || locations[0]?.id || undefined,
             type: actionForm.type,
             description: actionForm.description,
-            affectedHens: JSON.stringify([hen.id]),
+            affectedHens: JSON.stringify([scannedHen.id]),
             product: actionForm.product,
             cost: actionForm.cost,
           }),
         });
-        if (!res.ok) {
+        const queued = res.headers.get("X-Gallinero-Offline-Queued") === "1";
+        if (!res.ok && !queued) {
           const d = await res.json().catch(() => ({}));
           throw new Error(d.error || "Error al registrar tratamiento");
         }
-        setActionSuccess("Tratamiento registrado correctamente");
+        setActionSuccess(queued ? "Tratamiento guardado en modo offline" : "Tratamiento registrado correctamente");
       } else if (actionModal === "muerte") {
         const res = await apiFetch("/api/produccion/mortalidad", {
           method: "POST",
@@ -258,26 +521,31 @@ export default function EscanearPage() {
             birdType: "gallina",
             quantity: 1,
             cause: actionForm.cause,
-            henId: hen.id,
+            henId: scannedHen.id,
+            locationId: scannedHen.locationId || locations[0]?.id || undefined,
             description: actionForm.description,
           }),
         });
-        if (!res.ok) {
+        const queued = res.headers.get("X-Gallinero-Offline-Queued") === "1";
+        if (!res.ok && !queued) {
           const d = await res.json().catch(() => ({}));
           throw new Error(d.error || "Error al registrar mortalidad");
         }
-        setActionSuccess("Mortalidad registrada correctamente");
+        setActionSuccess(queued ? "Baja guardada en modo offline" : "Mortalidad registrada correctamente");
       }
-      const updatedStatus = actionModal === "vender"
-        ? "vendida"
-        : actionModal === "muerte"
-          ? "muerta"
-          : actionModal === "tratar" && actionForm.type === "tratamiento"
-            ? "enferma"
-            : hen.status;
-      setHens((current) => current.map((item) => item.id === hen.id ? { ...item, status: updatedStatus } : item));
-      setHen(null); // Go back to scanner
-      setTimeout(() => setActionModal(null), 1500);
+
+      const updatedStatus =
+        actionModal === "vender"
+          ? "vendida"
+          : actionModal === "muerte"
+            ? "muerta"
+            : actionModal === "tratar" && actionForm.type === "tratamiento"
+              ? "enferma"
+              : scannedHen.status;
+
+      setHens((current) => current.map((item) => (item.id === scannedHen.id ? { ...item, status: updatedStatus } : item)));
+      setSelected(null);
+      setTimeout(() => setActionModal(null), 1300);
     } catch (err) {
       setActionError(err instanceof Error ? err.message : "Error al registrar");
     } finally {
@@ -288,73 +556,305 @@ export default function EscanearPage() {
 
   return (
     <div className="max-w-lg mx-auto">
-      <div className="mb-6">
-        <div className="flex items-start justify-between">
-          <div>
-            <h1 className="text-2xl font-bold text-slate-800 flex items-center gap-2">
-              <Camera className="w-6 h-6 text-green-700 shrink-0" aria-hidden="true" />
-              <span>Escanear Ave</span>
-            </h1>
-            <p className="text-slate-500 text-sm mt-1">Escanea el código QR de la banda de pata para identificar la gallina</p>
-          </div>
-          <button onClick={() => setScanHelp(!scanHelp)} className="inline-flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-lg bg-blue-50 text-blue-600 hover:bg-blue-100 transition-colors mt-1">
-            <HelpCircle className="w-3.5 h-3.5" aria-hidden="true" />
-            <span>Ayuda</span>
-          </button>
-        </div>
-        {scanHelp && (
-          <div className="mt-3 p-4 bg-blue-50 border border-blue-200 rounded-xl text-sm text-blue-800">
-            <p className="font-semibold mb-1 flex items-center gap-1.5">
-              <Lightbulb className="w-4 h-4 text-amber-500 shrink-0" aria-hidden="true" />
-              <span>Escáner QR</span>
-            </p>
-            <p>Usa la cámara para escanear el código QR de la banda de pata de cada gallina. Al identificarla verás su información completa: raza, edad, peso, estado y etapa productiva. Desde aquí puedes registrar acciones rápidas: vender la gallina, registrar un tratamiento sanitario o reportar su muerte. También puedes buscar manualmente por código o ID.</p>
-          </div>
-        )}
-      </div>
+      <HeroBanner
+        theme="escanear"
+        compact
+        icon={<Camera className="w-3.5 h-3.5 text-amber-200" aria-hidden="true" />}
+        title="Escáner QR de Granja"
+        description="Escanea la puerta del galpón, un lote, un equipo o una gallina para registrar acciones al instante"
+        helpTitle="Escáner QR Multifunción"
+        help="Escanea códigos QR impresos en puertas de galpones/corrales, lotes, equipos o bandas de aves. También funciona offline usando los catálogos guardados en el dispositivo."
+      />
 
-      {/* Scanner area */}
+      {!online && (
+        <div className="mb-3 flex items-center gap-2 rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800">
+          <WifiOff className="h-4 w-4 shrink-0 text-amber-600" aria-hidden="true" />
+          <span>Modo sin conexión activo: puedes escanear y registrar usando tus catálogos guardados.</span>
+        </div>
+      )}
+
+      {quickToast && (
+        <div className="mb-3 flex items-center justify-between rounded-xl border border-green-200 bg-green-50 px-3 py-2 text-xs font-medium text-green-800">
+          <span className="inline-flex items-center gap-1.5">
+            <CheckCircle2 className="h-4 w-4 text-green-600" aria-hidden="true" />
+            <span>{quickToast}</span>
+          </span>
+          <button type="button" onClick={() => setQuickToast("")} className="underline">Ocultar</button>
+        </div>
+      )}
+
       <Card className="mb-4">
         <div id="qr-reader" ref={containerRef} className="w-full rounded-lg overflow-hidden mb-3" />
 
         {!scanning ? (
-          <div className="text-center space-y-3">
-            {hen ? (
+          <div className="space-y-4">
+            {selected?.type === "ubicacion" && (
+              <div className="text-left space-y-3">
+                <div className="rounded-xl bg-slate-50 p-4 border border-slate-200">
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="flex items-center gap-3">
+                      <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-emerald-100 text-emerald-700">
+                        <MapPin className="h-6 w-6" aria-hidden="true" />
+                      </div>
+                      <div>
+                        <p className="text-xs font-semibold uppercase tracking-wide text-slate-400">
+                          {selected.location.code} · {LOCATION_TYPE_LABELS[selected.location.type] || selected.location.type}
+                        </p>
+                        <h2 className="text-lg font-bold text-slate-800">{selected.location.name}</h2>
+                      </div>
+                    </div>
+                    <Badge color={selected.location.status === "activa" ? "green" : "gray"}>
+                      {selected.location.status === "activa" ? "Activa" : "Inactiva"}
+                    </Badge>
+                  </div>
+                  <div className="mt-3 grid grid-cols-3 gap-2 text-center text-xs">
+                    <div className="rounded-lg bg-white p-2 border border-slate-100">
+                      <p className="text-slate-500">Animales</p>
+                      <p className="text-sm font-bold text-slate-800">{selected.location.animals ?? 0}</p>
+                    </div>
+                    <div className="rounded-lg bg-white p-2 border border-slate-100">
+                      <p className="text-slate-500">Huevos 30d</p>
+                      <p className="text-sm font-bold text-slate-800">{selected.location.eggsPeriod ?? 0}</p>
+                    </div>
+                    <div className="rounded-lg bg-white p-2 border border-slate-100">
+                      <p className="text-slate-500">Pendientes</p>
+                      <p className="text-sm font-bold text-slate-800">{selected.location.pendingMaintenance ?? 0}</p>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-2 gap-2">
+                  <button
+                    type="button"
+                    onClick={() => openQuickCapture({ mode: "huevos", locationId: selected.location.id })}
+                    className="flex flex-col items-center gap-1.5 rounded-xl border border-yellow-200 bg-yellow-50 p-3.5 text-yellow-900 hover:bg-yellow-100 transition-colors"
+                  >
+                    <Egg className="h-5 w-5 text-yellow-700" aria-hidden="true" />
+                    <span className="text-xs font-semibold">Recoger huevos aquí</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => openQuickCapture({ mode: "alimentacion", locationId: selected.location.id })}
+                    className="flex flex-col items-center gap-1.5 rounded-xl border border-amber-200 bg-amber-50 p-3.5 text-amber-900 hover:bg-amber-100 transition-colors"
+                  >
+                    <Wheat className="h-5 w-5 text-amber-700" aria-hidden="true" />
+                    <span className="text-xs font-semibold">Dar alimento aquí</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => openQuickCapture({ mode: "mortalidad", locationId: selected.location.id })}
+                    className="flex flex-col items-center gap-1.5 rounded-xl border border-red-200 bg-red-50 p-3.5 text-red-800 hover:bg-red-100 transition-colors"
+                  >
+                    <HeartPulse className="h-5 w-5 text-red-700" aria-hidden="true" />
+                    <span className="text-xs font-semibold">Reportar baja aquí</span>
+                  </button>
+                  <Link
+                    href={`/dashboard/ubicaciones/${selected.location.id}`}
+                    className="flex flex-col items-center justify-center gap-1.5 rounded-xl border border-slate-200 bg-slate-50 p-3.5 text-slate-700 hover:bg-slate-100 transition-colors"
+                  >
+                    <ClipboardList className="h-5 w-5 text-slate-600" aria-hidden="true" />
+                    <span className="text-xs font-semibold">Ver ficha completa</span>
+                  </Link>
+                </div>
+
+                <button
+                  type="button"
+                  onClick={() => { setSelected(null); void startScanner(); }}
+                  className="w-full text-center text-sm text-slate-500 hover:text-slate-700"
+                >
+                  ← Escanear otro código
+                </button>
+              </div>
+            )}
+
+            {selected?.type === "lote" && (
+              <div className="text-left space-y-3">
+                <div className="rounded-xl bg-slate-50 p-4 border border-slate-200">
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="flex items-center gap-3">
+                      <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-orange-100 text-orange-700">
+                        <Layers className="h-6 w-6" aria-hidden="true" />
+                      </div>
+                      <div>
+                        <p className="text-xs font-semibold uppercase tracking-wide text-slate-400">
+                          {selected.batch.code} · {SPECIES_LABEL[selected.batch.species || "pollo"] || selected.batch.species}
+                        </p>
+                        <h2 className="text-lg font-bold text-slate-800">{selected.batch.breed}</h2>
+                      </div>
+                    </div>
+                    <Badge color={batchStatusLabels[selected.batch.status]?.color || "gray"}>
+                      {batchStatusLabels[selected.batch.status]?.label || selected.batch.status}
+                    </Badge>
+                  </div>
+                  <div className="mt-3 grid grid-cols-3 gap-2 text-center text-xs">
+                    <div className="rounded-lg bg-white p-2 border border-slate-100">
+                      <p className="text-slate-500">Actuales</p>
+                      <p className="text-sm font-bold text-slate-800">{selected.batch.currentQuantity}</p>
+                    </div>
+                    <div className="rounded-lg bg-white p-2 border border-slate-100">
+                      <p className="text-slate-500">Edad</p>
+                      <p className="text-sm font-bold text-slate-800">{selected.batch.ageWeeks ? `${selected.batch.ageWeeks} sem` : "—"}</p>
+                    </div>
+                    <div className="rounded-lg bg-white p-2 border border-slate-100">
+                      <p className="text-slate-500">Lugar</p>
+                      <p className="truncate text-sm font-semibold text-slate-800">{selected.batch.locationName || "Sin lugar"}</p>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-2 gap-2">
+                  {selected.batch.purpose === "postura_huevo" && ["codorniz", "pato"].includes(selected.batch.species) && (
+                    <button
+                      type="button"
+                      onClick={() =>
+                        openQuickCapture({
+                          mode: "huevos",
+                          batchId: selected.batch.id,
+                          locationId: selected.batch.locationId || undefined,
+                          species: selected.batch.species,
+                        })
+                      }
+                      className="flex flex-col items-center gap-1.5 rounded-xl border border-yellow-200 bg-yellow-50 p-3.5 text-yellow-900 hover:bg-yellow-100 transition-colors"
+                    >
+                      <Egg className="h-5 w-5 text-yellow-700" aria-hidden="true" />
+                      <span className="text-xs font-semibold">Recoger huevos lote</span>
+                    </button>
+                  )}
+                  <button
+                    type="button"
+                    onClick={() => openQuickCapture({ mode: "alimentacion", locationId: selected.batch.locationId || undefined })}
+                    className="flex flex-col items-center gap-1.5 rounded-xl border border-amber-200 bg-amber-50 p-3.5 text-amber-900 hover:bg-amber-100 transition-colors"
+                  >
+                    <Wheat className="h-5 w-5 text-amber-700" aria-hidden="true" />
+                    <span className="text-xs font-semibold">Dar alimento</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() =>
+                      openQuickCapture({
+                        mode: "mortalidad",
+                        batchId: selected.batch.id,
+                        locationId: selected.batch.locationId || undefined,
+                        species: selected.batch.species,
+                      })
+                    }
+                    className="flex flex-col items-center gap-1.5 rounded-xl border border-red-200 bg-red-50 p-3.5 text-red-800 hover:bg-red-100 transition-colors"
+                  >
+                    <HeartPulse className="h-5 w-5 text-red-700" aria-hidden="true" />
+                    <span className="text-xs font-semibold">Reportar baja lote</span>
+                  </button>
+                  <Link
+                    href={`/lote/${selected.batch.id}`}
+                    className="flex flex-col items-center justify-center gap-1.5 rounded-xl border border-slate-200 bg-slate-50 p-3.5 text-slate-700 hover:bg-slate-100 transition-colors"
+                  >
+                    <ExternalLink className="h-5 w-5 text-slate-600" aria-hidden="true" />
+                    <span className="text-xs font-semibold">Trazabilidad lote</span>
+                  </Link>
+                </div>
+
+                <button
+                  type="button"
+                  onClick={() => { setSelected(null); void startScanner(); }}
+                  className="w-full text-center text-sm text-slate-500 hover:text-slate-700"
+                >
+                  ← Escanear otro código
+                </button>
+              </div>
+            )}
+
+            {selected?.type === "activo" && (
+              <div className="text-left space-y-3">
+                <div className="rounded-xl bg-slate-50 p-4 border border-slate-200">
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="flex items-center gap-3">
+                      <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-blue-100 text-blue-700">
+                        <Wrench className="h-6 w-6" aria-hidden="true" />
+                      </div>
+                      <div>
+                        <p className="text-xs font-semibold uppercase tracking-wide text-slate-400">
+                          {selected.asset.code} · {selected.asset.category}
+                        </p>
+                        <h2 className="text-lg font-bold text-slate-800">{selected.asset.name}</h2>
+                        {(selected.asset.brand || selected.asset.model) && (
+                          <p className="text-xs text-slate-500">
+                            {[selected.asset.brand, selected.asset.model].filter(Boolean).join(" · ")}
+                          </p>
+                        )}
+                      </div>
+                    </div>
+                    <Badge color={assetStatusLabels[selected.asset.status]?.color || "gray"}>
+                      {assetStatusLabels[selected.asset.status]?.label || selected.asset.status}
+                    </Badge>
+                  </div>
+                  <p className="mt-2 text-xs text-slate-600">
+                    Ubicación: <strong>{selected.asset.locationName || "Finca / sin lugar específico"}</strong>
+                  </p>
+                </div>
+
+                <div className="grid grid-cols-2 gap-2">
+                  <button
+                    type="button"
+                    onClick={() => openQuickCapture({ mode: "gasto" })}
+                    className="flex flex-col items-center gap-1.5 rounded-xl border border-slate-200 bg-slate-50 p-3.5 text-slate-800 hover:bg-slate-100 transition-colors"
+                  >
+                    <Receipt className="h-5 w-5 text-slate-700" aria-hidden="true" />
+                    <span className="text-xs font-semibold">Registrar gasto/repuesto</span>
+                  </button>
+                  <Link
+                    href="/dashboard/operaciones/mantenimiento"
+                    className="flex flex-col items-center justify-center gap-1.5 rounded-xl border border-blue-200 bg-blue-50 p-3.5 text-blue-800 hover:bg-blue-100 transition-colors"
+                  >
+                    <Wrench className="h-5 w-5 text-blue-700" aria-hidden="true" />
+                    <span className="text-xs font-semibold">Ver mantenimientos</span>
+                  </Link>
+                </div>
+
+                <button
+                  type="button"
+                  onClick={() => { setSelected(null); void startScanner(); }}
+                  className="w-full text-center text-sm text-slate-500 hover:text-slate-700"
+                >
+                  ← Escanear otro código
+                </button>
+              </div>
+            )}
+
+            {selected?.type === "gallina" && (
               <div className="text-left">
-                {/* Hen card */}
                 <div className="bg-slate-50 rounded-xl p-4 mb-4">
                   <div className="flex items-center gap-3 mb-3">
                     <div className="w-11 h-11 rounded-xl bg-green-100 flex items-center justify-center text-green-700 shrink-0">
                       <Bird className="w-6 h-6" aria-hidden="true" />
                     </div>
-                    <div>
-                      <h2 className="text-lg font-bold text-slate-800">{hen.code}</h2>
-                      <p className="text-sm text-slate-500">{hen.breed}</p>
+                    <div className="flex-1 min-w-0">
+                      <h2 className="text-lg font-bold text-slate-800">{selected.hen.code}</h2>
+                      <p className="text-sm text-slate-500">{selected.hen.breed}</p>
                     </div>
-                    <Badge color={statusColors[hen.status] || "gray"}>{statusLabels[hen.status] || hen.status}</Badge>
+                    <Badge color={statusColors[selected.hen.status] || "gray"}>
+                      {statusLabels[selected.hen.status] || selected.hen.status}
+                    </Badge>
                   </div>
                   <div className="grid grid-cols-3 gap-2 text-center text-sm">
                     <div className="bg-white rounded-lg p-2">
                       <p className="text-slate-500 text-xs">Peso</p>
-                      <p className="font-semibold">{hen.weight ? `${hen.weight} kg` : "—"}</p>
+                      <p className="font-semibold">{selected.hen.weight ? `${selected.hen.weight} kg` : "—"}</p>
                     </div>
                     <div className="bg-white rounded-lg p-2">
                       <p className="text-slate-500 text-xs">Etapa</p>
-                      <p className="font-semibold">{hen.stage || "—"}</p>
+                      <p className="font-semibold">{selected.hen.stage || "—"}</p>
                     </div>
                     <div className="bg-white rounded-lg p-2">
                       <p className="text-slate-500 text-xs">Edad</p>
-                      <p className="font-semibold">{hen.ageWeeks ? `${hen.ageWeeks} sem` : "—"}</p>
+                      <p className="font-semibold">{selected.hen.ageWeeks ? `${selected.hen.ageWeeks} sem` : "—"}</p>
                     </div>
                   </div>
                 </div>
 
-                {/* Action buttons */}
-                {HEN_PRESENT_STATUSES.includes(hen.status) ? (
-                  <div className={`grid gap-2 mb-3 ${isHenAvailableForExit(hen.status) ? "grid-cols-3" : "grid-cols-2"}`}>
-                    {isHenAvailableForExit(hen.status) && (
+                {HEN_PRESENT_STATUSES.includes(selected.hen.status) ? (
+                  <div className={`grid gap-2 mb-3 ${isHenAvailableForExit(selected.hen.status) ? "grid-cols-3" : "grid-cols-2"}`}>
+                    {isHenAvailableForExit(selected.hen.status) && (
                       <button
-                        onClick={() => openAction("vender")}
+                        onClick={() => openHenAction("vender")}
                         className="flex flex-col items-center gap-1.5 p-3 bg-green-50 border border-green-200 rounded-xl hover:bg-green-100 transition-colors"
                       >
                         <CircleDollarSign className="w-5 h-5 text-green-700" aria-hidden="true" />
@@ -362,14 +862,14 @@ export default function EscanearPage() {
                       </button>
                     )}
                     <button
-                      onClick={() => openAction("tratar")}
+                      onClick={() => openHenAction("tratar")}
                       className="flex flex-col items-center gap-1.5 p-3 bg-blue-50 border border-blue-200 rounded-xl hover:bg-blue-100 transition-colors"
                     >
                       <Pill className="w-5 h-5 text-blue-700" aria-hidden="true" />
                       <span className="text-xs font-medium text-blue-700">Tratar</span>
                     </button>
                     <button
-                      onClick={() => openAction("muerte")}
+                      onClick={() => openHenAction("muerte")}
                       className="flex flex-col items-center gap-1.5 p-3 bg-red-50 border border-red-200 rounded-xl hover:bg-red-100 transition-colors"
                     >
                       <Skull className="w-5 h-5 text-red-700" aria-hidden="true" />
@@ -377,11 +877,13 @@ export default function EscanearPage() {
                     </button>
                   </div>
                 ) : (
-                  <p className="mb-3 rounded-lg bg-slate-100 p-3 text-center text-sm text-slate-600">Esta ave ya salió del inventario y no admite nuevas acciones.</p>
+                  <p className="mb-3 rounded-lg bg-slate-100 p-3 text-center text-sm text-slate-600">
+                    Esta ave ya salió del inventario y no admite nuevas acciones.
+                  </p>
                 )}
 
                 <Link
-                  href={`/dashboard/produccion/gallinas/${hen.id}`}
+                  href={`/dashboard/produccion/gallinas/${selected.hen.id}`}
                   className="flex items-center justify-center gap-2 w-full text-center p-3 bg-slate-50 border border-slate-200 rounded-xl hover:bg-slate-100 transition-colors text-sm font-medium text-slate-700"
                 >
                   <ClipboardList className="w-4 h-4" aria-hidden="true" />
@@ -389,16 +891,19 @@ export default function EscanearPage() {
                 </Link>
 
                 <button
-                  onClick={() => { setHen(null); startScanner(); }}
+                  type="button"
+                  onClick={() => { setSelected(null); void startScanner(); }}
                   className="w-full mt-2 text-sm text-slate-500 hover:text-slate-700"
                 >
-                  ← Escanear otra ave
+                  ← Escanear otro código
                 </button>
               </div>
-            ) : (
-              <>
+            )}
+
+            {!selected && (
+              <div className="text-center space-y-3">
                 {error && <p className="text-red-600 text-sm">{error}</p>}
-                <Button onClick={startScanner}>
+                <Button onClick={() => void startScanner()}>
                   <span className="inline-flex items-center gap-1.5">
                     <Camera className="w-4 h-4" aria-hidden="true" />
                     <span>Abrir cámara</span>
@@ -406,23 +911,23 @@ export default function EscanearPage() {
                 </Button>
                 <div className="flex items-center gap-2">
                   <div className="flex-1 border-t border-slate-200" />
-                  <span className="text-xs text-slate-400">o busca por código, raza o estado</span>
+                  <span className="text-xs text-slate-400">o busca galpón, lote, equipo o ave</span>
                   <div className="flex-1 border-t border-slate-200" />
                 </div>
                 <div className="space-y-2 text-left">
                   <form
                     onSubmit={(e) => {
                       e.preventDefault();
-                      handleManualLookup();
+                      handleManualSubmit();
                     }}
                     className="flex flex-col gap-2 sm:flex-row sm:items-center"
                   >
                     <TableSearch
                       value={manualInput}
                       onChange={setManualInput}
-                      placeholder="Buscar ave (ej: G-001, ISA Brown, postura)..."
-                      resultCount={matchingHens.length}
-                      totalCount={hens.length}
+                      placeholder="Buscar: Galpón 1, LP-001, G-001, bomba..."
+                      resultCount={unifiedMatches.length}
+                      totalCount={locations.length + batches.length + assets.length + hens.length}
                       className="flex-1"
                     />
                     <Button type="submit" variant="secondary" disabled={!manualInput.trim()}>
@@ -431,47 +936,51 @@ export default function EscanearPage() {
                   </form>
                   {manualInput.trim() && (
                     <div className="rounded-lg border border-slate-200 bg-slate-50 p-2 space-y-1">
-                      {matchingHens.length === 0 ? (
-                        <p className="px-2 py-1 text-xs text-slate-500">Sin aves coincidentes con “{manualInput}”</p>
+                      {unifiedMatches.length === 0 ? (
+                        <p className="px-2 py-1 text-xs text-slate-500">Sin coincidencias con “{manualInput}”</p>
                       ) : (
-                        matchingHens.map((candidate) => (
+                        unifiedMatches.map((item) => (
                           <button
-                            key={candidate.id}
+                            key={item.key}
                             type="button"
-                            onClick={() => handleManualLookup(candidate.id)}
-                            className="flex w-full items-center justify-between rounded-md bg-white px-3 py-2 text-left text-xs shadow-2xs transition-colors hover:bg-green-50"
+                            onClick={() => {
+                              setSelected(item.selection);
+                              setManualInput("");
+                              setError("");
+                            }}
+                            className="flex w-full items-center justify-between gap-2 rounded-md bg-white px-3 py-2 text-left text-xs shadow-2xs transition-colors hover:bg-green-50"
                           >
-                            <span className="font-semibold text-slate-800">
-                              {candidate.code} <span className="font-normal text-slate-500">· {candidate.breed}</span>
+                            <span className="min-w-0">
+                              <span className="block truncate font-semibold text-slate-800">{item.title}</span>
+                              <span className="block truncate text-[11px] text-slate-500">{item.subtitle}</span>
                             </span>
-                            <Badge color={statusColors[candidate.status] || "gray"}>
-                              {statusLabels[candidate.status] || candidate.status}
-                            </Badge>
+                            <Badge color={item.badgeColor}>{item.badgeText}</Badge>
                           </button>
                         ))
                       )}
                     </div>
                   )}
                 </div>
-              </>
+              </div>
             )}
           </div>
         ) : (
           <div className="text-center">
-            <p className="text-sm text-slate-600 mb-2">Apunta la cámara al código QR de la banda de pata</p>
-            <Button variant="secondary" onClick={stopScanner}>
-              Detener cámara
-            </Button>
+            <p className="text-sm text-slate-500 mb-2">Apunta la cámara al código QR de la puerta, lote, equipo o banda</p>
+            <Button variant="secondary" onClick={() => void stopScanner()}>Cancelar escaneo</Button>
           </div>
         )}
       </Card>
 
-      {/* Action Modal */}
       <Modal
-        open={actionModal !== null}
-        onClose={() => { if (!actionSubmitting) setActionModal(null); }}
+        open={!!actionModal}
+        onClose={() => !actionSubmitting && setActionModal(null)}
         title={
-          actionModal === "vender" ? "Vender Ave" : actionModal === "tratar" ? "Registrar Tratamiento" : "Registrar Muerte"
+          actionModal === "vender"
+            ? "Registrar venta rápida"
+            : actionModal === "tratar"
+              ? "Registrar tratamiento"
+              : "Registrar mortalidad"
         }
       >
         {actionSuccess ? (
@@ -490,7 +999,6 @@ export default function EscanearPage() {
                   value={actionForm.buyer || ""}
                   onChange={(e) => setActionForm({ ...actionForm, buyer: e.target.value })}
                   placeholder="Nombre del comprador"
-                  help="Quién compra el ave"
                 />
                 <Input
                   label="Peso (kg)"
@@ -499,14 +1007,12 @@ export default function EscanearPage() {
                   value={actionForm.weightKg || ""}
                   onChange={(e) => setActionForm({ ...actionForm, weightKg: e.target.value })}
                   placeholder="Ej: 2.5"
-                  help="Peso en vivo del ave en kilogramos"
                 />
                 <Input
                   label="Precio por ave ($)"
                   type="number"
                   value={actionForm.pricePerUnit || ""}
                   onChange={(e) => setActionForm({ ...actionForm, pricePerUnit: e.target.value })}
-                  help="Precio total de venta por esta ave"
                 />
               </>
             )}
@@ -518,13 +1024,11 @@ export default function EscanearPage() {
                   type="date"
                   value={actionForm.date || ""}
                   onChange={(e) => setActionForm({ ...actionForm, date: e.target.value })}
-                  help="Fecha del tratamiento"
                 />
                 <Select
                   label="Tipo"
                   value={actionForm.type || "tratamiento"}
                   onChange={(e) => setActionForm({ ...actionForm, type: e.target.value })}
-                  help="Tipo de intervención sanitaria"
                 >
                   <option value="vacunacion">Vacunación</option>
                   <option value="desparasitacion">Desparasitación</option>
@@ -537,21 +1041,18 @@ export default function EscanearPage() {
                   value={actionForm.description || ""}
                   onChange={(e) => setActionForm({ ...actionForm, description: e.target.value })}
                   placeholder="Ej: Tratamiento respiratorio"
-                  help="Detalles del tratamiento aplicado"
                 />
                 <Input
                   label="Producto"
                   value={actionForm.product || ""}
                   onChange={(e) => setActionForm({ ...actionForm, product: e.target.value })}
                   placeholder="Nombre del producto"
-                  help="Nombre del medicamento o producto utilizado"
                 />
                 <Input
                   label="Costo ($)"
                   type="number"
                   value={actionForm.cost || "0"}
                   onChange={(e) => setActionForm({ ...actionForm, cost: e.target.value })}
-                  help="Costo del tratamiento (medicamento + aplicación)"
                 />
               </>
             )}
@@ -563,13 +1064,11 @@ export default function EscanearPage() {
                   type="date"
                   value={actionForm.date || ""}
                   onChange={(e) => setActionForm({ ...actionForm, date: e.target.value })}
-                  help="Fecha en que se encontró el ave muerta"
                 />
                 <Select
                   label="Causa"
                   value={actionForm.cause || "causa_natural"}
                   onChange={(e) => setActionForm({ ...actionForm, cause: e.target.value })}
-                  help="Causa principal de la muerte"
                 >
                   <option value="enfermedad">Enfermedad</option>
                   <option value="depredador">Depredador</option>
@@ -583,13 +1082,14 @@ export default function EscanearPage() {
                   value={actionForm.description || ""}
                   onChange={(e) => setActionForm({ ...actionForm, description: e.target.value })}
                   placeholder="Observaciones..."
-                  help="Detalles adicionales sobre el suceso"
                 />
               </>
             )}
 
             <div className="flex gap-2">
-              <Button onClick={submitAction} disabled={actionSubmitting}>{actionSubmitting ? "Guardando…" : "Registrar"}</Button>
+              <Button onClick={() => void submitHenAction()} disabled={actionSubmitting}>
+                {actionSubmitting ? "Guardando…" : "Registrar"}
+              </Button>
               <Button variant="secondary" onClick={() => setActionModal(null)} disabled={actionSubmitting}>
                 Cancelar
               </Button>

@@ -4,6 +4,7 @@ import { useState } from "react";
 import Link from "next/link";
 import { FolderKanban } from "lucide-react";
 import { AppIcon } from "@/components/AppIcon";
+import { HeroBanner } from "@/components/HeroBanner";
 import TableSearch from "@/components/TableSearch";
 import { EmptyState } from "@/components/ui";
 import { matchesTextQuery } from "@/lib/text";
@@ -20,15 +21,12 @@ export default function ConfiguracionPage() {
 
   return (
     <div className="p-8">
-      <div className="mb-6">
-        <h1 className="text-3xl font-bold flex items-center gap-3">
-          <FolderKanban className="w-8 h-8 text-green-700 shrink-0" aria-hidden="true" />
-          Configuración
-        </h1>
-        <p className="text-gray-600 mt-2">
-          Tablas maestras y configuración general del sistema.
-        </p>
-      </div>
+      <HeroBanner
+        theme="guia"
+        icon={<FolderKanban className="w-3.5 h-3.5 text-amber-200" aria-hidden="true" />}
+        title="Configuración"
+        description="Tablas maestras y configuración general del sistema."
+      />
 
       <TableSearch
         value={search}

@@ -1,5 +1,8 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
+import fs from "node:fs";
+import path from "node:path";
 import type { OutboxMutation } from "@/lib/offline/db";
+import { todayColombiaIso, startOfColombiaYearIso, addDaysIso } from "@/lib/date-validation";
 
 const memoryRecords = new Map<string, unknown>();
 const memoryOutbox = new Map<string, OutboxMutation>();
@@ -31,6 +34,13 @@ vi.mock("@/lib/offline/db", () => ({
     memoryRecords.set(key, data);
   }),
   getCachedRecords: vi.fn(async (key: string) => (memoryRecords.has(key) ? memoryRecords.get(key) : null)),
+  getAllCachedRecordKeys: vi.fn(async () => Array.from(memoryRecords.keys())),
+  addVoiceNote: vi.fn(async (n: any) => n),
+  getAllVoiceNotes: vi.fn(async () => []),
+  getPendingVoiceNotes: vi.fn(async () => []),
+  getPendingVoiceNotesCount: vi.fn(async () => 0),
+  updateVoiceNote: vi.fn(async () => {}),
+  removeVoiceNote: vi.fn(async () => {}),
   setMetaValue: vi.fn(async () => {}),
   getMetaValue: vi.fn(async () => null),
 }));
@@ -46,6 +56,7 @@ import {
   buildIndividualSyncRequestInit,
   partitionPendingMutations,
 } from "@/lib/offline/syncManager";
+import { applyOptimisticMutationToCache } from "@/lib/offline/optimisticCache";
 import {
   buildCoreApiEndpoints,
   buildStaticDashboardRoutes,
@@ -281,6 +292,92 @@ describe("Offline Sync Architecture", () => {
     const assets = extractNextStaticAssets(
       '<script src="/_next/static/chunks/app-123.js"></script><link href="/_next/static/css/main.css"/><script>var x="/_next/static/chunks/app-123.js\\"</script>'
     );
+    expect(endpoints).toContain("/api/ubicaciones/sin-asignar");
+    expect(endpoints).toContain("/api/dashboard/setup/sanitary-review");
+    expect(endpoints).toContain("/api/finanzas/finanzas?period=7");
+    expect(endpoints).toContain("/api/produccion/carne/perdidas");
+    expect(endpoints).toContain("/api/produccion/sacrificio");
+    expect(endpoints).not.toContain("/api/produccion/carne");
+
+    // Verificar que cada endpoint GET del espejo offline existe realmente en src/app/api/**/route.ts
+    for (const ep of endpoints) {
+      const cleanPath = ep.split("?")[0].replace(/^\//, "");
+      const routeFile = path.join(process.cwd(), "src", "app", cleanPath, "route.ts");
+      expect(fs.existsSync(routeFile), `Falta handler para ${ep}: ${routeFile}`).toBe(true);
+    }
+
+    // Verificar que todas las rutas estáticas del dashboard existen en src/app/**/page.tsx (incluyendo [slug])
+    for (const route of routes) {
+      const rel = route === "/" ? "" : route.replace(/^\//, "");
+      const pageFile = path.join(process.cwd(), "src", "app", rel, "page.tsx");
+      const parentRel = rel.includes("/") ? rel.slice(0, rel.lastIndexOf("/")) : "";
+      const dynamicSlugFile = parentRel
+        ? path.join(process.cwd(), "src", "app", parentRel, "[slug]", "page.tsx")
+        : "";
+      const exists = fs.existsSync(pageFile) || (dynamicSlugFile !== "" && fs.existsSync(dynamicSlugFile));
+      expect(exists, `Falta página para ${route}: ${pageFile}`).toBe(true);
+    }
+
     expect(assets).toEqual(["/_next/static/chunks/app-123.js", "/_next/static/css/main.css"]);
+  });
+
+  it("apiFetch respalda en outbox si el servidor responde 502 o 503", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () => new Response("Bad Gateway", { status: 502 }))
+    );
+
+    const res = await apiFetch("/api/produccion/huevos", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ date: "2026-11-12", totalCollected: 24, locationId: "loc-1" }),
+    });
+
+    expect(res.status).toBe(202);
+    expect(res.headers.get("X-Gallinero-Offline-Queued")).toBe("1");
+    expect(memoryOutbox.size).toBe(1);
+    const queued = Array.from(memoryOutbox.values())[0];
+    expect(queued.endpoint).toBe("/api/produccion/huevos");
+    expect(queued.payload.totalCollected).toBe(24);
+  });
+
+  it("applyOptimisticMutationToCache actualiza listas y tareas-pendientes en caché local", async () => {
+    memoryRecords.set(getApiCacheKey("/api/produccion/huevos"), [
+      { id: "old-1", date: "2026-11-11", totalCollected: 12 },
+    ]);
+    memoryRecords.set(getApiCacheKey("/api/dashboard/tareas-pendientes"), {
+      eggApplicable: true,
+      eggCollectedToday: false,
+      feedApplicable: true,
+      feedMovedToday: false,
+    });
+
+    await applyOptimisticMutationToCache(
+      "/api/produccion/huevos",
+      "POST",
+      { date: "2026-11-12", totalCollected: 30, locationId: "loc-1" },
+      "mut-123",
+    );
+
+    const cachedEggs = memoryRecords.get(getApiCacheKey("/api/produccion/huevos")) as any[];
+    expect(cachedEggs).toHaveLength(2);
+    expect(cachedEggs[0].id).toBe("mut-123");
+    expect(cachedEggs[0].totalCollected).toBe(30);
+    expect(cachedEggs[0]._offlinePending).toBe(true);
+
+    const cachedTareas = memoryRecords.get(getApiCacheKey("/api/dashboard/tareas-pendientes")) as any;
+    expect(cachedTareas.eggCollectedToday).toBe(true);
+  });
+
+  it("todayColombiaIso, startOfColombiaYearIso y addDaysIso evitan desfase UTC nocturno", () => {
+    // 2026-11-13 01:30 UTC corresponde a 2026-11-12 20:30 en Colombia (UTC-5)
+    const lateNightBogota = new Date("2026-11-13T01:30:00.000Z");
+    expect(todayColombiaIso(lateNightBogota)).toBe("2026-11-12");
+    expect(startOfColombiaYearIso(lateNightBogota)).toBe("2026-01-01");
+    expect(buildCoreApiEndpoints(lateNightBogota)).toContain(
+      "/api/analisis/reportes/estado-resultados?from=2026-01-01&to=2026-11-12"
+    );
+    expect(addDaysIso("2026-11-30", 2)).toBe("2026-12-02");
+    expect(addDaysIso("2024-02-28", 1)).toBe("2024-02-29");
   });
 });

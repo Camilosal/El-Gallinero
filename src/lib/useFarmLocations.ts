@@ -76,7 +76,7 @@ export function useFarmLocations(activeOnly = true) {
     }
   }, [activeOnly, cacheKey]);
 
-  useEffect(() => { void load(); }, [load]);
+  useEffect(() => { void Promise.resolve().then(() => load()); }, [load]);
   return { locations, loading, reload: load };
 }
 
