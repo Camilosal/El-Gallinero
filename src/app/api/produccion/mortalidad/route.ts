@@ -102,6 +102,15 @@ export const GET = withApiHandler(async (req: NextRequest) => {
 export const POST = withApiHandler(async (req: NextRequest) => {
   const body = await safeParseJson(req);
   if (!body || typeof body !== "object") return NextResponse.json({ error: "Cuerpo inválido" }, { status: 400 });
+
+  // Idempotencia para registros offline: si ya existe el ID, retornar el registro existente
+  if (body.id) {
+    const [existing] = await db.select().from(mortalityRecords).where(eq(mortalityRecords.id, body.id));
+    if (existing) {
+      return NextResponse.json(existing);
+    }
+  }
+
   const { date, birdType, cause, henId, roosterId, batchId, quantity, description } = body;
 
   if (!isDateOnly(date) || !MORTALITY_TYPES.has(birdType) || !MORTALITY_CAUSES.has(cause)) {
@@ -161,6 +170,7 @@ export const POST = withApiHandler(async (req: NextRequest) => {
       }
 
       const [created] = await tx.insert(mortalityRecords).values({
+        id: body.id || undefined,
         date,
         species: birdType === "gallina" || birdType === "gallo" ? "gallina" : BATCH_MORTALITY_SPECIES[birdType],
         birdType,

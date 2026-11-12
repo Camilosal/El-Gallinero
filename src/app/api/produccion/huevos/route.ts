@@ -97,6 +97,15 @@ export const GET = withApiHandler(async (req: NextRequest) => {
 async function handleSave(req: NextRequest, isUpdate: boolean) {
   const body = await safeParseJson(req);
   if (isUpdate && !body.id) return NextResponse.json({ error: "ID requerido" }, { status: 400 });
+
+  // Idempotencia para registros offline: si ya existe el ID, retornar el registro existente
+  if (body.id && !isUpdate) {
+    const [existing] = await db.select().from(eggProduction).where(eq(eggProduction.id, body.id));
+    if (existing) {
+      return NextResponse.json(existing);
+    }
+  }
+
   if (!isDateOnly(body.date)) return NextResponse.json({ error: "Fecha inválida" }, { status: 400 });
 
   const species = body.species || "gallina";
@@ -284,6 +293,7 @@ async function handleSave(req: NextRequest, isUpdate: boolean) {
   const created = await db.transaction(async (tx) => {
     await lockEggInventory(tx);
     const [row] = await tx.insert(eggProduction).values({
+      id: body.id || undefined,
       date: body.date,
       species,
       batchId: body.batchId || null,

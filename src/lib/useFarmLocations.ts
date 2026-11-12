@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { apiFetch } from "@/lib/fetch";
+import { getCachedCatalog, setCachedCatalog } from "@/lib/offline/db";
 
 export interface FarmLocation {
   id: string;
@@ -44,17 +45,37 @@ export interface FarmLocation {
 export function useFarmLocations(activeOnly = true) {
   const [locations, setLocations] = useState<FarmLocation[]>([]);
   const [loading, setLoading] = useState(true);
+
+  const cacheKey = `farm_locations_${activeOnly ? "active" : "all"}`;
+
   const load = useCallback(async () => {
+    // 1. Cargar primero de caché local (para respuesta instantánea offline)
+    try {
+      const cached = await getCachedCatalog<FarmLocation[]>(cacheKey);
+      if (cached && Array.isArray(cached) && cached.length > 0) {
+        setLocations(cached);
+        setLoading(false);
+      }
+    } catch {
+      // Ignorar error de lectura de caché
+    }
+
+    // 2. Intentar refrescar desde la red si hay conectividad
     try {
       const response = await apiFetch(`/api/ubicaciones${activeOnly ? "?active=true" : ""}`);
       if (response.ok) {
         const data = await response.json();
-        setLocations(Array.isArray(data) ? data : []);
+        const list = Array.isArray(data) ? data : [];
+        setLocations(list);
+        void setCachedCatalog(cacheKey, list);
       }
+    } catch {
+      // Si falla la red, ya tenemos los datos en caché
     } finally {
       setLoading(false);
     }
-  }, [activeOnly]);
+  }, [activeOnly, cacheKey]);
+
   useEffect(() => { void load(); }, [load]);
   return { locations, loading, reload: load };
 }

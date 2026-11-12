@@ -10,6 +10,8 @@ import { useFarmLocations } from "@/lib/useFarmLocations";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { useActionQuery } from "@/lib/useActionQuery";
+import { syncManager } from "@/lib/offline/syncManager";
+import { getCachedRecords, setCachedRecords } from "@/lib/offline/db";
 
 type MortalityRecord = {
   id: string;
@@ -83,34 +85,56 @@ export default function MortalidadPage() {
   const { locations } = useFarmLocations();
 
   const load = useCallback(async () => {
-    const [mortRes, lossRes, hensRes, roostersRes, batchesRes] = await Promise.all([
-      apiFetch("/api/produccion/mortalidad?period=30"),
-      apiFetch("/api/perdidas-huevos?period=30"),
-      apiFetch("/api/produccion/gallinas"),
-      apiFetch("/api/produccion/gallos"),
-      apiFetch("/api/produccion/pollos"),
-    ]);
-    if (mortRes.ok) {
-      const data = await mortRes.json();
-      setRecords(data.records);
-      setStats({ mortalityRate: data.mortalityRate, totalDeaths: data.totalDeaths, totalFlock: data.totalFlock, byCause: data.byCause });
+    // 1. Cargar primero de caché local
+    void getCachedRecords<any[]>("produccion_mortalidad").then((cached) => {
+      if (cached && Array.isArray(cached) && cached.length > 0) {
+        setRecords(cached);
+        setLoading(false);
+      }
+    });
+
+    try {
+      const [mortRes, lossRes, hensRes, roostersRes, batchesRes] = await Promise.all([
+        apiFetch("/api/produccion/mortalidad?period=30"),
+        apiFetch("/api/perdidas-huevos?period=30").catch(() => null),
+        apiFetch("/api/produccion/gallinas").catch(() => null),
+        apiFetch("/api/produccion/gallos").catch(() => null),
+        apiFetch("/api/produccion/pollos").catch(() => null),
+      ]);
+      if (mortRes && mortRes.ok) {
+        const data = await mortRes.json();
+        setRecords(data.records);
+        void setCachedRecords("produccion_mortalidad", data.records);
+        setStats({ mortalityRate: data.mortalityRate, totalDeaths: data.totalDeaths, totalFlock: data.totalFlock, byCause: data.byCause });
+      }
+      if (lossRes && lossRes.ok) {
+        const data = await lossRes.json();
+        setLosses(data.losses);
+        setLossStats({ totalLost: data.totalLost, byReason: data.byReason });
+      }
+      if (hensRes && hensRes.ok) { const d = await hensRes.json(); setHens(d.map((h: any) => ({ id: h.id, code: h.code, locationId: h.locationId }))); }
+      if (roostersRes && roostersRes.ok) { const d = await roostersRes.json(); setRoosters(d.map((r: any) => ({ id: r.id, code: r.code, locationId: r.locationId }))); }
+      if (batchesRes && batchesRes.ok) {
+        const d = await batchesRes.json();
+        setBatches(d.filter((b: any) => (b.status === "activo" || b.status === "listo_sacrificio") && b.currentQuantity > 0)
+          .map((b: any) => ({ id: b.id, code: b.code, species: b.species, locationId: b.locationId })));
+      }
+    } catch {
+      // Si falla la red, mantenemos los datos cargados desde IndexedDB
+    } finally {
+      setLoading(false);
     }
-    if (lossRes.ok) {
-      const data = await lossRes.json();
-      setLosses(data.losses);
-      setLossStats({ totalLost: data.totalLost, byReason: data.byReason });
-    }
-    if (hensRes.ok) { const d = await hensRes.json(); setHens(d.map((h: any) => ({ id: h.id, code: h.code, locationId: h.locationId }))); }
-    if (roostersRes.ok) { const d = await roostersRes.json(); setRoosters(d.map((r: any) => ({ id: r.id, code: r.code, locationId: r.locationId }))); }
-    if (batchesRes.ok) {
-      const d = await batchesRes.json();
-      setBatches(d.filter((b: any) => (b.status === "activo" || b.status === "listo_sacrificio") && b.currentQuantity > 0)
-        .map((b: any) => ({ id: b.id, code: b.code, species: b.species, locationId: b.locationId })));
-    }
-    setLoading(false);
   }, []);
 
   useEffect(() => { void Promise.resolve().then(load); }, [load]);
+
+  // Escuchar eventos de sincronización para actualizar registros
+  useEffect(() => {
+    const handler = () => { void load(); };
+    window.addEventListener("gallinero-sync-status", handler);
+    return () => window.removeEventListener("gallinero-sync-status", handler);
+  }, [load]);
+
   useActionQuery(searchParams.get("nuevo"), {
     perdida: () => { setLossForm(emptyLoss); setLossError(""); setLossModalOpen(true); },
     "1": () => { setForm(emptyForm); setError(""); setEditingId(null); setModalOpen(true); },
@@ -128,13 +152,52 @@ export default function MortalidadPage() {
     if (BATCH_TYPES.includes(form.birdType) && !form.batchId) return setError("Seleccione un lote");
 
     const method = editingId ? "PUT" : "POST";
-    const body = editingId ? JSON.stringify({ ...payload, id: editingId }) : JSON.stringify(payload);
-    const res = await apiFetch("/api/produccion/mortalidad", { method, headers: { "Content-Type": "application/json" }, body });
-    if (!res.ok) { const e = await res.json(); return setError(e.error || "Error"); }
+    const mutationPayload = editingId ? { ...payload, id: editingId } : payload;
+
+    const result = await syncManager.executeMutation({
+      endpoint: "/api/produccion/mortalidad",
+      method,
+      entity: "mortalidad",
+      description: `Baja de ${payload.quantity || 1} ${payload.birdType} (${payload.cause})`,
+      payload: mutationPayload,
+    });
+
+    if (result.offline) {
+      setModalOpen(false);
+      setForm(emptyForm);
+      setEditingId(null);
+
+      const optimisticRecord: MortalityRecord = {
+        id: result.mutationId,
+        date: payload.date,
+        birdType: payload.birdType,
+        species: payload.birdType === "gallina" || payload.birdType === "gallo" ? "gallina" : "pollo",
+        quantity: payload.quantity || 1,
+        cause: payload.cause,
+        henId: payload.henId || null,
+        roosterId: payload.roosterId || null,
+        batchId: payload.batchId || null,
+        locationId: payload.locationId || null,
+        locationName: locations.find((l) => l.id === payload.locationId)?.name || null,
+        healthControlId: null,
+        henCode: hens.find((h) => h.id === payload.henId)?.code || null,
+        roosterCode: roosters.find((r) => r.id === payload.roosterId)?.code || null,
+        batchCode: batches.find((b) => b.id === payload.batchId)?.code || null,
+        description: payload.description ? `${payload.description} (Guardado en móvil)` : "Guardado en móvil",
+      };
+
+      setRecords((prev) => [optimisticRecord, ...prev.filter((r) => r.id !== optimisticRecord.id)]);
+      return;
+    }
+
+    if (!result.ok) {
+      return setError(result.error || "Error al registrar la mortalidad");
+    }
+
     setModalOpen(false);
     setForm(emptyForm);
     setEditingId(null);
-    load();
+    void load();
   };
 
   const saveLoss = async () => {

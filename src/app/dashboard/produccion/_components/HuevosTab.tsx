@@ -13,6 +13,8 @@ import { SPECIES_ICON, SPECIES_LABEL } from "@/lib/species-params";
 import { useSpeciesCatalog } from "@/lib/use-species-params";
 import { useFarmLocations } from "@/lib/useFarmLocations";
 import { useActionQuery } from "@/lib/useActionQuery";
+import { syncManager } from "@/lib/offline/syncManager";
+import { getCachedRecords, setCachedRecords } from "@/lib/offline/db";
 
 interface EggDetail {
   size: string;
@@ -119,13 +121,25 @@ export default function HuevosPage() {
   const { items: sizeOptions } = useCatalog("tamano_huevo");
 
   const load = useCallback(() => {
+    // 1. Cargar primero de caché local para respuesta offline inmediata
+    void getCachedRecords<EggRecord[]>("produccion_huevos").then((cached) => {
+      if (cached && Array.isArray(cached) && cached.length > 0) {
+        setRecords(cached);
+        setLoading(false);
+      }
+    });
+
+    // 2. Refrescar de la red
     Promise.all([
       apiFetch("/api/produccion/huevos").then((r) => r.json()),
-      apiFetch("/api/produccion/etapas/resumen").then((r) => r.json()),
-      apiFetch("/api/produccion/pollos").then((r) => r.json()),
+      apiFetch("/api/produccion/etapas/resumen").then((r) => r.json()).catch(() => ({})),
+      apiFetch("/api/produccion/pollos").then((r) => r.json()).catch(() => []),
     ]).then(([eggs, resumen, lotes]) => {
-      setRecords(Array.isArray(eggs) ? eggs : []);
-      const productiveStages = (Array.isArray(resumen.stages) ? resumen.stages : [])
+      if (Array.isArray(eggs)) {
+        setRecords(eggs);
+        void setCachedRecords("produccion_huevos", eggs);
+      }
+      const productiveStages = (Array.isArray(resumen?.stages) ? resumen.stages : [])
         .filter((stage: any) => Number(stage.expectedEggsPerHen) > 0 && Number(stage.layingHenCount) > 0)
         .map((stage: any) => ({
           name: stage.stageName,
@@ -133,7 +147,7 @@ export default function HuevosPage() {
           expectedEggsPerDay: Number(stage.expectedEggs || 0),
         }));
       setStageData(productiveStages);
-      setTotalExpected(resumen.totalExpectedEggsPerDay || 0);
+      setTotalExpected(resumen?.totalExpectedEggsPerDay || 0);
       const lotesList = Array.isArray(lotes) ? lotes : [];
       setBatches(lotesList.filter((b: BroilerBatch) =>
         ["codorniz", "pato"].includes(b.species)
@@ -141,10 +155,19 @@ export default function HuevosPage() {
         && b.currentQuantity > 0
         && ["activo", "listo_sacrificio"].includes(b.status),
       ));
+    }).catch(() => {
+      // Si falla la red, los datos en caché ya están cargados
     }).finally(() => setLoading(false));
   }, []);
 
   useEffect(() => { load(); }, [load]);
+
+  // Escuchar eventos de sincronización para actualizar la lista
+  useEffect(() => {
+    const handler = () => { load(); };
+    window.addEventListener("gallinero-sync-status", handler);
+    return () => window.removeEventListener("gallinero-sync-status", handler);
+  }, [load]);
 
   const sizesTotal = sizeOptions.reduce((s, o) => s + (form.sizes[o.value] || 0), 0);
   const quickGoodTotal = Math.max(0, quickTotal - form.broken - form.forIncubation);
@@ -361,21 +384,45 @@ export default function HuevosPage() {
       overrideValidation,
     };
 
-    const res = await apiFetch("/api/produccion/huevos", {
+    const mutationResult = await syncManager.executeMutation<any>({
+      endpoint: "/api/produccion/huevos",
       method,
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(payload),
+      entity: "huevos",
+      description: `Recolección de ${totalToSave} huevos (${form.species})`,
+      payload: {
+        ...payload,
+        details: sizesToSave,
+      },
     });
 
-    if (res.status === 409) {
-      const data = await res.json().catch(() => ({}));
-      setOverLimitMsg(data.error || "Producción inusualmente alta");
-      setConfirmOverLimit(true);
+    if (mutationResult.offline) {
+      setModalOpen(false);
+      setConfirmOverLimit(false);
+      setOverLimitMsg("");
+
+      const optimisticRecord: EggRecord = {
+        id: mutationResult.mutationId,
+        date: payload.date,
+        species: payload.species,
+        batchId: payload.batchId,
+        locationId: payload.locationId,
+        locationName: locations.find((l: any) => l.id === payload.locationId)?.name || null,
+        totalCollected: totalToSave,
+        broken: payload.broken,
+        forIncubation: payload.forIncubation,
+        quantityAutoconsumo: payload.quantityAutoconsumo,
+        quantityExcedente: payload.quantityExcedente,
+        referenceUnitPrice: payload.referenceUnitPrice,
+        notes: payload.notes ? `${payload.notes} (Guardado en móvil)` : "Guardado en móvil",
+        details: sizesToSave,
+      };
+
+      setRecords((prev) => [optimisticRecord, ...prev.filter((r) => r.id !== optimisticRecord.id)]);
       return;
     }
-    if (!res.ok) {
-      const data = await res.json().catch(() => ({}));
-      setError(data.error || "Error al guardar el registro");
+
+    if (!mutationResult.ok) {
+      setError(mutationResult.error || "Error al guardar el registro");
       return;
     }
 

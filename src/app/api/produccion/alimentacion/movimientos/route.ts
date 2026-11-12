@@ -42,6 +42,15 @@ export const GET = withApiHandler(async () => {
 export const POST = withApiHandler(async (req: NextRequest) => {
   const body = await safeParseJson(req);
   if (!body || typeof body !== "object") return NextResponse.json({ error: "Cuerpo inválido" }, { status: 400 });
+
+  // Idempotencia para registros offline: si ya existe el ID, retornar el registro existente
+  if (body.id) {
+    const [existing] = await db.select().from(feedMovements).where(eq(feedMovements.id, body.id));
+    if (existing) {
+      return NextResponse.json(existing);
+    }
+  }
+
   const qty = Number(body.quantity);
 
   if (!Number.isFinite(qty) || qty <= 0) {
@@ -80,6 +89,7 @@ export const POST = withApiHandler(async (req: NextRequest) => {
     }
 
     const [inserted] = await tx.insert(feedMovements).values({
+      id: body.id || undefined,
       feedId: body.feedId,
       quantity: body.quantity,
       isEntry: body.isEntry,
