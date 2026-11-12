@@ -1,4 +1,6 @@
 import Link from "next/link";
+import { BookOpen, Rocket } from "lucide-react";
+import { AppIcon } from "@/components/AppIcon";
 import { guideModules, guides } from "@/lib/guide-data";
 
 export default function GuiaIndexPage() {
@@ -7,7 +9,7 @@ export default function GuiaIndexPage() {
       {/* Header */}
       <div className="mb-8">
         <h1 className="text-3xl font-bold text-slate-800 flex items-center gap-3">
-          <span className="text-4xl">📖</span>
+          <BookOpen className="w-8 h-8 text-green-700 shrink-0" aria-hidden="true" />
           Guía de Usuario
         </h1>
         <p className="text-slate-500 mt-2 text-lg">
@@ -18,7 +20,7 @@ export default function GuiaIndexPage() {
       {/* Quick start banner */}
       <div className="mb-8 p-5 bg-gradient-to-r from-green-50 to-emerald-50 border border-green-200 rounded-xl">
         <div className="flex items-start gap-3">
-          <span className="text-2xl">🚀</span>
+          <Rocket className="w-6 h-6 text-green-700 shrink-0 mt-0.5" aria-hidden="true" />
           <div>
             <h2 className="font-semibold text-green-800 text-lg">¿Nuevo en El Gallinero?</h2>
             <p className="text-green-700 text-sm mt-1">
@@ -46,7 +48,7 @@ export default function GuiaIndexPage() {
               {/* Module header */}
               <div className="px-5 py-4 bg-slate-50 border-b border-slate-200">
                 <h3 className="font-bold text-slate-800 flex items-center gap-2">
-                  <span className="text-xl">{mod.icon}</span>
+                  <AppIcon icon={mod.icon} className="w-5 h-5 text-slate-700 shrink-0" />
                   {mod.label}
                 </h3>
                 <p className="text-xs text-slate-500 mt-1">{mod.description}</p>
@@ -60,7 +62,7 @@ export default function GuiaIndexPage() {
                     href={`/dashboard/guia/${guide.slug}`}
                     className="flex items-center gap-3 px-5 py-3 hover:bg-slate-50 transition-colors group"
                   >
-                    <span className="text-lg flex-shrink-0">{guide.icon}</span>
+                    <AppIcon icon={guide.icon} className="w-4 h-4 text-slate-500 group-hover:text-green-600 flex-shrink-0" />
                     <div className="flex-1 min-w-0">
                       <p className="text-sm font-medium text-slate-700 group-hover:text-green-700 transition-colors truncate">
                         {guide.title}

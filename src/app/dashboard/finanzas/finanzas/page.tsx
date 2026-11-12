@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState, useCallback, useMemo } from "react";
+import { ArrowDownLeft, ArrowUpRight, BarChart3, Calculator, CalendarDays, ClipboardList, Package, Target, TrendingDown, TrendingUp, Trophy } from "lucide-react";
 import { PageHeader, Button, Card, Table, Badge, Modal, Input, Select, Textarea, EmptyState, StatCard } from "@/components/ui";
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip, Legend, AreaChart, Area, XAxis, YAxis, CartesianGrid } from "recharts";
 import { apiFetch } from "@/lib/fetch";
@@ -244,7 +245,7 @@ export default function FinanzasPage() {
   return (
     <div>
       <PageHeader
-        title="📈 Panel Financiero"
+        title="Panel Financiero"
         description="Comportamiento de ingresos y egresos a través del tiempo y KPIs del negocio"
         help="Vista completa de las finanzas del gallinero.\n\n• KPIs: ingresos, egresos, ganancia, margen de rentabilidad.\n• Gráficos: evolución de ingresos vs egresos, distribución por categoría.\n• Puedes filtrar por período (7, 14, 30, 60, 90 días).\n• Los datos se generan automáticamente desde las ventas y egresos registrados.\n• Incluye proyección mensual basada en el rendimiento actual."
         actions={
@@ -266,18 +267,18 @@ export default function FinanzasPage() {
         <>
           {/* KPI cards */}
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 mb-6">
-            <StatCard icon="📥" label="Ingresos" value={fmt(k.totalIncome)} color="green" />
-            <StatCard icon="📤" label="Egresos" value={fmt(k.totalExpense)} color="red" />
-            <StatCard icon={positive ? "📈" : "📉"} label="Utilidad Neta" value={fmt(k.profit)} color={positive ? "blue" : "red"} />
-            <StatCard icon="📅" label="Ingreso Prom. Diario (caja)" value={fmt(cash.avgDailyIncome)} color="yellow" />
-            <StatCard icon="💸" label="Egreso Prom. Diario (caja)" value={fmt(cash.avgDailyExpense)} color="purple" />
-            <StatCard icon="💧" label="Flujo Neto Diario" value={fmt(cash.avgDailyNet)} color={cash.avgDailyNet >= 0 ? "earth" : "red"} />
+            <StatCard icon="incoming" label="Ingresos" value={fmt(k.totalIncome)} color="green" />
+            <StatCard icon="outgoing" label="Egresos" value={fmt(k.totalExpense)} color="red" />
+            <StatCard icon={positive ? "trend-up" : "trend-down"} label="Utilidad Neta" value={fmt(k.profit)} color={positive ? "blue" : "red"} />
+            <StatCard icon="calendar" label="Ingreso Prom. Diario (caja)" value={fmt(cash.avgDailyIncome)} color="yellow" />
+            <StatCard icon="expense" label="Egreso Prom. Diario (caja)" value={fmt(cash.avgDailyExpense)} color="purple" />
+            <StatCard icon="droplets" label="Flujo Neto Diario" value={fmt(cash.avgDailyNet)} color={cash.avgDailyNet >= 0 ? "earth" : "red"} />
           </div>
 
           {/* Insights */}
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
             <Card className="!p-4 flex flex-col justify-between">
-              <p className="text-sm text-slate-500">🥇 Mejor día</p>
+              <p className="text-sm text-slate-500 flex items-center gap-1.5"><Trophy className="w-4 h-4 text-amber-500" aria-hidden="true" />Mejor día</p>
               {cash.bestDay ? (
                 <>
                   <p className="text-lg font-bold text-green-600">{dateFmt(cash.bestDay.date)}</p>
@@ -288,7 +289,7 @@ export default function FinanzasPage() {
               )}
             </Card>
             <Card className="!p-4 flex flex-col justify-between">
-              <p className="text-sm text-slate-500">🥉 Peor día</p>
+              <p className="text-sm text-slate-500 flex items-center gap-1.5"><TrendingDown className="w-4 h-4 text-red-500" aria-hidden="true" />Peor día</p>
               {cash.worstDay ? (
                 <>
                   <p className="text-lg font-bold text-red-600">{dateFmt(cash.worstDay.date)}</p>
@@ -299,12 +300,12 @@ export default function FinanzasPage() {
               )}
             </Card>
             <Card className="!p-4 flex flex-col justify-between">
-              <p className="text-sm text-slate-500">🎯 Margen de utilidad</p>
+              <p className="text-sm text-slate-500 flex items-center gap-1.5"><Target className="w-4 h-4 text-emerald-600" aria-hidden="true" />Margen de utilidad</p>
               <p className={`text-2xl font-bold ${positive ? "text-green-600" : "text-red-600"}`}>{marginPct}</p>
               <p className="text-sm text-slate-500">Cada $1 ingresa → {ratioPct} se gastan</p>
             </Card>
             <Card className="!p-4 flex flex-col justify-between">
-              <p className="text-sm text-slate-500">📆 Proyección mensual</p>
+              <p className="text-sm text-slate-500 flex items-center gap-1.5"><CalendarDays className="w-4 h-4 text-blue-600" aria-hidden="true" />Proyección mensual</p>
               <p className={`text-2xl font-bold ${cash.projectedMonthly >= 0 ? "text-blue-600" : "text-red-600"}`}>{fmt(cash.projectedMonthly)}</p>
               <p className="text-sm text-slate-500">Proyección basada en movimientos de caja reales</p>
             </Card>
@@ -314,7 +315,7 @@ export default function FinanzasPage() {
           {data.cashflow.series.length > 0 && (
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
               <Card>
-                <h3 className="font-semibold text-slate-700 mb-4">📈 Flujo de caja en el período</h3>
+                <h3 className="font-semibold text-slate-700 mb-4 flex items-center gap-2"><TrendingUp className="w-4 h-4 text-emerald-600" aria-hidden="true" />Flujo de caja en el período</h3>
                 <ResponsiveContainer width="100%" height={280}>
                   <AreaChart data={data.cashflow.series}>
                     <defs>
@@ -338,7 +339,7 @@ export default function FinanzasPage() {
                 </ResponsiveContainer>
               </Card>
               <Card>
-                <h3 className="font-semibold text-slate-700 mb-4">📊 Flujo neto acumulado</h3>
+                <h3 className="font-semibold text-slate-700 mb-4 flex items-center gap-2"><BarChart3 className="w-4 h-4 text-slate-500" aria-hidden="true" />Flujo neto acumulado</h3>
                 <ResponsiveContainer width="100%" height={280}>
                   <AreaChart data={data.cashflow.series}>
                     <defs>
@@ -360,7 +361,7 @@ export default function FinanzasPage() {
           {/* Pie charts */}
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
             <Card>
-              <h3 className="font-semibold text-slate-700 mb-4">📊 Distribución de Egresos</h3>
+              <h3 className="font-semibold text-slate-700 mb-4 flex items-center gap-2"><BarChart3 className="w-4 h-4 text-slate-500" aria-hidden="true" />Distribución de Egresos</h3>
               {expensePie.length > 0 ? (
                 <ResponsiveContainer width="100%" height={280}>
                   <PieChart>
@@ -378,7 +379,7 @@ export default function FinanzasPage() {
             </Card>
 
             <Card>
-              <h3 className="font-semibold text-slate-700 mb-4">📊 Distribución de Ingresos</h3>
+              <h3 className="font-semibold text-slate-700 mb-4 flex items-center gap-2"><BarChart3 className="w-4 h-4 text-slate-500" aria-hidden="true" />Distribución de Ingresos</h3>
               {incomePie.length > 0 ? (
                 <ResponsiveContainer width="100%" height={280}>
                   <PieChart>
@@ -399,7 +400,7 @@ export default function FinanzasPage() {
           {/* Category breakdown */}
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
             <Card>
-              <h3 className="font-semibold text-green-700 mb-3">📥 Desglose de Ingresos</h3>
+              <h3 className="font-semibold text-green-700 mb-3 flex items-center gap-2"><ArrowDownLeft className="w-4 h-4" aria-hidden="true" />Desglose de Ingresos</h3>
               {data.byCategory.filter((c) => c.type === "ingreso").length === 0 ? (
                 <p className="text-sm text-slate-400 py-4 text-center">Sin ingresos registrados</p>
               ) : (
@@ -414,7 +415,7 @@ export default function FinanzasPage() {
               )}
             </Card>
             <Card>
-              <h3 className="font-semibold text-red-700 mb-3">📤 Desglose de Egresos</h3>
+              <h3 className="font-semibold text-red-700 mb-3 flex items-center gap-2"><ArrowUpRight className="w-4 h-4" aria-hidden="true" />Desglose de Egresos</h3>
               {data.byCategory.filter((c) => c.type === "egreso").length === 0 ? (
                 <p className="text-sm text-slate-400 py-4 text-center">Sin egresos registrados</p>
               ) : (
@@ -434,7 +435,7 @@ export default function FinanzasPage() {
 
       {/* Transactions Table */}
       <Card>
-        <h3 className="font-semibold text-slate-700 mb-4">📋 Historial de Transacciones</h3>
+        <h3 className="font-semibold text-slate-700 mb-4 flex items-center gap-2"><ClipboardList className="w-4 h-4 text-slate-500" aria-hidden="true" />Historial de Transacciones</h3>
         <TableSearch
           value={search}
           onChange={setSearch}
@@ -447,7 +448,7 @@ export default function FinanzasPage() {
           <p className="text-center py-8 text-slate-400">Cargando...</p>
         ) : filteredTransactions.length === 0 ? (
           <EmptyState
-            icon="📈"
+            icon="trend-up"
             message={
               search.trim()
                 ? "No hay transacciones que coincidan con la búsqueda"
@@ -461,7 +462,13 @@ export default function FinanzasPage() {
                 <td className="px-4 py-3">{new Date(t.date + "T12:00:00").toLocaleDateString("es")}</td>
                 <td className="px-4 py-3">
                   <Badge color={t.type === "ingreso" ? "green" : "red"}>
-                    {t.type === "ingreso" ? "📥 Ingreso" : "📤 Egreso"}
+                    <span className="inline-flex items-center gap-1">
+                      {t.type === "ingreso" ? (
+                        <><ArrowDownLeft className="w-3.5 h-3.5" aria-hidden="true" /> Ingreso</>
+                      ) : (
+                        <><ArrowUpRight className="w-3.5 h-3.5" aria-hidden="true" /> Egreso</>
+                      )}
+                    </span>
                   </Badge>
                 </td>
                 <td className="px-4 py-3 text-sm font-medium">{t.category}</td>
@@ -506,13 +513,13 @@ export default function FinanzasPage() {
         )}
       </Card>
 
-      <Modal open={modalOpen} onClose={() => setModalOpen(false)} title={editing ? "✏️ Editar Transacción" : "💰 Nueva Transacción"}>
+      <Modal open={modalOpen} onClose={() => setModalOpen(false)} title={editing ? "Editar Transacción" : "Nueva Transacción"}>
         <div className="space-y-4">
           {error && <p className="text-sm text-red-600 bg-red-50 p-3 rounded-lg">{error}</p>}
           <Input label="Fecha" type="date" value={form.date} onChange={(e) => setForm({ ...form, date: e.target.value })} />
           <Select label="Tipo" value={form.type} onChange={onTypeChange}>
-            <option value="ingreso">📥 Ingreso</option>
-            <option value="egreso">📤 Egreso</option>
+            <option value="ingreso">Ingreso</option>
+            <option value="egreso">Egreso</option>
           </Select>
           <Select label="Categoría" value={form.category} onChange={onCategoryChange}>
             {(form.type === "ingreso" ? incomeCats : expenseCats).map((c) => (
@@ -543,8 +550,8 @@ export default function FinanzasPage() {
           </div>
           {computedTotal ? (
             <div className="p-3 bg-green-50 rounded-lg text-sm text-green-700">
-              <p>🧮 Total calculado: <strong className="text-xl">${Number(computedTotal).toLocaleString()}</strong> ({form.quantity} × ${Number(form.unitPrice).toLocaleString()})</p>
-              {measuredTotal !== null && <p className="mt-1">📦 Total medido: <strong>{measuredTotal} {form.unit}</strong> ({form.quantity} × {form.presentation} {form.unit})</p>}
+              <p className="flex items-center gap-1.5"><Calculator className="w-4 h-4 shrink-0" aria-hidden="true" /> <span>Total calculado: <strong className="text-xl">${Number(computedTotal).toLocaleString()}</strong> ({form.quantity} × ${Number(form.unitPrice).toLocaleString()})</span></p>
+              {measuredTotal !== null && <p className="mt-1 flex items-center gap-1.5"><Package className="w-4 h-4 shrink-0" aria-hidden="true" /> <span>Total medido: <strong>{measuredTotal} {form.unit}</strong> ({form.quantity} × {form.presentation} {form.unit})</span></p>}
             </div>
           ) : (
             <Input label="Monto Total ($)" type="number" step="0.01" value={form.amount} onChange={(e) => setForm({ ...form, amount: e.target.value })} placeholder="Usado cuando no hay cantidad/valor unitario" />

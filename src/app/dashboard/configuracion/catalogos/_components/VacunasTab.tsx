@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
+import { Syringe } from "lucide-react";
 import { Badge, Button, Card, EmptyState, Input, Modal, Select, Table, Textarea } from "@/components/ui";
 import { apiFetch } from "@/lib/fetch";
 
@@ -128,7 +129,10 @@ export default function VacunasTab() {
       <Card>
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
           <div>
-            <h3 className="font-semibold text-slate-700">💉 Planes de vacunación</h3>
+            <h3 className="font-semibold text-slate-700 flex items-center gap-2">
+              <Syringe className="w-4 h-4 text-blue-600" aria-hidden="true" />
+              Planes de vacunación
+            </h3>
             <p className="text-xs text-slate-500 mt-1">
               Plantillas por especie, raza y semana. El botón “Plan sanitario automático” usa estas plantillas
               para crear los eventos del calendario.
@@ -147,7 +151,7 @@ export default function VacunasTab() {
         {loading ? (
           <p className="text-center py-8 text-slate-400">Cargando...</p>
         ) : items.length === 0 ? (
-          <EmptyState icon="💉" message="No hay plantillas de vacunación. Usa “Cargar referencias” o agrega una." />
+          <EmptyState icon="vaccine" message="No hay plantillas de vacunación. Usa “Cargar referencias” o agrega una." />
         ) : (
           <Table headers={["Especie", "Raza", "Semana", "Evento", "Descripción", "Frecuencia", "Estado", ""]}>
             {items.map((item) => (
@@ -171,7 +175,7 @@ export default function VacunasTab() {
         )}
       </Card>
 
-      <Modal open={modalOpen} onClose={() => setModalOpen(false)} title={editing ? "✏️ Editar evento" : "➕ Agregar evento de vacunación"}>
+      <Modal open={modalOpen} onClose={() => setModalOpen(false)} title={editing ? "Editar evento" : "Agregar evento de vacunación"}>
         <div className="space-y-3">
           {error && <p className="text-sm text-red-600 bg-red-50 p-3 rounded-lg">{error}</p>}
           <div className="grid grid-cols-2 gap-3">

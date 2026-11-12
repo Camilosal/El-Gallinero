@@ -2,7 +2,9 @@
 
 import Link from "next/link";
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { CalendarDays, Target, TrendingUp } from "lucide-react";
 import { PageHeader, Button, Card, Badge, Modal, Input, Textarea, EmptyState } from "@/components/ui";
+import { AppIcon } from "@/components/AppIcon";
 import {
   Area,
   Bar,
@@ -114,9 +116,9 @@ interface PlanForm {
 }
 
 const ALERT_STYLES: Record<PlanAlert["level"], { box: string; title: string; icon: string }> = {
-  success: { box: "border-green-200 bg-green-50", title: "text-green-800", icon: "✅" },
-  warning: { box: "border-amber-200 bg-amber-50", title: "text-amber-800", icon: "⚠️" },
-  info: { box: "border-blue-200 bg-blue-50", title: "text-blue-800", icon: "ℹ️" },
+  success: { box: "border-green-200 bg-green-50", title: "text-green-800", icon: "check-circle" },
+  warning: { box: "border-amber-200 bg-amber-50", title: "text-amber-800", icon: "warning" },
+  info: { box: "border-blue-200 bg-blue-50", title: "text-blue-800", icon: "info" },
 };
 
 function fmtDate(value: string | null | undefined): string {
@@ -177,8 +179,9 @@ function MetricCard({
   };
   return (
     <div className={`rounded-xl border p-4 ${tones[tone]}`}>
-      <p className="text-xs font-medium opacity-80">
-        {icon} {label}
+      <p className="text-xs font-medium opacity-80 flex items-center gap-1.5">
+        <AppIcon icon={icon} className="w-3.5 h-3.5 shrink-0" />
+        <span>{label}</span>
       </p>
       <p className="mt-1 text-2xl font-bold">{value}</p>
       {hint && <p className="mt-1 text-[11px] opacity-70">{hint}</p>}
@@ -360,7 +363,7 @@ export default function PlanParvadaPage() {
   return (
     <div className="space-y-6">
       <PageHeader
-        title="🐣 Plan de Parvada"
+        title="Plan de Parvada"
         description="Diagnóstico y proyección real de la postura, el alimento y el reemplazo"
         help="El plan compara la parvada real con una curva de postura calculada a partir de la edad de cada gallina y los estándares de Catálogos. Muestra las 4 semanas anteriores, la semana actual y las 12 próximas, con huevos esperados vs reales, gallinas en ciclo, alimento estimado y recomendaciones. Crea un plan para fijar la meta de gallinas/gallos y la fecha de reemplazo; la proyección se actualiza sola con los datos reales."
         actions={<Button onClick={openNew}>+ Nuevo Plan</Button>}
@@ -376,49 +379,49 @@ export default function PlanParvadaPage() {
         </Card>
       ) : pageError ? (
         <Card>
-          <EmptyState icon="⚠️" message={pageError} />
+          <EmptyState icon="warning" message={pageError} />
           <div className="mt-4 flex justify-center">
             <Button onClick={load}>Reintentar</Button>
           </div>
         </Card>
       ) : !data || !live ? (
         <Card>
-          <EmptyState icon="🐣" message="No hay datos disponibles para calcular el plan" />
+          <EmptyState icon="incubator" message="No hay datos disponibles para calcular el plan" />
         </Card>
       ) : (
         <>
           {/* Diagnóstico actual */}
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-5">
             <MetricCard
-              icon="🐾"
+              icon="paw"
               label="Animales en inventario"
               value={live.animalsTotal}
               hint={`${live.hens.total} gallinas · ${live.roosters.active} gallos · ${live.batches.quantity} en lotes`}
               tone="green"
             />
             <MetricCard
-              icon="🐔"
+              icon="hen"
               label="Gallinas en postura"
               value={live.hens.laying}
               hint={`${live.hens.inCycle} en ciclo productivo`}
               tone="amber"
             />
             <MetricCard
-              icon="🥚"
+              icon="egg"
               label="Huevos últimos 7 días"
               value={live.eggs.last7}
               hint={`${live.eggs.avgDaily} por día en promedio`}
               tone="blue"
             />
             <MetricCard
-              icon="📊"
+              icon="bar-chart"
               label="Cumplimiento 7 días"
               value={`${live.eggs.compliancePct}%`}
               hint={`Esperado: ${live.eggs.expectedPerWeek} huevos/semana`}
               tone={live.eggs.compliancePct >= 90 ? "green" : "amber"}
             />
             <MetricCard
-              icon="🌾"
+              icon="wheat"
               label="Alimento estimado"
               value={`${live.feed.weeklyKg} kg`}
               hint={`${live.feed.dailyKg} kg/día para la parvada en ciclo`}
@@ -430,7 +433,10 @@ export default function PlanParvadaPage() {
           {alerts.length > 0 && (
             <Card>
               <div className="mb-3 flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between sm:gap-2">
-                <h3 className="font-semibold text-slate-700">🎯 Qué requiere tu atención</h3>
+                <h3 className="font-semibold text-slate-700 flex items-center gap-2">
+                  <Target className="w-4 h-4 text-slate-600" aria-hidden="true" />
+                  <span>Qué requiere tu atención</span>
+                </h3>
                 <span className="text-xs text-slate-400">
                   Fase actual: <strong className="text-slate-600">{live.hens.phase}</strong> · Edad promedio{" "}
                   {live.hens.avgAgeWeeks} sem
@@ -441,8 +447,9 @@ export default function PlanParvadaPage() {
                   const style = ALERT_STYLES[alert.level];
                   return (
                     <div key={`${alert.level}-${alert.title}`} className={`rounded-xl border p-3 ${style.box}`}>
-                      <p className={`text-sm font-semibold ${style.title}`}>
-                        {style.icon} {alert.title}
+                      <p className={`text-sm font-semibold flex items-center gap-1.5 ${style.title}`}>
+                        <AppIcon icon={style.icon} className="w-4 h-4 shrink-0" />
+                        <span>{alert.title}</span>
                       </p>
                       <p className="mt-1 text-xs text-slate-600">{alert.detail}</p>
                       {alert.action && (
@@ -506,7 +513,7 @@ export default function PlanParvadaPage() {
 
               <div className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
                 <MetricCard
-                  icon="🐔"
+                  icon="hen"
                   label="Gallinas meta"
                   value={selectedPlan.targetHenCount}
                   hint={
@@ -521,21 +528,21 @@ export default function PlanParvadaPage() {
                   tone={selectedPlan.summary.gapHens === 0 ? "green" : "amber"}
                 />
                 <MetricCard
-                  icon="🐓"
+                  icon="rooster"
                   label="Gallos meta"
                   value={selectedPlan.targetRoosterCount ?? "—"}
                   hint={`${live.roosters.active} activos · ${live.roosters.required} requeridos`}
                   tone={live.roosters.deficit === 0 && live.roosters.surplus === 0 ? "green" : "amber"}
                 />
                 <MetricCard
-                  icon="📅"
+                  icon="calendar"
                   label="Avance del plan"
                   value={`${selectedPlan.summary.progressPct}%`}
                   hint={`${replacementLabel} para el reemplazo`}
                   tone="blue"
                 />
                 <MetricCard
-                  icon="🔄"
+                  icon="refresh"
                   label="Reemplazo natural"
                   value={live.replacement.dueNow > 0 ? `${live.replacement.dueNow} ahora` : "Al día"}
                   hint={
@@ -578,7 +585,10 @@ export default function PlanParvadaPage() {
           {/* Proyección */}
           <Card>
             <div className="mb-1 flex flex-wrap items-center justify-between gap-2">
-              <h3 className="font-semibold text-slate-700">📈 Proyección: esperado vs real</h3>
+              <h3 className="font-semibold text-slate-700 flex items-center gap-2">
+                <TrendingUp className="w-4 h-4 text-slate-600" aria-hidden="true" />
+                <span>Proyección: esperado vs real</span>
+              </h3>
               <span className="text-xs text-slate-400">
                 Calculada con la edad real de cada gallina y los estándares de Catálogos
               </span>
@@ -615,7 +625,10 @@ export default function PlanParvadaPage() {
           <Card>
             <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
               <div>
-                <h3 className="font-semibold text-slate-700">📅 Semanas clave</h3>
+                <h3 className="font-semibold text-slate-700 flex items-center gap-2">
+                  <CalendarDays className="w-4 h-4 text-slate-600" aria-hidden="true" />
+                  <span>Semanas clave</span>
+                </h3>
                 <p className="text-xs text-slate-400">
                   La semana actual se muestra en curso; las futuras son proyección.
                 </p>
@@ -685,7 +698,10 @@ export default function PlanParvadaPage() {
 
           {/* Detalle de la parvada */}
           <Card>
-            <h3 className="mb-3 font-semibold text-slate-700">🐔 Composición de la parvada</h3>
+            <h3 className="mb-3 font-semibold text-slate-700 flex items-center gap-2">
+              <AppIcon icon="hen" className="w-4 h-4 text-slate-600" />
+              <span>Composición de la parvada</span>
+            </h3>
             <div className="grid grid-cols-2 gap-2 text-sm sm:grid-cols-4 lg:grid-cols-6">
               <div className="rounded-lg bg-green-50 p-3">
                 <p className="text-xs text-slate-500">En inventario</p>
@@ -729,7 +745,7 @@ export default function PlanParvadaPage() {
       <Modal
         open={modalOpen}
         onClose={() => setModalOpen(false)}
-        title={editingId ? "✏️ Editar plan de parvada" : "🐣 Nuevo plan de parvada"}
+        title={editingId ? "Editar plan de parvada" : "Nuevo plan de parvada"}
       >
         <div className="space-y-4">
           {formError && <p className="rounded-lg bg-red-50 p-3 text-sm text-red-600">{formError}</p>}

@@ -2,6 +2,8 @@
 
 import Link from "next/link";
 import { useEffect, useMemo, useRef, useState } from "react";
+import { ArrowRight, Plus, Search, X } from "lucide-react";
+import { AppIcon } from "@/components/AppIcon";
 import { matchesTextQuery } from "@/lib/text";
 import { CREATE_ACTION_GROUPS } from "@/lib/create-actions";
 
@@ -78,7 +80,7 @@ export default function QuickCreateMenu() {
         aria-expanded={open}
         className="inline-flex items-center gap-1.5 sm:gap-2 rounded-lg bg-green-700 px-3 sm:px-4 py-1.5 sm:py-2 text-xs sm:text-sm font-semibold text-white shadow-xs transition-colors hover:bg-green-800 shrink-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-green-500 focus-visible:ring-offset-2"
       >
-        <span aria-hidden="true" className="text-base sm:text-lg leading-none">＋</span>
+        <Plus className="w-4 h-4 shrink-0" strokeWidth={2.5} aria-hidden="true" />
         <span>Crear</span>
       </button>
 
@@ -105,16 +107,16 @@ export default function QuickCreateMenu() {
                 type="button"
                 onClick={close}
                 aria-label="Cerrar menú de creación"
-                className="rounded-lg px-2 py-1 text-2xl leading-none text-slate-400 transition-colors hover:bg-slate-100 hover:text-slate-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-green-500"
+                className="rounded-lg p-1.5 text-slate-400 transition-colors hover:bg-slate-100 hover:text-slate-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-green-500"
               >
-                ×
+                <X className="w-5 h-5" />
               </button>
             </div>
 
             <div className="border-b border-slate-200 px-5 py-4 sm:px-6">
               <label htmlFor="quick-create-search" className="sr-only">Buscar qué crear</label>
               <div className="relative">
-                <span aria-hidden="true" className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-lg text-slate-400">⌕</span>
+                <Search aria-hidden="true" className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
                 <input
                   id="quick-create-search"
                   autoFocus
@@ -140,12 +142,14 @@ export default function QuickCreateMenu() {
                             onClick={close}
                             className="group flex min-h-[76px] items-center gap-3 rounded-xl border border-slate-200 p-3 transition hover:border-green-300 hover:bg-green-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-green-500"
                           >
-                            <span aria-hidden="true" className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-slate-100 text-2xl transition group-hover:bg-white">{action.icon}</span>
+                            <span aria-hidden="true" className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-slate-100 text-slate-700 transition group-hover:bg-white group-hover:text-green-700">
+                              <AppIcon icon={action.icon} className="w-5 h-5" />
+                            </span>
                             <span className="min-w-0 flex-1">
                               <span className="block text-sm font-semibold text-slate-800">{action.label}</span>
                               <span className="mt-0.5 block text-xs leading-relaxed text-slate-500">{action.description}</span>
                             </span>
-                            <span aria-hidden="true" className="text-slate-300 transition group-hover:translate-x-0.5 group-hover:text-green-700">→</span>
+                            <ArrowRight aria-hidden="true" className="w-4 h-4 text-slate-300 transition group-hover:translate-x-0.5 group-hover:text-green-700" />
                           </Link>
                         ))}
                       </div>
@@ -154,7 +158,9 @@ export default function QuickCreateMenu() {
                 </div>
               ) : (
                 <div className="py-12 text-center">
-                  <span aria-hidden="true" className="text-3xl">🔎</span>
+                  <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-2xl bg-slate-100 text-slate-400">
+                    <Search className="w-6 h-6" />
+                  </div>
                   <p className="mt-3 font-medium text-slate-700">No encontramos esa opción</p>
                   <p className="mt-1 text-sm text-slate-500">Prueba con otro nombre o busca por módulo.</p>
                   <button type="button" onClick={() => setQuery("")} className="mt-4 text-sm font-semibold text-green-700 hover:text-green-900">Ver todas las opciones</button>

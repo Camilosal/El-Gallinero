@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useRef, useCallback } from "react";
 import { Html5Qrcode } from "html5-qrcode";
+import { Bird, Camera, CheckCircle2, CircleDollarSign, ClipboardList, HelpCircle, Lightbulb, Pill, Skull } from "lucide-react";
 import { Card, Button, Badge, Modal, Input, Select, Textarea } from "@/components/ui";
 import { apiFetch } from "@/lib/fetch";
 import { parseQrPayload } from "@/lib/qr";
@@ -273,14 +274,23 @@ export default function EscanearPage() {
       <div className="mb-6">
         <div className="flex items-start justify-between">
           <div>
-            <h1 className="text-2xl font-bold text-slate-800">📷 Escanear Ave</h1>
+            <h1 className="text-2xl font-bold text-slate-800 flex items-center gap-2">
+              <Camera className="w-6 h-6 text-green-700 shrink-0" aria-hidden="true" />
+              <span>Escanear Ave</span>
+            </h1>
             <p className="text-slate-500 text-sm mt-1">Escanea el código QR de la banda de pata para identificar la gallina</p>
           </div>
-          <button onClick={() => setScanHelp(!scanHelp)} className="text-xs px-3 py-1.5 rounded-lg bg-blue-50 text-blue-600 hover:bg-blue-100 transition-colors mt-1">❓ Ayuda</button>
+          <button onClick={() => setScanHelp(!scanHelp)} className="inline-flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-lg bg-blue-50 text-blue-600 hover:bg-blue-100 transition-colors mt-1">
+            <HelpCircle className="w-3.5 h-3.5" aria-hidden="true" />
+            <span>Ayuda</span>
+          </button>
         </div>
         {scanHelp && (
           <div className="mt-3 p-4 bg-blue-50 border border-blue-200 rounded-xl text-sm text-blue-800">
-            <p className="font-semibold mb-1">💡 Escáner QR</p>
+            <p className="font-semibold mb-1 flex items-center gap-1.5">
+              <Lightbulb className="w-4 h-4 text-amber-500 shrink-0" aria-hidden="true" />
+              <span>Escáner QR</span>
+            </p>
             <p>Usa la cámara para escanear el código QR de la banda de pata de cada gallina. Al identificarla verás su información completa: raza, edad, peso, estado y etapa productiva. Desde aquí puedes registrar acciones rápidas: vender la gallina, registrar un tratamiento sanitario o reportar su muerte. También puedes buscar manualmente por código o ID.</p>
           </div>
         )}
@@ -297,7 +307,9 @@ export default function EscanearPage() {
                 {/* Hen card */}
                 <div className="bg-slate-50 rounded-xl p-4 mb-4">
                   <div className="flex items-center gap-3 mb-3">
-                    <span className="text-3xl">🐔</span>
+                    <div className="w-11 h-11 rounded-xl bg-green-100 flex items-center justify-center text-green-700 shrink-0">
+                      <Bird className="w-6 h-6" aria-hidden="true" />
+                    </div>
                     <div>
                       <h2 className="text-lg font-bold text-slate-800">{hen.code}</h2>
                       <p className="text-sm text-slate-500">{hen.breed}</p>
@@ -326,24 +338,24 @@ export default function EscanearPage() {
                     {isHenAvailableForExit(hen.status) && (
                       <button
                         onClick={() => openAction("vender")}
-                        className="flex flex-col items-center gap-1 p-3 bg-green-50 border border-green-200 rounded-xl hover:bg-green-100 transition-colors"
+                        className="flex flex-col items-center gap-1.5 p-3 bg-green-50 border border-green-200 rounded-xl hover:bg-green-100 transition-colors"
                       >
-                        <span className="text-2xl">💰</span>
+                        <CircleDollarSign className="w-5 h-5 text-green-700" aria-hidden="true" />
                         <span className="text-xs font-medium text-green-700">Vender</span>
                       </button>
                     )}
                     <button
                       onClick={() => openAction("tratar")}
-                      className="flex flex-col items-center gap-1 p-3 bg-blue-50 border border-blue-200 rounded-xl hover:bg-blue-100 transition-colors"
+                      className="flex flex-col items-center gap-1.5 p-3 bg-blue-50 border border-blue-200 rounded-xl hover:bg-blue-100 transition-colors"
                     >
-                      <span className="text-2xl">💊</span>
+                      <Pill className="w-5 h-5 text-blue-700" aria-hidden="true" />
                       <span className="text-xs font-medium text-blue-700">Tratar</span>
                     </button>
                     <button
                       onClick={() => openAction("muerte")}
-                      className="flex flex-col items-center gap-1 p-3 bg-red-50 border border-red-200 rounded-xl hover:bg-red-100 transition-colors"
+                      className="flex flex-col items-center gap-1.5 p-3 bg-red-50 border border-red-200 rounded-xl hover:bg-red-100 transition-colors"
                     >
-                      <span className="text-2xl">💀</span>
+                      <Skull className="w-5 h-5 text-red-700" aria-hidden="true" />
                       <span className="text-xs font-medium text-red-700">Muerte</span>
                     </button>
                   </div>
@@ -353,9 +365,10 @@ export default function EscanearPage() {
 
                 <Link
                   href={`/dashboard/produccion/gallinas/${hen.id}`}
-                  className="block w-full text-center p-3 bg-slate-50 border border-slate-200 rounded-xl hover:bg-slate-100 transition-colors text-sm font-medium text-slate-700"
+                  className="flex items-center justify-center gap-2 w-full text-center p-3 bg-slate-50 border border-slate-200 rounded-xl hover:bg-slate-100 transition-colors text-sm font-medium text-slate-700"
                 >
-                  📋 Ver historial completo
+                  <ClipboardList className="w-4 h-4" aria-hidden="true" />
+                  <span>Ver historial completo</span>
                 </Link>
 
                 <button
@@ -368,7 +381,12 @@ export default function EscanearPage() {
             ) : (
               <>
                 {error && <p className="text-red-600 text-sm">{error}</p>}
-                <Button onClick={startScanner}>📷 Abrir cámara</Button>
+                <Button onClick={startScanner}>
+                  <span className="inline-flex items-center gap-1.5">
+                    <Camera className="w-4 h-4" aria-hidden="true" />
+                    <span>Abrir cámara</span>
+                  </span>
+                </Button>
                 <div className="flex items-center gap-2">
                   <div className="flex-1 border-t border-slate-200" />
                   <span className="text-xs text-slate-400">o busca por código</span>
@@ -405,12 +423,12 @@ export default function EscanearPage() {
         open={actionModal !== null}
         onClose={() => { if (!actionSubmitting) setActionModal(null); }}
         title={
-          actionModal === "vender" ? "💰 Vender Ave" : actionModal === "tratar" ? "💊 Registrar Tratamiento" : "💀 Registrar Muerte"
+          actionModal === "vender" ? "Vender Ave" : actionModal === "tratar" ? "Registrar Tratamiento" : "Registrar Muerte"
         }
       >
         {actionSuccess ? (
           <div className="text-center py-4">
-            <p className="text-3xl mb-2">✅</p>
+            <CheckCircle2 className="w-9 h-9 text-green-600 mx-auto mb-2" aria-hidden="true" />
             <p className="text-green-700 font-medium">{actionSuccess}</p>
           </div>
         ) : (
@@ -460,11 +478,11 @@ export default function EscanearPage() {
                   onChange={(e) => setActionForm({ ...actionForm, type: e.target.value })}
                   help="Tipo de intervención sanitaria"
                 >
-                  <option value="vacunacion">💉 Vacunación</option>
-                  <option value="desparasitacion">🪱 Desparasitación</option>
-                  <option value="tratamiento">💊 Tratamiento</option>
-                  <option value="vitaminas">💧 Vitaminas</option>
-                  <option value="otro">📋 Otro</option>
+                  <option value="vacunacion">Vacunación</option>
+                  <option value="desparasitacion">Desparasitación</option>
+                  <option value="tratamiento">Tratamiento</option>
+                  <option value="vitaminas">Vitaminas</option>
+                  <option value="otro">Otro</option>
                 </Select>
                 <Input
                   label="Descripción"

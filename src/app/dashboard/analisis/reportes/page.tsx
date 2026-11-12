@@ -1,6 +1,8 @@
 "use client";
 
 import { useEffect, useState, useCallback, useMemo } from "react";
+import { ArrowDownLeft, ArrowUpRight } from "lucide-react";
+import { AppIcon } from "@/components/AppIcon";
 import { PageHeader, Card, Input, Button, Table, EmptyState } from "@/components/ui";
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip, Legend, BarChart, Bar, XAxis, YAxis, CartesianGrid } from "recharts";
 import { apiFetch } from "@/lib/fetch";
@@ -26,11 +28,19 @@ interface RentData {
 }
 
 const LINE_LABELS: Record<string, string> = {
-  huevos: "🥚 Huevos",
-  carne: "🍗 Carne",
-  gallinaza: "🌱 Gallinaza",
-  aves: "🐔 Aves",
-  otros: "📦 Otros",
+  huevos: "Huevos",
+  carne: "Carne",
+  gallinaza: "Gallinaza",
+  aves: "Aves",
+  otros: "Otros",
+};
+
+const LINE_ICONS: Record<string, string> = {
+  huevos: "egg",
+  carne: "drumstick",
+  gallinaza: "sprout",
+  aves: "hen",
+  otros: "package",
 };
 
 const COLORS = ["#22c55e", "#eab308", "#3b82f6", "#ef4444", "#a855f7"];
@@ -110,7 +120,7 @@ export default function ReportesPage() {
   return (
     <div className="space-y-6">
       <PageHeader
-        title="📋 Reportes"
+        title="Reportes"
         description="Estado de resultados y rentabilidad por línea de producto"
         help="Genera reportes financieros del gallinero. El 'Estado de Resultados' muestra ingresos vs gastos por categoría en el período seleccionado, con utilidad neta y margen. La 'Rentabilidad por Línea' desglosa cuánto genera cada producto (huevos, carne, gallinaza, aves, pollitos) descontando sus costos directos. Los gráficos de pastel y barras facilitan la visualización."
       />
@@ -162,7 +172,10 @@ export default function ReportesPage() {
 
           {/* Income categories */}
           <Card>
-            <h3 className="font-semibold text-green-700 mb-3">📥 Ingresos por Categoría</h3>
+            <h3 className="font-semibold text-green-700 mb-3 flex items-center gap-2">
+              <ArrowDownLeft className="w-4 h-4" aria-hidden="true" />
+              Ingresos por Categoría
+            </h3>
             <TableSearch
               value={incomeSearch}
               onChange={setIncomeSearch}
@@ -173,7 +186,7 @@ export default function ReportesPage() {
             />
             {filteredIncome.length === 0 ? (
               <EmptyState
-                icon="📥"
+                icon="incoming"
                 message={
                   incomeSearch.trim()
                     ? "No hay categorías que coincidan con la búsqueda"
@@ -202,7 +215,10 @@ export default function ReportesPage() {
 
           {/* Expense categories */}
           <Card>
-            <h3 className="font-semibold text-red-700 mb-3">📤 Egresos por Categoría</h3>
+            <h3 className="font-semibold text-red-700 mb-3 flex items-center gap-2">
+              <ArrowUpRight className="w-4 h-4" aria-hidden="true" />
+              Egresos por Categoría
+            </h3>
             <TableSearch
               value={expenseSearch}
               onChange={setExpenseSearch}
@@ -213,7 +229,7 @@ export default function ReportesPage() {
             />
             {filteredExpenses.length === 0 ? (
               <EmptyState
-                icon="📤"
+                icon="outgoing"
                 message={
                   expenseSearch.trim()
                     ? "No hay categorías que coincidan con la búsqueda"
@@ -299,7 +315,7 @@ export default function ReportesPage() {
             />
             {filteredProductLines.length === 0 ? (
               <EmptyState
-                icon="📋"
+                icon="clipboard"
                 message={
                   lineSearch.trim()
                     ? "No hay líneas que coincidan con la búsqueda"
@@ -310,7 +326,12 @@ export default function ReportesPage() {
             <Table headers={["Línea", "Ingresos", "Costos", "Utilidad", "Margen"]}>
               {filteredProductLines.map((l, i) => (
                 <tr key={i} className="hover:bg-slate-50">
-                  <td className="px-4 py-3 text-sm font-medium">{LINE_LABELS[l.line] || l.line}</td>
+                  <td className="px-4 py-3 text-sm font-medium">
+                    <span className="inline-flex items-center gap-2">
+                      <AppIcon icon={LINE_ICONS[l.line] || "package"} className="w-4 h-4 text-slate-600" />
+                      {LINE_LABELS[l.line] || l.line}
+                    </span>
+                  </td>
                   <td className="px-4 py-3 text-sm text-green-600">{fmt(l.revenue)}</td>
                   <td className="px-4 py-3 text-sm text-red-600">{fmt(l.cost)}</td>
                   <td className={`px-4 py-3 text-sm font-bold ${l.profit >= 0 ? "text-green-600" : "text-red-600"}`}>{fmt(l.profit)}</td>

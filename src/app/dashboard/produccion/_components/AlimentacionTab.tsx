@@ -2,7 +2,9 @@
 
 import { useEffect, useState, useCallback, useMemo } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
+import { AlertTriangle, ArrowDown, ArrowUp, BarChart3, ClipboardList, Lightbulb, Package, Pencil, ShoppingCart, Sparkles, TrendingDown, TrendingUp, X } from "lucide-react";
 import { PageHeader, Button, Card, Table, Badge, Modal, Input, Select, Textarea, EmptyState, StatCard } from "@/components/ui";
+import { AppIcon } from "@/components/AppIcon";
 import { useCatalog } from "@/lib/useCatalog";
 import { apiFetch } from "@/lib/fetch";
 import TableSearch from "@/components/TableSearch";
@@ -56,12 +58,12 @@ interface Stage {
 }
 
 const speciesPresentation: Record<FeedingSpecies, { icon: string; singular: string; plural: string }> = {
-  gallina: { icon: "🐔", singular: "gallina", plural: "gallinas" },
-  gallo: { icon: "🐓", singular: "gallo", plural: "gallos" },
-  pollo: { icon: "🐓", singular: "pollo", plural: "pollos" },
-  codorniz: { icon: "🥚", singular: "codorniz", plural: "codornices" },
-  pato: { icon: "🦆", singular: "pato", plural: "patos" },
-  conejo: { icon: "🐇", singular: "conejo", plural: "conejos" },
+  gallina: { icon: "hen", singular: "gallina", plural: "gallinas" },
+  gallo: { icon: "rooster", singular: "gallo", plural: "gallos" },
+  pollo: { icon: "rooster", singular: "pollo", plural: "pollos" },
+  codorniz: { icon: "egg", singular: "codorniz", plural: "codornices" },
+  pato: { icon: "duck", singular: "pato", plural: "patos" },
+  conejo: { icon: "rabbit", singular: "conejo", plural: "conejos" },
 };
 
 interface Movement {
@@ -97,17 +99,17 @@ function normalizeFeedList(data: unknown): Feed[] {
 
 // Motivos de movimiento clasificados por tipo (entrada / salida)
 const movementTypeLabels: Record<string, string> = {
-  compra: "🛒 Compra",
-  donacion: "🎁 Donación",
-  traslado: "🚚 Traslado",
-  produccion_propia: "🌿 Producción propia",
-  ajuste: "⚖️ Ajuste",
-  consumo_programa: "⚙️ Consumo por programa",
-  consumo_manual: "🍽️ Consumo manual",
-  venta: "💰 Venta",
-  uso_interno: "🏠 Uso interno",
-  merma: "🗑️ Merma",
-  otro: "📄 Otro",
+  compra: "Compra",
+  donacion: "Donación",
+  traslado: "Traslado",
+  produccion_propia: "Producción propia",
+  ajuste: "Ajuste",
+  consumo_programa: "Consumo por programa",
+  consumo_manual: "Consumo manual",
+  venta: "Venta",
+  uso_interno: "Uso interno",
+  merma: "Merma",
+  otro: "Otro",
 };
 
 const entryMovementTypes = ["compra", "donacion", "traslado", "produccion_propia", "ajuste", "otro"];
@@ -166,20 +168,20 @@ interface PredictionData {
 }
 
 const alertLabels: Record<string, string> = {
-  ok: "✅ OK",
-  bajo: "⚠️ Bajo",
-  critico: "🔴 Crítico",
-  agotado: "⛔ Agotado",
+  ok: "OK",
+  bajo: "Bajo",
+  critico: "Crítico",
+  agotado: "Agotado",
   sin_programa: "—",
 };
 
 const categoryLabels: Record<string, string> = {
-  granja_fresco: "🌿 Granja Fresco",
-  granja_procesado: "⚙️ Granja Procesado",
-  suplementario: "🛒 Suplementario",
-  Concentrado: "🛒 Concentrado",
-  "En Fresco": "🌿 En Fresco",
-  Preparados: "⚙️ Preparados",
+  granja_fresco: "Granja Fresco",
+  granja_procesado: "Granja Procesado",
+  suplementario: "Suplementario",
+  Concentrado: "Concentrado",
+  "En Fresco": "En Fresco",
+  Preparados: "Preparados",
 };
 
 const feedTypeLabels: Record<string, string> = {
@@ -682,31 +684,44 @@ export default function AlimentacionPage() {
   return (
     <div>
       <PageHeader
-        title="🌾 Gestión de Alimentación"
+        title="Gestión de Alimentación"
         description="Alimentos, movimientos, programas por etapa y predicción de consumo"
         help="Gestiona los alimentos de tus animales y su consumo.\n\n• Inventario: registra los alimentos que tienes (de granja o comprados), su stock y costo.\n• Movimientos: registra entradas (compras, donaciones) y salidas manuales. El consumo diario por programa se calcula automáticamente.\n• Etapas y Programas: define qué come cada grupo de animales según su etapa de crecimiento. El sistema calcula el consumo automático diario.\n• Planificado vs Real: compara lo que debieron comer vs lo que realmente consumieron.\n• Predicción de Stock: proyecta cuándo se agotará cada alimento según el consumo actual.\n\nLa proyección de stock y la comparación con lo esperado viven solo en sus pestañas, para no duplicar información."
         actions={
           <div className="flex gap-2">
             <Button onClick={openNewFeed}>+ Nuevo Alimento</Button>
-            <Button variant="success" onClick={() => openMovement(true)}>🛒 Entrada</Button>
-            <Button variant="danger" onClick={() => openMovement(false)}>📤 Salida</Button>
+            <Button variant="success" onClick={() => openMovement(true)}>
+              <span className="inline-flex items-center gap-1.5">
+                <ShoppingCart className="w-4 h-4" aria-hidden="true" />
+                <span>Entrada</span>
+              </span>
+            </Button>
+            <Button variant="danger" onClick={() => openMovement(false)}>
+              <span className="inline-flex items-center gap-1.5">
+                <ArrowUp className="w-4 h-4" aria-hidden="true" />
+                <span>Salida</span>
+              </span>
+            </Button>
           </div>
         }
       />
 
       {/* Stats */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4 mb-6">
-        <StatCard icon="🌿" label="Alimentos de Granja" value={farmFeeds.length} color="green" />
-        <StatCard icon="🛒" label="Suplementarios" value={purchasedFeeds.length} color="blue" />
-        <StatCard icon="⚠️" label="Stock Bajo" value={lowStock.length} color={lowStock.length > 0 ? "red" : "green"} />
-        <StatCard icon="📦" label="Movimientos" value={movements.length} color="purple" />
-        <StatCard icon="🐾" label="Animales en Programas" value={totalAnimals} color="green" />
+        <StatCard icon="sprout" label="Alimentos de Granja" value={farmFeeds.length} color="green" />
+        <StatCard icon="cart" label="Suplementarios" value={purchasedFeeds.length} color="blue" />
+        <StatCard icon="warning" label="Stock Bajo" value={lowStock.length} color={lowStock.length > 0 ? "red" : "green"} />
+        <StatCard icon="package" label="Movimientos" value={movements.length} color="purple" />
+        <StatCard icon="paw" label="Animales en Programas" value={totalAnimals} color="green" />
       </div>
 
       {/* Low stock alerts */}
       {lowStock.length > 0 && (
         <Card className="mb-6 border-red-200 bg-red-50">
-          <h3 className="font-semibold text-red-700 mb-2">⚠️ Alertas de Stock Bajo</h3>
+          <h3 className="font-semibold text-red-700 mb-2 flex items-center gap-2">
+            <AlertTriangle className="w-4 h-4 shrink-0" aria-hidden="true" />
+            <span>Alertas de Stock Bajo</span>
+          </h3>
           <div className="space-y-1">
             {lowStock.map((f) => (
               <p key={f.id} className="text-sm text-red-600">
@@ -719,20 +734,25 @@ export default function AlimentacionPage() {
 
       {/* Tabs */}
       <div className="flex gap-2 mb-4 flex-wrap">
-        <button onClick={() => selectTab("inventario")} className={`px-4 py-2 rounded-lg text-sm font-medium ${tab === "inventario" ? "bg-green-600 text-white" : "bg-white text-slate-600 border"}`}>
-          📋 Inventario
+        <button onClick={() => selectTab("inventario")} className={`inline-flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-medium ${tab === "inventario" ? "bg-green-600 text-white" : "bg-white text-slate-600 border"}`}>
+          <ClipboardList className="w-4 h-4" aria-hidden="true" />
+          <span>Inventario</span>
         </button>
-        <button onClick={() => selectTab("movimientos")} className={`px-4 py-2 rounded-lg text-sm font-medium ${tab === "movimientos" ? "bg-green-600 text-white" : "bg-white text-slate-600 border"}`}>
-          📦 Movimientos
+        <button onClick={() => selectTab("movimientos")} className={`inline-flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-medium ${tab === "movimientos" ? "bg-green-600 text-white" : "bg-white text-slate-600 border"}`}>
+          <Package className="w-4 h-4" aria-hidden="true" />
+          <span>Movimientos</span>
         </button>
-        <button onClick={() => selectTab("etapas")} className={`px-4 py-2 rounded-lg text-sm font-medium ${tab === "etapas" ? "bg-green-600 text-white" : "bg-white text-slate-600 border"}`}>
-          📊 Etapas y Programas
+        <button onClick={() => selectTab("etapas")} className={`inline-flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-medium ${tab === "etapas" ? "bg-green-600 text-white" : "bg-white text-slate-600 border"}`}>
+          <BarChart3 className="w-4 h-4" aria-hidden="true" />
+          <span>Etapas y Programas</span>
         </button>
-        <button onClick={() => selectTab("comparativo")} className={`px-4 py-2 rounded-lg text-sm font-medium ${tab === "comparativo" ? "bg-green-600 text-white" : "bg-white text-slate-600 border"}`}>
-          📈 Planificado vs Real
+        <button onClick={() => selectTab("comparativo")} className={`inline-flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-medium ${tab === "comparativo" ? "bg-green-600 text-white" : "bg-white text-slate-600 border"}`}>
+          <TrendingUp className="w-4 h-4" aria-hidden="true" />
+          <span>Planificado vs Real</span>
         </button>
-        <button onClick={() => selectTab("prediccion")} className={`px-4 py-2 rounded-lg text-sm font-medium ${tab === "prediccion" ? "bg-green-600 text-white" : "bg-white text-slate-600 border"}`}>
-          🔮 Predicción de Stock
+        <button onClick={() => selectTab("prediccion")} className={`inline-flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-medium ${tab === "prediccion" ? "bg-green-600 text-white" : "bg-white text-slate-600 border"}`}>
+          <Sparkles className="w-4 h-4" aria-hidden="true" />
+          <span>Predicción de Stock</span>
         </button>
       </div>
 
@@ -751,7 +771,7 @@ export default function AlimentacionPage() {
             <p className="text-center py-8 text-slate-400">Cargando...</p>
           ) : filteredFeeds.length === 0 ? (
             <EmptyState
-              icon="🌾"
+              icon="wheat"
               message={
                 feedSearch.trim()
                   ? "No hay alimentos que coincidan con la búsqueda"
@@ -795,7 +815,7 @@ export default function AlimentacionPage() {
           />
           {filteredMovements.length === 0 ? (
             <EmptyState
-              icon="📦"
+              icon="package"
               message={
                 movementSearch.trim()
                   ? "No hay movimientos que coincidan con la búsqueda"
@@ -811,11 +831,11 @@ export default function AlimentacionPage() {
                   <td className="px-4 py-3 font-medium">{m.feedName || "—"}</td>
                   <td className="px-4 py-3">
                     {m.isEntry ? (
-                      <Badge color="green">📥 Entrada</Badge>
+                      <Badge color="green">Entrada</Badge>
                     ) : m.autoGenerated ? (
-                      <Badge color="blue">⚙️ Consumo auto</Badge>
+                      <Badge color="blue">Consumo auto</Badge>
                     ) : (
-                      <Badge color="red">📤 Salida</Badge>
+                      <Badge color="red">Salida</Badge>
                     )}
                   </td>
                   <td className="px-4 py-3">
@@ -840,25 +860,26 @@ export default function AlimentacionPage() {
           <div className="flex flex-wrap items-center justify-between gap-3 mb-2">
             <div className="flex flex-wrap gap-1">
               {[
-                { id: "all", label: "Todos los Planes", icon: "🌐" },
-                { id: "gallina", label: "Gallinas", icon: "🐔" },
-                { id: "pollo", label: "Pollos", icon: "🐓" },
-                { id: "codorniz", label: "Codornices", icon: "🥚" },
-                { id: "pato", label: "Patos", icon: "🦆" },
-                { id: "conejo", label: "Conejos", icon: "🐇" },
+                { id: "all", label: "Todos los Planes", icon: "globe" },
+                { id: "gallina", label: "Gallinas", icon: "hen" },
+                { id: "pollo", label: "Pollos", icon: "rooster" },
+                { id: "codorniz", label: "Codornices", icon: "egg" },
+                { id: "pato", label: "Patos", icon: "duck" },
+                { id: "conejo", label: "Conejos", icon: "rabbit" },
               ].map((sp) => {
                 const isSelected = selectedProgramSpeciesFilter === sp.id;
                 return (
                   <button
                     key={sp.id}
                     onClick={() => setSelectedProgramSpeciesFilter(sp.id)}
-                    className={`px-3 py-1.5 rounded-full text-xs font-medium transition-all ${
+                    className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium transition-all ${
                       isSelected
                         ? "bg-emerald-600 text-white shadow-sm"
                         : "bg-slate-100 text-slate-600 hover:bg-slate-200"
                     }`}
                   >
-                    {sp.icon} {sp.label}
+                    <AppIcon icon={sp.icon} className="w-3.5 h-3.5" />
+                    <span>{sp.label}</span>
                   </button>
                 );
               })}
@@ -869,7 +890,7 @@ export default function AlimentacionPage() {
 
           {stages.length === 0 ? (
             <Card>
-              <EmptyState icon="📊" message="No hay etapas o planes de alimentación definidos" />
+              <EmptyState icon="bar-chart" message="No hay etapas o planes de alimentación definidos" />
             </Card>
           ) : (
             stages
@@ -889,17 +910,24 @@ export default function AlimentacionPage() {
                     <div className="flex items-center justify-between mb-3">
                       <div className="flex items-center gap-3">
                         <Badge color={stageColors[stage.value] || "green"}>
-                          {species.icon} {stage.value}
+                          <span className="inline-flex items-center gap-1">
+                            <AppIcon icon={species.icon} className="w-3.5 h-3.5" />
+                            <span>{stage.value}</span>
+                          </span>
                         </Badge>
                         <span className="text-sm text-slate-500">
                           {stage.minWeeks}–{stage.maxWeeks ? `${stage.maxWeeks} sem` : "+ sem"}
                         </span>
-                        <span className="text-sm font-semibold text-slate-700">
-                          {species.icon} {animalCount} {animalCount === 1 ? species.singular : species.plural}
+                        <span className="inline-flex items-center gap-1.5 text-sm font-semibold text-slate-700">
+                          <AppIcon icon={species.icon} className="w-4 h-4 text-slate-600" />
+                          <span>{animalCount} {animalCount === 1 ? species.singular : species.plural}</span>
                         </span>
                       </div>
                       <Button onClick={() => openProgramEditor(stage)}>
-                        ✏️ Editar Dieta
+                        <span className="inline-flex items-center gap-1.5">
+                          <Pencil className="w-3.5 h-3.5" aria-hidden="true" />
+                          <span>Editar Dieta</span>
+                        </span>
                       </Button>
                     </div>
 
@@ -968,7 +996,10 @@ export default function AlimentacionPage() {
         <div className="space-y-4">
           <Card>
             <div className="flex items-center justify-between mb-3">
-              <h3 className="font-semibold text-slate-700">📈 Consumo Planificado vs Real</h3>
+              <h3 className="font-semibold text-slate-700 flex items-center gap-2">
+                <TrendingUp className="w-4 h-4 text-slate-600" aria-hidden="true" />
+                <span>Consumo Planificado vs Real</span>
+              </h3>
               <div className="flex items-center gap-2">
                 <label className="text-sm text-slate-600">Período:</label>
                 <select
@@ -985,7 +1016,7 @@ export default function AlimentacionPage() {
             </div>
 
             {comparativo.length === 0 ? (
-              <EmptyState icon="📈" message="No hay datos de comparativo disponibles" />
+              <EmptyState icon="trend-up" message="No hay datos de comparativo disponibles" />
             ) : (
               <>
                 <TableSearch
@@ -998,7 +1029,7 @@ export default function AlimentacionPage() {
                 />
                 {filteredComparativo.length === 0 ? (
                   <EmptyState
-                    icon="📈"
+                    icon="trend-up"
                     message={
                       comparativoSearch.trim()
                         ? "No hay alimentos que coincidan con la búsqueda"
@@ -1041,7 +1072,10 @@ export default function AlimentacionPage() {
           {/* Chart: Daily totals planned vs actual */}
           {dailyTotals.length > 0 && (
             <Card>
-              <h3 className="font-semibold text-slate-700 mb-1">📊 Consumo diario total: Planificado vs Real</h3>
+              <h3 className="font-semibold text-slate-700 mb-1 flex items-center gap-2">
+                <BarChart3 className="w-4 h-4 text-slate-600" aria-hidden="true" />
+                <span>Consumo diario total: Planificado vs Real</span>
+              </h3>
               <p className="text-xs text-slate-500 mb-3">
                 Suma de todos los alimentos por día. El detalle por alimento está en la tabla.
               </p>
@@ -1084,7 +1118,10 @@ export default function AlimentacionPage() {
         <div className="space-y-4">
           <Card>
             <div className="flex items-center justify-between mb-3 flex-wrap gap-2">
-              <h3 className="font-semibold text-slate-700">🔮 Proyección de Stock (consumo automático por etapa)</h3>
+              <h3 className="font-semibold text-slate-700 flex items-center gap-2">
+                <Sparkles className="w-4 h-4 text-slate-600" aria-hidden="true" />
+                <span>Proyección de Stock (consumo automático por etapa)</span>
+              </h3>
               <div className="flex items-center gap-2">
                 <label className="text-sm text-slate-600">Horizonte:</label>
                 <select
@@ -1103,7 +1140,7 @@ export default function AlimentacionPage() {
             </div>
 
             {!prediccion || prediccion.predictions.length === 0 ? (
-              <EmptyState icon="🔮" message="No hay consumo previsto. Registra animales y programas de alimentación para calcular la predicción y el stock mínimo." />
+              <EmptyState icon="sparkles" message="No hay consumo previsto. Registra animales y programas de alimentación para calcular la predicción y el stock mínimo." />
             ) : (
               <>
                 <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-4">
@@ -1135,7 +1172,7 @@ export default function AlimentacionPage() {
                 />
                 {filteredPredictions.length === 0 ? (
                   <EmptyState
-                    icon="🔮"
+                    icon="sparkles"
                     message={
                       predictionSearch.trim()
                         ? "No hay alimentos que coincidan con la búsqueda"
@@ -1182,7 +1219,10 @@ export default function AlimentacionPage() {
           {/* Chart: Días de stock restante por alimento */}
           {stockDaysData.length > 0 && (
             <Card>
-              <h3 className="font-semibold text-slate-700 mb-1">📉 Días de stock restante por alimento</h3>
+              <h3 className="font-semibold text-slate-700 mb-1 flex items-center gap-2">
+                <TrendingDown className="w-4 h-4 text-slate-600" aria-hidden="true" />
+                <span>Días de stock restante por alimento</span>
+              </h3>
               <p className="text-xs text-slate-500 mb-3">
                 Los alimentos con menos días aparecen primero. Rojo: 3 días o menos; amarillo: deben reponerse dentro del horizonte seleccionado ({prediccion?.days ?? 14} días).
               </p>
@@ -1248,21 +1288,24 @@ export default function AlimentacionPage() {
             <button
               type="button"
               onClick={() => setMovForm((f) => ({ ...f, isEntry: true, movementType: "compra" }))}
-              className={`flex-1 px-4 py-2 rounded-lg text-sm font-medium border ${movForm.isEntry ? "bg-green-600 text-white border-green-600" : "bg-white text-slate-600 border"}`}
+              className={`flex-1 inline-flex items-center justify-center gap-1.5 px-4 py-2 rounded-lg text-sm font-medium border ${movForm.isEntry ? "bg-green-600 text-white border-green-600" : "bg-white text-slate-600 border"}`}
             >
-              📥 Entrada
+              <ArrowDown className="w-4 h-4" aria-hidden="true" />
+              <span>Entrada</span>
             </button>
             <button
               type="button"
               onClick={() => setMovForm((f) => ({ ...f, isEntry: false, movementType: "consumo_manual" }))}
-              className={`flex-1 px-4 py-2 rounded-lg text-sm font-medium border ${!movForm.isEntry ? "bg-red-600 text-white border-red-600" : "bg-white text-slate-600 border"}`}
+              className={`flex-1 inline-flex items-center justify-center gap-1.5 px-4 py-2 rounded-lg text-sm font-medium border ${!movForm.isEntry ? "bg-red-600 text-white border-red-600" : "bg-white text-slate-600 border"}`}
             >
-              📤 Salida
+              <ArrowUp className="w-4 h-4" aria-hidden="true" />
+              <span>Salida</span>
             </button>
           </div>
-          <p className="text-xs text-slate-500 bg-blue-50 border border-blue-100 rounded-lg p-3">
-            💡 El consumo diario por programa se registra automáticamente. Aquí registras compras,
-            donaciones, traslados, producción propia (entradas) y salidas manuales como uso interno o merma.
+          <p className="text-xs text-slate-500 bg-blue-50 border border-blue-100 rounded-lg p-3 flex items-start gap-2">
+            <Lightbulb className="w-4 h-4 text-blue-600 shrink-0 mt-0.5" aria-hidden="true" />
+            <span>El consumo diario por programa se registra automáticamente. Aquí registras compras,
+            donaciones, traslados, producción propia (entradas) y salidas manuales como uso interno o merma.</span>
           </p>
           <Select label="Alimento" help="Selecciona el alimento al que aplica este movimiento." value={movForm.feedId} onChange={(e) => setMovForm({ ...movForm, feedId: e.target.value })}>
             {feeds.map((f) => <option key={f.id} value={f.id}>{f.name} ({f.currentStock} {f.unit})</option>)}
@@ -1328,10 +1371,11 @@ export default function AlimentacionPage() {
                 </div>
                 <button
                   onClick={() => removeProgramEntry(idx)}
+                  aria-label="Quitar alimento"
                   className="text-red-500 hover:text-red-700 text-sm pb-2"
                   disabled={programEntries.length <= 1}
                 >
-                  ✕
+                  <X className="w-4 h-4" aria-hidden="true" />
                 </button>
               </div>
             ))}
@@ -1349,7 +1393,7 @@ export default function AlimentacionPage() {
       </Modal>
 
       {/* Modal: Nuevo Plan / Programa de Alimentación */}
-      <Modal open={newPlanModalOpen} onClose={() => setNewPlanModalOpen(false)} title="📋 Nuevo Plan / Programa de Alimentación">
+      <Modal open={newPlanModalOpen} onClose={() => setNewPlanModalOpen(false)} title="Nuevo Plan / Programa de Alimentación">
         <div className="space-y-4">
           {newPlanError && <p className="text-sm text-red-600 bg-red-50 p-3 rounded-lg">{newPlanError}</p>}
 
@@ -1367,11 +1411,11 @@ export default function AlimentacionPage() {
                 setNewPlanForm((prev) => ({ ...prev, species: sp, name: defaultName }));
               }}
             >
-              <option value="pollo">🐓 Pollo de engorde</option>
-              <option value="gallina">🐔 Gallina</option>
-              <option value="codorniz">🥚 Codorniz</option>
-              <option value="pato">🦆 Pato</option>
-              <option value="conejo">🐇 Conejo de engorde</option>
+              <option value="pollo">Pollo de engorde</option>
+              <option value="gallina">Gallina</option>
+              <option value="codorniz">Codorniz</option>
+              <option value="pato">Pato</option>
+              <option value="conejo">Conejo de engorde</option>
             </Select>
 
             <Input
@@ -1449,10 +1493,11 @@ export default function AlimentacionPage() {
                   <button
                     type="button"
                     onClick={() => removePlanEntry(idx)}
+                    aria-label="Quitar alimento"
                     className="text-red-500 hover:text-red-700 text-xs px-1 pb-1"
                     disabled={newPlanForm.entries.length <= 1}
                   >
-                    ✕
+                    <X className="w-4 h-4" aria-hidden="true" />
                   </button>
                 </div>
               ))}

@@ -2,6 +2,8 @@
 
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
+import { AlertTriangle, PackageOpen, Wheat, Wrench } from "lucide-react";
+import { AppIcon } from "@/components/AppIcon";
 import { PageHeader, Card, StatCard, Badge, EmptyState } from "@/components/ui";
 import { apiFetch } from "@/lib/fetch";
 
@@ -38,36 +40,36 @@ const quickLinks = [
   {
     href: "/dashboard/produccion?tab=alimentacion",
     label: "Gestión de alimentación",
-    icon: "🌾",
+    icon: "wheat",
     desc: "Alimentos, movimientos, programas y predicción",
   },
   {
     href: "/dashboard/inventarios/alimentacion",
     label: "Inventario de alimentos",
-    icon: "📊",
+    icon: "bar-chart",
     desc: "Stock, valor y días restantes",
   },
   {
     href: "/dashboard/inventarios/insumos",
     label: "Insumos",
-    icon: "🧰",
+    icon: "package-open",
     desc: "Medicamentos, empaques y materiales",
   },
   {
     href: "/dashboard/operaciones/mantenimiento",
     label: "Mantenimiento",
-    icon: "🔧",
+    icon: "wrench",
     desc: "Equipos, instalaciones y tareas",
   },
 ];
 
 const categoryLabels: Record<string, string> = {
-  granja_fresco: "🌿 Granja fresco",
-  granja_procesado: "⚙️ Granja procesado",
-  suplementario: "🛒 Suplementario",
-  Concentrado: "🛒 Concentrado",
-  "En Fresco": "🌿 En Fresco",
-  Preparados: "⚙️ Preparados",
+  granja_fresco: "Granja fresco",
+  granja_procesado: "Granja procesado",
+  suplementario: "Suplementario",
+  Concentrado: "Concentrado",
+  "En Fresco": "En Fresco",
+  Preparados: "Preparados",
 };
 
 const fmtMoney = (value: number) => `$${Math.round(value).toLocaleString("es-CO")}`;
@@ -131,7 +133,7 @@ export default function AlmacenPage() {
   return (
     <div>
       <PageHeader
-        title="🧰 Almacén e insumos"
+        title="Almacén e insumos"
         description="Todo lo que la granja necesita para funcionar: alimentos, insumos, materiales y mantenimiento."
         help="Este espacio reúne los recursos que se compran, almacenan o consumen, distintos de los productos que genera la granja.\n\n• Gestión de alimentación: alimentos, stock, movimientos, programas por etapa y predicción de consumo.\n• Inventario de alimentos: valor del stock y días restantes.\n• Insumos: medicamentos, vacunas, empaques, herramientas y materiales de limpieza.\n• Mantenimiento: equipos e instalaciones.\n\nLos productos generados (huevos, carne y gallinaza) y los animales se gestionan en sus propios grupos."
         actions={
@@ -159,22 +161,22 @@ export default function AlmacenPage() {
       ) : (
         <div className="space-y-6">
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-5">
-            <StatCard icon="🌾" label="Valor en alimentos" value={fmtMoney(feedValue)} color="blue" />
-            <StatCard icon="🧰" label="Valor en insumos" value={fmtMoney(supplyValue)} color="purple" />
+            <StatCard icon="wheat" label="Valor en alimentos" value={fmtMoney(feedValue)} color="blue" />
+            <StatCard icon="package-open" label="Valor en insumos" value={fmtMoney(supplyValue)} color="purple" />
             <StatCard
-              icon="⚠️"
+              icon="warning"
               label="Alimentos con stock bajo"
               value={lowFeeds.length}
               color={lowFeeds.length > 0 ? "red" : "green"}
             />
             <StatCard
-              icon="⚠️"
+              icon="warning"
               label="Insumos con stock bajo"
               value={lowSupplies.length}
               color={lowSupplies.length > 0 ? "red" : "green"}
             />
             <StatCard
-              icon="🔧"
+              icon="wrench"
               label="Mantenimientos pendientes"
               value={maintenance?.tareasPendientes ?? 0}
               color={(maintenance?.tareasPendientes ?? 0) > 0 ? "yellow" : "green"}
@@ -188,8 +190,10 @@ export default function AlmacenPage() {
                 href={link.href}
                 className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm transition-shadow hover:shadow-md"
               >
-                <span className="text-3xl">{link.icon}</span>
-                <p className="mt-2 font-semibold text-slate-800">{link.label}</p>
+                <div className="w-10 h-10 rounded-xl bg-slate-100 flex items-center justify-center text-slate-700">
+                  <AppIcon icon={link.icon} className="w-5 h-5" />
+                </div>
+                <p className="mt-3 font-semibold text-slate-800">{link.label}</p>
                 <p className="mt-1 text-sm text-slate-500">{link.desc}</p>
               </Link>
             ))}
@@ -198,14 +202,20 @@ export default function AlmacenPage() {
           {totalAlerts > 0 && (
             <Card className="border-orange-200 bg-orange-50">
               <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
-                <h2 className="font-semibold text-orange-800">⚠️ Alertas de stock bajo</h2>
+                <h2 className="font-semibold text-orange-800 flex items-center gap-2">
+                  <AlertTriangle className="w-4 h-4 text-orange-700 shrink-0" aria-hidden="true" />
+                  <span>Alertas de stock bajo</span>
+                </h2>
                 <span className="rounded-full bg-white px-3 py-1 text-xs font-semibold text-orange-700">
                   {totalAlerts} recursos
                 </span>
               </div>
               <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
                 <div>
-                  <p className="mb-2 text-sm font-semibold text-orange-800">🌾 Alimentos</p>
+                  <p className="mb-2 text-sm font-semibold text-orange-800 flex items-center gap-1.5">
+                    <Wheat className="w-4 h-4 shrink-0" aria-hidden="true" />
+                    <span>Alimentos</span>
+                  </p>
                   {lowFeeds.length === 0 ? (
                     <p className="text-sm text-orange-700/70">Sin alertas de alimentos.</p>
                   ) : (
@@ -224,7 +234,10 @@ export default function AlmacenPage() {
                   )}
                 </div>
                 <div>
-                  <p className="mb-2 text-sm font-semibold text-orange-800">🧰 Insumos</p>
+                  <p className="mb-2 text-sm font-semibold text-orange-800 flex items-center gap-1.5">
+                    <PackageOpen className="w-4 h-4 shrink-0" aria-hidden="true" />
+                    <span>Insumos</span>
+                  </p>
                   {lowSupplies.length === 0 ? (
                     <p className="text-sm text-orange-700/70">Sin alertas de insumos.</p>
                   ) : (
@@ -249,11 +262,14 @@ export default function AlmacenPage() {
           <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
             <Card>
               <div className="mb-3 flex items-center justify-between">
-                <h2 className="font-semibold text-slate-800">🌾 Alimentos registrados</h2>
+                <h2 className="font-semibold text-slate-800 flex items-center gap-2">
+                  <Wheat className="w-4 h-4 text-amber-600 shrink-0" aria-hidden="true" />
+                  <span>Alimentos registrados</span>
+                </h2>
                 <Badge color="blue">{feeds.length} tipos</Badge>
               </div>
               {feeds.length === 0 ? (
-                <EmptyState icon="🌾" message="No hay alimentos registrados" />
+                <EmptyState icon="wheat" message="No hay alimentos registrados" />
               ) : (
                 <div className="space-y-2">
                   {feeds.slice(0, 8).map((feed) => {
@@ -288,11 +304,14 @@ export default function AlmacenPage() {
 
             <Card>
               <div className="mb-3 flex items-center justify-between">
-                <h2 className="font-semibold text-slate-800">🧰 Insumos registrados</h2>
+                <h2 className="font-semibold text-slate-800 flex items-center gap-2">
+                  <PackageOpen className="w-4 h-4 text-purple-600 shrink-0" aria-hidden="true" />
+                  <span>Insumos registrados</span>
+                </h2>
                 <Badge color="purple">{supplies.length} tipos</Badge>
               </div>
               {supplies.length === 0 ? (
-                <EmptyState icon="🧰" message="No hay insumos registrados" />
+                <EmptyState icon="package-open" message="No hay insumos registrados" />
               ) : (
                 <div className="space-y-2">
                   {supplies.slice(0, 8).map((supply) => {
@@ -329,7 +348,10 @@ export default function AlmacenPage() {
           {maintenance && (
             <Card>
               <div className="mb-3 flex items-center justify-between">
-                <h2 className="font-semibold text-slate-800">🔧 Mantenimiento</h2>
+                <h2 className="font-semibold text-slate-800 flex items-center gap-2">
+                  <Wrench className="w-4 h-4 text-slate-600 shrink-0" aria-hidden="true" />
+                  <span>Mantenimiento</span>
+                </h2>
                 <Link href="/dashboard/operaciones/mantenimiento" className="text-xs font-semibold text-blue-700 hover:underline">
                   Ver tareas →
                 </Link>

@@ -1,3 +1,4 @@
+import { Search, Settings, ShoppingCart, Sprout } from "lucide-react";
 import {
   PageHeader,
   Card,
@@ -29,7 +30,7 @@ function FeedTable({
   if (items.length === 0) {
     return (
       <EmptyState
-        icon="🌾"
+        icon="wheat"
         message={
           search.trim()
             ? "No hay alimentos que coincidan con la búsqueda"
@@ -64,11 +65,16 @@ function FeedTable({
                     : "purple"
               }
             >
-              {isPurchasedFeedCategory(f.category)
-                ? `🛒 ${feedCategoryLabel(f.category)}`
-                : isFreshFeedCategory(f.category)
-                  ? `🌿 ${feedCategoryLabel(f.category)}`
-                  : `⚙️ ${feedCategoryLabel(f.category)}`}
+              <span className="inline-flex items-center gap-1">
+                {isPurchasedFeedCategory(f.category) ? (
+                  <ShoppingCart className="w-3.5 h-3.5" aria-hidden="true" />
+                ) : isFreshFeedCategory(f.category) ? (
+                  <Sprout className="w-3.5 h-3.5" aria-hidden="true" />
+                ) : (
+                  <Settings className="w-3.5 h-3.5" aria-hidden="true" />
+                )}
+                <span>{feedCategoryLabel(f.category)}</span>
+              </span>
             </Badge>
           </td>
           <td className="px-4 py-3 font-semibold">
@@ -146,7 +152,7 @@ export default async function AlimentacionInventoryPage({
   return (
     <div>
       <PageHeader
-        title="🌾 Inventario de Alimentación"
+        title="Inventario de Alimentación"
         description="Stock actual, valor y proyección de días de alimento"
         help="Vista consolidada del inventario de alimentos. Muestra stock actual vs mínimo, valor estimado y días restantes proyectados según consumo reciente. Los alimentos en rojo tienen stock bajo (≤ 7 días). Puedes registrar consumos y compras en Producción → Alimentación."
         actions={
@@ -185,25 +191,25 @@ export default async function AlimentacionInventoryPage({
 
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
         <StatCard
-          icon="💰"
+          icon="money"
           label="Valor Total"
           value={`$${Math.round(totalValue).toLocaleString()}`}
           color="green"
         />
         <StatCard
-          icon="📦"
+          icon="package"
           label="Stock Total"
           value={`${totalStock.toFixed(1)} kg`}
           color="blue"
         />
         <StatCard
-          icon="🌾"
+          icon="wheat"
           label="Tipos de Alimento"
           value={allItems.length}
           color="yellow"
         />
         <StatCard
-          icon="⚠️"
+          icon="warning"
           label="Stock Bajo"
           value={lowCount}
           color={lowCount > 0 ? "red" : "green"}
@@ -219,7 +225,7 @@ export default async function AlimentacionInventoryPage({
           <input type="hidden" name="days" value={period} />
           <div className="relative w-full sm:max-w-sm">
             <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-sm text-slate-400">
-              🔍
+              <Search className="w-4 h-4" aria-hidden="true" />
             </span>
             <input
               type="search"

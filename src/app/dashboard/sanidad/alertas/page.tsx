@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState, useCallback, useMemo } from "react";
+import { AppIcon } from "@/components/AppIcon";
 import { PageHeader, Card, Badge, EmptyState } from "@/components/ui";
 import { apiFetch } from "@/lib/fetch";
 import TableSearch from "@/components/TableSearch";
@@ -28,11 +29,11 @@ const SEVERITY_LABELS: Record<string, string> = {
 };
 
 const TYPE_ICONS: Record<string, string> = {
-  feed_change: "🌾",
-  point_of_lay: "🥚",
-  overdue_vaccination: "💉",
-  production_drop: "📉",
-  weight_deviation: "⚖️",
+  feed_change: "feed",
+  point_of_lay: "egg",
+  overdue_vaccination: "vaccine",
+  production_drop: "trend-down",
+  weight_deviation: "scale",
 };
 
 export default function AlertasPage() {
@@ -82,7 +83,9 @@ export default function AlertasPage() {
         {group.map((a, i) => (
           <Card key={i} className="border-l-4" >
             <div className="flex items-start gap-3">
-              <span className="text-2xl">{TYPE_ICONS[a.type] || "🔔"}</span>
+              <div className="p-2 rounded-lg bg-slate-100 text-slate-700 shrink-0">
+                <AppIcon icon={TYPE_ICONS[a.type] || "bell"} className="w-5 h-5" />
+              </div>
               <div className="flex-1">
                 <div className="flex items-center gap-2">
                   <h3 className="font-semibold text-slate-800">{a.title}</h3>
@@ -104,7 +107,7 @@ export default function AlertasPage() {
   return (
     <div className="space-y-6">
       <PageHeader
-        title="🔔 Alertas de Fase"
+        title="Alertas de Fase"
         description="Monitoreo automático de transiciones, vacunación y producción"
         help="El sistema monitorea automáticamente las transiciones de etapa de tus gallinas, los eventos de vacunación pendientes y los niveles de producción. Las alertas aparecen cuando algo necesita tu atención. No necesitas hacer nada manualmente, el sistema genera las alertas según los datos registrados."
       />
@@ -112,7 +115,7 @@ export default function AlertasPage() {
       {loading ? (
         <Card><p className="text-center py-8 text-slate-400">Cargando alertas...</p></Card>
       ) : alerts.length === 0 ? (
-        <EmptyState icon="✅" message="No hay alertas activas" />
+        <EmptyState icon="check-circle" message="No hay alertas activas" />
       ) : (
         <>
           <TableSearch
@@ -124,7 +127,7 @@ export default function AlertasPage() {
           />
           {filteredAlerts.length === 0 ? (
             <EmptyState
-              icon="🔔"
+              icon="bell"
               message={
                 search.trim()
                   ? "No hay alertas que coincidan con la búsqueda"

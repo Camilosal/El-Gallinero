@@ -1,6 +1,26 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import {
+  Banknote,
+  BarChart3,
+  Bird,
+  Check,
+  CheckCircle2,
+  ChevronRight,
+  CircleDollarSign,
+  Egg,
+  HelpCircle,
+  Home,
+  Lightbulb,
+  Package,
+  PackageOpen,
+  Pill,
+  Stethoscope,
+  Wheat,
+  Wrench,
+} from "lucide-react";
+import { AppIcon } from "@/components/AppIcon";
 import { Card, Modal, Input, Select, Button } from "@/components/ui";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, LineChart, Line, Legend } from "recharts";
 import { apiFetch } from "@/lib/fetch";
@@ -134,7 +154,7 @@ export default function Dashboard() {
     return (
       <div className="flex items-center justify-center h-96">
         <div className="text-center">
-          <div className="text-5xl mb-4 animate-bounce">🐔</div>
+          <Bird className="w-12 h-12 text-green-600 mx-auto mb-4 animate-bounce" aria-hidden="true" />
           <p className="text-slate-500">Cargando datos del gallinero...</p>
         </div>
       </div>
@@ -151,14 +171,14 @@ export default function Dashboard() {
     || tareas.pendingSanitary || tareas.maintenanceDue.length > 0 || tareas.assetsNeedAttention > 0
   ));
   const setupSteps = tareas ? [
-    { done: tareas.setup.farmProfileConfigured, title: "Completa los datos de la granja", description: "Indica nombre, municipio y responsable; la ubicación y fechas se pueden ampliar.", href: "/dashboard/configuracion/catalogos?tab=parametros", icon: "🏡" },
-    { done: tareas.setup.locationsConfigured, title: "Define los lugares de manejo", description: "Crea corrales, galpones, jaulas o potreros.", href: "/dashboard/ubicaciones", icon: "📍" },
-    { done: tareas.setup.animalsRegistered, title: "Registra el primer ingreso", description: "Deja documentados especie, origen y destino.", href: "/dashboard/produccion/adquisiciones", icon: "🐾" },
-    { done: tareas.setup.starterInventoryConfigured, title: "Carga los inventarios de arranque", description: "Registra existencias iniciales de alimentos e insumos.", href: "/dashboard/almacen", icon: "🌾" },
-    { done: tareas.setup.contactsConfigured, title: "Registra clientes y proveedores", description: "Agrega al menos un cliente y un proveedor propios.", href: "/dashboard/configuracion/catalogos?tab=listas&category=proveedor", icon: "🤝" },
-    { done: tareas.setup.budgetConfigured, title: "Crea el presupuesto inicial", description: "Comienza en $0 y agrega las metas cuando las definas.", href: "/dashboard/finanzas/presupuestos?nuevo=base", icon: "💰" },
-    { done: tareas.setup.sanitaryConfigured, title: "Revisa el manejo sanitario inicial", description: "Valida las actividades sugeridas y ajusta el calendario a tus animales.", href: "/dashboard/sanidad/calendario", icon: "💊" },
-    { done: tareas.setup.assetsRegistered, title: "Registra activos y equipos", description: "Incluye equipos, herramientas y estructuras de la granja.", href: "/dashboard/operaciones/activos", icon: "🏗️" },
+    { done: tareas.setup.farmProfileConfigured, title: "Completa los datos de la granja", description: "Indica nombre, municipio y responsable; la ubicación y fechas se pueden ampliar.", href: "/dashboard/configuracion/catalogos?tab=parametros", icon: "home" },
+    { done: tareas.setup.locationsConfigured, title: "Define los lugares de manejo", description: "Crea corrales, galpones, jaulas o potreros.", href: "/dashboard/ubicaciones", icon: "map-pin" },
+    { done: tareas.setup.animalsRegistered, title: "Registra el primer ingreso", description: "Deja documentados especie, origen y destino.", href: "/dashboard/produccion/adquisiciones", icon: "paw-print" },
+    { done: tareas.setup.starterInventoryConfigured, title: "Carga los inventarios de arranque", description: "Registra existencias iniciales de alimentos e insumos.", href: "/dashboard/almacen", icon: "wheat" },
+    { done: tareas.setup.contactsConfigured, title: "Registra clientes y proveedores", description: "Agrega al menos un cliente y un proveedor propios.", href: "/dashboard/configuracion/catalogos?tab=listas&category=proveedor", icon: "handshake" },
+    { done: tareas.setup.budgetConfigured, title: "Crea el presupuesto inicial", description: "Comienza en $0 y agrega las metas cuando las definas.", href: "/dashboard/finanzas/presupuestos?nuevo=base", icon: "money" },
+    { done: tareas.setup.sanitaryConfigured, title: "Revisa el manejo sanitario inicial", description: "Valida las actividades sugeridas y ajusta el calendario a tus animales.", href: "/dashboard/sanidad/calendario", icon: "pill" },
+    { done: tareas.setup.assetsRegistered, title: "Registra activos y equipos", description: "Incluye equipos, herramientas y estructuras de la granja.", href: "/dashboard/operaciones/activos", icon: "equipment" },
   ] : [];
   const completedSetupSteps = setupSteps.filter((step) => step.done).length;
 
@@ -170,7 +190,7 @@ export default function Dashboard() {
   if (criticalFeeds.length > 0) {
     alerts.push({
       id: "feed-critical",
-      icon: "🌾",
+      icon: "wheat",
       message: `${criticalFeeds.length} alimento${criticalFeeds.length > 1 ? "s" : ""} con stock crítico (${criticalFeeds.map((f) => f.feedName).join(", ")})`,
       href: "/dashboard/produccion?tab=alimentacion",
       severity: "critical",
@@ -181,7 +201,7 @@ export default function Dashboard() {
   if (data.sanitaryAlerts > 0) {
     alerts.push({
       id: "sanitary",
-      icon: "💊",
+      icon: "pill",
       message: `${data.sanitaryAlerts} vacuna${data.sanitaryAlerts > 1 ? "s" : ""} o tratamiento${data.sanitaryAlerts > 1 ? "s" : ""} pendiente${data.sanitaryAlerts > 1 ? "s" : ""}`,
       href: "/dashboard/sanidad/calendario",
       severity: "critical",
@@ -192,7 +212,7 @@ export default function Dashboard() {
   if (data.eggs.inventory && data.eggs.inventory.available > 50) {
     alerts.push({
       id: "eggs-expiring",
-      icon: "🥚",
+      icon: "egg",
       message: `${data.eggs.inventory.available} huevos en inventario — priorizar venta`,
       href: "/dashboard/produccion?tab=inventario",
       severity: "warning",
@@ -203,7 +223,7 @@ export default function Dashboard() {
   if (data.hens.recommendedForSlaughter > 0) {
     alerts.push({
       id: "slaughter-rec",
-      icon: "⚠️",
+      icon: "warning",
       message: `${data.hens.recommendedForSlaughter} gallina${data.hens.recommendedForSlaughter > 1 ? "s" : ""} recomendada${data.hens.recommendedForSlaughter > 1 ? "s" : ""} para sacrificio`,
       href: "/dashboard/produccion?tab=gallinas",
       severity: "warning",
@@ -214,7 +234,7 @@ export default function Dashboard() {
   if (data.readyBatches > 0) {
     alerts.push({
       id: "batches-ready",
-      icon: "🍗",
+      icon: "meat",
       message: `${data.readyBatches} lote${data.readyBatches > 1 ? "s" : ""} listo${data.readyBatches > 1 ? "s" : ""} para sacrificio`,
       href: "/dashboard/produccion?tab=carne",
       severity: "warning",
@@ -225,7 +245,7 @@ export default function Dashboard() {
   if (data.pendingMaintenance > 0) {
     alerts.push({
       id: "maintenance",
-      icon: "🔧",
+      icon: "wrench",
       message: `${data.pendingMaintenance} mantenimiento${data.pendingMaintenance > 1 ? "s" : ""} pendiente${data.pendingMaintenance > 1 ? "s" : ""}`,
       href: "/dashboard/operaciones/mantenimiento",
       severity: "warning",
@@ -236,7 +256,7 @@ export default function Dashboard() {
   if (data.supplyAlerts > 0) {
     alerts.push({
       id: "supplies",
-      icon: "🧰",
+      icon: "package-open",
       message: `${data.supplyAlerts} insumo${data.supplyAlerts > 1 ? "s" : ""} con stock bajo`,
       href: "/dashboard/inventarios/insumos",
       severity: "warning",
@@ -264,16 +284,25 @@ export default function Dashboard() {
       <div className="mb-6">
         <div className="flex items-start justify-between gap-3">
           <div>
-            <h1 className="text-2xl font-bold text-slate-800">🏡 Buenos días, Gallinero</h1>
+            <h1 className="text-2xl font-bold text-slate-800 flex items-center gap-2">
+              <Home className="w-6 h-6 text-green-700 shrink-0" aria-hidden="true" />
+              <span>Buenos días, Gallinero</span>
+            </h1>
             <p className="text-slate-500 text-sm mt-1">Esto es lo que necesita tu atención hoy</p>
           </div>
           <div className="flex shrink-0 items-center gap-2">
-            <button onClick={() => setDashHelp(!dashHelp)} className="text-xs px-3 py-1.5 rounded-lg bg-blue-50 text-blue-600 hover:bg-blue-100 transition-colors mt-1">❓ Ayuda</button>
+            <button onClick={() => setDashHelp(!dashHelp)} className="inline-flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-lg bg-blue-50 text-blue-600 hover:bg-blue-100 transition-colors mt-1">
+              <HelpCircle className="w-3.5 h-3.5" aria-hidden="true" />
+              <span>Ayuda</span>
+            </button>
           </div>
         </div>
         {dashHelp && (
           <div className="mt-3 p-4 bg-blue-50 border border-blue-200 rounded-xl text-sm text-blue-800">
-            <p className="font-semibold mb-1">💡 Panel Principal</p>
+            <p className="font-semibold mb-1 flex items-center gap-1.5">
+              <Lightbulb className="w-4 h-4 text-amber-500 shrink-0" aria-hidden="true" />
+              <span>Panel Principal</span>
+            </p>
             <p>Este es tu centro de control diario. Aquí verás alertas críticas (stock bajo, tareas pendientes, sanitarias), tareas del día, un resumen rápido de producción/huevos/mortalidad y el estado del alimento. Usa <strong>Crear</strong> para encontrar los registros y formularios de los distintos módulos; las tareas del día y el menú lateral siguen disponibles para tus accesos frecuentes.</p>
           </div>
         )}
@@ -288,7 +317,7 @@ export default function Dashboard() {
               href={alert.href}
               className="flex items-center gap-3 p-4 bg-red-50 border border-red-200 rounded-xl hover:bg-red-100 transition-colors"
             >
-              <span className="text-2xl">{alert.icon}</span>
+              <AppIcon icon={alert.icon} className="w-5 h-5 text-red-600 shrink-0" />
               <span className="flex-1 text-sm font-medium text-red-700">{alert.message}</span>
               <span className="text-xs text-red-500 font-medium whitespace-nowrap">Atender →</span>
             </a>
@@ -299,7 +328,7 @@ export default function Dashboard() {
               href={alert.href}
               className="flex items-center gap-3 p-4 bg-yellow-50 border border-yellow-200 rounded-xl hover:bg-yellow-100 transition-colors"
             >
-              <span className="text-2xl">{alert.icon}</span>
+              <AppIcon icon={alert.icon} className="w-5 h-5 text-yellow-700 shrink-0" />
               <span className="flex-1 text-sm font-medium text-yellow-700">{alert.message}</span>
               <span className="text-xs text-yellow-600 font-medium whitespace-nowrap">Ver →</span>
             </a>
@@ -307,7 +336,7 @@ export default function Dashboard() {
         </div>
       ) : tareas && !dailyChecklistPending ? (
         <div className="mb-6 p-6 bg-green-50 border border-green-200 rounded-xl text-center">
-          <p className="text-3xl mb-2">✅</p>
+          <CheckCircle2 className="w-9 h-9 text-green-600 mx-auto mb-2" aria-hidden="true" />
           <p className="text-green-700 font-medium">Sin alertas operativas para atender hoy</p>
           <p className="text-green-600 text-sm mt-1">Las tareas de postura y alimentación solo aparecen cuando aplican a tus animales y programas.</p>
         </div>
@@ -327,8 +356,10 @@ export default function Dashboard() {
               step.done ? (
                 <div key={step.title} className="rounded-lg border border-green-200 bg-green-50 p-3" aria-label={`${step.title}: completado`}>
                   <div className="flex items-center justify-between gap-2">
-                    <span className="text-xl" aria-hidden="true">{step.icon}</span>
-                    <span className="text-xs font-semibold uppercase tracking-wide text-green-700">✓ Completado</span>
+                    <AppIcon icon={step.icon} className="w-5 h-5 text-green-700" />
+                    <span className="inline-flex items-center gap-1 text-xs font-semibold uppercase tracking-wide text-green-700">
+                      <Check className="w-3.5 h-3.5" aria-hidden="true" /> Completado
+                    </span>
                   </div>
                   <span className="mt-2 block text-sm font-semibold text-slate-800">{step.title}</span>
                   <span className="mt-1 block text-xs text-slate-600">{step.description}</span>
@@ -336,7 +367,7 @@ export default function Dashboard() {
               ) : (
                 <a key={step.title} href={step.href} className="rounded-lg border border-blue-200 bg-white p-3 transition hover:border-blue-400 hover:bg-blue-50">
                   <div className="flex items-center justify-between gap-2">
-                    <span className="text-xl" aria-hidden="true">{step.icon}</span>
+                    <AppIcon icon={step.icon} className="w-5 h-5 text-blue-700" />
                     <span className="text-xs font-semibold uppercase tracking-wide text-blue-600">Por completar</span>
                   </div>
                   <span className="mt-2 block text-sm font-semibold text-slate-800">{step.title}</span>
@@ -355,7 +386,7 @@ export default function Dashboard() {
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             {tareas.eggApplicable && !tareas.eggCollectedToday && (
               <div className="flex items-center gap-3 p-4 bg-yellow-50 border border-yellow-200 rounded-xl">
-                <span className="text-2xl">🥚</span>
+                <Egg className="w-6 h-6 text-yellow-600 shrink-0" aria-hidden="true" />
                 <span className="flex-1 text-sm font-medium text-yellow-700">¿Ya recogiste huevos hoy?</span>
                 <a href="/dashboard/produccion?tab=huevos&nuevo=1" className="px-3 py-1.5 bg-yellow-600 text-white text-xs font-medium rounded-lg hover:bg-yellow-700">
                   Recoger ahora
@@ -364,7 +395,7 @@ export default function Dashboard() {
             )}
             {tareas.feedApplicable && !tareas.feedMovedToday && (
               <div className="flex items-center gap-3 p-4 bg-amber-50 border border-amber-200 rounded-xl">
-                <span className="text-2xl">🌾</span>
+                <Wheat className="w-6 h-6 text-amber-600 shrink-0" aria-hidden="true" />
                 <span className="flex-1 text-sm font-medium text-amber-700">No hay registro de alimentación hoy</span>
                 <a href="/dashboard/produccion?tab=alimentacion&subtab=movimientos&nuevo=movimiento" className="px-3 py-1.5 bg-amber-600 text-white text-xs font-medium rounded-lg hover:bg-amber-700">
                   Ver alimentación
@@ -373,7 +404,7 @@ export default function Dashboard() {
             )}
             {tareas.pendingSanitary && (
               <div className={`flex items-center gap-3 p-4 border rounded-xl ${tareas.pendingSanitary.isOverdue ? "bg-red-50 border-red-200" : "bg-blue-50 border-blue-200"}`}>
-                <span className="text-2xl">💊</span>
+                <Pill className={`w-6 h-6 shrink-0 ${tareas.pendingSanitary.isOverdue ? "text-red-600" : "text-blue-600"}`} aria-hidden="true" />
                 <span className={`flex-1 text-sm font-medium ${tareas.pendingSanitary.isOverdue ? "text-red-700" : "text-blue-700"}`}>
                   {tareas.pendingSanitary.isOverdue ? "Vencido: " : "Pendiente: "}{tareas.pendingSanitary.name}
                 </span>
@@ -384,7 +415,7 @@ export default function Dashboard() {
             )}
             {tareas.maintenanceDue.map((task) => (
               <div key={task.id} className={`flex items-center gap-3 rounded-xl border p-4 ${task.isOverdue ? "border-red-200 bg-red-50" : "border-orange-200 bg-orange-50"}`}>
-                <span className="text-2xl">🔧</span>
+                <Wrench className={`w-6 h-6 shrink-0 ${task.isOverdue ? "text-red-600" : "text-orange-600"}`} aria-hidden="true" />
                 <span className={`flex-1 text-sm font-medium ${task.isOverdue ? "text-red-700" : "text-orange-800"}`}>
                   {task.isOverdue ? "Vencido: " : "Próximo: "}{task.title}
                   <span className="mt-1 block text-xs font-normal">{task.assetName ? `${task.assetName} · ` : ""}{task.locationName || "Finca"} · {new Date(`${task.scheduledDate}T12:00:00`).toLocaleDateString("es-CO")}</span>
@@ -394,7 +425,7 @@ export default function Dashboard() {
             ))}
             {tareas.assetsNeedAttention > 0 && (
               <div className="flex items-center gap-3 rounded-xl border border-orange-200 bg-orange-50 p-4">
-                <span className="text-2xl">🧰</span>
+                <PackageOpen className="w-6 h-6 text-orange-600 shrink-0" aria-hidden="true" />
                 <span className="flex-1 text-sm font-medium text-orange-800">{tareas.assetsNeedAttention} equipo{tareas.assetsNeedAttention === 1 ? "" : "s"} requiere{tareas.assetsNeedAttention === 1 ? "" : "n"} atención</span>
                 <a href="/dashboard/operaciones/activos" className="rounded-lg bg-orange-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-orange-700">Ver equipos</a>
               </div>
@@ -416,7 +447,9 @@ export default function Dashboard() {
             href="/dashboard/produccion?tab=huevos&nuevo=1"
             className="flex flex-col items-center gap-3 p-6 bg-yellow-50 border-2 border-yellow-200 rounded-2xl hover:bg-yellow-100 hover:border-yellow-300 transition-all"
           >
-            <span className="text-4xl">🥚</span>
+            <div className="w-12 h-12 rounded-2xl bg-yellow-100 flex items-center justify-center text-yellow-700">
+              <Egg className="w-6 h-6" aria-hidden="true" />
+            </div>
             <span className="text-sm font-semibold text-yellow-800 text-center">Recoger Huevos</span>
             <span className="text-xs text-yellow-600">{data.eggs.avgDaily} prom/día</span>
           </a>}
@@ -424,7 +457,9 @@ export default function Dashboard() {
             href="/dashboard/produccion?tab=alimentacion&subtab=movimientos&nuevo=movimiento"
             className="flex flex-col items-center gap-3 p-6 bg-amber-50 border-2 border-amber-200 rounded-2xl hover:bg-amber-100 hover:border-amber-300 transition-all"
           >
-            <span className="text-4xl">🌾</span>
+            <div className="w-12 h-12 rounded-2xl bg-amber-100 flex items-center justify-center text-amber-700">
+              <Wheat className="w-6 h-6" aria-hidden="true" />
+            </div>
             <span className="text-sm font-semibold text-amber-800 text-center">Registrar Alimentación</span>
             <span className="text-xs text-amber-600">
               {minFeedDays === Infinity ? "Stock OK" : `${minFeedDays} días de stock`}
@@ -435,7 +470,9 @@ export default function Dashboard() {
             onClick={(e) => { e.preventDefault(); setQuickSaleOpen(true); }}
             className="flex flex-col items-center gap-3 p-6 bg-green-50 border-2 border-green-200 rounded-2xl hover:bg-green-100 hover:border-green-300 transition-all"
           >
-            <span className="text-4xl">💰</span>
+            <div className="w-12 h-12 rounded-2xl bg-green-100 flex items-center justify-center text-green-700">
+              <CircleDollarSign className="w-6 h-6" aria-hidden="true" />
+            </div>
             <span className="text-sm font-semibold text-green-800 text-center">Registrar Venta</span>
             <span className="text-xs text-green-600">${Number(data.sales.totalRevenue).toLocaleString()} este mes</span>
           </a>
@@ -443,7 +480,9 @@ export default function Dashboard() {
             href="/dashboard/sanidad"
             className="flex flex-col items-center gap-3 p-6 bg-blue-50 border-2 border-blue-200 rounded-2xl hover:bg-blue-100 hover:border-blue-300 transition-all"
           >
-            <span className="text-4xl">💊</span>
+            <div className="w-12 h-12 rounded-2xl bg-blue-100 flex items-center justify-center text-blue-700">
+              <Stethoscope className="w-6 h-6" aria-hidden="true" />
+            </div>
             <span className="text-sm font-semibold text-blue-800 text-center">Plan Sanitario</span>
             <span className="text-xs text-blue-600">
               {data.sanitaryAlerts > 0 ? `${data.sanitaryAlerts} pendiente${data.sanitaryAlerts > 1 ? "s" : ""}` : "Al día"}
@@ -456,21 +495,21 @@ export default function Dashboard() {
       <div className="mb-6">
         <h2 className="text-sm font-semibold text-slate-500 uppercase tracking-wide mb-3">Resumen rápido</h2>
         <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
-          <QuickStat icon="🐾" label="Animales en inventario" value={data.totalAnimals ?? data.hens.active} hint={flockHint} />
-          <QuickStat icon="🥚" label="Huevos hoy" value={`${data.eggs.avgDaily} prom`} />
+          <QuickStat icon="paw-print" label="Animales en inventario" value={data.totalAnimals ?? data.hens.active} hint={flockHint} />
+          <QuickStat icon="egg" label="Huevos hoy" value={`${data.eggs.avgDaily} prom`} />
           <QuickStat
-            icon="🌾"
+            icon="wheat"
             label="Alimento"
             value={minFeedDays === Infinity ? "OK" : `${minFeedDays}d`}
             alert={criticalFeeds.length > 0}
           />
           <QuickStat
-            icon="💰"
+            icon="money"
             label="Balance mes"
             value={`$${Number(data.finance.profit).toLocaleString()}`}
             alert={Number(data.finance.profit) < 0}
           />
-          <QuickStat icon="🔔" label="Alertas" value={alerts.length} alert={alerts.length > 0} />
+          <QuickStat icon="bell" label="Alertas" value={alerts.length} alert={alerts.length > 0} />
         </div>
       </div>
 
@@ -480,7 +519,7 @@ export default function Dashboard() {
           onClick={() => setShowDetails(!showDetails)}
           className="flex items-center gap-2 text-sm font-medium text-slate-600 hover:text-slate-800 transition-colors"
         >
-          <span className={`transition-transform ${showDetails ? "rotate-90" : ""}`}>▶</span>
+          <ChevronRight className={`w-4 h-4 transition-transform ${showDetails ? "rotate-90" : ""}`} aria-hidden="true" />
           <span>{showDetails ? "Ocultar detalles" : "Ver más detalles"}</span>
         </button>
 
@@ -489,7 +528,10 @@ export default function Dashboard() {
             {/* Stage Distribution & Stock Projection */}
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
               <Card>
-                <h3 className="font-semibold text-slate-700 mb-4">🐔 Distribución por Etapa</h3>
+                <h3 className="font-semibold text-slate-700 mb-4 flex items-center gap-2">
+                  <Bird className="w-4 h-4 text-green-700" aria-hidden="true" />
+                  <span>Distribución por Etapa</span>
+                </h3>
                 {data.stages.length > 0 ? (
                   <div className="space-y-2">
                     {data.stages.map((stage) => (
@@ -514,7 +556,10 @@ export default function Dashboard() {
               </Card>
 
               <Card>
-                <h3 className="font-semibold text-slate-700 mb-4">📦 Stock de Alimento</h3>
+                <h3 className="font-semibold text-slate-700 mb-4 flex items-center gap-2">
+                  <Package className="w-4 h-4 text-slate-600" aria-hidden="true" />
+                  <span>Stock de Alimento</span>
+                </h3>
                 {data.stockProjection.length > 0 ? (
                   <div className="space-y-2">
                     {data.stockProjection.map((item) => {
@@ -545,7 +590,10 @@ export default function Dashboard() {
             {/* Charts */}
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
               <Card>
-                <h3 className="font-semibold text-slate-700 mb-4">📊 Huevos (últimos 14 días)</h3>
+                <h3 className="font-semibold text-slate-700 mb-4 flex items-center gap-2">
+                  <BarChart3 className="w-4 h-4 text-slate-600" aria-hidden="true" />
+                  <span>Huevos (últimos 14 días)</span>
+                </h3>
                 {data.recentEggs.length > 0 ? (
                   <ResponsiveContainer width="100%" height={200}>
                     <BarChart data={data.recentEggs.map((e) => ({
@@ -565,7 +613,10 @@ export default function Dashboard() {
               </Card>
 
               <Card>
-                <h3 className="font-semibold text-slate-700 mb-4">💵 Finanzas (30 días)</h3>
+                <h3 className="font-semibold text-slate-700 mb-4 flex items-center gap-2">
+                  <Banknote className="w-4 h-4 text-green-700" aria-hidden="true" />
+                  <span>Finanzas (30 días)</span>
+                </h3>
                 <div className="space-y-3">
                   <div className="flex justify-between items-center p-2 bg-green-50 rounded-lg">
                     <span className="text-sm text-green-700">Ingresos</span>
@@ -586,7 +637,10 @@ export default function Dashboard() {
             {/* Feed vs Production Chart */}
             {data.feedChartData.length > 0 && (
               <Card>
-                <h3 className="font-semibold text-slate-700 mb-4">🌾 Alimento vs Huevos</h3>
+                <h3 className="font-semibold text-slate-700 mb-4 flex items-center gap-2">
+                  <Wheat className="w-4 h-4 text-amber-600" aria-hidden="true" />
+                  <span>Alimento vs Huevos</span>
+                </h3>
                 <ResponsiveContainer width="100%" height={220}>
                   <LineChart data={data.feedChartData}>
                     <CartesianGrid strokeDasharray="3 3" />
@@ -604,7 +658,10 @@ export default function Dashboard() {
 
             {/* FCR */}
             <Card>
-              <h3 className="font-semibold text-slate-700 mb-3">🌾 Conversión Alimenticia (30 días)</h3>
+              <h3 className="font-semibold text-slate-700 mb-3 flex items-center gap-2">
+                <Wheat className="w-4 h-4 text-amber-600" aria-hidden="true" />
+                <span>Conversión Alimenticia (30 días)</span>
+              </h3>
               <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
                 <div className="p-2 bg-slate-50 rounded-lg text-center">
                   <p className="text-lg font-bold">{data.fcr.feedConsumed30d}</p>
@@ -629,12 +686,12 @@ export default function Dashboard() {
       </div>
 
       {/* ─── Quick Sale Modal ─── */}
-      <Modal open={quickSaleOpen} onClose={() => { setQuickSaleOpen(false); setQuickSaleSuccess(false); setQuickSaleError(""); }} title="💰 Venta rápida de huevos">
+      <Modal open={quickSaleOpen} onClose={() => { setQuickSaleOpen(false); setQuickSaleSuccess(false); setQuickSaleError(""); }} title="Venta rápida de huevos">
         <div className="space-y-4">
           {quickSaleError && <p className="text-sm text-red-600 bg-red-50 p-3 rounded-lg">{quickSaleError}</p>}
           {quickSaleSuccess ? (
             <div className="text-center py-6">
-              <p className="text-4xl mb-3">✅</p>
+              <CheckCircle2 className="w-10 h-10 text-green-600 mx-auto mb-3" aria-hidden="true" />
               <p className="text-lg font-semibold text-green-700">Venta registrada</p>
               <Button className="mt-4" onClick={() => { setQuickSaleOpen(false); setQuickSaleSuccess(false); setQuickSaleForm({ size: "", quantity: "1", buyer: "", pricePerUnit: "500" }); }}>Cerrar</Button>
             </div>
@@ -726,7 +783,9 @@ export default function Dashboard() {
 function QuickStat({ icon, label, value, alert, hint }: { icon: string; label: string; value: string | number; alert?: boolean; hint?: string }) {
   return (
     <div className={`p-3 rounded-xl border text-center ${alert ? "border-red-200 bg-red-50" : "border-slate-200 bg-white"}`}>
-      <p className="text-lg">{icon}</p>
+      <div className={`mx-auto mb-1 w-8 h-8 rounded-lg flex items-center justify-center ${alert ? "bg-red-100 text-red-600" : "bg-slate-100 text-slate-700"}`}>
+        <AppIcon icon={icon} className="w-4 h-4" />
+      </div>
       <p className={`text-lg font-bold ${alert ? "text-red-600" : "text-slate-800"}`}>{value}</p>
       <p className="text-[11px] text-slate-500">{label}</p>
       {hint && <p className="text-[10px] text-slate-400 mt-0.5 leading-tight">{hint}</p>}

@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
+import { Bot, History, MessageSquare, Plus, Sparkles, X } from "lucide-react";
 import { apiFetch } from "@/lib/fetch";
 import ChatMarkdown from "@/components/ChatMarkdown";
 
@@ -251,7 +252,7 @@ export default function AssistantWidget() {
         className="fixed bottom-5 right-5 z-40 flex items-center gap-2 rounded-full bg-green-700 px-4 py-3 text-sm font-semibold text-white shadow-xl transition hover:bg-green-800 focus:outline-none focus:ring-4 focus:ring-green-300"
         aria-label={open ? "Cerrar asistente" : "Abrir asistente"}
       >
-        <span className="text-xl leading-none">{open ? "×" : "💬"}</span>
+        {open ? <X className="w-5 h-5" /> : <MessageSquare className="w-5 h-5" />}
         <span className="hidden sm:inline">{open ? "Cerrar" : "Asistente"}</span>
       </button>
 
@@ -263,18 +264,17 @@ export default function AssistantWidget() {
           <header className="flex items-center justify-between gap-2 bg-green-800 px-4 py-3 text-white">
             <div className="min-w-0">
               <div className="flex items-center gap-2">
-                <span className="text-lg">🤖</span>
+                <Bot className="w-5 h-5 text-green-200 shrink-0" />
                 <h2 className="truncate text-sm font-semibold">Asistente de la granja</h2>
               </div>
               <p className="mt-0.5 flex items-center gap-1.5 truncate text-[11px] text-green-100">
                 <span
-                  className={`inline-block h-1.5 w-1.5 shrink-0 rounded-full ${
-                    configured === null
-                      ? "bg-slate-300"
-                      : configured
-                        ? "bg-blue-300"
-                        : "bg-amber-300"
-                  }`}
+                  className={`inline-block h-1.5 w-1.5 shrink-0 rounded-full ${configured === null
+                    ? "bg-slate-300"
+                    : configured
+                      ? "bg-blue-300"
+                      : "bg-amber-300"
+                    }`}
                 />
                 {configured === null
                   ? "Conectando..."
@@ -287,28 +287,28 @@ export default function AssistantWidget() {
               <button
                 type="button"
                 onClick={toggleHistory}
-                className="rounded-lg px-2 py-1 text-lg hover:bg-green-700"
+                className="rounded-lg p-1.5 hover:bg-green-700 transition-colors"
                 aria-label="Historial de conversaciones"
                 title="Historial"
               >
-                🕘
+                <History className="w-4 h-4" />
               </button>
               <button
                 type="button"
                 onClick={newConversation}
-                className="rounded-lg px-2 py-1 text-lg hover:bg-green-700"
+                className="rounded-lg p-1.5 hover:bg-green-700 transition-colors"
                 aria-label="Nueva conversación"
                 title="Nueva conversación"
               >
-                ＋
+                <Plus className="w-4 h-4" />
               </button>
               <button
                 type="button"
                 onClick={() => setOpen(false)}
-                className="rounded-lg px-2 py-1 text-lg hover:bg-green-700"
+                className="rounded-lg p-1.5 hover:bg-green-700 transition-colors"
                 aria-label="Cerrar asistente"
               >
-                ×
+                <X className="w-4 h-4" />
               </button>
             </div>
           </header>
@@ -326,11 +326,10 @@ export default function AssistantWidget() {
                       key={conversation.id}
                       type="button"
                       onClick={() => selectConversation(conversation.id)}
-                      className={`w-full rounded-lg border px-3 py-2 text-left text-xs transition ${
-                        conversation.id === conversationId
-                          ? "border-green-300 bg-green-50"
-                          : "border-slate-200 bg-white hover:bg-slate-100"
-                      }`}
+                      className={`w-full rounded-lg border px-3 py-2 text-left text-xs transition ${conversation.id === conversationId
+                        ? "border-green-300 bg-green-50"
+                        : "border-slate-200 bg-white hover:bg-slate-100"
+                        }`}
                     >
                       <span className="block truncate font-medium text-slate-700">{conversation.title}</span>
                       <span className="mt-0.5 block truncate text-[11px] text-slate-500">
@@ -361,7 +360,10 @@ export default function AssistantWidget() {
           <div ref={scrollRef} className="flex-1 space-y-3 overflow-y-auto bg-slate-50 p-4">
             {messages.length === 0 && (
               <div className="rounded-xl border border-slate-200 bg-white p-4 text-sm text-slate-600">
-                <p className="font-semibold text-slate-800">Hola 👋</p>
+                <p className="flex items-center gap-1.5 font-semibold text-slate-800">
+                  <Sparkles className="w-4 h-4 text-green-600 shrink-0" />
+                  <span>Hola</span>
+                </p>
                 <p className="mt-1">
                   Puedo consultar animales, lugares, linaje, producción, mantenimiento, inventarios, sanidad y
                   finanzas; también registrar huevos, mortalidad, pesajes y consumo con su lugar cuando corresponda.
@@ -389,11 +391,10 @@ export default function AssistantWidget() {
                 className={`flex ${message.role === "user" ? "justify-end" : "justify-start"}`}
               >
                 <div
-                  className={`max-w-[85%] break-words rounded-2xl px-3.5 py-2.5 text-sm leading-relaxed ${
-                    message.role === "user"
-                      ? "whitespace-pre-wrap rounded-br-md bg-green-700 text-white"
-                      : "rounded-bl-md border border-slate-200 bg-white text-slate-700"
-                  }`}
+                  className={`max-w-[85%] break-words rounded-2xl px-3.5 py-2.5 text-sm leading-relaxed ${message.role === "user"
+                    ? "whitespace-pre-wrap rounded-br-md bg-green-700 text-white"
+                    : "rounded-bl-md border border-slate-200 bg-white text-slate-700"
+                    }`}
                 >
                   {message.role === "user" ? message.content : <ChatMarkdown content={message.content} />}
                 </div>

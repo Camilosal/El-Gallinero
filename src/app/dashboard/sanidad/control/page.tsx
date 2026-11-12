@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState, useCallback, Suspense } from "react";
 import { useSearchParams } from "next/navigation";
+import { Calendar } from "lucide-react";
 import { PageHeader, Button, Card, Table, Badge, Modal, Input, Select, Textarea, EmptyState, StatCard } from "@/components/ui";
 import { apiFetch } from "@/lib/fetch";
 import { useCatalog } from "@/lib/useCatalog";
@@ -38,13 +39,13 @@ interface CalendarEvent {
 }
 
 const eventTypes = [
-  { value: "vacunacion", label: "💉 Vacunación" },
-  { value: "desparasitacion", label: "🪱 Desparasitación" },
-  { value: "tratamiento", label: "💊 Tratamiento" },
-  { value: "inspeccion", label: "🔍 Inspección" },
-  { value: "fumigacion", label: "🧪 Fumigación" },
-  { value: "vitaminas", label: "💧 Vitaminas/Suplementos" },
-  { value: "otro", label: "📋 Otro" },
+  { value: "vacunacion", label: "Vacunación" },
+  { value: "desparasitacion", label: "Desparasitación" },
+  { value: "tratamiento", label: "Tratamiento" },
+  { value: "inspeccion", label: "Inspección" },
+  { value: "fumigacion", label: "Fumigación" },
+  { value: "vitaminas", label: "Vitaminas/Suplementos" },
+  { value: "otro", label: "Otro" },
 ];
 
 const typeColors: Record<string, string> = {
@@ -232,23 +233,26 @@ function SanidadPageInner() {
   return (
     <div>
       <PageHeader
-        title="💊 Control Fitosanitario"
+        title="Control Fitosanitario"
         description="Vacunaciones, desparasitaciones, tratamientos, inspecciones y fumigaciones"
         help="Registra todos los eventos sanitarios: vacunaciones, desparasitaciones, tratamientos, inspecciones y fumigaciones.\n\n• Si hay un evento pendiente del calendario sanitario, verás un banner para pre-llenar el formulario automáticamente.\n• El campo 'Próximo evento programado' ayuda a mantener el calendario actualizado.\n• Los costos se reflejan automáticamente en los egresos de finanzas."
         actions={<Button onClick={openNew}>+ Nuevo Registro</Button>}
       />
 
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
-        <StatCard icon="📋" label="Total Registros" value={records.length} color="blue" />
-        <StatCard icon="💉" label="Vacunaciones" value={records.filter((r) => r.type === "vacunacion").length} color="purple" />
-        <StatCard icon="📅" label="Próximos Eventos" value={upcoming.length} color={upcoming.length > 0 ? "yellow" : "green"} />
-        <StatCard icon="💰" label="Costo Total" value={`$${totalCost.toLocaleString()}`} color="red" />
+        <StatCard icon="clipboard" label="Total Registros" value={records.length} color="blue" />
+        <StatCard icon="vaccine" label="Vacunaciones" value={records.filter((r) => r.type === "vacunacion").length} color="purple" />
+        <StatCard icon="calendar" label="Próximos Eventos" value={upcoming.length} color={upcoming.length > 0 ? "yellow" : "green"} />
+        <StatCard icon="money" label="Costo Total" value={`$${totalCost.toLocaleString()}`} color="red" />
       </div>
 
       {/* Upcoming Events */}
       {upcoming.length > 0 && (
         <Card className="mb-6 border-yellow-200 bg-yellow-50">
-          <h3 className="font-semibold text-yellow-700 mb-2">📅 Próximos Eventos Sanitarios Programados</h3>
+          <h3 className="font-semibold text-yellow-700 mb-2 flex items-center gap-2">
+            <Calendar className="w-4 h-4" aria-hidden="true" />
+            Próximos Eventos Sanitarios Programados
+          </h3>
           <div className="space-y-2">
             {upcoming.slice(0, 5).map((r) => (
               <div key={r.id} className="flex justify-between items-center p-2 bg-white rounded-lg">
@@ -276,7 +280,7 @@ function SanidadPageInner() {
           <p className="text-center py-8 text-slate-400">Cargando...</p>
         ) : filteredRecords.length === 0 ? (
           <EmptyState
-            icon="💊"
+            icon="pill"
             message={
               search.trim()
                 ? "No hay registros que coincidan con la búsqueda"
@@ -307,14 +311,15 @@ function SanidadPageInner() {
         )}
       </Card>
 
-      <Modal open={modalOpen} onClose={() => setModalOpen(false)} title={editing ? "✏️ Editar Registro Sanitario" : "💊 Nuevo Registro Sanitario"}>
+      <Modal open={modalOpen} onClose={() => setModalOpen(false)} title={editing ? "Editar Registro Sanitario" : "Nuevo Registro Sanitario"}>
         <div className="space-y-4">
           {error && <p className="text-sm text-red-600 bg-red-50 p-3 rounded-lg">{error}</p>}
           {/* Calendar event suggestion banner */}
           {!editing && pendingEvent && (
             <div className={`p-3 rounded-lg border ${pendingEvent.isOverdue ? "bg-red-50 border-red-200" : "bg-blue-50 border-blue-200"}`}>
-              <p className="text-sm font-semibold text-slate-700 mb-1">
-                📅 Evento pendiente: &quot;{pendingEvent.name}&quot;
+              <p className="text-sm font-semibold text-slate-700 mb-1 flex items-center gap-1.5">
+                <Calendar className="w-4 h-4 shrink-0" aria-hidden="true" />
+                <span>Evento pendiente: &quot;{pendingEvent.name}&quot;</span>
               </p>
               <p className="text-xs text-slate-500 mb-2">
                 {eventTypes.find((t) => t.value === pendingEvent.type)?.label || pendingEvent.type}

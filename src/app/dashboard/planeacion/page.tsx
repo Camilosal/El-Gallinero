@@ -1,18 +1,19 @@
 "use client";
 
 import Link from "next/link";
+import { AppIcon } from "@/components/AppIcon";
 import { PageHeader, Card } from "@/components/ui";
 
 const opciones = [
   {
     href: "/dashboard/produccion/plan-parvada",
-    icon: "📋",
+    icon: "clipboard",
     label: "Plan de Parvada",
     desc: "Diagnostica la parvada real y proyecta postura, alimento y reemplazo con la edad de cada gallina. Ideal para planificar gallinas, gallos y fechas de reemplazo.",
   },
   {
     href: "/dashboard/soberania",
-    icon: "🏡",
+    icon: "home",
     label: "Soberanía Alimentaria",
     desc: "Gestión integral de la proteína producida para el hogar y cuantificación del ahorro económico en la canasta familiar. Registra consumo de huevos y carne en casa.",
   },
@@ -22,9 +23,9 @@ export default function PlaneacionPage() {
   return (
     <div>
       <PageHeader
-        title="🗓️ Planeación y Soberanía"
+        title="Planeación y Soberanía"
         description="Planificación de la parvada y soberanía alimentaria del hogar."
-        help="Este grupo agrupa la planificación a futuro de tu granja y el autoconsumo familiar.\\n\\n• Plan de Parvada: proyección de postura, alimento y reemplazo basada en la edad real de tus gallinas.\\n• Soberanía Alimentaria: seguimiento de lo que produces y consumes en casa, con cálculo del ahorro económico versus el mercado."
+        help="Este grupo agrupa la planificación a futuro de tu granja y el autoconsumo familiar.\n\n• Plan de Parvada: proyección de postura, alimento y reemplazo basada en la edad real de tus gallinas.\n• Soberanía Alimentaria: seguimiento de lo que produces y consumes en casa, con cálculo del ahorro económico versus el mercado."
       />
 
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-2">
@@ -35,7 +36,9 @@ export default function PlaneacionPage() {
               className="block p-6"
             >
               <div className="flex items-center justify-between mb-4">
-                <span className="text-3xl">{op.icon}</span>
+                <div className="w-11 h-11 rounded-xl bg-green-50 border border-green-100 flex items-center justify-center text-green-700">
+                  <AppIcon icon={op.icon} className="w-6 h-6" />
+                </div>
                 <span className="text-sm font-medium text-green-400 group-hover:text-green-300">Entrar</span>
               </div>
               <h3 className="text-lg font-bold text-slate-800 mb-2">{op.label}</h3>

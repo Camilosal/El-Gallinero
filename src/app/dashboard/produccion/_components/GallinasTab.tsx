@@ -3,6 +3,7 @@
 import { useEffect, useState, useCallback, useMemo } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
+import { AlertTriangle, Egg } from "lucide-react";
 import { PageHeader, Button, Card, Table, Badge, Modal, Input, Select, Textarea, EmptyState } from "@/components/ui";
 import TableSearch from "@/components/TableSearch";
 import { useCatalog } from "@/lib/useCatalog";
@@ -55,7 +56,7 @@ const statusLabels: Record<string, string> = {
   empollando: "Empollando",
   enferma: "Enferma",
   descarte: "Descarte",
-  recomendada_sacrificio: "⚠️ Recomendada sacrificio",
+  recomendada_sacrificio: "Recomendada sacrificio",
   vendida: "Vendida",
   faena: "Faena",
   muerta: "Muerta",
@@ -224,7 +225,7 @@ export default function GallinasPage({ embedded = false }: { embedded?: boolean 
   return (
     <div>
       {!embedded && <PageHeader
-        title="🐔 Seguimiento de Gallinas"
+        title="Seguimiento de Gallinas"
         description="Estado, postura y evolución de las gallinas ya ingresadas"
         help="Esta vista sirve para dar seguimiento a gallinas que ya están registradas. Toda gallina nueva debe ingresar primero por Adquisiciones con su origen (compra, donación o cría propia); las gallinas nacidas por incubación quedan vinculadas automáticamente a ese proceso.\n\n• Los gallos y lotes se gestionan aparte en Animales.\n• El sistema calcula automáticamente la etapa de crecimiento y cambia el estado según la edad y condición.\n• Las gallinas marcadas como 'recomendada sacrificio' son candidatas para venta o faena según su rendimiento.\n• Usa el botón 'Etiquetas QR' para generar códigos QR que puedes imprimir y pegar en bandas de pata. Luego escanéalo con tu celular para acceder rápido a cada ave.\n• Filtra por estado o etapa para encontrar gallinas específicas."
         actions={
@@ -276,8 +277,9 @@ export default function GallinasPage({ embedded = false }: { embedded?: boolean 
       {/* Alerta de gallinas recomendadas para sacrificio */}
       {recommended.length > 0 && (
         <div className="mb-4 p-4 bg-orange-50 border border-orange-200 rounded-lg">
-          <p className="font-semibold text-orange-800 mb-1">
-            ⚠️ {recommended.length} gallina{recommended.length > 1 ? "s" : ""} recomendada{recommended.length > 1 ? "s" : ""} para sacrificio o venta
+          <p className="font-semibold text-orange-800 mb-1 flex items-center gap-1.5">
+            <AlertTriangle className="w-4 h-4 text-orange-600 shrink-0" aria-hidden="true" />
+            <span>{recommended.length} gallina{recommended.length > 1 ? "s" : ""} recomendada{recommended.length > 1 ? "s" : ""} para sacrificio o venta</span>
           </p>
           <div className="flex flex-wrap gap-2">
             {recommended.map((h) => (
@@ -344,7 +346,7 @@ export default function GallinasPage({ embedded = false }: { embedded?: boolean 
           <p className="text-center py-8 text-slate-400">Cargando...</p>
         ) : filtered.length === 0 ? (
           <EmptyState
-            icon="🐔"
+            icon="hen"
             message={
               filtersActive
                 ? "No hay gallinas que coincidan con los filtros"
@@ -371,7 +373,7 @@ export default function GallinasPage({ embedded = false }: { embedded?: boolean 
                     )}
                   </td>
                   <td className="px-4 py-3">{h.weight || "—"}</td>
-                  <td className="px-4 py-3">{h.isBroody ? "🐣 Sí" : "No"}</td>
+                  <td className="px-4 py-3">{h.isBroody ? <span className="inline-flex items-center gap-1 text-purple-700 font-medium"><Egg className="w-3.5 h-3.5 shrink-0" aria-hidden="true" /> Sí</span> : "No"}</td>
                   <td className="px-4 py-3">
                     <div className="flex gap-1">
                       <button onClick={() => openEdit(h)} className="text-blue-600 hover:underline text-xs">Editar</button>

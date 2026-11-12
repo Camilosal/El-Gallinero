@@ -416,14 +416,14 @@ async function executePendingActionById(input: {
     await saveMessage({
       conversationId: action.conversationId,
       role: "assistant",
-      content: `✅ ${action.summary}`,
+      content: `Completado: ${action.summary}`,
     });
     await touchConversation(action.conversationId);
 
     return {
       action: updated,
       result: truncate(result),
-      message: `✅ ${action.summary}`,
+      message: `Completado: ${action.summary}`,
     };
   } catch (error) {
     const message = errorMessage(error);
@@ -434,7 +434,7 @@ async function executePendingActionById(input: {
     await saveMessage({
       conversationId: action.conversationId,
       role: "assistant",
-      content: `❌ No se pudo ejecutar: ${action.summary}\n\n${message}`,
+      content: `No se pudo ejecutar: ${action.summary}\n\n${message}`,
     });
     throw new Error(message);
   }
@@ -465,7 +465,7 @@ export async function cancelAction(input: { userId: string; actionId: string; re
     .set({ status: "cancelled", error: input.reason || null })
     .where(eq(aiActions.id, action.id));
 
-  const message = `❌ Acción cancelada: ${action.summary}`;
+  const message = `Acción cancelada: ${action.summary}`;
   await saveMessage({
     conversationId: action.conversationId,
     role: "assistant",

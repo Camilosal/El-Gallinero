@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { Settings } from "lucide-react";
 import { Button, Card, Input, Textarea } from "@/components/ui";
 import { apiFetch } from "@/lib/fetch";
 
@@ -84,7 +85,10 @@ export default function ParametrosTab() {
       <Card>
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
           <div>
-            <h3 className="font-semibold text-slate-700">⚙️ Parámetros y datos de la granja</h3>
+            <h3 className="font-semibold text-slate-700 flex items-center gap-2">
+              <Settings className="w-4 h-4 text-slate-500" aria-hidden="true" />
+              Parámetros y datos de la granja
+            </h3>
             <p className="text-xs text-slate-500 mt-1">
               Completa primero los datos generales de la granja y el responsable. Luego podrás editar esta información y los parámetros de cálculo desde aquí.
             </p>

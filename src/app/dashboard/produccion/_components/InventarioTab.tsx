@@ -2,7 +2,9 @@
 
 import { useEffect, useState, useCallback } from "react";
 import Link from "next/link";
+import { AlertTriangle, Egg, Package, Sprout, Wheat, Wrench } from "lucide-react";
 import { Card, Badge, EmptyState } from "@/components/ui";
+import { AppIcon } from "@/components/AppIcon";
 import { apiFetch } from "@/lib/fetch";
 
 // ─── Types ───
@@ -114,7 +116,10 @@ export default function InventarioTab() {
       {/* Header with links to detailed views */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
         <div>
-          <h2 className="text-xl font-bold text-slate-800">📦 Inventario Consolidado</h2>
+          <h2 className="text-xl font-bold text-slate-800 flex items-center gap-2">
+            <Package className="w-5 h-5 text-slate-600" aria-hidden="true" />
+            <span>Inventario Consolidado</span>
+          </h2>
           <p className="text-sm text-slate-500">Vista rápida de todos los stocks. Para gestión detallada, usa los enlaces de abajo.</p>
         </div>
         <div className="flex gap-2 flex-wrap">
@@ -130,7 +135,10 @@ export default function InventarioTab() {
       {/* Alert banner */}
       {(expiringEggs > 0 || lowFeeds.length > 0 || lowSupplies.length > 0) && (
         <div className="p-4 bg-red-50 border border-red-200 rounded-xl space-y-2">
-          <p className="font-semibold text-red-700 text-sm">⚠️ Alertas de Inventario</p>
+          <p className="font-semibold text-red-700 text-sm flex items-center gap-1.5">
+            <AlertTriangle className="w-4 h-4 shrink-0" aria-hidden="true" />
+            <span>Alertas de Inventario</span>
+          </p>
           {expiringEggs > 0 && (
             <p className="text-sm text-red-600">• {expiringEggs} huevos tienen más de 21 días — vender o usar pronto</p>
           )}
@@ -152,22 +160,22 @@ export default function InventarioTab() {
 
       {/* Summary cards */}
       <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
-        <MiniStat icon="🥚" label="Huevos disp." value={eggData?.summary.available ?? 0} />
-        <MiniStat icon="🍗" label="Carne (kg)" value={`${(meatData?.summary.available ?? 0).toFixed(1)}`} />
-        <MiniStat icon="🌱" label="Gallinaza (kg)" value={`${(manureData?.summary.available ?? 0).toFixed(0)}`} />
+        <MiniStat icon="egg" label="Huevos disp." value={eggData?.summary.available ?? 0} />
+        <MiniStat icon="meat" label="Carne (kg)" value={`${(meatData?.summary.available ?? 0).toFixed(1)}`} />
+        <MiniStat icon="sprout" label="Gallinaza (kg)" value={`${(manureData?.summary.available ?? 0).toFixed(0)}`} />
         <MiniStat
-          icon="🌾"
+          icon="wheat"
           label="Alimentos"
           value={balanceData?.summary.totalFeeds ?? 0}
           alert={balanceData?.summary.lowStockFeeds ?? 0}
         />
         <MiniStat
-          icon="🧰"
+          icon="wrench"
           label="Insumos"
           value={balanceData?.summary.totalSupplies ?? 0}
           alert={balanceData?.summary.lowStockSupplies ?? 0}
         />
-        <MiniStat icon="💰" label="Valor total" value={`$${(balanceData?.summary.totalValue ?? 0).toLocaleString()}`} />
+        <MiniStat icon="money" label="Valor total" value={`$${(balanceData?.summary.totalValue ?? 0).toLocaleString()}`} />
       </div>
 
       {/* Detailed sections */}
@@ -175,7 +183,10 @@ export default function InventarioTab() {
         {/* Egg inventory */}
         <Card>
           <div className="flex items-center justify-between mb-3">
-            <h3 className="font-semibold text-slate-700">🥚 Huevos por Tamaño</h3>
+            <h3 className="font-semibold text-slate-700 flex items-center gap-2">
+              <Egg className="w-4 h-4 text-amber-500" aria-hidden="true" />
+              <span>Huevos por Tamaño</span>
+            </h3>
             <Link href="/dashboard/inventarios/huevos" className="text-xs text-blue-600 hover:underline">Ver todo →</Link>
           </div>
           {eggData && eggData.summary.available > 0 ? (
@@ -192,19 +203,25 @@ export default function InventarioTab() {
                 </div>
               ))}
               {expiringEggs > 0 && (
-                <p className="text-xs text-red-600 mt-2">⚠️ {expiringEggs} huevos por vencer (&gt;21 días)</p>
+                <p className="text-xs text-red-600 mt-2 flex items-center gap-1">
+                  <AlertTriangle className="w-3.5 h-3.5 shrink-0" aria-hidden="true" />
+                  <span>{expiringEggs} huevos por vencer (&gt;21 días)</span>
+                </p>
               )}
               <p className="text-xs text-slate-400 mt-1">Valor estimado: ${eggData.estimatedValue.toLocaleString()}</p>
             </div>
           ) : (
-            <EmptyState icon="🥚" message="Sin huevos en inventario" />
+            <EmptyState icon="egg" message="Sin huevos en inventario" />
           )}
         </Card>
 
         {/* Feed inventory */}
         <Card>
           <div className="flex items-center justify-between mb-3">
-            <h3 className="font-semibold text-slate-700">🌾 Alimento</h3>
+            <h3 className="font-semibold text-slate-700 flex items-center gap-2">
+              <Wheat className="w-4 h-4 text-amber-600" aria-hidden="true" />
+              <span>Alimento</span>
+            </h3>
             <Link href="/dashboard/inventarios/balance" className="text-xs text-blue-600 hover:underline">Ver todo →</Link>
           </div>
           {balanceData && balanceData.foods.length > 0 ? (
@@ -219,20 +236,28 @@ export default function InventarioTab() {
                   </div>
                   <div className="flex justify-between text-xs text-slate-500 mt-0.5">
                     <span>Mín: {f.minStock} {f.unit}</span>
-                    {f.isLow && <span className="text-red-600 font-semibold">⚠ Stock bajo</span>}
+                    {f.isLow && (
+                      <span className="text-red-600 font-semibold inline-flex items-center gap-1">
+                        <AlertTriangle className="w-3 h-3" aria-hidden="true" />
+                        <span>Stock bajo</span>
+                      </span>
+                    )}
                   </div>
                 </div>
               ))}
             </div>
           ) : (
-            <EmptyState icon="🌾" message="Sin alimentos registrados" />
+            <EmptyState icon="wheat" message="Sin alimentos registrados" />
           )}
         </Card>
 
         {/* Meat inventory */}
         <Card>
           <div className="flex items-center justify-between mb-3">
-            <h3 className="font-semibold text-slate-700">🍗 Carne</h3>
+            <h3 className="font-semibold text-slate-700 flex items-center gap-2">
+              <AppIcon icon="meat" className="w-4 h-4 text-orange-600" />
+              <span>Carne</span>
+            </h3>
             <Link href="/dashboard/inventarios/carne" className="text-xs text-blue-600 hover:underline">Ver todo →</Link>
           </div>
           {meatData && meatData.summary.available > 0 ? (
@@ -254,14 +279,17 @@ export default function InventarioTab() {
               )}
             </div>
           ) : (
-            <EmptyState icon="🍗" message="Sin carne en inventario" />
+            <EmptyState icon="meat" message="Sin carne en inventario" />
           )}
         </Card>
 
         {/* Manure inventory */}
         <Card>
           <div className="flex items-center justify-between mb-3">
-            <h3 className="font-semibold text-slate-700">🌱 Gallinaza</h3>
+            <h3 className="font-semibold text-slate-700 flex items-center gap-2">
+              <Sprout className="w-4 h-4 text-green-600" aria-hidden="true" />
+              <span>Gallinaza</span>
+            </h3>
             <Link href="/dashboard/inventarios/gallinaza" className="text-xs text-blue-600 hover:underline">Ver todo →</Link>
           </div>
           {manureData && (manureData.summary.available > 0 || manureData.summary.produced > 0) ? (
@@ -283,7 +311,7 @@ export default function InventarioTab() {
               )}
             </div>
           ) : (
-            <EmptyState icon="🌱" message="Sin gallinaza en inventario" />
+            <EmptyState icon="sprout" message="Sin gallinaza en inventario" />
           )}
         </Card>
       </div>
@@ -291,7 +319,10 @@ export default function InventarioTab() {
       {/* Low stock supplies */}
       {lowSupplies.length > 0 && (
         <Card className="border-orange-200">
-          <h3 className="font-semibold text-slate-700 mb-3">🧰 Insumos con Stock Bajo</h3>
+          <h3 className="font-semibold text-slate-700 mb-3 flex items-center gap-2">
+            <Wrench className="w-4 h-4 text-orange-600" aria-hidden="true" />
+            <span>Insumos con Stock Bajo</span>
+          </h3>
           <div className="space-y-2">
             {lowSupplies.map((s) => (
               <div key={s.supplyId} className="flex items-center justify-between p-2 bg-orange-50 rounded-lg">
@@ -316,11 +347,16 @@ export default function InventarioTab() {
 function MiniStat({ icon, label, value, alert }: { icon: string; label: string; value: string | number; alert?: number }) {
   return (
     <div className={`p-3 rounded-xl border text-center ${alert && alert > 0 ? "border-red-200 bg-red-50" : "border-slate-200 bg-slate-50"}`}>
-      <p className="text-lg">{icon}</p>
+      <div className="mx-auto mb-1 flex justify-center text-slate-700">
+        <AppIcon icon={icon} className="w-5 h-5" />
+      </div>
       <p className="text-lg font-bold text-slate-800">{value}</p>
       <p className="text-[11px] text-slate-500">{label}</p>
       {alert !== undefined && alert > 0 && (
-        <p className="text-[10px] text-red-600 font-semibold mt-0.5">⚠ {alert} bajo{alert > 1 ? "s" : ""}</p>
+        <p className="text-[10px] text-red-600 font-semibold mt-0.5 flex items-center justify-center gap-1">
+          <AlertTriangle className="w-3 h-3" aria-hidden="true" />
+          <span>{alert} bajo{alert > 1 ? "s" : ""}</span>
+        </p>
       )}
     </div>
   );

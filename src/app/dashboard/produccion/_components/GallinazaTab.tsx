@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState, useCallback, useMemo } from "react";
+import { Banknote, Calculator, Ruler, Scale, Settings } from "lucide-react";
 import { PageHeader, Button, Card, Table, Modal, Input, Textarea, EmptyState, StatCard } from "@/components/ui";
 import { apiFetch } from "@/lib/fetch";
 import { useCatalog } from "@/lib/useCatalog";
@@ -186,7 +187,7 @@ export default function GallinazaPage() {
   return (
     <div>
       <PageHeader
-        title="🌱 Producción de Gallinaza"
+        title="Producción de Gallinaza"
         description="Estimación según aves y etapa, inventario de abono y ventas integradas con finanzas"
         help="Gestiona la producción y venta de gallinaza (abono).\n\n• La estimación se calcula automáticamente según las aves por etapa y los factores de producción (kg/ave/día).\n• Puedes ajustar los factores según tus mediciones reales.\n• Usa 'Ajustes' para corregir el stock cuando haces mediciones reales de la pila de compostaje.\n• Registra ventas de gallinaza y el ingreso se refleja automáticamente en finanzas."
         actions={
@@ -199,19 +200,21 @@ export default function GallinazaPage() {
 
       {/* StatCards */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6">
-        <StatCard icon="🌱" label="Estimación diaria" value={`${data.estimation.totalKgPerDay} kg/día`} color="green" />
-        <StatCard icon="📦" label="Stock disponible" value={`${data.inventory.currentStockKg.toFixed(2)} kg`} color="yellow" />
-        <StatCard icon="💰" label="Ingresos gallinaza (30 días)" value={`$${revenue30.toLocaleString()}`} color="blue" />
+        <StatCard icon="sprout" label="Estimación diaria" value={`${data.estimation.totalKgPerDay} kg/día`} color="green" />
+        <StatCard icon="package" label="Stock disponible" value={`${data.inventory.currentStockKg.toFixed(2)} kg`} color="yellow" />
+        <StatCard icon="money" label="Ingresos gallinaza (30 días)" value={`$${revenue30.toLocaleString()}`} color="blue" />
       </div>
 
       {/* Estimado vs real */}
       <Card className="mb-6 !p-4">
         <div className="flex flex-col sm:flex-row justify-between gap-2 text-sm">
-          <span className="text-slate-600">
-            📐 Estimación mensual: <strong className="text-green-700">{monthlyEstimate} kg</strong> ({data.estimation.totalKgPerDay} kg/día × 30)
+          <span className="inline-flex items-center gap-1.5 text-slate-600">
+            <Ruler className="w-4 h-4 text-slate-400" aria-hidden="true" />
+            <span>Estimación mensual: <strong className="text-green-700">{monthlyEstimate} kg</strong> ({data.estimation.totalKgPerDay} kg/día × 30)</span>
           </span>
-          <span className="text-slate-600">
-            ⚖️ Ajustes reales positivos (30 días): <strong className="text-blue-700">{realPositive30.toFixed(2)} kg</strong>
+          <span className="inline-flex items-center gap-1.5 text-slate-600">
+            <Scale className="w-4 h-4 text-slate-400" aria-hidden="true" />
+            <span>Ajustes reales positivos (30 días): <strong className="text-blue-700">{realPositive30.toFixed(2)} kg</strong></span>
           </span>
           <span className="text-xs text-slate-400 self-center">Se registra una estimación al consultar el inventario cada día. Los días sin registro no se reconstruyen; usa los ajustes para reflejar mediciones reales.</span>
         </div>
@@ -219,7 +222,10 @@ export default function GallinazaPage() {
 
       {/* Factores de producción */}
       <Card className="mb-6">
-        <h3 className="font-semibold text-slate-700 mb-1">⚙️ Factores de Producción (kg/ave/día)</h3>
+        <h3 className="font-semibold text-slate-700 mb-1 flex items-center gap-2">
+          <Settings className="w-4 h-4 text-slate-500" aria-hidden="true" />
+          <span>Factores de Producción (kg/ave/día)</span>
+        </h3>
         <p className="text-xs text-slate-500 mb-4">Variables de entrada de la estimación. Cambia el factor de cualquier grupo según tus mediciones.</p>
         <Table headers={["Grupo", "Aves", "Factor kg/ave/día", "Aporte kg/día", ""]}>
           {data.estimation.groups.map((g) => (
@@ -256,7 +262,10 @@ export default function GallinazaPage() {
 
       {/* Ventas */}
       <Card className="mb-6">
-        <h3 className="font-semibold text-slate-700 mb-4">💰 Ventas de Gallinaza</h3>
+        <h3 className="font-semibold text-slate-700 mb-4 flex items-center gap-2">
+          <Banknote className="w-4 h-4 text-green-600" aria-hidden="true" />
+          <span>Ventas de Gallinaza</span>
+        </h3>
         <TableSearch
           value={salesSearch}
           onChange={setSalesSearch}
@@ -267,7 +276,7 @@ export default function GallinazaPage() {
         />
         {filteredSales.length === 0 ? (
           <EmptyState
-            icon="🌱"
+            icon="sprout"
             message={
               salesSearch.trim()
                 ? "No hay ventas que coincidan con la búsqueda"
@@ -295,7 +304,10 @@ export default function GallinazaPage() {
 
       {/* Ajustes */}
       <Card>
-        <h3 className="font-semibold text-slate-700 mb-4">⚖️ Ajustes de Inventario</h3>
+        <h3 className="font-semibold text-slate-700 mb-4 flex items-center gap-2">
+          <Scale className="w-4 h-4 text-slate-500" aria-hidden="true" />
+          <span>Ajustes de Inventario</span>
+        </h3>
         <TableSearch
           value={adjustSearch}
           onChange={setAdjustSearch}
@@ -306,7 +318,7 @@ export default function GallinazaPage() {
         />
         {filteredAdjustments.length === 0 ? (
           <EmptyState
-            icon="⚖️"
+            icon="scale"
             message={
               adjustSearch.trim()
                 ? "No hay ajustes que coincidan con la búsqueda"
@@ -332,7 +344,7 @@ export default function GallinazaPage() {
       </Card>
 
       {/* Modal: Venta */}
-      <Modal open={saleModal} onClose={() => setSaleModal(false)} title="💰 Registrar Venta de Gallinaza">
+      <Modal open={saleModal} onClose={() => setSaleModal(false)} title="Registrar Venta de Gallinaza">
         <div className="space-y-4">
           {error && <p className="text-sm text-red-600 bg-red-50 p-3 rounded-lg">{error}</p>}
           <Input label="Fecha" help="Fecha de la venta." type="date" value={saleForm.date} onChange={(e) => setSaleForm({ ...saleForm, date: e.target.value })} />
@@ -352,8 +364,9 @@ export default function GallinazaPage() {
           </datalist>
           <Textarea label="Notas" help="Observaciones sobre esta venta." value={saleForm.notes} onChange={(e) => setSaleForm({ ...saleForm, notes: e.target.value })} />
           {saleTotal && (
-            <div className="p-3 bg-green-50 rounded-lg text-sm text-green-700">
-              🧮 Total: <strong className="text-xl">${Number(saleTotal).toLocaleString()}</strong> ({saleForm.quantityKg} kg × ${Number(saleForm.pricePerKg).toLocaleString()})
+            <div className="p-3 bg-green-50 rounded-lg text-sm text-green-700 flex items-center gap-2">
+              <Calculator className="w-4 h-4 text-green-600 shrink-0" aria-hidden="true" />
+              <span>Total: <strong className="text-xl">${Number(saleTotal).toLocaleString()}</strong> ({saleForm.quantityKg} kg × ${Number(saleForm.pricePerKg).toLocaleString()})</span>
             </div>
           )}
           <div className="flex gap-3">
@@ -364,7 +377,7 @@ export default function GallinazaPage() {
       </Modal>
 
       {/* Modal: Ajuste */}
-      <Modal open={adjustModal} onClose={() => setAdjustModal(false)} title="⚖️ Ajuste de Inventario">
+      <Modal open={adjustModal} onClose={() => setAdjustModal(false)} title="Ajuste de Inventario">
         <div className="space-y-4">
           {error && <p className="text-sm text-red-600 bg-red-50 p-3 rounded-lg">{error}</p>}
           <Input label="Fecha" help="Fecha del ajuste." type="date" value={adjustForm.date} onChange={(e) => setAdjustForm({ ...adjustForm, date: e.target.value })} />

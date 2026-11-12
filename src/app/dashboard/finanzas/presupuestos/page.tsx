@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState, useCallback, useMemo } from "react";
+import { BarChart3 } from "lucide-react";
 import { PageHeader, Button, Card, Table, Badge, Modal, Input, Select, Textarea, EmptyState, StatCard } from "@/components/ui";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from "recharts";
 import { apiFetch } from "@/lib/fetch";
@@ -177,7 +178,7 @@ export default function PresupuestosPage() {
   return (
     <div className="space-y-6">
       <PageHeader
-        title="📅 Presupuestos"
+        title="Presupuestos"
         description="Planificación y control presupuestario"
         help="Planifica y controla ingresos y gastos por período. Puedes crear un presupuesto base en $0 y agregar categorías y metas cuando las definas.\n\n• El sistema compara automáticamente lo presupuestado vs lo real.\n• Las variaciones ayudan a identificar desviaciones y planificar el crecimiento."
         actions={
@@ -190,13 +191,13 @@ export default function PresupuestosPage() {
       {loading ? (
         <Card><p className="text-center py-8 text-slate-400">Cargando...</p></Card>
       ) : budgets.length === 0 ? (
-        <EmptyState icon="📅" message="No hay presupuestos. Crea el presupuesto inicial en $0 y complétalo a medida que definas tus metas." />
+        <EmptyState icon="calendar" message="No hay presupuestos. Crea el presupuesto inicial en $0 y complétalo a medida que definas tus metas." />
       ) : (
         <>
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-            <StatCard icon="📅" label="Presupuestos" value={String(budgets.length)} color="blue" />
-            <StatCard icon="📊" label="Items totales" value={String(budgets.reduce((s, b) => s + b.items.length, 0))} color="green" />
-            <StatCard icon="💰" label="Meta total" value={fmt(budgets.reduce((s, b) => s + b.items.reduce((is, i) => is + Number(i.monthlyTarget), 0), 0))} color="yellow" />
+            <StatCard icon="calendar" label="Presupuestos" value={String(budgets.length)} color="blue" />
+            <StatCard icon="bar-chart" label="Items totales" value={String(budgets.reduce((s, b) => s + b.items.length, 0))} color="green" />
+            <StatCard icon="money" label="Meta total" value={fmt(budgets.reduce((s, b) => s + b.items.reduce((is, i) => is + Number(i.monthlyTarget), 0), 0))} color="yellow" />
           </div>
 
           <Card>
@@ -211,7 +212,7 @@ export default function PresupuestosPage() {
             />
             {filteredBudgets.length === 0 ? (
               <EmptyState
-                icon="📅"
+                icon="calendar"
                 message={
                   search.trim()
                     ? "No hay presupuestos que coincidan con la búsqueda"
@@ -245,12 +246,15 @@ export default function PresupuestosPage() {
       {detailBudget && (
         <Card>
           <div className="flex justify-between items-center mb-4">
-            <h3 className="font-semibold text-slate-700">📊 Comparativo: {detailBudget.name}</h3>
+            <h3 className="font-semibold text-slate-700 flex items-center gap-2">
+              <BarChart3 className="w-4 h-4 text-slate-600" aria-hidden="true" />
+              <span>Comparativo: {detailBudget.name}</span>
+            </h3>
             <button onClick={() => setDetailBudget(null)} className="text-slate-400 hover:text-slate-600 text-xl">&times;</button>
           </div>
 
           {comparativo.length === 0 ? (
-            <EmptyState icon="📊" message={detailBudget.items.length === 0 ? "Este presupuesto comienza en $0. Agrega categorías y metas para ver el comparativo." : "Sin datos de comparativo"} />
+            <EmptyState icon="bar-chart" message={detailBudget.items.length === 0 ? "Este presupuesto comienza en $0. Agrega categorías y metas para ver el comparativo." : "Sin datos de comparativo"} />
           ) : (
             <>
               <TableSearch
@@ -263,7 +267,7 @@ export default function PresupuestosPage() {
               />
               {filteredComparativo.length === 0 ? (
                 <EmptyState
-                  icon="📊"
+                  icon="bar-chart"
                   message={
                     detailSearch.trim()
                       ? "No hay categorías que coincidan con la búsqueda"
@@ -322,7 +326,7 @@ export default function PresupuestosPage() {
       )}
 
       {/* Create modal */}
-      <Modal open={modalOpen} onClose={() => { setModalOpen(false); setEditingId(null); }} title={editingId ? "✏️ Editar Presupuesto" : "📅 Nuevo Presupuesto"}>
+      <Modal open={modalOpen} onClose={() => { setModalOpen(false); setEditingId(null); }} title={editingId ? "Editar Presupuesto" : "Nuevo Presupuesto"}>
         <div className="space-y-4">
           {error && <p className="text-sm text-red-600 bg-red-50 p-3 rounded-lg">{error}</p>}
           <Input label="Nombre" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} placeholder="Ej: Presupuesto Q1 2025" required />

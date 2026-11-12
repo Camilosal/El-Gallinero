@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState, useCallback } from "react";
+import { Banknote, Bird, Coins, Egg, HeartCrack, Skull, Trophy } from "lucide-react";
 import { PageHeader, Card, StatCard, Select, EmptyState } from "@/components/ui";
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip, Legend, AreaChart, Area, XAxis, YAxis, CartesianGrid, BarChart, Bar } from "recharts";
 import { apiFetch } from "@/lib/fetch";
@@ -89,7 +90,7 @@ export default function KpisPage() {
   return (
     <div className="space-y-6">
       <PageHeader
-        title="📊 Indicadores Clave (KPIs)"
+        title="Indicadores Clave (KPIs)"
         description="Métricas de productividad, mortalidad, postura y costos"
         help="La tasa de postura cuenta huevos asociados a gallinas en edad y estado de postura, y a lotes maduros marcados para postura. El costo por huevo estima alimento de esa población. El costo por kg de carne estima adquisición y alimento para la carne destinada a venta; excluye autoconsumo. Los egresos se muestran aparte como total financiero del período."
         actions={
@@ -105,65 +106,83 @@ export default function KpisPage() {
       {loading ? (
         <Card><p className="text-center py-8 text-slate-400">Cargando...</p></Card>
       ) : !data ? (
-        <EmptyState icon="📊" message="No hay datos para el período seleccionado" />
+        <EmptyState icon="chart" message="No hay datos para el período seleccionado" />
       ) : (
         <>
           {/* Mortality KPIs */}
-          <h2 className="text-lg font-bold text-slate-700">💀 Mortalidad</h2>
+          <h2 className="text-lg font-bold text-slate-700 flex items-center gap-2">
+            <HeartCrack className="w-5 h-5 text-red-500" aria-hidden="true" />
+            Mortalidad
+          </h2>
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-            <StatCard icon="💀" label="Tasa mortalidad" value={`${data.mortality.rate}%`} color="red" />
-            <StatCard icon="☠️" label="Muertes totales" value={String(data.mortality.totalDeaths)} color="yellow" />
-            <StatCard icon="🏠" label="Animales en inventario" value={String(data.mortality.totalFlock)} color="green" />
-            <StatCard icon="📊" label="Causas registradas" value={String(data.mortality.byCause.length)} color="purple" />
+            <StatCard icon="skull" label="Tasa mortalidad" value={`${data.mortality.rate}%`} color="red" />
+            <StatCard icon="mortality" label="Muertes totales" value={String(data.mortality.totalDeaths)} color="yellow" />
+            <StatCard icon="home" label="Animales en inventario" value={String(data.mortality.totalFlock)} color="green" />
+            <StatCard icon="chart" label="Causas registradas" value={String(data.mortality.byCause.length)} color="purple" />
           </div>
 
           {/* Laying KPIs */}
-          <h2 className="text-lg font-bold text-slate-700">🥚 Postura</h2>
+          <h2 className="text-lg font-bold text-slate-700 flex items-center gap-2">
+            <Egg className="w-5 h-5 text-amber-500" aria-hidden="true" />
+            Postura
+          </h2>
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-            <StatCard icon="📈" label="Tasa de postura" value={`${data.laying.rate}%`} color="green" />
-            <StatCard icon="🥚" label="Huevos elegibles" value={String(data.laying.eligibleEggs)} color="yellow" />
-            <StatCard icon="📊" label="Huevos registrados" value={String(data.laying.totalEggs)} color="blue" />
-            <StatCard icon="🐔" label="Animales aptos para postura" value={String(data.laying.eligibleAnimals)} color="earth" />
+            <StatCard icon="trend-up" label="Tasa de postura" value={`${data.laying.rate}%`} color="green" />
+            <StatCard icon="egg" label="Huevos elegibles" value={String(data.laying.eligibleEggs)} color="yellow" />
+            <StatCard icon="chart" label="Huevos registrados" value={String(data.laying.totalEggs)} color="blue" />
+            <StatCard icon="hen" label="Animales aptos para postura" value={String(data.laying.eligibleAnimals)} color="earth" />
           </div>
           <p className="-mt-3 text-xs text-slate-500">Solo cuenta gallinas activas en edad de postura y lotes maduros de codornices o patos marcados para postura; registra en esos lotes únicamente las hembras ponedoras. Para el período se supone que la población apta actual estuvo presente todos los días.</p>
 
           {/* Cost KPIs */}
-          <h2 className="text-lg font-bold text-slate-700">💰 Costos</h2>
+          <h2 className="text-lg font-bold text-slate-700 flex items-center gap-2">
+            <Coins className="w-5 h-5 text-emerald-600" aria-hidden="true" />
+            Costos
+          </h2>
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-            <StatCard icon="🥚" label="Alimento estimado / huevo" value={data.laying.eligibleEggs > 0 ? fmt(data.costPerUnit.perEgg) : "—"} color="green" />
-            <StatCard icon="🍗" label="Costo estimado / kg vendible" value={data.costPerUnit.saleableMeatKg > 0 ? fmt(data.costPerUnit.perKgMeat) : "—"} color="red" />
-            <StatCard icon="💸" label="Total egresos" value={fmt(data.costPerUnit.totalExpenses)} color="purple" />
-            <StatCard icon="📊" label="Días en período" value={String(data.periodDays)} color="blue" />
+            <StatCard icon="egg" label="Alimento estimado / huevo" value={data.laying.eligibleEggs > 0 ? fmt(data.costPerUnit.perEgg) : "—"} color="green" />
+            <StatCard icon="drumstick" label="Costo estimado / kg vendible" value={data.costPerUnit.saleableMeatKg > 0 ? fmt(data.costPerUnit.perKgMeat) : "—"} color="red" />
+            <StatCard icon="expense" label="Total egresos" value={fmt(data.costPerUnit.totalExpenses)} color="purple" />
+            <StatCard icon="chart" label="Días en período" value={String(data.periodDays)} color="blue" />
           </div>
           <p className="-mt-3 text-xs text-slate-500">Los costos unitarios son estimaciones con costos de adquisición registrados y parámetros estándar de alimento. Los egresos no se reparten entre huevos y carne.</p>
 
           {/* Peak Production */}
           {data.peakProduction.peakWeek && (
             <>
-              <h2 className="text-lg font-bold text-slate-700">🏆 Pico de Producción</h2>
+              <h2 className="text-lg font-bold text-slate-700 flex items-center gap-2">
+                <Trophy className="w-5 h-5 text-amber-500" aria-hidden="true" />
+                Pico de Producción
+              </h2>
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-                <StatCard icon="📅" label="Semana pico" value={new Date(data.peakProduction.peakWeek + "T12:00:00").toLocaleDateString("es", { day: "2-digit", month: "short" })} color="green" />
-                <StatCard icon="📈" label="Tasa pico" value={`${data.peakProduction.peakRate}%`} color="blue" />
-                <StatCard icon="📉" label="Tasa actual" value={`${data.peakProduction.currentRate}%`} color="yellow" />
-                <StatCard icon="📊" label="Declive" value={`${data.peakProduction.declinePercent}%`} color="red" />
+                <StatCard icon="calendar" label="Semana pico" value={new Date(data.peakProduction.peakWeek + "T12:00:00").toLocaleDateString("es", { day: "2-digit", month: "short" })} color="green" />
+                <StatCard icon="trend-up" label="Tasa pico" value={`${data.peakProduction.peakRate}%`} color="blue" />
+                <StatCard icon="trend-down" label="Tasa actual" value={`${data.peakProduction.currentRate}%`} color="yellow" />
+                <StatCard icon="chart" label="Declive" value={`${data.peakProduction.declinePercent}%`} color="red" />
               </div>
             </>
           )}
 
           {/* Flock KPIs */}
-          <h2 className="text-lg font-bold text-slate-700">🐔 Parvada</h2>
+          <h2 className="text-lg font-bold text-slate-700 flex items-center gap-2">
+            <Bird className="w-5 h-5 text-green-600" aria-hidden="true" />
+            Parvada
+          </h2>
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-            <StatCard icon="📅" label="Edad promedio" value={`${data.flock.avgAgeWeeks} sem`} color="blue" />
-            <StatCard icon="🐾" label="Total animales" value={String(data.flock.totalBirds)} color="green" />
-            <StatCard icon="📈" label="Ratio productivo" value={`${(data.flock.productiveRatio * 100).toFixed(0)}%`} color="yellow" />
-            <StatCard icon="🏠" label="Estado" value={data.flock.totalBirds > 0 ? "Activo" : "Vacío"} color="earth" />
+            <StatCard icon="calendar" label="Edad promedio" value={`${data.flock.avgAgeWeeks} sem`} color="blue" />
+            <StatCard icon="paw" label="Total animales" value={String(data.flock.totalBirds)} color="green" />
+            <StatCard icon="trend-up" label="Ratio productivo" value={`${(data.flock.productiveRatio * 100).toFixed(0)}%`} color="yellow" />
+            <StatCard icon="home" label="Estado" value={data.flock.totalBirds > 0 ? "Activo" : "Vacío"} color="earth" />
           </div>
 
           {/* Charts */}
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
             {mortalityPie.length > 0 && (
               <Card>
-                <h3 className="font-semibold text-slate-700 mb-4">💀 Mortalidad por Causa</h3>
+                <h3 className="font-semibold text-slate-700 mb-4 flex items-center gap-2">
+                  <Skull className="w-4 h-4 text-red-500" aria-hidden="true" />
+                  Mortalidad por Causa
+                </h3>
                 <ResponsiveContainer width="100%" height={280}>
                   <PieChart>
                     <Pie data={mortalityPie} dataKey="value" nameKey="name" cx="50%" cy="50%" outerRadius={100} label={({ name, percent }) => `${name}: ${((percent ?? 0) * 100).toFixed(0)}%`} fontSize={11}>
@@ -179,7 +198,10 @@ export default function KpisPage() {
 
             {layingSeries.length > 0 && (
               <Card>
-                <h3 className="font-semibold text-slate-700 mb-4">🥚 Huevos diarios de población apta</h3>
+                <h3 className="font-semibold text-slate-700 mb-4 flex items-center gap-2">
+                  <Egg className="w-4 h-4 text-amber-500" aria-hidden="true" />
+                  Huevos diarios de población apta
+                </h3>
                 <ResponsiveContainer width="100%" height={280}>
                   <AreaChart data={layingSeries}>
                     <defs>
@@ -200,7 +222,10 @@ export default function KpisPage() {
 
             {costBreakdown.length > 0 && (
               <Card className="lg:col-span-2">
-                <h3 className="font-semibold text-slate-700 mb-4">💸 Desglose de Costos</h3>
+                <h3 className="font-semibold text-slate-700 mb-4 flex items-center gap-2">
+                  <Banknote className="w-4 h-4 text-emerald-600" aria-hidden="true" />
+                  Desglose de Costos
+                </h3>
                 <ResponsiveContainer width="100%" height={300}>
                   <BarChart data={costBreakdown} layout="vertical">
                     <CartesianGrid strokeDasharray="3 3" />

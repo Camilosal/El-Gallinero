@@ -3,7 +3,9 @@
 import { useEffect, useState, useCallback, useRef } from "react";
 import { useParams } from "next/navigation";
 import Link from "next/link";
+import { Bird, CheckCircle2, CircleDollarSign, ClipboardList, Egg, FileEdit, Pill, Skull } from "lucide-react";
 import { Card, Badge, Button, Modal, Input, Select, Textarea, EmptyState } from "@/components/ui";
+import { AppIcon } from "@/components/AppIcon";
 import { apiFetch } from "@/lib/fetch";
 import { HEN_PRESENT_STATUSES, isHenAvailableForExit } from "@/lib/animal-status";
 
@@ -194,7 +196,9 @@ export default function HenDetailPage() {
     return (
       <div className="flex items-center justify-center h-96">
         <div className="text-center">
-          <div className="text-5xl mb-4 animate-bounce">🐔</div>
+          <div className="flex justify-center mb-4 animate-bounce">
+            <Bird className="w-12 h-12 text-earth-700" aria-hidden="true" />
+          </div>
           <p className="text-slate-500">Cargando ficha...</p>
         </div>
       </div>
@@ -202,7 +206,7 @@ export default function HenDetailPage() {
   }
 
   if (!hen) {
-    return <EmptyState icon="🐔" message="Gallina no encontrada" />;
+    return <EmptyState icon="hen" message="Gallina no encontrada" />;
   }
 
   return (
@@ -213,8 +217,8 @@ export default function HenDetailPage() {
           ← Volver al escáner
         </Link>
         <div className="flex items-start gap-4">
-          <div className="w-16 h-16 rounded-xl bg-gradient-to-br from-green-500 to-green-700 flex items-center justify-center text-3xl">
-            🐔
+          <div className="w-16 h-16 rounded-xl bg-gradient-to-br from-green-500 to-green-700 flex items-center justify-center text-white shadow-xs">
+            <AppIcon icon="hen" className="w-8 h-8" />
           </div>
           <div className="flex-1">
             <div className="flex items-center gap-2 flex-wrap">
@@ -242,7 +246,14 @@ export default function HenDetailPage() {
         </Card>
         <Card className="text-center">
           <p className="text-xs text-slate-500">Empollando</p>
-          <p className="text-lg font-bold text-slate-800">{hen.isBroody ? "🐣 Sí" : "No"}</p>
+          <p className="text-lg font-bold text-slate-800">
+            {hen.isBroody ? (
+              <span className="inline-flex items-center gap-1">
+                <Egg className="w-4 h-4 text-amber-600" aria-hidden="true" />
+                <span>Sí</span>
+              </span>
+            ) : "No"}
+          </p>
         </Card>
         <Card className="text-center">
           <p className="text-xs text-slate-500">Eventos</p>
@@ -256,24 +267,24 @@ export default function HenDetailPage() {
           {isHenAvailableForExit(hen.status) && (
             <button
               onClick={() => openAction("vender")}
-              className="flex flex-col items-center gap-1 p-4 bg-green-50 border border-green-200 rounded-xl hover:bg-green-100 transition-colors"
+              className="flex flex-col items-center gap-1.5 p-4 bg-green-50 border border-green-200 rounded-xl hover:bg-green-100 transition-colors"
             >
-              <span className="text-2xl">💰</span>
+              <CircleDollarSign className="w-6 h-6 text-green-700" aria-hidden="true" />
               <span className="text-xs font-medium text-green-700">Vender</span>
             </button>
           )}
           <button
             onClick={() => openAction("tratar")}
-            className="flex flex-col items-center gap-1 p-4 bg-blue-50 border border-blue-200 rounded-xl hover:bg-blue-100 transition-colors"
+            className="flex flex-col items-center gap-1.5 p-4 bg-blue-50 border border-blue-200 rounded-xl hover:bg-blue-100 transition-colors"
           >
-            <span className="text-2xl">💊</span>
+            <Pill className="w-6 h-6 text-blue-700" aria-hidden="true" />
             <span className="text-xs font-medium text-blue-700">Tratar</span>
           </button>
           <button
             onClick={() => openAction("muerte")}
-            className="flex flex-col items-center gap-1 p-4 bg-red-50 border border-red-200 rounded-xl hover:bg-red-100 transition-colors"
+            className="flex flex-col items-center gap-1.5 p-4 bg-red-50 border border-red-200 rounded-xl hover:bg-red-100 transition-colors"
           >
-            <span className="text-2xl">💀</span>
+            <Skull className="w-6 h-6 text-red-700" aria-hidden="true" />
             <span className="text-xs font-medium text-red-700">Muerte</span>
           </button>
         </div>
@@ -284,22 +295,28 @@ export default function HenDetailPage() {
       {/* Notes */}
       {hen.notes && (
         <Card className="mb-6 bg-slate-50">
-          <h3 className="text-sm font-semibold text-slate-600 mb-1">📝 Notas</h3>
+          <h3 className="text-sm font-semibold text-slate-600 mb-1 flex items-center gap-1.5">
+            <FileEdit className="w-4 h-4 text-slate-500" aria-hidden="true" />
+            <span>Notas</span>
+          </h3>
           <p className="text-sm text-slate-700">{hen.notes}</p>
         </Card>
       )}
 
       {/* Timeline */}
       <Card>
-        <h3 className="font-semibold text-slate-700 mb-4">📋 Historial de Eventos</h3>
+        <h3 className="font-semibold text-slate-700 mb-4 flex items-center gap-2">
+          <ClipboardList className="w-4 h-4 text-slate-500" aria-hidden="true" />
+          <span>Historial de Eventos</span>
+        </h3>
         {timeline.length === 0 ? (
           <p className="text-center text-slate-400 py-6 text-sm">Sin eventos registrados</p>
         ) : (
           <div className="space-y-3">
             {timeline.map((event) => (
               <div key={event.id} className="flex gap-3 items-start">
-                <div className="flex-shrink-0 w-10 h-10 rounded-lg bg-slate-100 flex items-center justify-center text-lg">
-                  {event.icon}
+                <div className="flex-shrink-0 w-10 h-10 rounded-lg bg-slate-100 flex items-center justify-center text-slate-700">
+                  <AppIcon icon={event.icon} className="w-5 h-5" />
                 </div>
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2">
@@ -326,12 +343,14 @@ export default function HenDetailPage() {
         open={actionModal !== null}
         onClose={() => { if (!actionSubmitting) setActionModal(null); }}
         title={
-          actionModal === "vender" ? "💰 Vender Ave" : actionModal === "tratar" ? "💊 Registrar Tratamiento" : "💀 Registrar Muerte"
+          actionModal === "vender" ? "Vender Ave" : actionModal === "tratar" ? "Registrar Tratamiento" : "Registrar Muerte"
         }
       >
         {actionSuccess ? (
           <div className="text-center py-4">
-            <p className="text-3xl mb-2">✅</p>
+            <div className="flex justify-center mb-2">
+              <CheckCircle2 className="w-9 h-9 text-green-600" aria-hidden="true" />
+            </div>
             <p className="text-green-700 font-medium">{actionSuccess}</p>
           </div>
         ) : (
@@ -375,11 +394,11 @@ export default function HenDetailPage() {
                   value={actionForm.type || "tratamiento"}
                   onChange={(e) => setActionForm({ ...actionForm, type: e.target.value })}
                 >
-                  <option value="vacunacion">💉 Vacunación</option>
-                  <option value="desparasitacion">🪱 Desparasitación</option>
-                  <option value="tratamiento">💊 Tratamiento</option>
-                  <option value="vitaminas">💧 Vitaminas</option>
-                  <option value="otro">📋 Otro</option>
+                  <option value="vacunacion">Vacunación</option>
+                  <option value="desparasitacion">Desparasitación</option>
+                  <option value="tratamiento">Tratamiento</option>
+                  <option value="vitaminas">Vitaminas</option>
+                  <option value="otro">Otro</option>
                 </Select>
                 <Input
                   label="Descripción"

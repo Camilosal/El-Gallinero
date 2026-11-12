@@ -3,7 +3,9 @@
 import { useEffect, useState, useCallback, useMemo } from "react";
 import { useSearchParams } from "next/navigation";
 import Link from "next/link";
+import { AlertTriangle, Banknote, BarChart3, ClipboardList, Home, Package, Target, Zap } from "lucide-react";
 import { PageHeader, Button, Card, Table, Modal, Input, Textarea, EmptyState, StatCard, Badge, Select } from "@/components/ui";
+import { AppIcon } from "@/components/AppIcon";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend, ComposedChart, Line } from "recharts";
 import { apiFetch } from "@/lib/fetch";
 import { useCatalog } from "@/lib/useCatalog";
@@ -500,7 +502,7 @@ export default function HuevosPage() {
   return (
     <div>
       <PageHeader
-        title="🥚 Producción de Huevos Multiespecie"
+        title="Producción de Huevos Multiespecie"
         description="Recolección de huevos de Gallinas, Codornices y Patos con partición para el hogar y venta"
         help="Aquí registras la recolección diaria de huevos de todas las aves ponedoras:\n\n• Gallinas: clasificación por tamaño comercial o modo rápido.\n• Codornices: alta densidad y postura continua desde semana 6.\n• Patos: huevos grandes de alto valor culinario.\n\nCada registro permite destinar unidades al hogar (autoconsumo familiar) y a la venta de excedentes."
         actions={<Button onClick={openNew}>+ Registrar Recolección</Button>}
@@ -508,18 +510,21 @@ export default function HuevosPage() {
 
       {/* StatCards Principales */}
       <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3 mb-6">
-        <StatCard icon="🥚" label="Total Huevos" value={totalAll} color="yellow" />
-        <StatCard icon="📊" label="Promedio/día" value={avgDaily} color="blue" />
-        <StatCard icon="🏡" label="Para el Hogar" value={`${totalAutoconsumo} uds`} color="green" />
-        <StatCard icon="💵" label="Ahorro Hogar" value={`$${Math.round(totalSavings).toLocaleString("es-CO")}`} color="purple" />
-        <StatCard icon="💰" label="Excedentes Venta" value={`${totalExcedente} uds`} color="blue" />
-        <StatCard icon="💔" label="Rotos / Descarte" value={totalBroken} color="red" />
+        <StatCard icon="egg" label="Total Huevos" value={totalAll} color="yellow" />
+        <StatCard icon="bar-chart" label="Promedio/día" value={avgDaily} color="blue" />
+        <StatCard icon="home" label="Para el Hogar" value={`${totalAutoconsumo} uds`} color="green" />
+        <StatCard icon="banknote" label="Ahorro Hogar" value={`$${Math.round(totalSavings).toLocaleString("es-CO")}`} color="purple" />
+        <StatCard icon="money" label="Excedentes Venta" value={`${totalExcedente} uds`} color="blue" />
+        <StatCard icon="heart-crack" label="Rotos / Descarte" value={totalBroken} color="red" />
       </div>
 
       {/* Producción esperada de gallinas (si hay gallinas activas) */}
       {selectedSpeciesFilter !== "codorniz" && selectedSpeciesFilter !== "pato" && stageData.length > 0 && (
         <Card className="mb-6">
-            <h3 className="font-semibold text-slate-700 mb-3">🎯 Postura esperada — gallinas en etapa productiva</h3>
+          <h3 className="font-semibold text-slate-700 mb-3 flex items-center gap-2">
+            <Target className="w-4 h-4 text-slate-600" aria-hidden="true" />
+            <span>Postura esperada — gallinas en etapa productiva</span>
+          </h3>
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
             {stageData.map((stage) => (
               <div key={stage.name} className="flex items-center justify-between p-3 bg-slate-50 rounded-lg">
@@ -540,7 +545,10 @@ export default function HuevosPage() {
       {/* Gráfico de evolución */}
       {chartData.length > 0 && (
         <Card className="mb-6">
-          <h3 className="font-semibold text-slate-700 mb-4">📊 Evolución de Postura y Distribución (Hogar vs Venta)</h3>
+          <h3 className="font-semibold text-slate-700 mb-4 flex items-center gap-2">
+            <BarChart3 className="w-4 h-4 text-slate-600" aria-hidden="true" />
+            <span>Evolución de Postura y Distribución (Hogar vs Venta)</span>
+          </h3>
           <ResponsiveContainer width="100%" height={260}>
             <BarChart data={chartData}>
               <CartesianGrid strokeDasharray="3 3" />
@@ -548,9 +556,9 @@ export default function HuevosPage() {
               <YAxis fontSize={11} />
               <Tooltip />
               <Legend />
-              <Bar dataKey="Hogar" fill="#16a34a" radius={[3, 3, 0, 0]} name="🏡 Consumo Hogar" />
-              <Bar dataKey="Excedente" fill="#3b82f6" radius={[3, 3, 0, 0]} name="💰 Venta Excedente" />
-              <Bar dataKey="Rotos" fill="#ef4444" radius={[3, 3, 0, 0]} name="💔 Rotos" />
+              <Bar dataKey="Hogar" fill="#16a34a" radius={[3, 3, 0, 0]} name="Consumo Hogar" />
+              <Bar dataKey="Excedente" fill="#3b82f6" radius={[3, 3, 0, 0]} name="Venta Excedente" />
+              <Bar dataKey="Rotos" fill="#ef4444" radius={[3, 3, 0, 0]} name="Rotos" />
             </BarChart>
           </ResponsiveContainer>
         </Card>
@@ -561,10 +569,10 @@ export default function HuevosPage() {
         <div className="flex flex-wrap items-center justify-between gap-3 mb-4 pb-3 border-b border-slate-100">
           <div className="flex flex-wrap gap-1">
             {[
-              { id: "all", label: "Todas las Aves", icon: "🌐" },
-              { id: "gallina", label: "Gallinas", icon: "🐔" },
-              { id: "codorniz", label: "Codornices", icon: "🥚" },
-              { id: "pato", label: "Patas", icon: "🦆" },
+              { id: "all", label: "Todas las Aves", icon: "globe" },
+              { id: "gallina", label: "Gallinas", icon: "hen" },
+              { id: "codorniz", label: "Codornices", icon: "egg" },
+              { id: "pato", label: "Patas", icon: "duck" },
             ].map((sp) => {
               const isSelected = selectedSpeciesFilter === sp.id;
               const count = sp.id === "all"
@@ -574,12 +582,13 @@ export default function HuevosPage() {
                 <button
                   key={sp.id}
                   onClick={() => setSelectedSpeciesFilter(sp.id)}
-                  className={`px-3 py-1.5 rounded-full text-xs font-medium transition-all ${isSelected
+                  className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium transition-all ${isSelected
                     ? "bg-emerald-600 text-white shadow-sm"
                     : "bg-slate-100 text-slate-600 hover:bg-slate-200"
                     }`}
                 >
-                  {sp.icon} {sp.label} ({count})
+                  <AppIcon icon={sp.icon} className="w-3.5 h-3.5" />
+                  <span>{sp.label} ({count})</span>
                 </button>
               );
             })}
@@ -599,7 +608,7 @@ export default function HuevosPage() {
           <p className="text-center py-8 text-slate-400">Cargando...</p>
         ) : filteredRecords.length === 0 ? (
           <EmptyState
-            icon="🥚"
+            icon="egg"
             message={
               search.trim() || selectedSpeciesFilter !== "all"
                 ? "No hay registros que coincidan con la búsqueda"
@@ -610,7 +619,7 @@ export default function HuevosPage() {
           <Table headers={["Fecha", "Especie", "Lugar", "Total Recogido", "Para el Hogar", "Para Venta", "Ahorro ($)", "Rotos / Inc.", ""]}>
             {filteredRecords.map((r) => {
               const sp = r.species || "gallina";
-              const icon = SPECIES_ICON[sp] || "🥚";
+              const icon = SPECIES_ICON[sp] || "egg";
               const autoUnits = r.quantityAutoconsumo || 0;
               const excUnits = r.quantityExcedente || Math.max(0, r.totalCollected - r.broken - r.forIncubation - autoUnits);
               const savings = autoUnits * Number(r.referenceUnitPrice || priceEgg(sp));
@@ -621,25 +630,50 @@ export default function HuevosPage() {
                     {new Date(r.date + "T12:00:00").toLocaleDateString("es")}
                   </td>
                   <td className="px-4 py-3 text-sm">
-                    <span className="font-semibold text-slate-800">{icon} {SPECIES_LABEL[sp] || sp}</span>
+                    <span className="inline-flex items-center gap-1.5 font-semibold text-slate-800">
+                      <AppIcon icon={icon} className="w-4 h-4 text-slate-600 shrink-0" />
+                      <span>{SPECIES_LABEL[sp] || sp}</span>
+                    </span>
                   </td>
                   <td className="px-4 py-3 text-sm">{r.locationName || "Sin lugar asignado"}</td>
                   <td className="px-4 py-3 font-bold text-slate-800 text-base">
                     {r.totalCollected} <span className="text-xs text-slate-400 font-normal">uds</span>
                   </td>
                   <td className="px-4 py-3 text-sm text-emerald-700 font-medium">
-                    {autoUnits > 0 ? `🏡 ${autoUnits} uds` : "—"}
+                    {autoUnits > 0 ? (
+                      <span className="inline-flex items-center gap-1">
+                        <Home className="w-3.5 h-3.5 shrink-0" aria-hidden="true" />
+                        <span>{autoUnits} uds</span>
+                      </span>
+                    ) : "—"}
                   </td>
                   <td className="px-4 py-3 text-sm text-blue-700 font-medium">
-                    {excUnits > 0 ? `💰 ${excUnits} uds` : "—"}
+                    {excUnits > 0 ? (
+                      <span className="inline-flex items-center gap-1">
+                        <Banknote className="w-3.5 h-3.5 shrink-0" aria-hidden="true" />
+                        <span>{excUnits} uds</span>
+                      </span>
+                    ) : "—"}
                   </td>
                   <td className="px-4 py-3 text-sm font-semibold text-emerald-800">
                     {savings > 0 ? `+$${Math.round(savings).toLocaleString("es-CO")}` : "—"}
                   </td>
                   <td className="px-4 py-3 text-xs text-slate-500">
-                    {r.broken > 0 && <span className="text-red-600 mr-2">💔 {r.broken}</span>}
-                    {r.forIncubation > 0 && <span className="text-purple-600">🐣 {r.forIncubation}</span>}
-                    {r.broken === 0 && r.forIncubation === 0 && "0"}
+                    <div className="flex items-center gap-2">
+                      {r.broken > 0 && (
+                        <span className="inline-flex items-center gap-1 text-red-600">
+                          <AppIcon icon="heart-crack" className="w-3.5 h-3.5" />
+                          <span>{r.broken}</span>
+                        </span>
+                      )}
+                      {r.forIncubation > 0 && (
+                        <span className="inline-flex items-center gap-1 text-purple-600">
+                          <AppIcon icon="incubator" className="w-3.5 h-3.5" />
+                          <span>{r.forIncubation}</span>
+                        </span>
+                      )}
+                      {r.broken === 0 && r.forIncubation === 0 && "0"}
+                    </div>
                   </td>
                   <td className="px-4 py-3">
                     <div className="flex gap-2">
@@ -658,7 +692,7 @@ export default function HuevosPage() {
       <Modal
         open={modalOpen}
         onClose={() => setModalOpen(false)}
-        title={editing ? "✏️ Editar Recolección de Huevos" : "🥚 Registrar Recolección de Huevos"}
+        title={editing ? "Editar Recolección de Huevos" : "Registrar Recolección de Huevos"}
       >
         <div className="space-y-4">
           {error && <p className="text-sm text-red-600 bg-red-50 p-3 rounded-lg">{error}</p>}
@@ -676,9 +710,9 @@ export default function HuevosPage() {
               onChange={(e) => handleSpeciesChange(e.target.value)}
               disabled={!!editing}
             >
-              <option value="gallina">🐔 Gallinas ponedoras</option>
-              <option value="codorniz">🥚 Codornices</option>
-              <option value="pato">🦆 Patas</option>
+              <option value="gallina">Gallinas ponedoras</option>
+              <option value="codorniz">Codornices</option>
+              <option value="pato">Patas</option>
             </Select>
           </div>
 
@@ -732,18 +766,20 @@ export default function HuevosPage() {
                 <button
                   type="button"
                   onClick={() => setQuickMode(true)}
-                  className={`flex-1 px-3 py-1.5 rounded-lg text-xs font-medium border transition-colors ${quickMode ? "bg-green-600 text-white border-green-600" : "bg-white text-slate-600 border-slate-300"
+                  className={`flex-1 inline-flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium border transition-colors ${quickMode ? "bg-green-600 text-white border-green-600" : "bg-white text-slate-600 border-slate-300"
                     }`}
                 >
-                  ⚡ Recogida rápida
+                  <Zap className="w-3.5 h-3.5" aria-hidden="true" />
+                  <span>Recogida rápida</span>
                 </button>
                 <button
                   type="button"
                   onClick={() => setQuickMode(false)}
-                  className={`flex-1 px-3 py-1.5 rounded-lg text-xs font-medium border transition-colors ${!quickMode ? "bg-green-600 text-white border-green-600" : "bg-white text-slate-600 border-slate-300"
+                  className={`flex-1 inline-flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium border transition-colors ${!quickMode ? "bg-green-600 text-white border-green-600" : "bg-white text-slate-600 border-slate-300"
                     }`}
                 >
-                  📋 Detallado por Tamaño
+                  <ClipboardList className="w-3.5 h-3.5" aria-hidden="true" />
+                  <span>Detallado por Tamaño</span>
                 </button>
               </div>
 
@@ -845,8 +881,9 @@ export default function HuevosPage() {
 
           {/* Bloque de Partición Dual: Consumo Hogar vs Excedentes */}
           <div className="p-3 bg-emerald-50 rounded-xl border border-emerald-200 space-y-3">
-            <span className="text-xs font-bold text-emerald-900 uppercase tracking-wide block">
-              🏡 Destino Dual de la Postura (Alimentación Familiar y Venta)
+            <span className="text-xs font-bold text-emerald-900 uppercase tracking-wide flex items-center gap-1.5">
+              <Home className="w-3.5 h-3.5 text-emerald-700" aria-hidden="true" />
+              <span>Destino Dual de la Postura (Alimentación Familiar y Venta)</span>
             </span>
 
             <div className="grid grid-cols-3 gap-2">
@@ -894,7 +931,10 @@ export default function HuevosPage() {
 
           {confirmOverLimit && (
             <div className="p-3 bg-amber-50 border border-amber-300 rounded-lg text-xs">
-              <p className="font-semibold text-amber-800 mb-1">⚠️ Producción inusualmente alta</p>
+              <p className="font-semibold text-amber-800 mb-1 flex items-center gap-1.5">
+                <AlertTriangle className="w-3.5 h-3.5 shrink-0" aria-hidden="true" />
+                <span>Producción inusualmente alta</span>
+              </p>
               <p className="text-amber-700 mb-2">{overLimitMsg}</p>
               <div className="flex gap-2">
                 <Button onClick={confirmAndSave} variant="primary">Confirmar y Guardar</Button>
@@ -915,8 +955,11 @@ export default function HuevosPage() {
       {/* Sugerencia de venta rápida */}
       {showSaleSuggestion && (
         <div className="fixed bottom-4 right-4 z-50 p-4 bg-green-50 border border-green-300 rounded-xl shadow-lg max-w-sm">
-          <div className="flex justify-between items-start mb-2">
-            <p className="text-sm font-semibold text-green-800">📦 Tienes {saleSuggestionQty} huevos listos para venta</p>
+          <div className="flex justify-between items-start gap-2 mb-2">
+            <p className="text-sm font-semibold text-green-800 flex items-center gap-1.5">
+              <Package className="w-4 h-4 shrink-0" aria-hidden="true" />
+              <span>Tienes {saleSuggestionQty} huevos listos para venta</span>
+            </p>
             <button onClick={() => setShowSaleSuggestion(false)} className="text-green-600 hover:text-green-800 text-xs">✕</button>
           </div>
           <div className="flex gap-2 mt-2">

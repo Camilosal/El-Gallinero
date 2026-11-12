@@ -2,6 +2,8 @@
 
 import { Suspense, useEffect, useState, useCallback, useMemo } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
+import { AlertTriangle, BarChart3, Banknote, Bird, CheckCircle2, Egg, Info, Package, Sprout, Utensils } from "lucide-react";
+import AppIcon from "@/components/AppIcon";
 import { PageHeader, Button, Card, Table, Modal, Input, Select, Textarea, EmptyState, StatCard, Badge } from "@/components/ui";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from "recharts";
 import { apiFetch } from "@/lib/fetch";
@@ -109,10 +111,10 @@ interface SaleFormItem {
 }
 
 const birdTypeLabels: Record<string, string> = {
-  gallina_descarte: "🐔 Gallina descarte",
-  pollo: "🐓 Pollo",
-  gallo: "🐓 Gallo",
-  pollito: "🐥 Pollito",
+  gallina_descarte: "Gallina descarte",
+  pollo: "Pollo",
+  gallo: "Gallo",
+  pollito: "Pollito",
 };
 
 type Tab = "huevos" | "aves" | "carne" | "gallinaza";
@@ -265,12 +267,12 @@ function VentasContent() {
     setError("");
     const editItems: SaleFormItem[] = s.items.length > 0
       ? s.items.map((item, idx) => {
-          const units = presentOptions.find((o) => o.value === item.presentation)?.units ?? null;
-          const presentations = item.presentation && units && units > 0 && item.quantity % units === 0
-            ? item.quantity / units
-            : item.quantity;
-          return { key: String(idx + 1), size: item.size, presentations, presentation: item.presentation || "", pricePerUnit: String(item.pricePerUnit) };
-        })
+        const units = presentOptions.find((o) => o.value === item.presentation)?.units ?? null;
+        const presentations = item.presentation && units && units > 0 && item.quantity % units === 0
+          ? item.quantity / units
+          : item.quantity;
+        return { key: String(idx + 1), size: item.size, presentations, presentation: item.presentation || "", pricePerUnit: String(item.pricePerUnit) };
+      })
       : [{ key: "1", size: s.size || "", presentations: 1, presentation: s.presentation || "", pricePerUnit: s.pricePerUnit }];
     setForm({ date: s.date, buyer: s.buyer || "", notes: s.notes || "", items: editItems });
     setModalOpen(true);
@@ -487,8 +489,8 @@ function VentasContent() {
       const detail =
         sale.items.length > 0
           ? sale.items
-              .map((item) => `${item.quantity} ${item.size} ${item.presentation ?? ""}`)
-              .join(" ")
+            .map((item) => `${item.quantity} ${item.size} ${item.presentation ?? ""}`)
+            .join(" ")
           : `${sale.quantity} ${sale.size ?? ""}`;
       return matchesTextQuery(eggSearch, [
         sale.date,
@@ -526,7 +528,7 @@ function VentasContent() {
   return (
     <div>
       <PageHeader
-        title="💰 Ventas"
+        title="Ventas"
         description="Gestión de ventas de huevos, aves, carne y gallinaza"
         help="Registra todas las ventas del gallinero organizadas por tipo.\n\n• Huevos: venta de huevos por tamaño. El stock se descuenta automáticamente del inventario.\n• Aves: venta de gallinas, gallos o lotes completos.\n• Carne: venta de carne producida del sacrificio.\n• Gallinaza: venta de abono.\n• Puedes registrar ventas a crédito y gestionar cobros desde Cuentas."
         actions={
@@ -539,17 +541,17 @@ function VentasContent() {
 
       {/* Tabs */}
       <div className="flex gap-1 mb-6 bg-slate-100 p-1 rounded-lg w-fit">
-        <button onClick={() => selectTab("huevos")} className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${tab === "huevos" ? "bg-white text-green-700 shadow-sm" : "text-slate-600 hover:text-slate-800"}`}>
-          🥚 Huevos
+        <button onClick={() => selectTab("huevos")} className={`inline-flex items-center gap-1.5 px-4 py-2 rounded-md text-sm font-medium transition-colors ${tab === "huevos" ? "bg-white text-green-700 shadow-sm" : "text-slate-600 hover:text-slate-800"}`}>
+          <Egg className="w-4 h-4" aria-hidden="true" /> Huevos
         </button>
-        <button onClick={() => selectTab("aves")} className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${tab === "aves" ? "bg-white text-green-700 shadow-sm" : "text-slate-600 hover:text-slate-800"}`}>
-          🐔 Aves
+        <button onClick={() => selectTab("aves")} className={`inline-flex items-center gap-1.5 px-4 py-2 rounded-md text-sm font-medium transition-colors ${tab === "aves" ? "bg-white text-green-700 shadow-sm" : "text-slate-600 hover:text-slate-800"}`}>
+          <Bird className="w-4 h-4" aria-hidden="true" /> Aves
         </button>
-        <button onClick={() => selectTab("carne")} className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${tab === "carne" ? "bg-white text-green-700 shadow-sm" : "text-slate-600 hover:text-slate-800"}`}>
-          🍗 Carne
+        <button onClick={() => selectTab("carne")} className={`inline-flex items-center gap-1.5 px-4 py-2 rounded-md text-sm font-medium transition-colors ${tab === "carne" ? "bg-white text-green-700 shadow-sm" : "text-slate-600 hover:text-slate-800"}`}>
+          <Utensils className="w-4 h-4" aria-hidden="true" /> Carne
         </button>
-        <button onClick={() => selectTab("gallinaza")} className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${tab === "gallinaza" ? "bg-white text-green-700 shadow-sm" : "text-slate-600 hover:text-slate-800"}`}>
-          🌱 Gallinaza
+        <button onClick={() => selectTab("gallinaza")} className={`inline-flex items-center gap-1.5 px-4 py-2 rounded-md text-sm font-medium transition-colors ${tab === "gallinaza" ? "bg-white text-green-700 shadow-sm" : "text-slate-600 hover:text-slate-800"}`}>
+          <Sprout className="w-4 h-4" aria-hidden="true" /> Gallinaza
         </button>
       </div>
 
@@ -557,15 +559,15 @@ function VentasContent() {
       {tab === "huevos" && (
         <>
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
-            <StatCard icon="💵" label="Ingresos Huevos" value={`$${totalRevenue.toLocaleString()}`} color="green" />
-            <StatCard icon="🥚" label="Huevos Vendidos" value={totalEggs} color="yellow" />
-            <StatCard icon="📊" label="Precio Prom./Huevo" value={`$${avgPrice}`} color="blue" />
-            <StatCard icon="🛒" label="Total Ventas" value={sales.length} color="purple" />
+            <StatCard icon="banknote" label="Ingresos Huevos" value={`$${totalRevenue.toLocaleString()}`} color="green" />
+            <StatCard icon="egg" label="Huevos Vendidos" value={totalEggs} color="yellow" />
+            <StatCard icon="chart" label="Precio Prom./Huevo" value={`$${avgPrice}`} color="blue" />
+            <StatCard icon="cart" label="Total Ventas" value={sales.length} color="purple" />
           </div>
 
           {inventory.some((i) => i.available > 0) && (
             <Card className="mb-6">
-              <h3 className="font-semibold text-slate-700 mb-3">📦 Inventario Disponible</h3>
+              <h3 className="font-semibold text-slate-700 mb-3 flex items-center gap-2"><Package className="w-4 h-4 text-slate-500" aria-hidden="true" />Inventario Disponible</h3>
               <div className="flex flex-wrap gap-3">
                 {inventory.filter((i) => i.available > 0).map((i) => (
                   <div key={i.size} className="px-4 py-2 bg-green-50 border border-green-200 rounded-lg">
@@ -581,7 +583,7 @@ function VentasContent() {
 
           {chartData.length > 0 && (
             <Card className="mb-6">
-              <h3 className="font-semibold text-slate-700 mb-4">📊 Ingresos por Ventas</h3>
+              <h3 className="font-semibold text-slate-700 mb-4 flex items-center gap-2"><BarChart3 className="w-4 h-4 text-slate-500" aria-hidden="true" />Ingresos por Ventas</h3>
               <ResponsiveContainer width="100%" height={250}>
                 <BarChart data={chartData}>
                   <CartesianGrid strokeDasharray="3 3" />
@@ -608,7 +610,7 @@ function VentasContent() {
               <p className="text-center py-8 text-slate-400">Cargando...</p>
             ) : filteredSales.length === 0 ? (
               <EmptyState
-                icon="🥚"
+                icon="egg"
                 message={
                   eggSearch.trim()
                     ? "No hay ventas que coincidan con la búsqueda"
@@ -644,15 +646,18 @@ function VentasContent() {
       {tab === "aves" && (
         <>
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
-            <StatCard icon="💵" label="Ingresos Aves" value={`$${totalBirdRevenue.toLocaleString()}`} color="green" />
-            <StatCard icon="🐔" label="Aves Vendidas" value={totalBirds} color="yellow" />
-            <StatCard icon="⚖️" label="Peso Total" value={`${totalBirdWeight.toFixed(1)} kg`} color="blue" />
-            <StatCard icon="🛒" label="Total Ventas" value={chickenSales.length} color="purple" />
+            <StatCard icon="banknote" label="Ingresos Aves" value={`$${totalBirdRevenue.toLocaleString()}`} color="green" />
+            <StatCard icon="hen" label="Aves Vendidas" value={totalBirds} color="yellow" />
+            <StatCard icon="scale" label="Peso Total" value={`${totalBirdWeight.toFixed(1)} kg`} color="blue" />
+            <StatCard icon="cart" label="Total Ventas" value={chickenSales.length} color="purple" />
           </div>
 
           {chartData.length > 0 && (
             <Card className="mb-6">
-              <h3 className="font-semibold text-slate-700 mb-4">📊 Ingresos por Ventas</h3>
+              <h3 className="font-semibold text-slate-700 mb-4 flex items-center gap-2">
+                <BarChart3 className="w-4 h-4 text-slate-500" aria-hidden="true" />
+                Ingresos por Ventas
+              </h3>
               <ResponsiveContainer width="100%" height={250}>
                 <BarChart data={chartData}>
                   <CartesianGrid strokeDasharray="3 3" />
@@ -679,7 +684,7 @@ function VentasContent() {
               <p className="text-center py-8 text-slate-400">Cargando...</p>
             ) : filteredChickenSales.length === 0 ? (
               <EmptyState
-                icon="🐔"
+                icon="hen"
                 message={
                   birdSearch.trim()
                     ? "No hay ventas que coincidan con la búsqueda"
@@ -693,11 +698,11 @@ function VentasContent() {
                     <td className="px-4 py-3">{new Date(s.date + "T12:00:00").toLocaleDateString("es")}</td>
                     <td className="px-4 py-3">
                       {s.hen ? (
-                        <span className="text-sm font-medium text-blue-600">🐔 {s.hen.code}</span>
+                        <span className="inline-flex items-center gap-1 text-sm font-medium text-blue-600"><AppIcon icon="hen" className="w-3.5 h-3.5" /> {s.hen.code}</span>
                       ) : s.rooster ? (
-                        <span className="text-sm font-medium text-red-600">🐓 {s.rooster.code}</span>
+                        <span className="inline-flex items-center gap-1 text-sm font-medium text-red-600"><AppIcon icon="rooster" className="w-3.5 h-3.5" /> {s.rooster.code}</span>
                       ) : s.batch ? (
-                        <span className="text-sm font-medium text-orange-600">📦 {s.batch.code}</span>
+                        <span className="inline-flex items-center gap-1 text-sm font-medium text-orange-600"><Package className="w-3.5 h-3.5" aria-hidden="true" /> {s.batch.code}</span>
                       ) : (
                         <span className="text-sm text-slate-400">—</span>
                       )}
@@ -726,13 +731,13 @@ function VentasContent() {
         <KgSaleTab
           apiEndpoint="/api/produccion/carne/ventas"
           labels={{
-            emptyIcon: "🍗",
+            emptyIcon: "drumstick",
             emptyMessage: "No hay ventas de carne registradas",
             revenueLabel: "Ingresos Carne",
             kgLabel: "Total Kg Vendidos",
             newButton: "+ Nueva Venta de Carne",
-            modalTitleNew: "🍗 Nueva Venta de Carne",
-            modalTitleEdit: "✏️ Editar Venta de Carne",
+            modalTitleNew: "Nueva Venta de Carne",
+            modalTitleEdit: "Editar Venta de Carne",
             quantityLabel: "Cantidad (kg)",
             priceLabel: "Precio por kg ($)",
             tableHeaders: ["Fecha", "Cantidad", "Precio/kg", "Total", "Comprador", ""],
@@ -745,13 +750,13 @@ function VentasContent() {
         <KgSaleTab
           apiEndpoint="/api/produccion/gallinaza/ventas"
           labels={{
-            emptyIcon: "🌱",
+            emptyIcon: "sprout",
             emptyMessage: "No hay ventas de gallinaza registradas",
             revenueLabel: "Ingresos Gallinaza",
             kgLabel: "Total Kg Vendidos",
             newButton: "+ Nueva Venta de Gallinaza",
-            modalTitleNew: "🌱 Nueva Venta de Gallinaza",
-            modalTitleEdit: "✏️ Editar Venta de Gallinaza",
+            modalTitleNew: "Nueva Venta de Gallinaza",
+            modalTitleEdit: "Editar Venta de Gallinaza",
             quantityLabel: "Cantidad (kg)",
             priceLabel: "Precio por kg ($)",
             tableHeaders: ["Fecha", "Cantidad", "Precio/kg", "Total", "Comprador", ""],
@@ -760,7 +765,7 @@ function VentasContent() {
       )}
 
       {/* ─── Modal: Egg Sale ─── */}
-      <Modal open={modalOpen} onClose={() => setModalOpen(false)} title={editing ? "✏️ Editar Venta de Huevos" : "🥚 Nueva Venta de Huevos"}>
+      <Modal open={modalOpen} onClose={() => setModalOpen(false)} title={editing ? "Editar Venta de Huevos" : "Nueva Venta de Huevos"}>
         <div className="space-y-4">
           {error && <p className="text-sm text-red-600 bg-red-50 p-3 rounded-lg">{error}</p>}
           <div className="grid grid-cols-2 gap-3">
@@ -842,7 +847,12 @@ function VentasContent() {
                       </span>
                       {item.size && (
                         <span className={`text-xs font-medium ${exceeds ? "text-red-600" : "text-green-600"}`}>
-                          Disp: {remaining} {exceeds && "⚠️ Excede disponible"}
+                          Disp: {remaining}{" "}
+                          {exceeds && (
+                            <span className="inline-flex items-center gap-0.5">
+                              <AlertTriangle className="w-3 h-3" aria-hidden="true" /> Excede disponible
+                            </span>
+                          )}
                         </span>
                       )}
                     </div>
@@ -853,8 +863,8 @@ function VentasContent() {
           </div>
 
           <div className="p-3 bg-green-50 rounded-lg text-sm text-green-700">
-            <p>🥚 Total de huevos: <strong className="text-lg">{totalEggsAllItems.toLocaleString()}</strong></p>
-            <p className="mt-1">💵 Total de la venta: <strong className="text-xl">${totalAmountAllItems.toLocaleString()}</strong></p>
+            <p className="flex items-center gap-1.5"><Egg className="w-4 h-4 shrink-0" aria-hidden="true" /> Total de huevos: <strong className="text-lg">{totalEggsAllItems.toLocaleString()}</strong></p>
+            <p className="mt-1 flex items-center gap-1.5"><Banknote className="w-4 h-4 shrink-0" aria-hidden="true" /> Total de la venta: <strong className="text-xl">${totalAmountAllItems.toLocaleString()}</strong></p>
             {totalEggsAllItems >= 12 && (
               <p className="mt-1 text-xs">≈ ${Math.round(totalAmountAllItems / totalEggsAllItems * 12).toLocaleString()} por docena</p>
             )}
@@ -871,7 +881,7 @@ function VentasContent() {
       </Modal>
 
       {/* ─── Modal: Bird Sale ─── */}
-      <Modal open={birdModalOpen} onClose={() => setBirdModalOpen(false)} title={editingBird ? "✏️ Editar Venta de Aves" : "🐔 Nueva Venta de Aves"}>
+      <Modal open={birdModalOpen} onClose={() => setBirdModalOpen(false)} title={editingBird ? "Editar Venta de Aves" : "Nueva Venta de Aves"}>
         <div className="space-y-4">
           {birdError && <p className="text-sm text-red-600 bg-red-50 p-3 rounded-lg">{birdError}</p>}
           <div className="grid grid-cols-2 gap-3">
@@ -885,24 +895,25 @@ function VentasContent() {
           <Select label="Gallina" value={birdForm.henId} onChange={(e) => handleBirdHenSelect(e.target.value)}>
             <option value="">— Sin seleccionar —</option>
             {hens.map((h) => (
-              <option key={h.id} value={h.id}>🐔 {h.code} — {h.weight} kg{h.status === "recomendada_sacrificio" ? " ⚠️ Recomendada sacrificio" : ""}</option>
+              <option key={h.id} value={h.id}>{h.code} — {h.weight} kg{h.status === "recomendada_sacrificio" ? " (Recomendada sacrificio)" : ""}</option>
             ))}
           </Select>
           {birdForm.henId && (
-            <div className="p-3 bg-blue-50 rounded-lg text-sm text-blue-700">
-              ℹ️ Se seleccionó la gallina <strong>{hens.find((h) => h.id === birdForm.henId)?.code}</strong>. El peso se pre-llenó con su peso actual.
+            <div className="p-3 bg-blue-50 rounded-lg text-sm text-blue-700 flex items-start gap-2">
+              <Info className="w-4 h-4 shrink-0 mt-0.5" aria-hidden="true" />
+              <span>Se seleccionó la gallina <strong>{hens.find((h) => h.id === birdForm.henId)?.code}</strong>. El peso se pre-llenó con su peso actual.</span>
             </div>
           )}
           <Select label="Gallo" value={birdForm.roosterId} onChange={(e) => handleBirdRoosterSelect(e.target.value)}>
             <option value="">— Sin gallo —</option>
             {roosters.map((r) => (
-              <option key={r.id} value={r.id}>🐓 {r.code}{r.weight ? ` — ${r.weight} kg` : ""}</option>
+              <option key={r.id} value={r.id}>{r.code}{r.weight ? ` — ${r.weight} kg` : ""}</option>
             ))}
           </Select>
           <Select label="Lote de pollos" value={birdForm.batchId} onChange={(e) => handleBirdBatchSelect(e.target.value)}>
             <option value="">— Sin lote —</option>
             {batches.map((b) => (
-              <option key={b.id} value={b.id}>🐤 {b.code} — {b.currentQuantity} disponibles{b.status === "listo_sacrificio" ? " ✅ Listo" : ""}</option>
+              <option key={b.id} value={b.id}>{b.code} — {b.currentQuantity} disponibles{b.status === "listo_sacrificio" ? " (Listo)" : ""}</option>
             ))}
           </Select>
           {!birdForm.henId && !birdForm.roosterId && !birdForm.batchId && (
@@ -939,9 +950,9 @@ function VentasContent() {
           )}
 
           <div className="p-3 bg-green-50 rounded-lg text-sm text-green-700">
-            <p>🐔 Total aves: <strong className="text-lg">{birdForm.quantity}</strong></p>
+            <p className="flex items-center gap-1.5"><AppIcon icon="hen" className="w-4 h-4 shrink-0" /> Total aves: <strong className="text-lg">{birdForm.quantity}</strong></p>
             {birdForm.weightKg && <p>Peso: <strong>{birdForm.weightKg} kg</strong></p>}
-            <p className="mt-1">💵 Total de la venta: <strong className="text-xl">${birdTotal()}</strong></p>
+            <p className="mt-1 flex items-center gap-1.5"><Banknote className="w-4 h-4 shrink-0" aria-hidden="true" /> Total de la venta: <strong className="text-xl">${birdTotal()}</strong></p>
           </div>
 
           <Textarea label="Notas" value={birdForm.notes} onChange={(e) => setBirdForm({ ...birdForm, notes: e.target.value })} />

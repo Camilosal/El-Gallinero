@@ -1,6 +1,8 @@
 "use client";
 
 import { ReactNode, useState, ButtonHTMLAttributes, InputHTMLAttributes, SelectHTMLAttributes, TextareaHTMLAttributes } from "react";
+import { HelpCircle, Lightbulb, X } from "lucide-react";
+import { AppIcon } from "@/components/AppIcon";
 
 /** Parse help text that may contain \n (real newlines or literal \\n) and • bullets into JSX */
 function renderHelpText(text: string) {
@@ -59,7 +61,7 @@ export function Card({ children, className = "" }: { children: ReactNode; classN
   );
 }
 
-export function StatCard({ label, value, icon, color = "green" }: { label: string; value: string | number; icon: string; color?: string }) {
+export function StatCard({ label, value, icon, color = "green" }: { label: string; value: string | number; icon: string | ReactNode; color?: string }) {
   const colorMap: Record<string, string> = {
     green: "from-green-500 to-green-700",
     yellow: "from-farm-400 to-farm-600",
@@ -70,8 +72,8 @@ export function StatCard({ label, value, icon, color = "green" }: { label: strin
   };
   return (
     <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-5 flex items-center gap-4">
-      <div className={`w-12 h-12 rounded-lg bg-gradient-to-br ${colorMap[color] || colorMap.green} flex items-center justify-center text-2xl`}>
-        {icon}
+      <div className={`w-12 h-12 rounded-lg bg-gradient-to-br ${colorMap[color] || colorMap.green} flex items-center justify-center text-white shrink-0 shadow-xs`}>
+        {typeof icon === "string" ? <AppIcon icon={icon} className="w-6 h-6 text-white" /> : icon}
       </div>
       <div>
         <p className="text-2xl font-bold text-slate-800">{value}</p>
@@ -96,7 +98,7 @@ export function PageHeader({ title, description, actions, help }: { title: strin
               onClick={() => setHelpOpen(!helpOpen)}
               className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-lg border transition-colors bg-blue-50 border-blue-200 text-blue-700 hover:bg-blue-100"
             >
-              <span>❓</span>
+              <HelpCircle className="w-3.5 h-3.5" />
               <span>{helpOpen ? "Ocultar ayuda" : "Ayuda"}</span>
             </button>
           )}
@@ -105,11 +107,17 @@ export function PageHeader({ title, description, actions, help }: { title: strin
       </div>
       {help && helpOpen && (
         <div className="mt-3 p-4 bg-blue-50 border border-blue-200 rounded-xl text-sm text-blue-800 leading-relaxed">
-          <div className="flex gap-2">
-            <span className="text-lg flex-shrink-0">💡</span>
+          <div className="flex gap-2.5">
+            <Lightbulb className="w-4 h-4 text-blue-600 flex-shrink-0 mt-0.5" />
             <div>{renderHelpText(help)}</div>
           </div>
-          <button onClick={() => setHelpOpen(false)} className="mt-2 text-xs text-blue-500 hover:text-blue-700 font-medium">Cerrar ✕</button>
+          <button
+            onClick={() => setHelpOpen(false)}
+            className="mt-2 inline-flex items-center gap-1 text-xs text-blue-600 hover:text-blue-800 font-medium"
+          >
+            <span>Cerrar</span>
+            <X className="w-3.5 h-3.5" />
+          </button>
         </div>
       )}
     </div>
@@ -195,8 +203,14 @@ export function Modal({ open, onClose, title, children }: { open: boolean; onClo
     <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/50" onClick={onClose}>
       <div className="bg-white rounded-xl shadow-2xl w-full max-w-lg max-h-[90vh] overflow-y-auto m-4" onClick={(e) => e.stopPropagation()}>
         <div className="flex items-center justify-between px-6 py-4 border-b">
-          <h2 className="text-lg font-semibold">{title}</h2>
-          <button onClick={onClose} className="text-slate-400 hover:text-slate-600 text-xl">&times;</button>
+          <h2 className="text-lg font-semibold text-slate-800">{title}</h2>
+          <button
+            onClick={onClose}
+            aria-label="Cerrar"
+            className="rounded-lg p-1 text-slate-400 hover:bg-slate-100 hover:text-slate-600 transition-colors"
+          >
+            <X className="w-5 h-5" />
+          </button>
         </div>
         <div className="p-6">{children}</div>
       </div>
@@ -221,11 +235,13 @@ export function Table({ headers, children }: { headers: string[]; children: Reac
   );
 }
 
-export function EmptyState({ icon, message }: { icon: string; message: string }) {
+export function EmptyState({ icon, message }: { icon: string | ReactNode; message: string }) {
   return (
     <div className="text-center py-12 text-slate-400">
-      <span className="text-4xl block mb-3">{icon}</span>
-      <p>{message}</p>
+      <div className="mx-auto mb-3 flex h-14 w-14 items-center justify-center rounded-2xl bg-slate-100 text-slate-400">
+        {typeof icon === "string" ? <AppIcon icon={icon} className="w-7 h-7" /> : icon}
+      </div>
+      <p className="text-sm text-slate-500">{message}</p>
     </div>
   );
 }

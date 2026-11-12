@@ -3,6 +3,8 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useState } from "react";
+import { BookOpen, ChevronRight, Home } from "lucide-react";
+import { AppIcon } from "@/components/AppIcon";
 import { guideModules, guides } from "@/lib/guide-data";
 
 export default function GuiaLayout({ children }: { children: React.ReactNode }) {
@@ -38,7 +40,7 @@ export default function GuiaLayout({ children }: { children: React.ReactNode }) 
         className="fixed bottom-4 right-4 z-40 lg:hidden bg-green-600 text-white p-3 rounded-full shadow-lg hover:bg-green-700 transition-colors"
         aria-label="Navegación de guía"
       >
-        <span className="text-xl">📖</span>
+        <BookOpen className="w-5 h-5" aria-hidden="true" />
       </button>
 
       {/* Backdrop */}
@@ -63,7 +65,7 @@ export default function GuiaLayout({ children }: { children: React.ReactNode }) 
             ← Volver al Dashboard
           </Link>
           <h2 className="text-lg font-bold text-slate-800 mt-2 flex items-center gap-2">
-            <span>📖</span> Guía de Usuario
+            <BookOpen className="w-5 h-5 text-green-700 shrink-0" aria-hidden="true" /> Guía de Usuario
           </h2>
         </div>
 
@@ -78,7 +80,7 @@ export default function GuiaLayout({ children }: { children: React.ReactNode }) 
                 : "text-slate-600 hover:bg-slate-50"
             }`}
           >
-            <span>🏠</span>
+            <Home className="w-4 h-4 shrink-0" aria-hidden="true" />
             <span>Inicio de la Guía</span>
           </Link>
 
@@ -96,7 +98,7 @@ export default function GuiaLayout({ children }: { children: React.ReactNode }) 
                     onClick={() => toggleModule(mod.id)}
                     className="flex-1 flex items-center gap-2 px-4 py-2.5 text-sm font-medium text-slate-700 hover:bg-slate-100 transition-colors text-left"
                   >
-                    <span>{mod.icon}</span>
+                    <AppIcon icon={mod.icon} className="w-4 h-4 shrink-0 text-slate-600" />
                     <span>{mod.label}</span>
                   </button>
                   <button
@@ -104,9 +106,7 @@ export default function GuiaLayout({ children }: { children: React.ReactNode }) 
                     className="px-3 py-2.5 hover:bg-slate-100 transition-colors"
                     aria-label={isExpanded ? "Colapsar" : "Expandir"}
                   >
-                    <span className={`text-[10px] transition-transform ${isExpanded ? "rotate-90" : ""}`}>
-                      ▶
-                    </span>
+                    <ChevronRight className={`w-3.5 h-3.5 text-slate-400 transition-transform ${isExpanded ? "rotate-90" : ""}`} aria-hidden="true" />
                   </button>
                 </div>
 
@@ -123,7 +123,7 @@ export default function GuiaLayout({ children }: { children: React.ReactNode }) 
                             : "text-slate-600 hover:bg-slate-100 hover:text-slate-800"
                         }`}
                       >
-                        <span className="text-xs">{guide.icon}</span>
+                        <AppIcon icon={guide.icon} className="w-3.5 h-3.5 shrink-0" />
                         <span className="truncate">{guide.title}</span>
                       </Link>
                     ))}

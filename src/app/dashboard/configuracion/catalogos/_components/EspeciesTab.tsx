@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
+import { BarChart3 } from "lucide-react";
 import { Badge, Button, Card, EmptyState, Input, Modal, Select, Table, Textarea } from "@/components/ui";
 import { apiFetch } from "@/lib/fetch";
 
@@ -149,7 +150,10 @@ export default function EspeciesTab() {
       <Card>
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
           <div>
-            <h3 className="font-semibold text-slate-700">📊 Parámetros productivos por especie</h3>
+            <h3 className="font-semibold text-slate-700 flex items-center gap-2">
+              <BarChart3 className="w-4 h-4 text-slate-500" aria-hidden="true" />
+              Parámetros productivos por especie
+            </h3>
             <p className="text-xs text-slate-500 mt-1">
               Definen el ciclo, peso, conversión alimenticia, rendimiento en canal y precios usados por las calculadoras,
               el inventario y la valoración de animales.
@@ -163,7 +167,7 @@ export default function EspeciesTab() {
         {loading ? (
           <p className="text-center py-8 text-slate-400">Cargando...</p>
         ) : items.length === 0 ? (
-          <EmptyState icon="📊" message="No hay parámetros por especie" />
+          <EmptyState icon="chart" message="No hay parámetros por especie" />
         ) : (
           <Table headers={["Especie", "Raza / nombre", "$/kg canal", "Rdto.", "Ciclo", "Peso", "Consumo", "FCR", "Huevos/día", "$/huevo", "Estado", ""]}>
             {items.map((item) => (
@@ -192,7 +196,7 @@ export default function EspeciesTab() {
         )}
       </Card>
 
-      <Modal open={modalOpen} onClose={() => setModalOpen(false)} title={editing ? "✏️ Editar especie / raza" : "➕ Agregar especie / raza"}>
+      <Modal open={modalOpen} onClose={() => setModalOpen(false)} title={editing ? "Editar especie / raza" : "Agregar especie / raza"}>
         <div className="space-y-3">
           {error && <p className="text-sm text-red-600 bg-red-50 p-3 rounded-lg">{error}</p>}
           <div className="grid grid-cols-2 gap-3">

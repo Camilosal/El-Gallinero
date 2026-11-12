@@ -292,10 +292,10 @@ export default function MortalidadPage() {
       />
 
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        <StatCard icon="💀" label="Tasa mortalidad (30d)" value={`${stats.mortalityRate}%`} color="red" />
-        <StatCard icon="🐔" label="Muertes (30d)" value={String(stats.totalDeaths)} color="yellow" />
-        <StatCard icon="🏠" label="Animales en inventario" value={String(stats.totalFlock)} color="green" />
-        <StatCard icon="🥚" label="Huevos perdidos (30d)" value={String(lossStats.totalLost)} color="purple" />
+        <StatCard icon="mortality" label="Tasa mortalidad (30d)" value={`${stats.mortalityRate}%`} color="red" />
+        <StatCard icon="hen" label="Muertes (30d)" value={String(stats.totalDeaths)} color="yellow" />
+        <StatCard icon="home" label="Animales en inventario" value={String(stats.totalFlock)} color="green" />
+        <StatCard icon="egg" label="Huevos perdidos (30d)" value={String(lossStats.totalLost)} color="purple" />
       </div>
 
       {pieData.length > 0 && (
@@ -326,7 +326,7 @@ export default function MortalidadPage() {
           <p className="text-center py-8 text-slate-400">Cargando...</p>
         ) : filteredRecords.length === 0 ? (
           <EmptyState
-            icon="💀"
+            icon="mortality"
             message={
               mortalitySearch.trim()
                 ? "No hay registros que coincidan con la búsqueda"

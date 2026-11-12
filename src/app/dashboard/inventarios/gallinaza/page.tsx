@@ -63,7 +63,7 @@ export default function InventarioGallinazaPage() {
   return (
     <div>
       <PageHeader
-        title="🌱 Inventario de Gallinaza"
+        title="Inventario de Gallinaza"
         description="Stock de abono disponible: producido + ajustes - vendido."
         help="Controla el inventario de gallinaza (abono orgánico). La producción se estima automáticamente según el número de aves y factores de conversión. Se pueden hacer ajustes manuales (por limpieza, humedad, etc.) y registrar ventas. Muestra historial de producción y ventas, stock disponible y valor estimado. Desde aquí puedes ir a 'Factores y Ajustes' para configurar los parámetros de estimación."
         actions={
@@ -74,10 +74,10 @@ export default function InventarioGallinazaPage() {
       />
 
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
-        <StatCard icon="🌱" label="Producido (kg)" value={(data?.summary.produced ?? 0).toFixed(1)} color="green" />
-        <StatCard icon="💰" label="Vendido (kg)" value={(data?.summary.sold ?? 0).toFixed(1)} color="blue" />
-        <StatCard icon="📦" label="Disponible (kg)" value={(data?.summary.available ?? 0).toFixed(1)} color="yellow" />
-        <StatCard icon="📊" label="Est. Diario (kg/día)" value={(data?.estimatedDailyKg ?? 0).toFixed(2)} color="purple" />
+        <StatCard icon="sprout" label="Producido (kg)" value={(data?.summary.produced ?? 0).toFixed(1)} color="green" />
+        <StatCard icon="money" label="Vendido (kg)" value={(data?.summary.sold ?? 0).toFixed(1)} color="blue" />
+        <StatCard icon="package" label="Disponible (kg)" value={(data?.summary.available ?? 0).toFixed(1)} color="yellow" />
+        <StatCard icon="bar-chart" label="Est. Diario (kg/día)" value={(data?.estimatedDailyKg ?? 0).toFixed(2)} color="purple" />
       </div>
 
       {(data?.summary.adjusted ?? 0) !== 0 && (
@@ -103,7 +103,7 @@ export default function InventarioGallinazaPage() {
             />
             {filteredProduction.length === 0 ? (
               <EmptyState
-                icon="🌱"
+                icon="sprout"
                 message={
                   productionSearch.trim()
                     ? "No hay registros que coincidan con la búsqueda"
@@ -139,7 +139,7 @@ export default function InventarioGallinazaPage() {
             />
             {filteredSales.length === 0 ? (
               <EmptyState
-                icon="💰"
+                icon="money"
                 message={
                   salesSearch.trim()
                     ? "No hay ventas que coincidan con la búsqueda"
@@ -161,7 +161,7 @@ export default function InventarioGallinazaPage() {
         </div>
       ) : (
         <Card>
-          <EmptyState icon="🌱" message="No hay datos de gallinaza. La producción se estima automáticamente según los factores por etapa." />
+          <EmptyState icon="sprout" message="No hay datos de gallinaza. La producción se estima automáticamente según los factores por etapa." />
         </Card>
       )}
     </div>

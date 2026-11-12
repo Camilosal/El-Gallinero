@@ -2,6 +2,8 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
+import { Search } from "lucide-react";
+import { AppIcon } from "@/components/AppIcon";
 import { searchNavigation, type SearchEntry } from "@/lib/navigation";
 
 interface GlobalSearchProps {
@@ -84,7 +86,7 @@ export default function GlobalSearch({
           aria-label="Buscar en el sistema"
           aria-keyshortcuts="Control+K Meta+K"
         >
-          <span className="text-sm text-slate-400">🔍</span>
+          <Search className="w-4 h-4 text-slate-400 shrink-0" />
           <span className="truncate flex-1">
             <span className="sm:hidden">Buscar...</span>
             <span className="hidden sm:inline">Buscar módulo o acción...</span>
@@ -102,7 +104,7 @@ export default function GlobalSearch({
           aria-label="Buscar en el sistema"
           aria-keyshortcuts="Control+K Meta+K"
         >
-          <span className="text-lg">🔍</span>
+          <Search className="w-4 h-4" />
         </button>
       ) : (
         <button
@@ -112,7 +114,7 @@ export default function GlobalSearch({
           aria-label="Buscar en el sistema"
           aria-keyshortcuts="Control+K Meta+K"
         >
-          <span className="text-base">🔍</span>
+          <Search className="w-4 h-4 text-green-300 shrink-0" />
           <span className="flex-1 truncate">Buscar módulo o acción...</span>
           <kbd className="rounded border border-green-600 bg-green-900 px-1.5 py-0.5 text-[10px] font-semibold text-green-300">
             Ctrl K
@@ -134,7 +136,7 @@ export default function GlobalSearch({
             aria-label="Buscador global"
           >
             <div className="flex items-center gap-3 border-b border-slate-200 px-4">
-              <span className="text-lg text-slate-400">🔍</span>
+              <Search className="w-4 h-4 text-slate-400 shrink-0" />
               <input
                 ref={inputRef}
                 value={query}
@@ -157,8 +159,10 @@ export default function GlobalSearch({
             <div className="max-h-[60vh] overflow-y-auto py-2">
               {results.length === 0 ? (
                 <div className="px-4 py-10 text-center">
-                  <p className="text-3xl">🔎</p>
-                  <p className="mt-2 text-sm font-medium text-slate-700">
+                  <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-2xl bg-slate-100 text-slate-400">
+                    <Search className="w-6 h-6" />
+                  </div>
+                  <p className="mt-3 text-sm font-medium text-slate-700">
                     Sin resultados para “{query}”
                   </p>
                   <p className="mt-1 text-xs text-slate-500">
@@ -218,15 +222,16 @@ function SearchResultRow({
         active ? "bg-green-50" : "hover:bg-slate-50"
       }`}
     >
-      <span className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-lg bg-slate-100 text-lg">
-        {entry.icon}
+      <span className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-lg bg-slate-100 text-slate-700">
+        <AppIcon icon={entry.icon} className="w-4 h-4" />
       </span>
       <span className="min-w-0 flex-1">
         <span className="block truncate text-sm font-medium text-slate-800">
           {entry.label}
         </span>
-        <span className="block truncate text-xs text-slate-500">
-          {entry.groupIcon} {entry.group}
+        <span className="flex items-center gap-1.5 truncate text-xs text-slate-500">
+          <AppIcon icon={entry.groupIcon} className="w-3 h-3 text-slate-400 shrink-0" />
+          <span className="truncate">{entry.group}</span>
         </span>
       </span>
       <span className={`text-xs ${active ? "text-green-700" : "text-slate-300"}`}>

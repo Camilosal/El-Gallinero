@@ -3,7 +3,9 @@
 import { useEffect, useState, useCallback, useMemo } from "react";
 import { useSearchParams } from "next/navigation";
 import Link from "next/link";
+import { Banknote, Beef, Home, Scale } from "lucide-react";
 import { PageHeader, Button, Card, Table, Modal, Input, Select, Textarea, EmptyState, StatCard, Badge } from "@/components/ui";
+import { AppIcon } from "@/components/AppIcon";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from "recharts";
 import { apiFetch } from "@/lib/fetch";
 import TableSearch from "@/components/TableSearch";
@@ -48,19 +50,19 @@ interface Rooster { id: string; code: string; weight: string | null; status: str
 interface Batch { id: string; code: string; species?: string; breed?: string; currentQuantity: number; status: string; avgWeightKg?: string | null; locationId?: string | null; }
 
 const birdTypeLabels: Record<string, string> = {
-  gallina_descarte: "🐔 Gallina descarte",
-  pollo: "🐓 Pollo de engorde",
-  gallo: "🐓 Gallo reproductor",
-  codorniz: "🥚 Codorniz",
-  pato: "🦆 Pato",
-  conejo: "🐇 Conejo de engorde",
+  gallina_descarte: "Gallina descarte",
+  pollo: "Pollo de engorde",
+  gallo: "Gallo reproductor",
+  codorniz: "Codorniz",
+  pato: "Pato",
+  conejo: "Conejo de engorde",
 };
 
 const destinationLabels: Record<string, string> = {
-  consumo_propio: "🏡 Consumo hogar",
-  venta: "💰 Venta excedentes",
-  mixto: "⚖️ Dual (Hogar + Venta)",
-  donacion: "🎁 Donación / Otro",
+  consumo_propio: "Consumo hogar",
+  venta: "Venta excedentes",
+  mixto: "Dual (Hogar + Venta)",
+  donacion: "Donación / Otro",
 };
 
 export default function CarneTab() {
@@ -184,7 +186,7 @@ export default function CarneTab() {
 
     const birdType = species === "gallina" ? "gallina_descarte"
       : species === "pollo" ? "pollo"
-      : species;
+        : species;
 
     setForm((prev) => ({
       ...prev,
@@ -423,18 +425,21 @@ export default function CarneTab() {
   return (
     <div>
       <PageHeader
-        title="🍗 Faena y Producción de Carne"
+        title="Faena y Producción de Carne"
         description="Registro multiespecie de faena con partición dual: autoconsumo del hogar y venta de excedentes"
         help="Aquí registras la faena de pollos, codornices, patos, conejos o aves de descarte.\n\n• Partición Dual: divide cada faena entre carne para el hogar (calcula el ahorro familiar según precios locales) y carne para la venta (va al inventario comercial).\n• El peso en canal es el peso limpio listo para cocina.\n• Cada registro con destino hogar se sincroniza automáticamente con el módulo de Soberanía Alimentaria."
         actions={<Button onClick={openNew}>+ Registrar Faena</Button>}
       />
 
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
-        <StatCard icon="🍗" label="Animales Faenados" value={totalBirds} color="green" />
-        <StatCard icon="⚖️" label="Carne Canal Total" value={`${totalWeight.toFixed(1)} kg`} color="yellow" />
-        <StatCard icon="🏡" label="Ahorro Familiar Generado" value={`$${Math.round(totalSavings).toLocaleString("es-CO")}`} color="purple" />
+        <StatCard icon="meat" label="Animales Faenados" value={totalBirds} color="green" />
+        <StatCard icon="scale" label="Carne Canal Total" value={`${totalWeight.toFixed(1)} kg`} color="yellow" />
+        <StatCard icon="home" label="Ahorro Familiar Generado" value={`$${Math.round(totalSavings).toLocaleString("es-CO")}`} color="purple" />
         <div className="bg-white rounded-lg shadow-sm p-4 border border-slate-200 flex flex-col justify-center">
-          <p className="text-xs text-slate-500 font-medium mb-1">🥩 Carne para Venta (Excedentes)</p>
+          <p className="text-xs text-slate-500 font-medium mb-1 flex items-center gap-1.5">
+            <Beef className="w-3.5 h-3.5 text-slate-500" aria-hidden="true" />
+            <span>Carne para Venta (Excedentes)</span>
+          </p>
           <div className="text-xl font-bold text-blue-700">{totalCarneExcedente.toFixed(1)} kg</div>
           <div className="flex gap-2 mt-2">
             <Link href="/dashboard/inventarios/carne" className="text-xs text-blue-600 hover:underline">Ver inventario</Link>
@@ -466,12 +471,12 @@ export default function CarneTab() {
         <div className="flex flex-wrap items-center justify-between gap-3 mb-4 pb-3 border-b border-slate-100">
           <div className="flex flex-wrap gap-1">
             {[
-              { id: "all", label: "Todas", icon: "🌐" },
-              { id: "gallina", label: "Gallinas", icon: "🐔" },
-              { id: "pollo", label: "Pollos", icon: "🐓" },
-              { id: "codorniz", label: "Codornices", icon: "🥚" },
-              { id: "pato", label: "Patos", icon: "🦆" },
-              { id: "conejo", label: "Conejos", icon: "🐇" },
+              { id: "all", label: "Todas", icon: "globe" },
+              { id: "gallina", label: "Gallinas", icon: "hen" },
+              { id: "pollo", label: "Pollos", icon: "rooster" },
+              { id: "codorniz", label: "Codornices", icon: "egg" },
+              { id: "pato", label: "Patos", icon: "duck" },
+              { id: "conejo", label: "Conejos", icon: "rabbit" },
             ].map((sp) => {
               const isSelected = selectedSpeciesFilter === sp.id;
               const count = sp.id === "all"
@@ -481,13 +486,13 @@ export default function CarneTab() {
                 <button
                   key={sp.id}
                   onClick={() => setSelectedSpeciesFilter(sp.id)}
-                  className={`px-3 py-1.5 rounded-full text-xs font-medium transition-all ${
-                    isSelected
-                      ? "bg-emerald-600 text-white shadow-sm"
-                      : "bg-slate-100 text-slate-600 hover:bg-slate-200"
-                  }`}
+                  className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium transition-all ${isSelected
+                    ? "bg-emerald-600 text-white shadow-sm"
+                    : "bg-slate-100 text-slate-600 hover:bg-slate-200"
+                    }`}
                 >
-                  {sp.icon} {sp.label} ({count})
+                  <AppIcon icon={sp.icon} className="w-3.5 h-3.5" />
+                  <span>{sp.label} ({count})</span>
                 </button>
               );
             })}
@@ -507,7 +512,7 @@ export default function CarneTab() {
           <p className="text-center py-8 text-slate-400">Cargando...</p>
         ) : filteredRecords.length === 0 ? (
           <EmptyState
-            icon="🍗"
+            icon="meat"
             message={
               search.trim() || selectedSpeciesFilter !== "all"
                 ? "No hay registros que coincidan con la búsqueda"
@@ -518,7 +523,7 @@ export default function CarneTab() {
           <Table headers={["Fecha", "Especie / Origen", "Lugar", "Tipo Animal", "Canal Total", "Destino / Partición", "Ahorro Hogar", ""]}>
             {filteredRecords.map((r) => {
               const sp = r.species || "pollo";
-              const icon = SPECIES_ICON[sp] || "🍗";
+              const icon = SPECIES_ICON[sp] || "meat";
               const savings = Number(r.estimatedSavingsAmount || 0);
               const autoKg = Number(r.weightKgAutoconsumo || 0);
               const excKg = Number(r.weightKgExcedente || 0);
@@ -528,7 +533,7 @@ export default function CarneTab() {
                   <td className="px-4 py-3 text-sm">{new Date(r.date + "T12:00:00").toLocaleDateString("es")}</td>
                   <td className="px-4 py-3">
                     <div className="flex items-center gap-1.5 font-medium text-slate-800 text-sm">
-                      <span>{icon}</span>
+                      <AppIcon icon={icon} className="w-4 h-4 text-slate-600 shrink-0" />
                       {r.hen ? (
                         <span className="text-blue-600 font-semibold">{r.hen.code}</span>
                       ) : r.rooster ? (
@@ -558,9 +563,19 @@ export default function CarneTab() {
                       {destinationLabels[r.destination] || r.destination}
                     </div>
                     {(autoKg > 0 || excKg > 0) && (
-                      <div className="text-[11px] text-slate-500 mt-0.5 space-x-2">
-                        {autoKg > 0 && <span className="text-emerald-700">🏡 {autoKg} kg</span>}
-                        {excKg > 0 && <span className="text-blue-700">💰 {excKg} kg</span>}
+                      <div className="flex items-center gap-2 text-[11px] text-slate-500 mt-0.5">
+                        {autoKg > 0 && (
+                          <span className="inline-flex items-center gap-1 text-emerald-700">
+                            <Home className="w-3 h-3" aria-hidden="true" />
+                            <span>{autoKg} kg</span>
+                          </span>
+                        )}
+                        {excKg > 0 && (
+                          <span className="inline-flex items-center gap-1 text-blue-700">
+                            <Banknote className="w-3 h-3" aria-hidden="true" />
+                            <span>{excKg} kg</span>
+                          </span>
+                        )}
                       </div>
                     )}
                   </td>
@@ -590,7 +605,7 @@ export default function CarneTab() {
       <Modal
         open={modalOpen}
         onClose={() => setModalOpen(false)}
-        title={editing ? "✏️ Editar Registro de Faena" : "🍗 Registrar Faena de Animales"}
+        title={editing ? "Editar Registro de Faena" : "Registrar Faena de Animales"}
       >
         <div className="space-y-4">
           {error && <p className="text-sm text-red-600 bg-red-50 p-3 rounded-lg">{error}</p>}
@@ -604,11 +619,11 @@ export default function CarneTab() {
               onChange={(e) => handleSpeciesChange(e.target.value)}
               disabled={!!editing}
             >
-              <option value="pollo">🐓 Pollo de engorde</option>
-              <option value="gallina">🐔 Gallina de descarte</option>
-              <option value="codorniz">🥚 Codorniz</option>
-              <option value="pato">🦆 Pato</option>
-              <option value="conejo">🐇 Conejo de engorde</option>
+              <option value="pollo">Pollo de engorde</option>
+              <option value="gallina">Gallina de descarte</option>
+              <option value="codorniz">Codorniz</option>
+              <option value="pato">Pato</option>
+              <option value="conejo">Conejo de engorde</option>
             </Select>
           </div>
 
@@ -628,7 +643,7 @@ export default function CarneTab() {
                   .filter((b) => !form.species || (b.species || "pollo") === form.species)
                   .map((b) => (
                     <option key={b.id} value={b.id}>
-                      {b.code} ({b.currentQuantity} disp.) {b.status === "listo_sacrificio" ? "✅ Listo" : ""}
+                      {b.code} ({b.currentQuantity} disp.) {b.status === "listo_sacrificio" ? "(Listo)" : ""}
                     </option>
                   ))}
               </Select>
@@ -698,8 +713,9 @@ export default function CarneTab() {
           {/* Bloque de Partición Dual: Hogar vs Venta */}
           <div className="p-3 bg-amber-50 rounded-xl border border-amber-200 space-y-3">
             <div className="flex items-center justify-between">
-              <span className="text-xs font-bold text-amber-900 uppercase tracking-wide">
-                ⚖️ Distribución Dual: Seguridad Alimentaria vs Económica
+              <span className="text-xs font-bold text-amber-900 uppercase tracking-wide inline-flex items-center gap-1.5">
+                <Scale className="w-3.5 h-3.5 text-amber-700" aria-hidden="true" />
+                <span>Distribución Dual: Seguridad Alimentaria vs Económica</span>
               </span>
               <Select
                 value={form.destination}
@@ -715,7 +731,10 @@ export default function CarneTab() {
 
             <div className="grid grid-cols-2 gap-3">
               <div className="bg-white p-2.5 rounded-lg border border-amber-100">
-                <span className="text-xs font-semibold text-emerald-800 block mb-1">🏡 Para el Hogar (Autoconsumo)</span>
+                <span className="text-xs font-semibold text-emerald-800 flex items-center gap-1.5 mb-1">
+                  <Home className="w-3.5 h-3.5 text-emerald-700" aria-hidden="true" />
+                  <span>Para el Hogar (Autoconsumo)</span>
+                </span>
                 <div className="grid grid-cols-2 gap-2">
                   <Input
                     label="Cabezas"
@@ -738,7 +757,10 @@ export default function CarneTab() {
               </div>
 
               <div className="bg-white p-2.5 rounded-lg border border-amber-100">
-                <span className="text-xs font-semibold text-blue-800 block mb-1">💰 Para Venta (Excedentes)</span>
+                <span className="text-xs font-semibold text-blue-800 flex items-center gap-1.5 mb-1">
+                  <Banknote className="w-3.5 h-3.5 text-blue-700" aria-hidden="true" />
+                  <span>Para Venta (Excedentes)</span>
+                </span>
                 <div className="grid grid-cols-2 gap-2">
                   <Input
                     label="Cabezas"

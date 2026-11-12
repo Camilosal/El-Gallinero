@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { ArrowLeft, Leaf } from "lucide-react";
+import { ArrowLeft, Bird, Leaf } from "lucide-react";
 
 export default function LoginPage() {
   const router = useRouter();
@@ -40,8 +40,8 @@ export default function LoginPage() {
     <div className="min-h-screen flex flex-col bg-gradient-to-br from-earth-50 via-white to-earth-100">
       {/* Header */}
       <div className="p-4">
-        <Link 
-          href="/" 
+        <Link
+          href="/"
           className="inline-flex items-center gap-2 text-earth-600 hover:text-earth-700 transition-colors font-medium"
         >
           <ArrowLeft className="w-4 h-4" />
@@ -55,7 +55,7 @@ export default function LoginPage() {
           {/* Logo Section */}
           <div className="text-center mb-8">
             <div className="inline-flex items-center justify-center w-20 h-20 bg-earth-100 rounded-2xl mb-4">
-              <span className="text-5xl">🐓</span>
+              <Bird className="w-10 h-10 text-earth-700" aria-hidden="true" />
             </div>
             <h1 className="text-3xl font-bold text-earth-900 mb-2">El Gallinero</h1>
             <p className="text-earth-600">Sistema de Gestión Avícola</p>
@@ -77,7 +77,7 @@ export default function LoginPage() {
                   required
                 />
               </div>
-              
+
               <div>
                 <label className="block text-sm font-semibold text-earth-800 mb-2">
                   Contraseña

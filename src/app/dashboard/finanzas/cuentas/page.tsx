@@ -179,15 +179,15 @@ export default function CuentasPage() {
   return (
     <div className="space-y-6">
       <PageHeader
-        title="💳 Cuentas"
+        title="Cuentas"
         description="Gestión de cuentas por cobrar y por pagar"
       />
 
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        <StatCard icon="📥" label="Por cobrar" value={fmt(totalPendingCobrar)} color="green" />
-        <StatCard icon="📤" label="Por pagar" value={fmt(totalPendingPagar)} color="red" />
-        <StatCard icon="⚠️" label="Vencidas (cobrar)" value={String(overdueCobrar)} color="yellow" />
-        <StatCard icon="⚠️" label="Vencidas (pagar)" value={String(overduePagar)} color="purple" />
+        <StatCard icon="incoming" label="Por cobrar" value={fmt(totalPendingCobrar)} color="green" />
+        <StatCard icon="outgoing" label="Por pagar" value={fmt(totalPendingPagar)} color="red" />
+        <StatCard icon="warning" label="Vencidas (cobrar)" value={String(overdueCobrar)} color="yellow" />
+        <StatCard icon="warning" label="Vencidas (pagar)" value={String(overduePagar)} color="purple" />
       </div>
 
       {/* Tab selector */}
@@ -209,7 +209,7 @@ export default function CuentasPage() {
       {loading ? (
         <Card><p className="text-center py-8 text-slate-400">Cargando...</p></Card>
       ) : accounts.length === 0 ? (
-        <EmptyState icon="💳" message={tab === "cobrar" ? "No hay cuentas por cobrar" : "No hay cuentas por pagar"} />
+        <EmptyState icon="card" message={tab === "cobrar" ? "No hay cuentas por cobrar" : "No hay cuentas por pagar"} />
       ) : (
         <Card>
           <TableSearch
@@ -222,7 +222,7 @@ export default function CuentasPage() {
           />
           {filteredAccounts.length === 0 ? (
             <EmptyState
-              icon="💳"
+              icon="card"
               message={
                 accountSearch.trim()
                   ? "No hay cuentas que coincidan con la búsqueda"
@@ -279,7 +279,7 @@ export default function CuentasPage() {
           />
           {filteredPayments.length === 0 ? (
             <EmptyState
-              icon="💳"
+              icon="card"
               message={
                 paymentSearch.trim()
                   ? "No hay pagos que coincidan con la búsqueda"
@@ -293,7 +293,7 @@ export default function CuentasPage() {
                 <td className="px-4 py-3 text-sm">{p.date}</td>
                 <td className="px-4 py-3">
                   <Badge color={p.type === "cobro" ? "green" : "red"}>
-                    {p.type === "cobro" ? "📥 Cobro" : "📤 Pago"}
+                    {p.type === "cobro" ? "Cobro" : "Pago"}
                   </Badge>
                 </td>
                 <td className="px-4 py-3 text-sm font-bold">{fmt(Number(p.amount))}</td>
@@ -311,7 +311,7 @@ export default function CuentasPage() {
       )}
 
       {/* Payment modal */}
-      <Modal open={paymentModalOpen} onClose={() => setPaymentModalOpen(false)} title="💳 Registrar Pago">
+      <Modal open={paymentModalOpen} onClose={() => setPaymentModalOpen(false)} title="Registrar Pago">
         <div className="space-y-4">
           {error && <p className="text-sm text-red-600 bg-red-50 p-3 rounded-lg">{error}</p>}
           <div className="p-3 bg-slate-50 rounded-lg">

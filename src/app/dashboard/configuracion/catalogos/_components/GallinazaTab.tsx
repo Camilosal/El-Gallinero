@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
+import { Sprout } from "lucide-react";
 import { Button, Card, Table } from "@/components/ui";
 import { apiFetch } from "@/lib/fetch";
 
@@ -67,7 +68,10 @@ export default function GallinazaTab() {
       <Card>
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
           <div>
-            <h3 className="font-semibold text-slate-700">🌱 Factores de producción de gallinaza</h3>
+            <h3 className="font-semibold text-slate-700 flex items-center gap-2">
+              <Sprout className="w-4 h-4 text-emerald-600" aria-hidden="true" />
+              Factores de producción de gallinaza
+            </h3>
             <p className="text-xs text-slate-500 mt-1">
               Kilogramos de gallinaza por animal y por día para cada etapa, gallos y lotes.
               La estimación diaria se calcula multiplicando el factor por el número de animales.

@@ -1,6 +1,8 @@
 "use client";
 
 import { useEffect, useState, useCallback, useMemo } from "react";
+import { Banknote, Scale } from "lucide-react";
+import { AppIcon } from "@/components/AppIcon";
 import { Card, Table, Modal, Input, Textarea, Button, EmptyState, StatCard, Select, Badge } from "@/components/ui";
 import { apiFetch } from "@/lib/fetch";
 import { useCatalog } from "@/lib/useCatalog";
@@ -187,22 +189,22 @@ export default function KgSaleTab({ apiEndpoint, labels }: KgSaleTabProps) {
   return (
     <>
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
-        <StatCard icon="💵" label={labels.revenueLabel} value={`$${totalRevenue.toLocaleString()}`} color="green" />
-        <StatCard icon="⚖️" label={labels.kgLabel} value={`${totalKg.toFixed(1)} kg`} color="yellow" />
-        <StatCard icon="📊" label="Precio Prom./kg" value={`$${avgPrice}`} color="blue" />
-        <StatCard icon="🛒" label="Ventas Registradas" value={filteredSales.length} color="purple" />
+        <StatCard icon="banknote" label={labels.revenueLabel} value={`$${totalRevenue.toLocaleString()}`} color="green" />
+        <StatCard icon="scale" label={labels.kgLabel} value={`${totalKg.toFixed(1)} kg`} color="yellow" />
+        <StatCard icon="chart" label="Precio Prom./kg" value={`$${avgPrice}`} color="blue" />
+        <StatCard icon="cart" label="Ventas Registradas" value={filteredSales.length} color="purple" />
       </div>
 
       <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
         {isMeat ? (
           <div className="flex flex-wrap gap-1">
             {[
-              { id: "all", label: "Todas", icon: "🌐" },
-              { id: "pollo", label: "Pollo", icon: "🐓" },
-              { id: "gallina", label: "Gallina", icon: "🐔" },
-              { id: "codorniz", label: "Codorniz", icon: "🥚" },
-              { id: "pato", label: "Pato", icon: "🦆" },
-              { id: "conejo", label: "Conejo", icon: "🐇" },
+              { id: "all", label: "Todas", icon: "globe" },
+              { id: "pollo", label: "Pollo", icon: "rooster" },
+              { id: "gallina", label: "Gallina", icon: "hen" },
+              { id: "codorniz", label: "Codorniz", icon: "egg" },
+              { id: "pato", label: "Pato", icon: "duck" },
+              { id: "conejo", label: "Conejo", icon: "rabbit" },
             ].map((sp) => {
               const isSelected = selectedSpeciesFilter === sp.id;
               const count = sp.id === "all"
@@ -212,13 +214,13 @@ export default function KgSaleTab({ apiEndpoint, labels }: KgSaleTabProps) {
                 <button
                   key={sp.id}
                   onClick={() => setSelectedSpeciesFilter(sp.id)}
-                  className={`px-3 py-1.5 rounded-full text-xs font-medium transition-all ${
+                  className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium transition-all ${
                     isSelected
                       ? "bg-emerald-600 text-white shadow-sm"
                       : "bg-slate-100 text-slate-600 hover:bg-slate-200"
                   }`}
                 >
-                  {sp.icon} {sp.label} ({count})
+                  <AppIcon icon={sp.icon} className="w-3.5 h-3.5" /> {sp.label} ({count})
                 </button>
               );
             })}
@@ -252,13 +254,16 @@ export default function KgSaleTab({ apiEndpoint, labels }: KgSaleTabProps) {
           <Table headers={isMeat ? ["Fecha", "Especie", "Cantidad", "Precio/kg", "Total", "Comprador", ""] : labels.tableHeaders}>
             {filteredSales.map((s) => {
               const sp = s.species || "pollo";
-              const icon = SPECIES_ICON[sp] || "🥩";
+              const icon = SPECIES_ICON[sp] || "meat";
               return (
                 <tr key={s.id} className="hover:bg-slate-50">
                   <td className="px-4 py-3">{new Date(s.date + "T12:00:00").toLocaleDateString("es")}</td>
                   {isMeat && (
                     <td className="px-4 py-3 text-sm font-semibold text-slate-800">
-                      <span>{icon} {SPECIES_LABEL[sp] || sp}</span>
+                      <span className="inline-flex items-center gap-1.5">
+                        <AppIcon icon={icon} className="w-4 h-4 text-slate-600" />
+                        {SPECIES_LABEL[sp] || sp}
+                      </span>
                     </td>
                   )}
                   <td className="px-4 py-3 font-semibold">{Number(s.quantityKg).toFixed(1)} kg</td>
@@ -289,11 +294,11 @@ export default function KgSaleTab({ apiEndpoint, labels }: KgSaleTabProps) {
                 value={form.species}
                 onChange={(e) => handleSpeciesChange(e.target.value)}
               >
-                <option value="pollo">🐓 Pollo de engorde</option>
-                <option value="gallina">🐔 Gallina</option>
-                <option value="codorniz">🥚 Codorniz</option>
-                <option value="pato">🦆 Pato</option>
-                <option value="conejo">🐇 Conejo de engorde</option>
+                <option value="pollo">Pollo de engorde</option>
+                <option value="gallina">Gallina</option>
+                <option value="codorniz">Codorniz</option>
+                <option value="pato">Pato</option>
+                <option value="conejo">Conejo de engorde</option>
               </Select>
             ) : (
               <Input label="Comprador" value={form.buyer} onChange={(e) => setForm({ ...form, buyer: e.target.value })} placeholder="Nombre del cliente" list="catalog-compradores-kg" />
@@ -318,8 +323,8 @@ export default function KgSaleTab({ apiEndpoint, labels }: KgSaleTabProps) {
 
           {Number(form.quantityKg) > 0 && Number(form.pricePerKg) >= 0 && (
             <div className="p-3 bg-green-50 rounded-lg text-sm text-green-700">
-              <p>⚖️ Cantidad: <strong>{Number(form.quantityKg).toFixed(1)} kg</strong></p>
-              <p className="mt-1">💵 Total a Cobrar: <strong className="text-xl">${(Number(form.quantityKg) * Number(form.pricePerKg)).toLocaleString()} COP</strong></p>
+              <p className="flex items-center gap-1.5"><Scale className="w-4 h-4" aria-hidden="true" /> Cantidad: <strong>{Number(form.quantityKg).toFixed(1)} kg</strong></p>
+              <p className="mt-1 flex items-center gap-1.5"><Banknote className="w-4 h-4" aria-hidden="true" /> Total a Cobrar: <strong className="text-xl">${(Number(form.quantityKg) * Number(form.pricePerKg)).toLocaleString()} COP</strong></p>
             </div>
           )}
 

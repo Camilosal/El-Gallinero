@@ -238,7 +238,7 @@ export async function computeAnimalInventory(): Promise<AnimalInventory> {
     const created: AnimalSpeciesSummary = {
       species: key,
       label: key === "gallo" ? "Gallos" : speciesLabel(lookupSpecies, true),
-      icon: key === "gallo" ? "🐓" : speciesIcon(lookupSpecies),
+      icon: key === "gallo" ? "rooster" : speciesIcon(lookupSpecies),
       isBird: key === "gallo" ? true : isBirdSpecies(lookupSpecies),
       count: 0,
       totalWeightKg: 0,

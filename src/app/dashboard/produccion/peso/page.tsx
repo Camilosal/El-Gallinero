@@ -187,7 +187,7 @@ export default function PesoPage() {
   return (
     <div className="space-y-6">
       <PageHeader
-        title="📈 Curvas de Peso"
+        title="Curvas de Peso"
         description="Registra pesajes de lotes multiespecie y compáralos con referencias de crecimiento sin separar por sexo."
         help="Vincula cada pesaje a un lote de pollos, codornices, patos o conejos para que el informe use la edad real del lote. Las gallinas se registran por grupo y semana. Para ver todas las curvas de postura y crecimiento, usa Comparación de desempeño."
         actions={
@@ -202,7 +202,7 @@ export default function PesoPage() {
 
       {standards.length === 0 && !loading && (
         <Card>
-          <EmptyState icon="📈" message="No hay estándares cargados para esta raza" />
+          <EmptyState icon="trend-up" message="No hay estándares cargados para esta raza" />
           <div className="text-center mt-4">
             <Button onClick={seedStandards} disabled={seeding}>
               {seeding ? "Cargando..." : "Cargar estándares de razas"}
@@ -244,7 +244,7 @@ export default function PesoPage() {
         />
         {filteredLogs.length === 0 ? (
           <EmptyState
-            icon="📋"
+            icon="clipboard"
             message={
               search.trim()
                 ? "No hay registros que coincidan con la búsqueda"

@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { useActionQuery } from "@/lib/useActionQuery";
 import { useCallback, useEffect, useState } from "react";
+import { MapPin, Wrench } from "lucide-react";
 import { Badge, Button, Card, EmptyState, Input, Modal, PageHeader, Select, StatCard, Textarea } from "@/components/ui";
 import { apiFetch } from "@/lib/fetch";
 import {
@@ -116,14 +117,14 @@ export default function UbicacionesPage() {
       />
 
       <div className="grid grid-cols-2 gap-4 xl:grid-cols-4">
-        <StatCard icon="📍" label="Lugares activos" value={activeCount} color="blue" />
-        <StatCard icon="🐾" label="Animales asignados" value={occupiedAnimals} color="green" />
-        <StatCard icon="🩺" label="Requieren atención" value={attentionCount} color={attentionCount ? "yellow" : "green"} />
-        <StatCard icon="🔧" label="Mantenimientos pendientes" value={pendingTasks} color={pendingTasks ? "yellow" : "green"} />
+        <StatCard icon="location" label="Lugares activos" value={activeCount} color="blue" />
+        <StatCard icon="paw-print" label="Animales asignados" value={occupiedAnimals} color="green" />
+        <StatCard icon="stethoscope" label="Requieren atención" value={attentionCount} color={attentionCount ? "yellow" : "green"} />
+        <StatCard icon="wrench" label="Mantenimientos pendientes" value={pendingTasks} color={pendingTasks ? "yellow" : "green"} />
       </div>
 
       {loading ? <p className="py-10 text-center text-slate-500">Cargando lugares…</p> : locations.length === 0 ? (
-        <Card><EmptyState icon="📍" message="Aún no hay lugares de manejo registrados. Crea el primero para asignar las nuevas entradas de animales." /><div className="mt-4 text-center"><Button onClick={startNew}>Crear el primer lugar</Button></div></Card>
+        <Card><EmptyState icon="location" message="Aún no hay lugares de manejo registrados. Crea el primero para asignar las nuevas entradas de animales." /><div className="mt-4 text-center"><Button onClick={startNew}>Crear el primer lugar</Button></div></Card>
       ) : (
         <div className="grid gap-4 md:grid-cols-2 2xl:grid-cols-3">
           {locations.map((location) => {
@@ -145,7 +146,7 @@ export default function UbicacionesPage() {
                   <Badge color={attention ? "yellow" : "blue"}>{OPERATIONAL_STATUS_LABELS[location.operationalStatus] || location.operationalStatus}</Badge>
                   <Badge color={location.sanitaryStatus === "cumple" ? "green" : attention ? "yellow" : "gray"}>{SANITARY_STATUS_LABELS[location.sanitaryStatus] || location.sanitaryStatus}</Badge>
                 </div>
-                {location.localReference && <p className="text-sm text-slate-600">📌 {location.localReference}</p>}
+                {location.localReference && <p className="text-sm text-slate-600 flex items-center gap-1.5"><MapPin className="w-3.5 h-3.5 text-slate-400 shrink-0" aria-hidden="true" /> {location.localReference}</p>}
                 {mapUrl && <a className="text-sm font-medium text-blue-700 hover:underline" href={mapUrl} target="_blank" rel="noreferrer">Ver coordenadas en mapa ↗</a>}
                 {!!location.speciesCounts?.length && <p className="text-xs text-slate-500">Composición: {location.speciesCounts.map((item) => `${item.total} ${({ gallina: "gallinas", gallo: "gallos", pollo: "pollos", codorniz: "codornices", pato: "patos", conejo: "conejos" } as Record<string, string>)[item.species] || item.species}`).join(" · ")}</p>}
                 <div className="grid grid-cols-2 gap-3 rounded-xl bg-slate-50 p-3 text-sm sm:grid-cols-4">
@@ -155,7 +156,7 @@ export default function UbicacionesPage() {
                   <div><p className="text-xs text-slate-500">Consumo con lugar · 30 días</p><strong className="text-xs">{location.feedConsumptionLabel || "Sin registro"}</strong></div>
                 </div>
                 {location.capacityUsedPercent != null && <div><div className="mb-1 flex justify-between text-xs text-slate-500"><span>Uso de capacidad</span><span>{location.capacityUsedPercent}%</span></div><div className="h-2 overflow-hidden rounded bg-slate-100"><div className={`h-full ${location.capacityUsedPercent > 100 ? "bg-red-600" : location.capacityUsedPercent >= 90 ? "bg-amber-500" : "bg-emerald-500"}`} style={{ width: `${Math.min(100, location.capacityUsedPercent)}%` }} /></div></div>}
-                {(location.maintenanceNeeds || Number(location.pendingMaintenance || 0) > 0) && <p className="rounded-lg bg-amber-50 p-3 text-sm text-amber-900">🔧 {location.maintenanceNeeds || `${location.pendingMaintenance} tareas de mantenimiento pendientes`}</p>}
+                {(location.maintenanceNeeds || Number(location.pendingMaintenance || 0) > 0) && <p className="rounded-lg bg-amber-50 p-3 text-sm text-amber-900 flex items-center gap-2"><Wrench className="w-4 h-4 shrink-0 text-amber-700" aria-hidden="true" /> {location.maintenanceNeeds || `${location.pendingMaintenance} tareas de mantenimiento pendientes`}</p>}
                 <div className="flex flex-wrap gap-2 border-t border-slate-100 pt-3">
                   <Link className="rounded-lg bg-blue-50 px-3 py-2 text-sm font-semibold text-blue-800 hover:bg-blue-100" href={`/dashboard/ubicaciones/${location.id}`}>Abrir ficha</Link>
                   <Button variant="secondary" onClick={() => editLocation(location)}>Editar ficha</Button>

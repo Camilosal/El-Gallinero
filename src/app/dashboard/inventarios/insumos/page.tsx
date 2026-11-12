@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState, useCallback, useMemo } from "react";
+import { AlertTriangle } from "lucide-react";
 import { PageHeader, Button, Card, Table, Badge, Modal, Input, Select, Textarea, EmptyState, StatCard } from "@/components/ui";
 import { apiFetch } from "@/lib/fetch";
 import { useCatalog } from "@/lib/useCatalog";
@@ -165,7 +166,7 @@ export default function InsumosPage() {
   return (
     <div className="space-y-6">
       <PageHeader
-        title="🧰 Insumos"
+        title="Insumos"
         description="Inventario de insumos no alimenticios y sus movimientos"
         help="Gestiona el inventario de insumos no alimenticios (medicamentos, vacunas, productos de limpieza, equipos, etc.). Registra entradas y salidas por movimiento. Cada insumo tiene stock mínimo para alertas de reabastecimiento, costo unitario y proveedor. Los movimientos registran fecha, cantidad, tipo y notas."
         actions={
@@ -177,15 +178,18 @@ export default function InsumosPage() {
       />
 
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        <StatCard icon="🧰" label="Total insumos" value={String(supplies.length)} color="blue" />
-        <StatCard icon="💰" label="Valor inventario" value={fmt(totalValue)} color="green" />
-        <StatCard icon="⚠️" label="Stock bajo" value={String(lowStockItems.length)} color="red" />
-        <StatCard icon="📋" label="Movimientos" value={String(movements.length)} color="purple" />
+        <StatCard icon="wrench" label="Total insumos" value={String(supplies.length)} color="blue" />
+        <StatCard icon="money" label="Valor inventario" value={fmt(totalValue)} color="green" />
+        <StatCard icon="warning" label="Stock bajo" value={String(lowStockItems.length)} color="red" />
+        <StatCard icon="clipboard" label="Movimientos" value={String(movements.length)} color="purple" />
       </div>
 
       {lowStockItems.length > 0 && (
         <Card className="border-red-200 bg-red-50">
-          <h3 className="font-semibold text-red-700 mb-3">⚠️ Alertas de Stock Bajo</h3>
+          <h3 className="font-semibold text-red-700 mb-3 flex items-center gap-2">
+            <AlertTriangle className="w-4 h-4 shrink-0" aria-hidden="true" />
+            <span>Alertas de Stock Bajo</span>
+          </h3>
           <div className="space-y-2">
             {lowStockItems.map((s) => (
               <div key={s.id} className="flex justify-between items-center p-2 bg-white rounded">
@@ -213,7 +217,7 @@ export default function InsumosPage() {
           <p className="text-center py-8 text-slate-400">Cargando...</p>
         ) : filteredSupplies.length === 0 ? (
           <EmptyState
-            icon="🧰"
+            icon="wrench"
             message={
               supplySearch.trim()
                 ? "No hay insumos que coincidan con la búsqueda"
@@ -264,7 +268,7 @@ export default function InsumosPage() {
         />
         {filteredMovements.length === 0 ? (
           <EmptyState
-            icon="📋"
+            icon="clipboard"
             message={
               movementSearch.trim()
                 ? "No hay movimientos que coincidan con la búsqueda"
@@ -279,7 +283,7 @@ export default function InsumosPage() {
                 <td className="px-4 py-3 text-sm">{m.supplyName || "—"}</td>
                 <td className="px-4 py-3">
                   <Badge color={m.isEntry ? "green" : "red"}>
-                    {m.isEntry ? "📥 Entrada" : "📤 Salida"}
+                    {m.isEntry ? "Entrada" : "Salida"}
                   </Badge>
                 </td>
                 <td className="px-4 py-3 text-sm">{m.movementType}</td>
@@ -298,7 +302,7 @@ export default function InsumosPage() {
         )}
       </Card>
 
-      <Modal open={supplyModalOpen} onClose={() => { setSupplyModalOpen(false); setEditingId(null); }} title={editingId ? "✏️ Editar Insumo" : "🧰 Nuevo Insumo"}>
+      <Modal open={supplyModalOpen} onClose={() => { setSupplyModalOpen(false); setEditingId(null); }} title={editingId ? "Editar Insumo" : "Nuevo Insumo"}>
         <div className="space-y-4">
           {error && <p className="text-sm text-red-600 bg-red-50 p-3 rounded-lg">{error}</p>}
           <Input label="Nombre" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} placeholder="Ej: Vacuna Newcastle" required help="Nombre descriptivo del insumo" />
@@ -320,7 +324,7 @@ export default function InsumosPage() {
         </div>
       </Modal>
 
-      <Modal open={movementModalOpen} onClose={() => setMovementModalOpen(false)} title="📋 Registrar Movimiento">
+      <Modal open={movementModalOpen} onClose={() => setMovementModalOpen(false)} title="Registrar Movimiento">
         <div className="space-y-4">
           {movError && <p className="text-sm text-red-600 bg-red-50 p-3 rounded-lg">{movError}</p>}
           <Select label="Insumo" value={movForm.supplyId} onChange={(e) => setMovForm({ ...movForm, supplyId: e.target.value })} help="Selecciona el insumo al que aplica el movimiento">
@@ -328,8 +332,8 @@ export default function InsumosPage() {
             {supplies.map((s) => <option key={s.id} value={s.id}>{s.name} (Stock: {s.currentStock} {s.unit})</option>)}
           </Select>
           <Select label="Tipo" value={movForm.isEntry ? "entry" : "exit"} onChange={(e) => setMovForm({ ...movForm, isEntry: e.target.value === "entry" })} help="Entrada = agregas stock, Salida = reduces stock">
-            <option value="entry">📥 Entrada</option>
-            <option value="exit">📤 Salida</option>
+            <option value="entry">Entrada</option>
+            <option value="exit">Salida</option>
           </Select>
           <Select label="Motivo" value={movForm.movementType} onChange={(e) => setMovForm({ ...movForm, movementType: e.target.value })} help="Razón del movimiento (compra, consumo, devolución, ajuste, etc.)">
             {movementTypes.map((t) => <option key={t} value={t}>{t}</option>)}

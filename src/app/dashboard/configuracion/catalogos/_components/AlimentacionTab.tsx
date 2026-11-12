@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { Wheat } from "lucide-react";
 import { Button, Card, EmptyState, Input, Modal, Select, Table } from "@/components/ui";
 import { apiFetch } from "@/lib/fetch";
 
@@ -110,7 +111,10 @@ export default function AlimentacionTab() {
       <Card>
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
           <div>
-            <h3 className="font-semibold text-slate-700">🌾 Programas de alimentación por etapa</h3>
+            <h3 className="font-semibold text-slate-700 flex items-center gap-2">
+              <Wheat className="w-4 h-4 text-amber-600" aria-hidden="true" />
+              Programas de alimentación por etapa
+            </h3>
             <p className="text-xs text-slate-500 mt-1">
               Definen qué alimentos consume cada etapa y en qué cantidad diaria por animal.
               El consumo automático usa estos programas.
@@ -140,7 +144,7 @@ export default function AlimentacionTab() {
         {loading ? (
           <p className="text-center py-8 text-slate-400">Cargando...</p>
         ) : programs.length === 0 ? (
-          <EmptyState icon="🌾" message="No hay programas de alimentación configurados" />
+          <EmptyState icon="wheat" message="No hay programas de alimentación configurados" />
         ) : (
           <Table headers={["Etapa", "Alimento", "Porcentaje", "g/animal/día", ""]}>
             {programs.map((item) => (
@@ -161,7 +165,7 @@ export default function AlimentacionTab() {
         )}
       </Card>
 
-      <Modal open={modalOpen} onClose={() => setModalOpen(false)} title={editing ? "✏️ Editar programa" : "➕ Agregar programa de alimentación"}>
+      <Modal open={modalOpen} onClose={() => setModalOpen(false)} title={editing ? "Editar programa" : "Agregar programa de alimentación"}>
         <div className="space-y-3">
           {error && <p className="text-sm text-red-600 bg-red-50 p-3 rounded-lg">{error}</p>}
           <Select label="Etapa de crecimiento" value={form.stageCatalogoId} onChange={(e) => set("stageCatalogoId", e.target.value)}>

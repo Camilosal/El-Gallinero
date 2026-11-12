@@ -227,15 +227,15 @@ export default function AdquisicionesPage() {
       />
 
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
-        <StatCard icon="📥" label="Animales ingresados (histórico)" value={String(totalAves)} color="green" />
-        <StatCard icon="💰" label="Inversión total" value={`$${totalInversion.toLocaleString()}`} color="blue" />
-        <StatCard icon="🛒" label="Compras" value={String(compras)} color="purple" />
-        <StatCard icon="🎁" label="Donaciones" value={String(donaciones)} color="yellow" />
-        <StatCard icon="🐣" label="Cría propia" value={String(criasPropias)} color="blue" />
+        <StatCard icon="incoming" label="Animales ingresados (histórico)" value={String(totalAves)} color="green" />
+        <StatCard icon="money" label="Inversión total" value={`$${totalInversion.toLocaleString()}`} color="blue" />
+        <StatCard icon="cart" label="Compras" value={String(compras)} color="purple" />
+        <StatCard icon="gift" label="Donaciones" value={String(donaciones)} color="yellow" />
+        <StatCard icon="incubator" label="Cría propia" value={String(criasPropias)} color="blue" />
       </div>
 
       <div className="p-4 bg-blue-50 border border-blue-200 rounded-xl text-sm text-blue-800">
-        <p className="font-semibold mb-1">📋 Registra aquí cada ingreso y revisa después su seguimiento</p>
+        <p className="font-semibold mb-1">Registra aquí cada ingreso y revisa después su seguimiento</p>
         <p>
           Los {totalAves} animales ingresados suman compras, donaciones y crías propias registradas desde el inicio.
           Algunos ya se vendieron, faenaron o murieron; el historial conserva su origen.
@@ -270,7 +270,7 @@ export default function AdquisicionesPage() {
           <p className="text-center py-8 text-slate-400">Cargando...</p>
         ) : filteredItems.length === 0 ? (
           <EmptyState
-            icon="📥"
+            icon="incoming"
             message={
               search.trim()
                 ? "No hay adquisiciones que coincidan con la búsqueda"
@@ -340,7 +340,7 @@ export default function AdquisicionesPage() {
         )}
       </Card>
 
-      <Modal open={modalOpen} onClose={() => { setModalOpen(false); setEditingId(null); }} title={editingId ? "✏️ Editar Adquisición" : "Nueva Adquisición"}>
+      <Modal open={modalOpen} onClose={() => { setModalOpen(false); setEditingId(null); }} title={editingId ? "Editar Adquisición" : "Nueva Adquisición"}>
         <div className="space-y-4">
           {error && <p className="text-sm text-red-600 bg-red-50 p-3 rounded-lg">{error}</p>}
 

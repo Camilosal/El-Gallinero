@@ -2,6 +2,8 @@
 
 import { useEffect, useState, useCallback, useMemo } from "react";
 import Link from "next/link";
+import { Bird, CalendarDays, Egg, Feather, Rabbit } from "lucide-react";
+import { AppIcon } from "@/components/AppIcon";
 import { PageHeader, Button, Card, StatCard, Table, Modal, Input, Select, Textarea, EmptyState, Badge } from "@/components/ui";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from "recharts";
 import { apiFetch } from "@/lib/fetch";
@@ -40,11 +42,11 @@ interface SoberaniaData {
 }
 
 const speciesConfig: Record<string, { label: string; icon: string; badgeColor: string }> = {
-  gallina: { label: "Gallina", icon: "🐔", badgeColor: "yellow" },
-  pollo: { label: "Pollo de engorde", icon: "🐓", badgeColor: "blue" },
-  codorniz: { label: "Codorniz", icon: "🥚", badgeColor: "purple" },
-  pato: { label: "Pato", icon: "🦆", badgeColor: "green" },
-  conejo: { label: "Conejo", icon: "🐇", badgeColor: "earth" },
+  gallina: { label: "Gallina", icon: "hen", badgeColor: "yellow" },
+  pollo: { label: "Pollo de engorde", icon: "chick", badgeColor: "blue" },
+  codorniz: { label: "Codorniz", icon: "egg", badgeColor: "purple" },
+  pato: { label: "Pato", icon: "duck", badgeColor: "green" },
+  conejo: { label: "Conejo", icon: "rabbit", badgeColor: "earth" },
 };
 
 const productTypeLabels: Record<string, string> = {
@@ -205,9 +207,10 @@ export default function SoberaniaPage() {
           <div className="flex flex-wrap gap-2">
             <Link
               href="/dashboard/produccion/plan-parvada"
-              className="rounded-lg border border-green-300 bg-white px-3 py-2 text-sm font-medium text-green-700 transition-colors hover:bg-green-50"
+              className="inline-flex items-center gap-1.5 rounded-lg border border-green-300 bg-white px-3 py-2 text-sm font-medium text-green-700 transition-colors hover:bg-green-50"
             >
-              🗓️ Plan de Parvada
+              <CalendarDays className="w-4 h-4 shrink-0" aria-hidden="true" />
+              <span>Plan de Parvada</span>
             </Link>
             <Button variant="primary" onClick={() => setModalOpen(true)}>
               + Registrar Consumo Hogar
@@ -219,25 +222,25 @@ export default function SoberaniaPage() {
       {/* Tarjetas de Métricas Principales */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         <StatCard
-          icon="💰"
+          icon="money"
           label="Ahorro en Canasta Familiar"
           value={`$ ${data?.metrics.totalSavings.toLocaleString("es-CO") || "0"}`}
           color="green"
         />
         <StatCard
-          icon="🍗"
+          icon="meat"
           label="Carne para el Hogar"
           value={`${data?.metrics.totalMeatKg || 0} kg`}
           color="blue"
         />
         <StatCard
-          icon="🥚"
+          icon="egg"
           label="Huevos para la Mesa"
           value={`${data?.metrics.totalEggs || 0} uds`}
           color="yellow"
         />
         <StatCard
-          icon="🏡"
+          icon="home"
           label="Raciones Registradas"
           value={data?.metrics.totalEntries || 0}
           color="purple"
@@ -249,7 +252,9 @@ export default function SoberaniaPage() {
         {/* Gallinas / Pollos */}
         <Card className="border-l-4 border-l-amber-500">
           <div className="flex items-center gap-3 mb-2">
-            <span className="text-2xl">🐔</span>
+            <div className="w-9 h-9 rounded-lg bg-amber-100 flex items-center justify-center text-amber-700 shrink-0">
+              <Bird className="w-5 h-5" aria-hidden="true" />
+            </div>
             <div>
               <h3 className="font-semibold text-slate-800">Gallinas y Pollos</h3>
               <p className="text-xs text-slate-500">Huevos y carne tradicional</p>
@@ -274,7 +279,9 @@ export default function SoberaniaPage() {
         {/* Codornices */}
         <Card className="border-l-4 border-l-purple-500">
           <div className="flex items-center gap-3 mb-2">
-            <span className="text-2xl">🥚</span>
+            <div className="w-9 h-9 rounded-lg bg-purple-100 flex items-center justify-center text-purple-700 shrink-0">
+              <Egg className="w-5 h-5" aria-hidden="true" />
+            </div>
             <div>
               <h3 className="font-semibold text-slate-800">Codornices</h3>
               <p className="text-xs text-slate-500">Huevos miniatura y carne gourmet</p>
@@ -299,7 +306,9 @@ export default function SoberaniaPage() {
         {/* Patos */}
         <Card className="border-l-4 border-l-emerald-500">
           <div className="flex items-center gap-3 mb-2">
-            <span className="text-2xl">🦆</span>
+            <div className="w-9 h-9 rounded-lg bg-emerald-100 flex items-center justify-center text-emerald-700 shrink-0">
+              <Feather className="w-5 h-5" aria-hidden="true" />
+            </div>
             <div>
               <h3 className="font-semibold text-slate-800">Patos de Engorde</h3>
               <p className="text-xs text-slate-500">Carne rústica hipercalórica</p>
@@ -324,7 +333,9 @@ export default function SoberaniaPage() {
         {/* Conejos */}
         <Card className="border-l-4 border-l-stone-500">
           <div className="flex items-center gap-3 mb-2">
-            <span className="text-2xl">🐇</span>
+            <div className="w-9 h-9 rounded-lg bg-stone-100 flex items-center justify-center text-stone-700 shrink-0">
+              <Rabbit className="w-5 h-5" aria-hidden="true" />
+            </div>
             <div>
               <h3 className="font-semibold text-slate-800">Conejos de Engorde</h3>
               <p className="text-xs text-slate-500">Carne magra y abono huerta</p>
@@ -388,11 +399,11 @@ export default function SoberaniaPage() {
               className="px-3 py-1.5 border border-slate-300 rounded-lg text-sm bg-white"
             >
               <option value="all">Todas las especies</option>
-              <option value="gallina">🐔 Gallinas</option>
-              <option value="pollo">🐓 Pollos</option>
-              <option value="codorniz">🥚 Codornices</option>
-              <option value="pato">🦆 Patos</option>
-              <option value="conejo">🐇 Conejos</option>
+              <option value="gallina">Gallinas</option>
+              <option value="pollo">Pollos</option>
+              <option value="codorniz">Codornices</option>
+              <option value="pato">Patos</option>
+              <option value="conejo">Conejos</option>
             </select>
           </div>
         </div>
@@ -409,7 +420,7 @@ export default function SoberaniaPage() {
           <div className="py-12 text-center text-slate-400">Cargando datos de soberanía...</div>
         ) : filteredLogs.length === 0 ? (
           <EmptyState
-            icon="🏡"
+            icon="home"
             message={
               search.trim()
                 ? "No hay registros que coincidan con la búsqueda"
@@ -419,13 +430,13 @@ export default function SoberaniaPage() {
         ) : (
           <Table headers={["Fecha", "Especie", "Producto", "Cantidad", "Valor Ref. Mercado", "Ahorro Estimado", "Lote / Destino", "Acciones"]}>
             {filteredLogs.map((log) => {
-              const sp = speciesConfig[log.species] || { label: log.species, icon: "🐾", badgeColor: "blue" };
+              const sp = speciesConfig[log.species] || { label: log.species, icon: "paw-print", badgeColor: "blue" };
               return (
                 <tr key={log.id} className="hover:bg-slate-50 transition-colors">
                   <td className="px-4 py-3 font-medium text-slate-800 whitespace-nowrap">{log.date}</td>
                   <td className="px-4 py-3 whitespace-nowrap">
                     <span className="inline-flex items-center gap-1.5 font-medium">
-                      <span>{sp.icon}</span>
+                      <AppIcon icon={sp.icon} className="w-4 h-4 text-slate-600" />
                       <span>{sp.label}</span>
                     </span>
                   </td>
@@ -484,11 +495,11 @@ export default function SoberaniaPage() {
                 value={form.species}
                 onChange={(e) => handleSpeciesOrProductChange(e.target.value, form.productType)}
               >
-                <option value="conejo">🐇 Conejo</option>
-                <option value="codorniz">🥚 Codorniz</option>
-                <option value="pato">🦆 Pato</option>
-                <option value="pollo">🐓 Pollo</option>
-                <option value="gallina">🐔 Gallina</option>
+                <option value="conejo">Conejo</option>
+                <option value="codorniz">Codorniz</option>
+                <option value="pato">Pato</option>
+                <option value="pollo">Pollo</option>
+                <option value="gallina">Gallina</option>
               </Select>
             </div>
 

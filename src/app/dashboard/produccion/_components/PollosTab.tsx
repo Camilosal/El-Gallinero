@@ -3,8 +3,10 @@
 import { useState, useEffect, useCallback, useMemo } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
+import { AlertTriangle, BarChart3, CheckCircle2 } from "lucide-react";
 import { apiFetch } from "@/lib/fetch";
 import { PageHeader, StatCard, Card, Button, Input, Select, Textarea, Badge, Modal, Table, EmptyState } from "@/components/ui";
+import { AppIcon } from "@/components/AppIcon";
 import TableSearch from "@/components/TableSearch";
 import { matchesTextQuery } from "@/lib/text";
 import { isRoosterPresent } from "@/lib/animal-status";
@@ -57,32 +59,32 @@ interface FlockBalance {
 }
 
 const roosterStatusLabels: Record<string, { label: string; color: string }> = {
-  activo: { label: "✅ Activo", color: "green" },
-  enfermo: { label: "🤒 Enfermo", color: "yellow" },
-  vendido: { label: "💰 Vendido", color: "blue" },
-  faena: { label: "🍗 Faena", color: "orange" },
-  muerto: { label: "💀 Muerto", color: "gray" },
+  activo: { label: "Activo", color: "green" },
+  enfermo: { label: "Enfermo", color: "yellow" },
+  vendido: { label: "Vendido", color: "blue" },
+  faena: { label: "Faena", color: "orange" },
+  muerto: { label: "Muerto", color: "gray" },
 };
 
 const batchStatusLabels: Record<string, { label: string; color: string }> = {
-  activo: { label: "🐥 En crianza", color: "green" },
-  listo_sacrificio: { label: "✅ Listo sacrificio", color: "orange" },
-  vendido: { label: "💰 Vendido", color: "blue" },
-  faena: { label: "🍗 Faena", color: "gray" },
+  activo: { label: "En crianza", color: "green" },
+  listo_sacrificio: { label: "Listo sacrificio", color: "orange" },
+  vendido: { label: "Vendido", color: "blue" },
+  faena: { label: "Faena", color: "gray" },
 };
 
 const purposeLabels: Record<string, string> = {
-  engorde_carne: "🥩 Engorde carne",
-  postura_huevo: "🥚 Postura huevo",
-  pie_cria: "🧬 Pie de cría",
-  mixto: "🔄 Doble propósito",
+  engorde_carne: "Engorde carne",
+  postura_huevo: "Postura huevo",
+  pie_cria: "Pie de cría",
+  mixto: "Doble propósito",
 };
 
 const systemTypeLabels: Record<string, string> = {
-  piso: "🏠 Galpón / Piso",
-  pastoreo: "🌿 Pastoreo / Campero",
-  jaulas: "🏢 Jaulas",
-  baterias: "🔋 Baterías verticales",
+  piso: "Galpón / Piso",
+  pastoreo: "Pastoreo / Campero",
+  jaulas: "Jaulas",
+  baterias: "Baterías verticales",
 };
 
 type Tab = "gallos" | "lotes";
@@ -365,7 +367,7 @@ export default function PollosPage({ embedded = false, initialTab, initialSpecie
   return (
     <div>
       {!embedded && <PageHeader
-        title="🌿 Lotes Multiespecie y Gallos"
+        title="Lotes Multiespecie y Gallos"
         description="Gestión integral de lotes de engorde (pollos, codornices, patos y conejos) y gallos reproductores"
         help="Aquí gestionas los lotes de crianza y engorde de todas las especies de la granja:\n\n• Pollos de engorde (ciclo ~7 sem, ~2.5 kg)\n• Codornices (ciclo ~6 sem, postura o carne)\n• Patos Pekín y Criollos (ciclo 8-12 sem, carne tierna)\n• Conejos de engorde (ciclo ~11 sem / 77 días, carne magra)\n\nEl sistema evalúa automáticamente si el lote cumplió la edad o peso objetivo para faena."
         actions={
@@ -380,25 +382,31 @@ export default function PollosPage({ embedded = false, initialTab, initialSpecie
       {!embedded && balance && (
         <div className={`p-4 rounded-xl mb-6 text-sm font-medium ${balance.deficit > 0 ? "bg-orange-50 border border-orange-200 text-orange-800" : "bg-green-50 border border-green-200 text-green-800"}`}>
           {balance.deficit > 0 ? (
-            <>⚠️ Faltan <strong>{balance.deficit}</strong> gallo{balance.deficit > 1 ? "s" : ""} reproductor{balance.deficit > 1 ? "es" : ""}: se requieren <strong>{balance.required}</strong> para las gallinas activas y hay <strong>{balance.active}</strong> activos.</>
+            <span className="inline-flex items-center gap-2">
+              <AlertTriangle className="w-4 h-4 shrink-0 text-orange-600" aria-hidden="true" />
+              <span>Faltan <strong>{balance.deficit}</strong> gallo{balance.deficit > 1 ? "s" : ""} reproductor{balance.deficit > 1 ? "es" : ""}: se requieren <strong>{balance.required}</strong> para las gallinas activas y hay <strong>{balance.active}</strong> activos.</span>
+            </span>
           ) : (
-            <>✅ Balance correcto: <strong>{balance.active}</strong> gallo{balance.active !== 1 ? "s" : ""} activos para un requerimiento de <strong>{balance.required}</strong> (1 gallo por cada 10 gallinas).</>
+            <span className="inline-flex items-center gap-2">
+              <CheckCircle2 className="w-4 h-4 shrink-0 text-green-600" aria-hidden="true" />
+              <span>Balance correcto: <strong>{balance.active}</strong> gallo{balance.active !== 1 ? "s" : ""} activos para un requerimiento de <strong>{balance.required}</strong> (1 gallo por cada 10 gallinas).</span>
+            </span>
           )}
         </div>
       )}
 
       {/* StatCards Principales */}
       {!embedded && <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-6">
-        <StatCard icon="🐓" label="Gallos Activos" value={activeRoosters} color="red" />
-        <StatCard icon="🐣" label="Total Animales en Lotes" value={totalInBatches} color="yellow" />
-        <StatCard icon="✅" label="Lotes Listos para Faena" value={readyBatches.length} color="green" />
+        <StatCard icon="rooster" label="Gallos Activos" value={activeRoosters} color="red" />
+        <StatCard icon="chick" label="Total Animales en Lotes" value={totalInBatches} color="yellow" />
+        <StatCard icon="check-circle" label="Lotes Listos para Faena" value={readyBatches.length} color="green" />
         <div className="bg-white rounded-lg shadow-sm p-4 border border-slate-200 flex flex-col justify-center">
           <p className="text-xs text-slate-500 font-medium mb-1">Población por Especie</p>
-          <div className="flex flex-wrap gap-2 text-xs font-semibold text-slate-700">
-            <span>🐓 {animalsBySpecies.pollo || 0}</span>
-            <span>🥚 {animalsBySpecies.codorniz || 0}</span>
-            <span>🦆 {animalsBySpecies.pato || 0}</span>
-            <span>🐇 {animalsBySpecies.conejo || 0}</span>
+          <div className="flex flex-wrap gap-3 text-xs font-semibold text-slate-700">
+            <span className="inline-flex items-center gap-1"><AppIcon icon="rooster" className="w-3.5 h-3.5 text-slate-600" /> {animalsBySpecies.pollo || 0}</span>
+            <span className="inline-flex items-center gap-1"><AppIcon icon="egg" className="w-3.5 h-3.5 text-slate-600" /> {animalsBySpecies.codorniz || 0}</span>
+            <span className="inline-flex items-center gap-1"><AppIcon icon="duck" className="w-3.5 h-3.5 text-slate-600" /> {animalsBySpecies.pato || 0}</span>
+            <span className="inline-flex items-center gap-1"><AppIcon icon="rabbit" className="w-3.5 h-3.5 text-slate-600" /> {animalsBySpecies.conejo || 0}</span>
           </div>
         </div>
       </div>}
@@ -407,15 +415,17 @@ export default function PollosPage({ embedded = false, initialTab, initialSpecie
       {!embedded && <div className="flex gap-1 mb-6 bg-slate-100 p-1 rounded-lg w-fit">
         <button
           onClick={() => { setTab("gallos"); setSearch(""); }}
-          className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${tab === "gallos" ? "bg-white text-green-700 shadow-sm" : "text-slate-600 hover:text-slate-800"}`}
+          className={`inline-flex items-center gap-1.5 px-4 py-2 rounded-md text-sm font-medium transition-colors ${tab === "gallos" ? "bg-white text-green-700 shadow-sm" : "text-slate-600 hover:text-slate-800"}`}
         >
-          🐓 Gallos Reproductores
+          <AppIcon icon="rooster" className="w-4 h-4" />
+          <span>Gallos Reproductores</span>
         </button>
         <button
           onClick={() => { setTab("lotes"); setSearch(""); }}
-          className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${tab === "lotes" ? "bg-white text-green-700 shadow-sm" : "text-slate-600 hover:text-slate-800"}`}
+          className={`inline-flex items-center gap-1.5 px-4 py-2 rounded-md text-sm font-medium transition-colors ${tab === "lotes" ? "bg-white text-green-700 shadow-sm" : "text-slate-600 hover:text-slate-800"}`}
         >
-          🧺 Lotes de Crianza / Engorde
+          <AppIcon icon="boxes" className="w-4 h-4" />
+          <span>Lotes de Crianza / Engorde</span>
         </button>
       </div>}
 
@@ -434,7 +444,7 @@ export default function PollosPage({ embedded = false, initialTab, initialSpecie
             <p className="text-center py-8 text-slate-400">Cargando...</p>
           ) : filteredRoosters.length === 0 ? (
             <EmptyState
-              icon="🐓"
+              icon="rooster"
               message={
                 search.trim()
                   ? "No hay gallos que coincidan con la búsqueda"
@@ -447,7 +457,12 @@ export default function PollosPage({ embedded = false, initialTab, initialSpecie
                 const st = roosterStatusLabels[r.status] || { label: r.status, color: "gray" };
                 return (
                   <tr key={r.id} className="hover:bg-slate-50">
-                    <td className="px-4 py-3 font-medium text-red-700">🐓 {r.code}</td>
+                    <td className="px-4 py-3 font-medium text-red-700">
+                      <span className="inline-flex items-center gap-1.5">
+                        <AppIcon icon="rooster" className="w-4 h-4 shrink-0" />
+                        <span>{r.code}</span>
+                      </span>
+                    </td>
                     <td className="px-4 py-3 text-sm">{r.breed}</td>
                     <td className="px-4 py-3 text-sm">{r.ageWeeks} sem</td>
                     <td className="px-4 py-3 text-sm">{r.weight ? `${r.weight} kg` : "—"}</td>
@@ -473,11 +488,11 @@ export default function PollosPage({ embedded = false, initialTab, initialSpecie
           <div className="flex flex-wrap items-center justify-between gap-3 mb-4 pb-3 border-b border-slate-100">
             {!embedded && <div className="flex flex-wrap gap-1">
               {[
-                { id: "all", label: "Todas", icon: "🌐" },
-                { id: "pollo", label: "Pollos", icon: "🐓" },
-                { id: "codorniz", label: "Codornices", icon: "🥚" },
-                { id: "pato", label: "Patos", icon: "🦆" },
-                { id: "conejo", label: "Conejos", icon: "🐇" },
+                { id: "all", label: "Todas", icon: "globe" },
+                { id: "pollo", label: "Pollos", icon: "rooster" },
+                { id: "codorniz", label: "Codornices", icon: "egg" },
+                { id: "pato", label: "Patos", icon: "duck" },
+                { id: "conejo", label: "Conejos", icon: "rabbit" },
               ].map((sp) => {
                 const isSelected = selectedSpeciesFilter === sp.id;
                 const count = sp.id === "all"
@@ -487,13 +502,14 @@ export default function PollosPage({ embedded = false, initialTab, initialSpecie
                   <button
                     key={sp.id}
                     onClick={() => setSelectedSpeciesFilter(sp.id)}
-                    className={`px-3 py-1.5 rounded-full text-xs font-medium transition-all ${
+                    className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium transition-all ${
                       isSelected
                         ? "bg-emerald-600 text-white shadow-sm"
                         : "bg-slate-100 text-slate-600 hover:bg-slate-200"
                     }`}
                   >
-                    {sp.icon} {sp.label} ({count})
+                    <AppIcon icon={sp.icon} className="w-3.5 h-3.5" />
+                    <span>{sp.label} ({count})</span>
                   </button>
                 );
               })}
@@ -513,7 +529,7 @@ export default function PollosPage({ embedded = false, initialTab, initialSpecie
             <p className="text-center py-8 text-slate-400">Cargando...</p>
           ) : filteredBatches.length === 0 ? (
             <EmptyState
-              icon="🧺"
+              icon="boxes"
               message={
                 search.trim() || selectedSpeciesFilter !== "all"
                   ? "No hay lotes que coincidan con los filtros"
@@ -524,7 +540,7 @@ export default function PollosPage({ embedded = false, initialTab, initialSpecie
             <Table headers={["Código", "Especie / Raza", "Propósito / Sistema", "Edad", "Población", "Peso Prom.", "Objetivo", "Estado", ""]}>
               {filteredBatches.map((b) => {
                 const sp = b.species || "pollo";
-                const icon = SPECIES_ICON[sp] || "📦";
+                const icon = SPECIES_ICON[sp] || "package";
                 const st = batchStatusLabels[b.status] || { label: b.status, color: "gray" };
                 const isConejo = sp === "conejo";
 
@@ -535,7 +551,7 @@ export default function PollosPage({ embedded = false, initialTab, initialSpecie
                     </td>
                     <td className="px-4 py-3 text-sm">
                       <div className="flex items-center gap-1.5 font-medium text-slate-800">
-                        <span>{icon}</span>
+                        <AppIcon icon={icon} className="w-4 h-4 text-slate-600 shrink-0" />
                         <span>{b.breed}</span>
                       </div>
                       <span className="text-xs text-slate-400 uppercase tracking-wider">{SPECIES_LABEL[sp] || sp}</span>
@@ -585,7 +601,7 @@ export default function PollosPage({ embedded = false, initialTab, initialSpecie
       )}
 
       {/* ─── Modal Gallo ─── */}
-      <Modal open={roosterModalOpen} onClose={() => setRoosterModalOpen(false)} title="✏️ Editar Gallo">
+      <Modal open={roosterModalOpen} onClose={() => setRoosterModalOpen(false)} title="Editar Gallo">
         <div className="space-y-4">
           {roosterError && <p className="text-sm text-red-600 bg-red-50 p-3 rounded-lg">{roosterError}</p>}
           <div className="grid grid-cols-2 gap-3">
@@ -615,7 +631,7 @@ export default function PollosPage({ embedded = false, initialTab, initialSpecie
       <Modal
         open={batchModalOpen}
         onClose={() => setBatchModalOpen(false)}
-        title={`✏️ Editar Lote ${editingBatch?.code || ""}`}
+        title={`Editar Lote ${editingBatch?.code || ""}`}
       >
         <div className="space-y-4">
           {batchError && <p className="text-sm text-red-600 bg-red-50 p-3 rounded-lg">{batchError}</p>}
@@ -629,10 +645,10 @@ export default function PollosPage({ embedded = false, initialTab, initialSpecie
               onChange={(e) => handleSpeciesChange(e.target.value)}
               disabled={!!editingBatch}
             >
-              <option value="pollo">🐓 Pollo de engorde</option>
-              <option value="codorniz">🥚 Codorniz</option>
-              <option value="pato">🦆 Pato</option>
-              <option value="conejo">🐇 Conejo de engorde</option>
+              <option value="pollo">Pollo de engorde</option>
+              <option value="codorniz">Codorniz</option>
+              <option value="pato">Pato</option>
+              <option value="conejo">Conejo de engorde</option>
             </Select>
 
             <Select
@@ -641,10 +657,10 @@ export default function PollosPage({ embedded = false, initialTab, initialSpecie
               value={batchForm.purpose}
               onChange={(e) => setBatchForm({ ...batchForm, purpose: e.target.value })}
             >
-              <option value="engorde_carne">🥩 Engorde para carne</option>
-              <option value="postura_huevo">🥚 Postura de huevos</option>
-              <option value="pie_cria">🧬 Pie de cría / reproductores</option>
-              <option value="mixto">🔄 Doble propósito</option>
+              <option value="engorde_carne">Engorde para carne</option>
+              <option value="postura_huevo">Postura de huevos</option>
+              <option value="pie_cria">Pie de cría / reproductores</option>
+              <option value="mixto">Doble propósito</option>
             </Select>
           </div>
 
@@ -772,7 +788,10 @@ export default function PollosPage({ embedded = false, initialTab, initialSpecie
           {!editingBatch && liveCalculation && (
             <div className="p-3 bg-emerald-50 rounded-lg border border-emerald-200 text-xs text-emerald-900 space-y-2">
               <div className="flex items-center justify-between font-semibold border-b border-emerald-200 pb-1">
-                <span>📊 Proyección Zootécnica y Rentabilidad Dual</span>
+                <span className="inline-flex items-center gap-1.5">
+                  <BarChart3 className="w-4 h-4 text-emerald-700" aria-hidden="true" />
+                  <span>Proyección Zootécnica y Rentabilidad Dual</span>
+                </span>
                 <span className="text-emerald-700">Ciclo ~{liveCalculation.roiDias} días</span>
               </div>
               <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-center pt-1">

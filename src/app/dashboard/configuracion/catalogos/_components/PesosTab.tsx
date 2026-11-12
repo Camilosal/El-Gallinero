@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { Scale } from "lucide-react";
 import { Button, Card, EmptyState, Input, Modal, Select, Table } from "@/components/ui";
 import { apiFetch } from "@/lib/fetch";
 import { useSearchParams } from "next/navigation";
@@ -130,7 +131,10 @@ export default function PesosTab() {
       <Card>
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
           <div>
-            <h3 className="font-semibold text-slate-700">⚖️ Estándares de peso por raza</h3>
+            <h3 className="font-semibold text-slate-700 flex items-center gap-2">
+              <Scale className="w-4 h-4 text-slate-500" aria-hidden="true" />
+              Estándares de peso por raza
+            </h3>
             <p className="text-xs text-slate-500 mt-1">
               Curvas de referencia para comparar el peso real de las aves y detectar desviaciones.
             </p>
@@ -161,7 +165,7 @@ export default function PesosTab() {
         {loading ? (
           <p className="text-center py-8 text-slate-400">Cargando...</p>
         ) : filtered.length === 0 ? (
-          <EmptyState icon="⚖️" message="No hay estándares de peso para el filtro seleccionado" />
+          <EmptyState icon="scale" message="No hay estándares de peso para el filtro seleccionado" />
         ) : (
           <Table headers={["Raza", "Sexo", "Semana", "Peso objetivo", "Mínimo", "Máximo", ""]}>
             {filtered.map((item) => (
@@ -184,7 +188,7 @@ export default function PesosTab() {
         )}
       </Card>
 
-      <Modal open={modalOpen} onClose={() => setModalOpen(false)} title={editing ? "✏️ Editar estándar de peso" : "➕ Agregar estándar de peso"}>
+      <Modal open={modalOpen} onClose={() => setModalOpen(false)} title={editing ? "Editar estándar de peso" : "Agregar estándar de peso"}>
         <div className="space-y-3">
           {error && <p className="text-sm text-red-600 bg-red-50 p-3 rounded-lg">{error}</p>}
           <div className="grid grid-cols-2 gap-3">

@@ -138,17 +138,17 @@ export default function ActivosPage() {
   return (
     <div>
       <PageHeader
-        title="🏗️ Activos y equipos"
+        title="Activos y equipos"
         description="Identifica equipos, herramientas e infraestructura, y conéctalos con su lugar y mantenimiento."
         help="Registra un activo una sola vez para asociar a su ficha las tareas y reparaciones futuras. El código se asigna automáticamente. Retirar conserva el historial."
-        actions={<Button onClick={openNew}>＋ Nuevo activo</Button>}
+        actions={<Button onClick={openNew}>+ Nuevo activo</Button>}
       />
       {error && !modalOpen && <p className="mb-4 rounded-lg bg-red-50 p-3 text-sm text-red-700">{error}</p>}
 
       <div className="mb-6 grid grid-cols-1 gap-4 sm:grid-cols-3">
-        <StatCard icon="🧰" label="Activos vigentes" value={activeCount} color="green" />
-        <StatCard icon="🔧" label="Requieren atención" value={attentionCount} color={attentionCount ? "yellow" : "blue"} />
-        <StatCard icon="📦" label="Retirados con historial" value={retiredCount} color="blue" />
+        <StatCard icon="equipment" label="Activos vigentes" value={activeCount} color="green" />
+        <StatCard icon="wrench" label="Requieren atención" value={attentionCount} color={attentionCount ? "yellow" : "blue"} />
+        <StatCard icon="package" label="Retirados con historial" value={retiredCount} color="blue" />
       </div>
 
       <Card>
@@ -164,7 +164,7 @@ export default function ActivosPage() {
           <p className="py-8 text-center text-slate-400">Cargando activos...</p>
         ) : visibleAssets.length === 0 ? (
           <>
-            <EmptyState icon="🧰" message={search ? "No hay activos que coincidan con la búsqueda" : "Aún no hay equipos registrados"} />
+            <EmptyState icon="equipment" message={search ? "No hay activos que coincidan con la búsqueda" : "Aún no hay equipos registrados"} />
             {!search && <div className="-mt-6 mb-6 text-center"><p className="mb-3 text-sm text-slate-500">Empieza por los equipos que revisas o reparas con frecuencia, como la bomba de agua o la incubadora.</p><Button onClick={openNew}>Registrar primer activo</Button></div>}
           </>
         ) : (

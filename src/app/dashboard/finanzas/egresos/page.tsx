@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState, useCallback, useMemo } from "react";
+import { ArrowUp, BarChart3, Calculator, Package, Pencil } from "lucide-react";
 import { PageHeader, Button, Card, Table, Badge, Modal, Input, Select, Textarea, EmptyState, StatCard } from "@/components/ui";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from "recharts";
 import { apiFetch } from "@/lib/fetch";
@@ -524,7 +525,7 @@ export default function EgresosPage() {
   return (
     <div>
       <PageHeader
-        title="📤 Egresos / Gastos"
+        title="Egresos / Gastos"
         description="Gestión de egresos, costos operativos y compras del gallinero"
         help="Registra todos los gastos y egresos del gallinero.\n\n• Los egresos por 'Compra de alimento' pueden registrarse como compras detalladas con presentaciones (bultos, costales) que actualizan automáticamente el inventario.\n• Otros egresos son registros simples de gastos.\n• Las compras de alimento generan automáticamente movimientos de entrada en el inventario de alimentación.\n• Todos los egresos afectan el balance financiero."
         actions={
@@ -541,15 +542,18 @@ export default function EgresosPage() {
       />
 
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
-        <StatCard icon="📤" label="Total Egresos" value={`$${totalExpenses.toLocaleString()}`} color="red" />
-        <StatCard icon="🧾" label="Número de Egresos" value={totalCount} color="blue" />
-        <StatCard icon="🏷️" label="Categoría Principal" value={topCategory} color="purple" />
-        <StatCard icon="📊" label="Promedio / Egreso" value={`$${avgExpense.toLocaleString()}`} color="yellow" />
+        <StatCard icon="outgoing" label="Total Egresos" value={`$${totalExpenses.toLocaleString()}`} color="red" />
+        <StatCard icon="receipt" label="Número de Egresos" value={totalCount} color="blue" />
+        <StatCard icon="tag" label="Categoría Principal" value={topCategory} color="purple" />
+        <StatCard icon="bar-chart" label="Promedio / Egreso" value={`$${avgExpense.toLocaleString()}`} color="yellow" />
       </div>
 
       {chartData.length > 0 && (
         <Card className="mb-6">
-          <h3 className="font-semibold text-slate-700 mb-4">📊 Egresos por Fecha</h3>
+          <h3 className="font-semibold text-slate-700 mb-4 flex items-center gap-2">
+            <BarChart3 className="w-4 h-4 text-slate-600" aria-hidden="true" />
+            <span>Egresos por Fecha</span>
+          </h3>
           <ResponsiveContainer width="100%" height={250}>
             <BarChart data={chartData}>
               <CartesianGrid strokeDasharray="3 3" />
@@ -564,7 +568,10 @@ export default function EgresosPage() {
 
       {catData.length > 0 && (
         <Card className="mb-6">
-          <h3 className="font-semibold text-red-700 mb-3">📤 Desglose por Categoría</h3>
+          <h3 className="font-semibold text-red-700 mb-3 flex items-center gap-2">
+            <ArrowUp className="w-4 h-4 shrink-0" aria-hidden="true" />
+            <span>Desglose por Categoría</span>
+          </h3>
           <div className="space-y-2">
             {catData.map((c, i) => (
               <div key={i} className="flex justify-between items-center p-2 bg-red-50 rounded">
@@ -589,7 +596,7 @@ export default function EgresosPage() {
           <p className="text-center py-8 text-slate-400">Cargando...</p>
         ) : filteredExpenses.length === 0 ? (
           <EmptyState
-            icon="📤"
+            icon="outgoing"
             message={
               search.trim()
                 ? "No hay egresos que coincidan con la búsqueda"
@@ -624,7 +631,7 @@ export default function EgresosPage() {
         )}
       </Card>
 
-      <Modal open={modalOpen} onClose={() => setModalOpen(false)} title={editing ? "✏️ Editar Egreso" : "📤 Nuevo Egreso"}>
+      <Modal open={modalOpen} onClose={() => setModalOpen(false)} title={editing ? "Editar Egreso" : "Nuevo Egreso"}>
         <div className="space-y-4">
           {error && <p className="text-sm text-red-600 bg-red-50 p-3 rounded-lg">{error}</p>}
           <Input label="Fecha" type="date" value={form.date} onChange={(e) => setForm({ ...form, date: e.target.value })} />
@@ -653,7 +660,9 @@ export default function EgresosPage() {
                 </select>
                 <button type="button" onClick={openProductNew} className="px-3 py-2 text-sm rounded-lg bg-green-50 text-green-700 hover:bg-green-100 border border-green-200 whitespace-nowrap" title="Crear nuevo producto">+ Producto</button>
                 {selectedProductId && (
-                  <button type="button" onClick={openProductEdit} className="px-3 py-2 text-sm rounded-lg bg-blue-50 text-blue-700 hover:bg-blue-100 border border-blue-200 whitespace-nowrap" title="Editar este producto">✏️</button>
+                  <button type="button" onClick={openProductEdit} className="px-3 py-2 text-sm rounded-lg bg-blue-50 text-blue-700 hover:bg-blue-100 border border-blue-200 whitespace-nowrap inline-flex items-center justify-center" title="Editar este producto" aria-label="Editar este producto">
+                    <Pencil className="w-4 h-4" aria-hidden="true" />
+                  </button>
                 )}
               </div>
             </div>
@@ -703,7 +712,10 @@ export default function EgresosPage() {
 
               {quantityInBaseUnit !== null && quantityInBaseUnit > 0 && (
                 <div className="p-3 bg-blue-50 rounded-lg text-sm text-blue-700">
-                  <p>📦 {form.presentations} {form.presentation?.toLowerCase()}(s) × {form.factor} = <strong>{quantityInBaseUnit} {selectedFeed?.unit || "unidades"}</strong></p>
+                  <p className="flex items-center gap-1.5">
+                    <Package className="w-4 h-4 shrink-0" aria-hidden="true" />
+                    <span>{form.presentations} {form.presentation?.toLowerCase()}(s) × {form.factor} = <strong>{quantityInBaseUnit} {selectedFeed?.unit || "unidades"}</strong></span>
+                  </p>
                 </div>
               )}
             </>
@@ -719,12 +731,16 @@ export default function EgresosPage() {
 
           {computedTotal ? (
             <div className="p-3 bg-red-50 rounded-lg text-sm text-red-700">
-              <p>🧮 Total: <strong className="text-xl">${Number(computedTotal).toLocaleString()}</strong>
-                {isPurchase && form.presentations && form.pricePerPresentation
-                  ? ` (${form.presentations} × $${Number(form.pricePerPresentation).toLocaleString()})`
-                  : form.quantity && form.unitPrice
-                    ? ` (${form.quantity} × $${Number(form.unitPrice).toLocaleString()})`
-                    : ""}
+              <p className="flex items-center gap-2">
+                <Calculator className="w-4 h-4 shrink-0" aria-hidden="true" />
+                <span>
+                  Total: <strong className="text-xl">${Number(computedTotal).toLocaleString()}</strong>
+                  {isPurchase && form.presentations && form.pricePerPresentation
+                    ? ` (${form.presentations} × $${Number(form.pricePerPresentation).toLocaleString()})`
+                    : form.quantity && form.unitPrice
+                      ? ` (${form.quantity} × $${Number(form.unitPrice).toLocaleString()})`
+                      : ""}
+                </span>
               </p>
             </div>
           ) : (
@@ -742,7 +758,7 @@ export default function EgresosPage() {
       </Modal>
 
       {/* ─── Product creation/edit modal ─── */}
-      <Modal open={productModalOpen} onClose={() => setProductModalOpen(false)} title={productEditingId ? "✏️ Editar Producto" : "+ Nuevo Producto"}>
+      <Modal open={productModalOpen} onClose={() => setProductModalOpen(false)} title={productEditingId ? "Editar Producto" : "+ Nuevo Producto"}>
         <div className="space-y-4">
           {productError && <p className="text-sm text-red-600 bg-red-50 p-3 rounded-lg">{productError}</p>}
           <Input label="Nombre del producto" value={productForm.name} onChange={(e) => setProductForm({ ...productForm, name: e.target.value })} placeholder="Ej: Vacuna Newcastle" required />

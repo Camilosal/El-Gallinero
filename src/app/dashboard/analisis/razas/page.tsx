@@ -97,7 +97,7 @@ export default function RazasPage() {
   return (
     <div className="space-y-6">
       <PageHeader
-        title="📈 Curvas de referencia y desempeño"
+        title="Curvas de referencia y desempeño"
         description="Compara la postura de las gallinas y el crecimiento de cada especie con una curva de referencia."
         help="Las curvas de peso se muestran en una sola referencia, sin separar machos y hembras. El desempeño real se compara con los registros recientes de huevos o pesajes vinculados a lotes."
         actions={
@@ -115,7 +115,7 @@ export default function RazasPage() {
       {loading ? (
         <Card><p className="py-8 text-center text-slate-400">Cargando curva y registros recientes…</p></Card>
       ) : !selectedCurve ? (
-        <Card><EmptyState icon="📈" message="No hay una curva de referencia para esta especie" /></Card>
+        <Card><EmptyState icon="trend-up" message="No hay una curva de referencia para esta especie" /></Card>
       ) : (
         <>
           <Card>

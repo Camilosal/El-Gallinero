@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useRef } from "react";
 import Image from "next/image";
+import { Printer, Tag } from "lucide-react";
 import QRCode from "qrcode";
 import { Button, Modal } from "@/components/ui";
 import { generateQrPayload } from "@/lib/qr";
@@ -24,7 +25,10 @@ export function QrGeneratorButton({ hens }: { hens: Hen[] }) {
         onClick={() => setOpen(true)}
         className="px-3 py-1.5 bg-indigo-600 text-white text-xs font-medium rounded-lg hover:bg-indigo-700 transition-colors"
       >
-        🏷️ Etiquetas QR
+        <span className="inline-flex items-center gap-1.5">
+          <Tag className="w-3.5 h-3.5" aria-hidden="true" />
+          <span>Etiquetas QR</span>
+        </span>
       </button>
       <Modal open={open} onClose={() => setOpen(false)} title="Etiquetas QR de Gallinas">
         <QrGeneratorContent hens={activeHens} />
@@ -86,7 +90,7 @@ function QrGeneratorContent({ hens }: { hens: Hen[] }) {
       </head>
       <body>
         <div class="no-print" style="margin-bottom:10mm;text-align:center;">
-          <button onclick="window.print()" style="padding:8px 20px;font-size:12pt;cursor:pointer;">🖨️ Imprimir</button>
+          <button onclick="window.print()" style="padding:8px 20px;font-size:12pt;cursor:pointer;">Imprimir</button>
         </div>
         <div class="grid">
           ${hens
@@ -119,7 +123,10 @@ function QrGeneratorContent({ hens }: { hens: Hen[] }) {
           {hens.length} etiqueta{hens.length !== 1 ? "s" : ""} lista{hens.length !== 1 ? "s" : ""} para imprimir
         </p>
         <Button onClick={handlePrint} disabled={generating || Object.keys(qrUrls).length === 0}>
-          🖨️ Imprimir etiquetas
+          <span className="inline-flex items-center gap-1.5">
+            <Printer className="w-4 h-4" aria-hidden="true" />
+            <span>Imprimir etiquetas</span>
+          </span>
         </Button>
       </div>
 

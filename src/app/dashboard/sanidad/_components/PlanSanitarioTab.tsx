@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState, useCallback, useMemo } from "react";
+import { AlertCircle, AlertTriangle, BarChart3, Bird, Calendar, CheckCircle2, ClipboardList, Clock, History, Lightbulb, Stethoscope, Wrench, Zap } from "lucide-react";
 import { PageHeader, Button, Card, Table, Badge, Modal, Input, Select, Textarea, EmptyState, StatCard } from "@/components/ui";
 import { apiFetch } from "@/lib/fetch";
 import TableSearch from "@/components/TableSearch";
@@ -90,14 +91,14 @@ interface PlanData {
 }
 
 const TYPE_LABELS: Record<string, string> = {
-  vacunacion: "💉 Vacunación",
-  desparasitacion: "🪱 Desparasitación",
-  inspeccion: "🔍 Inspección",
-  tratamiento: "💊 Tratamiento",
-  vitaminas: "💧 Vitaminas",
-  fumigacion: "🧪 Fumigación",
-  limpieza: "🧹 Limpieza",
-  otro: "📋 Otro",
+  vacunacion: "Vacunación",
+  desparasitacion: "Desparasitación",
+  inspeccion: "Inspección",
+  tratamiento: "Tratamiento",
+  vitaminas: "Vitaminas",
+  fumigacion: "Fumigación",
+  limpieza: "Limpieza",
+  otro: "Otro",
 };
 
 const TYPE_COLORS: Record<string, string> = {
@@ -119,10 +120,10 @@ const stageColors: Record<string, string> = {
 };
 
 const supplyCategoryLabels: Record<string, string> = {
-  medicamento: "💊 Medicamentos/Vacunas",
-  antiparasitario: "🪱 Antiparasitarios",
-  vitamina: "💧 Vitaminas/Suplementos",
-  insumo_limpieza: "🧹 Insumos de limpieza",
+  medicamento: "Medicamentos/Vacunas",
+  antiparasitario: "Antiparasitarios",
+  vitamina: "Vitaminas/Suplementos",
+  insumo_limpieza: "Insumos de limpieza",
 };
 
 export default function PlanSanitarioTab() {
@@ -315,7 +316,9 @@ export default function PlanSanitarioTab() {
   if (loading) {
     return (
       <div className="p-8 text-center text-slate-400">
-        <div className="text-5xl mb-4 animate-bounce">💊</div>
+        <div className="flex justify-center mb-4">
+          <Stethoscope className="w-12 h-12 text-blue-500 animate-pulse" aria-hidden="true" />
+        </div>
         <p>Cargando plan sanitario...</p>
       </div>
     );
@@ -330,13 +333,15 @@ export default function PlanSanitarioTab() {
   return (
     <div>
       <PageHeader
-        title="💊 Plan Sanitario"
+        title="Plan Sanitario"
         description="Plan sanitario proactivo: protocolos por etapa, acciones programadas y recursos necesarios"
         help="El Plan Sanitario es tu sistema proactivo de salud para la parvada.\n\n• Plan de Acción: muestra las acciones pendientes organizadas por urgencia.\n• Protocolos por Etapa: define qué acciones sanitarias corresponden a cada etapa de crecimiento.\n• Ejecutar: registra la aplicación de cada acción, confirmando los recursos utilizados.\n• Historial: registro completo de todas las acciones sanitarias ejecutadas.\n• Recursos: estado del inventario de insumos sanitarios (medicamentos, vacunas, antiparasitarios).\n\nEl sistema genera automáticamente eventos en el calendario según los protocolos definidos."
         actions={
           <div className="flex gap-2">
             <Button onClick={() => { setSeedStage(stages[0]?.value || ""); setSeedModalOpen(true); }}>
-              📋 Generar desde Protocolo
+              <span className="inline-flex items-center gap-1.5">
+                <ClipboardList className="w-4 h-4" aria-hidden="true" /> Generar desde Protocolo
+              </span>
             </Button>
           </div>
         }
@@ -344,31 +349,31 @@ export default function PlanSanitarioTab() {
 
       {/* Stats */}
       <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3 mb-6">
-        <StatCard icon="📋" label="Eventos Activos" value={summary.totalActiveEvents} color="blue" />
-        <StatCard icon="🔴" label="Vencidos" value={summary.overdueCount} color={summary.overdueCount > 0 ? "red" : "green"} />
-        <StatCard icon="📅" label="Próximos" value={summary.upcomingCount} color="yellow" />
-        <StatCard icon="✅" label="Ejecutados (30d)" value={summary.executedLast30d} color="green" />
-        <StatCard icon="💰" label="Costo (30d)" value={`$${summary.costLast30d.toLocaleString()}`} color="purple" />
-        <StatCard icon="📊" label="Cumplimiento" value={`${summary.compliancePercent}%`} color={summary.compliancePercent >= 80 ? "green" : summary.compliancePercent >= 50 ? "yellow" : "red"} />
+        <StatCard icon="clipboard" label="Eventos Activos" value={summary.totalActiveEvents} color="blue" />
+        <StatCard icon="dot-red" label="Vencidos" value={summary.overdueCount} color={summary.overdueCount > 0 ? "red" : "green"} />
+        <StatCard icon="calendar" label="Próximos" value={summary.upcomingCount} color="yellow" />
+        <StatCard icon="check-circle" label="Ejecutados (30d)" value={summary.executedLast30d} color="green" />
+        <StatCard icon="money" label="Costo (30d)" value={`$${summary.costLast30d.toLocaleString()}`} color="purple" />
+        <StatCard icon="chart" label="Cumplimiento" value={`${summary.compliancePercent}%`} color={summary.compliancePercent >= 80 ? "green" : summary.compliancePercent >= 50 ? "yellow" : "red"} />
       </div>
 
       {/* Tabs */}
       <div className="flex gap-2 mb-4 flex-wrap">
-        <button onClick={() => setTab("plan")} className={`px-4 py-2 rounded-lg text-sm font-medium ${tab === "plan" ? "bg-blue-600 text-white" : "bg-white text-slate-600 border"}`}>
-          📋 Plan de Acción
+        <button onClick={() => setTab("plan")} className={`inline-flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-medium ${tab === "plan" ? "bg-blue-600 text-white" : "bg-white text-slate-600 border"}`}>
+          <ClipboardList className="w-4 h-4" aria-hidden="true" /> Plan de Acción
         </button>
-        <button onClick={() => setTab("protocolos")} className={`px-4 py-2 rounded-lg text-sm font-medium ${tab === "protocolos" ? "bg-blue-600 text-white" : "bg-white text-slate-600 border"}`}>
-          📊 Protocolos por Etapa
+        <button onClick={() => setTab("protocolos")} className={`inline-flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-medium ${tab === "protocolos" ? "bg-blue-600 text-white" : "bg-white text-slate-600 border"}`}>
+          <BarChart3 className="w-4 h-4" aria-hidden="true" /> Protocolos por Etapa
         </button>
-        <button onClick={() => setTab("ejecutar")} className={`px-4 py-2 rounded-lg text-sm font-medium ${tab === "ejecutar" ? "bg-blue-600 text-white" : "bg-white text-slate-600 border"}`}>
-          ⚡ Ejecutar
+        <button onClick={() => setTab("ejecutar")} className={`inline-flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-medium ${tab === "ejecutar" ? "bg-blue-600 text-white" : "bg-white text-slate-600 border"}`}>
+          <Zap className="w-4 h-4" aria-hidden="true" /> Ejecutar
           {overdueActions.length > 0 && <span className="ml-1 bg-red-500 text-white text-xs px-1.5 py-0.5 rounded-full">{overdueActions.length}</span>}
         </button>
-        <button onClick={() => setTab("historial")} className={`px-4 py-2 rounded-lg text-sm font-medium ${tab === "historial" ? "bg-blue-600 text-white" : "bg-white text-slate-600 border"}`}>
-          📜 Historial
+        <button onClick={() => setTab("historial")} className={`inline-flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-medium ${tab === "historial" ? "bg-blue-600 text-white" : "bg-white text-slate-600 border"}`}>
+          <History className="w-4 h-4" aria-hidden="true" /> Historial
         </button>
-        <button onClick={() => setTab("recursos")} className={`px-4 py-2 rounded-lg text-sm font-medium ${tab === "recursos" ? "bg-blue-600 text-white" : "bg-white text-slate-600 border"}`}>
-          🧰 Recursos
+        <button onClick={() => setTab("recursos")} className={`inline-flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-medium ${tab === "recursos" ? "bg-blue-600 text-white" : "bg-white text-slate-600 border"}`}>
+          <Wrench className="w-4 h-4" aria-hidden="true" /> Recursos
           {summary.lowSupplyCount > 0 && <span className="ml-1 bg-yellow-500 text-white text-xs px-1.5 py-0.5 rounded-full">{summary.lowSupplyCount}</span>}
         </button>
       </div>
@@ -379,7 +384,10 @@ export default function PlanSanitarioTab() {
           {/* Overdue actions */}
           {overdueActions.length > 0 && (
             <Card className="border-red-200 bg-red-50">
-              <h3 className="font-semibold text-red-700 mb-3">🔴 Acciones Vencidas — Requieren Atención Inmediata</h3>
+              <h3 className="font-semibold text-red-700 mb-3 flex items-center gap-2">
+                <AlertCircle className="w-4 h-4 text-red-600" aria-hidden="true" />
+                Acciones Vencidas — Requieren Atención Inmediata
+              </h3>
               <div className="space-y-2">
                 {overdueActions.map((e) => (
                   <div key={e.id} className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 p-3 bg-white rounded-lg border border-red-100">
@@ -393,9 +401,9 @@ export default function PlanSanitarioTab() {
                     <div className="flex items-center gap-3">
                       <span className="text-sm font-bold text-red-600">{Math.abs(e.daysUntilDue)}d vencido</span>
                       {e.availableSupplies.length > 0 ? (
-                        <span className="text-xs text-green-600">✅ Recursos disponibles</span>
+                        <span className="inline-flex items-center gap-1 text-xs text-green-600"><CheckCircle2 className="w-3.5 h-3.5" aria-hidden="true" /> Recursos disponibles</span>
                       ) : (
-                        <span className="text-xs text-orange-600">⚠️ Verificar recursos</span>
+                        <span className="inline-flex items-center gap-1 text-xs text-orange-600"><AlertTriangle className="w-3.5 h-3.5" aria-hidden="true" /> Verificar recursos</span>
                       )}
                       <button onClick={() => openExecute(e)} className="px-3 py-1 bg-red-600 text-white text-xs font-medium rounded-lg hover:bg-red-700">
                         Ejecutar
@@ -410,7 +418,10 @@ export default function PlanSanitarioTab() {
           {/* Upcoming actions by period */}
           <Card>
             <div className="flex items-center justify-between mb-3">
-              <h3 className="font-semibold text-slate-700">📅 Próximas Acciones Programadas</h3>
+              <h3 className="font-semibold text-slate-700 flex items-center gap-2">
+                <Calendar className="w-4 h-4 text-slate-500" aria-hidden="true" />
+                Próximas Acciones Programadas
+              </h3>
               <div className="flex items-center gap-2">
                 <label className="text-sm text-slate-600">Horizonte:</label>
                 <select value={planDays} onChange={(e) => setPlanDays(Number(e.target.value))} className="border rounded-lg px-3 py-1.5 text-sm font-medium">
@@ -432,7 +443,7 @@ export default function PlanSanitarioTab() {
             />
             {filteredUpcoming.length === 0 ? (
               <EmptyState
-                icon="✅"
+                icon="check-circle"
                 message={
                   upcomingSearch.trim()
                     ? "No hay acciones que coincidan con la búsqueda"
@@ -455,9 +466,9 @@ export default function PlanSanitarioTab() {
                       <td className="px-4 py-3 text-sm">{e.frequencyDays ? `Cada ${e.frequencyDays}d` : "Único"}</td>
                       <td className="px-4 py-3">
                         {e.availableSupplies.length > 0 ? (
-                          <span className="text-xs text-green-600 font-medium">✅ {e.availableSupplies[0].name} ({e.availableSupplies[0].currentStock} {e.availableSupplies[0].unit})</span>
+                          <span className="inline-flex items-center gap-1 text-xs text-green-600 font-medium"><CheckCircle2 className="w-3.5 h-3.5 shrink-0" aria-hidden="true" /> {e.availableSupplies[0].name} ({e.availableSupplies[0].currentStock} {e.availableSupplies[0].unit})</span>
                         ) : e.supplyCategory ? (
-                          <span className="text-xs text-orange-600">⚠️ Sin stock de {supplyCategoryLabels[e.supplyCategory] || e.supplyCategory}</span>
+                          <span className="inline-flex items-center gap-1 text-xs text-orange-600"><AlertTriangle className="w-3.5 h-3.5 shrink-0" aria-hidden="true" /> Sin stock de {supplyCategoryLabels[e.supplyCategory] || e.supplyCategory}</span>
                         ) : (
                           <span className="text-xs text-slate-400">—</span>
                         )}
@@ -483,7 +494,10 @@ export default function PlanSanitarioTab() {
 
           {/* Compliance summary */}
           <Card>
-            <h3 className="font-semibold text-slate-700 mb-3">📊 Cumplimiento del Plan</h3>
+            <h3 className="font-semibold text-slate-700 mb-3 flex items-center gap-2">
+              <BarChart3 className="w-4 h-4 text-slate-500" aria-hidden="true" />
+              Cumplimiento del Plan
+            </h3>
             <div className="flex items-center gap-4">
               <div className="flex-1 bg-slate-200 rounded-full h-4 overflow-hidden">
                 <div
@@ -514,7 +528,7 @@ export default function PlanSanitarioTab() {
           />
           {stages.length === 0 ? (
             <Card>
-              <EmptyState icon="📊" message="No hay etapas de crecimiento definidas" />
+              <EmptyState icon="chart" message="No hay etapas de crecimiento definidas" />
             </Card>
           ) : (
             stages.map((stage) => (
@@ -525,12 +539,14 @@ export default function PlanSanitarioTab() {
                     <span className="text-sm text-slate-500">
                       {stage.minWeeks}–{stage.maxWeeks ? `${stage.maxWeeks} sem` : "+ sem"}
                     </span>
-                    <span className="text-sm font-semibold text-slate-700">
-                      🐔 {stage.henCount} gallina{stage.henCount !== 1 ? "s" : ""}
+                    <span className="inline-flex items-center gap-1 text-sm font-semibold text-slate-700">
+                      <Bird className="w-4 h-4 text-slate-500" aria-hidden="true" /> {stage.henCount} gallina{stage.henCount !== 1 ? "s" : ""}
                     </span>
                   </div>
                   <Button onClick={() => { setSeedStage(stage.value); setSeedModalOpen(true); }}>
-                    📋 Generar Eventos
+                    <span className="inline-flex items-center gap-1.5">
+                      <ClipboardList className="w-4 h-4" aria-hidden="true" /> Generar Eventos
+                    </span>
                   </Button>
                 </div>
 
@@ -571,7 +587,10 @@ export default function PlanSanitarioTab() {
           {/* Pending actions to execute */}
           {(overdueActions.length > 0 || upcomingActions.some((e) => e.daysUntilDue <= 7)) ? (
             <Card>
-              <h3 className="font-semibold text-slate-700 mb-3">⚡ Acciones Pendientes de Ejecución</h3>
+              <h3 className="font-semibold text-slate-700 mb-3 flex items-center gap-2">
+                <Zap className="w-4 h-4 text-amber-500" aria-hidden="true" />
+                Acciones Pendientes de Ejecución
+              </h3>
               <p className="text-sm text-slate-500 mb-4">
                 Haz clic en &quot;Ejecutar&quot; para registrar la aplicación. El sistema verificará los recursos disponibles y actualizará el calendario.
               </p>
@@ -587,28 +606,28 @@ export default function PlanSanitarioTab() {
                         </div>
                         <p className="text-xs text-slate-500">{e.description}</p>
                         <div className="flex items-center gap-3 mt-2">
-                          <span className="text-xs text-slate-500">📅 {e.nextDueDate}</span>
+                          <span className="inline-flex items-center gap-1 text-xs text-slate-500"><Calendar className="w-3.5 h-3.5" aria-hidden="true" /> {e.nextDueDate}</span>
                           {e.withdrawalDays && e.withdrawalDays > 0 && (
-                            <span className="text-xs text-orange-600">⏱️ Retiro: {e.withdrawalDays}d</span>
+                            <span className="inline-flex items-center gap-1 text-xs text-orange-600"><Clock className="w-3.5 h-3.5" aria-hidden="true" /> Retiro: {e.withdrawalDays}d</span>
                           )}
                         </div>
                       </div>
                       <div className="flex flex-col items-end gap-2">
                         {/* Resource status */}
                         {e.availableSupplies.length > 0 ? (
-                          <div className="text-xs text-green-600 bg-green-50 px-2 py-1 rounded">
-                            ✅ {e.availableSupplies.map((s) => `${s.name} (${s.currentStock} ${s.unit})`).join(", ")}
+                          <div className="inline-flex items-center gap-1 text-xs text-green-600 bg-green-50 px-2 py-1 rounded">
+                            <CheckCircle2 className="w-3.5 h-3.5 shrink-0" aria-hidden="true" /> {e.availableSupplies.map((s) => `${s.name} (${s.currentStock} ${s.unit})`).join(", ")}
                           </div>
                         ) : e.supplyCategory ? (
-                          <div className="text-xs text-orange-600 bg-orange-50 px-2 py-1 rounded">
-                            ⚠️ Sin stock: {supplyCategoryLabels[e.supplyCategory] || e.supplyCategory}
+                          <div className="inline-flex items-center gap-1 text-xs text-orange-600 bg-orange-50 px-2 py-1 rounded">
+                            <AlertTriangle className="w-3.5 h-3.5 shrink-0" aria-hidden="true" /> Sin stock: {supplyCategoryLabels[e.supplyCategory] || e.supplyCategory}
                           </div>
                         ) : null}
                         <button
                           onClick={() => openExecute(e)}
-                          className={`px-4 py-2 text-white text-sm font-medium rounded-lg ${e.isOverdue ? "bg-red-600 hover:bg-red-700" : "bg-blue-600 hover:bg-blue-700"}`}
+                          className={`inline-flex items-center gap-1.5 px-4 py-2 text-white text-sm font-medium rounded-lg ${e.isOverdue ? "bg-red-600 hover:bg-red-700" : "bg-blue-600 hover:bg-blue-700"}`}
                         >
-                          ⚡ Ejecutar Acción
+                          <Zap className="w-4 h-4" aria-hidden="true" /> Ejecutar Acción
                         </button>
                       </div>
                     </div>
@@ -618,7 +637,7 @@ export default function PlanSanitarioTab() {
             </Card>
           ) : (
             <Card>
-              <EmptyState icon="✅" message="No hay acciones pendientes de ejecución" />
+              <EmptyState icon="check-circle" message="No hay acciones pendientes de ejecución" />
             </Card>
           )}
         </div>
@@ -627,7 +646,10 @@ export default function PlanSanitarioTab() {
       {/* ─── Tab: Historial ─── */}
       {tab === "historial" && (
         <Card>
-          <h3 className="font-semibold text-slate-700 mb-3">📜 Historial de Acciones Sanitarias</h3>
+          <h3 className="font-semibold text-slate-700 mb-3 flex items-center gap-2">
+            <History className="w-4 h-4 text-slate-500" aria-hidden="true" />
+            Historial de Acciones Sanitarias
+          </h3>
           <TableSearch
             value={historySearch}
             onChange={setHistorySearch}
@@ -638,7 +660,7 @@ export default function PlanSanitarioTab() {
           />
           {filteredExecutions.length === 0 ? (
             <EmptyState
-              icon="📜"
+              icon="scroll"
               message={
                 historySearch.trim()
                   ? "No hay registros que coincidan con la búsqueda"
@@ -669,11 +691,15 @@ export default function PlanSanitarioTab() {
           {/* Low stock alerts */}
           {supplyStatus.filter((s) => s.isLow).length > 0 && (
             <Card className="border-red-200 bg-red-50">
-              <h3 className="font-semibold text-red-700 mb-2">⚠️ Insumos con Stock Bajo</h3>
+              <h3 className="font-semibold text-red-700 mb-2 flex items-center gap-2">
+                <AlertTriangle className="w-4 h-4 text-red-600" aria-hidden="true" />
+                Insumos con Stock Bajo
+              </h3>
               <div className="space-y-1">
                 {supplyStatus.filter((s) => s.isLow).map((s) => (
-                  <p key={s.id} className={`text-sm ${s.isCritical ? "text-red-600 font-bold" : "text-orange-600"}`}>
-                    {s.isCritical ? "🔴" : "🟡"} <strong>{s.name}</strong> — Stock: {s.currentStock} {s.unit} (mín: {s.minStock} {s.unit})
+                  <p key={s.id} className={`text-sm flex items-center gap-2 ${s.isCritical ? "text-red-600 font-bold" : "text-orange-600"}`}>
+                    <span className={`inline-block w-2 h-2 rounded-full shrink-0 ${s.isCritical ? "bg-red-600" : "bg-amber-500"}`} aria-hidden="true" />
+                    <span><strong>{s.name}</strong> — Stock: {s.currentStock} {s.unit} (mín: {s.minStock} {s.unit})</span>
                   </p>
                 ))}
               </div>
@@ -681,7 +707,10 @@ export default function PlanSanitarioTab() {
           )}
 
           <Card>
-            <h3 className="font-semibold text-slate-700 mb-3">🧰 Inventario de Insumos Sanitarios</h3>
+            <h3 className="font-semibold text-slate-700 mb-3 flex items-center gap-2">
+              <Wrench className="w-4 h-4 text-slate-500" aria-hidden="true" />
+              Inventario de Insumos Sanitarios
+            </h3>
             <TableSearch
               value={supplySearch}
               onChange={setSupplySearch}
@@ -692,7 +721,7 @@ export default function PlanSanitarioTab() {
             />
             {filteredSupplies.length === 0 ? (
               <EmptyState
-                icon="🧰"
+                icon="wrench"
                 message={
                   supplySearch.trim()
                     ? "No hay insumos que coincidan con la búsqueda"
@@ -710,11 +739,11 @@ export default function PlanSanitarioTab() {
                     <td className="px-4 py-2">${s.costPerUnit.toLocaleString()}</td>
                     <td className="px-4 py-2">
                       {s.isCritical ? (
-                        <Badge color="red">🔴 Crítico</Badge>
+                        <Badge color="red">Crítico</Badge>
                       ) : s.isLow ? (
-                        <Badge color="yellow">🟡 Bajo</Badge>
+                        <Badge color="yellow">Bajo</Badge>
                       ) : (
-                        <Badge color="green">✅ OK</Badge>
+                        <Badge color="green">OK</Badge>
                       )}
                     </td>
                   </tr>
@@ -723,19 +752,24 @@ export default function PlanSanitarioTab() {
             )}
           </Card>
 
-          <p className="text-xs text-slate-500">
-            💡 Los insumos sanitarios se gestionan desde <a href="/dashboard/inventarios/insumos" className="text-blue-600 hover:underline">Inventarios → Insumos</a>.
-            Al ejecutar una acción sanitaria, el sistema descuenta automáticamente los recursos utilizados.
+          <p className="text-xs text-slate-500 flex items-center gap-1.5">
+            <Lightbulb className="w-3.5 h-3.5 text-amber-500 shrink-0" aria-hidden="true" />
+            <span>
+              Los insumos sanitarios se gestionan desde <a href="/dashboard/inventarios/insumos" className="text-blue-600 hover:underline">Inventarios → Insumos</a>.
+              Al ejecutar una acción sanitaria, el sistema descuenta automáticamente los recursos utilizados.
+            </span>
           </p>
         </div>
       )}
 
       {/* ─── Execute Modal ─── */}
-      <Modal open={execModalOpen} onClose={() => setExecModalOpen(false)} title={execSuccess ? "✅ Acción Registrada" : `⚡ Ejecutar: ${execEvent?.name || ""}`}>
+      <Modal open={execModalOpen} onClose={() => setExecModalOpen(false)} title={execSuccess ? "Acción Registrada" : `Ejecutar: ${execEvent?.name || ""}`}>
         <div className="space-y-4">
           {execSuccess ? (
             <div className="text-center py-6">
-              <p className="text-4xl mb-3">✅</p>
+              <div className="flex justify-center mb-3">
+                <CheckCircle2 className="w-10 h-10 text-green-600" aria-hidden="true" />
+              </div>
               <p className="text-lg font-semibold text-green-700">Acción registrada exitosamente</p>
               <p className="text-sm text-slate-500 mt-2">
                 {execEvent?.frequencyDays
@@ -743,8 +777,9 @@ export default function PlanSanitarioTab() {
                   : `Evento único completado y desactivado.`}
               </p>
               {execEvent?.withdrawalDays && execEvent.withdrawalDays > 0 && (
-                <p className="text-sm text-orange-600 mt-2 bg-orange-50 p-2 rounded-lg">
-                  ⏱️ Período de retiro: {execEvent.withdrawalDays} días. No consumir huevos/carne durante este período.
+                <p className="text-sm text-orange-600 mt-2 bg-orange-50 p-2 rounded-lg inline-flex items-center gap-1.5">
+                  <Clock className="w-4 h-4 shrink-0" aria-hidden="true" />
+                  <span>Período de retiro: {execEvent.withdrawalDays} días. No consumir huevos/carne durante este período.</span>
                 </p>
               )}
               <div className="flex gap-3 justify-center mt-4">
@@ -759,8 +794,12 @@ export default function PlanSanitarioTab() {
               {/* Resource check */}
               {execEvent && (
                 <div className={`p-3 rounded-lg border ${execEvent.availableSupplies.length > 0 ? "bg-green-50 border-green-200" : "bg-orange-50 border-orange-200"}`}>
-                  <p className="text-sm font-semibold mb-1">
-                    {execEvent.availableSupplies.length > 0 ? "✅ Recursos disponibles:" : "⚠️ No hay recursos en stock para esta acción"}
+                  <p className="text-sm font-semibold mb-1 flex items-center gap-1.5">
+                    {execEvent.availableSupplies.length > 0 ? (
+                      <><CheckCircle2 className="w-4 h-4 text-green-600 shrink-0" aria-hidden="true" /> Recursos disponibles:</>
+                    ) : (
+                      <><AlertTriangle className="w-4 h-4 text-orange-600 shrink-0" aria-hidden="true" /> No hay recursos en stock para esta acción</>
+                    )}
                   </p>
                   {execEvent.availableSupplies.length > 0 ? (
                     <div className="space-y-1">
@@ -793,8 +832,9 @@ export default function PlanSanitarioTab() {
 
               {execEvent?.withdrawalDays && execEvent.withdrawalDays > 0 && (
                 <div className="p-3 bg-orange-50 border border-orange-200 rounded-lg">
-                  <p className="text-sm text-orange-700 font-medium">
-                    ⏱️ Período de retiro: {execEvent.withdrawalDays} días
+                  <p className="text-sm text-orange-700 font-medium flex items-center gap-1.5">
+                    <Clock className="w-4 h-4 shrink-0" aria-hidden="true" />
+                    Período de retiro: {execEvent.withdrawalDays} días
                   </p>
                   <p className="text-xs text-orange-600 mt-1">
                     No consumir huevos ni carne de las aves tratadas durante este período.
@@ -804,7 +844,9 @@ export default function PlanSanitarioTab() {
 
               <div className="flex gap-3">
                 <Button onClick={executeAction} disabled={!execForm.description}>
-                  ⚡ Confirmar Ejecución
+                  <span className="inline-flex items-center gap-1.5">
+                    <Zap className="w-4 h-4" aria-hidden="true" /> Confirmar Ejecución
+                  </span>
                 </Button>
                 <Button variant="secondary" onClick={() => setExecModalOpen(false)}>Cancelar</Button>
               </div>
@@ -814,7 +856,7 @@ export default function PlanSanitarioTab() {
       </Modal>
 
       {/* ─── Seed Protocol Modal ─── */}
-      <Modal open={seedModalOpen} onClose={() => setSeedModalOpen(false)} title="📋 Generar Eventos desde Protocolo">
+      <Modal open={seedModalOpen} onClose={() => setSeedModalOpen(false)} title="Generar Eventos desde Protocolo">
         <div className="space-y-4">
           <p className="text-sm text-slate-600">
             Genera automáticamente los eventos del calendario sanitario según el protocolo definido para la etapa seleccionada.

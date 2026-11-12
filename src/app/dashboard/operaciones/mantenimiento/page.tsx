@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState, useCallback, useMemo } from "react";
+import { Building2, Zap } from "lucide-react";
 import { PageHeader, Button, Card, Table, Badge, Modal, Input, Select, Textarea, EmptyState, StatCard } from "@/components/ui";
 import { useCatalog } from "@/lib/useCatalog";
 import { apiFetch } from "@/lib/fetch";
@@ -143,23 +144,26 @@ export default function MantenimientoPage() {
   return (
     <div>
       <PageHeader
-        title="🔧 Mantenimiento del Gallinero"
+        title="Mantenimiento del Gallinero"
         description="Programación y seguimiento de tareas de mantenimiento e infraestructura"
         help="Registra tareas por lugar o por equipo. Al completar una tarea periódica se programa automáticamente la próxima fecha. El Inicio muestra los vencimientos de los próximos siete días."
-        actions={<div className="flex flex-wrap gap-2"><a href="/dashboard/operaciones/activos" className="inline-flex items-center rounded-lg border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50">🏗️ Activos y equipos</a><Button onClick={openNew}>+ Nueva Tarea</Button></div>}
+        actions={<div className="flex flex-wrap gap-2"><a href="/dashboard/operaciones/activos" className="inline-flex items-center gap-1.5 rounded-lg border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50"><Building2 className="w-4 h-4 text-slate-500" aria-hidden="true" /> Activos y equipos</a><Button onClick={openNew}>+ Nueva Tarea</Button></div>}
       />
       {error && !modalOpen && <p className="mb-4 rounded-lg bg-red-50 p-3 text-sm text-red-700">{error}</p>}
 
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
-        <StatCard icon="⏳" label="Pendientes" value={pending} color={pending > 0 ? "yellow" : "green"} />
-        <StatCard icon="🔄" label="En Progreso" value={inProgress} color="blue" />
-        <StatCard icon="✅" label="Completadas" value={completed} color="green" />
-        <StatCard icon="💰" label="Costo Total Mant." value={`$${totalCost.toLocaleString()}`} color="earth" />
+        <StatCard icon="hourglass" label="Pendientes" value={pending} color={pending > 0 ? "yellow" : "green"} />
+        <StatCard icon="refresh" label="En Progreso" value={inProgress} color="blue" />
+        <StatCard icon="check-circle" label="Completadas" value={completed} color="green" />
+        <StatCard icon="money" label="Costo Total Mant." value={`$${totalCost.toLocaleString()}`} color="earth" />
       </div>
 
       {/* Quick Templates */}
       <Card className="mb-6">
-        <h3 className="font-semibold text-slate-700 mb-3">⚡ Tareas Rápidas (click para crear)</h3>
+        <h3 className="font-semibold text-slate-700 mb-3 flex items-center gap-2">
+          <Zap className="w-4 h-4 text-amber-500" aria-hidden="true" />
+          Tareas Rápidas (click para crear)
+        </h3>
         <div className="flex flex-wrap gap-2">
               {taskOptions.map((t) => (
             <button key={t} onClick={() => { setEditing(null); setError(""); setForm({ title: t, description: "", scheduledDate: new Date().toISOString().split("T")[0], status: "pendiente", cost: "0", completedDate: "", locationId: "", assetId: "", recurrenceIntervalDays: "" }); setModalOpen(true); }}
@@ -183,7 +187,7 @@ export default function MantenimientoPage() {
           <p className="text-center py-8 text-slate-400">Cargando...</p>
         ) : filteredTasks.length === 0 ? (
           <EmptyState
-            icon="🔧"
+            icon="wrench"
             message={
               search.trim()
                 ? "No hay tareas que coincidan con la búsqueda"

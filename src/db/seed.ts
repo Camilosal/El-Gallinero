@@ -22,7 +22,7 @@ async function main() {
     throw new Error("Define DEMO_ADMIN_PASSWORD con al menos 12 caracteres para crear el usuario de demostración.");
   }
 
-  console.log("🌱 Reemplazando los datos de la base local con datos de demostración...");
+  console.log("Reemplazando los datos de la base local con datos de demostración...");
 
   // Elimina datos previos en orden por FK; el comando requiere confirmación explícita.
   await db.delete(flockPlanMilestones);
@@ -728,9 +728,9 @@ async function main() {
     { planId, weekNumber: 40, expectedHens: 28, expectedEggsPerWeek: 145, expectedFeedKgPerWeek: "42" },
   ]);
 
-  console.log("✅ Datos de ejemplo insertados correctamente.");
-  console.log("   📊 30 gallinas: 5 pollitos, 7 juveniles, 3 pre-postura, 15 postura");
-  console.log("   🥚 Producción esperada: ~13 huevos/día");
+  console.log("Datos de ejemplo insertados correctamente.");
+  console.log("   30 gallinas: 5 pollitos, 7 juveniles, 3 pre-postura, 15 postura");
+  console.log("   Producción esperada: ~13 huevos/día");
 }
 
 function daysAgo(d: number) {

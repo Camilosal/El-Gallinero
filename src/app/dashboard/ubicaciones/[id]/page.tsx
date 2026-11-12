@@ -81,7 +81,7 @@ export default function UbicacionFichaPage() {
   };
 
   if (locationsLoading || loading) return <p className="py-12 text-center text-slate-500">Cargando ficha del lugar…</p>;
-  if (!location) return <Card><EmptyState icon="📍" message="No se encontró este lugar." /><div className="mt-3 text-center"><Link className="text-blue-700 underline" href="/dashboard/ubicaciones">Volver a lugares</Link></div></Card>;
+  if (!location) return <Card><EmptyState icon="location" message="No se encontró este lugar." /><div className="mt-3 text-center"><Link className="text-blue-700 underline" href="/dashboard/ubicaciones">Volver a lugares</Link></div></Card>;
 
   const mapUrl = location.latitude && location.longitude
     ? `https://www.openstreetmap.org/?mlat=${encodeURIComponent(location.latitude)}&mlon=${encodeURIComponent(location.longitude)}#map=18/${encodeURIComponent(location.latitude)}/${encodeURIComponent(location.longitude)}`
@@ -100,14 +100,14 @@ export default function UbicacionFichaPage() {
         actions={<div className="flex gap-2"><Link className="rounded-lg border border-slate-200 px-3 py-2 text-sm font-semibold text-slate-700" href="/dashboard/ubicaciones">Todos los lugares</Link></div>}
       />
       <div className="grid grid-cols-2 gap-4 xl:grid-cols-4">
-        <StatCard icon="🐾" label="Animales alojados" value={`${location.animals || 0}${location.capacity ? ` / ${location.capacity}` : ""}`} color="green" />
-        <StatCard icon="🥚" label="Huevos · últimos 30 días" value={location.eggsPeriod || 0} color="blue" />
-        <StatCard icon="🥩" label="Carne · kg últimos 30 días" value={Number(location.meatProducedKgPeriod || 0).toLocaleString(undefined, { maximumFractionDigits: 2 })} color="earth" />
-        <StatCard icon="⚖️" label="Pesajes · últimos 30 días" value={location.weightSamplesPeriod || 0} color="blue" />
-        <StatCard icon="💀" label="Bajas · últimos 30 días" value={location.deathsPeriod || 0} color={location.deathsPeriod ? "yellow" : "green"} />
-        <StatCard icon="🌾" label="Consumo asociado · últimos 30 días" value={location.feedConsumptionLabel || "Sin registro"} color="earth" />
-        <StatCard icon="🩺" label="Controles sanitarios · últimos 30 días" value={location.healthControlsPeriod || 0} color="blue" />
-        <StatCard icon="🔧" label="Mantenimientos pendientes" value={location.pendingMaintenance || 0} color={location.pendingMaintenance ? "yellow" : "green"} />
+        <StatCard icon="paw-print" label="Animales alojados" value={`${location.animals || 0}${location.capacity ? ` / ${location.capacity}` : ""}`} color="green" />
+        <StatCard icon="egg" label="Huevos · últimos 30 días" value={location.eggsPeriod || 0} color="blue" />
+        <StatCard icon="meat" label="Carne · kg últimos 30 días" value={Number(location.meatProducedKgPeriod || 0).toLocaleString(undefined, { maximumFractionDigits: 2 })} color="earth" />
+        <StatCard icon="scale" label="Pesajes · últimos 30 días" value={location.weightSamplesPeriod || 0} color="blue" />
+        <StatCard icon="skull" label="Bajas · últimos 30 días" value={location.deathsPeriod || 0} color={location.deathsPeriod ? "yellow" : "green"} />
+        <StatCard icon="wheat" label="Consumo asociado · últimos 30 días" value={location.feedConsumptionLabel || "Sin registro"} color="earth" />
+        <StatCard icon="stethoscope" label="Controles sanitarios · últimos 30 días" value={location.healthControlsPeriod || 0} color="blue" />
+        <StatCard icon="wrench" label="Mantenimientos pendientes" value={location.pendingMaintenance || 0} color={location.pendingMaintenance ? "yellow" : "green"} />
       </div>
 
       <Card className="grid gap-4 text-sm sm:grid-cols-3">
@@ -150,7 +150,7 @@ export default function UbicacionFichaPage() {
 
       <Card>
         <h2 className="mb-3 text-lg font-semibold text-slate-800">Historial de traslados</h2>
-        {movements.length === 0 ? <EmptyState icon="↔️" message="Este lugar aún no tiene traslados registrados. Los nuevos ingresos aparecerán al registrar su destino." /> : (
+        {movements.length === 0 ? <EmptyState icon="transfer" message="Este lugar aún no tiene traslados registrados. Los nuevos ingresos aparecerán al registrar su destino." /> : (
           <Table headers={["Fecha", "Animal o lote", "Cantidad", "Origen", "Destino", "Motivo"]}>
             {movements.map((movement) => <tr key={movement.id} className="border-t border-slate-100"><td className="px-3 py-2 text-sm">{movement.date}</td><td className="px-3 py-2 text-sm font-medium">{movement.animalCode}</td><td className="px-3 py-2 text-sm">{movement.quantity}</td><td className="px-3 py-2 text-sm">{movement.fromLocationName}</td><td className="px-3 py-2 text-sm">{movement.toLocationName}</td><td className="px-3 py-2 text-sm">{movement.reason}{movement.notes && <p className="text-xs text-slate-500">{movement.notes}</p>}</td></tr>)}
           </Table>

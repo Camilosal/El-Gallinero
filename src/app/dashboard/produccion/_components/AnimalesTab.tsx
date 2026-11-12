@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
+import { AppIcon } from "@/components/AppIcon";
 import { PageHeader } from "@/components/ui";
 import GallinasTab from "./GallinasTab";
 import PollosTab from "./PollosTab";
@@ -9,13 +10,13 @@ import PollosTab from "./PollosTab";
 type AnimalSection = "resumen" | "gallinas" | "gallos" | "pollos" | "codornices" | "patos" | "conejos";
 
 const tabs: { id: AnimalSection; label: string; icon: string }[] = [
-  { id: "resumen", label: "Resumen", icon: "🐾" },
-  { id: "gallinas", label: "Gallinas", icon: "🐔" },
-  { id: "gallos", label: "Gallos", icon: "🐓" },
-  { id: "pollos", label: "Lotes de pollos", icon: "🐤" },
-  { id: "codornices", label: "Lotes de codornices", icon: "🥚" },
-  { id: "patos", label: "Lotes de patos", icon: "🦆" },
-  { id: "conejos", label: "Lotes de conejos", icon: "🐇" },
+  { id: "resumen", label: "Resumen", icon: "paw-print" },
+  { id: "gallinas", label: "Gallinas", icon: "hen" },
+  { id: "gallos", label: "Gallos", icon: "rooster" },
+  { id: "pollos", label: "Lotes de pollos", icon: "chick" },
+  { id: "codornices", label: "Lotes de codornices", icon: "egg" },
+  { id: "patos", label: "Lotes de patos", icon: "duck" },
+  { id: "conejos", label: "Lotes de conejos", icon: "rabbit" },
 ];
 
 const animalTypeByTab: Partial<Record<AnimalSection, string>> = {
@@ -56,7 +57,7 @@ export default function AnimalesTab() {
   return (
     <div className="space-y-5">
       <PageHeader
-        title="🐾 Gestión de Animales"
+        title="Gestión de Animales"
         description="Registro, seguimiento y estado de gallinas, gallos, pollos, codornices, patos y conejos."
         help="Cada pestaña muestra una especie o tipo de animal por separado. Las gallinas y gallos tienen ficha individual; pollos, codornices, patos y conejos se manejan por lote. Adquisiciones conserva el criador, ubicación, lote de origen, línea genética, generación, progenitores y referencias documentales enlazadas a cada ficha o lote."
         actions={
@@ -77,9 +78,10 @@ export default function AnimalesTab() {
             role="tab"
             aria-selected={activeTab === tab.id}
             onClick={() => selectTab(tab.id)}
-            className={`whitespace-nowrap rounded-md px-4 py-2 text-sm font-medium transition-colors ${activeTab === tab.id ? "bg-white text-green-700 shadow-sm" : "text-slate-600 hover:text-slate-800"}`}
+            className={`inline-flex items-center whitespace-nowrap rounded-md px-4 py-2 text-sm font-medium transition-colors ${activeTab === tab.id ? "bg-white text-green-700 shadow-sm" : "text-slate-600 hover:text-slate-800"}`}
           >
-            <span className="mr-2" aria-hidden="true">{tab.icon}</span>{tab.label}
+            <AppIcon icon={tab.icon} className="w-4 h-4 mr-1.5 shrink-0" />
+            <span>{tab.label}</span>
           </button>
         ))}
       </div>
@@ -90,7 +92,9 @@ export default function AnimalesTab() {
             const preset = animalTypeByTab[tab.id];
             return (
               <section key={tab.id} className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
-                <span className="text-3xl" aria-hidden="true">{tab.icon}</span>
+                <div className="w-10 h-10 rounded-xl bg-slate-100 flex items-center justify-center text-slate-700">
+                  <AppIcon icon={tab.icon} className="w-5 h-5" />
+                </div>
                 <h2 className="mt-3 font-semibold text-slate-800">{tab.label}</h2>
                 <p className="mt-1 text-sm text-slate-500">{tab.id === "gallinas" || tab.id === "gallos" ? "Fichas individuales y su estado actual." : "Registro y seguimiento agrupado por lote."}</p>
                 <div className="mt-4 flex flex-wrap gap-2">

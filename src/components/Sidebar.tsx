@@ -4,7 +4,19 @@ import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useState, useEffect } from "react";
 import GlobalSearch from "@/components/GlobalSearch";
+import { AppIcon } from "@/components/AppIcon";
 import { navigationGroups, type MenuGroup } from "@/lib/navigation";
+import {
+  BarChart3,
+  Bird,
+  BookOpen,
+  ChevronLeft,
+  ChevronRight,
+  LogOut,
+  Menu,
+  QrCode,
+  X,
+} from "lucide-react";
 
 const STORAGE_KEY = "sidebar-expanded-groups";
 const COLLAPSED_KEY = "sidebar-collapsed";
@@ -124,9 +136,7 @@ export default function Sidebar() {
         className="fixed top-3 left-3 z-40 md:hidden bg-green-900 text-white p-2 rounded-lg shadow-lg hover:bg-green-800 transition-colors"
         aria-label="Abrir menú"
       >
-        <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
-        </svg>
+        <Menu className="w-5 h-5" />
       </button>
 
       {/* Backdrop - mobile only */}
@@ -139,9 +149,8 @@ export default function Sidebar() {
 
       {/* Sidebar */}
       <aside
-        className={`fixed left-0 top-0 h-screen ${sidebarWidth} bg-green-900 text-white flex flex-col z-50 shadow-xl transition-all duration-300 ${
-          mobileOpen ? "translate-x-0" : "-translate-x-full"
-        } md:translate-x-0`}
+        className={`fixed left-0 top-0 h-screen ${sidebarWidth} bg-green-900 text-white flex flex-col z-50 shadow-xl transition-all duration-300 ${mobileOpen ? "translate-x-0" : "-translate-x-full"
+          } md:translate-x-0`}
       >
         {/* Close button - mobile only */}
         <button
@@ -149,24 +158,26 @@ export default function Sidebar() {
           className="absolute top-3 right-3 md:hidden text-green-300 hover:text-white p-1"
           aria-label="Cerrar menú"
         >
-          <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-          </svg>
+          <X className="w-5 h-5" />
         </button>
 
         {/* Header */}
         <div className={`border-b border-green-700 ${collapsed ? "px-2 py-4" : "p-5"}`}>
           {collapsed ? (
             <div className="flex flex-col items-center">
-              <span className="text-2xl">🐓</span>
+              <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-green-800 text-farm-300 border border-green-700">
+                <Bird className="w-5 h-5" />
+              </div>
             </div>
           ) : (
             <>
-              <h1 className="text-xl font-bold flex items-center gap-2">
-                <span className="text-3xl">🐓</span>
+              <h1 className="text-xl font-bold flex items-center gap-2.5">
+                <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-green-800 text-farm-300 border border-green-700 shrink-0">
+                  <Bird className="w-5 h-5" />
+                </span>
                 <span>El Gallinero</span>
               </h1>
-              <p className="text-green-300 text-xs mt-1">Granja Autosustentable</p>
+              <p className="text-green-300 text-xs mt-1.5">Granja Autosustentable</p>
             </>
           )}
         </div>
@@ -183,35 +194,32 @@ export default function Sidebar() {
           aria-label={collapsed ? "Expandir menú" : "Colapsar menú"}
           title={collapsed ? "Expandir menú" : "Colapsar menú"}
         >
-          {collapsed ? "›" : "‹"}
+          {collapsed ? <ChevronRight className="w-4 h-4" /> : <ChevronLeft className="w-4 h-4" />}
         </button>
 
         <nav className="flex-1 overflow-y-auto overflow-x-hidden py-4">
           {/* Dashboard link */}
           <Link
             href="/dashboard"
-            className={`flex items-center gap-3 py-3 text-sm transition-all hover:bg-green-800 ${
-              collapsed ? "justify-center px-2" : "px-5"
-            } ${pathname === "/dashboard" ? "bg-green-700 border-r-4 border-farm-400 font-semibold" : ""}`}
+            className={`flex items-center gap-3 py-3 text-sm transition-all hover:bg-green-800 ${collapsed ? "justify-center px-2" : "px-5"
+              } ${pathname === "/dashboard" ? "bg-green-700 border-r-4 border-farm-400 font-semibold" : ""}`}
             title={collapsed ? "Inicio" : undefined}
           >
-            <span className="text-lg flex-shrink-0">📊</span>
+            <BarChart3 className="w-4 h-4 flex-shrink-0 text-green-200" />
             {!collapsed && <span>Inicio</span>}
           </Link>
 
           {/* QR Scanner */}
           <Link
             href="/dashboard/escanear"
-            className={`flex items-center gap-3 py-3 text-sm transition-all hover:bg-green-800 ${
-              collapsed ? "justify-center px-2" : "px-5"
-            } ${
-              pathname === "/dashboard/escanear" || pathname.startsWith("/dashboard/escanear")
+            className={`flex items-center gap-3 py-3 text-sm transition-all hover:bg-green-800 ${collapsed ? "justify-center px-2" : "px-5"
+              } ${pathname === "/dashboard/escanear" || pathname.startsWith("/dashboard/escanear")
                 ? "bg-green-700 border-r-4 border-farm-400 font-semibold"
                 : ""
-            }`}
+              }`}
             title={collapsed ? "Escanear Ave" : undefined}
           >
-            <span className="text-lg flex-shrink-0">📷</span>
+            <QrCode className="w-4 h-4 flex-shrink-0 text-green-200" />
             {!collapsed && <span>Escanear Ave</span>}
           </Link>
 
@@ -234,26 +242,23 @@ export default function Sidebar() {
         <div className={`border-t border-green-700 space-y-2 ${collapsed ? "p-2" : "p-4"}`}>
           <Link
             href="/dashboard/guia"
-            className={`w-full py-1.5 rounded-lg text-xs font-medium transition-colors flex items-center justify-center gap-2 ${
-              collapsed ? "px-1" : ""
-            } ${
-              pathname.startsWith("/dashboard/guia")
+            className={`w-full py-1.5 rounded-lg text-xs font-medium transition-colors flex items-center justify-center gap-2 ${collapsed ? "px-1" : ""
+              } ${pathname.startsWith("/dashboard/guia")
                 ? "bg-green-600 text-white"
                 : "bg-green-800 hover:bg-green-700 text-green-200"
-            }`}
+              }`}
             title={collapsed ? "Guía de Usuario" : undefined}
           >
-            <span>📖</span>
+            <BookOpen className="w-3.5 h-3.5 shrink-0" />
             {!collapsed && <span>Guía de Usuario</span>}
           </Link>
           <button
             onClick={logout}
-            className={`w-full py-1.5 rounded-lg bg-green-700 hover:bg-green-600 text-green-100 text-xs font-medium transition-colors flex items-center justify-center gap-2 ${
-              collapsed ? "px-1" : ""
-            }`}
+            className={`w-full py-1.5 rounded-lg bg-green-700 hover:bg-green-600 text-green-100 text-xs font-medium transition-colors flex items-center justify-center gap-2 ${collapsed ? "px-1" : ""
+              }`}
             title={collapsed ? "Cerrar Sesión" : undefined}
           >
-            <span>⏻</span>
+            <LogOut className="w-3.5 h-3.5 shrink-0" />
             {!collapsed && <span>Cerrar Sesión</span>}
           </button>
         </div>
@@ -290,14 +295,13 @@ function GroupItem({
     return (
       <Link
         href={group.indexHref}
-        className={`flex items-center justify-center py-3 text-sm transition-all hover:bg-green-800 ${
-          isIndexActive || groupActive
-            ? "bg-green-700 border-r-4 border-farm-400"
-            : ""
-        }`}
+        className={`flex items-center justify-center py-3 text-sm transition-all hover:bg-green-800 ${isIndexActive || groupActive
+          ? "bg-green-700 border-r-4 border-farm-400"
+          : ""
+          }`}
         title={group.label}
       >
-        <span className="text-lg">{group.icon}</span>
+        <AppIcon icon={group.icon} className="w-4 h-4 text-green-200" />
       </Link>
     );
   }
@@ -307,22 +311,19 @@ function GroupItem({
       <div className={`flex items-center ${groupActive ? "bg-green-800" : ""}`}>
         <Link
           href={group.indexHref}
-          className={`flex-1 flex items-center gap-3 px-5 py-3 text-sm transition-all hover:bg-green-800 ${
-            isIndexActive ? "bg-green-700 border-r-4 border-farm-400 font-semibold" : ""
-          }`}
+          className={`flex-1 flex items-center gap-3 px-5 py-3 text-sm transition-all hover:bg-green-800 ${isIndexActive ? "bg-green-700 border-r-4 border-farm-400 font-semibold" : ""
+            }`}
         >
-          <span className="text-lg">{group.icon}</span>
+          <AppIcon icon={group.icon} className="w-4 h-4 text-green-200 shrink-0" />
           <span className="font-semibold text-green-100">{group.label}</span>
         </Link>
         {hasItems && (
           <button
             onClick={() => toggleGroup(group.id)}
-            className="px-3 py-3 hover:bg-green-700 transition-colors"
+            className="px-3 py-3 hover:bg-green-700 transition-colors text-green-300"
             aria-label={`${isExpanded ? "Colapsar" : "Expandir"} ${group.label}`}
           >
-            <span className={`text-xs transition-transform ${isExpanded ? "rotate-90" : ""}`}>
-              ▶
-            </span>
+            <ChevronRight className={`w-3.5 h-3.5 transition-transform ${isExpanded ? "rotate-90" : ""}`} />
           </button>
         )}
       </div>
@@ -335,11 +336,10 @@ function GroupItem({
               <Link
                 key={item.href}
                 href={item.href}
-                className={`flex items-center gap-3 pl-10 pr-5 py-2.5 text-sm transition-all hover:bg-green-800 ${
-                  active ? "bg-green-700 border-r-4 border-farm-400 font-semibold" : ""
-                }`}
+                className={`flex items-center gap-3 pl-10 pr-5 py-2.5 text-sm transition-all hover:bg-green-800 ${active ? "bg-green-700 border-r-4 border-farm-400 font-semibold" : ""
+                  }`}
               >
-                <span className="text-base">{item.icon}</span>
+                <AppIcon icon={item.icon} className="w-3.5 h-3.5 text-green-300 shrink-0" />
                 <span>{item.label}</span>
               </Link>
             );

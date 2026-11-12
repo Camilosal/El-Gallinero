@@ -2,6 +2,8 @@
 
 import Link from "next/link";
 import { useParams } from "next/navigation";
+import { AlertTriangle, BarChart3, BookOpen, Check, ChevronDown, FileText, Lightbulb, Link2 } from "lucide-react";
+import { AppIcon } from "@/components/AppIcon";
 import { getGuide, getAdjacentGuides, guideModules, DiagramNode, DiagramConnection } from "@/lib/guide-data";
 
 export default function GuiaPage() {
@@ -12,7 +14,7 @@ export default function GuiaPage() {
   if (!guide) {
     return (
       <div className="text-center py-12">
-        <span className="text-4xl block mb-3">📖</span>
+        <BookOpen className="w-10 h-10 text-slate-400 mx-auto mb-3" aria-hidden="true" />
         <p className="text-slate-500">Guía no encontrada</p>
         <Link href="/dashboard/guia" className="text-green-600 hover:underline text-sm mt-2 inline-block">
           Volver al índice
@@ -34,7 +36,10 @@ export default function GuiaPage() {
         <span>/</span>
         {currentModule && (
           <>
-            <span className="text-slate-400">{currentModule.icon} {currentModule.label}</span>
+            <span className="text-slate-400 inline-flex items-center gap-1.5">
+              <AppIcon icon={currentModule.icon} className="w-3.5 h-3.5 shrink-0" />
+              {currentModule.label}
+            </span>
             <span>/</span>
           </>
         )}
@@ -44,7 +49,9 @@ export default function GuiaPage() {
       {/* Title */}
       <header className="mb-8">
         <div className="flex items-center gap-3 mb-2">
-          <span className="text-4xl">{guide.icon}</span>
+          <div className="w-11 h-11 rounded-xl bg-green-50 border border-green-200 flex items-center justify-center shrink-0">
+            <AppIcon icon={guide.icon} className="w-6 h-6 text-green-700" />
+          </div>
           <h1 className="text-3xl font-bold text-slate-800">{guide.title}</h1>
         </div>
         {currentModule && (
@@ -71,7 +78,7 @@ export default function GuiaPage() {
                   {section.title && (
                     <h3 className="font-semibold text-slate-800 mb-3 flex items-center gap-2">
                       <span className="w-6 h-6 rounded-full bg-green-100 text-green-700 flex items-center justify-center text-xs font-bold">
-                        ✓
+                        <Check className="w-3.5 h-3.5" aria-hidden="true" />
                       </span>
                       {section.title}
                     </h3>
@@ -93,7 +100,7 @@ export default function GuiaPage() {
               return (
                 <div key={idx} className="bg-blue-50 border border-blue-200 rounded-xl p-4">
                   <div className="flex gap-3">
-                    <span className="text-xl flex-shrink-0">💡</span>
+                    <Lightbulb className="w-5 h-5 text-blue-600 flex-shrink-0 mt-0.5" aria-hidden="true" />
                     <div>
                       {section.title && (
                         <h4 className="font-semibold text-blue-800 text-sm mb-1">{section.title}</h4>
@@ -108,7 +115,7 @@ export default function GuiaPage() {
               return (
                 <div key={idx} className="bg-amber-50 border border-amber-200 rounded-xl p-4">
                   <div className="flex gap-3">
-                    <span className="text-xl flex-shrink-0">⚠️</span>
+                    <AlertTriangle className="w-5 h-5 text-amber-600 flex-shrink-0 mt-0.5" aria-hidden="true" />
                     <div>
                       {section.title && (
                         <h4 className="font-semibold text-amber-800 text-sm mb-1">{section.title}</h4>
@@ -128,7 +135,7 @@ export default function GuiaPage() {
               return (
                 <div key={idx} className="bg-slate-50 border border-slate-200 rounded-xl p-4">
                   <div className="flex gap-3">
-                    <span className="text-xl flex-shrink-0">📝</span>
+                    <FileText className="w-5 h-5 text-slate-500 flex-shrink-0 mt-0.5" aria-hidden="true" />
                     <p className="text-sm text-slate-600 leading-relaxed">{section.text}</p>
                   </div>
                 </div>
@@ -144,7 +151,7 @@ export default function GuiaPage() {
       {guide.relatedHrefs.length > 0 && (
         <div className="mt-8 p-5 bg-green-50 border border-green-200 rounded-xl">
           <h3 className="font-semibold text-green-800 text-sm mb-3 flex items-center gap-2">
-            <span>🔗</span> Ir a la aplicación
+            <Link2 className="w-4 h-4 shrink-0" aria-hidden="true" /> Ir a la aplicación
           </h3>
           <div className="flex flex-wrap gap-2">
             {guide.relatedHrefs.map((link) => (
@@ -272,7 +279,7 @@ function DiagramSection({
     <div className="bg-white border border-slate-200 rounded-xl p-5 overflow-x-auto">
       {title && (
         <h3 className="font-semibold text-slate-800 mb-4 flex items-center gap-2">
-          <span className="w-6 h-6 rounded-full bg-indigo-100 text-indigo-700 flex items-center justify-center text-xs font-bold">📊</span>
+          <span className="w-6 h-6 rounded-full bg-indigo-100 text-indigo-700 flex items-center justify-center"><BarChart3 className="w-3.5 h-3.5" aria-hidden="true" /></span>
           {title}
         </h3>
       )}
@@ -289,7 +296,7 @@ function DiagramSection({
                     key={nodeId}
                     className={`flex items-center gap-2 px-4 py-3 rounded-xl border-2 ${colorClass} min-w-[120px] justify-center shadow-sm`}
                   >
-                    {node.icon && <span className="text-lg flex-shrink-0">{node.icon}</span>}
+                    {node.icon && <AppIcon icon={node.icon} className="w-4 h-4 flex-shrink-0" />}
                     <span className="text-sm font-medium text-center">{node.label}</span>
                   </div>
                 );
@@ -299,7 +306,7 @@ function DiagramSection({
             {li < layers.length - 1 && (
               <div className="flex flex-col items-center py-1">
                 <div className="w-0.5 h-4 bg-slate-300" />
-                <span className="text-slate-400 text-xs">▼</span>
+                <ChevronDown className="w-3.5 h-3.5 text-slate-400 -mt-1" aria-hidden="true" />
                 {/* Show connection label if exists */}
                 {(() => {
                   const connLabel = connections.find(

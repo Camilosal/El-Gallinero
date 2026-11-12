@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState, useCallback, useMemo } from "react";
+import { AlertTriangle, BarChart3, Clock, Egg, FolderOpen } from "lucide-react";
 import { PageHeader, Card, Table, Badge, StatCard, EmptyState } from "@/components/ui";
 import { apiFetch } from "@/lib/fetch";
 import TableSearch from "@/components/TableSearch";
@@ -99,20 +100,20 @@ export default function InventarioPage() {
   return (
     <div>
       <PageHeader
-        title="📦 Inventario de Huevos"
+        title="Inventario de Huevos"
         description="Cruce entre producción, ventas y disponibilidad por tamaño, con consumo PEPS (primero lo más antiguo)"
         help="Muestra el stock de huevos disponible cruzando producción y ventas. Usa consumo PEPS (Primero en Entrar, Primero en Salir): se consume primero lo más antiguo para evitar mermas. Los lotes muestran cuántos huevos quedan por tamaño y su edad en días. El resumen indica total producido, vendido, disponible y valor estimado."
       />
 
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
-        <StatCard icon="🥚" label="Huevos buenos producidos" value={data?.summary.produced ?? 0} color="blue" />
-        <StatCard icon="💰" label="Huevos Vendidos" value={data?.summary.sold ?? 0} color="purple" />
-        <StatCard icon="📦" label="Disponibles" value={data?.summary.available ?? 0} color="green" />
-        <StatCard icon="⏱️" label="Valor Estimado" value={`$${(data?.estimatedValue ?? 0).toLocaleString()}`} color="yellow" />
+        <StatCard icon="egg" label="Huevos buenos producidos" value={data?.summary.produced ?? 0} color="blue" />
+        <StatCard icon="money" label="Huevos Vendidos" value={data?.summary.sold ?? 0} color="purple" />
+        <StatCard icon="package" label="Disponibles" value={data?.summary.available ?? 0} color="green" />
+        <StatCard icon="clock" label="Valor Estimado" value={`$${(data?.estimatedValue ?? 0).toLocaleString()}`} color="yellow" />
       </div>
       {(data?.summary.lost ?? 0) > 0 && (
         <div className="mb-6">
-          <StatCard icon="🗑️" label="Huevos Perdidos" value={data?.summary.lost ?? 0} color="red" />
+          <StatCard icon="trash" label="Huevos Perdidos" value={data?.summary.lost ?? 0} color="red" />
         </div>
       )}
 
@@ -122,13 +123,19 @@ export default function InventarioPage() {
         <>
           {expiring > 0 && (
             <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-xl text-sm text-red-700">
-              <p className="font-semibold">⚠️ Atención: {expiring} huevos tienen más de 21 días de edad.</p>
+              <p className="font-semibold flex items-center gap-1.5">
+                <AlertTriangle className="w-4 h-4 shrink-0" aria-hidden="true" />
+                <span>Atención: {expiring} huevos tienen más de 21 días de edad.</span>
+              </p>
               <p className="mt-1">Prioriza su venta o uso antes de que pierdan calidad. El sistema PEPS ya los marca como siguientes en salir.</p>
             </div>
           )}
 
           <Card className="mb-6">
-            <h3 className="font-semibold text-slate-700 mb-4">🧊 Edad del Inventario Disponible</h3>
+            <h3 className="font-semibold text-slate-700 mb-4 flex items-center gap-2">
+              <Clock className="w-4 h-4 text-slate-500" aria-hidden="true" />
+              <span>Edad del Inventario Disponible</span>
+            </h3>
             {data.aging.every((a) => a.count === 0) ? (
               <p className="text-sm text-slate-500">No hay huevos disponibles en inventario.</p>
             ) : (
@@ -147,14 +154,18 @@ export default function InventarioPage() {
               </div>
             )}
             {data.oldestLot && (
-              <p className="mt-4 text-sm text-slate-500">
-                🥚 Lote más antiguo: <strong>{new Date(data.oldestLot.date + "T12:00:00").toLocaleDateString("es")}</strong> ({data.oldestLot.size}, {data.oldestLot.ageDays} días, {data.oldestLot.remaining} disponibles)
+              <p className="mt-4 text-sm text-slate-500 flex items-center gap-1.5">
+                <Egg className="w-4 h-4 text-amber-500 shrink-0" aria-hidden="true" />
+                <span>Lote más antiguo: <strong>{new Date(data.oldestLot.date + "T12:00:00").toLocaleDateString("es")}</strong> ({data.oldestLot.size}, {data.oldestLot.ageDays} días, {data.oldestLot.remaining} disponibles)</span>
               </p>
             )}
           </Card>
 
           <Card className="mb-6">
-            <h3 className="font-semibold text-slate-700 mb-4">📊 Resumen por Tamaño</h3>
+            <h3 className="font-semibold text-slate-700 mb-4 flex items-center gap-2">
+              <BarChart3 className="w-4 h-4 text-slate-500" aria-hidden="true" />
+              <span>Resumen por Tamaño</span>
+            </h3>
             <TableSearch
               value={summarySearch}
               onChange={setSummarySearch}
@@ -165,7 +176,7 @@ export default function InventarioPage() {
             />
             {filteredSizes.length === 0 ? (
               <EmptyState
-                icon="📊"
+                icon="bar-chart"
                 message={
                   summarySearch.trim()
                     ? "No hay tamaños que coincidan con la búsqueda"
@@ -191,7 +202,10 @@ export default function InventarioPage() {
           </Card>
 
           <Card>
-            <h3 className="font-semibold text-slate-700 mb-1">🗂️ Movimiento de Inventario (PEPS)</h3>
+            <h3 className="font-semibold text-slate-700 mb-1 flex items-center gap-2">
+              <FolderOpen className="w-4 h-4 text-slate-500" aria-hidden="true" />
+              <span>Movimiento de Inventario (PEPS)</span>
+            </h3>
             <p className="text-xs text-slate-400 mb-4">Las ventas se descuentan primero de los lotes más antiguos de cada tamaño</p>
             <TableSearch
               value={lotSearch}
@@ -203,7 +217,7 @@ export default function InventarioPage() {
             />
             {filteredLots.length === 0 ? (
               <EmptyState
-                icon="🗂️"
+                icon="folder"
                 message={
                   lotSearch.trim()
                     ? "No hay lotes que coincidan con la búsqueda"
@@ -243,7 +257,7 @@ export default function InventarioPage() {
         </>
       ) : (
         <Card>
-          <EmptyState icon="📦" message="Registra producción de huevos para ver el inventario PEPS" />
+          <EmptyState icon="package" message="Registra producción de huevos para ver el inventario PEPS" />
         </Card>
       )}
     </div>

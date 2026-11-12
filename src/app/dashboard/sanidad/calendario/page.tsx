@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState, useCallback, useMemo } from "react";
+import { AlertCircle, Clock } from "lucide-react";
 import { PageHeader, Button, Card, Table, Badge, Modal, Input, Select, Textarea, EmptyState, StatCard } from "@/components/ui";
 import { apiFetch } from "@/lib/fetch";
 import TableSearch from "@/components/TableSearch";
@@ -190,7 +191,7 @@ export default function CalendarioSanitarioPage() {
   return (
     <div className="space-y-6">
       <PageHeader
-        title="📅 Calendario Sanitario"
+        title="Calendario Sanitario"
         description="Revisa y ajusta las actividades sanitarias sugeridas para tus animales"
         help="Valida el manejo sanitario inicial para las especies, etapas y prácticas de tu granja. Ajusta fechas, frecuencias, actividades y tiempos de retiro según corresponda.\n\n• Cada evento tiene una fecha programada y un estado de vencimiento.\n• Puedes editar, completar o desactivar eventos.\n• Los eventos sugeridos pueden provenir de esquemas sanitarios y también puedes agregar actividades manuales.\n• Al confirmar la revisión, el sistema deja constancia para completar el paso de preparación de la granja."
         actions={
@@ -201,10 +202,10 @@ export default function CalendarioSanitarioPage() {
       />
 
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        <StatCard icon="📅" label="Total eventos" value={String(events.length)} color="blue" />
-        <StatCard icon="🔴" label="Vencidos" value={String(overdueEvents.length)} color="red" />
-        <StatCard icon="🟡" label="Próximos (7 días)" value={String(dueSoonEvents.length)} color="yellow" />
-        <StatCard icon="🟢" label="Al día" value={String(upcomingEvents.length)} color="green" />
+        <StatCard icon="calendar" label="Total eventos" value={String(events.length)} color="blue" />
+        <StatCard icon="dot-red" label="Vencidos" value={String(overdueEvents.length)} color="red" />
+        <StatCard icon="dot-amber" label="Próximos (7 días)" value={String(dueSoonEvents.length)} color="yellow" />
+        <StatCard icon="dot-green" label="Al día" value={String(upcomingEvents.length)} color="green" />
       </div>
 
       <Card className={reviewStatus?.reviewed ? "border-green-200 bg-green-50" : "border-amber-200 bg-amber-50"}>
@@ -236,7 +237,10 @@ export default function CalendarioSanitarioPage() {
         <div className="space-y-3">
           {overdueEvents.length > 0 && (
             <Card className="border-red-300 bg-red-50">
-              <h3 className="font-semibold text-red-700 mb-3">🔴 Eventos Vencidos</h3>
+              <h3 className="font-semibold text-red-700 mb-3 flex items-center gap-2">
+                <AlertCircle className="w-4 h-4 text-red-600" aria-hidden="true" />
+                Eventos Vencidos
+              </h3>
               <div className="space-y-2">
                 {overdueEvents.map((e) => (
                   <div key={e.id} className="flex justify-between items-center p-2 bg-white rounded">
@@ -258,7 +262,10 @@ export default function CalendarioSanitarioPage() {
 
           {dueSoonEvents.length > 0 && (
             <Card className="border-yellow-300 bg-yellow-50">
-              <h3 className="font-semibold text-yellow-700 mb-3">🟡 Próximos 7 Días</h3>
+              <h3 className="font-semibold text-yellow-700 mb-3 flex items-center gap-2">
+                <Clock className="w-4 h-4 text-amber-600" aria-hidden="true" />
+                Próximos 7 Días
+              </h3>
               <div className="space-y-2">
                 {dueSoonEvents.map((e) => (
                   <div key={e.id} className="flex justify-between items-center p-2 bg-white rounded">
@@ -294,7 +301,7 @@ export default function CalendarioSanitarioPage() {
           <p className="text-center py-8 text-slate-400">Cargando...</p>
         ) : filteredEvents.length === 0 ? (
           <EmptyState
-            icon="📅"
+            icon="calendar"
             message={
               search.trim()
                 ? "No hay eventos que coincidan con la búsqueda"
@@ -338,7 +345,7 @@ export default function CalendarioSanitarioPage() {
       </Card>
 
       {/* Create modal */}
-      <Modal open={modalOpen} onClose={() => { setModalOpen(false); setEditingId(null); }} title={editingId ? "✏️ Editar Evento Sanitario" : "📅 Nuevo Evento Sanitario"}>
+      <Modal open={modalOpen} onClose={() => { setModalOpen(false); setEditingId(null); }} title={editingId ? "Editar Evento Sanitario" : "Nuevo Evento Sanitario"}>
         <div className="space-y-4">
           {error && <p className="text-sm text-red-600 bg-red-50 p-3 rounded-lg">{error}</p>}
           <Select label="Tipo" value={form.type} onChange={(e) => setForm({ ...form, type: e.target.value })}>

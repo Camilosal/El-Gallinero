@@ -2,7 +2,9 @@
 
 import { useEffect, useState, useCallback, useMemo } from "react";
 import Link from "next/link";
+import { Tag } from "lucide-react";
 import { PageHeader, Card, Table, StatCard, EmptyState, Button, Badge } from "@/components/ui";
+import { AppIcon } from "@/components/AppIcon";
 import { apiFetch } from "@/lib/fetch";
 import TableSearch from "@/components/TableSearch";
 import { matchesTextQuery } from "@/lib/text";
@@ -93,12 +95,12 @@ export default function InventarioCarnePage() {
   return (
     <div>
       <PageHeader
-        title="🥩 Inventario de Carne Multiespecie"
+        title="Inventario de Carne Multiespecie"
         description="Stock de carne limpia en frío: pollo, gallina, codorniz, pato y conejo. Consumo FIFO."
         help="Inventario de carne disponible proveniente de faenas. Se muestra lo producido, vendido, perdido y disponible por especie y lote. Los precios de valoración se basan en el mercado local por kg canal."
         actions={
           <div className="flex gap-2">
-            <Link href="/dashboard/produccion/sacrificio"><Button variant="secondary">🍗 Registrar Faena</Button></Link>
+            <Link href="/dashboard/produccion/sacrificio"><Button variant="secondary">Registrar Faena</Button></Link>
             <Link href="/dashboard/finanzas/ventas?tab=carne"><Button>+ Registrar Venta de Carne</Button></Link>
           </div>
         }
@@ -106,24 +108,30 @@ export default function InventarioCarnePage() {
 
       {/* StatCards Principales */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
-        <StatCard icon="🥩" label="Producido Total (kg)" value={(data?.summary.produced ?? 0).toFixed(1)} color="green" />
-        <StatCard icon="💰" label="Vendido Total (kg)" value={(data?.summary.sold ?? 0).toFixed(1)} color="blue" />
-        <StatCard icon="📦" label="Disponible en Frío (kg)" value={(data?.summary.available ?? 0).toFixed(1)} color="yellow" />
-        <StatCard icon="💵" label="Valor Estimado Stock" value={`$${Math.round(data?.estimatedValue ?? 0).toLocaleString("es-CO")}`} color="purple" />
+        <StatCard icon="beef" label="Producido Total (kg)" value={(data?.summary.produced ?? 0).toFixed(1)} color="green" />
+        <StatCard icon="money" label="Vendido Total (kg)" value={(data?.summary.sold ?? 0).toFixed(1)} color="blue" />
+        <StatCard icon="package" label="Disponible en Frío (kg)" value={(data?.summary.available ?? 0).toFixed(1)} color="yellow" />
+        <StatCard icon="banknote" label="Valor Estimado Stock" value={`$${Math.round(data?.estimatedValue ?? 0).toLocaleString("es-CO")}`} color="purple" />
       </div>
 
       {/* Desglose por Especie */}
       {data?.summary.bySpecies && data.summary.bySpecies.length > 0 && (
         <Card className="mb-6">
-          <h3 className="font-semibold text-slate-700 mb-3">🏷️ Disponibilidad y Valoración por Especie</h3>
+          <h3 className="font-semibold text-slate-700 mb-3 flex items-center gap-2">
+            <Tag className="w-4 h-4 text-slate-500" aria-hidden="true" />
+            <span>Disponibilidad y Valoración por Especie</span>
+          </h3>
           <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
             {data.summary.bySpecies.map((spData) => {
-              const icon = SPECIES_ICON[spData.species] || "🥩";
+              const icon = SPECIES_ICON[spData.species] || "meat";
               const label = SPECIES_LABEL[spData.species] || spData.species;
               return (
                 <div key={spData.species} className="p-3 bg-slate-50 rounded-lg border border-slate-200">
                   <div className="flex items-center justify-between mb-1">
-                    <span className="font-bold text-slate-800 text-sm">{icon} {label}</span>
+                    <span className="inline-flex items-center gap-1.5 font-bold text-slate-800 text-sm">
+                      <AppIcon icon={icon} className="w-4 h-4 text-slate-600 shrink-0" />
+                      <span>{label}</span>
+                    </span>
                     <span className="text-[11px] text-slate-500">${spData.estimatedPriceKg.toLocaleString("es-CO")}/kg</span>
                   </div>
                   <div className="text-xl font-bold text-emerald-700">
@@ -147,12 +155,12 @@ export default function InventarioCarnePage() {
           <div className="flex flex-wrap items-center justify-between gap-3 mb-4 pb-3 border-b border-slate-100">
             <div className="flex flex-wrap gap-1">
               {[
-                { id: "all", label: "Todas las Carnes", icon: "🌐" },
-                { id: "pollo", label: "Pollo", icon: "🐓" },
-                { id: "gallina", label: "Gallina", icon: "🐔" },
-                { id: "codorniz", label: "Codorniz", icon: "🥚" },
-                { id: "pato", label: "Pato", icon: "🦆" },
-                { id: "conejo", label: "Conejo", icon: "🐇" },
+                { id: "all", label: "Todas las Carnes", icon: "globe" },
+                { id: "pollo", label: "Pollo", icon: "rooster" },
+                { id: "gallina", label: "Gallina", icon: "hen" },
+                { id: "codorniz", label: "Codorniz", icon: "egg" },
+                { id: "pato", label: "Pato", icon: "duck" },
+                { id: "conejo", label: "Conejo", icon: "rabbit" },
               ].map((sp) => {
                 const isSelected = selectedSpeciesFilter === sp.id;
                 const count = sp.id === "all"
@@ -162,13 +170,14 @@ export default function InventarioCarnePage() {
                   <button
                     key={sp.id}
                     onClick={() => setSelectedSpeciesFilter(sp.id)}
-                    className={`px-3 py-1.5 rounded-full text-xs font-medium transition-all ${
+                    className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium transition-all ${
                       isSelected
                         ? "bg-emerald-600 text-white shadow-sm"
                         : "bg-slate-100 text-slate-600 hover:bg-slate-200"
                     }`}
                   >
-                    {sp.icon} {sp.label} ({count})
+                    <AppIcon icon={sp.icon} className="w-3.5 h-3.5" />
+                    <span>{sp.label} ({count})</span>
                   </button>
                 );
               })}
@@ -186,7 +195,7 @@ export default function InventarioCarnePage() {
 
           {filteredLots.length === 0 ? (
             <EmptyState
-              icon="🥩"
+              icon="meat"
               message={
                 search.trim() || selectedSpeciesFilter !== "all"
                   ? "No hay lotes de carne que coincidan con los filtros"
@@ -197,7 +206,7 @@ export default function InventarioCarnePage() {
             <Table headers={["Fecha", "Especie / Tipo", "Destino Lote", "Producido (kg)", "Vendido (kg)", "Disponible (kg)", "Tiempo en Frío"]}>
               {filteredLots.map((lot) => {
                 const sp = lot.species || "pollo";
-                const icon = SPECIES_ICON[sp] || "🥩";
+                const icon = SPECIES_ICON[sp] || "meat";
                 const isAvailable = lot.remainingKg > 0;
 
                 return (
@@ -206,16 +215,16 @@ export default function InventarioCarnePage() {
                       {new Date(lot.date + "T12:00:00").toLocaleDateString("es")}
                     </td>
                     <td className="px-4 py-3 text-sm">
-                      <div className="font-semibold text-slate-800 flex items-center gap-1">
-                        <span>{icon}</span>
+                      <div className="font-semibold text-slate-800 flex items-center gap-1.5">
+                        <AppIcon icon={icon} className="w-4 h-4 text-slate-600 shrink-0" />
                         <span>{SPECIES_LABEL[sp] || sp}</span>
                       </div>
                       <span className="text-xs text-slate-400">{birdTypeLabels[lot.birdType] || lot.birdType}</span>
                     </td>
                     <td className="px-4 py-3 text-xs">
-                      {lot.destination === "consumo_propio" && <Badge color="green">🏡 Hogar</Badge>}
-                      {lot.destination === "venta" && <Badge color="blue">💰 Venta</Badge>}
-                      {lot.destination === "mixto" && <Badge color="purple">⚖️ Dual</Badge>}
+                      {lot.destination === "consumo_propio" && <Badge color="green">Hogar</Badge>}
+                      {lot.destination === "venta" && <Badge color="blue">Venta</Badge>}
+                      {lot.destination === "mixto" && <Badge color="purple">Dual</Badge>}
                       {!lot.destination && <Badge color="gray">General</Badge>}
                     </td>
                     <td className="px-4 py-3 text-sm">{lot.quantityKg.toFixed(1)} kg</td>
@@ -236,7 +245,7 @@ export default function InventarioCarnePage() {
         </Card>
       ) : (
         <Card>
-          <EmptyState icon="🥩" message="No hay producción de carne registrada. Registra faenas desde Producción → Faena." />
+          <EmptyState icon="meat" message="No hay producción de carne registrada. Registra faenas desde Producción → Faena." />
         </Card>
       )}
     </div>

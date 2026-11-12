@@ -2,6 +2,8 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
+import { Bird, Egg, Feather, PackageOpen, Scale } from "lucide-react";
+import { AppIcon } from "@/components/AppIcon";
 import { PageHeader, Card, StatCard, Table, Badge, EmptyState } from "@/components/ui";
 import TableSearch from "@/components/TableSearch";
 import { apiFetch } from "@/lib/fetch";
@@ -76,12 +78,12 @@ const sourceColors: Record<AnimalGroup["source"], "green" | "red" | "blue"> = {
 };
 
 const animalFilters = [
-  { id: "gallina", label: "Gallinas", icon: "🐔" },
-  { id: "gallo", label: "Gallos", icon: "🐓" },
-  { id: "pollo", label: "Lotes de pollos", icon: "🐤" },
-  { id: "codorniz", label: "Lotes de codornices", icon: "🥚" },
-  { id: "pato", label: "Lotes de patos", icon: "🦆" },
-  { id: "conejo", label: "Lotes de conejos", icon: "🐇" },
+  { id: "gallina", label: "Gallinas", icon: "hen" },
+  { id: "gallo", label: "Gallos", icon: "rooster" },
+  { id: "pollo", label: "Lotes de pollos", icon: "chick" },
+  { id: "codorniz", label: "Lotes de codornices", icon: "egg" },
+  { id: "pato", label: "Lotes de patos", icon: "duck" },
+  { id: "conejo", label: "Lotes de conejos", icon: "rabbit" },
 ];
 
 function groupMatchesAnimalFilter(group: AnimalGroup, filter: string): boolean {
@@ -92,10 +94,10 @@ function groupMatchesAnimalFilter(group: AnimalGroup, filter: string): boolean {
 }
 
 const quickLinks = [
-  { href: "/dashboard/produccion/adquisiciones", label: "Adquisiciones", icon: "📥", desc: "Origen y destino de nuevas entradas" },
-  { href: "/dashboard/produccion?tab=animales", label: "Gestión de Animales", icon: "🐾", desc: "Gallinas, gallos y lotes separados por especie" },
-  { href: "/dashboard/produccion/mortalidad", label: "Mortalidad", icon: "💀", desc: "Bajas y causas por lote" },
-  { href: "/dashboard/produccion?tab=incubacion", label: "Incubación", icon: "🐣", desc: "Nacimientos y fertilidad" },
+  { href: "/dashboard/produccion/adquisiciones", label: "Adquisiciones", icon: "incoming", desc: "Origen y destino de nuevas entradas" },
+  { href: "/dashboard/produccion?tab=animales", label: "Gestión de Animales", icon: "paw-print", desc: "Gallinas, gallos y lotes separados por especie" },
+  { href: "/dashboard/produccion/mortalidad", label: "Mortalidad", icon: "mortality", desc: "Bajas y causas por lote" },
+  { href: "/dashboard/produccion?tab=incubacion", label: "Incubación", icon: "incubator", desc: "Nacimientos y fertilidad" },
 ];
 
 const fmtMoney = (value: number) => `$${Math.round(value).toLocaleString("es-CO")}`;
@@ -181,7 +183,7 @@ export default function AnimalesPage() {
   return (
     <div>
       <PageHeader
-        title="🐾 Inventario de Animales"
+        title="Inventario de Animales"
         description="Inventario y seguimiento unificado de gallinas, gallos, pollos, codornices, patos y conejos."
         help="Aquí ves los animales que están en la granja, separados por especie en los filtros. Para registrar una entrada nueva, empieza por Adquisiciones: ahí indicas el tipo, su raza asociada y el origen. El inventario incluye únicamente animales no vendidos, faenados ni muertos."
         actions={
@@ -202,33 +204,38 @@ export default function AnimalesPage() {
         </Card>
       ) : !data ? (
         <Card>
-          <EmptyState icon="🐾" message="No se pudo cargar el inventario de animales" />
+          <EmptyState icon="paw-print" message="No se pudo cargar el inventario de animales" />
         </Card>
       ) : (
         <div className="space-y-6">
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
-            <StatCard icon="🐾" label="Animales en inventario" value={data.summary.totalAnimals} color="green" />
-            <StatCard icon="🐔" label="Aves" value={data.summary.totalBirds} color="yellow" />
-            <StatCard icon="🐇" label="No aves" value={data.summary.totalNonBirds} color="blue" />
-            <StatCard icon="💰" label="Valor estimado" value={fmtMoney(inventoryValue)} color="purple" />
+            <StatCard icon="paw-print" label="Animales en inventario" value={data.summary.totalAnimals} color="green" />
+            <StatCard icon="hen" label="Aves" value={data.summary.totalBirds} color="yellow" />
+            <StatCard icon="rabbit" label="No aves" value={data.summary.totalNonBirds} color="blue" />
+            <StatCard icon="money" label="Valor estimado" value={fmtMoney(inventoryValue)} color="purple" />
           </div>
 
           <Card>
             <div className="flex flex-wrap items-center gap-x-6 gap-y-3 text-sm">
-              <span className="text-slate-600">
-                🐔 <strong className="text-slate-900">{data.summary.activeHens}</strong> gallinas en inventario
+              <span className="inline-flex items-center gap-1.5 text-slate-600">
+                <Bird className="w-4 h-4 text-emerald-700" aria-hidden="true" />
+                <strong className="text-slate-900">{data.summary.activeHens}</strong> gallinas en inventario
               </span>
-              <span className="text-slate-600">
-                🥚 <strong className="text-slate-900">{data.summary.layingHens}</strong> en postura
+              <span className="inline-flex items-center gap-1.5 text-slate-600">
+                <Egg className="w-4 h-4 text-amber-600" aria-hidden="true" />
+                <strong className="text-slate-900">{data.summary.layingHens}</strong> en postura
               </span>
-              <span className="text-slate-600">
-                🐓 <strong className="text-slate-900">{data.summary.activeRoosters}</strong> gallos activos
+              <span className="inline-flex items-center gap-1.5 text-slate-600">
+                <Feather className="w-4 h-4 text-orange-600" aria-hidden="true" />
+                <strong className="text-slate-900">{data.summary.activeRoosters}</strong> gallos activos
               </span>
-              <span className="text-slate-600">
-                🧺 <strong className="text-slate-900">{data.summary.activeBatches}</strong> lotes activos
+              <span className="inline-flex items-center gap-1.5 text-slate-600">
+                <PackageOpen className="w-4 h-4 text-blue-600" aria-hidden="true" />
+                <strong className="text-slate-900">{data.summary.activeBatches}</strong> lotes activos
               </span>
-              <span className="text-slate-600">
-                ⚖️ <strong className="text-slate-900">{fmtKg(data.summary.totalWeightKg)}</strong> en pie
+              <span className="inline-flex items-center gap-1.5 text-slate-600">
+                <Scale className="w-4 h-4 text-slate-600" aria-hidden="true" />
+                <strong className="text-slate-900">{fmtKg(data.summary.totalWeightKg)}</strong> en pie
               </span>
               <span className="text-slate-500">
                 {data.summary.registeredHens} gallinas registradas en total
@@ -243,7 +250,9 @@ export default function AnimalesPage() {
                 href={link.href}
                 className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm transition-shadow hover:shadow-md"
               >
-                <span className="text-2xl">{link.icon}</span>
+                <div className="w-9 h-9 rounded-lg bg-slate-100 flex items-center justify-center text-slate-700">
+                  <AppIcon icon={link.icon} className="w-5 h-5" />
+                </div>
                 <p className="mt-2 font-semibold text-slate-800">{link.label}</p>
                 <p className="mt-1 text-xs text-slate-500">{link.desc}</p>
               </Link>
@@ -257,7 +266,9 @@ export default function AnimalesPage() {
                 {visibleSpecies.map((species) => (
                   <Card key={species.species}>
                     <div className="flex items-center justify-between">
-                      <span className="text-2xl">{species.icon}</span>
+                      <div className="w-9 h-9 rounded-lg bg-slate-100 flex items-center justify-center text-slate-700">
+                        <AppIcon icon={species.icon} className="w-5 h-5" />
+                      </div>
                       <Badge color={species.isBird ? "green" : "blue"}>
                         {species.isBird ? "Ave" : "No ave"}
                       </Badge>
@@ -332,22 +343,23 @@ export default function AnimalesPage() {
                 const count = data.groups.filter((group) => groupMatchesAnimalFilter(group, filter.id)).reduce((sum, group) => sum + group.count, 0);
                 if (count === 0) return null;
                 return (
-                <button
-                  key={filter.id}
-                  type="button"
-                  aria-pressed={speciesFilter === filter.id}
-                  onClick={() => setSpeciesFilter(filter.id)}
-                  className={`rounded-full px-3 py-1.5 text-xs font-medium ${speciesFilter === filter.id ? "bg-green-700 text-white" : "bg-slate-100 text-slate-600 hover:bg-slate-200"}`}
-                >
-                  {filter.icon} {filter.label} ({count})
-                </button>
+                  <button
+                    key={filter.id}
+                    type="button"
+                    aria-pressed={speciesFilter === filter.id}
+                    onClick={() => setSpeciesFilter(filter.id)}
+                    className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-medium ${speciesFilter === filter.id ? "bg-green-700 text-white" : "bg-slate-100 text-slate-600 hover:bg-slate-200"}`}
+                  >
+                    <AppIcon icon={filter.icon} className="w-3.5 h-3.5" />
+                    <span>{filter.label} ({count})</span>
+                  </button>
                 );
               })}
             </div>
 
             {groups.length === 0 ? (
               <EmptyState
-                icon="🐾"
+                icon="paw-print"
                 message={
                   search.trim()
                     ? "No hay animales que coincidan con la búsqueda"
@@ -370,8 +382,9 @@ export default function AnimalesPage() {
                 {groups.map((group) => (
                   <tr key={group.key} className="hover:bg-slate-50">
                     <td className="px-4 py-3">
-                      <div className="font-semibold text-slate-800">
-                        {group.icon} {group.label}
+                      <div className="flex items-center gap-2 font-semibold text-slate-800">
+                        <AppIcon icon={group.icon} className="w-4 h-4 shrink-0 text-slate-600" />
+                        <span>{group.label}</span>
                       </div>
                       {group.detail && <p className="text-xs text-slate-500">{group.detail}</p>}
                     </td>

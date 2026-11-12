@@ -1,5 +1,18 @@
 import Link from "next/link";
 import Image from "next/image";
+import {
+  BarChart3,
+  Bot,
+  CalendarDays,
+  CircleDollarSign,
+  Egg,
+  MapPin,
+  Package,
+  PawPrint,
+  Settings,
+  Stethoscope,
+  Wheat,
+} from "lucide-react";
 import ScrollReveal from "@/components/ScrollReveal";
 import MobileNav from "@/components/MobileNav";
 
@@ -258,7 +271,7 @@ export default function LandingPage() {
 
             <div className="land-func-grid">
               <div className="land-func-card land-reveal">
-                <div className="ficon">🐾</div>
+                <div className="ficon"><PawPrint className="w-5 h-5 text-[var(--forest-deep)]" aria-hidden="true" /></div>
                 <h3>Animales y procedencia</h3>
                 <p>
                   Registra adquisiciones y cría propia. Gestiona gallinas y
@@ -274,7 +287,7 @@ export default function LandingPage() {
               </div>
 
               <div className="land-func-card land-reveal">
-                <div className="ficon">📍</div>
+                <div className="ficon"><MapPin className="w-5 h-5 text-[var(--forest-deep)]" aria-hidden="true" /></div>
                 <h3>Lugares e infraestructura</h3>
                 <p>
                   Ubica corrales, jaulas, galpones, potreros, jardines o patios.
@@ -291,7 +304,7 @@ export default function LandingPage() {
               </div>
 
               <div className="land-func-card land-reveal">
-                <div className="ficon">🥚</div>
+                <div className="ficon"><Egg className="w-5 h-5 text-[var(--forest-deep)]" aria-hidden="true" /></div>
                 <h3>Producción</h3>
                 <p>
                   Registra postura cuando las aves están en etapa productiva,
@@ -307,7 +320,7 @@ export default function LandingPage() {
               </div>
 
               <div className="land-func-card land-reveal">
-                <div className="ficon">💊</div>
+                <div className="ficon"><Package className="w-5 h-5 text-[var(--forest-deep)]" aria-hidden="true" /></div>
                 <h3>Inventarios valorizados</h3>
                 <p>
                   Consulta existencias y valor de huevos, carne, animales,
@@ -322,7 +335,7 @@ export default function LandingPage() {
               </div>
 
               <div className="land-func-card land-reveal">
-                <div className="ficon">🌾</div>
+                <div className="ficon"><Wheat className="w-5 h-5 text-[var(--forest-deep)]" aria-hidden="true" /></div>
                 <h3>Almacén y alimentación</h3>
                 <p>
                   Controla entradas, consumo y existencias de alimento; organiza
@@ -338,7 +351,7 @@ export default function LandingPage() {
               </div>
 
               <div className="land-func-card land-reveal">
-                <div className="ficon">💰</div>
+                <div className="ficon"><CircleDollarSign className="w-5 h-5 text-[var(--forest-deep)]" aria-hidden="true" /></div>
                 <h3>Finanzas</h3>
                 <p>
                   Relaciona ventas, compras y movimientos con sus registros de
@@ -354,7 +367,7 @@ export default function LandingPage() {
               </div>
 
               <div className="land-func-card land-reveal">
-                <div className="ficon">🤖</div>
+                <div className="ficon"><Bot className="w-5 h-5 text-[var(--forest-deep)]" aria-hidden="true" /></div>
                 <h3>Agente de IA</h3>
                 <p>
                   Desde el botón Asistente, consulta animales, lotes, producción,
@@ -373,7 +386,7 @@ export default function LandingPage() {
               </div>
 
               <div className="land-func-card land-reveal">
-                <div className="ficon">💊</div>
+                <div className="ficon"><Stethoscope className="w-5 h-5 text-[var(--forest-deep)]" aria-hidden="true" /></div>
                 <h3>Sanidad</h3>
                 <p>
                   Registra mortalidad, vacunación, desparasitación y
@@ -389,7 +402,7 @@ export default function LandingPage() {
               </div>
 
               <div className="land-func-card land-reveal">
-                <div className="ficon">📊</div>
+                <div className="ficon"><BarChart3 className="w-5 h-5 text-[var(--forest-deep)]" aria-hidden="true" /></div>
                 <h3>Análisis y estándares</h3>
                 <p>
                   Compara postura y crecimiento con curvas de referencia por
@@ -405,7 +418,7 @@ export default function LandingPage() {
               </div>
 
               <div className="land-func-card land-reveal">
-                <div className="ficon">🗓️</div>
+                <div className="ficon"><CalendarDays className="w-5 h-5 text-[var(--forest-deep)]" aria-hidden="true" /></div>
                 <h3>Planeación</h3>
                 <p>
                   Proyecta la parvada y organiza el autoconsumo y la producción
@@ -419,7 +432,7 @@ export default function LandingPage() {
               </div>
 
               <div className="land-func-card land-reveal">
-                <div className="ficon">⚙️</div>
+                <div className="ficon"><Settings className="w-5 h-5 text-[var(--forest-deep)]" aria-hidden="true" /></div>
                 <h3>Catálogos y configuración</h3>
                 <p>
                   Organiza razas y especies asociadas, etapas, vacunas,

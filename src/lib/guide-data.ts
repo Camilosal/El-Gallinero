@@ -45,17 +45,17 @@ export interface GuideModule {
 }
 
 export const guideModules: GuideModule[] = [
-  { id: "primeros-pasos", label: "Primeros Pasos", icon: "🚀", description: "Comienza a usar el sistema" },
-  { id: "animales", label: "Animales", icon: "🐾", description: "Registro e inventario de animales" },
-  { id: "ubicaciones", label: "Lugares de manejo", icon: "📍", description: "Alojamiento, condiciones y resultados por espacio" },
-  { id: "produccion", label: "Producción", icon: "🥚", description: "Huevos, carne y gallinaza" },
-  { id: "finanzas", label: "Finanzas", icon: "💰", description: "Ventas, egresos y balances" },
-  { id: "sanidad", label: "Sanidad", icon: "💊", description: "Salud y bienestar animal" },
-  { id: "inventarios", label: "Inventarios", icon: "📦", description: "Valorización y stock de todo" },
-  { id: "almacen", label: "Almacén", icon: "🧰", description: "Alimentos, insumos y mantenimiento" },
-  { id: "planeacion", label: "Planeación", icon: "🗓️", description: "Plan de parvada y soberanía" },
-  { id: "analisis", label: "Análisis", icon: "📊", description: "KPIs, reportes y estándares" },
-  { id: "configuracion", label: "Configuración", icon: "⚙️", description: "Personalización del sistema" },
+  { id: "primeros-pasos", label: "Primeros Pasos", icon: "rocket", description: "Comienza a usar el sistema" },
+  { id: "animales", label: "Animales", icon: "paw-print", description: "Registro e inventario de animales" },
+  { id: "ubicaciones", label: "Lugares de manejo", icon: "map-pin", description: "Alojamiento, condiciones y resultados por espacio" },
+  { id: "produccion", label: "Producción", icon: "egg", description: "Huevos, carne y gallinaza" },
+  { id: "finanzas", label: "Finanzas", icon: "money", description: "Ventas, egresos y balances" },
+  { id: "sanidad", label: "Sanidad", icon: "pill", description: "Salud y bienestar animal" },
+  { id: "inventarios", label: "Inventarios", icon: "package", description: "Valorización y stock de todo" },
+  { id: "almacen", label: "Almacén", icon: "package-open", description: "Alimentos, insumos y mantenimiento" },
+  { id: "planeacion", label: "Planeación", icon: "calendar-days", description: "Plan de parvada y soberanía" },
+  { id: "analisis", label: "Análisis", icon: "bar-chart", description: "KPIs, reportes y estándares" },
+  { id: "configuracion", label: "Configuración", icon: "settings", description: "Personalización del sistema" },
 ];
 
 export const guides: Guide[] = [
@@ -66,7 +66,7 @@ export const guides: Guide[] = [
     slug: "primeros-pasos",
     title: "Primeros Pasos",
     module: "primeros-pasos",
-    icon: "🚀",
+    icon: "rocket",
     relatedHrefs: [
       { href: "/dashboard", label: "Dashboard" },
       { href: "/dashboard/animales", label: "Animales" },
@@ -76,15 +76,15 @@ export const guides: Guide[] = [
     sections: [
       { type: "intro", text: "El Gallinero reúne en un solo lugar el registro y la trazabilidad de animales, sus lugares de manejo, producción, sanidad, inventarios, tareas y finanzas. Está pensado para que una persona pueda llevar la operación cotidiana sin perder el origen ni el historial de cada registro." },
       { type: "diagram", title: "Arquitectura del Sistema", layout: "vertical", nodes: [
-        { id: "dash", label: "Dashboard", icon: "📊", color: "green" },
-        { id: "animal", label: "Animales", icon: "🐾", color: "yellow" },
-        { id: "prod", label: "Producción", icon: "🥚", color: "amber" },
-        { id: "alm", label: "Almacén", icon: "🧰", color: "slate" },
-        { id: "inv", label: "Inventarios", icon: "📦", color: "amber" },
-        { id: "plan", label: "Planeación", icon: "🗓️", color: "green" },
-        { id: "san", label: "Sanidad", icon: "💊", color: "blue" },
-        { id: "fin", label: "Finanzas", icon: "💰", color: "green" },
-        { id: "an", label: "Análisis", icon: "📈", color: "purple" },
+        { id: "dash", label: "Dashboard", icon: "bar-chart", color: "green" },
+        { id: "animal", label: "Animales", icon: "paw-print", color: "yellow" },
+        { id: "prod", label: "Producción", icon: "egg", color: "amber" },
+        { id: "alm", label: "Almacén", icon: "package-open", color: "slate" },
+        { id: "inv", label: "Inventarios", icon: "package", color: "amber" },
+        { id: "plan", label: "Planeación", icon: "calendar-days", color: "green" },
+        { id: "san", label: "Sanidad", icon: "pill", color: "blue" },
+        { id: "fin", label: "Finanzas", icon: "money", color: "green" },
+        { id: "an", label: "Análisis", icon: "trend-up", color: "purple" },
       ], connections: [
         { from: "dash", to: "animal", label: "Registro e inventario" },
         { from: "dash", to: "prod", label: "Huevos, carne, gallinaza" },
@@ -111,7 +111,7 @@ export const guides: Guide[] = [
       { type: "tip", title: "Búsqueda y creación rápida", text: "Usa Buscar (Ctrl+K) y escribe conceptos cotidianos como ‘patos’, ‘genética’, ‘potrero’, ‘vacuna’ o ‘mantenimiento’. El botón Crear del inicio reúne los registros nuevos más frecuentes." },
       { type: "note", text: "Los registros históricos sin un lugar asignado se mantienen sin ubicación hasta que la finca registre su destino real; el sistema no inventa dónde ocurrieron." },
       { type: "note", text: "La app muestra controles y condiciones que la persona registra. Un estado sanitario ‘cumple’ no sustituye una certificación, una visita técnica ni un diagnóstico veterinario." },
-      { type: "tip", title: "Ayuda en cada página y campo", text: "Cada página tiene un botón 'Ayuda' (❓) arriba a la derecha que explica el módulo completo. Además, cada campo de formulario tiene un ícono (?) al lado del nombre con explicación detallada." },
+      { type: "tip", title: "Ayuda en cada página y campo", text: "Cada página tiene un botón 'Ayuda' arriba a la derecha que explica el módulo completo. Además, cada campo de formulario tiene un ícono (?) al lado del nombre con explicación detallada." },
       { type: "note", text: "El sistema funciona offline como PWA (Progressive Web App). Puedes instalarlo en tu celular desde el navegador para acceso rápido." },
     ],
   },
@@ -123,7 +123,7 @@ export const guides: Guide[] = [
     slug: "recoger-huevos",
     title: "Recoger Huevos",
     module: "produccion",
-    icon: "🥚",
+    icon: "egg",
     relatedHrefs: [
       { href: "/dashboard/produccion?tab=huevos", label: "Registro de Huevos" },
       { href: "/dashboard/inventarios/huevos", label: "Inventario Huevos" },
@@ -131,13 +131,13 @@ export const guides: Guide[] = [
     sections: [
       { type: "intro", text: "Desde aquí registras la recolección diaria de huevos. El sistema ofrece dos modos: rápido (recomendado para el día a día) y detallado." },
       { type: "diagram", title: "Flujo de Producción de Huevos", layout: "vertical", nodes: [
-        { id: "hen", label: "Gallina pone", icon: "🐔", color: "yellow" },
-        { id: "collect", label: "Recolección", icon: "🥚", color: "amber" },
-        { id: "classify", label: "Clasificación por Tamaño", icon: "📏", color: "blue" },
-        { id: "storage", label: "Inventario (PEPS)", icon: "📦", color: "green" },
-        { id: "sale", label: "Venta", icon: "💰", color: "green" },
-        { id: "incub", label: "Incubación", icon: "🐣", color: "purple" },
-        { id: "finance", label: "Finanzas", icon: "📈", color: "indigo" },
+        { id: "hen", label: "Gallina pone", icon: "bird", color: "yellow" },
+        { id: "collect", label: "Recolección", icon: "egg", color: "amber" },
+        { id: "classify", label: "Clasificación por Tamaño", icon: "ruler", color: "blue" },
+        { id: "storage", label: "Inventario (PEPS)", icon: "package", color: "green" },
+        { id: "sale", label: "Venta", icon: "money", color: "green" },
+        { id: "incub", label: "Incubación", icon: "incubator", color: "purple" },
+        { id: "finance", label: "Finanzas", icon: "trend-up", color: "indigo" },
       ], connections: [
         { from: "hen", to: "collect" },
         { from: "collect", to: "classify", label: "P, M, G, XL, XXL" },
@@ -167,7 +167,7 @@ export const guides: Guide[] = [
     slug: "gestionar-gallinas",
     title: "Gestión de animales",
     module: "animales",
-    icon: "🐔",
+    icon: "bird",
     relatedHrefs: [
       { href: "/dashboard/produccion/adquisiciones?nuevo=gallina", label: "Registrar ingreso" },
       { href: "/dashboard/produccion?tab=animales", label: "Gestión de Animales" },
@@ -177,11 +177,11 @@ export const guides: Guide[] = [
     sections: [
       { type: "intro", text: "Registra primero cada ingreso en Adquisiciones para conservar origen, genética y destino. Luego usa Gestión de Animales para hacer seguimiento a gallinas, gallos y lotes de pollos, codornices, patos y conejos." },
       { type: "diagram", title: "Ciclo de Vida de la Gallina", layout: "vertical", nodes: [
-        { id: "chick", label: "Pollito (0–6 sem)", icon: "🐤", color: "yellow" },
-        { id: "juv", label: "Juvenil (6–18 sem)", icon: "🐔", color: "green" },
-        { id: "pre", label: "Pre-postura (18–20 sem)", icon: "🥚", color: "amber" },
-        { id: "lay", label: "Postura (20+ sem)", icon: "🐔", color: "blue" },
-        { id: "rec", label: "Recomendada sacrificio (≥80 sem)", icon: "⚠️", color: "red" },
+        { id: "chick", label: "Pollito (0–6 sem)", icon: "chick", color: "yellow" },
+        { id: "juv", label: "Juvenil (6–18 sem)", icon: "bird", color: "green" },
+        { id: "pre", label: "Pre-postura (18–20 sem)", icon: "egg", color: "amber" },
+        { id: "lay", label: "Postura (20+ sem)", icon: "bird", color: "blue" },
+        { id: "rec", label: "Recomendada sacrificio (≥80 sem)", icon: "warning", color: "red" },
       ], connections: [
         { from: "chick", to: "juv", label: "Cumple 6 semanas" },
         { from: "juv", to: "pre", label: "Cumple 18 semanas" },
@@ -209,7 +209,7 @@ export const guides: Guide[] = [
     slug: "alimentar-aves",
     title: "Alimentar Animales",
     module: "almacen",
-    icon: "🌾",
+    icon: "wheat",
     relatedHrefs: [
       { href: "/dashboard/almacen", label: "Almacén" },
       { href: "/dashboard/produccion?tab=alimentacion", label: "Gestión de Alimentación" },
@@ -236,7 +236,7 @@ export const guides: Guide[] = [
     slug: "incubacion",
     title: "Incubación",
     module: "animales",
-    icon: "🐣",
+    icon: "incubator",
     relatedHrefs: [
       { href: "/dashboard/produccion?tab=incubacion", label: "Incubación" },
       { href: "/dashboard/animales", label: "Inventario de Animales" },
@@ -258,7 +258,7 @@ export const guides: Guide[] = [
     slug: "produccion-carne",
     title: "Producción de Carne",
     module: "produccion",
-    icon: "🍗",
+    icon: "meat",
     relatedHrefs: [
       { href: "/dashboard/produccion?tab=carne", label: "Producción Carne" },
       { href: "/dashboard/inventarios/carne", label: "Inventario Carne" },
@@ -282,7 +282,7 @@ export const guides: Guide[] = [
     slug: "sacrificio-aves",
     title: "Sacrificio de Aves",
     module: "produccion",
-    icon: "🔪",
+    icon: "slaughter",
     relatedHrefs: [
       { href: "/dashboard/produccion?tab=carne", label: "Producción Carne" },
       { href: "/dashboard/produccion?tab=animales", label: "Gestión de Animales" },
@@ -303,7 +303,7 @@ export const guides: Guide[] = [
     slug: "gallinaza-produccion",
     title: "Producción de Gallinaza",
     module: "produccion",
-    icon: "🌱",
+    icon: "sprout",
     relatedHrefs: [
       { href: "/dashboard/produccion?tab=gallinaza", label: "Gallinaza" },
       { href: "/dashboard/inventarios/gallinaza", label: "Inventario Gallinaza" },
@@ -323,7 +323,7 @@ export const guides: Guide[] = [
     slug: "plan-parvada",
     title: "Plan de Parvada",
     module: "planeacion",
-    icon: "📋",
+    icon: "clipboard",
     relatedHrefs: [
       { href: "/dashboard/planeacion", label: "Planeación" },
       { href: "/dashboard/produccion/plan-parvada", label: "Plan de Parvada" },
@@ -349,7 +349,7 @@ export const guides: Guide[] = [
     slug: "registrar-venta",
     title: "Registrar Venta",
     module: "finanzas",
-    icon: "💰",
+    icon: "money",
     relatedHrefs: [
       { href: "/dashboard/finanzas/ventas", label: "Ventas" },
       { href: "/dashboard/finanzas/finanzas", label: "Balance" },
@@ -373,7 +373,7 @@ export const guides: Guide[] = [
     slug: "registrar-egreso",
     title: "Registrar Egreso",
     module: "finanzas",
-    icon: "📤",
+    icon: "outgoing",
     relatedHrefs: [
       { href: "/dashboard/finanzas/egresos", label: "Egresos" },
       { href: "/dashboard/finanzas/finanzas", label: "Balance" },
@@ -397,7 +397,7 @@ export const guides: Guide[] = [
     slug: "catalogo-productos",
     title: "Catálogo de Productos de Compra",
     module: "finanzas",
-    icon: "🛒",
+    icon: "cart",
     relatedHrefs: [
       { href: "/dashboard/finanzas/egresos", label: "Egresos" },
     ],
@@ -410,7 +410,7 @@ export const guides: Guide[] = [
         "Guarda el producto.",
       ]},
       { type: "steps", title: "Editar un producto", items: [
-        "En el selector de productos del formulario de egresos, haz clic en el ícono de edición (✏️) junto al producto.",
+        "En el selector de productos del formulario de egresos, haz clic en el ícono de edición junto al producto.",
         "Modifica los datos necesarios.",
         "Guarda los cambios.",
       ]},
@@ -426,7 +426,7 @@ export const guides: Guide[] = [
     slug: "balance-financiero",
     title: "Balance Financiero",
     module: "finanzas",
-    icon: "📈",
+    icon: "trend-up",
     relatedHrefs: [
       { href: "/dashboard/finanzas/finanzas", label: "Balance" },
       { href: "/dashboard/finanzas/ventas", label: "Ventas" },
@@ -435,12 +435,12 @@ export const guides: Guide[] = [
     sections: [
       { type: "intro", text: "Visualiza el estado financiero de tu granja: ingresos, egresos, balance y evolución en el tiempo." },
       { type: "diagram", title: "Integración Automática de Finanzas", layout: "vertical", nodes: [
-        { id: "sale", label: "Venta de Huevos/Aves/Carne", icon: "💰", color: "green" },
-        { id: "expense", label: "Compra de Alimento/Insumos", icon: "🛒", color: "red" },
-        { id: "maint", label: "Mantenimiento Completado", icon: "🔧", color: "amber" },
-        { id: "health", label: "Evento Sanitario con Costo", icon: "💊", color: "blue" },
-        { id: "tx", label: "Transacción Automática", icon: "📝", color: "indigo" },
-        { id: "kpi", label: "KPIs y Gráficos", icon: "📈", color: "purple" },
+        { id: "sale", label: "Venta de Huevos/Aves/Carne", icon: "money", color: "green" },
+        { id: "expense", label: "Compra de Alimento/Insumos", icon: "cart", color: "red" },
+        { id: "maint", label: "Mantenimiento Completado", icon: "wrench", color: "amber" },
+        { id: "health", label: "Evento Sanitario con Costo", icon: "pill", color: "blue" },
+        { id: "tx", label: "Transacción Automática", icon: "file-edit", color: "indigo" },
+        { id: "kpi", label: "KPIs y Gráficos", icon: "trend-up", color: "purple" },
       ], connections: [
         { from: "sale", to: "tx", label: "Ingreso automático" },
         { from: "expense", to: "tx", label: "Egreso automático" },
@@ -462,7 +462,7 @@ export const guides: Guide[] = [
     slug: "presupuestos",
     title: "Presupuestos",
     module: "finanzas",
-    icon: "💵",
+    icon: "banknote",
     relatedHrefs: [
       { href: "/dashboard/finanzas/presupuestos", label: "Presupuestos" },
       { href: "/dashboard/finanzas/finanzas", label: "Balance" },
@@ -487,7 +487,7 @@ export const guides: Guide[] = [
     slug: "plan-sanitario",
     title: "Plan Sanitario",
     module: "sanidad",
-    icon: "🛡️",
+    icon: "shield",
     relatedHrefs: [
       { href: "/dashboard/sanidad", label: "Plan Sanitario" },
       { href: "/dashboard/sanidad/control", label: "Control Sanitario" },
@@ -496,11 +496,11 @@ export const guides: Guide[] = [
     sections: [
       { type: "intro", text: "El Plan Sanitario es tu sistema proactivo de salud para la parvada. Funciona como el Plan de Alimentación: el sistema define qué acciones sanitarias corresponden a cada etapa de crecimiento y te alerta cuando es momento de ejecutarlas." },
       { type: "diagram", title: "Flujo del Plan Sanitario", layout: "vertical", nodes: [
-        { id: "proto", label: "Protocolos por Etapa", icon: "📋", color: "blue" },
-        { id: "events", label: "Eventos en Calendario", icon: "📅", color: "yellow" },
-        { id: "alert", label: "Alerta de Acción", icon: "🔔", color: "red" },
-        { id: "exec", label: "Ejecutar Acción", icon: "✅", color: "green" },
-        { id: "record", label: "Historial Sanitario", icon: "📊", color: "purple" },
+        { id: "proto", label: "Protocolos por Etapa", icon: "clipboard", color: "blue" },
+        { id: "events", label: "Eventos en Calendario", icon: "calendar", color: "yellow" },
+        { id: "alert", label: "Alerta de Acción", icon: "bell", color: "red" },
+        { id: "exec", label: "Ejecutar Acción", icon: "check-circle", color: "green" },
+        { id: "record", label: "Historial Sanitario", icon: "bar-chart", color: "purple" },
       ], connections: [
         { from: "proto", to: "events", label: "Genera eventos automáticos" },
         { from: "events", to: "alert", label: "Vencimiento próximo" },
@@ -529,7 +529,7 @@ export const guides: Guide[] = [
     slug: "control-sanitario",
     title: "Control Sanitario",
     module: "sanidad",
-    icon: "💊",
+    icon: "pill",
     relatedHrefs: [
       { href: "/dashboard/sanidad/control", label: "Control Sanitario" },
       { href: "/dashboard/sanidad/calendario", label: "Calendario" },
@@ -554,7 +554,7 @@ export const guides: Guide[] = [
     slug: "calendario-vacunacion",
     title: "Calendario de Vacunación",
     module: "sanidad",
-    icon: "📅",
+    icon: "calendar",
     relatedHrefs: [
       { href: "/dashboard/sanidad/calendario", label: "Calendario" },
       { href: "/dashboard/sanidad/control", label: "Control Sanitario" },
@@ -581,7 +581,7 @@ export const guides: Guide[] = [
     slug: "alertas-mortalidad",
     title: "Alertas y Mortalidad",
     module: "sanidad",
-    icon: "🔔",
+    icon: "bell",
     relatedHrefs: [
       { href: "/dashboard/sanidad/alertas", label: "Alertas" },
       { href: "/dashboard/produccion/mortalidad", label: "Mortalidad" },
@@ -610,7 +610,7 @@ export const guides: Guide[] = [
     slug: "inventario-huevos",
     title: "Inventario de Huevos",
     module: "inventarios",
-    icon: "📦",
+    icon: "package",
     relatedHrefs: [
       { href: "/dashboard/inventarios/huevos", label: "Inventario Huevos" },
       { href: "/dashboard/produccion?tab=huevos", label: "Registro de Huevos" },
@@ -630,7 +630,7 @@ export const guides: Guide[] = [
     slug: "inventario-carne",
     title: "Inventario de Carne",
     module: "inventarios",
-    icon: "🍗",
+    icon: "meat",
     relatedHrefs: [
       { href: "/dashboard/inventarios/carne", label: "Inventario Carne" },
       { href: "/dashboard/produccion?tab=carne", label: "Producción de Carne" },
@@ -650,7 +650,7 @@ export const guides: Guide[] = [
     slug: "inventario-insumos",
     title: "Inventario de Insumos",
     module: "almacen",
-    icon: "🧰",
+    icon: "package-open",
     relatedHrefs: [
       { href: "/dashboard/inventarios/insumos", label: "Inventario Insumos" },
       { href: "/dashboard/almacen", label: "Almacén" },
@@ -671,7 +671,7 @@ export const guides: Guide[] = [
     slug: "balance-inventarios",
     title: "Balance de Inventarios",
     module: "inventarios",
-    icon: "⚖️",
+    icon: "scale",
     relatedHrefs: [
       { href: "/dashboard/inventarios/balance", label: "Balance Inventarios" },
       { href: "/dashboard/animales", label: "Animales" },
@@ -694,7 +694,7 @@ export const guides: Guide[] = [
     slug: "kpis-reportes",
     title: "KPIs y Reportes",
     module: "analisis",
-    icon: "🎯",
+    icon: "target",
     relatedHrefs: [
       { href: "/dashboard/analisis/kpis", label: "KPIs" },
       { href: "/dashboard/analisis/reportes", label: "Reportes" },
@@ -720,7 +720,7 @@ export const guides: Guide[] = [
     slug: "estandares-raza",
     title: "Curvas y desempeño",
     module: "analisis",
-    icon: "📈",
+    icon: "trend-up",
     relatedHrefs: [
       { href: "/dashboard/analisis/razas", label: "Curvas y desempeño" },
     ],
@@ -743,7 +743,7 @@ export const guides: Guide[] = [
     slug: "mantenimiento",
     title: "Mantenimiento",
     module: "almacen",
-    icon: "🔧",
+    icon: "wrench",
     relatedHrefs: [
       { href: "/dashboard/operaciones/mantenimiento", label: "Mantenimiento" },
     ],
@@ -764,7 +764,7 @@ export const guides: Guide[] = [
     slug: "gestion-gallinaza",
     title: "Gestión de Gallinaza",
     module: "produccion",
-    icon: "🌱",
+    icon: "sprout",
     relatedHrefs: [
       { href: "/dashboard/operaciones/gallinaza", label: "Gestión Gallinaza" },
       { href: "/dashboard/inventarios/gallinaza", label: "Inventario Gallinaza" },
@@ -792,7 +792,7 @@ export const guides: Guide[] = [
     slug: "catalogos-sistema",
     title: "Catálogos del Sistema",
     module: "configuracion",
-    icon: "🗂️",
+    icon: "folder",
     relatedHrefs: [
       { href: "/dashboard/configuracion/catalogos", label: "Catálogos" },
     ],
@@ -812,7 +812,7 @@ export const guides: Guide[] = [
     slug: "lugares-manejo",
     title: "Lugares de manejo y resultados por espacio",
     module: "ubicaciones",
-    icon: "📍",
+    icon: "map-pin",
     relatedHrefs: [
       { href: "/dashboard/ubicaciones", label: "Lugares de manejo" },
       { href: "/dashboard/produccion/adquisiciones", label: "Adquisiciones y entradas" },
@@ -845,7 +845,7 @@ export const guides: Guide[] = [
     slug: "trazabilidad-genetica",
     title: "Procedencia y trazabilidad genética",
     module: "animales",
-    icon: "🧬",
+    icon: "dna",
     relatedHrefs: [
       { href: "/dashboard/produccion/adquisiciones", label: "Adquisiciones y entradas" },
       { href: "/dashboard/produccion?tab=incubacion", label: "Incubación" },
@@ -872,7 +872,7 @@ export const guides: Guide[] = [
     slug: "asistente-operativo",
     title: "Usar el Asistente de la granja",
     module: "primeros-pasos",
-    icon: "🤖",
+    icon: "bot",
     relatedHrefs: [
       { href: "/dashboard", label: "Inicio y Asistente" },
       { href: "/dashboard/ubicaciones", label: "Lugares de manejo" },
@@ -902,7 +902,7 @@ export const guides: Guide[] = [
     slug: "infraestructura-equipos",
     title: "Infraestructura, equipos y mantenimiento",
     module: "almacen",
-    icon: "🔧",
+    icon: "wrench",
     relatedHrefs: [
       { href: "/dashboard/ubicaciones", label: "Lugares de manejo" },
       { href: "/dashboard/operaciones/activos", label: "Activos y equipos" },

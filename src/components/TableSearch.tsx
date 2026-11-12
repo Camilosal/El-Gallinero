@@ -1,5 +1,7 @@
 "use client";
 
+import { Search, X } from "lucide-react";
+
 interface TableSearchProps {
   value: string;
   onChange: (value: string) => void;
@@ -29,9 +31,7 @@ export default function TableSearch({
   return (
     <div className={`flex flex-col gap-2 sm:flex-row sm:items-center ${className}`}>
       <div className="relative w-full sm:max-w-sm">
-        <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-sm text-slate-400">
-          🔍
-        </span>
+        <Search className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" aria-hidden="true" />
         <input
           type="search"
           value={value}
@@ -47,7 +47,7 @@ export default function TableSearch({
             className="absolute right-2 top-1/2 -translate-y-1/2 rounded p-1 text-slate-400 transition-colors hover:bg-slate-100 hover:text-slate-600"
             aria-label="Limpiar búsqueda"
           >
-            ✕
+            <X className="w-3.5 h-3.5" />
           </button>
         )}
       </div>

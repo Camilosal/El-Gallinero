@@ -2,7 +2,9 @@
 
 import { useEffect, useState, useCallback, useMemo } from "react";
 import Link from "next/link";
+import { AlertTriangle, ArrowDown, ArrowUp, Egg, Package, PawPrint, ShoppingCart, Sprout, TrendingDown, Wheat, Wrench } from "lucide-react";
 import { PageHeader, Card, Table, Badge, StatCard, EmptyState } from "@/components/ui";
+import { AppIcon } from "@/components/AppIcon";
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip, Legend } from "recharts";
 import { apiFetch } from "@/lib/fetch";
 import TableSearch from "@/components/TableSearch";
@@ -122,17 +124,17 @@ interface ConsolidatedData {
 }
 
 const movementTypeLabels: Record<string, string> = {
-  compra: "🛒 Compra",
-  donacion: "🎁 Donación",
-  traslado: "🚚 Traslado",
-  produccion_propia: "🌿 Producción propia",
-  ajuste: "⚖️ Ajuste",
-  consumo_programa: "⚙️ Consumo por programa",
-  consumo_manual: "🍽️ Consumo manual",
-  venta: "💰 Venta",
-  uso_interno: "🏠 Uso interno",
-  merma: "🗑️ Merma",
-  otro: "📄 Otro",
+  compra: "Compra",
+  donacion: "Donación",
+  traslado: "Traslado",
+  produccion_propia: "Producción propia",
+  ajuste: "Ajuste",
+  consumo_programa: "Consumo por programa",
+  consumo_manual: "Consumo manual",
+  venta: "Venta",
+  uso_interno: "Uso interno",
+  merma: "Merma",
+  otro: "Otro",
 };
 
 const COLORS = ["#22c55e", "#3b82f6", "#eab308", "#ef4444", "#a855f7", "#06b6d4", "#f97316", "#ec4899", "#84cc16", "#64748b"];
@@ -259,29 +261,35 @@ export default function BalancePage() {
   return (
     <div>
       <PageHeader
-        title="⚖️ Inventarios y Valorización"
+        title="Inventarios y Valorización"
         description="Todo el inventario del gallinero y su valor: animales, huevos, carne, gallinaza, alimentos e insumos."
         help="Esta es la vista completa de existencias para valorizar la granja. Incluye animales en pie (gallinas, gallos, pollos, codornices, patos y conejos), huevos disponibles, carne, gallinaza, alimentos e insumos. El valor total suma todas las categorías con los precios de Catálogos y los costos registrados. Los indicadores en rojo señalan stock bajo. Usa los accesos rápidos para gestionar cada categoría y este balance para ver el capital invertido en inventario."
       />
 
       <div className="mb-4 flex flex-wrap gap-2">
-        <Link href="/dashboard/animales" className="rounded-full bg-green-50 px-3 py-1.5 text-xs font-semibold text-green-700 hover:bg-green-100">
-          🐾 Animales
+        <Link href="/dashboard/animales" className="inline-flex items-center gap-1.5 rounded-full bg-green-50 px-3 py-1.5 text-xs font-semibold text-green-700 hover:bg-green-100">
+          <PawPrint className="w-3.5 h-3.5" aria-hidden="true" />
+          <span>Animales</span>
         </Link>
-        <Link href="/dashboard/inventarios/huevos" className="rounded-full bg-yellow-50 px-3 py-1.5 text-xs font-semibold text-yellow-700 hover:bg-yellow-100">
-          🥚 Huevos
+        <Link href="/dashboard/inventarios/huevos" className="inline-flex items-center gap-1.5 rounded-full bg-yellow-50 px-3 py-1.5 text-xs font-semibold text-yellow-700 hover:bg-yellow-100">
+          <Egg className="w-3.5 h-3.5" aria-hidden="true" />
+          <span>Huevos</span>
         </Link>
-        <Link href="/dashboard/inventarios/carne" className="rounded-full bg-red-50 px-3 py-1.5 text-xs font-semibold text-red-700 hover:bg-red-100">
-          🍗 Carne
+        <Link href="/dashboard/inventarios/carne" className="inline-flex items-center gap-1.5 rounded-full bg-red-50 px-3 py-1.5 text-xs font-semibold text-red-700 hover:bg-red-100">
+          <AppIcon icon="meat" className="w-3.5 h-3.5" />
+          <span>Carne</span>
         </Link>
-        <Link href="/dashboard/inventarios/gallinaza" className="rounded-full bg-lime-50 px-3 py-1.5 text-xs font-semibold text-lime-700 hover:bg-lime-100">
-          🌱 Gallinaza
+        <Link href="/dashboard/inventarios/gallinaza" className="inline-flex items-center gap-1.5 rounded-full bg-lime-50 px-3 py-1.5 text-xs font-semibold text-lime-700 hover:bg-lime-100">
+          <Sprout className="w-3.5 h-3.5" aria-hidden="true" />
+          <span>Gallinaza</span>
         </Link>
-        <Link href="/dashboard/inventarios/alimentacion" className="rounded-full bg-blue-50 px-3 py-1.5 text-xs font-semibold text-blue-700 hover:bg-blue-100">
-          🌾 Alimentos
+        <Link href="/dashboard/inventarios/alimentacion" className="inline-flex items-center gap-1.5 rounded-full bg-blue-50 px-3 py-1.5 text-xs font-semibold text-blue-700 hover:bg-blue-100">
+          <Wheat className="w-3.5 h-3.5" aria-hidden="true" />
+          <span>Alimentos</span>
         </Link>
-        <Link href="/dashboard/inventarios/insumos" className="rounded-full bg-purple-50 px-3 py-1.5 text-xs font-semibold text-purple-700 hover:bg-purple-100">
-          🧰 Insumos
+        <Link href="/dashboard/inventarios/insumos" className="inline-flex items-center gap-1.5 rounded-full bg-purple-50 px-3 py-1.5 text-xs font-semibold text-purple-700 hover:bg-purple-100">
+          <Wrench className="w-3.5 h-3.5" aria-hidden="true" />
+          <span>Insumos</span>
         </Link>
       </div>
 
@@ -303,43 +311,43 @@ export default function BalancePage() {
       {loading ? (
         <Card><p className="text-center py-8 text-slate-400">Cargando...</p></Card>
       ) : !data ? (
-        <Card><EmptyState icon="⚖️" message="No se pudo cargar el balance" /></Card>
+        <Card><EmptyState icon="scale" message="No se pudo cargar el balance" /></Card>
       ) : (
         <div className="space-y-4">
           {/* KPIs */}
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-            <StatCard icon="💰" label="Valor Total Inventario" value={fmtMoney(data.summary.totalValue)} color="green" />
-            <StatCard icon="🌾" label="Alimentos" value={`${data.summary.totalFeeds} (${data.summary.lowStockFeeds} bajos)`} color="blue" />
-            <StatCard icon="🐾" label="Animales en Inventario" value={data.summary.totalAnimalsActive} color="yellow" />
-            <StatCard icon="🥚" label="Huevos Disponibles" value={data.summary.totalEggsAvailable} color="purple" />
+            <StatCard icon="money" label="Valor Total Inventario" value={fmtMoney(data.summary.totalValue)} color="green" />
+            <StatCard icon="wheat" label="Alimentos" value={`${data.summary.totalFeeds} (${data.summary.lowStockFeeds} bajos)`} color="blue" />
+            <StatCard icon="paw" label="Animales en Inventario" value={data.summary.totalAnimalsActive} color="yellow" />
+            <StatCard icon="egg" label="Huevos Disponibles" value={data.summary.totalEggsAvailable} color="purple" />
           </div>
 
           {/* Desglose de valor */}
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
             <Card>
-              <p className="text-sm text-slate-500">🌾 Valor en Alimentos</p>
+              <p className="text-sm text-slate-500 flex items-center gap-1.5"><Wheat className="w-4 h-4 text-amber-600" aria-hidden="true" /><span>Valor en Alimentos</span></p>
               <p className="text-2xl font-bold text-blue-600">{fmtMoney(data.summary.foodValue)}</p>
             </Card>
             <Card>
-              <p className="text-sm text-slate-500">🥚 Valor en Huevos</p>
+              <p className="text-sm text-slate-500 flex items-center gap-1.5"><Egg className="w-4 h-4 text-amber-500" aria-hidden="true" /><span>Valor en Huevos</span></p>
               <p className="text-2xl font-bold text-purple-600">{fmtMoney(data.summary.eggValue)}</p>
             </Card>
             <Card>
-              <p className="text-sm text-slate-500">🐾 Valor Animales en Pie</p>
+              <p className="text-sm text-slate-500 flex items-center gap-1.5"><PawPrint className="w-4 h-4 text-orange-600" aria-hidden="true" /><span>Valor Animales en Pie</span></p>
               <p className="text-2xl font-bold text-orange-600">{fmtMoney(data.summary.birdsValue)}</p>
               <p className="text-xs text-slate-400">{data.summary.totalBirdsWeightKg} kg en pie, valorados con precios de Catálogos</p>
             </Card>
             <Card>
-              <p className="text-sm text-slate-500">🧰 Valor en Insumos</p>
+              <p className="text-sm text-slate-500 flex items-center gap-1.5"><Wrench className="w-4 h-4 text-cyan-600" aria-hidden="true" /><span>Valor en Insumos</span></p>
               <p className="text-2xl font-bold text-cyan-600">{fmtMoney(data.summary.suppliesValue)}</p>
             </Card>
             <Card>
-              <p className="text-sm text-slate-500">🍗 Valor en Carne</p>
+              <p className="text-sm text-slate-500 flex items-center gap-1.5"><AppIcon icon="meat" className="w-4 h-4 text-red-600" /><span>Valor en Carne</span></p>
               <p className="text-2xl font-bold text-red-600">{fmtMoney(data.summary.meatValue)}</p>
               <p className="text-xs text-slate-400">{data.summary.totalMeatKg} kg disponibles · precio estimado por especie</p>
             </Card>
             <Card>
-              <p className="text-sm text-slate-500">🌱 Valor Gallinaza</p>
+              <p className="text-sm text-slate-500 flex items-center gap-1.5"><Sprout className="w-4 h-4 text-green-600" aria-hidden="true" /><span>Valor Gallinaza</span></p>
               <p className="text-2xl font-bold text-green-600">{fmtMoney(data.summary.manureValue)}</p>
               <p className="text-xs text-slate-400">{fmtKg(data.summary.totalManureKg)} en stock</p>
             </Card>
@@ -347,7 +355,10 @@ export default function BalancePage() {
 
           {/* Alimentos */}
           <Card>
-            <h3 className="font-semibold text-slate-700 mb-3">🌾 Inventario de Alimentos</h3>
+            <h3 className="font-semibold text-slate-700 mb-3 flex items-center gap-2">
+              <Wheat className="w-4 h-4 text-amber-600" aria-hidden="true" />
+              <span>Inventario de Alimentos</span>
+            </h3>
             <TableSearch
               value={foodSearch}
               onChange={setFoodSearch}
@@ -358,7 +369,7 @@ export default function BalancePage() {
             />
             {filteredFoods.length === 0 ? (
               <EmptyState
-                icon="🌾"
+                icon="wheat"
                 message={
                   foodSearch.trim()
                     ? "No hay alimentos que coincidan con la búsqueda"
@@ -372,7 +383,14 @@ export default function BalancePage() {
                     <td className="px-4 py-3 font-medium">{f.name}</td>
                     <td className="px-4 py-3 text-sm">
                       <Badge color={isPurchasedFeedCategory(f.category) ? "blue" : "green"}>
-                        {isPurchasedFeedCategory(f.category) ? `🛒 ${feedCategoryLabel(f.category)}` : `🌿 ${feedCategoryLabel(f.category)}`}
+                        <span className="inline-flex items-center gap-1">
+                          {isPurchasedFeedCategory(f.category) ? (
+                            <ShoppingCart className="w-3.5 h-3.5" aria-hidden="true" />
+                          ) : (
+                            <Sprout className="w-3.5 h-3.5" aria-hidden="true" />
+                          )}
+                          <span>{feedCategoryLabel(f.category)}</span>
+                        </span>
                       </Badge>
                     </td>
                     <td className="px-4 py-3 font-semibold">{f.currentStock} {f.unit}</td>
@@ -387,12 +405,18 @@ export default function BalancePage() {
 
           {/* Insumos */}
           <div className="bg-white rounded-xl shadow p-5">
-            <h2 className="text-lg font-bold text-gray-800 mb-3">🧰 Insumos</h2>
+            <h2 className="text-lg font-bold text-gray-800 mb-3 flex items-center gap-2">
+              <Wrench className="w-5 h-5 text-slate-600" aria-hidden="true" />
+              <span>Insumos</span>
+            </h2>
             <div className="flex gap-4 mb-3 text-sm">
               <span className="px-3 py-1 bg-blue-50 text-blue-700 rounded-full">{data.supplies.length} items</span>
               <span className="px-3 py-1 bg-green-50 text-green-700 rounded-full">Valor: ${data.summary.suppliesValue?.toLocaleString()}</span>
               {data.summary.lowStockSupplies > 0 && (
-                <span className="px-3 py-1 bg-red-50 text-red-700 rounded-full">⚠ {data.summary.lowStockSupplies} stock bajo</span>
+                <span className="inline-flex items-center gap-1 px-3 py-1 bg-red-50 text-red-700 rounded-full">
+                  <AlertTriangle className="w-3.5 h-3.5" aria-hidden="true" />
+                  <span>{data.summary.lowStockSupplies} stock bajo</span>
+                </span>
               )}
             </div>
             <TableSearch
@@ -405,7 +429,7 @@ export default function BalancePage() {
             />
             {filteredSupplies.length === 0 ? (
               <EmptyState
-                icon="🧰"
+                icon="wrench"
                 message={
                   supplySearch.trim()
                     ? "No hay insumos que coincidan con la búsqueda"
@@ -434,7 +458,10 @@ export default function BalancePage() {
 
           {/* Huevos */}
           <Card>
-            <h3 className="font-semibold text-slate-700 mb-3">🥚 Huevos Disponibles por Tamaño (PEPS)</h3>
+            <h3 className="font-semibold text-slate-700 mb-3 flex items-center gap-2">
+              <Egg className="w-4 h-4 text-amber-500" aria-hidden="true" />
+              <span>Huevos Disponibles por Tamaño (PEPS)</span>
+            </h3>
             <TableSearch
               value={eggSearch}
               onChange={setEggSearch}
@@ -445,7 +472,7 @@ export default function BalancePage() {
             />
             {filteredEggs.length === 0 ? (
               <EmptyState
-                icon="🥚"
+                icon="egg"
                 message={
                   eggSearch.trim()
                     ? "No hay tamaños que coincidan con la búsqueda"
@@ -473,7 +500,10 @@ export default function BalancePage() {
             <Card>
               <div className="flex items-start justify-between gap-3">
                 <div>
-                  <h3 className="font-semibold text-slate-700">🐾 Animales por Estado</h3>
+                  <h3 className="font-semibold text-slate-700 flex items-center gap-2">
+                    <PawPrint className="w-4 h-4 text-slate-600" aria-hidden="true" />
+                    <span>Animales por Estado</span>
+                  </h3>
                   <p className="text-xs text-slate-500 mt-1">Inventario vigente: animales no vendidos, faenados ni muertos.</p>
                 </div>
                 <div className="text-right">
@@ -485,7 +515,9 @@ export default function BalancePage() {
               <div className="mt-3 grid grid-cols-3 gap-2 sm:grid-cols-6">
                 {data.birds.species.map((s) => (
                   <div key={s.species} className="rounded-lg bg-slate-50 p-2 text-center">
-                    <p className={`text-lg leading-none ${s.count > 0 ? "" : "opacity-40"}`}>{s.icon}</p>
+                    <div className={`mx-auto flex justify-center ${s.count > 0 ? "text-slate-700" : "opacity-40 text-slate-400"}`}>
+                      <AppIcon icon={s.icon} className="w-5 h-5" />
+                    </div>
                     <p className={`mt-1 text-lg font-bold ${s.count > 0 ? "text-slate-800" : "text-slate-300"}`}>{s.count}</p>
                     <p className={`text-[11px] ${s.count > 0 ? "text-slate-600" : "text-slate-400"}`}>{s.label}</p>
                   </div>
@@ -502,7 +534,10 @@ export default function BalancePage() {
                 <div className="p-3 bg-orange-50 rounded-lg"><p className="text-slate-500 text-xs">Recomendadas sacrificio</p><p className="text-xl font-bold text-orange-700">{data.birds.hens.recommendedSlaughter}</p></div>
               </div>
               <div className="mt-3 flex flex-wrap gap-x-4 gap-y-1 text-xs text-slate-500">
-                <span>🐓 Gallos en inventario: <strong className="text-slate-700">{data.birds.roosters.active}</strong></span>
+                <span className="inline-flex items-center gap-1">
+                  <AppIcon icon="rooster" className="w-3.5 h-3.5 text-slate-600" />
+                  <span>Gallos en inventario: <strong className="text-slate-700">{data.birds.roosters.active}</strong></span>
+                </span>
                 <span>
                   Fuera del inventario: <strong className="text-slate-700">{data.birds.hens.sold + data.birds.hens.slaughtered + data.birds.hens.dead} gallinas</strong>
                   {" "}({data.birds.hens.sold} vendidas · {data.birds.hens.slaughtered} faena · {data.birds.hens.dead} muertas)
@@ -510,7 +545,10 @@ export default function BalancePage() {
               </div>
               {data.mortality.totalDeaths > 0 && (
                 <div className="mt-3 p-3 bg-red-50 rounded-lg">
-                  <span className="font-semibold text-red-700">📉 Mortalidad: {data.mortality.totalDeaths} muertes</span>
+                  <span className="font-semibold text-red-700 inline-flex items-center gap-1.5">
+                    <TrendingDown className="w-4 h-4" aria-hidden="true" />
+                    <span>Mortalidad: {data.mortality.totalDeaths} muertes</span>
+                  </span>
                   <div className="flex flex-wrap gap-2 mt-1">
                     {Object.entries(data.mortality.byCause).map(([cause, count]) => (
                       <span key={cause} className="text-xs text-red-600">{cause.replace(/_/g, ' ')}: {count}</span>
@@ -520,7 +558,10 @@ export default function BalancePage() {
               )}
               {data.birds.batches.length > 0 && (
                 <div className="mt-4">
-                  <p className="text-sm font-medium text-slate-600 mb-2">📦 Lotes de engorde activos</p>
+                  <p className="text-sm font-medium text-slate-600 mb-2 flex items-center gap-1.5">
+                    <Package className="w-4 h-4 text-slate-500" aria-hidden="true" />
+                    <span>Lotes de engorde activos</span>
+                  </p>
                   <TableSearch
                     value={batchSearch}
                     onChange={setBatchSearch}
@@ -531,7 +572,7 @@ export default function BalancePage() {
                   />
                   {filteredBatches.length === 0 ? (
                     <EmptyState
-                      icon="📦"
+                      icon="package"
                       message={
                         batchSearch.trim()
                           ? "No hay lotes que coincidan con la búsqueda"
@@ -555,7 +596,10 @@ export default function BalancePage() {
             </Card>
 
             <Card>
-              <h3 className="font-semibold text-slate-700 mb-3">🌱 Gallinaza</h3>
+              <h3 className="font-semibold text-slate-700 mb-3 flex items-center gap-2">
+                <Sprout className="w-4 h-4 text-green-600" aria-hidden="true" />
+                <span>Gallinaza</span>
+              </h3>
               <div className="flex items-center gap-4">
                 <div className="p-4 bg-green-50 rounded-xl flex-1">
                   <p className="text-slate-500 text-xs">Stock acumulado</p>
@@ -574,7 +618,10 @@ export default function BalancePage() {
           {/* Carne */}
           {data.meat.length > 0 && (
             <div className="bg-white rounded-xl shadow p-5">
-              <h2 className="text-lg font-bold text-gray-800 mb-3">🍗 Inventario de Carne</h2>
+              <h2 className="text-lg font-bold text-gray-800 mb-3 flex items-center gap-2">
+                <AppIcon icon="meat" className="w-5 h-5 text-slate-600" />
+                <span>Inventario de Carne</span>
+              </h2>
               <div className="flex gap-4 mb-3 text-sm">
                 <span className="px-3 py-1 bg-amber-50 text-amber-700 rounded-full">{data.summary.totalMeatKg} kg disponibles</span>
               </div>
@@ -588,7 +635,7 @@ export default function BalancePage() {
               />
               {filteredMeat.length === 0 ? (
                 <EmptyState
-                  icon="🍗"
+                  icon="meat"
                   message={
                     meatSearch.trim()
                       ? "No hay lotes que coincidan con la búsqueda"
@@ -620,13 +667,19 @@ export default function BalancePage() {
 
           {/* Movimientos por motivo */}
           <Card>
-            <h3 className="font-semibold text-slate-700 mb-1">📦 Entradas y Salidas por Motivo (últimos {data.periodDays} días)</h3>
+            <h3 className="font-semibold text-slate-700 mb-1 flex items-center gap-2">
+              <Package className="w-4 h-4 text-slate-600" aria-hidden="true" />
+              <span>Entradas y Salidas por Motivo (últimos {data.periodDays} días)</span>
+            </h3>
             <p className="text-xs text-slate-400 mb-4">Movimientos de alimento clasificados por tipo de operación</p>
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
               <div>
-                <p className="text-sm font-medium text-green-700 mb-2">📥 Entradas: {data.movements.totalEntries} kg</p>
+                <p className="text-sm font-medium text-green-700 mb-2 flex items-center gap-1.5">
+                  <ArrowDown className="w-4 h-4" aria-hidden="true" />
+                  <span>Entradas: {data.movements.totalEntries} kg</span>
+                </p>
                 {entryChart.length === 0 ? (
-                  <EmptyState icon="📥" message="Sin entradas en el período" />
+                  <EmptyState icon="incoming" message="Sin entradas en el período" />
                 ) : (
                   <ResponsiveContainer width="100%" height={240}>
                     <PieChart>
@@ -640,9 +693,12 @@ export default function BalancePage() {
                 )}
               </div>
               <div>
-                <p className="text-sm font-medium text-red-700 mb-2">📤 Salidas: {data.movements.totalExits} kg</p>
+                <p className="text-sm font-medium text-red-700 mb-2 flex items-center gap-1.5">
+                  <ArrowUp className="w-4 h-4" aria-hidden="true" />
+                  <span>Salidas: {data.movements.totalExits} kg</span>
+                </p>
                 {exitChart.length === 0 ? (
-                  <EmptyState icon="📤" message="Sin salidas en el período" />
+                  <EmptyState icon="outgoing" message="Sin salidas en el período" />
                 ) : (
                   <ResponsiveContainer width="100%" height={240}>
                     <PieChart>

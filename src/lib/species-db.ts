@@ -24,12 +24,12 @@ export const SPECIES_PLURAL: Record<string, string> = {
 };
 
 export const SPECIES_ICON: Record<string, string> = {
-  gallina: "🐔",
-  gallo: "🐓",
-  pollo: "🐤",
-  codorniz: "🥚",
-  pato: "🦆",
-  conejo: "🐇",
+  gallina: "hen",
+  gallo: "rooster",
+  pollo: "chick",
+  codorniz: "egg",
+  pato: "duck",
+  conejo: "rabbit",
 };
 
 /** Especies que son aves (el conejo queda por fuera del término "aves"). */
@@ -45,7 +45,7 @@ export function speciesLabel(species: string, plural = false): string {
 }
 
 export function speciesIcon(species: string): string {
-  return SPECIES_ICON[species] || "🐾";
+  return SPECIES_ICON[species] || "paw-print";
 }
 
 /** Normaliza texto libre ("gallinas", "Gallina", "pollos", "conejos") a la clave del enum. */
