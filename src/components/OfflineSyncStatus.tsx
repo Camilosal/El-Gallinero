@@ -58,11 +58,11 @@ export default function OfflineSyncStatus() {
       <button
         type="button"
         onClick={() => setIsOpen(true)}
-        className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium border shadow-xs transition-colors hover:brightness-95 ${badgeColor}`}
+        className={`inline-flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 sm:py-2 rounded-lg text-xs sm:text-sm font-medium border shadow-xs transition-colors hover:brightness-95 shrink-0 ${badgeColor}`}
         title="Ver estado de conexión y sincronización offline"
       >
-        <Icon className={`w-3.5 h-3.5 ${isSyncing ? "animate-spin" : ""}`} />
-        <span className="hidden sm:inline">{text}</span>
+        <Icon className={`w-3.5 h-3.5 sm:w-4 sm:h-4 shrink-0 ${isSyncing ? "animate-spin" : ""}`} />
+        <span className="whitespace-nowrap">{text}</span>
       </button>
 
       {/* Modal / Dialog de estado de sincronización */}

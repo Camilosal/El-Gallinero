@@ -6,9 +6,15 @@ import { searchNavigation, type SearchEntry } from "@/lib/navigation";
 
 interface GlobalSearchProps {
   collapsed?: boolean;
+  variant?: "sidebar" | "topbar";
+  className?: string;
 }
 
-export default function GlobalSearch({ collapsed = false }: GlobalSearchProps) {
+export default function GlobalSearch({
+  collapsed = false,
+  variant = "sidebar",
+  className = "",
+}: GlobalSearchProps) {
   const router = useRouter();
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState("");
@@ -70,7 +76,24 @@ export default function GlobalSearch({ collapsed = false }: GlobalSearchProps) {
 
   return (
     <>
-      {collapsed ? (
+      {variant === "topbar" ? (
+        <button
+          type="button"
+          onClick={openSearch}
+          className={`flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-2.5 sm:px-3 py-1.5 sm:py-2 text-left text-xs sm:text-sm text-slate-500 shadow-xs transition-colors hover:border-slate-300 hover:bg-slate-50 hover:text-slate-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-green-500 ${className}`}
+          aria-label="Buscar en el sistema"
+          aria-keyshortcuts="Control+K Meta+K"
+        >
+          <span className="text-sm text-slate-400">🔍</span>
+          <span className="truncate flex-1">
+            <span className="sm:hidden">Buscar...</span>
+            <span className="hidden sm:inline">Buscar módulo o acción...</span>
+          </span>
+          <kbd className="hidden md:inline-flex rounded border border-slate-200 bg-slate-100 px-1.5 py-0.5 text-[10px] font-medium text-slate-500">
+            Ctrl K
+          </kbd>
+        </button>
+      ) : collapsed ? (
         <button
           type="button"
           onClick={openSearch}
@@ -85,7 +108,7 @@ export default function GlobalSearch({ collapsed = false }: GlobalSearchProps) {
         <button
           type="button"
           onClick={openSearch}
-          className="flex w-full items-center gap-2 rounded-lg border border-green-700 bg-green-800/70 px-3 py-2 text-left text-sm text-green-200 transition-colors hover:border-green-600 hover:bg-green-800"
+          className={`flex w-full items-center gap-2 rounded-lg border border-green-700 bg-green-800/70 px-3 py-2 text-left text-sm text-green-200 transition-colors hover:border-green-600 hover:bg-green-800 ${className}`}
           aria-label="Buscar en el sistema"
           aria-keyshortcuts="Control+K Meta+K"
         >

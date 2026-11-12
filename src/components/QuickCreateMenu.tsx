@@ -76,9 +76,9 @@ export default function QuickCreateMenu() {
         onClick={() => setOpen(true)}
         aria-haspopup="dialog"
         aria-expanded={open}
-        className="inline-flex items-center gap-2 rounded-lg bg-green-700 px-4 py-2 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-green-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-green-500 focus-visible:ring-offset-2"
+        className="inline-flex items-center gap-1.5 sm:gap-2 rounded-lg bg-green-700 px-3 sm:px-4 py-1.5 sm:py-2 text-xs sm:text-sm font-semibold text-white shadow-xs transition-colors hover:bg-green-800 shrink-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-green-500 focus-visible:ring-offset-2"
       >
-        <span aria-hidden="true" className="text-lg leading-none">＋</span>
+        <span aria-hidden="true" className="text-base sm:text-lg leading-none">＋</span>
         <span>Crear</span>
       </button>
 

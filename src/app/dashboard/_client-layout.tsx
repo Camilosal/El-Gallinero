@@ -5,6 +5,7 @@ import Sidebar from "@/components/Sidebar";
 import AssistantWidget from "@/components/AssistantWidget";
 import QuickCreateMenu from "@/components/QuickCreateMenu";
 import OfflineSyncStatus from "@/components/OfflineSyncStatus";
+import GlobalSearch from "@/components/GlobalSearch";
 
 const COLLAPSED_KEY = "sidebar-collapsed";
 
@@ -35,8 +36,11 @@ export default function ClientAppLayout({ children }: { children: React.ReactNod
     <div className="flex min-h-screen">
       <Sidebar />
       <main className={`flex-1 ${marginClass} p-4 md:p-6 overflow-auto transition-all duration-300`}>
-        <div className="mb-4 flex items-center justify-between border-b border-slate-200 pb-3">
+        <div className="mb-4 flex items-center gap-2 sm:gap-3 border-b border-slate-200 pb-3 pl-11 md:pl-0">
           <OfflineSyncStatus />
+          <div className="flex-1 min-w-0 max-w-xs sm:max-w-sm md:max-w-md">
+            <GlobalSearch variant="topbar" className="w-full" />
+          </div>
           <QuickCreateMenu />
         </div>
         {children}
