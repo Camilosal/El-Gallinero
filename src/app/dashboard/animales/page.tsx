@@ -177,7 +177,22 @@ export default function AnimalesPage() {
     );
   }, [data, search, speciesFilter]);
 
-  const visibleSpecies = (data?.species ?? []).filter((species) => species.count > 0);
+  const visibleSpecies = (data?.species ?? []).filter((species) => {
+    if (species.count <= 0) return false;
+    if (!search.trim()) return true;
+    return matchesTextQuery(search, [species.label, species.species, species.isBird ? "ave" : "no ave", species.count]);
+  });
+  const visibleQuickLinks = useMemo(
+    () => (search.trim() ? quickLinks.filter((l) => matchesTextQuery(search, [l.label, l.desc])) : quickLinks),
+    [search],
+  );
+  const visibleUnassigned = useMemo(
+    () =>
+      search.trim()
+        ? unassignedAnimals.filter((a) => matchesTextQuery(search, [a.code, a.species, a.animalType, a.status]))
+        : unassignedAnimals,
+    [unassignedAnimals, search],
+  );
   const inventoryValue = data?.summary.totalValue ?? 0;
 
   return (
@@ -208,6 +223,14 @@ export default function AnimalesPage() {
         </Card>
       ) : (
         <div className="space-y-6">
+          <TableSearch
+            value={search}
+            onChange={setSearch}
+            placeholder="Buscar animales por código, especie, lugar, origen o módulo..."
+            resultCount={groups.length}
+            totalCount={data.groups.filter((group) => groupMatchesAnimalFilter(group, speciesFilter)).length}
+          />
+
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
             <StatCard icon="paw-print" label="Animales en inventario" value={data.summary.totalAnimals} color="green" />
             <StatCard icon="hen" label="Aves" value={data.summary.totalBirds} color="yellow" />
@@ -243,21 +266,23 @@ export default function AnimalesPage() {
             </div>
           </Card>
 
-          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
-            {quickLinks.map((link) => (
-              <Link
-                key={link.href}
-                href={link.href}
-                className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm transition-shadow hover:shadow-md"
-              >
-                <div className="w-9 h-9 rounded-lg bg-slate-100 flex items-center justify-center text-slate-700">
-                  <AppIcon icon={link.icon} className="w-5 h-5" />
-                </div>
-                <p className="mt-2 font-semibold text-slate-800">{link.label}</p>
-                <p className="mt-1 text-xs text-slate-500">{link.desc}</p>
-              </Link>
-            ))}
-          </div>
+          {visibleQuickLinks.length > 0 && (
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
+              {visibleQuickLinks.map((link) => (
+                <Link
+                  key={link.href}
+                  href={link.href}
+                  className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm transition-shadow hover:shadow-md"
+                >
+                  <div className="w-9 h-9 rounded-lg bg-slate-100 flex items-center justify-center text-slate-700">
+                    <AppIcon icon={link.icon} className="w-5 h-5" />
+                  </div>
+                  <p className="mt-2 font-semibold text-slate-800">{link.label}</p>
+                  <p className="mt-1 text-xs text-slate-500">{link.desc}</p>
+                </Link>
+              ))}
+            </div>
+          )}
 
           {visibleSpecies.length > 0 && (
             <div>
@@ -283,18 +308,18 @@ export default function AnimalesPage() {
             </div>
           )}
 
-          {unassignedAnimals.length > 0 && (
+          {visibleUnassigned.length > 0 && (
             <Card className="border-amber-200 bg-amber-50/60">
               <div className="mb-3 flex flex-wrap items-start justify-between gap-2">
                 <div>
                   <h2 className="text-lg font-semibold text-amber-950">Pendientes de asignar lugar</h2>
-                  <p className="mt-1 text-sm text-amber-800">{unassignedAnimals.reduce((sum, animal) => sum + animal.quantity, 0)} animales activos no tienen una ubicación actual registrada. Asignarlos conserva el historial de traslado.</p>
+                  <p className="mt-1 text-sm text-amber-800">{visibleUnassigned.reduce((sum, animal) => sum + animal.quantity, 0)} animales activos no tienen una ubicación actual registrada. Asignarlos conserva el historial de traslado.</p>
                 </div>
                 {locations.length === 0 && <Link href="/dashboard/ubicaciones" className="rounded-lg bg-amber-700 px-3 py-2 text-sm font-semibold text-white">Crear un lugar</Link>}
               </div>
               {assignmentError && <p role="alert" className="mb-3 rounded-lg bg-red-50 p-3 text-sm text-red-700">{assignmentError}</p>}
               <div className="space-y-2">
-                {unassignedAnimals.map((animal) => (
+                {visibleUnassigned.map((animal) => (
                   <div key={animal.id} className="grid gap-2 rounded-lg border border-amber-200 bg-white p-3 sm:grid-cols-[1fr_1fr_auto] sm:items-center">
                     <div><strong className="text-sm text-slate-800">{animal.code}</strong><p className="text-xs text-slate-500">{animal.species} · {animal.quantity} · {animal.status}</p></div>
                     <select aria-label={`Lugar de ${animal.code}`} value={targetByAnimal[animal.id] || ""} onChange={(event) => setTargetByAnimal((current) => ({ ...current, [animal.id]: event.target.value }))} className="rounded-lg border border-slate-300 px-3 py-2 text-sm">
@@ -317,18 +342,9 @@ export default function AnimalesPage() {
                 </p>
               </div>
               <span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-medium text-slate-600">
-                {data.groups.length} grupos de animales
+                {groups.length} de {data.groups.length} grupos de animales
               </span>
             </div>
-
-            <TableSearch
-              value={search}
-              onChange={setSearch}
-              placeholder="Buscar por código, especie, origen o valor..."
-              resultCount={groups.length}
-              totalCount={data.groups.filter((group) => groupMatchesAnimalFilter(group, speciesFilter)).length}
-              className="mb-4"
-            />
 
             <div className="mb-4 flex flex-wrap gap-2" aria-label="Filtrar inventario por tipo de animal">
               <button

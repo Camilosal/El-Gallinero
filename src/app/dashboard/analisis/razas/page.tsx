@@ -4,8 +4,10 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { Area, CartesianGrid, ComposedChart, Line, ResponsiveContainer, Scatter, Tooltip, XAxis, YAxis } from "recharts";
 import { Card, EmptyState, PageHeader, Select } from "@/components/ui";
+import TableSearch from "@/components/TableSearch";
 import { apiFetch } from "@/lib/fetch";
 import { getStandardCurve, getStandardCurves, type CurveSpecies, type StandardCurve } from "@/lib/standard-curves";
+import { matchesTextQuery } from "@/lib/text";
 
 interface ActualPoint {
   week: number;
@@ -61,6 +63,7 @@ export default function RazasPage() {
   const [breed, setBreed] = useState("");
   const [data, setData] = useState<CurveResponse | null>(null);
   const [loading, setLoading] = useState(true);
+  const [pointSearch, setPointSearch] = useState("");
   const breedOptions = getStandardCurves(species);
   const selectedBreed = breedOptions.some((option) => option.breed === breed) ? breed : breedOptions[0]?.breed || "";
 
@@ -93,6 +96,15 @@ export default function RazasPage() {
   const comparison = data?.comparison || null;
   const actualLink = isLayer ? "/dashboard/produccion?tab=huevos" : "/dashboard/produccion/peso";
   const actualAction = isLayer ? "Registrar huevos" : "Registrar pesajes";
+  const filteredPoints = (selectedCurve?.points || []).filter((point) =>
+    matchesTextQuery(pointSearch, [
+      point.week,
+      `semana ${point.week}`,
+      formatMetric(point.min, selectedCurve!),
+      formatMetric(point.target, selectedCurve!),
+      formatMetric(point.max, selectedCurve!),
+    ]),
+  );
 
   return (
     <div className="space-y-6">
@@ -182,28 +194,40 @@ export default function RazasPage() {
 
             <Card>
               <h3 className="mb-3 font-semibold text-slate-800">Puntos de referencia</h3>
-              <div className="max-h-72 overflow-auto">
-                <table className="w-full text-sm">
-                  <thead className="sticky top-0 bg-slate-50 text-left text-slate-600">
-                    <tr>
-                      <th className="px-3 py-2">Semana</th>
-                      <th className="px-3 py-2 text-right">Mín.</th>
-                      <th className="px-3 py-2 text-right">Objetivo</th>
-                      <th className="px-3 py-2 text-right">Máx.</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {selectedCurve.points.map((point) => (
-                      <tr key={point.week} className="border-b border-slate-100">
-                        <td className="px-3 py-2">{point.week}</td>
-                        <td className="px-3 py-2 text-right">{formatMetric(point.min, selectedCurve)}</td>
-                        <td className="px-3 py-2 text-right font-semibold text-green-700">{formatMetric(point.target, selectedCurve)}</td>
-                        <td className="px-3 py-2 text-right">{formatMetric(point.max, selectedCurve)}</td>
+              <TableSearch
+                value={pointSearch}
+                onChange={setPointSearch}
+                placeholder="Buscar semana o valor de referencia..."
+                resultCount={filteredPoints.length}
+                totalCount={selectedCurve.points.length}
+                className="mb-3"
+              />
+              {filteredPoints.length === 0 ? (
+                <EmptyState icon="chart" message="No hay semanas que coincidan con la búsqueda" />
+              ) : (
+                <div className="max-h-72 overflow-auto">
+                  <table className="w-full text-sm">
+                    <thead className="sticky top-0 bg-slate-50 text-left text-slate-600">
+                      <tr>
+                        <th className="px-3 py-2">Semana</th>
+                        <th className="px-3 py-2 text-right">Mín.</th>
+                        <th className="px-3 py-2 text-right">Objetivo</th>
+                        <th className="px-3 py-2 text-right">Máx.</th>
                       </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
+                    </thead>
+                    <tbody>
+                      {filteredPoints.map((point) => (
+                        <tr key={point.week} className="border-b border-slate-100">
+                          <td className="px-3 py-2">{point.week}</td>
+                          <td className="px-3 py-2 text-right">{formatMetric(point.min, selectedCurve)}</td>
+                          <td className="px-3 py-2 text-right font-semibold text-green-700">{formatMetric(point.target, selectedCurve)}</td>
+                          <td className="px-3 py-2 text-right">{formatMetric(point.max, selectedCurve)}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
             </Card>
           </div>
         </>

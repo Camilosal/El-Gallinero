@@ -3,7 +3,9 @@
 import { useCallback, useEffect, useState } from "react";
 import { BarChart3 } from "lucide-react";
 import { Badge, Button, Card, EmptyState, Input, Modal, Select, Table, Textarea } from "@/components/ui";
+import TableSearch from "@/components/TableSearch";
 import { apiFetch } from "@/lib/fetch";
+import { matchesTextQuery } from "@/lib/text";
 
 interface SpeciesItem {
   id: string;
@@ -61,6 +63,7 @@ export default function EspeciesTab() {
   const [editing, setEditing] = useState<SpeciesItem | null>(null);
   const [form, setForm] = useState({ ...EMPTY });
   const [error, setError] = useState("");
+  const [search, setSearch] = useState("");
 
   const load = useCallback(() => {
     setLoading(true);
@@ -145,6 +148,18 @@ export default function EspeciesTab() {
     load();
   };
 
+  const visibleItems = items.filter((item) =>
+    matchesTextQuery(search, [
+      item.tipo,
+      item.value,
+      item.description,
+      item.systemType,
+      item.price,
+      item.targetWeightKg,
+      item.isActive ? "activo" : "inactivo",
+    ]),
+  );
+
   return (
     <div className="space-y-5">
       <Card>
@@ -164,13 +179,25 @@ export default function EspeciesTab() {
       </Card>
 
       <Card>
+        {items.length > 0 && (
+          <TableSearch
+            value={search}
+            onChange={setSearch}
+            placeholder="Buscar especie, raza, sistema o parámetro..."
+            resultCount={visibleItems.length}
+            totalCount={items.length}
+            className="mb-4"
+          />
+        )}
         {loading ? (
           <p className="text-center py-8 text-slate-400">Cargando...</p>
         ) : items.length === 0 ? (
           <EmptyState icon="chart" message="No hay parámetros por especie" />
+        ) : visibleItems.length === 0 ? (
+          <EmptyState icon="chart" message="No hay especies o razas que coincidan con la búsqueda" />
         ) : (
           <Table headers={["Especie", "Raza / nombre", "$/kg canal", "Rdto.", "Ciclo", "Peso", "Consumo", "FCR", "Huevos/día", "$/huevo", "Estado", ""]}>
-            {items.map((item) => (
+            {visibleItems.map((item) => (
               <tr key={item.id} className="hover:bg-slate-50">
                 <td className="px-4 py-3 font-medium capitalize">{item.tipo || "—"}</td>
                 <td className="px-4 py-3">{item.value}</td>

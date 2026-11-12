@@ -3,7 +3,9 @@
 import { useCallback, useEffect, useState } from "react";
 import { Syringe } from "lucide-react";
 import { Badge, Button, Card, EmptyState, Input, Modal, Select, Table, Textarea } from "@/components/ui";
+import TableSearch from "@/components/TableSearch";
 import { apiFetch } from "@/lib/fetch";
+import { matchesTextQuery } from "@/lib/text";
 
 interface VaccineTemplate {
   id: string;
@@ -38,6 +40,7 @@ export default function VacunasTab() {
   const [error, setError] = useState("");
   const [seeding, setSeeding] = useState(false);
   const [message, setMessage] = useState("");
+  const [search, setSearch] = useState("");
 
   const load = useCallback(() => {
     setLoading(true);
@@ -124,6 +127,19 @@ export default function VacunasTab() {
     }
   };
 
+  const visibleItems = items.filter((item) =>
+    matchesTextQuery(search, [
+      item.species,
+      item.breed || "general",
+      item.weekNumber,
+      `semana ${item.weekNumber}`,
+      item.name,
+      item.description,
+      item.frequencyDays ? `cada ${item.frequencyDays} dias` : "unica",
+      item.isActive ? "activo" : "inactivo",
+    ]),
+  );
+
   return (
     <div className="space-y-5">
       <Card>
@@ -148,13 +164,25 @@ export default function VacunasTab() {
       </Card>
 
       <Card>
+        {items.length > 0 && (
+          <TableSearch
+            value={search}
+            onChange={setSearch}
+            placeholder="Buscar vacuna por especie, raza, semana o nombre..."
+            resultCount={visibleItems.length}
+            totalCount={items.length}
+            className="mb-4"
+          />
+        )}
         {loading ? (
           <p className="text-center py-8 text-slate-400">Cargando...</p>
         ) : items.length === 0 ? (
           <EmptyState icon="vaccine" message="No hay plantillas de vacunación. Usa “Cargar referencias” o agrega una." />
+        ) : visibleItems.length === 0 ? (
+          <EmptyState icon="vaccine" message="No hay plantillas que coincidan con la búsqueda" />
         ) : (
           <Table headers={["Especie", "Raza", "Semana", "Evento", "Descripción", "Frecuencia", "Estado", ""]}>
-            {items.map((item) => (
+            {visibleItems.map((item) => (
               <tr key={item.id} className="hover:bg-slate-50">
                 <td className="px-4 py-3 capitalize">{item.species}</td>
                 <td className="px-4 py-3">{item.breed || "General"}</td>

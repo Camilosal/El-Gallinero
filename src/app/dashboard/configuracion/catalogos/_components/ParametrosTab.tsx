@@ -2,8 +2,10 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { Settings } from "lucide-react";
-import { Button, Card, Input, Textarea } from "@/components/ui";
+import { Button, Card, EmptyState, Input, Textarea } from "@/components/ui";
+import TableSearch from "@/components/TableSearch";
 import { apiFetch } from "@/lib/fetch";
+import { matchesTextQuery } from "@/lib/text";
 
 interface SettingItem {
   key: string;
@@ -29,6 +31,7 @@ export default function ParametrosTab() {
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
+  const [search, setSearch] = useState("");
 
   const load = useCallback(() => {
     setLoading(true);
@@ -44,15 +47,30 @@ export default function ParametrosTab() {
 
   useEffect(() => { void Promise.resolve().then(load); }, [load]);
 
+  const filteredItems = useMemo(
+    () =>
+      items.filter((item) =>
+        matchesTextQuery(search, [
+          item.label,
+          item.description,
+          item.group,
+          item.key,
+          values[item.key] ?? item.value,
+          item.unit,
+        ]),
+      ),
+    [items, search, values],
+  );
+
   const grouped = useMemo(() => {
     const map = new Map<string, SettingItem[]>();
-    for (const item of items) {
+    for (const item of filteredItems) {
       const list = map.get(item.group) || [];
       list.push(item);
       map.set(item.group, list);
     }
     return Array.from(map.entries());
-  }, [items]);
+  }, [filteredItems]);
 
   const save = async () => {
     setSaving(true);
@@ -99,7 +117,22 @@ export default function ParametrosTab() {
         {message && <p className="mt-3 text-sm text-green-700 bg-green-50 p-3 rounded-lg">{message}</p>}
       </Card>
 
-      {grouped.map(([group, groupItems]) => (
+      {items.length > 0 && (
+        <TableSearch
+          value={search}
+          onChange={setSearch}
+          placeholder="Buscar parámetro por nombre, grupo, clave o descripción..."
+          resultCount={filteredItems.length}
+          totalCount={items.length}
+        />
+      )}
+
+      {grouped.length === 0 ? (
+        <Card>
+          <EmptyState icon="clipboard" message="No hay parámetros que coincidan con la búsqueda" />
+        </Card>
+      ) : (
+        grouped.map(([group, groupItems]) => (
         <Card key={group}>
           <h4 className="font-semibold text-slate-700 mb-3">{group}</h4>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -131,7 +164,8 @@ export default function ParametrosTab() {
             ))}
           </div>
         </Card>
-      ))}
+      ))
+      )}
     </div>
   );
 }

@@ -1,9 +1,12 @@
 "use client";
 
+import { useState } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { AppIcon } from "@/components/AppIcon";
-import { PageHeader } from "@/components/ui";
+import TableSearch from "@/components/TableSearch";
+import { EmptyState, PageHeader } from "@/components/ui";
+import { matchesTextQuery } from "@/lib/text";
 import GallinasTab from "./GallinasTab";
 import PollosTab from "./PollosTab";
 
@@ -38,6 +41,7 @@ const batchSpeciesByTab: Partial<Record<AnimalSection, string>> = {
 export default function AnimalesTab() {
   const searchParams = useSearchParams();
   const router = useRouter();
+  const [search, setSearch] = useState("");
   const requestedTab = searchParams.get("tab");
   const rawSubtab = searchParams.get("subtab");
   const requestedSubtab = rawSubtab === "lotes" ? "pollos" : rawSubtab;
@@ -53,6 +57,14 @@ export default function AnimalesTab() {
   };
 
   const acquisitionPreset = animalTypeByTab[activeTab];
+  const speciesCards = tabs.filter((tab) => tab.id !== "resumen");
+  const visibleSpeciesCards = speciesCards.filter((tab) => {
+    const desc =
+      tab.id === "gallinas" || tab.id === "gallos"
+        ? "Fichas individuales y su estado actual."
+        : "Registro y seguimiento agrupado por lote.";
+    return matchesTextQuery(search, [tab.label, desc]);
+  });
 
   return (
     <div className="space-y-5">
@@ -87,23 +99,39 @@ export default function AnimalesTab() {
       </div>
 
       {activeTab === "resumen" ? (
-        <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
-          {tabs.filter((tab) => tab.id !== "resumen").map((tab) => {
-            const preset = animalTypeByTab[tab.id];
-            return (
-              <section key={tab.id} className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
-                <div className="w-10 h-10 rounded-xl bg-slate-100 flex items-center justify-center text-slate-700">
-                  <AppIcon icon={tab.icon} className="w-5 h-5" />
-                </div>
-                <h2 className="mt-3 font-semibold text-slate-800">{tab.label}</h2>
-                <p className="mt-1 text-sm text-slate-500">{tab.id === "gallinas" || tab.id === "gallos" ? "Fichas individuales y su estado actual." : "Registro y seguimiento agrupado por lote."}</p>
-                <div className="mt-4 flex flex-wrap gap-2">
-                  <button type="button" onClick={() => selectTab(tab.id)} className="rounded-lg border border-slate-200 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50">Ver registros</button>
-                  <Link href={`/dashboard/produccion/adquisiciones?nuevo=${preset}`} className="rounded-lg bg-green-700 px-3 py-2 text-sm font-semibold text-white hover:bg-green-800">Registrar ingreso</Link>
-                </div>
-              </section>
-            );
-          })}
+        <div className="space-y-4">
+          <TableSearch
+            value={search}
+            onChange={setSearch}
+            placeholder="Buscar especie o tipo de animal..."
+            resultCount={visibleSpeciesCards.length}
+            totalCount={speciesCards.length}
+          />
+          {visibleSpeciesCards.length === 0 ? (
+            <EmptyState
+              icon="paw-print"
+              message="No hay especies o grupos que coincidan con la búsqueda"
+            />
+          ) : (
+            <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+              {visibleSpeciesCards.map((tab) => {
+                const preset = animalTypeByTab[tab.id];
+                return (
+                  <section key={tab.id} className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
+                    <div className="w-10 h-10 rounded-xl bg-slate-100 flex items-center justify-center text-slate-700">
+                      <AppIcon icon={tab.icon} className="w-5 h-5" />
+                    </div>
+                    <h2 className="mt-3 font-semibold text-slate-800">{tab.label}</h2>
+                    <p className="mt-1 text-sm text-slate-500">{tab.id === "gallinas" || tab.id === "gallos" ? "Fichas individuales y su estado actual." : "Registro y seguimiento agrupado por lote."}</p>
+                    <div className="mt-4 flex flex-wrap gap-2">
+                      <button type="button" onClick={() => selectTab(tab.id)} className="rounded-lg border border-slate-200 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50">Ver registros</button>
+                      <Link href={`/dashboard/produccion/adquisiciones?nuevo=${preset}`} className="rounded-lg bg-green-700 px-3 py-2 text-sm font-semibold text-white hover:bg-green-800">Registrar ingreso</Link>
+                    </div>
+                  </section>
+                );
+              })}
+            </div>
+          )}
         </div>
       ) : activeTab === "gallinas" ? (
         <GallinasTab embedded />

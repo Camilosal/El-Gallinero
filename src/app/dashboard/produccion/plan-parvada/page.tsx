@@ -5,6 +5,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { CalendarDays, Target, TrendingUp } from "lucide-react";
 import { PageHeader, Button, Card, Badge, Modal, Input, Textarea, EmptyState } from "@/components/ui";
 import { AppIcon } from "@/components/AppIcon";
+import TableSearch from "@/components/TableSearch";
 import {
   Area,
   Bar,
@@ -18,6 +19,7 @@ import {
 } from "recharts";
 import { apiFetch } from "@/lib/fetch";
 import { addDays, parseISODate, toISODate } from "@/lib/flock-plan";
+import { matchesTextQuery } from "@/lib/text";
 
 interface PlanAlert {
   level: "success" | "warning" | "info";
@@ -207,6 +209,7 @@ export default function PlanParvadaPage() {
   const [saving, setSaving] = useState(false);
   const [selectedPlanId, setSelectedPlanId] = useState<string | null>(null);
   const [showAllWeeks, setShowAllWeeks] = useState(false);
+  const [weekSearch, setWeekSearch] = useState("");
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -273,6 +276,21 @@ export default function PlanParvadaPage() {
   const visibleWeeks = useMemo(
     () => (showAllWeeks ? weeks : weeks.filter((week) => week.offset >= -2 && week.offset <= 8)),
     [showAllWeeks, weeks],
+  );
+  const filteredWeeks = useMemo(
+    () =>
+      visibleWeeks.filter((week) =>
+        matchesTextQuery(weekSearch, [
+          week.label,
+          week.rangeLabel,
+          week.expectedHens,
+          week.expectedEggs,
+          week.actualEggs,
+          week.expectedFeedKg,
+          week.isCurrent ? "actual en curso" : "",
+        ]),
+      ),
+    [visibleWeeks, weekSearch],
   );
 
   const chartData = useMemo(
@@ -638,55 +656,68 @@ export default function PlanParvadaPage() {
               </Button>
             </div>
 
-            <div className="overflow-x-auto">
-              <table className="w-full text-sm">
-                <thead>
-                  <tr className="border-b border-slate-200 bg-slate-50 text-left text-slate-600">
-                    <th className="px-3 py-3 font-medium">Semana</th>
-                    <th className="px-3 py-3 font-medium">Gallinas en ciclo</th>
-                    <th className="px-3 py-3 font-medium">Huevos esperados</th>
-                    <th className="px-3 py-3 font-medium">Huevos reales</th>
-                    <th className="px-3 py-3 font-medium">Cumplimiento</th>
-                    <th className="px-3 py-3 font-medium">Alimento est.</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-slate-100">
-                  {visibleWeeks.map((week) => (
-                    <tr key={week.weekStart} className={week.isCurrent ? "bg-blue-50" : "hover:bg-slate-50"}>
-                      <td className="px-3 py-2.5">
-                        <div className="flex items-center gap-2">
-                          <span className="font-medium text-slate-700">{week.rangeLabel}</span>
-                          {week.isCurrent && <Badge color="blue">Actual</Badge>}
-                        </div>
-                      </td>
-                      <td className="px-3 py-2.5">{week.expectedHens}</td>
-                      <td className="px-3 py-2.5">{week.expectedEggs}</td>
-                      <td className="px-3 py-2.5">{week.actualEggs != null ? week.actualEggs : "—"}</td>
-                      <td className="px-3 py-2.5">
-                        {week.isCurrent ? (
-                          <span className="text-xs font-medium text-blue-700">En curso</span>
-                        ) : week.compliancePct != null ? (
-                          <span
-                            className={`font-semibold ${
-                              week.compliancePct >= 90
-                                ? "text-green-700"
-                                : week.compliancePct >= 70
-                                  ? "text-amber-700"
-                                  : "text-red-700"
-                            }`}
-                          >
-                            {week.compliancePct}%
-                          </span>
-                        ) : (
-                          "—"
-                        )}
-                      </td>
-                      <td className="px-3 py-2.5 text-slate-600">{week.expectedFeedKg} kg</td>
+            <TableSearch
+              value={weekSearch}
+              onChange={setWeekSearch}
+              placeholder="Buscar semana por rango, estado o cifras..."
+              resultCount={filteredWeeks.length}
+              totalCount={visibleWeeks.length}
+              className="mb-4"
+            />
+
+            {filteredWeeks.length === 0 ? (
+              <EmptyState icon="calendar" message="No hay semanas que coincidan con la búsqueda" />
+            ) : (
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="border-b border-slate-200 bg-slate-50 text-left text-slate-600">
+                      <th className="px-3 py-3 font-medium">Semana</th>
+                      <th className="px-3 py-3 font-medium">Gallinas en ciclo</th>
+                      <th className="px-3 py-3 font-medium">Huevos esperados</th>
+                      <th className="px-3 py-3 font-medium">Huevos reales</th>
+                      <th className="px-3 py-3 font-medium">Cumplimiento</th>
+                      <th className="px-3 py-3 font-medium">Alimento est.</th>
                     </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100">
+                    {filteredWeeks.map((week) => (
+                      <tr key={week.weekStart} className={week.isCurrent ? "bg-blue-50" : "hover:bg-slate-50"}>
+                        <td className="px-3 py-2.5">
+                          <div className="flex items-center gap-2">
+                            <span className="font-medium text-slate-700">{week.rangeLabel}</span>
+                            {week.isCurrent && <Badge color="blue">Actual</Badge>}
+                          </div>
+                        </td>
+                        <td className="px-3 py-2.5">{week.expectedHens}</td>
+                        <td className="px-3 py-2.5">{week.expectedEggs}</td>
+                        <td className="px-3 py-2.5">{week.actualEggs != null ? week.actualEggs : "—"}</td>
+                        <td className="px-3 py-2.5">
+                          {week.isCurrent ? (
+                            <span className="text-xs font-medium text-blue-700">En curso</span>
+                          ) : week.compliancePct != null ? (
+                            <span
+                              className={`font-semibold ${
+                                week.compliancePct >= 90
+                                  ? "text-green-700"
+                                  : week.compliancePct >= 70
+                                    ? "text-amber-700"
+                                    : "text-red-700"
+                              }`}
+                            >
+                              {week.compliancePct}%
+                            </span>
+                          ) : (
+                            "—"
+                          )}
+                        </td>
+                        <td className="px-3 py-2.5 text-slate-600">{week.expectedFeedKg} kg</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
 
             {!showAllWeeks && weeks.length > visibleWeeks.length && (
               <p className="mt-3 text-xs text-slate-400">

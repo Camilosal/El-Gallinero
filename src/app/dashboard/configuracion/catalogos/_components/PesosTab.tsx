@@ -3,7 +3,9 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { Scale } from "lucide-react";
 import { Button, Card, EmptyState, Input, Modal, Select, Table } from "@/components/ui";
+import TableSearch from "@/components/TableSearch";
 import { apiFetch } from "@/lib/fetch";
+import { matchesTextQuery } from "@/lib/text";
 import { useSearchParams } from "next/navigation";
 import { useActionQuery } from "@/lib/useActionQuery";
 
@@ -32,6 +34,7 @@ export default function PesosTab() {
   const [loading, setLoading] = useState(true);
   const [breedFilter, setBreedFilter] = useState("todas");
   const [genderFilter, setGenderFilter] = useState("todos");
+  const [search, setSearch] = useState("");
   const [modalOpen, setModalOpen] = useState(false);
   const [editing, setEditing] = useState<WeightStandard | null>(null);
   const [form, setForm] = useState({ ...EMPTY });
@@ -54,8 +57,16 @@ export default function PesosTab() {
   const filtered = useMemo(() => items.filter((item) => {
     if (breedFilter !== "todas" && item.breed !== breedFilter) return false;
     if (genderFilter !== "todos" && item.gender !== genderFilter) return false;
-    return true;
-  }), [items, breedFilter, genderFilter]);
+    return matchesTextQuery(search, [
+      item.breed,
+      item.gender,
+      item.weekNumber,
+      `semana ${item.weekNumber}`,
+      item.targetWeightG,
+      item.minWeightG,
+      item.maxWeightG,
+    ]);
+  }), [items, breedFilter, genderFilter, search]);
 
   const set = (key: keyof typeof EMPTY, value: string) => setForm((prev) => ({ ...prev, [key]: value }));
 
@@ -161,6 +172,15 @@ export default function PesosTab() {
           </Select>
           <div className="flex items-end text-xs text-slate-500">{filtered.length} puntos</div>
         </div>
+
+        <TableSearch
+          value={search}
+          onChange={setSearch}
+          placeholder="Buscar estándar por raza, sexo, semana o peso..."
+          resultCount={filtered.length}
+          totalCount={items.length}
+          className="mb-4"
+        />
 
         {loading ? (
           <p className="text-center py-8 text-slate-400">Cargando...</p>

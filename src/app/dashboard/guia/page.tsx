@@ -1,13 +1,30 @@
+"use client";
+
+import { useState } from "react";
 import Link from "next/link";
 import { BookOpen, Rocket } from "lucide-react";
 import { AppIcon } from "@/components/AppIcon";
+import TableSearch from "@/components/TableSearch";
+import { EmptyState } from "@/components/ui";
 import { guideModules, guides } from "@/lib/guide-data";
+import { matchesTextQuery } from "@/lib/text";
 
 export default function GuiaIndexPage() {
+  const [search, setSearch] = useState("");
+  const visibleGuides = guides.filter((g) => {
+    const mod = guideModules.find((m) => m.id === g.module);
+    return matchesTextQuery(search, [
+      g.title,
+      mod?.label,
+      mod?.description,
+      ...g.sections.flatMap((section) => [section.title, section.text, ...(section.items ?? [])]),
+    ]);
+  });
+
   return (
     <div>
       {/* Header */}
-      <div className="mb-8">
+      <div className="mb-6">
         <h1 className="text-3xl font-bold text-slate-800 flex items-center gap-3">
           <BookOpen className="w-8 h-8 text-green-700 shrink-0" aria-hidden="true" />
           Guía de Usuario
@@ -16,6 +33,15 @@ export default function GuiaIndexPage() {
           Aprende a usar El Gallinero paso a paso. Selecciona un módulo para ver las guías disponibles.
         </p>
       </div>
+
+      <TableSearch
+        value={search}
+        onChange={setSearch}
+        placeholder="Buscar guía o módulo de ayuda..."
+        resultCount={visibleGuides.length}
+        totalCount={guides.length}
+        className="mb-6"
+      />
 
       {/* Quick start banner */}
       <div className="mb-8 p-5 bg-gradient-to-r from-green-50 to-emerald-50 border border-green-200 rounded-xl">
@@ -35,10 +61,16 @@ export default function GuiaIndexPage() {
       </div>
 
       {/* Module cards */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-        {guideModules.map((mod) => {
-          const modGuides = guides.filter((g) => g.module === mod.id);
-          if (modGuides.length === 0) return null;
+      {visibleGuides.length === 0 ? (
+        <EmptyState
+          icon="book"
+          message="No hay guías que coincidan con la búsqueda"
+        />
+      ) : (
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+          {guideModules.map((mod) => {
+            const modGuides = visibleGuides.filter((g) => g.module === mod.id);
+            if (modGuides.length === 0) return null;
 
           return (
             <div
@@ -82,7 +114,8 @@ export default function GuiaIndexPage() {
             </div>
           );
         })}
-      </div>
+        </div>
+      )}
 
       {/* Stats */}
       <div className="mt-8 p-5 bg-slate-50 border border-slate-200 rounded-xl">

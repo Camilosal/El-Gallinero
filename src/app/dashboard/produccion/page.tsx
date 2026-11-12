@@ -2,10 +2,13 @@
 
 import Link from "next/link";
 import { useSearchParams, useRouter } from "next/navigation";
-import { Suspense, lazy, useEffect, useState } from "react";
+import { Suspense, lazy, useEffect, useMemo, useState } from "react";
 import { Egg, PawPrint, Skull } from "lucide-react";
 import { AppIcon } from "@/components/AppIcon";
+import { EmptyState } from "@/components/ui";
+import TableSearch from "@/components/TableSearch";
 import { apiFetch } from "@/lib/fetch";
+import { matchesTextQuery } from "@/lib/text";
 
 const AnimalesTab = lazy(() => import("./_components/AnimalesTab"));
 const AlimentacionTab = lazy(() => import("./_components/AlimentacionTab"));
@@ -100,6 +103,7 @@ function ProduccionContent() {
 function CategoryView() {
   const [resumen, setResumen] = useState<ResumenProduccion | null>(null);
   const [loading, setLoading] = useState(true);
+  const [search, setSearch] = useState("");
 
   useEffect(() => {
     apiFetch("/api/produccion/resumen")
@@ -109,14 +113,19 @@ function CategoryView() {
       .finally(() => setLoading(false));
   }, []);
 
+  const filteredSecciones = useMemo(
+    () => (search.trim() ? secciones.filter((sec) => matchesTextQuery(search, [sec.label, sec.desc])) : secciones),
+    [search],
+  );
+
   const speciesHint = (resumen?.species ?? [])
     .filter((s) => s.count > 0)
     .map((s) => `${s.count} ${s.label.toLowerCase()}`)
     .join(" · ");
 
   return (
-    <div className="p-8">
-      <div className="mb-8">
+    <div className="p-4 sm:p-8">
+      <div className="mb-6">
         <h1 className="text-3xl font-bold flex items-center gap-3">
           <Egg className="w-8 h-8 text-amber-600 shrink-0" aria-hidden="true" />
           Producción
@@ -125,6 +134,15 @@ function CategoryView() {
           Productos generados por la granja: huevos, carne y gallinaza. Los animales y sus registros se gestionan en el grupo Animales.
         </p>
       </div>
+
+      <TableSearch
+        value={search}
+        onChange={setSearch}
+        placeholder="Buscar módulos de producción (huevos, carne, gallinaza)..."
+        resultCount={filteredSecciones.length}
+        totalCount={secciones.length}
+        className="mb-6"
+      />
 
       {loading ? (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
@@ -173,25 +191,29 @@ function CategoryView() {
         </Link>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-        {secciones.map((sec) => (
-          <Link
-            key={sec.href}
-            href={sec.href}
-            className="bg-white rounded-lg shadow-md p-6 hover:shadow-lg transition-shadow border border-gray-200"
-          >
-            <div className="flex items-start gap-4">
-              <div className="w-11 h-11 rounded-xl bg-slate-100 flex items-center justify-center text-slate-700 shrink-0">
-                <AppIcon icon={sec.icon} className="w-6 h-6" />
+      {filteredSecciones.length === 0 ? (
+        <EmptyState icon="egg" message="No hay módulos de producción que coincidan con la búsqueda" />
+      ) : (
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          {filteredSecciones.map((sec) => (
+            <Link
+              key={sec.href}
+              href={sec.href}
+              className="bg-white rounded-lg shadow-md p-6 hover:shadow-lg transition-shadow border border-gray-200"
+            >
+              <div className="flex items-start gap-4">
+                <div className="w-11 h-11 rounded-xl bg-slate-100 flex items-center justify-center text-slate-700 shrink-0">
+                  <AppIcon icon={sec.icon} className="w-6 h-6" />
+                </div>
+                <div>
+                  <h3 className="text-lg font-semibold text-gray-900">{sec.label}</h3>
+                  <p className="text-sm text-gray-600 mt-1">{sec.desc}</p>
+                </div>
               </div>
-              <div>
-                <h3 className="text-lg font-semibold text-gray-900">{sec.label}</h3>
-                <p className="text-sm text-gray-600 mt-1">{sec.desc}</p>
-              </div>
-            </div>
-          </Link>
-        ))}
-      </div>
+            </Link>
+          ))}
+        </div>
+      )}
     </div>
   );
 }

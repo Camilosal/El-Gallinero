@@ -21,7 +21,9 @@ import {
   Wrench,
 } from "lucide-react";
 import { AppIcon } from "@/components/AppIcon";
-import { Card, Modal, Input, Select, Button } from "@/components/ui";
+import { Card, Modal, Input, Select, Button, EmptyState } from "@/components/ui";
+import TableSearch from "@/components/TableSearch";
+import { matchesTextQuery } from "@/lib/text";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, LineChart, Line, Legend } from "recharts";
 import { apiFetch } from "@/lib/fetch";
 import { useCatalog } from "@/lib/useCatalog";
@@ -123,6 +125,7 @@ export default function Dashboard() {
   const [showDetails, setShowDetails] = useState(false);
   const [tareas, setTareas] = useState<TareasPendientes | null>(null);
   const [dashHelp, setDashHelp] = useState(false);
+  const [search, setSearch] = useState("");
 
   // ─── Quick sale state ───
   const [quickSaleOpen, setQuickSaleOpen] = useState(false);
@@ -278,6 +281,91 @@ export default function Dashboard() {
     data.hens.laying != null ? `${data.hens.laying} en postura` : "",
   ].filter(Boolean).join(" · ");
 
+  const hasSearch = search.trim().length > 0;
+  const visibleAlerts = hasSearch
+    ? alerts.filter((a) => matchesTextQuery(search, [a.message, a.severity === "critical" ? "critica urgente" : "advertencia"]))
+    : alerts;
+  const visibleSetupSteps = hasSearch
+    ? setupSteps.filter((s) => matchesTextQuery(search, [s.title, s.description, s.done ? "completado" : "por completar"]))
+    : setupSteps;
+  const visibleMaintenanceDue = tareas
+    ? hasSearch
+      ? tareas.maintenanceDue.filter((t) => matchesTextQuery(search, [t.title, t.assetName, t.locationName, t.scheduledDate, t.isOverdue ? "vencido" : "proximo"]))
+      : tareas.maintenanceDue
+    : [];
+  const showPendingEgg = Boolean(
+    tareas &&
+      tareas.eggApplicable &&
+      !tareas.eggCollectedToday &&
+      (!hasSearch || matchesTextQuery(search, ["huevos hoy recoger recoleccion pendiente"])),
+  );
+  const showPendingFeed = Boolean(
+    tareas &&
+      tareas.feedApplicable &&
+      !tareas.feedMovedToday &&
+      (!hasSearch || matchesTextQuery(search, ["alimentacion alimento comida consumo registro pendiente"])),
+  );
+  const showPendingSanitary = Boolean(
+    tareas?.pendingSanitary &&
+      (!hasSearch ||
+        matchesTextQuery(search, [
+          tareas.pendingSanitary.name,
+          tareas.pendingSanitary.type,
+          tareas.pendingSanitary.isOverdue ? "vencido sanidad vacuna" : "pendiente sanidad vacuna",
+        ])),
+  );
+  const showAssetsAttention = Boolean(
+    tareas &&
+      tareas.assetsNeedAttention > 0 &&
+      (!hasSearch || matchesTextQuery(search, ["equipos activos mantenimiento atencion"])),
+  );
+  const hasVisiblePending =
+    showPendingEgg || showPendingFeed || showPendingSanitary || visibleMaintenanceDue.length > 0 || showAssetsAttention;
+
+  const taskCards = [
+    {
+      id: "eggs",
+      visible: (!tareas || tareas.eggApplicable) && (!hasSearch || matchesTextQuery(search, ["recoger huevos postura recoleccion", data.eggs.avgDaily])),
+    },
+    {
+      id: "feed",
+      visible: (!tareas || tareas.feedApplicable) && (!hasSearch || matchesTextQuery(search, ["registrar alimentacion alimento concentrado stock", minFeedDays])),
+    },
+    {
+      id: "sale",
+      visible: !hasSearch || matchesTextQuery(search, ["registrar venta ingresos dinero facturar", data.sales.totalRevenue]),
+    },
+    {
+      id: "sanitary",
+      visible: !hasSearch || matchesTextQuery(search, ["plan sanitario vacunas salud sanidad", data.sanitaryAlerts]),
+    },
+  ];
+  const visibleTaskIds = new Set(taskCards.filter((c) => c.visible).map((c) => c.id));
+
+  const quickStatItems = [
+    { id: "animals", visible: !hasSearch || matchesTextQuery(search, ["animales inventario parvada gallinas gallos", flockHint, data.totalAnimals ?? data.hens.active]) },
+    { id: "eggs", visible: !hasSearch || matchesTextQuery(search, ["huevos hoy promedio postura", data.eggs.avgDaily]) },
+    { id: "feed", visible: !hasSearch || matchesTextQuery(search, ["alimento dias stock concentrado", minFeedDays]) },
+    { id: "finance", visible: !hasSearch || matchesTextQuery(search, ["balance mes finanzas dinero utilidad", data.finance.profit]) },
+    { id: "alerts", visible: !hasSearch || matchesTextQuery(search, ["alertas avisos notificaciones", alerts.length]) },
+  ];
+  const visibleStatIds = new Set(quickStatItems.filter((s) => s.visible).map((s) => s.id));
+  const visibleStages = hasSearch
+    ? data.stages.filter((s) => matchesTextQuery(search, [s.name, s.count, s.expectedEggsPerDay]))
+    : data.stages;
+  const visibleStockProjection = hasSearch
+    ? data.stockProjection.filter((s) => matchesTextQuery(search, [s.feedName, s.currentStockKg, s.daysRemaining]))
+    : data.stockProjection;
+  const noHomeMatches =
+    hasSearch &&
+    visibleAlerts.length === 0 &&
+    visibleSetupSteps.length === 0 &&
+    !hasVisiblePending &&
+    visibleTaskIds.size === 0 &&
+    visibleStatIds.size === 0 &&
+    visibleStages.length === 0 &&
+    visibleStockProjection.length === 0;
+
   return (
     <div>
       {/* Header */}
@@ -308,10 +396,23 @@ export default function Dashboard() {
         )}
       </div>
 
+      <TableSearch
+        value={search}
+        onChange={setSearch}
+        placeholder="Buscar alertas, pendientes, tareas o indicadores en inicio..."
+        className="mb-6"
+      />
+
+      {noHomeMatches ? (
+        <Card className="mb-6">
+          <EmptyState icon="home" message="No hay elementos en inicio que coincidan con la búsqueda" />
+        </Card>
+      ) : null}
+
       {/* ─── 1. Alert Banner ─── */}
-      {alerts.length > 0 ? (
+      {visibleAlerts.length > 0 ? (
         <div className="mb-6 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
-          {alerts.filter((a) => a.severity === "critical").map((alert) => (
+          {visibleAlerts.filter((a) => a.severity === "critical").map((alert) => (
             <a
               key={alert.id}
               href={alert.href}
@@ -322,7 +423,7 @@ export default function Dashboard() {
               <span className="text-xs text-red-500 font-medium whitespace-nowrap">Atender →</span>
             </a>
           ))}
-          {alerts.filter((a) => a.severity === "warning").map((alert) => (
+          {visibleAlerts.filter((a) => a.severity === "warning").map((alert) => (
             <a
               key={alert.id}
               href={alert.href}
@@ -334,7 +435,7 @@ export default function Dashboard() {
             </a>
           ))}
         </div>
-      ) : tareas && !dailyChecklistPending ? (
+      ) : !hasSearch && tareas && !dailyChecklistPending ? (
         <div className="mb-6 p-6 bg-green-50 border border-green-200 rounded-xl text-center">
           <CheckCircle2 className="w-9 h-9 text-green-600 mx-auto mb-2" aria-hidden="true" />
           <p className="text-green-700 font-medium">Sin alertas operativas para atender hoy</p>
@@ -342,7 +443,7 @@ export default function Dashboard() {
         </div>
       ) : null}
 
-      {completedSetupSteps < setupSteps.length && setupSteps.length > 0 && (
+      {completedSetupSteps < setupSteps.length && visibleSetupSteps.length > 0 && (
         <section className="mb-6 rounded-xl border border-blue-200 bg-blue-50 p-5" aria-labelledby="setup-title">
           <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
             <div>
@@ -352,7 +453,7 @@ export default function Dashboard() {
             <span className="text-xs font-medium text-blue-700">{completedSetupSteps} de {setupSteps.length} pasos completados</span>
           </div>
           <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-4">
-            {setupSteps.map((step) => (
+            {visibleSetupSteps.map((step) => (
               step.done ? (
                 <div key={step.title} className="rounded-lg border border-green-200 bg-green-50 p-3" aria-label={`${step.title}: completado`}>
                   <div className="flex items-center justify-between gap-2">
@@ -380,11 +481,11 @@ export default function Dashboard() {
       )}
 
       {/* ─── 2. Daily Check-ins ─── */}
-      {tareas && ((tareas.eggApplicable && !tareas.eggCollectedToday) || (tareas.feedApplicable && !tareas.feedMovedToday) || tareas.pendingSanitary || tareas.maintenanceDue.length > 0 || tareas.assetsNeedAttention > 0) && (
+      {tareas && hasVisiblePending && (
         <div className="mb-6">
           <h2 className="text-sm font-semibold text-slate-500 uppercase tracking-wide mb-3">Pendientes y próximos 7 días</h2>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-            {tareas.eggApplicable && !tareas.eggCollectedToday && (
+            {showPendingEgg && (
               <div className="flex items-center gap-3 p-4 bg-yellow-50 border border-yellow-200 rounded-xl">
                 <Egg className="w-6 h-6 text-yellow-600 shrink-0" aria-hidden="true" />
                 <span className="flex-1 text-sm font-medium text-yellow-700">¿Ya recogiste huevos hoy?</span>
@@ -393,7 +494,7 @@ export default function Dashboard() {
                 </a>
               </div>
             )}
-            {tareas.feedApplicable && !tareas.feedMovedToday && (
+            {showPendingFeed && (
               <div className="flex items-center gap-3 p-4 bg-amber-50 border border-amber-200 rounded-xl">
                 <Wheat className="w-6 h-6 text-amber-600 shrink-0" aria-hidden="true" />
                 <span className="flex-1 text-sm font-medium text-amber-700">No hay registro de alimentación hoy</span>
@@ -402,7 +503,7 @@ export default function Dashboard() {
                 </a>
               </div>
             )}
-            {tareas.pendingSanitary && (
+            {showPendingSanitary && tareas.pendingSanitary && (
               <div className={`flex items-center gap-3 p-4 border rounded-xl ${tareas.pendingSanitary.isOverdue ? "bg-red-50 border-red-200" : "bg-blue-50 border-blue-200"}`}>
                 <Pill className={`w-6 h-6 shrink-0 ${tareas.pendingSanitary.isOverdue ? "text-red-600" : "text-blue-600"}`} aria-hidden="true" />
                 <span className={`flex-1 text-sm font-medium ${tareas.pendingSanitary.isOverdue ? "text-red-700" : "text-blue-700"}`}>
@@ -413,7 +514,7 @@ export default function Dashboard() {
                 </a>
               </div>
             )}
-            {tareas.maintenanceDue.map((task) => (
+            {visibleMaintenanceDue.map((task) => (
               <div key={task.id} className={`flex items-center gap-3 rounded-xl border p-4 ${task.isOverdue ? "border-red-200 bg-red-50" : "border-orange-200 bg-orange-50"}`}>
                 <Wrench className={`w-6 h-6 shrink-0 ${task.isOverdue ? "text-red-600" : "text-orange-600"}`} aria-hidden="true" />
                 <span className={`flex-1 text-sm font-medium ${task.isOverdue ? "text-red-700" : "text-orange-800"}`}>
@@ -423,7 +524,7 @@ export default function Dashboard() {
                 <a href="/dashboard/operaciones/mantenimiento" className={`rounded-lg px-3 py-1.5 text-xs font-medium text-white ${task.isOverdue ? "bg-red-600 hover:bg-red-700" : "bg-orange-600 hover:bg-orange-700"}`}>Revisar</a>
               </div>
             ))}
-            {tareas.assetsNeedAttention > 0 && (
+            {showAssetsAttention && (
               <div className="flex items-center gap-3 rounded-xl border border-orange-200 bg-orange-50 p-4">
                 <PackageOpen className="w-6 h-6 text-orange-600 shrink-0" aria-hidden="true" />
                 <span className="flex-1 text-sm font-medium text-orange-800">{tareas.assetsNeedAttention} equipo{tareas.assetsNeedAttention === 1 ? "" : "s"} requiere{tareas.assetsNeedAttention === 1 ? "" : "n"} atención</span>
@@ -440,78 +541,82 @@ export default function Dashboard() {
       )}
 
       {/* ─── 3. Task Buttons ─── */}
-      <div className="mb-6">
-        <h2 className="text-sm font-semibold text-slate-500 uppercase tracking-wide mb-3">Tareas del día</h2>
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-          {(!tareas || tareas.eggApplicable) && <a
-            href="/dashboard/produccion?tab=huevos&nuevo=1"
-            className="flex flex-col items-center gap-3 p-6 bg-yellow-50 border-2 border-yellow-200 rounded-2xl hover:bg-yellow-100 hover:border-yellow-300 transition-all"
-          >
-            <div className="w-12 h-12 rounded-2xl bg-yellow-100 flex items-center justify-center text-yellow-700">
-              <Egg className="w-6 h-6" aria-hidden="true" />
-            </div>
-            <span className="text-sm font-semibold text-yellow-800 text-center">Recoger Huevos</span>
-            <span className="text-xs text-yellow-600">{data.eggs.avgDaily} prom/día</span>
-          </a>}
-          {(!tareas || tareas.feedApplicable) && <a
-            href="/dashboard/produccion?tab=alimentacion&subtab=movimientos&nuevo=movimiento"
-            className="flex flex-col items-center gap-3 p-6 bg-amber-50 border-2 border-amber-200 rounded-2xl hover:bg-amber-100 hover:border-amber-300 transition-all"
-          >
-            <div className="w-12 h-12 rounded-2xl bg-amber-100 flex items-center justify-center text-amber-700">
-              <Wheat className="w-6 h-6" aria-hidden="true" />
-            </div>
-            <span className="text-sm font-semibold text-amber-800 text-center">Registrar Alimentación</span>
-            <span className="text-xs text-amber-600">
-              {minFeedDays === Infinity ? "Stock OK" : `${minFeedDays} días de stock`}
-            </span>
-          </a>}
-          <a
-            href="#"
-            onClick={(e) => { e.preventDefault(); setQuickSaleOpen(true); }}
-            className="flex flex-col items-center gap-3 p-6 bg-green-50 border-2 border-green-200 rounded-2xl hover:bg-green-100 hover:border-green-300 transition-all"
-          >
-            <div className="w-12 h-12 rounded-2xl bg-green-100 flex items-center justify-center text-green-700">
-              <CircleDollarSign className="w-6 h-6" aria-hidden="true" />
-            </div>
-            <span className="text-sm font-semibold text-green-800 text-center">Registrar Venta</span>
-            <span className="text-xs text-green-600">${Number(data.sales.totalRevenue).toLocaleString()} este mes</span>
-          </a>
-          <a
-            href="/dashboard/sanidad"
-            className="flex flex-col items-center gap-3 p-6 bg-blue-50 border-2 border-blue-200 rounded-2xl hover:bg-blue-100 hover:border-blue-300 transition-all"
-          >
-            <div className="w-12 h-12 rounded-2xl bg-blue-100 flex items-center justify-center text-blue-700">
-              <Stethoscope className="w-6 h-6" aria-hidden="true" />
-            </div>
-            <span className="text-sm font-semibold text-blue-800 text-center">Plan Sanitario</span>
-            <span className="text-xs text-blue-600">
-              {data.sanitaryAlerts > 0 ? `${data.sanitaryAlerts} pendiente${data.sanitaryAlerts > 1 ? "s" : ""}` : "Al día"}
-            </span>
-          </a>
+      {visibleTaskIds.size > 0 && (
+        <div className="mb-6">
+          <h2 className="text-sm font-semibold text-slate-500 uppercase tracking-wide mb-3">Tareas del día</h2>
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+            {visibleTaskIds.has("eggs") && <a
+              href="/dashboard/produccion?tab=huevos&nuevo=1"
+              className="flex flex-col items-center gap-3 p-6 bg-yellow-50 border-2 border-yellow-200 rounded-2xl hover:bg-yellow-100 hover:border-yellow-300 transition-all"
+            >
+              <div className="w-12 h-12 rounded-2xl bg-yellow-100 flex items-center justify-center text-yellow-700">
+                <Egg className="w-6 h-6" aria-hidden="true" />
+              </div>
+              <span className="text-sm font-semibold text-yellow-800 text-center">Recoger Huevos</span>
+              <span className="text-xs text-yellow-600">{data.eggs.avgDaily} prom/día</span>
+            </a>}
+            {visibleTaskIds.has("feed") && <a
+              href="/dashboard/produccion?tab=alimentacion&subtab=movimientos&nuevo=movimiento"
+              className="flex flex-col items-center gap-3 p-6 bg-amber-50 border-2 border-amber-200 rounded-2xl hover:bg-amber-100 hover:border-amber-300 transition-all"
+            >
+              <div className="w-12 h-12 rounded-2xl bg-amber-100 flex items-center justify-center text-amber-700">
+                <Wheat className="w-6 h-6" aria-hidden="true" />
+              </div>
+              <span className="text-sm font-semibold text-amber-800 text-center">Registrar Alimentación</span>
+              <span className="text-xs text-amber-600">
+                {minFeedDays === Infinity ? "Stock OK" : `${minFeedDays} días de stock`}
+              </span>
+            </a>}
+            {visibleTaskIds.has("sale") && <a
+              href="#"
+              onClick={(e) => { e.preventDefault(); setQuickSaleOpen(true); }}
+              className="flex flex-col items-center gap-3 p-6 bg-green-50 border-2 border-green-200 rounded-2xl hover:bg-green-100 hover:border-green-300 transition-all"
+            >
+              <div className="w-12 h-12 rounded-2xl bg-green-100 flex items-center justify-center text-green-700">
+                <CircleDollarSign className="w-6 h-6" aria-hidden="true" />
+              </div>
+              <span className="text-sm font-semibold text-green-800 text-center">Registrar Venta</span>
+              <span className="text-xs text-green-600">${Number(data.sales.totalRevenue).toLocaleString()} este mes</span>
+            </a>}
+            {visibleTaskIds.has("sanitary") && <a
+              href="/dashboard/sanidad"
+              className="flex flex-col items-center gap-3 p-6 bg-blue-50 border-2 border-blue-200 rounded-2xl hover:bg-blue-100 hover:border-blue-300 transition-all"
+            >
+              <div className="w-12 h-12 rounded-2xl bg-blue-100 flex items-center justify-center text-blue-700">
+                <Stethoscope className="w-6 h-6" aria-hidden="true" />
+              </div>
+              <span className="text-sm font-semibold text-blue-800 text-center">Plan Sanitario</span>
+              <span className="text-xs text-blue-600">
+                {data.sanitaryAlerts > 0 ? `${data.sanitaryAlerts} pendiente${data.sanitaryAlerts > 1 ? "s" : ""}` : "Al día"}
+              </span>
+            </a>}
+          </div>
         </div>
-      </div>
+      )}
 
       {/* ─── 4. Mini Summary ─── */}
-      <div className="mb-6">
-        <h2 className="text-sm font-semibold text-slate-500 uppercase tracking-wide mb-3">Resumen rápido</h2>
-        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
-          <QuickStat icon="paw-print" label="Animales en inventario" value={data.totalAnimals ?? data.hens.active} hint={flockHint} />
-          <QuickStat icon="egg" label="Huevos hoy" value={`${data.eggs.avgDaily} prom`} />
-          <QuickStat
-            icon="wheat"
-            label="Alimento"
-            value={minFeedDays === Infinity ? "OK" : `${minFeedDays}d`}
-            alert={criticalFeeds.length > 0}
-          />
-          <QuickStat
-            icon="money"
-            label="Balance mes"
-            value={`$${Number(data.finance.profit).toLocaleString()}`}
-            alert={Number(data.finance.profit) < 0}
-          />
-          <QuickStat icon="bell" label="Alertas" value={alerts.length} alert={alerts.length > 0} />
+      {visibleStatIds.size > 0 && (
+        <div className="mb-6">
+          <h2 className="text-sm font-semibold text-slate-500 uppercase tracking-wide mb-3">Resumen rápido</h2>
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
+            {visibleStatIds.has("animals") && <QuickStat icon="paw-print" label="Animales en inventario" value={data.totalAnimals ?? data.hens.active} hint={flockHint} />}
+            {visibleStatIds.has("eggs") && <QuickStat icon="egg" label="Huevos hoy" value={`${data.eggs.avgDaily} prom`} />}
+            {visibleStatIds.has("feed") && <QuickStat
+              icon="wheat"
+              label="Alimento"
+              value={minFeedDays === Infinity ? "OK" : `${minFeedDays}d`}
+              alert={criticalFeeds.length > 0}
+            />}
+            {visibleStatIds.has("finance") && <QuickStat
+              icon="money"
+              label="Balance mes"
+              value={`$${Number(data.finance.profit).toLocaleString()}`}
+              alert={Number(data.finance.profit) < 0}
+            />}
+            {visibleStatIds.has("alerts") && <QuickStat icon="bell" label="Alertas" value={alerts.length} alert={alerts.length > 0} />}
+          </div>
         </div>
-      </div>
+      )}
 
       {/* ─── 5. Collapsible Details ─── */}
       <div className="mb-6">
@@ -523,7 +628,7 @@ export default function Dashboard() {
           <span>{showDetails ? "Ocultar detalles" : "Ver más detalles"}</span>
         </button>
 
-        {showDetails && (
+        {(showDetails || (hasSearch && (visibleStages.length > 0 || visibleStockProjection.length > 0))) && (
           <div className="mt-4 space-y-6">
             {/* Stage Distribution & Stock Projection */}
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
@@ -532,9 +637,9 @@ export default function Dashboard() {
                   <Bird className="w-4 h-4 text-green-700" aria-hidden="true" />
                   <span>Distribución por Etapa</span>
                 </h3>
-                {data.stages.length > 0 ? (
+                {visibleStages.length > 0 ? (
                   <div className="space-y-2">
-                    {data.stages.map((stage) => (
+                    {visibleStages.map((stage) => (
                       <div key={stage.name} className="flex items-center justify-between p-2 bg-slate-50 rounded-lg">
                         <div className="flex items-center gap-2">
                           <span className="text-sm font-medium">{stage.name}</span>
@@ -551,7 +656,7 @@ export default function Dashboard() {
                     </div>
                   </div>
                 ) : (
-                  <p className="text-center text-slate-400 py-4 text-sm">Sin etapas definidas</p>
+                  <p className="text-center text-slate-400 py-4 text-sm">{hasSearch ? "Sin etapas coincidentes" : "Sin etapas definidas"}</p>
                 )}
               </Card>
 
@@ -560,9 +665,9 @@ export default function Dashboard() {
                   <Package className="w-4 h-4 text-slate-600" aria-hidden="true" />
                   <span>Stock de Alimento</span>
                 </h3>
-                {data.stockProjection.length > 0 ? (
+                {visibleStockProjection.length > 0 ? (
                   <div className="space-y-2">
-                    {data.stockProjection.map((item) => {
+                    {visibleStockProjection.map((item) => {
                       const isCritical = item.daysRemaining !== null && item.daysRemaining <= 7;
                       const isWarning = item.daysRemaining !== null && item.daysRemaining > 7 && item.daysRemaining <= 14;
                       return (
@@ -582,7 +687,7 @@ export default function Dashboard() {
                     })}
                   </div>
                 ) : (
-                  <p className="text-center text-slate-400 py-4 text-sm">Sin datos de programas</p>
+                  <p className="text-center text-slate-400 py-4 text-sm">{hasSearch ? "Sin alimentos coincidentes" : "Sin datos de programas"}</p>
                 )}
               </Card>
             </div>

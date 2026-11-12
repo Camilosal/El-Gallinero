@@ -4,7 +4,9 @@ import Link from "next/link";
 import { useParams } from "next/navigation";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { Badge, Button, Card, EmptyState, Input, PageHeader, Select, StatCard, Table, Textarea } from "@/components/ui";
+import TableSearch from "@/components/TableSearch";
 import { apiFetch } from "@/lib/fetch";
+import { matchesTextQuery } from "@/lib/text";
 import { FarmLocation, LOCATION_TYPE_LABELS, OPERATIONAL_STATUS_LABELS, SANITARY_STATUS_LABELS, useFarmLocations } from "@/lib/useFarmLocations";
 
 type MovableAnimal = { id: string; code: string; label?: string; species?: string; status?: string; currentQuantity?: number };
@@ -29,6 +31,7 @@ export default function UbicacionFichaPage() {
   const [form, setForm] = useState(EMPTY_TRANSFER);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
+  const [movementSearch, setMovementSearch] = useState("");
 
   const location = locations.find((item) => item.id === id);
   const availableAnimals = useMemo(() => form.animalType === "gallina" ? hens : form.animalType === "gallo" ? roosters : batches, [form.animalType, hens, roosters, batches]);
@@ -91,6 +94,18 @@ export default function UbicacionFichaPage() {
   const meatBySpecies = (location.meatBySpeciesPeriod || []).map((item) => `${Number(item.totalKg).toLocaleString(undefined, { maximumFractionDigits: 2 })} kg ${speciesLabel(item.species)}`).join(" · ") || "Sin registros";
   const weightBySpecies = (location.averageWeightBySpeciesPeriod || []).filter((item) => item.count > 0 && item.averageKg)
     .map((item) => `${Number(item.averageKg).toLocaleString(undefined, { maximumFractionDigits: 2 })} kg ${speciesLabel(item.species)} (${item.count} pesajes)`).join(" · ") || "Sin pesajes con lugar";
+  const visibleMovements = movements.filter((movement) =>
+    matchesTextQuery(movementSearch, [
+      movement.date,
+      movement.animalCode,
+      movement.animalType,
+      movement.quantity,
+      movement.fromLocationName,
+      movement.toLocationName,
+      movement.reason,
+      movement.notes,
+    ]),
+  );
 
   return (
     <div className="space-y-6">
@@ -150,9 +165,19 @@ export default function UbicacionFichaPage() {
 
       <Card>
         <h2 className="mb-3 text-lg font-semibold text-slate-800">Historial de traslados</h2>
-        {movements.length === 0 ? <EmptyState icon="transfer" message="Este lugar aún no tiene traslados registrados. Los nuevos ingresos aparecerán al registrar su destino." /> : (
+        {movements.length > 0 && (
+          <TableSearch
+            value={movementSearch}
+            onChange={setMovementSearch}
+            placeholder="Buscar traslado por fecha, animal, origen, destino o motivo..."
+            resultCount={visibleMovements.length}
+            totalCount={movements.length}
+            className="mb-4"
+          />
+        )}
+        {movements.length === 0 ? <EmptyState icon="transfer" message="Este lugar aún no tiene traslados registrados. Los nuevos ingresos aparecerán al registrar su destino." /> : visibleMovements.length === 0 ? <EmptyState icon="transfer" message="No hay traslados que coincidan con la búsqueda." /> : (
           <Table headers={["Fecha", "Animal o lote", "Cantidad", "Origen", "Destino", "Motivo"]}>
-            {movements.map((movement) => <tr key={movement.id} className="border-t border-slate-100"><td className="px-3 py-2 text-sm">{movement.date}</td><td className="px-3 py-2 text-sm font-medium">{movement.animalCode}</td><td className="px-3 py-2 text-sm">{movement.quantity}</td><td className="px-3 py-2 text-sm">{movement.fromLocationName}</td><td className="px-3 py-2 text-sm">{movement.toLocationName}</td><td className="px-3 py-2 text-sm">{movement.reason}{movement.notes && <p className="text-xs text-slate-500">{movement.notes}</p>}</td></tr>)}
+            {visibleMovements.map((movement) => <tr key={movement.id} className="border-t border-slate-100"><td className="px-3 py-2 text-sm">{movement.date}</td><td className="px-3 py-2 text-sm font-medium">{movement.animalCode}</td><td className="px-3 py-2 text-sm">{movement.quantity}</td><td className="px-3 py-2 text-sm">{movement.fromLocationName}</td><td className="px-3 py-2 text-sm">{movement.toLocationName}</td><td className="px-3 py-2 text-sm">{movement.reason}{movement.notes && <p className="text-xs text-slate-500">{movement.notes}</p>}</td></tr>)}
           </Table>
         )}
       </Card>

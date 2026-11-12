@@ -6,7 +6,9 @@ import Link from "next/link";
 import { Bird, CheckCircle2, CircleDollarSign, ClipboardList, Egg, FileEdit, Pill, Skull } from "lucide-react";
 import { Card, Badge, Button, Modal, Input, Select, Textarea, EmptyState } from "@/components/ui";
 import { AppIcon } from "@/components/AppIcon";
+import TableSearch from "@/components/TableSearch";
 import { apiFetch } from "@/lib/fetch";
+import { matchesTextQuery } from "@/lib/text";
 import { HEN_PRESENT_STATUSES, isHenAvailableForExit } from "@/lib/animal-status";
 
 interface Hen {
@@ -73,7 +75,12 @@ export default function HenDetailPage() {
   const [actionError, setActionError] = useState("");
   const [actionSuccess, setActionSuccess] = useState("");
   const [actionSubmitting, setActionSubmitting] = useState(false);
+  const [timelineSearch, setTimelineSearch] = useState("");
   const actionSubmittingRef = useRef(false);
+
+  const visibleTimeline = timeline.filter((event) =>
+    matchesTextQuery(timelineSearch, [event.title, event.type, event.detail, event.date]),
+  );
 
   const load = useCallback(() => {
     apiFetch(`/api/produccion/gallinas/historial?henId=${henId}`)
@@ -305,15 +312,29 @@ export default function HenDetailPage() {
 
       {/* Timeline */}
       <Card>
-        <h3 className="font-semibold text-slate-700 mb-4 flex items-center gap-2">
-          <ClipboardList className="w-4 h-4 text-slate-500" aria-hidden="true" />
-          <span>Historial de Eventos</span>
-        </h3>
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between mb-4">
+          <h3 className="font-semibold text-slate-700 flex items-center gap-2">
+            <ClipboardList className="w-4 h-4 text-slate-500" aria-hidden="true" />
+            <span>Historial de Eventos</span>
+          </h3>
+        </div>
+        {timeline.length > 0 && (
+          <TableSearch
+            value={timelineSearch}
+            onChange={setTimelineSearch}
+            placeholder="Buscar evento por título, tipo, detalle o fecha..."
+            resultCount={visibleTimeline.length}
+            totalCount={timeline.length}
+            className="mb-4"
+          />
+        )}
         {timeline.length === 0 ? (
           <p className="text-center text-slate-400 py-6 text-sm">Sin eventos registrados</p>
+        ) : visibleTimeline.length === 0 ? (
+          <EmptyState icon="clipboard" message="No hay eventos que coincidan con la búsqueda" />
         ) : (
           <div className="space-y-3">
-            {timeline.map((event) => (
+            {visibleTimeline.map((event) => (
               <div key={event.id} className="flex gap-3 items-start">
                 <div className="flex-shrink-0 w-10 h-10 rounded-lg bg-slate-100 flex items-center justify-center text-slate-700">
                   <AppIcon icon={event.icon} className="w-5 h-5" />

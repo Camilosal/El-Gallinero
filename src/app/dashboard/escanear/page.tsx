@@ -1,9 +1,11 @@
 "use client";
 
-import { useEffect, useState, useRef, useCallback } from "react";
+import { useEffect, useState, useRef, useCallback, useMemo } from "react";
 import { Html5Qrcode } from "html5-qrcode";
 import { Bird, Camera, CheckCircle2, CircleDollarSign, ClipboardList, HelpCircle, Lightbulb, Pill, Skull } from "lucide-react";
 import { Card, Button, Badge, Modal, Input, Select, Textarea } from "@/components/ui";
+import TableSearch from "@/components/TableSearch";
+import { matchesTextQuery } from "@/lib/text";
 import { apiFetch } from "@/lib/fetch";
 import { parseQrPayload } from "@/lib/qr";
 import { HEN_PRESENT_STATUSES, isHenAvailableForExit } from "@/lib/animal-status";
@@ -63,7 +65,7 @@ export default function EscanearPage() {
     apiFetch("/api/produccion/gallinas")
       .then((r) => r.json())
       .then(setHens)
-      .catch(() => {});
+      .catch(() => { });
   }, []);
 
   const lookupHen = useCallback(
@@ -109,7 +111,7 @@ export default function EscanearPage() {
           const henId = parseQrPayload(decodedText);
           if (henId) {
             lookupHen(henId);
-            scanner.stop().catch(() => {});
+            scanner.stop().catch(() => { });
             setScanning(false);
           } else {
             setError("QR no reconocido. Formato esperado: GALLINERO:<id>");
@@ -141,24 +143,39 @@ export default function EscanearPage() {
   useEffect(() => {
     return () => {
       if (scannerRef.current) {
-        scannerRef.current.stop().catch(() => {});
+        scannerRef.current.stop().catch(() => { });
       }
     };
   }, []);
 
-  const handleManualLookup = () => {
-    if (!manualInput.trim()) return;
-    // Try to find by code (case-insensitive)
-    const found = hens.find((h) => h.code.toLowerCase() === manualInput.trim().toLowerCase());
+  const handleManualLookup = (codeOrId?: string) => {
+    const query = (codeOrId ?? manualInput).trim();
+    if (!query) return;
+    const found = hens.find((h) => h.code.toLowerCase() === query.toLowerCase() || h.id === query);
     if (found) {
       setHen(found);
       setError("");
-    } else {
-      // Try as UUID directly
-      lookupHen(manualInput.trim());
+      setManualInput("");
+      return;
     }
+    lookupHen(query);
     setManualInput("");
   };
+
+  const matchingHens = useMemo(() => {
+    if (!manualInput.trim()) return [];
+    return hens
+      .filter((h) =>
+        matchesTextQuery(manualInput, [
+          h.code,
+          h.breed,
+          h.stage,
+          statusLabels[h.status] || h.status,
+          h.weight,
+        ]),
+      )
+      .slice(0, 8);
+  }, [hens, manualInput]);
 
   const openAction = (action: "vender" | "tratar" | "muerte") => {
     setActionModal(action);
@@ -389,21 +406,52 @@ export default function EscanearPage() {
                 </Button>
                 <div className="flex items-center gap-2">
                   <div className="flex-1 border-t border-slate-200" />
-                  <span className="text-xs text-slate-400">o busca por código</span>
+                  <span className="text-xs text-slate-400">o busca por código, raza o estado</span>
                   <div className="flex-1 border-t border-slate-200" />
                 </div>
-                <div className="flex gap-2">
-                  <input
-                    type="text"
-                    value={manualInput}
-                    onChange={(e) => setManualInput(e.target.value)}
-                    onKeyDown={(e) => e.key === "Enter" && handleManualLookup()}
-                    placeholder="Ej: G-001"
-                    className="flex-1 px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-green-500"
-                  />
-                  <Button onClick={handleManualLookup} variant="secondary">
-                    Buscar
-                  </Button>
+                <div className="space-y-2 text-left">
+                  <form
+                    onSubmit={(e) => {
+                      e.preventDefault();
+                      handleManualLookup();
+                    }}
+                    className="flex flex-col gap-2 sm:flex-row sm:items-center"
+                  >
+                    <TableSearch
+                      value={manualInput}
+                      onChange={setManualInput}
+                      placeholder="Buscar ave (ej: G-001, ISA Brown, postura)..."
+                      resultCount={matchingHens.length}
+                      totalCount={hens.length}
+                      className="flex-1"
+                    />
+                    <Button type="submit" variant="secondary" disabled={!manualInput.trim()}>
+                      Abrir ficha
+                    </Button>
+                  </form>
+                  {manualInput.trim() && (
+                    <div className="rounded-lg border border-slate-200 bg-slate-50 p-2 space-y-1">
+                      {matchingHens.length === 0 ? (
+                        <p className="px-2 py-1 text-xs text-slate-500">Sin aves coincidentes con “{manualInput}”</p>
+                      ) : (
+                        matchingHens.map((candidate) => (
+                          <button
+                            key={candidate.id}
+                            type="button"
+                            onClick={() => handleManualLookup(candidate.id)}
+                            className="flex w-full items-center justify-between rounded-md bg-white px-3 py-2 text-left text-xs shadow-2xs transition-colors hover:bg-green-50"
+                          >
+                            <span className="font-semibold text-slate-800">
+                              {candidate.code} <span className="font-normal text-slate-500">· {candidate.breed}</span>
+                            </span>
+                            <Badge color={statusColors[candidate.status] || "gray"}>
+                              {statusLabels[candidate.status] || candidate.status}
+                            </Badge>
+                          </button>
+                        ))
+                      )}
+                    </div>
+                  )}
                 </div>
               </>
             )}

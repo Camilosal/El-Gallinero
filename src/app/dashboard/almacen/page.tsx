@@ -5,7 +5,9 @@ import Link from "next/link";
 import { AlertTriangle, PackageOpen, Wheat, Wrench } from "lucide-react";
 import { AppIcon } from "@/components/AppIcon";
 import { PageHeader, Card, StatCard, Badge, EmptyState } from "@/components/ui";
+import TableSearch from "@/components/TableSearch";
 import { apiFetch } from "@/lib/fetch";
+import { matchesTextQuery } from "@/lib/text";
 
 interface Feed {
   id: string;
@@ -88,6 +90,7 @@ export default function AlmacenPage() {
   const [supplies, setSupplies] = useState<Supply[]>([]);
   const [maintenance, setMaintenance] = useState<MaintenanceSummary | null>(null);
   const [loading, setLoading] = useState(true);
+  const [search, setSearch] = useState("");
 
   useEffect(() => {
     let cancelled = false;
@@ -130,6 +133,28 @@ export default function AlmacenPage() {
   );
   const totalAlerts = lowFeeds.length + lowSupplies.length;
 
+  const filteredQuickLinks = useMemo(
+    () => (search.trim() ? quickLinks.filter((l) => matchesTextQuery(search, [l.label, l.desc])) : quickLinks),
+    [search],
+  );
+  const filteredLowFeeds = useMemo(
+    () => (search.trim() ? lowFeeds.filter((f) => matchesTextQuery(search, [f.name, f.category, categoryLabels[f.category], f.supplier])) : lowFeeds),
+    [lowFeeds, search],
+  );
+  const filteredLowSupplies = useMemo(
+    () => (search.trim() ? lowSupplies.filter((s) => matchesTextQuery(search, [s.name, s.category, s.supplier])) : lowSupplies),
+    [lowSupplies, search],
+  );
+  const filteredFeeds = useMemo(
+    () => (search.trim() ? feeds.filter((f) => matchesTextQuery(search, [f.name, f.category, categoryLabels[f.category], f.supplier])) : feeds),
+    [feeds, search],
+  );
+  const filteredSupplies = useMemo(
+    () => (search.trim() ? supplies.filter((s) => matchesTextQuery(search, [s.name, s.category, s.supplier])) : supplies),
+    [supplies, search],
+  );
+  const filteredTotalAlerts = filteredLowFeeds.length + filteredLowSupplies.length;
+
   return (
     <div>
       <PageHeader
@@ -160,6 +185,16 @@ export default function AlmacenPage() {
         </Card>
       ) : (
         <div className="space-y-6">
+          <TableSearch
+            value={search}
+            onChange={setSearch}
+            placeholder="Buscar en almacén: módulos, alimentos, insumos o proveedores..."
+            resultCount={
+              filteredQuickLinks.length + filteredFeeds.length + filteredSupplies.length
+            }
+            totalCount={quickLinks.length + feeds.length + supplies.length}
+          />
+
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-5">
             <StatCard icon="wheat" label="Valor en alimentos" value={fmtMoney(feedValue)} color="blue" />
             <StatCard icon="package-open" label="Valor en insumos" value={fmtMoney(supplyValue)} color="purple" />
@@ -183,23 +218,27 @@ export default function AlmacenPage() {
             />
           </div>
 
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
-            {quickLinks.map((link) => (
-              <Link
-                key={link.href}
-                href={link.href}
-                className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm transition-shadow hover:shadow-md"
-              >
-                <div className="w-10 h-10 rounded-xl bg-slate-100 flex items-center justify-center text-slate-700">
-                  <AppIcon icon={link.icon} className="w-5 h-5" />
-                </div>
-                <p className="mt-3 font-semibold text-slate-800">{link.label}</p>
-                <p className="mt-1 text-sm text-slate-500">{link.desc}</p>
-              </Link>
-            ))}
-          </div>
+          {filteredQuickLinks.length === 0 ? (
+            <EmptyState icon="warehouse" message="No hay accesos del almacén que coincidan con la búsqueda" />
+          ) : (
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+              {filteredQuickLinks.map((link) => (
+                <Link
+                  key={link.href}
+                  href={link.href}
+                  className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm transition-shadow hover:shadow-md"
+                >
+                  <div className="w-10 h-10 rounded-xl bg-slate-100 flex items-center justify-center text-slate-700">
+                    <AppIcon icon={link.icon} className="w-5 h-5" />
+                  </div>
+                  <p className="mt-3 font-semibold text-slate-800">{link.label}</p>
+                  <p className="mt-1 text-sm text-slate-500">{link.desc}</p>
+                </Link>
+              ))}
+            </div>
+          )}
 
-          {totalAlerts > 0 && (
+          {filteredTotalAlerts > 0 && (
             <Card className="border-orange-200 bg-orange-50">
               <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
                 <h2 className="font-semibold text-orange-800 flex items-center gap-2">
@@ -207,7 +246,7 @@ export default function AlmacenPage() {
                   <span>Alertas de stock bajo</span>
                 </h2>
                 <span className="rounded-full bg-white px-3 py-1 text-xs font-semibold text-orange-700">
-                  {totalAlerts} recursos
+                  {filteredTotalAlerts} recursos
                 </span>
               </div>
               <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
@@ -216,11 +255,11 @@ export default function AlmacenPage() {
                     <Wheat className="w-4 h-4 shrink-0" aria-hidden="true" />
                     <span>Alimentos</span>
                   </p>
-                  {lowFeeds.length === 0 ? (
+                  {filteredLowFeeds.length === 0 ? (
                     <p className="text-sm text-orange-700/70">Sin alertas de alimentos.</p>
                   ) : (
                     <div className="space-y-1.5">
-                      {lowFeeds.slice(0, 6).map((feed) => (
+                      {filteredLowFeeds.slice(0, 6).map((feed) => (
                         <div key={feed.id} className="flex items-center justify-between rounded-lg bg-white/80 px-3 py-2 text-sm">
                           <span className="font-medium text-slate-800">{feed.name}</span>
                           <span className="text-slate-600">
@@ -238,11 +277,11 @@ export default function AlmacenPage() {
                     <PackageOpen className="w-4 h-4 shrink-0" aria-hidden="true" />
                     <span>Insumos</span>
                   </p>
-                  {lowSupplies.length === 0 ? (
+                  {filteredLowSupplies.length === 0 ? (
                     <p className="text-sm text-orange-700/70">Sin alertas de insumos.</p>
                   ) : (
                     <div className="space-y-1.5">
-                      {lowSupplies.slice(0, 6).map((supply) => (
+                      {filteredLowSupplies.slice(0, 6).map((supply) => (
                         <div key={supply.id} className="flex items-center justify-between rounded-lg bg-white/80 px-3 py-2 text-sm">
                           <span className="font-medium text-slate-800">{supply.name}</span>
                           <span className="text-slate-600">
@@ -266,13 +305,13 @@ export default function AlmacenPage() {
                   <Wheat className="w-4 h-4 text-amber-600 shrink-0" aria-hidden="true" />
                   <span>Alimentos registrados</span>
                 </h2>
-                <Badge color="blue">{feeds.length} tipos</Badge>
+                <Badge color="blue">{filteredFeeds.length} tipos</Badge>
               </div>
-              {feeds.length === 0 ? (
-                <EmptyState icon="wheat" message="No hay alimentos registrados" />
+              {filteredFeeds.length === 0 ? (
+                <EmptyState icon="wheat" message={search.trim() ? "No hay alimentos que coincidan con la búsqueda" : "No hay alimentos registrados"} />
               ) : (
                 <div className="space-y-2">
-                  {feeds.slice(0, 8).map((feed) => {
+                  {filteredFeeds.slice(0, 8).map((feed) => {
                     const isLow = Number(feed.currentStock) <= Number(feed.minStock);
                     return (
                       <div
@@ -308,13 +347,13 @@ export default function AlmacenPage() {
                   <PackageOpen className="w-4 h-4 text-purple-600 shrink-0" aria-hidden="true" />
                   <span>Insumos registrados</span>
                 </h2>
-                <Badge color="purple">{supplies.length} tipos</Badge>
+                <Badge color="purple">{filteredSupplies.length} tipos</Badge>
               </div>
-              {supplies.length === 0 ? (
-                <EmptyState icon="package-open" message="No hay insumos registrados" />
+              {filteredSupplies.length === 0 ? (
+                <EmptyState icon="package-open" message={search.trim() ? "No hay insumos que coincidan con la búsqueda" : "No hay insumos registrados"} />
               ) : (
                 <div className="space-y-2">
-                  {supplies.slice(0, 8).map((supply) => {
+                  {filteredSupplies.slice(0, 8).map((supply) => {
                     const isLow = Number(supply.currentStock) <= Number(supply.minStock);
                     return (
                       <div

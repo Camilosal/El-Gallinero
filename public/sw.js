@@ -1,4 +1,4 @@
-const CACHE_VERSION = 'v3';
+const CACHE_VERSION = 'v4';
 const APP_CACHE = `gallinero-app-${CACHE_VERSION}`;
 const PRECACHE = [
   '/',
@@ -42,8 +42,9 @@ self.addEventListener('fetch', (e) => {
   // La persistencia de datos offline se gestiona de forma estructurada e idempotente en IndexedDB.
   if (url.pathname.startsWith('/api/')) return;
 
-  // Navegaciones de páginas: Network-first con fallback al caché específico de la página o App Shell.
-  if (request.mode === 'navigate') {
+  // Navegaciones de páginas y payloads RSC de Next.js: Network-first con fallback al caché.
+  const isRscRequest = url.searchParams.has('_rsc');
+  if (request.mode === 'navigate' || isRscRequest) {
     e.respondWith(
       fetch(request)
         .then((res) => {
@@ -51,7 +52,9 @@ self.addEventListener('fetch', (e) => {
             const clone = res.clone();
             caches.open(APP_CACHE).then((c) => {
               c.put(request, clone);
-              c.put(url.pathname, clone.clone());
+              if (request.mode === 'navigate') {
+                c.put(url.pathname, clone.clone());
+              }
             });
           }
           return res;
@@ -60,6 +63,10 @@ self.addEventListener('fetch', (e) => {
           // 1. Intentar servir la ruta solicitada guardada previamente
           const cachedExact = await caches.match(request);
           if (cachedExact) return cachedExact;
+
+          if (isRscRequest) {
+            return new Response('', { status: 503 });
+          }
 
           const cachedPath = await caches.match(url.pathname);
           if (cachedPath) return cachedPath;

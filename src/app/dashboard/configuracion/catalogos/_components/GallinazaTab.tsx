@@ -2,8 +2,10 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { Sprout } from "lucide-react";
-import { Button, Card, Table } from "@/components/ui";
+import { Button, Card, EmptyState, Table } from "@/components/ui";
+import TableSearch from "@/components/TableSearch";
 import { apiFetch } from "@/lib/fetch";
+import { matchesTextQuery } from "@/lib/text";
 
 interface ManureFactor {
   id: string;
@@ -21,6 +23,7 @@ export default function GallinazaTab() {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
   const [message, setMessage] = useState("");
+  const [search, setSearch] = useState("");
 
   const load = useCallback(() => {
     setLoading(true);
@@ -63,6 +66,15 @@ export default function GallinazaTab() {
     }
   };
 
+  const visibleItems = items.filter((item) =>
+    matchesTextQuery(search, [
+      item.label,
+      item.birdGroup,
+      item.key,
+      edits[item.id] ?? item.kgPerBirdPerDay,
+    ]),
+  );
+
   return (
     <div className="space-y-5">
       <Card>
@@ -84,11 +96,23 @@ export default function GallinazaTab() {
       </Card>
 
       <Card>
+        {items.length > 0 && (
+          <TableSearch
+            value={search}
+            onChange={setSearch}
+            placeholder="Buscar grupo, tipo o factor de gallinaza..."
+            resultCount={visibleItems.length}
+            totalCount={items.length}
+            className="mb-4"
+          />
+        )}
         {loading ? (
           <p className="text-center py-8 text-slate-400">Cargando...</p>
+        ) : visibleItems.length === 0 ? (
+          <EmptyState icon="wheat" message="No hay factores de gallinaza que coincidan con la búsqueda" />
         ) : (
           <Table headers={["Grupo", "Tipo", "kg/animal/día", "Equivalente"]}>
-            {items.map((item) => (
+            {visibleItems.map((item) => (
               <tr key={item.id} className="hover:bg-slate-50">
                 <td className="px-4 py-3 font-medium">{item.label}</td>
                 <td className="px-4 py-3 capitalize text-slate-600">{item.birdGroup}</td>

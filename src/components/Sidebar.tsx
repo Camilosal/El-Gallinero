@@ -3,7 +3,6 @@
 import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useState, useEffect } from "react";
-import GlobalSearch from "@/components/GlobalSearch";
 import { AppIcon } from "@/components/AppIcon";
 import { navigationGroups, type MenuGroup } from "@/lib/navigation";
 import {
@@ -180,11 +179,6 @@ export default function Sidebar() {
               <p className="text-green-300 text-xs mt-1.5">Granja Autosustentable</p>
             </>
           )}
-        </div>
-
-        {/* Global search */}
-        <div className={collapsed ? "px-2 py-3" : "px-3 py-3"}>
-          <GlobalSearch collapsed={collapsed} />
         </div>
 
         {/* Collapse toggle - desktop only */}

@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState, useCallback, useMemo } from "react";
-import AppIcon from "@/components/AppIcon";
+import { AppIcon } from "@/components/AppIcon";
 import { PageHeader, Button, Card, Table, Badge, Modal, Input, Select, EmptyState } from "@/components/ui";
 import { apiFetch } from "@/lib/fetch";
 import TableSearch from "@/components/TableSearch";

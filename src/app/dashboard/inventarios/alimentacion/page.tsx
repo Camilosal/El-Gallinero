@@ -1,15 +1,10 @@
-import { Search, Settings, ShoppingCart, Sprout } from "lucide-react";
 import {
   PageHeader,
   Card,
-  Table,
-  Badge,
   StatCard,
-  EmptyState,
 } from "@/components/ui";
 import { getFeedInventoryProjection } from "@/lib/feeding/inventory";
-import { matchesTextQuery } from "@/lib/text";
-import { feedCategoryLabel, isFreshFeedCategory, isPurchasedFeedCategory } from "@/lib/feed-classification";
+import { AlimentacionInventoryClient } from "./_components/AlimentacionInventoryClient";
 
 export const dynamic = "force-dynamic";
 
@@ -18,98 +13,6 @@ const ALLOWED_PERIODS = [7, 30, 90] as const;
 function resolvePeriod(value?: string): number {
   const parsed = Number.parseInt(value ?? "", 10);
   return (ALLOWED_PERIODS as readonly number[]).includes(parsed) ? parsed : 30;
-}
-
-function FeedTable({
-  items,
-  search,
-}: {
-  items: Awaited<ReturnType<typeof getFeedInventoryProjection>>;
-  search: string;
-}) {
-  if (items.length === 0) {
-    return (
-      <EmptyState
-        icon="wheat"
-        message={
-          search.trim()
-            ? "No hay alimentos que coincidan con la búsqueda"
-            : "No hay alimentos registrados"
-        }
-      />
-    );
-  }
-
-  return (
-    <Table
-      headers={[
-        "Alimento",
-        "Categoría",
-        "Stock",
-        "Mínimo",
-        "Días Rest.",
-        "Costo/Unidad",
-        "Valor Estimado",
-      ]}
-    >
-      {items.map((f) => (
-        <tr key={f.id} className={f.isLow ? "bg-red-50" : "hover:bg-slate-50"}>
-          <td className="px-4 py-3 font-medium">{f.name}</td>
-          <td className="px-4 py-3 text-sm">
-            <Badge
-              color={
-                isPurchasedFeedCategory(f.category)
-                  ? "blue"
-                  : isFreshFeedCategory(f.category)
-                    ? "green"
-                    : "purple"
-              }
-            >
-              <span className="inline-flex items-center gap-1">
-                {isPurchasedFeedCategory(f.category) ? (
-                  <ShoppingCart className="w-3.5 h-3.5" aria-hidden="true" />
-                ) : isFreshFeedCategory(f.category) ? (
-                  <Sprout className="w-3.5 h-3.5" aria-hidden="true" />
-                ) : (
-                  <Settings className="w-3.5 h-3.5" aria-hidden="true" />
-                )}
-                <span>{feedCategoryLabel(f.category)}</span>
-              </span>
-            </Badge>
-          </td>
-          <td className="px-4 py-3 font-semibold">
-            {Number(f.currentStock).toFixed(2)} {f.unit}
-          </td>
-          <td className="px-4 py-3 text-sm">
-            {Number(f.minStock).toFixed(2)} {f.unit}
-          </td>
-          <td className="px-4 py-3">
-            {f.daysRemaining !== null ? (
-              <Badge
-                color={
-                  f.daysRemaining <= 7
-                    ? "red"
-                    : f.daysRemaining <= 14
-                      ? "yellow"
-                      : "green"
-                }
-              >
-                {f.daysRemaining} días
-              </Badge>
-            ) : (
-              <span className="text-slate-400">∞</span>
-            )}
-          </td>
-          <td className="px-4 py-3">
-            ${Number(f.costPerUnit).toLocaleString()}
-          </td>
-          <td className="px-4 py-3 font-semibold text-blue-600">
-            ${Math.round(f.estimatedValue).toLocaleString()}
-          </td>
-        </tr>
-      ))}
-    </Table>
-  );
 }
 
 export default async function AlimentacionInventoryPage({
@@ -122,25 +25,18 @@ export default async function AlimentacionInventoryPage({
   const query = (params.q ?? "").trim();
   const allItems = await getFeedInventoryProjection(period);
 
-  const items = query
-    ? allItems.filter((f) =>
-        matchesTextQuery(query, [
-          f.name,
-          f.category,
-          isPurchasedFeedCategory(f.category)
-            ? "suplementario comprado"
-            : isFreshFeedCategory(f.category)
-              ? "granja fresco"
-              : "procesado",
-          f.unit,
-          f.currentStock,
-          f.minStock,
-          f.costPerUnit,
-          f.daysRemaining,
-          f.isLow ? "stock bajo" : "",
-        ]),
-      )
-    : allItems;
+  const items = allItems.map((f) => ({
+    id: f.id,
+    name: f.name,
+    category: f.category,
+    unit: f.unit,
+    currentStock: Number(f.currentStock),
+    minStock: Number(f.minStock),
+    daysRemaining: f.daysRemaining,
+    costPerUnit: Number(f.costPerUnit),
+    estimatedValue: f.estimatedValue,
+    isLow: f.isLow,
+  }));
 
   const totalValue = allItems.reduce((sum, f) => sum + f.estimatedValue, 0);
   const lowCount = allItems.filter((f) => f.isLow).length;
@@ -217,46 +113,7 @@ export default async function AlimentacionInventoryPage({
       </div>
 
       <Card>
-        <form
-          action="/dashboard/inventarios/alimentacion"
-          method="get"
-          className="mb-4 flex flex-col gap-2 sm:flex-row sm:items-center"
-        >
-          <input type="hidden" name="days" value={period} />
-          <div className="relative w-full sm:max-w-sm">
-            <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-sm text-slate-400">
-              <Search className="w-4 h-4" aria-hidden="true" />
-            </span>
-            <input
-              type="search"
-              name="q"
-              defaultValue={query}
-              placeholder="Buscar por alimento, categoría o stock..."
-              aria-label="Buscar en el inventario de alimentación"
-              className="w-full rounded-lg border border-slate-300 bg-white py-2 pl-9 pr-3 text-sm text-slate-800 outline-none transition-colors placeholder:text-slate-400 focus:border-green-500 focus:ring-2 focus:ring-green-100"
-            />
-          </div>
-          <button
-            type="submit"
-            className="px-3 py-2 text-sm font-medium rounded-lg bg-green-600 text-white hover:bg-green-700 transition-colors"
-          >
-            Buscar
-          </button>
-          {query && (
-            <a
-              href={`/dashboard/inventarios/alimentacion?days=${period}`}
-              className="text-sm text-slate-500 hover:text-slate-700 hover:underline"
-            >
-              Limpiar
-            </a>
-          )}
-          {query && (
-            <span className="text-xs text-slate-500 sm:ml-auto">
-              {items.length} de {allItems.length} alimentos
-            </span>
-          )}
-        </form>
-        <FeedTable items={items} search={query} />
+        <AlimentacionInventoryClient items={items} initialQuery={query} />
       </Card>
     </div>
   );

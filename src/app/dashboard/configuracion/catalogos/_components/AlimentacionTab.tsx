@@ -3,7 +3,9 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { Wheat } from "lucide-react";
 import { Button, Card, EmptyState, Input, Modal, Select, Table } from "@/components/ui";
+import TableSearch from "@/components/TableSearch";
 import { apiFetch } from "@/lib/fetch";
+import { matchesTextQuery } from "@/lib/text";
 
 interface StageOption { id: string; value: string }
 interface FeedOption { id: string; name: string; unit: string }
@@ -33,6 +35,7 @@ export default function AlimentacionTab() {
   const [editing, setEditing] = useState<FeedProgram | null>(null);
   const [form, setForm] = useState({ ...EMPTY });
   const [error, setError] = useState("");
+  const [search, setSearch] = useState("");
 
   const load = useCallback(() => {
     setLoading(true);
@@ -50,6 +53,19 @@ export default function AlimentacionTab() {
   useEffect(() => { void Promise.resolve().then(load); }, [load]);
 
   const stageName = useMemo(() => Object.fromEntries(stages.map((s) => [s.id, s.value])), [stages]);
+  const visiblePrograms = useMemo(
+    () =>
+      programs.filter((item) =>
+        matchesTextQuery(search, [
+          stageName[item.stageCatalogoId],
+          item.feedName,
+          item.feedUnit,
+          item.percentage,
+          item.dailyAmountPerHen,
+        ]),
+      ),
+    [programs, search, stageName],
+  );
   const stagesWithoutProgram = useMemo(
     () => stages.filter((stage) => !programs.some((program) => program.stageCatalogoId === stage.id)),
     [stages, programs],
@@ -141,13 +157,25 @@ export default function AlimentacionTab() {
       )}
 
       <Card>
+        {programs.length > 0 && (
+          <TableSearch
+            value={search}
+            onChange={setSearch}
+            placeholder="Buscar programa por etapa, alimento o gramos..."
+            resultCount={visiblePrograms.length}
+            totalCount={programs.length}
+            className="mb-4"
+          />
+        )}
         {loading ? (
           <p className="text-center py-8 text-slate-400">Cargando...</p>
         ) : programs.length === 0 ? (
           <EmptyState icon="wheat" message="No hay programas de alimentación configurados" />
+        ) : visiblePrograms.length === 0 ? (
+          <EmptyState icon="wheat" message="No hay programas que coincidan con la búsqueda" />
         ) : (
           <Table headers={["Etapa", "Alimento", "Porcentaje", "g/animal/día", ""]}>
-            {programs.map((item) => (
+            {visiblePrograms.map((item) => (
               <tr key={item.id} className="hover:bg-slate-50">
                 <td className="px-4 py-3 font-medium">{stageName[item.stageCatalogoId] || "—"}</td>
                 <td className="px-4 py-3">{item.feedName || "—"}</td>

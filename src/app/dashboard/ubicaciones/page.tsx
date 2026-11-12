@@ -6,7 +6,9 @@ import { useActionQuery } from "@/lib/useActionQuery";
 import { useCallback, useEffect, useState } from "react";
 import { MapPin, Wrench } from "lucide-react";
 import { Badge, Button, Card, EmptyState, Input, Modal, PageHeader, Select, StatCard, Textarea } from "@/components/ui";
+import TableSearch from "@/components/TableSearch";
 import { apiFetch } from "@/lib/fetch";
+import { matchesTextQuery } from "@/lib/text";
 import {
   FarmLocation, LOCATION_TYPE_LABELS, OPERATIONAL_STATUS_LABELS, SANITARY_STATUS_LABELS,
 } from "@/lib/useFarmLocations";
@@ -29,6 +31,23 @@ export default function UbicacionesPage() {
   const [form, setForm] = useState<LocationForm>(EMPTY_FORM);
   const [open, setOpen] = useState(false);
   const [error, setError] = useState("");
+  const [search, setSearch] = useState("");
+
+  const visibleLocations = locations.filter((location) =>
+    matchesTextQuery(search, [
+      location.name,
+      location.code,
+      LOCATION_TYPE_LABELS[location.type] || location.type,
+      location.localReference,
+      location.parentName,
+      location.description,
+      location.notes,
+      location.maintenanceNeeds,
+      OPERATIONAL_STATUS_LABELS[location.operationalStatus] || location.operationalStatus,
+      SANITARY_STATUS_LABELS[location.sanitaryStatus] || location.sanitaryStatus,
+      location.status === "activa" ? "activa" : "inactiva",
+    ]),
+  );
 
   const load = useCallback(async () => {
     const response = await apiFetch("/api/ubicaciones");
@@ -126,8 +145,21 @@ export default function UbicacionesPage() {
       {loading ? <p className="py-10 text-center text-slate-500">Cargando lugares…</p> : locations.length === 0 ? (
         <Card><EmptyState icon="location" message="Aún no hay lugares de manejo registrados. Crea el primero para asignar las nuevas entradas de animales." /><div className="mt-4 text-center"><Button onClick={startNew}>Crear el primer lugar</Button></div></Card>
       ) : (
-        <div className="grid gap-4 md:grid-cols-2 2xl:grid-cols-3">
-          {locations.map((location) => {
+        <div className="space-y-4">
+          <TableSearch
+            value={search}
+            onChange={setSearch}
+            placeholder="Buscar lugar por nombre, código, tipo, referencia o estado..."
+            resultCount={visibleLocations.length}
+            totalCount={locations.length}
+          />
+          {visibleLocations.length === 0 ? (
+            <Card>
+              <EmptyState icon="location" message="No hay lugares que coincidan con la búsqueda" />
+            </Card>
+          ) : (
+            <div className="grid gap-4 md:grid-cols-2 2xl:grid-cols-3">
+              {visibleLocations.map((location) => {
             const attention = ["requiere_atencion", "no_cumple"].includes(location.sanitaryStatus) || ["restringida", "fuera_servicio"].includes(location.operationalStatus);
             const mapUrl = location.latitude && location.longitude
               ? `https://www.openstreetmap.org/?mlat=${encodeURIComponent(location.latitude)}&mlon=${encodeURIComponent(location.longitude)}#map=18/${encodeURIComponent(location.latitude)}/${encodeURIComponent(location.longitude)}`
@@ -165,6 +197,8 @@ export default function UbicacionesPage() {
               </Card>
             );
           })}
+            </div>
+          )}
         </div>
       )}
 
