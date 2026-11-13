@@ -80,6 +80,25 @@ MONEDA: pesos colombianos (COP). Formatea los valores como $1.234.567 COP.
     `- Parámetros vigentes: fin de postura ${settings["lifecycle.fin_postura_weeks"]} sem; peso objetivo ${settings["lifecycle.peso_venta_kg"]} kg; relación ${settings["flock.hens_per_rooster"]} gallinas/gallo; referencia ave viva ${settings["inventory.bird_price_per_kg"]} COP/kg; tolerancia huevo ${settings["eggs.validation_threshold"]}; incubación base ${settings["incubation.days"]} días.`,
   ];
 
+  const farmName = settings["farm.name"]?.trim();
+  const farmCity = settings["farm.city"]?.trim();
+  const farmDepartment = settings["farm.department"]?.trim();
+  const farmAltitude = settings["farm.altitude_meters"]?.trim();
+  const farmFocus = settings["farm.production_focus"]?.trim();
+  const farmLocation = [farmCity, farmDepartment].filter(Boolean).join(", ");
+  const farmIdentity = [
+    farmName ? `Finca: ${farmName}` : null,
+    farmLocation ? `Ubicación: ${farmLocation}` : null,
+    farmAltitude ? `Altitud: ${farmAltitude} msnm` : null,
+    farmFocus ? `Actividad principal: ${farmFocus}` : null,
+  ].filter((line): line is string => Boolean(line));
+
+  if (farmIdentity.length > 0) {
+    dynamicSections.push(
+      `## Identidad de la finca activa\n${farmIdentity.map((line) => `- ${line}`).join("\n")}`,
+    );
+  }
+
   if (dynamicContext.situationalBrief) {
     dynamicSections.push(`## Estado vivo y alertas de la granja\n- ${dynamicContext.situationalBrief}`);
   }

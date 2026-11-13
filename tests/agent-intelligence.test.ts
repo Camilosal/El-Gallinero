@@ -2,7 +2,8 @@ import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 import crypto from "node:crypto";
 import { eq } from "drizzle-orm";
 import { db } from "@/db";
-import { users } from "@/db/schema";
+import { agentMemories, users } from "@/db/schema";
+import { DEFAULT_FARM_ID, runWithFarmContext } from "@/db/tenant-context";
 import { getSessionUser } from "@/lib/auth";
 import { mockRequest, parseJson } from "./helpers";
 import {
@@ -21,8 +22,10 @@ import {
   scoreMemoryRelevance,
 } from "@/lib/agent/memory";
 import { agentStatus, sanitizeLlmHistory } from "@/lib/agent/runtime";
+import { buildSystemPrompt } from "@/lib/agent/prompt";
 import { formatSituationalBrief, type SituationalSnapshot } from "@/lib/agent/situational";
 import { AGENT_TOOLS } from "@/lib/agent/tools";
+import { __setSettingsCacheForTests } from "@/lib/settings";
 import { GET as memoriaGET, POST as memoriaPOST, DELETE as memoriaDELETE } from "@/app/api/asistente/memoria/route";
 
 function findTool(name: string) {
@@ -236,6 +239,94 @@ describe("memoria episódica, destilación y compactación", () => {
     expect(removed).toBe(true);
     const remaining = await listFarmMemories(tempUserId);
     expect(remaining.length).toBe(0);
+  });
+});
+
+describe("identidad de finca y memoria aislada por granja", () => {
+  const tempUserId = crypto.randomUUID();
+  const tempUsername = `farm_scope_${tempUserId.slice(0, 8)}`;
+  const otherFarmId = crypto.randomUUID();
+
+  beforeAll(async () => {
+    await db.insert(users).values({
+      id: tempUserId,
+      username: tempUsername,
+      passwordHash: "test-hash-not-used",
+      name: "Operador Multi-Finca",
+      role: "propietario",
+      farmId: DEFAULT_FARM_ID,
+    });
+  });
+
+  afterAll(async () => {
+    await db.delete(agentMemories).where(eq(agentMemories.userId, tempUserId));
+    await db.delete(users).where(eq(users.id, tempUserId));
+  });
+
+  it("inyecta la identidad de la finca activa en el prompt del asistente", async () => {
+    await runWithFarmContext(DEFAULT_FARM_ID, async () => {
+      __setSettingsCacheForTests({
+        "farm.name": "Granja La Esperanza",
+        "farm.city": "Ibagué",
+        "farm.department": "Tolima",
+        "farm.altitude_meters": "1285",
+        "farm.production_focus": "gallinas ponedoras",
+      });
+      try {
+        const prompt = await buildSystemPrompt("Camilosal");
+        expect(prompt).toContain("## Identidad de la finca activa");
+        expect(prompt).toContain("Finca: Granja La Esperanza");
+        expect(prompt).toContain("Ubicación: Ibagué, Tolima");
+        expect(prompt).toContain("Altitud: 1285 msnm");
+        expect(prompt).toContain("Actividad principal: gallinas ponedoras");
+      } finally {
+        __setSettingsCacheForTests(null);
+      }
+    });
+  });
+
+  it("omite la sección de identidad cuando la finca no tiene datos", async () => {
+    const prompt = await runWithFarmContext(otherFarmId, async () => {
+      __setSettingsCacheForTests(null);
+      return buildSystemPrompt("Camilosal");
+    });
+    expect(prompt).not.toContain("## Identidad de la finca activa");
+  });
+
+  it("guarda y lista memorias separadas por finca para el mismo usuario", async () => {
+    const first = await runWithFarmContext(DEFAULT_FARM_ID, () =>
+      saveFarmMemory({
+        userId: tempUserId,
+        category: "proveedor",
+        subjectKey: "proveedor_principal",
+        content: "En la finca base el proveedor principal es Italcol.",
+      }),
+    );
+    const second = await runWithFarmContext(otherFarmId, () =>
+      saveFarmMemory({
+        userId: tempUserId,
+        category: "proveedor",
+        subjectKey: "proveedor_principal",
+        content: "En la segunda finca el proveedor principal es Coopegg.",
+      }),
+    );
+
+    expect(first.id).not.toBe(second.id);
+
+    const defaultFarmMemories = await runWithFarmContext(DEFAULT_FARM_ID, () =>
+      listFarmMemories(tempUserId),
+    );
+    const otherFarmMemories = await runWithFarmContext(otherFarmId, () =>
+      listFarmMemories(tempUserId),
+    );
+
+    expect(defaultFarmMemories).toHaveLength(1);
+    expect(defaultFarmMemories[0].id).toBe(first.id);
+    expect(defaultFarmMemories[0].content).toContain("Italcol");
+
+    expect(otherFarmMemories).toHaveLength(1);
+    expect(otherFarmMemories[0].id).toBe(second.id);
+    expect(otherFarmMemories[0].content).toContain("Coopegg");
   });
 });
 

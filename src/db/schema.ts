@@ -1331,5 +1331,5 @@ export const agentMemories = pgTable("agent_memories", {
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 }, (t) => [
   index("agent_memories_user_active_idx").on(t.userId, t.isActive),
-  uniqueIndex("agent_memories_user_subject_idx").on(t.userId, t.category, t.subjectKey),
+  uniqueIndex("agent_memories_farm_user_subject_idx").on(t.farmId, t.userId, t.category, t.subjectKey),
 ]);

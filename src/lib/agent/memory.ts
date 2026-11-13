@@ -1,5 +1,6 @@
 import { db } from "@/db";
 import { agentMemories, aiConversations, aiMessages } from "@/db/schema";
+import { getCurrentFarmId } from "@/db/tenant-context";
 import { and, asc, desc, eq, inArray, sql } from "drizzle-orm";
 import type { AgentConfig } from "./config";
 import { normalizeSearchText, tokenizeQuery } from "./knowledge";
@@ -142,6 +143,7 @@ export async function saveFarmMemory(input: SaveMemoryInput): Promise<FarmMemory
   const [row] = await db
     .insert(agentMemories)
     .values({
+      farmId: getCurrentFarmId(),
       userId: input.userId,
       category,
       subjectKey,
@@ -154,7 +156,12 @@ export async function saveFarmMemory(input: SaveMemoryInput): Promise<FarmMemory
       updatedAt: now,
     })
     .onConflictDoUpdate({
-      target: [agentMemories.userId, agentMemories.category, agentMemories.subjectKey],
+      target: [
+        agentMemories.farmId,
+        agentMemories.userId,
+        agentMemories.category,
+        agentMemories.subjectKey,
+      ],
       set: {
         content,
         entities: mergedEntities,

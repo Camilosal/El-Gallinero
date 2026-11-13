@@ -30,6 +30,15 @@ describe("Automated Migration Runner & Normative Pack Version", () => {
         AND column_name IN ('species', 'location_id')
     `);
     expect(salesCols.rows.map((r) => r.column_name).sort()).toEqual(["location_id", "species"]);
+
+    const memoryIndexes = await pool.query<{ indexname: string }>(`
+      SELECT indexname FROM pg_indexes
+      WHERE schemaname = 'public' AND tablename = 'agent_memories'
+        AND indexname IN ('agent_memories_farm_user_subject_idx', 'agent_memories_user_subject_idx')
+    `);
+    expect(memoryIndexes.rows.map((r) => r.indexname)).toEqual([
+      "agent_memories_farm_user_subject_idx",
+    ]);
   });
 
   it("expone NORMATIVE_PACK_VERSION actualizado para paquete ICA / NTC 1240", () => {
