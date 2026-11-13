@@ -471,7 +471,7 @@ export const CYCLE_PLANS_SHOWCASE: CyclePlanShowcase[] = [
     summary:
       "Para gallinas ponedoras, codornices o granjas mixtas familiares. Opción anual disponible por $210.000 COP.",
     highlights: [
-      "Hasta 4 lotes activos y 4 usuarios",
+      "Hasta 3 usuarios",
       "Clasificación NTC 1240 e inventario PEPS",
       "Plan sanitario ICA precargado desde Día 1",
     ],
@@ -479,7 +479,7 @@ export const CYCLE_PLANS_SHOWCASE: CyclePlanShowcase[] = [
   {
     id: "MEDIANO_MENSUAL",
     badge: "Multi-galpón",
-    name: "Escala Mediano",
+    name: "Escala Mediano · cobro mensual",
     priceLabel: "$149.000 COP",
     durationLabel: "30 días · hasta 15 usuarios",
     summary:

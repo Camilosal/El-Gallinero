@@ -62,6 +62,7 @@ describe("Day 0 Registration (/registro) & Farm User/Role Management", () => {
         ownerName: "Rosa Elena Rojas",
         username: ownerUsername,
         password: "ClaveSegura123",
+        acceptLegal: true,
         qrSource: "afiche-tienda-agro",
         allyCode: "AGRO-BOYACA-01",
       }),
@@ -168,6 +169,7 @@ describe("Day 0 Registration (/registro) & Farm User/Role Management", () => {
         ownerName: "Carlos Alberto Pérez",
         username: ownerUsername,
         password: "ClaveMediana2026!",
+        acceptLegal: true,
       }),
     });
     const regRes = await registerFarm(regReq);

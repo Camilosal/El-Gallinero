@@ -7,6 +7,7 @@ import { runWithFarmContext } from "@/db/tenant-context";
 import { safeParseJson, withApiHandler } from "@/lib/api-handler";
 import { createSession, hashPassword, sessionCookieName } from "@/lib/auth";
 import { createDefaultProgressiveConfig, PROGRESSIVE_CONFIG_SETTING_KEY } from "@/lib/onboarding";
+import { LEGAL_CONSENT_SETTING_KEY, LEGAL_DOCS_VERSION } from "@/lib/legal";
 import { invalidateSettingsCache } from "@/lib/settings";
 
 export const dynamic = "force-dynamic";
@@ -35,6 +36,16 @@ export const POST = withApiHandler(async (req: NextRequest) => {
   const password = typeof body.password === "string" ? body.password : "";
   const qrSource = typeof body.qrSource === "string" && body.qrSource.trim() ? body.qrSource.trim().slice(0, 120) : null;
   const allyCode = typeof body.allyCode === "string" && body.allyCode.trim() ? body.allyCode.trim().slice(0, 120) : null;
+
+  if (body.acceptLegal !== true) {
+    return NextResponse.json(
+      {
+        error:
+          "Debes aceptar los términos, la política de retracto y la autorización de tratamiento de datos para crear tu granja",
+      },
+      { status: 400 },
+    );
+  }
 
   if (farmName.length < 2) {
     return NextResponse.json({ error: "Ingresa el nombre de tu finca o granja" }, { status: 400 });
@@ -139,6 +150,16 @@ export const POST = withApiHandler(async (req: NextRequest) => {
         farmId: farm.id,
         key: "farm.admin_name",
         value: ownerName,
+      },
+      {
+        farmId: farm.id,
+        key: LEGAL_CONSENT_SETTING_KEY,
+        value: JSON.stringify({
+          acceptedAt: now.toISOString(),
+          version: LEGAL_DOCS_VERSION,
+          documents: ["terminos", "retracto", "privacidad"],
+          userId: owner.id,
+        }),
       },
     ];
 

@@ -3,6 +3,8 @@
 import { useState } from "react";
 import { CheckCircle2, CreditCard, ShieldCheck, Smartphone, Sparkles } from "lucide-react";
 import { Button, Modal } from "@/components/ui";
+import { LegalLinksBar } from "@/components/LegalLinksBar";
+import { PLAN_PROMISES } from "@/lib/legal";
 import { apiFetch } from "@/lib/fetch";
 import type { BillingPaymentMethod, BillingPlanDefinition } from "@/lib/subscription";
 
@@ -182,6 +184,13 @@ export default function SubscriptionUpgradeModal({
             {loading ? "Generando pago seguro..." : "Generar pago con Nequi / Daviplata / PSE"}
           </Button>
         )}
+
+        <div className="space-y-1 border-t border-slate-200 pt-3 text-center">
+          <p className="text-xs text-slate-600">
+            {PLAN_PROMISES.noAutoCharge} Al pagar aceptas los documentos legales:
+          </p>
+          <LegalLinksBar />
+        </div>
       </div>
     </Modal>
   );

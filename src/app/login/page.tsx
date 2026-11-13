@@ -6,6 +6,7 @@ import Link from "next/link";
 import { ArrowLeft, Bird, Leaf } from "lucide-react";
 import { HeroFrame } from "@/components/HeroFrame";
 import { DeveloperCredit } from "@/components/DeveloperCredit";
+import { LegalLinksBar } from "@/components/LegalLinksBar";
 
 export default function LoginPage() {
   const router = useRouter();
@@ -140,6 +141,7 @@ export default function LoginPage() {
               <span>Granja Autosustentable Iwagé</span>
             </div>
             <DeveloperCredit variant="inline" className="justify-center" />
+            <LegalLinksBar className="pt-1" />
           </div>
         </div>
       </div>

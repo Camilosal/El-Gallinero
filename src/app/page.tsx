@@ -18,6 +18,10 @@ import {
   SECTOR_STANDARDS,
 } from "@/lib/landing-showcase";
 import { APP_DEVELOPER } from "@/lib/branding";
+import { LegalFooter } from "@/components/LegalFooter";
+import { PLAN_PROMISES, priceNote } from "@/lib/legal";
+
+export const dynamic = "force-dynamic";
 
 const ESSENTIAL_MODULES = [
   {
@@ -174,12 +178,6 @@ export default function HomePage() {
                   >
                     Empezar gratis (3 min)
                     <ArrowRight className="w-4 h-4" />
-                  </Link>
-                  <Link
-                    href="/login"
-                    className="inline-flex items-center gap-2 rounded-full border border-white/30 bg-white/10 px-5 py-3 text-sm font-semibold text-white hover:bg-white/15 transition"
-                  >
-                    Entrar al sistema
                   </Link>
                   <a
                     href="#vitrina"
@@ -533,13 +531,24 @@ export default function HomePage() {
               ))}
             </div>
 
+            <p className="mt-4 text-xs text-[var(--moss)]">
+              {priceNote()}{" "}
+              <Link href="/terminos" className="underline underline-offset-2">
+                Términos y condiciones
+              </Link>{" "}
+              ·{" "}
+              <Link href="/retracto" className="underline underline-offset-2">
+                Retracto y reembolsos
+              </Link>
+            </p>
+
             <div className="mt-5 rounded-xl border border-[var(--line)] bg-[var(--paper)] p-4 sm:p-5 grid grid-cols-1 md:grid-cols-2 gap-4 text-xs sm:text-sm">
               <div>
                 <p className="font-semibold text-[var(--ink)]">
                   Pagos locales sin tarjeta de crédito
                 </p>
                 <p className="mt-1 text-[var(--moss)] leading-relaxed">
-                  Renueva en segundos por Nequi, Daviplata o PSE (vía Wompi) según tu ciclo de producción, sin cobros automáticos ni cláusulas de permanencia.
+                  Renueva en segundos por Nequi, Daviplata o PSE (vía Wompi) según tu ciclo de producción. {PLAN_PROMISES.noAutoCharge}
                 </p>
               </div>
               <div>
@@ -547,7 +556,7 @@ export default function HomePage() {
                   Respeto total por tu trabajo e historial
                 </p>
                 <p className="mt-1 text-[var(--moss)] leading-relaxed">
-                  Si vence un ciclo y decides no renovar, nunca bloqueamos la lectura de tu historial ni te impedimos cerrar o vender tu lote en curso.
+                  {PLAN_PROMISES.expiry}
                 </p>
               </div>
             </div>
@@ -565,9 +574,26 @@ export default function HomePage() {
               <h2 id="acceso-heading" className="land-h2">
                 Tu granja configurada hoy en 3 pasos simples
               </h2>
-              <p className="land-section-sub" style={{ marginBottom: 0 }}>
-                1. Crea tu granja aislada sin tarjeta · 2. Carga solo tus animales vivos actuales y bultos en bodega · 3. Registra en galpón con o sin señal.
-              </p>
+              <ol className="mt-3 grid grid-cols-1 sm:grid-cols-3 gap-2.5 list-none p-0">
+                {[
+                  "Crea tu granja aislada, sin tarjeta",
+                  "Carga solo tus animales vivos y los bultos en bodega",
+                  "Registra en el galpón, con o sin señal",
+                ].map((step, i) => (
+                  <li
+                    key={step}
+                    className="flex items-center gap-3 rounded-xl border border-[var(--line)] bg-[var(--paper)] px-3.5 py-3 text-sm text-[var(--ink)]"
+                  >
+                    <span
+                      aria-hidden="true"
+                      className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-[var(--forest)] text-xs font-bold text-white"
+                    >
+                      {i + 1}
+                    </span>
+                    <span>{step}</span>
+                  </li>
+                ))}
+              </ol>
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -702,6 +728,7 @@ export default function HomePage() {
             </div>
           </div>
         </footer>
+        <LegalFooter />
       </ScrollReveal>
     </div>
   );

@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { ArrowRight, CheckCircle2, Egg, Leaf, ShieldCheck } from "lucide-react";
 import { DeveloperCredit } from "@/components/DeveloperCredit";
+import { LegalLinksBar } from "@/components/LegalLinksBar";
 
 function RegistroFormInner() {
   const router = useRouter();
@@ -16,6 +17,7 @@ function RegistroFormInner() {
   const [ownerName, setOwnerName] = useState("");
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
+  const [acceptLegal, setAcceptLegal] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
@@ -32,6 +34,7 @@ function RegistroFormInner() {
           ownerName,
           username,
           password,
+          acceptLegal,
           qrSource: qrSource || undefined,
           allyCode: allyCode || undefined,
         }),
@@ -148,9 +151,27 @@ function RegistroFormInner() {
             />
           </div>
 
+          <label className="flex items-start gap-3 rounded-xl border border-slate-300 bg-slate-50 p-3 text-sm text-slate-800 cursor-pointer">
+            <input
+              type="checkbox"
+              required
+              checked={acceptLegal}
+              onChange={(e) => setAcceptLegal(e.target.checked)}
+              className="mt-0.5 h-5 w-5 shrink-0 rounded border-slate-400 text-emerald-700"
+            />
+            <span>
+              Acepto los{" "}
+              <Link href="/terminos" target="_blank" className="font-semibold text-emerald-800 underline">términos y condiciones</Link>
+              , la{" "}
+              <Link href="/retracto" target="_blank" className="font-semibold text-emerald-800 underline">política de retracto</Link>
+              {" "}y autorizo el tratamiento de mis datos personales según la{" "}
+              <Link href="/privacidad" target="_blank" className="font-semibold text-emerald-800 underline">política de tratamiento de datos</Link>.
+            </span>
+          </label>
+
           <button
             type="submit"
-            disabled={loading}
+            disabled={loading || !acceptLegal}
             className="w-full min-h-[48px] px-5 py-3 bg-emerald-700 hover:bg-emerald-800 text-white font-bold text-base rounded-xl shadow-md transition flex items-center justify-center gap-2 disabled:opacity-50"
           >
             {loading ? (
@@ -188,6 +209,7 @@ function RegistroFormInner() {
             <span>Iwagé Granja · Estándar ICA / NTC 1240</span>
           </div>
           <DeveloperCredit variant="inline" className="justify-center" />
+          <LegalLinksBar className="pt-1" />
         </div>
       </div>
     </div>
