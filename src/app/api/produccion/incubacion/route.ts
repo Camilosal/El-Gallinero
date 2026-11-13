@@ -7,32 +7,72 @@ import { HEN_PRESENT_STATUSES } from "@/lib/animal-status";
 import { assignMales, requiredRoosters } from "@/lib/flock";
 import { getFlockRules, getIncubationDays } from "@/lib/settings";
 import { withApiHandler, safeParseJson } from "@/lib/api-handler";
+import { addDaysIso } from "@/lib/date-validation";
+import { assertDateNotClosed, assertLocationEntryAllowed } from "@/lib/sanitary-locks";
 
 export const dynamic = "force-dynamic";
 
+const INCUBATION_SPECS: Record<string, { days: number; turnStopDay: number; tempC: string; humidityPct: string; label: string }> = {
+  gallina: { days: 21, turnStopDay: 18, tempC: "37.8", humidityPct: "55.0", label: "Gallina (21d)" },
+  codorniz: { days: 17, turnStopDay: 14, tempC: "37.7", humidityPct: "60.0", label: "Codorniz (17d)" },
+  pato: { days: 28, turnStopDay: 25, tempC: "37.5", humidityPct: "65.0", label: "Pato (28d)" },
+};
+
 export const GET = withApiHandler(async () => {
-  const data = await db
-    .select({
-      id: incubation.id,
-      henId: incubation.henId,
-      henCode: hens.code,
-      roosterId: incubation.roosterId,
-      roosterCode: sql<string | null>`COALESCE(${roosters.code}, ${incubation.roosterCode})`,
-      startDate: incubation.startDate,
-      expectedHatchDate: incubation.expectedHatchDate,
-      eggsSet: incubation.eggsSet,
-      eggsHatched: incubation.eggsHatched,
-      malesHatched: incubation.malesHatched,
-      femalesHatched: incubation.femalesHatched,
-      isComplete: incubation.isComplete,
-      notes: incubation.notes,
-      createdAt: incubation.createdAt,
-    })
-    .from(incubation)
-    .leftJoin(hens, eq(incubation.henId, hens.id))
-    .leftJoin(roosters, eq(incubation.roosterId, roosters.id))
-    .orderBy(desc(incubation.createdAt));
-  return NextResponse.json(data);
+  const [data, locations, batches] = await Promise.all([
+    db
+      .select({
+        id: incubation.id,
+        species: incubation.species,
+        henId: incubation.henId,
+        henCode: hens.code,
+        roosterId: incubation.roosterId,
+        roosterCode: sql<string | null>`COALESCE(${roosters.code}, ${incubation.roosterCode})`,
+        batchId: incubation.batchId,
+        locationId: incubation.locationId,
+        incubatorName: incubation.incubatorName,
+        trayCode: incubation.trayCode,
+        startDate: incubation.startDate,
+        turnStopDate: incubation.turnStopDate,
+        expectedHatchDate: incubation.expectedHatchDate,
+        humidityTargetPct: incubation.humidityTargetPct,
+        tempTargetC: incubation.tempTargetC,
+        eggsSet: incubation.eggsSet,
+        fertileEggs: incubation.fertileEggs,
+        discardedEggs: incubation.discardedEggs,
+        eggsHatched: incubation.eggsHatched,
+        malesHatched: incubation.malesHatched,
+        femalesHatched: incubation.femalesHatched,
+        isComplete: incubation.isComplete,
+        notes: incubation.notes,
+        createdAt: incubation.createdAt,
+      })
+      .from(incubation)
+      .leftJoin(hens, eq(incubation.henId, hens.id))
+      .leftJoin(roosters, eq(incubation.roosterId, roosters.id))
+      .orderBy(desc(incubation.createdAt)),
+    db.select({ id: farmLocations.id, name: farmLocations.name }).from(farmLocations),
+    db.select({ id: broilerBatches.id, code: broilerBatches.code }).from(broilerBatches),
+  ]);
+
+  const locNames = new Map(locations.map((l) => [l.id, l.name]));
+  const batchCodes = new Map(batches.map((b) => [b.id, b.code]));
+
+  return NextResponse.json(
+    data.map((row) => {
+      const fertile = row.fertileEggs != null ? Number(row.fertileEggs) : null;
+      const hatched = row.eggsHatched != null ? Number(row.eggsHatched) : 0;
+      const eggsSet = Math.max(1, Number(row.eggsSet || 1));
+      return {
+        ...row,
+        locationName: row.locationId ? locNames.get(row.locationId) || null : null,
+        batchCode: row.batchId ? batchCodes.get(row.batchId) || null : null,
+        fertilityPct: fertile != null ? Math.round((fertile / eggsSet) * 1000) / 10 : null,
+        hatchOfFertilePct: row.isComplete && fertile != null && fertile > 0 ? Math.round((hatched / fertile) * 1000) / 10 : null,
+        hatchTotalPct: row.isComplete ? Math.round((hatched / eggsSet) * 1000) / 10 : null,
+      };
+    }),
+  );
 });
 
 export const POST = withApiHandler(async (req: NextRequest) => {
@@ -41,13 +81,31 @@ export const POST = withApiHandler(async (req: NextRequest) => {
   if (!Number.isInteger(eggsSet) || eggsSet < 1) {
     return NextResponse.json({ error: "La cantidad de huevos debe ser un entero mayor que cero" }, { status: 400 });
   }
+  const species = String(body.species || "gallina").trim().toLowerCase();
+  if (!INCUBATION_SPECS[species]) {
+    return NextResponse.json({ error: "Especie de incubación inválida (gallina, codorniz o pato)" }, { status: 400 });
+  }
+  if (species !== "gallina" && body.henId) {
+    return NextResponse.json({ error: "Solo se asigna gallina individual a incubaciones de gallina" }, { status: 400 });
+  }
   const startDate = new Date(body.startDate);
   if (isNaN(startDate.getTime())) {
     return NextResponse.json({ error: "Fecha de inicio inválida" }, { status: 400 });
   }
-  const incubationDays = await getIncubationDays();
-  const expectedHatch = new Date(startDate);
-  expectedHatch.setDate(expectedHatch.getDate() + incubationDays);
+
+  const spec = INCUBATION_SPECS[species];
+  const configuredGallinaDays = species === "gallina" ? await getIncubationDays() : spec.days;
+  const incubationDays = species === "gallina" ? configuredGallinaDays : spec.days;
+  const expectedHatchDate = addDaysIso(String(body.startDate), incubationDays);
+  const turnStopDate = body.turnStopDate || addDaysIso(String(body.startDate), spec.turnStopDay);
+  const fertileEggs = body.fertileEggs != null && body.fertileEggs !== "" ? Number(body.fertileEggs) : null;
+  const discardedEggs = body.discardedEggs != null && body.discardedEggs !== "" ? Number(body.discardedEggs) : 0;
+  if (fertileEggs != null && (!Number.isInteger(fertileEggs) || fertileEggs < 0 || fertileEggs > eggsSet)) {
+    return NextResponse.json({ error: "Huevos fértiles inválido" }, { status: 400 });
+  }
+  if (!Number.isInteger(discardedEggs) || discardedEggs < 0 || discardedEggs > eggsSet) {
+    return NextResponse.json({ error: "Huevos descartados inválido" }, { status: 400 });
+  }
 
   const created = await db.transaction(async (tx) => {
     if (body.henId) {
@@ -67,16 +125,25 @@ export const POST = withApiHandler(async (req: NextRequest) => {
     }
 
     const [row] = await tx.insert(incubation).values({
+      species: species as any,
       henId: body.henId || null,
       roosterId: body.roosterId || null,
       roosterCode,
+      batchId: body.batchId || null,
+      locationId: body.locationId || null,
+      incubatorName: body.incubatorName ? String(body.incubatorName).trim() : null,
+      trayCode: body.trayCode ? String(body.trayCode).trim() : null,
       startDate: body.startDate,
-      expectedHatchDate: expectedHatch.toISOString().split("T")[0],
+      turnStopDate,
+      expectedHatchDate,
+      humidityTargetPct: body.humidityTargetPct ? String(body.humidityTargetPct) : spec.humidityPct,
+      tempTargetC: body.tempTargetC ? String(body.tempTargetC) : spec.tempC,
       eggsSet,
+      fertileEggs,
+      discardedEggs,
       notes: body.notes || null,
     }).returning();
 
-    // Update hen status to broody
     if (body.henId) {
       await tx.update(hens).set({ status: "empollando", isBroody: true, updatedAt: new Date() }).where(eq(hens.id, body.henId));
     }
@@ -87,7 +154,6 @@ export const POST = withApiHandler(async (req: NextRequest) => {
   return NextResponse.json(created, { status: 201 });
 });
 
-/** Siguiente código secuencial con formato prefijo-### — debe llamarse DENTRO de una transacción */
 async function nextCodesInTx(tx: any, table: any, prefix: string, count: number): Promise<string[]> {
   const existingCodes = (await tx.select({ code: table.code }).from(table)).map((r: any) => r.code);
   let max = 0;
@@ -99,18 +165,49 @@ async function nextCodesInTx(tx: any, table: any, prefix: string, count: number)
   return Array.from({ length: count }, (_, i) => `${prefix}-${String(max + i + 1).padStart(3, "0")}`);
 }
 
+async function nextSpeciesBatchCodeInTx(tx: any, species: string): Promise<string> {
+  const prefixes: Record<string, string> = { pollo: "L-", codorniz: "L-COD-", pato: "L-PAT-" };
+  const prefix = prefixes[species] || "L-";
+  const existing = await tx.select({ code: broilerBatches.code }).from(broilerBatches);
+  let max = 0;
+  const escaped = prefix.replace(/[.*+?^${}()|[\]\\]/g, "\$&");
+  const re = new RegExp(`^${escaped}(\\d+)$`);
+  for (const row of existing) {
+    const m = re.exec(String(row.code));
+    if (m) max = Math.max(max, Number(m[1]));
+  }
+  return `${prefix}${String(max + 1).padStart(3, "0")}`;
+}
+
 export const PUT = withApiHandler(async (req: NextRequest) => {
   const body = await safeParseJson(req);
   if (!body.id) return NextResponse.json({ error: "ID requerido" }, { status: 400 });
-  if (typeof body.isComplete !== "boolean") return NextResponse.json({ error: "Estado de eclosión inválido" }, { status: 400 });
+  if (body.isComplete !== undefined && typeof body.isComplete !== "boolean") {
+    return NextResponse.json({ error: "Estado de eclosión inválido" }, { status: 400 });
+  }
 
   const flockRules = await getFlockRules();
 
   const result = await db.transaction(async (tx) => {
-    // Read existing record to detect idempotency (avoid re-creating birds on re-submit)
     const [before] = await tx.select().from(incubation).where(eq(incubation.id, body.id)).for("update");
     if (!before) throw new Error("No encontrado");
     const wasAlreadyComplete = !!before.isComplete;
+    const nextIsComplete = body.isComplete ?? before.isComplete;
+
+    const fertileEggs = body.fertileEggs === undefined
+      ? before.fertileEggs
+      : body.fertileEggs == null || body.fertileEggs === ""
+        ? null
+        : Number(body.fertileEggs);
+    const discardedEggs = body.discardedEggs === undefined
+      ? Number(before.discardedEggs || 0)
+      : Number(body.discardedEggs || 0);
+    if (fertileEggs != null && (!Number.isInteger(fertileEggs) || fertileEggs < 0 || fertileEggs > before.eggsSet)) {
+      throw new Error("Cantidad de huevos fértiles inválida");
+    }
+    if (!Number.isInteger(discardedEggs) || discardedEggs < 0 || discardedEggs > before.eggsSet) {
+      throw new Error("Cantidad descartada inválida");
+    }
 
     const eggsHatched = body.eggsHatched === undefined ? Number(before.eggsHatched || 0) : Number(body.eggsHatched);
     const malesHatched = body.malesHatched === undefined
@@ -128,7 +225,7 @@ export const PUT = withApiHandler(async (req: NextRequest) => {
       throw new Error("La suma de machos y hembras no puede superar la cantidad nacida");
     }
     if (wasAlreadyComplete && (
-      body.isComplete === false ||
+      nextIsComplete === false ||
       eggsHatched !== Number(before.eggsHatched || 0) ||
       malesHatched !== (before.malesHatched == null ? null : Number(before.malesHatched)) ||
       femalesHatched !== (before.femalesHatched == null ? null : Number(before.femalesHatched))
@@ -136,36 +233,86 @@ export const PUT = withApiHandler(async (req: NextRequest) => {
       throw new Error("No se puede reabrir ni cambiar los conteos de una incubación ya completada");
     }
 
-    // Serialize code generation across manual, acquisition, and incubation flows.
-    // Lock before writing to these tables to avoid lock-upgrade deadlocks.
-    if (body.isComplete && !wasAlreadyComplete) {
+    if (nextIsComplete && !wasAlreadyComplete) {
       if (before.henId || Number(femalesHatched) > 0) {
         await tx.execute(sql`LOCK TABLE ${hens} IN EXCLUSIVE MODE`);
       }
-      if (Number(malesHatched) > 0) {
+      if (Number(malesHatched) > 0 || before.species !== "gallina") {
         await tx.execute(sql`LOCK TABLE ${roosters} IN EXCLUSIVE MODE`);
         await tx.execute(sql`LOCK TABLE ${broilerBatches} IN EXCLUSIVE MODE`);
       }
     }
 
     const [updated] = await tx.update(incubation).set({
+      fertileEggs,
+      discardedEggs,
       eggsHatched,
       malesHatched,
       femalesHatched,
-      isComplete: body.isComplete ?? before.isComplete,
-      notes: body.notes,
+      isComplete: nextIsComplete,
+      notes: body.notes !== undefined ? body.notes : before.notes,
     }).where(eq(incubation.id, body.id)).returning();
 
     if (!updated) throw new Error("No encontrado");
 
-    // If complete, update hen status back (only on first completion)
-    if (body.isComplete && !wasAlreadyComplete && updated.henId) {
+    if (nextIsComplete && !wasAlreadyComplete && updated.henId) {
       await tx.update(hens).set({ status: "activa", isBroody: false, updatedAt: new Date() }).where(eq(hens.id, updated.henId));
     }
 
-    // ─── Asignación automática de pollitos nacidos (solo en la primera completion) ───
     const assignment = { hensCreated: 0, roostersCreated: 0, batchCode: null as string | null };
-    if (body.isComplete && !wasAlreadyComplete) {
+    if (nextIsComplete && !wasAlreadyComplete) {
+      const sp = updated.species || "gallina";
+      const today = new Date().toISOString().split("T")[0];
+      const originNote = `Cría propia por incubación ${updated.id}`;
+
+      if (sp !== "gallina" && eggsHatched > 0) {
+        const destLocationId = updated.locationId || null;
+        if (destLocationId) {
+          await assertLocationEntryAllowed(tx, { locationId: destLocationId, species: sp, date: today, lock: true });
+        }
+        const [acquisition] = await tx.insert(birdAcquisitions).values({
+          date: today,
+          acquisitionType: "cria_propia",
+          species: sp as any,
+          birdType: sp,
+          quantity: eggsHatched,
+          breed: sp === "codorniz" ? "Codorniz Japonesa" : "Pato Pekín",
+          sourceBatchCode: `INC-${updated.id}`,
+          destinationLocationId: destLocationId,
+          birthDate: today,
+          notes: originNote,
+        }).returning({ id: birdAcquisitions.id });
+        const code = await nextSpeciesBatchCodeInTx(tx, sp);
+        const [batch] = await tx.insert(broilerBatches).values({
+          code,
+          species: sp as any,
+          purpose: sp === "codorniz" ? "mixto" : "engorde_carne",
+          breed: sp === "codorniz" ? "Codorniz Japonesa" : "Pato Pekín",
+          startDate: today,
+          initialQuantity: eggsHatched,
+          currentQuantity: eggsHatched,
+          acquisitionId: acquisition.id,
+          locationId: destLocationId,
+          targetWeeks: sp === "codorniz" ? 6 : 9,
+          targetDays: sp === "codorniz" ? 42 : 63,
+          targetWeightKg: sp === "codorniz" ? "0.18" : "3.20",
+          notes: `Eclosión multiespecie (${eggsHatched} crías)`,
+        }).returning();
+        if (destLocationId) {
+          await tx.insert(animalLocationMovements).values({
+            batchId: batch.id,
+            fromLocationId: null,
+            toLocationId: destLocationId,
+            quantity: eggsHatched,
+            date: today,
+            reason: "Nacimiento por incubación",
+            notes: `Adquisición ${acquisition.id}`,
+          });
+        }
+        assignment.batchCode = batch.code;
+        return { incubation: updated, assignment };
+      }
+
       const females = femalesHatched || 0;
       const males = malesHatched || 0;
 
@@ -175,15 +322,13 @@ export const PUT = withApiHandler(async (req: NextRequest) => {
       const father = updated.roosterId
         ? (await tx.select({ breed: roosters.breed, code: roosters.code, acquisitionId: roosters.acquisitionId, locationId: roosters.locationId }).from(roosters).where(eq(roosters.id, updated.roosterId)))[0]
         : undefined;
-      const destinationLocationId = mother?.locationId || father?.locationId || null;
+      const destinationLocationId = updated.locationId || mother?.locationId || father?.locationId || null;
       const motherAcquisition = mother?.acquisitionId
         ? (await tx.select({ geneticLine: birdAcquisitions.geneticLine }).from(birdAcquisitions).where(eq(birdAcquisitions.id, mother.acquisitionId)))[0]
         : undefined;
       const fatherAcquisition = father?.acquisitionId
         ? (await tx.select({ geneticLine: birdAcquisitions.geneticLine }).from(birdAcquisitions).where(eq(birdAcquisitions.id, father.acquisitionId)))[0]
         : undefined;
-      // Preserve the mother's registered breed as before; parent identities and genetic lines
-      // are captured separately so a cross is not mislabeled as a pure breed.
       const breed = mother?.breed || "Criolla";
       const maternalLine = motherAcquisition?.geneticLine || mother?.breed || null;
       const paternalLine = fatherAcquisition?.geneticLine || father?.breed || null;
@@ -194,7 +339,6 @@ export const PUT = withApiHandler(async (req: NextRequest) => {
       let assignedRoosters = 0;
       let assignedBatchQuantity = 0;
       if (males > 0) {
-        // Regla de parvada: 1 gallo por cada 10 gallinas del gallinero
         const [henRows, roosterRows] = await Promise.all([
           tx.select({ status: hens.status }).from(hens),
           tx.select({ id: roosters.id }).from(roosters).where(eq(roosters.status, "activo")),
@@ -231,9 +375,6 @@ export const PUT = withApiHandler(async (req: NextRequest) => {
           }
         }
       }
-
-      const today = new Date().toISOString().split("T")[0];
-      const originNote = `Cría propia por incubación ${updated.id}`;
 
       if (females > 0) {
         const [acquisition] = await tx.insert(birdAcquisitions).values({
@@ -312,14 +453,7 @@ export const PUT = withApiHandler(async (req: NextRequest) => {
             birthDate: today,
             notes: originNote,
           }).returning({ id: birdAcquisitions.id });
-          const existingCodes = await tx.select({ code: broilerBatches.code }).from(broilerBatches);
-          let max = 0;
-          for (const row of existingCodes) {
-            const match = String(row.code).match(/^L-(\d+)$/);
-            if (match) max = Math.max(max, Number(match[1]));
-          }
-          const nextNum = max + 1;
-          const code = `L-${String(nextNum).padStart(3, "0")}`;
+          const code = await nextSpeciesBatchCodeInTx(tx, "pollo");
           const [batch] = await tx.insert(broilerBatches).values({
             code,
             breed: "Pollo de engorde",
@@ -341,7 +475,7 @@ export const PUT = withApiHandler(async (req: NextRequest) => {
       }
     }
 
-    return { ...updated, assignment };
+    return { incubation: updated, assignment };
   });
 
   return NextResponse.json(result);
@@ -353,18 +487,14 @@ export const DELETE = withApiHandler(async (req: NextRequest) => {
   if (!id) return NextResponse.json({ error: "ID requerido" }, { status: 400 });
 
   await db.transaction(async (tx) => {
-    // Get record to restore hen status if needed
-    const [record] = await tx.select().from(incubation).where(eq(incubation.id, id)).for("update");
-    if (!record) throw new Error("No encontrado");
-    if (record.isComplete) throw new Error("No se puede eliminar una incubación completada porque originó registros de aves");
-    if (record.henId) {
-      const [hen] = await tx.select({ id: hens.id, status: hens.status }).from(hens).where(eq(hens.id, record.henId)).for("update");
-      if (hen?.status === "empollando") {
-        await tx.update(hens).set({ status: "activa", isBroody: false, updatedAt: new Date() }).where(eq(hens.id, record.henId));
-      }
+    const [existing] = await tx.select().from(incubation).where(eq(incubation.id, id)).limit(1);
+    if (!existing) throw new Error("No encontrado");
+    await assertDateNotClosed(tx, { date: existing.startDate });
+    if (existing.isComplete) {
+      throw new Error("No se puede eliminar una incubación ya completada porque generó crías trazadas");
     }
-
     await tx.delete(incubation).where(eq(incubation.id, id));
   });
+
   return NextResponse.json({ ok: true });
 });

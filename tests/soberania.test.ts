@@ -131,5 +131,35 @@ describe("Soberanía Alimentaria API & Flujos Multiespecie", () => {
     const delRes = await sacrificioDELETE(mockRequest(`http://localhost/api/produccion/sacrificio?id=${sac.id}`, { method: "DELETE" }));
     expect(delRes.status).toBe(200);
   });
+
+  it("POST/GET /api/soberania registra consumo familiar de cuy y reporta bySpecies.cuy", async () => {
+    const today = new Date().toISOString().split("T")[0];
+    const res = await soberaniaPOST(mockRequest("http://localhost/api/soberania", {
+      method: "POST",
+      body: {
+        date: today,
+        species: "cuy",
+        productType: "carne_canal",
+        quantity: 1.5,
+        unit: "kg",
+        marketReferencePrice: 36000,
+        destinationHousehold: "Familia Granja",
+        notes: "Test cuy para consumo familiar",
+      },
+    }));
+
+    expect(res.status).toBe(201);
+    const created = await parseJson(res);
+    expect(created.species).toBe("cuy");
+    expect(Number(created.savingsAmount)).toBe(54000);
+    cleanupLogIds.push(created.id);
+
+    const getRes = await soberaniaGET(mockRequest("http://localhost/api/soberania", { method: "GET" }));
+    expect(getRes.status).toBe(200);
+    const data = await parseJson(getRes);
+    expect(data.bySpecies.cuy).toBeDefined();
+    expect(data.bySpecies.cuy.meatKg).toBeGreaterThanOrEqual(1.5);
+    expect(data.bySpecies.cuy.savings).toBeGreaterThanOrEqual(54000);
+  });
 });
 

@@ -8,6 +8,8 @@ import QuickCreateMenu from "@/components/QuickCreateMenu";
 import QuickCaptureModal from "@/components/QuickCaptureModal";
 import OfflineSyncStatus from "@/components/OfflineSyncStatus";
 import GlobalSearch from "@/components/GlobalSearch";
+import { ScaleModeControl } from "@/components/ScaleModeControl";
+import { DeveloperCredit } from "@/components/DeveloperCredit";
 import { initOfflineMirrorAutoSync } from "@/lib/offline/offlineMirror";
 import { openQuickCapture } from "@/lib/quick-capture-events";
 import { OPEN_ASSISTANT_VOICE_EVENT } from "@/lib/offline/voiceNotes";
@@ -49,9 +51,13 @@ export default function ClientAppLayout({ children }: { children: React.ReactNod
           <div className="flex-1 min-w-0 max-w-xs sm:max-w-sm md:max-w-xs lg:max-w-sm">
             <GlobalSearch variant="topbar" className="w-full" />
           </div>
+          <ScaleModeControl variant="topbar" />
           <QuickCreateMenu />
         </div>
         {children}
+        <footer className="mt-10 border-t border-slate-200/80 pt-4">
+          <DeveloperCredit variant="inline" showAppName />
+        </footer>
       </main>
 
       {/* Mobile 1-hand quick dock (bottom-left so AssistantWidget stays clear bottom-right) */}

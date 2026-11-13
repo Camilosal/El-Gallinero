@@ -2,10 +2,12 @@ import { db } from "@/db";
 import { healthControl, transactions, hens, roosters, broilerBatches, chickenSales, slaughter, mortalityRecords, supplyInventory, supplyMovements, sanitaryCalendar, farmLocations } from "@/db/schema";
 import { eq, desc, and, inArray, sql, or, getTableColumns } from "drizzle-orm";
 import { NextRequest, NextResponse } from "next/server";
+import { requirePermission } from "@/lib/rbac-server";
 import { withApiHandler, safeParseJson } from "@/lib/api-handler";
 import { deleteTransactionsAndUnpaidAccounts, upsertExpenseTransaction } from "@/lib/financial-records";
 import { HEN_TERMINAL_STATUSES } from "@/lib/animal-status";
 import { applyBatchExit, validateBatchForExit, validateRoosterForExit } from "@/lib/birdExit";
+import { resolveDimensions } from "@/lib/analytics-dimensions";
 
 export const dynamic = "force-dynamic";
 
@@ -86,6 +88,8 @@ async function syncTreatmentHenStatuses(
 }
 
 export const POST = withApiHandler(async (req: NextRequest) => {
+  const denied = await requirePermission("sanitary:write");
+  if (denied) return denied;
   const body = await safeParseJson(req);
   if (!body || typeof body !== "object") return NextResponse.json({ error: "Cuerpo inválido" }, { status: 400 });
   if (!body.date || typeof body.date !== "string" || !/^\d{4}-\d{2}-\d{2}$/.test(body.date) || Number.isNaN(new Date(`${body.date}T00:00:00.000Z`).getTime()) || new Date(`${body.date}T00:00:00.000Z`).toISOString().slice(0, 10) !== body.date) {
@@ -95,15 +99,54 @@ export const POST = withApiHandler(async (req: NextRequest) => {
   const [controlLocation] = await db.select().from(farmLocations).where(eq(farmLocations.id, body.locationId));
   if (!controlLocation || controlLocation.status !== "activa") return NextResponse.json({ error: "El lugar del control debe estar activo" }, { status: 400 });
 
+  const withdrawalDays = Math.max(0, Math.round(Number(body.withdrawalDays ?? 0) || 0));
+  const computeWithdrawalDate = (baseDate: string, days: number): string | null => {
+    if (!days || days <= 0) return null;
+    const d = new Date(`${baseDate}T12:00:00.000Z`);
+    if (Number.isNaN(d.getTime())) return null;
+    d.setUTCDate(d.getUTCDate() + days);
+    return d.toISOString().slice(0, 10);
+  };
+  const withdrawalUntilDate =
+    typeof body.withdrawalUntilDate === "string" && /^\d{4}-\d{2}-\d{2}$/.test(body.withdrawalUntilDate)
+      ? body.withdrawalUntilDate
+      : computeWithdrawalDate(body.date, withdrawalDays);
+
   const created = await db.transaction(async (tx) => {
+    const dimRes = await resolveDimensions(tx, {
+      species: body.species,
+      locationId: body.locationId,
+      batchId: body.batchId,
+    });
+    if ("error" in dimRes) throw new Error(dimRes.error);
+    const dims = dimRes.dimensions;
+
     // 1. Insert health control record
     const [record] = await tx.insert(healthControl).values({
       date: body.date,
-      locationId: body.locationId,
+      species: dims.species,
+      locationId: dims.locationId ?? body.locationId,
+      batchId: dims.batchId,
       type: body.type,
       description: body.description,
       affectedHens: body.affectedHens || null,
       product: body.product || null,
+      withdrawalDays,
+      withdrawalUntilDate,
+      vaccineLot: typeof body.vaccineLot === "string" && body.vaccineLot.trim() ? body.vaccineLot.trim() : null,
+      vaccineLab: typeof body.vaccineLab === "string" && body.vaccineLab.trim() ? body.vaccineLab.trim() : null,
+      vaccineExpiryDate:
+        typeof body.vaccineExpiryDate === "string" && /^\d{4}-\d{2}-\d{2}$/.test(body.vaccineExpiryDate)
+          ? body.vaccineExpiryDate
+          : null,
+      coldChainTempC:
+        body.coldChainTempC !== undefined && body.coldChainTempC !== null && String(body.coldChainTempC).trim() !== "" && Number.isFinite(Number(String(body.coldChainTempC).replace(/[^0-9.-]/g, "")))
+          ? String(Number(String(body.coldChainTempC).replace(/[^0-9.-]/g, "")))
+          : null,
+      administrationRoute:
+        typeof body.administrationRoute === "string" && body.administrationRoute.trim()
+          ? body.administrationRoute.trim()
+          : null,
       cost: body.cost || "0",
       nextScheduled: body.nextScheduled || null,
       notes: body.notes || null,
@@ -119,6 +162,9 @@ export const POST = withApiHandler(async (req: NextRequest) => {
         amount: body.cost,
         sourceType: "sanidad",
         sourceId: record.id,
+        species: record.species,
+        locationId: record.locationId,
+        batchId: record.batchId,
       });
     }
 
@@ -136,14 +182,24 @@ export const POST = withApiHandler(async (req: NextRequest) => {
       throw new Error("Lista de muertes inválida");
     }
     if (Array.isArray(body.deaths)) {
+      const BATCH_SPECIES: Record<string, string> = {
+        lote_pollos: "pollo",
+        lote_codornices: "codorniz",
+        lote_patos: "pato",
+        lote_conejos: "conejo",
+        lote_cuyes: "cuy",
+      };
       for (const death of body.deaths) {
         const birdType = death.birdType || "gallina";
         const cause = death.cause || "enfermedad";
-        if (!["gallina", "gallo", "lote_pollos"].includes(birdType)) throw new Error("Tipo de ave inválido en mortalidad");
+        const isBatchDeath = Object.hasOwn(BATCH_SPECIES, birdType);
+        if (birdType !== "gallina" && birdType !== "gallo" && !isBatchDeath) {
+          throw new Error("Tipo de animal inválido en mortalidad");
+        }
         if (!["enfermedad", "depredador", "accidente", "sacrificio_sanitario", "causa_natural", "otro"].includes(cause)) {
           throw new Error("Causa de mortalidad inválida");
         }
-        const quantity = birdType === "lote_pollos" ? Number(death.quantity ?? 1) : 1;
+        const quantity = isBatchDeath ? Number(death.quantity ?? 1) : 1;
         if (!Number.isSafeInteger(quantity) || quantity < 1) throw new Error("Cantidad de mortalidad inválida");
 
         if (birdType === "gallina") {
@@ -167,6 +223,9 @@ export const POST = withApiHandler(async (req: NextRequest) => {
           if (error) throw new Error(error);
           const [batch] = await tx.select().from(broilerBatches).where(eq(broilerBatches.id, death.batchId)).for("update");
           if (!batch) throw new Error("Lote no encontrado");
+          if (batch.species !== BATCH_SPECIES[birdType]) {
+            throw new Error("El lote seleccionado no corresponde al tipo de animal");
+          }
           previousAnimalStates[`batch:${batch.id}`] ??= { status: batch.status };
           await applyBatchExit(death.batchId, quantity, "sacrificio", tx);
         }
@@ -174,6 +233,7 @@ export const POST = withApiHandler(async (req: NextRequest) => {
         await tx.insert(mortalityRecords).values({
           date: body.date,
           locationId: body.locationId,
+          species: (birdType === "gallina" || birdType === "gallo" ? "gallina" : BATCH_SPECIES[birdType]) as "gallina" | "pollo" | "codorniz" | "pato" | "conejo" | "cuy",
           birdType,
           quantity,
           cause,
@@ -236,6 +296,8 @@ export const POST = withApiHandler(async (req: NextRequest) => {
 });
 
 export const PUT = withApiHandler(async (req: NextRequest) => {
+  const denied = await requirePermission("sanitary:write");
+  if (denied) return denied;
   const body = await safeParseJson(req);
   if (!body || typeof body !== "object") return NextResponse.json({ error: "Cuerpo inválido" }, { status: 400 });
   if (!body.id) return NextResponse.json({ error: "ID requerido" }, { status: 400 });
@@ -260,14 +322,74 @@ export const PUT = withApiHandler(async (req: NextRequest) => {
       existing.previousAnimalStates,
     );
 
+    const nextWithdrawalDays =
+      body.withdrawalDays !== undefined
+        ? Math.max(0, Math.round(Number(body.withdrawalDays) || 0))
+        : (existing.withdrawalDays ?? 0);
+    const computedWithdrawalUntil = (() => {
+      if (typeof body.withdrawalUntilDate === "string" && /^\d{4}-\d{2}-\d{2}$/.test(body.withdrawalUntilDate)) {
+        return body.withdrawalUntilDate;
+      }
+      if (nextWithdrawalDays > 0) {
+        const d = new Date(`${body.date}T12:00:00.000Z`);
+        if (!Number.isNaN(d.getTime())) {
+          d.setUTCDate(d.getUTCDate() + nextWithdrawalDays);
+          return d.toISOString().slice(0, 10);
+        }
+      }
+      return null;
+    })();
+
+    const dimRes = await resolveDimensions(tx, {
+      species: body.species !== undefined ? body.species : existing.species,
+      locationId: body.locationId,
+      batchId: body.batchId !== undefined ? body.batchId : existing.batchId,
+    });
+    if ("error" in dimRes) throw new Error(dimRes.error);
+    const dims = dimRes.dimensions;
+
     // 1. Update health control record
     const [record] = await tx.update(healthControl).set({
       date: body.date,
-      locationId: body.locationId,
+      species: dims.species,
+      locationId: dims.locationId ?? body.locationId,
+      batchId: dims.batchId,
       type: nextType,
       description: nextDescription,
       affectedHens: nextAffectedHens || null,
       product: body.product !== undefined ? body.product : existing.product,
+      withdrawalDays: nextWithdrawalDays,
+      withdrawalUntilDate: computedWithdrawalUntil,
+      vaccineLot:
+        body.vaccineLot !== undefined
+          ? typeof body.vaccineLot === "string" && body.vaccineLot.trim()
+            ? body.vaccineLot.trim()
+            : null
+          : existing.vaccineLot,
+      vaccineLab:
+        body.vaccineLab !== undefined
+          ? typeof body.vaccineLab === "string" && body.vaccineLab.trim()
+            ? body.vaccineLab.trim()
+            : null
+          : existing.vaccineLab,
+      vaccineExpiryDate:
+        body.vaccineExpiryDate !== undefined
+          ? typeof body.vaccineExpiryDate === "string" && /^\d{4}-\d{2}-\d{2}$/.test(body.vaccineExpiryDate)
+            ? body.vaccineExpiryDate
+            : null
+          : existing.vaccineExpiryDate,
+      coldChainTempC:
+        body.coldChainTempC !== undefined
+          ? body.coldChainTempC !== null && String(body.coldChainTempC).trim() !== "" && Number.isFinite(Number(String(body.coldChainTempC).replace(/[^0-9.-]/g, "")))
+            ? String(Number(String(body.coldChainTempC).replace(/[^0-9.-]/g, "")))
+            : null
+          : existing.coldChainTempC,
+      administrationRoute:
+        body.administrationRoute !== undefined
+          ? typeof body.administrationRoute === "string" && body.administrationRoute.trim()
+            ? body.administrationRoute.trim()
+            : null
+          : existing.administrationRoute,
       cost: nextCost || "0",
       nextScheduled: body.nextScheduled !== undefined ? body.nextScheduled || null : existing.nextScheduled,
       notes: body.notes !== undefined ? body.notes || null : existing.notes,
@@ -287,6 +409,9 @@ export const PUT = withApiHandler(async (req: NextRequest) => {
       amount: String(nextCost || "0"),
       sourceType: "sanidad",
       sourceId: body.id,
+      species: record.species,
+      locationId: record.locationId,
+      batchId: record.batchId,
     });
 
     // 3. Mark affected hens as sick
@@ -354,6 +479,8 @@ export const PUT = withApiHandler(async (req: NextRequest) => {
 });
 
 export const DELETE = withApiHandler(async (req: NextRequest) => {
+  const denied = await requirePermission("sanitary:write");
+  if (denied) return denied;
   const { searchParams } = new URL(req.url);
   const id = searchParams.get("id");
   if (!id) return NextResponse.json({ error: "ID requerido" }, { status: 400 });

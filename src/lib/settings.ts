@@ -1,4 +1,5 @@
 import { db } from "@/db";
+import { getCurrentFarmId } from "@/db/tenant-context";
 import { appSettings } from "@/db/schema";
 import { eq } from "drizzle-orm";
 
@@ -84,6 +85,19 @@ export const SETTING_DEFS: SettingDef[] = [
     default: "",
     optional: true,
     setupRequired: true,
+  },
+  {
+    key: "farm.altitude_meters",
+    label: "Altitud del predio (msnm)",
+    description: "Metros sobre el nivel del mar de la finca para ajustar curvas térmicas y densidad fisiológica.",
+    group: "Ubicación general",
+    type: "integer",
+    default: "",
+    unit: "msnm",
+    min: 0,
+    max: 5500,
+    step: 10,
+    optional: true,
   },
   {
     key: "farm.general_location",
@@ -282,7 +296,7 @@ export const DEFAULT_SETTINGS: Record<string, string> = Object.fromEntries(
 
 const CACHE_TTL_MS = 30_000;
 
-let cache: { values: Record<string, string>; loadedAt: number } | null = null;
+const cacheByFarm = new Map<string, { values: Record<string, string>; loadedAt: number }>();
 
 function coerceValue(def: SettingDef, raw: unknown): string {
   const text = raw === null || raw === undefined ? "" : String(raw).trim();
@@ -321,13 +335,15 @@ function coerceValue(def: SettingDef, raw: unknown): string {
 
 /** Valores efectivos: defaults + overrides de la base de datos. */
 export async function getSettings(): Promise<Record<string, string>> {
-  if (cache && Date.now() - cache.loadedAt < CACHE_TTL_MS) {
-    return cache.values;
+  const farmId = getCurrentFarmId();
+  const entry = cacheByFarm.get(farmId);
+  if (entry && Date.now() - entry.loadedAt < CACHE_TTL_MS) {
+    return entry.values;
   }
 
   const values = { ...DEFAULT_SETTINGS };
   try {
-    const rows = await db.select().from(appSettings);
+    const rows = await db.select().from(appSettings).where(eq(appSettings.farmId, farmId));
     for (const row of rows) {
       if (row.key in values) values[row.key] = row.value;
     }
@@ -335,7 +351,7 @@ export async function getSettings(): Promise<Record<string, string>> {
     // Si la tabla aún no existe (primer despliegue), se usan los defaults.
   }
 
-  cache = { values, loadedAt: Date.now() };
+  cacheByFarm.set(farmId, { values, loadedAt: Date.now() });
   return values;
 }
 
@@ -355,7 +371,7 @@ export async function getBooleanSetting(key: string): Promise<boolean> {
 }
 
 export function invalidateSettingsCache(): void {
-  cache = null;
+  cacheByFarm.delete(getCurrentFarmId());
 }
 
 /** Lista para la UI: definición + valor efectivo. */
@@ -388,9 +404,9 @@ export async function updateSettings(
   for (const item of normalized) {
     await db
       .insert(appSettings)
-      .values({ key: item.key, value: item.value, updatedBy: userId ?? null })
+      .values({ farmId: getCurrentFarmId(), key: item.key, value: item.value, updatedBy: userId ?? null })
       .onConflictDoUpdate({
-        target: appSettings.key,
+        target: [appSettings.farmId, appSettings.key],
         set: {
           value: item.value,
           updatedBy: userId ?? null,
@@ -435,5 +451,10 @@ export async function getIncubationDays(): Promise<number> {
 
 /** Helper para pruebas: permite inyectar valores sin tocar la DB. */
 export function __setSettingsCacheForTests(values: Record<string, string> | null): void {
-  cache = values ? { values: { ...DEFAULT_SETTINGS, ...values }, loadedAt: Date.now() } : null;
+  const farmId = getCurrentFarmId();
+  if (values) {
+    cacheByFarm.set(farmId, { values: { ...DEFAULT_SETTINGS, ...values }, loadedAt: Date.now() });
+  } else {
+    cacheByFarm.delete(farmId);
+  }
 }

@@ -13,6 +13,8 @@ export interface FeedInventoryProjection {
   minStock: string;
   costPerUnit: string;
   supplier: string | null;
+  dryMatterPct: string | null;
+  crudeProteinPct: string | null;
   estimatedValue: number;
   isLow: boolean;
   daysRemaining: number | null;
@@ -79,6 +81,8 @@ export async function getFeedInventoryProjection(
       minStock: f.minStock,
       costPerUnit: f.costPerUnit,
       supplier: f.supplier,
+      dryMatterPct: f.dryMatterPct,
+      crudeProteinPct: f.crudeProteinPct,
       estimatedValue,
       isLow,
       daysRemaining,

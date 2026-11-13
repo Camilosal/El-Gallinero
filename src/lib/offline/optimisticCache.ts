@@ -1,6 +1,8 @@
 import {
   getAllCachedRecordKeys,
+  getCachedCatalog,
   getCachedRecords,
+  setCachedCatalog,
   setCachedRecords,
 } from "./db";
 
@@ -117,10 +119,33 @@ export async function applyOptimisticMutationToCache(
           nextTareas.pendingSanitary = nextTareas.pendingSanitaryList[0] || null;
           dirty = true;
         }
+      } else if (pathname === "/api/contactos" && method !== "DELETE" && nextTareas.setup) {
+        if (!nextTareas.setup.contactsConfigured) {
+          nextTareas.setup = { ...nextTareas.setup, contactsConfigured: true };
+          dirty = true;
+        }
       }
 
       if (dirty) {
         await setCachedRecords(tareasKey, nextTareas);
+      }
+    }
+
+    if (pathname === "/api/contactos" && payload?.name) {
+      const name = String(payload.name).trim();
+      const role = String(payload.role || "cliente");
+      const targetCategories =
+        role === "ambos" ? ["comprador", "proveedor"] : role === "proveedor" ? ["proveedor"] : ["comprador"];
+      for (const category of targetCategories) {
+        const list = (await getCachedCatalog<any[]>(`catalog_${category}`).catch(() => null)) || [];
+        const exists = list.some((item) => String(item?.value || "").trim().toLowerCase() === name.toLowerCase());
+        if (!exists && method !== "DELETE") {
+          const nextList = [
+            ...list,
+            { id: payload.id || `offline_${mutationId}_${category}`, category, value: name, isActive: payload.isActive !== false },
+          ];
+          await setCachedCatalog(`catalog_${category}`, nextList);
+        }
       }
     }
 

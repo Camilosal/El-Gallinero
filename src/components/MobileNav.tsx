@@ -1,12 +1,14 @@
 "use client";
 
+import Link from "next/link";
 import { useState, useCallback } from "react";
 
 const LINKS = [
-  { href: "#alcance", label: "El sistema" },
-  { href: "#funcionalidades", label: "Qué puedes gestionar" },
-  { href: "#flujo", label: "Trazabilidad" },
-  { href: "#acceso", label: "Acceso" },
+  { href: "#vitrina", label: "Cómo se ve" },
+  { href: "#estandares", label: "Estándares" },
+  { href: "#modulos", label: "Qué incluye" },
+  { href: "#planes", label: "Planes" },
+  { href: "#acceso", label: "Empezar" },
 ];
 
 export default function MobileNav() {
@@ -38,6 +40,22 @@ export default function MobileNav() {
               {l.label}
             </a>
           ))}
+          <div className="pt-3 mt-2 border-t border-[var(--line)] flex flex-col gap-2">
+            <Link
+              href="/registro"
+              onClick={close}
+              className="rounded-full bg-[var(--forest)] px-4 py-2.5 text-center text-sm font-semibold text-white hover:bg-[var(--forest-deep)] transition"
+            >
+              Crear granja gratis (3 min)
+            </Link>
+            <Link
+              href="/login"
+              onClick={close}
+              className="rounded-full border border-[var(--line)] bg-[var(--paper)] px-4 py-2 text-center text-sm font-medium text-[var(--ink)] hover:border-[var(--forest)] transition"
+            >
+              Entrar a mi cuenta
+            </Link>
+          </div>
         </nav>
       </div>
 

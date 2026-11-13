@@ -15,7 +15,7 @@ const PUBLIC_PREFIXES = [
 ];
 
 /** Routes that are public without allowing prefix-sharing paths through. */
-const PUBLIC_EXACT = ["/", "/login", "/login/recuperar", "/api/health", "/guia", "/dashboard/guia"];
+const PUBLIC_EXACT = ["/", "/login", "/login/recuperar", "/registro", "/api/health", "/api/billing/webhook", "/guia", "/dashboard/guia"];
 
 export async function proxy(req: NextRequest) {
   const { pathname } = req.nextUrl;

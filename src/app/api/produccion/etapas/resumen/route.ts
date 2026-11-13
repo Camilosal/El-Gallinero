@@ -1,6 +1,6 @@
 import { db } from "@/db";
 import { catalogos, hens, feedPrograms, feedInventory, feedMovements } from "@/db/schema";
-import { eq, and, sql, or, desc } from "drizzle-orm";
+import { eq, and, sql, desc } from "drizzle-orm";
 import { NextRequest, NextResponse } from "next/server";
 import { countAnimalsByStageForDate, runFeedProgramCatchup } from "@/lib/feeding/runProgram";
 import { withApiHandler, safeParseJson } from "@/lib/api-handler";
@@ -46,34 +46,8 @@ export const GET = withApiHandler(async (req?: NextRequest) => {
     const minDate = new Date(today);
     minDate.setDate(minDate.getDate() - minWeeks * 7);
 
-    let countResult;
-    if (species === "gallina" && maxWeeks === null) {
-      countResult = await db
-        .select({ count: sql<number>`count(*)::int` })
-        .from(hens)
-        .where(
-          and(
-            sql`${hens.birthDate}::date <= ${minDate.toISOString().split("T")[0]}::date`,
-            or(eq(hens.status, "activa"), eq(hens.status, "empollando"), eq(hens.status, "recomendada_sacrificio"))
-          )
-        );
-    } else if (species === "gallina" && maxWeeks !== null) {
-      const maxDate = new Date(today);
-      maxDate.setDate(maxDate.getDate() - maxWeeks * 7);
-      countResult = await db
-        .select({ count: sql<number>`count(*)::int` })
-        .from(hens)
-        .where(
-          and(
-            sql`${hens.birthDate}::date <= ${minDate.toISOString().split("T")[0]}::date`,
-            sql`${hens.birthDate}::date > ${maxDate.toISOString().split("T")[0]}::date`,
-            or(eq(hens.status, "activa"), eq(hens.status, "empollando"), eq(hens.status, "recomendada_sacrificio"))
-          )
-        );
-    }
-
-    const henCount = species === "gallina" ? (countResult?.[0]?.count ?? 0) : 0;
     const animalCount = stageAnimalCounts[stage.id] ?? 0;
+    const henCount = species === "gallina" ? animalCount : 0;
     totalHens += henCount;
     totalAnimals += animalCount;
 

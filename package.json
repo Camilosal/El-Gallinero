@@ -9,6 +9,7 @@
     "typecheck": "tsc --noEmit",
     "db:generate": "drizzle-kit generate",
     "db:push": "drizzle-kit push",
+    "db:migrate": "tsx src/db/migrate-prod.ts",
     "db:seed": "tsx src/db/seed.ts",
     "db:seed-config": "tsx src/db/seed-config.ts",
     "db:create-admin": "tsx src/db/create-admin.ts",
@@ -54,5 +55,10 @@
     "tailwindcss": "4.1.17",
     "typescript": "5.9.3",
     "vitest": "^4.1.10"
-  }
+  },
+  "author": {
+    "name": "Camilo Saldarriaga",
+    "url": "https://camilosaldarriaga.com"
+  },
+  "homepage": "https://camilosaldarriaga.com"
 }

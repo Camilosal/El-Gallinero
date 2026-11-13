@@ -263,7 +263,7 @@ export default function BalancePage() {
       <PageHeader
         title="Inventarios y Valorización"
         description="Todo el inventario del gallinero y su valor: animales, huevos, carne, gallinaza, alimentos e insumos."
-        help="Esta es la vista completa de existencias para valorizar la granja. Incluye animales en pie (gallinas, gallos, pollos, codornices, patos y conejos), huevos disponibles, carne, gallinaza, alimentos e insumos. El valor total suma todas las categorías con los precios de Catálogos y los costos registrados. Los indicadores en rojo señalan stock bajo. Usa los accesos rápidos para gestionar cada categoría y este balance para ver el capital invertido en inventario."
+        help="Esta es la vista completa de existencias para valorizar la granja. Incluye animales en pie (gallinas, gallos, pollos, codornices, patos, conejos y cuyes), huevos disponibles, carne, gallinaza, alimentos e insumos. El valor total suma todas las categorías con los precios de Catálogos y los costos registrados. Los indicadores en rojo señalan stock bajo. Usa los accesos rápidos para gestionar cada categoría y este balance para ver el capital invertido en inventario."
       />
 
       <div className="mb-4 flex flex-wrap gap-2">
@@ -315,7 +315,7 @@ export default function BalancePage() {
       ) : (
         <div className="space-y-4">
           {/* KPIs */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-2.5 sm:gap-4">
             <StatCard icon="money" label="Valor Total Inventario" value={fmtMoney(data.summary.totalValue)} color="green" />
             <StatCard icon="wheat" label="Alimentos" value={`${data.summary.totalFeeds} (${data.summary.lowStockFeeds} bajos)`} color="blue" />
             <StatCard icon="paw" label="Animales en Inventario" value={data.summary.totalAnimalsActive} color="yellow" />
@@ -323,7 +323,7 @@ export default function BalancePage() {
           </div>
 
           {/* Desglose de valor */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+          <div className="grid grid-cols-2 lg:grid-cols-3 gap-2.5 sm:gap-4">
             <Card>
               <p className="text-sm text-slate-500 flex items-center gap-1.5"><Wheat className="w-4 h-4 text-amber-600" aria-hidden="true" /><span>Valor en Alimentos</span></p>
               <p className="text-2xl font-bold text-blue-600">{fmtMoney(data.summary.foodValue)}</p>
@@ -437,22 +437,22 @@ export default function BalancePage() {
                 }
               />
             ) : (
-            <table className="w-full text-sm">
-              <thead><tr className="border-b text-left text-gray-500">
-                <th className="py-2">Nombre</th><th>Categoría</th><th>Stock</th><th>Mínimo</th><th>Valor</th>
-              </tr></thead>
-              <tbody>
-                {filteredSupplies.map((s) => (
-                  <tr key={s.supplyId} className={`border-b ${s.isLow ? 'bg-red-50' : ''}`}>
-                    <td className="py-2 font-medium">{s.name}</td>
-                    <td>{s.category}</td>
-                    <td>{s.currentStock} {s.unit}</td>
-                    <td>{s.minStock}</td>
-                    <td>${s.estimatedValue.toLocaleString()}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+              <table className="w-full text-sm">
+                <thead><tr className="border-b text-left text-gray-500">
+                  <th className="py-2">Nombre</th><th>Categoría</th><th>Stock</th><th>Mínimo</th><th>Valor</th>
+                </tr></thead>
+                <tbody>
+                  {filteredSupplies.map((s) => (
+                    <tr key={s.supplyId} className={`border-b ${s.isLow ? 'bg-red-50' : ''}`}>
+                      <td className="py-2 font-medium">{s.name}</td>
+                      <td>{s.category}</td>
+                      <td>{s.currentStock} {s.unit}</td>
+                      <td>{s.minStock}</td>
+                      <td>${s.estimatedValue.toLocaleString()}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
             )}
           </div>
 
@@ -580,16 +580,16 @@ export default function BalancePage() {
                       }
                     />
                   ) : (
-                  <Table headers={["Código", "Raza", "Cantidad", "Peso Prom."]}>
-                    {filteredBatches.map((b) => (
-                      <tr key={b.batchId} className="hover:bg-slate-50">
-                        <td className="px-4 py-2 font-medium">{b.code}</td>
-                        <td className="px-4 py-2">{b.breed}</td>
-                        <td className="px-4 py-2 font-semibold">{b.currentQuantity}</td>
-                        <td className="px-4 py-2">{b.avgWeightKg} kg</td>
-                      </tr>
-                    ))}
-                  </Table>
+                    <Table headers={["Código", "Raza", "Cantidad", "Peso Prom."]}>
+                      {filteredBatches.map((b) => (
+                        <tr key={b.batchId} className="hover:bg-slate-50">
+                          <td className="px-4 py-2 font-medium">{b.code}</td>
+                          <td className="px-4 py-2">{b.breed}</td>
+                          <td className="px-4 py-2 font-semibold">{b.currentQuantity}</td>
+                          <td className="px-4 py-2">{b.avgWeightKg} kg</td>
+                        </tr>
+                      ))}
+                    </Table>
                   )}
                 </div>
               )}
@@ -643,24 +643,24 @@ export default function BalancePage() {
                   }
                 />
               ) : (
-              <table className="w-full text-sm">
-                <thead><tr className="border-b text-left text-gray-500">
-                  <th className="py-2">Fecha</th><th>Origen</th><th>Especie</th><th>Kg</th><th>Disponible</th><th>Precio estimado/kg</th><th>Valor estimado</th>
-                </tr></thead>
-                <tbody>
-                  {filteredMeat.map((m) => (
-                    <tr key={m.id} className="border-b">
-                      <td className="py-2">{m.date}</td>
-                      <td>{m.source}</td>
-                      <td>{m.species}</td>
-                      <td>{m.quantityKg} kg</td>
-                      <td>{m.availableKg} kg</td>
-                      <td>{fmtMoney(m.estimatedPriceKg)}</td>
-                      <td className="font-medium">{fmtMoney(m.estimatedValue)}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
+                <table className="w-full text-sm">
+                  <thead><tr className="border-b text-left text-gray-500">
+                    <th className="py-2">Fecha</th><th>Origen</th><th>Especie</th><th>Kg</th><th>Disponible</th><th>Precio estimado/kg</th><th>Valor estimado</th>
+                  </tr></thead>
+                  <tbody>
+                    {filteredMeat.map((m) => (
+                      <tr key={m.id} className="border-b">
+                        <td className="py-2">{m.date}</td>
+                        <td>{m.source}</td>
+                        <td>{m.species}</td>
+                        <td>{m.quantityKg} kg</td>
+                        <td>{m.availableKg} kg</td>
+                        <td>{fmtMoney(m.estimatedPriceKg)}</td>
+                        <td className="font-medium">{fmtMoney(m.estimatedValue)}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
               )}
             </div>
           )}

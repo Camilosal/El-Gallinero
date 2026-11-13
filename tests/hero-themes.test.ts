@@ -17,6 +17,7 @@ describe("hero-themes", () => {
     expect(resolveHeroThemeByPath("/dashboard/produccion", "incubacion")).toBe("incubacion");
     expect(resolveHeroThemeByPath("/dashboard/produccion", "gallinaza")).toBe("gallinaza");
     expect(resolveHeroThemeByPath("/dashboard/finanzas/ventas")).toBe("finanzas");
+    expect(resolveHeroThemeByPath("/dashboard/contactos")).toBe("finanzas");
     expect(resolveHeroThemeByPath("/dashboard/analisis/kpis")).toBe("analisis");
     expect(resolveHeroThemeByPath("/lote/123")).toBe("aves");
     expect(resolveHeroThemeByPath("/dashboard/ubicaciones/456")).toBe("ubicaciones");

@@ -17,7 +17,7 @@ import { SYNC_COMPLETED_EVENT } from "./syncManager";
 
 export const OFFLINE_MIRROR_EVENT = "gallinero-offline-mirror";
 const MIRROR_META_KEY = "offline_mirror_v1";
-const SW_CACHE_VERSION = "v7";
+const SW_CACHE_VERSION = "v8";
 const DEFAULT_MIRROR_COOLDOWN_MS = 15 * 60 * 1000;
 const ASSET_REGEX = /\/_next\/static\/[^\s"'<>\\`)]+/g;
 
@@ -48,6 +48,7 @@ const STATIC_DASHBOARD_ROUTES = [
   "/dashboard/animales",
   "/dashboard/configuracion",
   "/dashboard/configuracion/catalogos",
+  "/dashboard/contactos",
   "/dashboard/escanear",
   "/dashboard/finanzas",
   "/dashboard/finanzas/cuentas",
@@ -65,9 +66,12 @@ const STATIC_DASHBOARD_ROUTES = [
   "/dashboard/inventarios/insumos",
   "/dashboard/operaciones",
   "/dashboard/operaciones/activos",
+  "/dashboard/operaciones/cierre",
+  "/dashboard/operaciones/compostaje",
   "/dashboard/operaciones/gallinaza",
   "/dashboard/operaciones/mantenimiento",
   "/dashboard/planeacion",
+  "/dashboard/planeacion/calendario",
   "/dashboard/produccion",
   "/dashboard/produccion/adquisiciones",
   "/dashboard/produccion/alimentacion",
@@ -81,6 +85,7 @@ const STATIC_DASHBOARD_ROUTES = [
   "/dashboard/produccion/sacrificio",
   "/dashboard/sanidad",
   "/dashboard/sanidad/alertas",
+  "/dashboard/sanidad/bioseguridad",
   "/dashboard/sanidad/calendario",
   "/dashboard/sanidad/control",
   "/dashboard/soberania",
@@ -219,6 +224,7 @@ export function buildCoreApiEndpoints(now = new Date()): string[] {
     "/api/perdidas-huevos?period=30",
     "/api/produccion/peso?breed=ISA%20Brown",
     "/api/produccion/plan-parvada",
+    "/api/produccion/reproduccion",
     "/api/produccion/sacrificio",
     "/api/inventarios/resumen",
     "/api/inventarios/animales",
@@ -230,10 +236,14 @@ export function buildCoreApiEndpoints(now = new Date()): string[] {
     "/api/operaciones/resumen",
     "/api/operaciones/activos",
     "/api/operaciones/activos?active=true",
+    "/api/operaciones/cierre-diario",
+    "/api/operaciones/compostaje",
     "/api/operaciones/gallinaza",
     "/api/operaciones/mantenimiento",
+    "/api/operaciones/sensores",
     "/api/purchase-products",
     "/api/sanidad/resumen",
+    "/api/sanidad/bioseguridad",
     "/api/sanidad/plan?days=30",
     "/api/sanidad/control",
     "/api/sanidad/calendario",
@@ -252,6 +262,10 @@ export function buildCoreApiEndpoints(now = new Date()): string[] {
     "/api/presupuestos",
     "/api/cuentas-cobrar",
     "/api/cuentas-pagar",
+    "/api/contactos",
+    "/api/contactos?includeStats=1",
+    "/api/adjuntos?metaOnly=1",
+    "/api/planeacion/calendario",
     "/api/pagos",
     "/api/soberania",
     "/api/analisis/resumen",
@@ -261,7 +275,7 @@ export function buildCoreApiEndpoints(now = new Date()): string[] {
     `/api/analisis/reportes/rentabilidad?from=${yearStart}&to=${today}`,
   ]);
 
-  const curveSpecies: CurveSpecies[] = ["gallina", "pollo", "codorniz", "pato", "conejo"];
+  const curveSpecies: CurveSpecies[] = ["gallina", "pollo", "codorniz", "pato", "conejo", "cuy"];
   for (const species of curveSpecies) {
     const firstCurve = getStandardCurves(species)[0];
     if (firstCurve) {
@@ -399,6 +413,46 @@ async function waitForServiceWorkerReady(): Promise<void> {
 }
 
 /**
+ * Descarga el paquete comprimido /api/sync/bootstrap e hidrata catálogos y registros críticos en IndexedDB.
+ */
+export async function hydrateFromBootstrap(): Promise<boolean> {
+  if (typeof window === "undefined") return false;
+  try {
+    const res = await fetch("/api/sync/bootstrap", {
+      method: "GET",
+      credentials: "include",
+    });
+    if (!res.ok) return false;
+    const data = (await res.json()) as Record<string, any>;
+    await setCachedRecords(getApiCacheKey("/api/sync/bootstrap"), data);
+    if (Array.isArray(data.locations)) {
+      await setCachedCatalog("bootstrap_locations", data.locations);
+    }
+    if (Array.isArray(data.activeBatches)) {
+      await setCachedCatalog("bootstrap_batches", data.activeBatches);
+    }
+    if (Array.isArray(data.feedInventory)) {
+      await setCachedCatalog("bootstrap_feeds", data.feedInventory);
+    }
+    if (Array.isArray(data.supplyInventory)) {
+      await setCachedCatalog("bootstrap_supplies", data.supplyInventory);
+    }
+    if (Array.isArray(data.activeWithdrawals)) {
+      await setCachedCatalog("bootstrap_withdrawals", data.activeWithdrawals);
+    }
+    if (data.standardCurves) {
+      await setCachedCatalog("bootstrap_curves", data.standardCurves);
+    }
+    if (data.speciesParams) {
+      await setCachedCatalog("bootstrap_species_params", data.speciesParams);
+    }
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+/**
  * Descarga y replica localmente todas las rutas, chunks JS/CSS y datos de la granja
  * para que la app sea completamente navegable y operativa en modo sin conexión.
  */
@@ -489,6 +543,8 @@ export async function syncFullOfflineCopy(options?: { force?: boolean }): Promis
         phase: "data",
         currentLabel: "Sincronizando datos operativos de la granja...",
       });
+
+      await hydrateFromBootstrap();
 
       let rawLocationsAll: unknown = null;
       let rawLocationsActive: unknown = null;
@@ -647,7 +703,7 @@ export async function syncFullOfflineCopy(options?: { force?: boolean }): Promis
  * cuando terminan de sincronizarse registros pendientes de la cola local.
  */
 export function initOfflineMirrorAutoSync(): () => void {
-  if (typeof window === "undefined") return () => {};
+  if (typeof window === "undefined") return () => { };
 
   const hadController = typeof navigator !== "undefined" && "serviceWorker" in navigator && Boolean(navigator.serviceWorker.controller);
 
@@ -657,7 +713,7 @@ export function initOfflineMirrorAutoSync(): () => void {
     }
   });
 
-  if (autoSyncRegistered) return () => {};
+  if (autoSyncRegistered) return () => { };
   autoSyncRegistered = true;
 
   const onOnline = () => {

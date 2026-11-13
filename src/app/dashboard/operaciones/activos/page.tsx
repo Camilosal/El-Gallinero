@@ -10,6 +10,8 @@ import { useSearchParams } from "next/navigation";
 import { QrCode } from "lucide-react";
 import EntityQrModal from "@/components/EntityQrModal";
 import { useActionQuery } from "@/lib/useActionQuery";
+import AttachmentPanel from "@/components/attachments/AttachmentPanel";
+import { bindDraftAttachments, createDraftEntityId } from "@/lib/attachments-shared";
 
 interface FarmAsset {
   id: string;
@@ -52,6 +54,7 @@ export default function ActivosPage() {
   const [search, setSearch] = useState("");
   const [modalOpen, setModalOpen] = useState(false);
   const [editing, setEditing] = useState<FarmAsset | null>(null);
+  const [draftAssetId, setDraftAssetId] = useState(() => createDraftEntityId("asset"));
   const [form, setForm] = useState(emptyForm);
   const [error, setError] = useState("");
   const [qrAsset, setQrAsset] = useState<FarmAsset | null>(null);
@@ -76,6 +79,7 @@ export default function ActivosPage() {
 
   const openNew = () => {
     setEditing(null);
+    setDraftAssetId(createDraftEntityId("asset"));
     setForm(emptyForm);
     setError("");
     setModalOpen(true);
@@ -109,10 +113,13 @@ export default function ActivosPage() {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(editing ? { ...form, id: editing.id } : form),
     });
+    const saved = await response.json().catch(() => ({}));
     if (!response.ok) {
-      const data = await response.json().catch(() => ({}));
-      setError(data.error || "No se pudo guardar el activo");
+      setError(saved.error || "No se pudo guardar el activo");
       return;
+    }
+    if (!editing && saved?.id) {
+      await bindDraftAttachments(draftAssetId, saved.id, "asset");
     }
     setModalOpen(false);
     await load();
@@ -148,7 +155,7 @@ export default function ActivosPage() {
       />
       {error && !modalOpen && <p className="mb-4 rounded-lg bg-red-50 p-3 text-sm text-red-700">{error}</p>}
 
-      <div className="mb-6 grid grid-cols-1 gap-4 sm:grid-cols-3">
+      <div className="mb-6 grid grid-cols-2 gap-2.5 sm:gap-4 sm:grid-cols-3">
         <StatCard icon="equipment" label="Activos vigentes" value={activeCount} color="green" />
         <StatCard icon="wrench" label="Requieren atención" value={attentionCount} color={attentionCount ? "yellow" : "blue"} />
         <StatCard icon="package" label="Retirados con historial" value={retiredCount} color="blue" />
@@ -228,6 +235,14 @@ export default function ActivosPage() {
           </div>
           <Textarea label="Descripción" value={form.description} onChange={(event) => setForm({ ...form, description: event.target.value })} placeholder="Uso, capacidad o características útiles" />
           <Textarea label="Notas" value={form.notes} onChange={(event) => setForm({ ...form, notes: event.target.value })} placeholder="Observaciones para futuras revisiones" />
+          <AttachmentPanel
+            entityType="asset"
+            entityId={editing ? editing.id : draftAssetId}
+            defaultCategory="placa_serie"
+            title="Placa de serie, garantía o manual técnico"
+            helpText="Adjunta foto de la placa del equipo, factura de compra o certificado de garantía."
+            compact
+          />
           <div className="flex gap-3"><Button onClick={() => void save()} disabled={!form.name.trim()}>{editing ? "Guardar cambios" : "Crear ficha"}</Button><Button variant="secondary" onClick={() => setModalOpen(false)}>Cancelar</Button></div>
         </div>
       </Modal>

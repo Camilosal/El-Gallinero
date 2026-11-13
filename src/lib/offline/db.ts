@@ -4,11 +4,27 @@
  * Seguro para SSR (retorna null/vacío en servidor).
  */
 
+import {
+  decryptBlobPayload,
+  decryptJsonPayload,
+  encryptBlobPayload,
+  encryptJsonPayload,
+} from "./crypto";
+
 export interface OutboxMutation {
   id: string; // UUID v4 único
   endpoint: string; // ej: '/api/produccion/huevos'
   method: "POST" | "PUT" | "DELETE";
-  entity: "huevos" | "mortalidad" | "alimentacion" | "pesaje" | "general";
+  entity:
+    | "huevos"
+    | "mortalidad"
+    | "alimentacion"
+    | "pesaje"
+    | "sanidad"
+    | "reproduccion"
+    | "bioseguridad"
+    | "cierre_diario"
+    | "general";
   description: string; // Resumen legible (ej: "45 huevos recolectados en Galpón A")
   payload: Record<string, any>;
   clientTimestamp: string; // Fecha/hora ISO del dispositivo
@@ -44,7 +60,7 @@ export interface CachedRecordEntry<T = any> {
 }
 
 const DB_NAME = "gallinero_offline_db";
-const DB_VERSION = 2;
+const DB_VERSION = 3;
 
 let dbPromise: Promise<IDBDatabase> | null = null;
 
@@ -111,6 +127,30 @@ export function getOfflineDB(): Promise<IDBDatabase> {
 // Operaciones de Outbox (Cola de mutaciones pendientes)
 // ─────────────────────────────────────────────────────────────
 
+async function serializeOutboxMutation(mutation: OutboxMutation): Promise<Record<string, any>> {
+  const [encryptedPayload, encryptedDescription] = await Promise.all([
+    encryptJsonPayload(mutation.payload),
+    encryptJsonPayload(mutation.description),
+  ]);
+  return {
+    ...mutation,
+    payload: encryptedPayload,
+    description: encryptedDescription,
+  };
+}
+
+async function deserializeOutboxMutation(raw: Record<string, any>): Promise<OutboxMutation> {
+  const [payload, description] = await Promise.all([
+    decryptJsonPayload<Record<string, any>>(raw.payload),
+    decryptJsonPayload<string>(raw.description),
+  ]);
+  return {
+    ...(raw as OutboxMutation),
+    payload,
+    description,
+  };
+}
+
 export async function addOutboxMutation(
   item: Omit<OutboxMutation, "status" | "retries" | "createdAt"> & {
     status?: OutboxMutation["status"];
@@ -120,18 +160,19 @@ export async function addOutboxMutation(
     throw new Error("No hay soporte de IndexedDB");
   }
 
-  const db = await getOfflineDB();
   const mutation: OutboxMutation = {
     ...item,
     status: item.status || "pending",
     retries: 0,
     createdAt: Date.now(),
   };
+  const storedMutation = await serializeOutboxMutation(mutation);
+  const db = await getOfflineDB();
 
   return new Promise((resolve, reject) => {
     const tx = db.transaction("outbox", "readwrite");
     const store = tx.objectStore("outbox");
-    const req = store.put(mutation);
+    const req = store.put(storedMutation);
 
     req.onsuccess = () => resolve(mutation);
     req.onerror = () => reject(req.error);
@@ -142,13 +183,13 @@ export async function getPendingMutations(): Promise<OutboxMutation[]> {
   if (!isIndexedDBSupported()) return [];
   const db = await getOfflineDB();
 
-  return new Promise((resolve, reject) => {
+  const rawPending = await new Promise<Record<string, any>[]>((resolve, reject) => {
     const tx = db.transaction("outbox", "readonly");
     const store = tx.objectStore("outbox");
     const req = store.getAll();
 
     req.onsuccess = () => {
-      const all: OutboxMutation[] = req.result || [];
+      const all: Record<string, any>[] = req.result || [];
       // Ordenar por createdAt FIFO (más antiguo primero)
       const pending = all
         .filter((m) => m.status === "pending" || m.status === "failed")
@@ -157,23 +198,27 @@ export async function getPendingMutations(): Promise<OutboxMutation[]> {
     };
     req.onerror = () => reject(req.error);
   });
+
+  return Promise.all(rawPending.map(deserializeOutboxMutation));
 }
 
 export async function getAllOutboxMutations(): Promise<OutboxMutation[]> {
   if (!isIndexedDBSupported()) return [];
   const db = await getOfflineDB();
 
-  return new Promise((resolve, reject) => {
+  const rawAll = await new Promise<Record<string, any>[]>((resolve, reject) => {
     const tx = db.transaction("outbox", "readonly");
     const store = tx.objectStore("outbox");
     const req = store.getAll();
 
     req.onsuccess = () => {
-      const all: OutboxMutation[] = req.result || [];
+      const all: Record<string, any>[] = req.result || [];
       resolve(all.sort((a, b) => b.createdAt - a.createdAt));
     };
     req.onerror = () => reject(req.error);
   });
+
+  return Promise.all(rawAll.map(deserializeOutboxMutation));
 }
 
 export async function getPendingCount(): Promise<number> {
@@ -188,23 +233,26 @@ export async function updateOutboxMutation(
   if (!isIndexedDBSupported()) return;
   const db = await getOfflineDB();
 
+  const rawCurrent = await new Promise<Record<string, any> | undefined>((resolve, reject) => {
+    const tx = db.transaction("outbox", "readonly");
+    const store = tx.objectStore("outbox");
+    const getReq = store.get(id);
+    getReq.onsuccess = () => resolve(getReq.result as Record<string, any> | undefined);
+    getReq.onerror = () => reject(getReq.error);
+  });
+
+  if (!rawCurrent) return;
+
+  const current = await deserializeOutboxMutation(rawCurrent);
+  const updated: OutboxMutation = { ...current, ...updates };
+  const storedUpdated = await serializeOutboxMutation(updated);
+
   return new Promise((resolve, reject) => {
     const tx = db.transaction("outbox", "readwrite");
     const store = tx.objectStore("outbox");
-    const getReq = store.get(id);
-
-    getReq.onsuccess = () => {
-      const current = getReq.result;
-      if (!current) {
-        resolve();
-        return;
-      }
-      const updated = { ...current, ...updates };
-      const putReq = store.put(updated);
-      putReq.onsuccess = () => resolve();
-      putReq.onerror = () => reject(putReq.error);
-    };
-    getReq.onerror = () => reject(getReq.error);
+    const putReq = store.put(storedUpdated);
+    putReq.onsuccess = () => resolve();
+    putReq.onerror = () => reject(putReq.error);
   });
 }
 
@@ -249,14 +297,15 @@ export async function clearSyncedOutbox(): Promise<void> {
 
 export async function setCachedCatalog<T>(key: string, data: T): Promise<void> {
   if (!isIndexedDBSupported()) return;
+  const encryptedData = await encryptJsonPayload(data);
   const db = await getOfflineDB();
 
   return new Promise((resolve, reject) => {
     const tx = db.transaction("catalogs", "readwrite");
     const store = tx.objectStore("catalogs");
-    const entry: CatalogEntry<T> = {
+    const entry = {
       key,
-      data,
+      data: encryptedData,
       updatedAt: Date.now(),
     };
     const req = store.put(entry);
@@ -270,17 +319,17 @@ export async function getCachedCatalog<T>(key: string): Promise<T | null> {
   if (!isIndexedDBSupported()) return null;
   const db = await getOfflineDB();
 
-  return new Promise((resolve, reject) => {
+  const entry = await new Promise<CatalogEntry<unknown> | undefined>((resolve, reject) => {
     const tx = db.transaction("catalogs", "readonly");
     const store = tx.objectStore("catalogs");
     const req = store.get(key);
 
-    req.onsuccess = () => {
-      const entry = req.result as CatalogEntry<T> | undefined;
-      resolve(entry ? entry.data : null);
-    };
+    req.onsuccess = () => resolve(req.result as CatalogEntry<unknown> | undefined);
     req.onerror = () => reject(req.error);
   });
+
+  if (!entry) return null;
+  return decryptJsonPayload<T>(entry.data);
 }
 
 // ─────────────────────────────────────────────────────────────
@@ -289,14 +338,15 @@ export async function getCachedCatalog<T>(key: string): Promise<T | null> {
 
 export async function setCachedRecords<T>(key: string, data: T): Promise<void> {
   if (!isIndexedDBSupported()) return;
+  const encryptedData = await encryptJsonPayload(data);
   const db = await getOfflineDB();
 
   return new Promise((resolve, reject) => {
     const tx = db.transaction("cached_records", "readwrite");
     const store = tx.objectStore("cached_records");
-    const entry: CachedRecordEntry<T> = {
+    const entry = {
       key,
-      data,
+      data: encryptedData,
       updatedAt: Date.now(),
     };
     const req = store.put(entry);
@@ -315,17 +365,22 @@ export async function getCachedRecordEntry<T>(key: string): Promise<CachedRecord
   if (!isIndexedDBSupported()) return null;
   const db = await getOfflineDB();
 
-  return new Promise((resolve, reject) => {
+  const entry = await new Promise<CachedRecordEntry<unknown> | undefined>((resolve, reject) => {
     const tx = db.transaction("cached_records", "readonly");
     const store = tx.objectStore("cached_records");
     const req = store.get(key);
 
-    req.onsuccess = () => {
-      const entry = req.result as CachedRecordEntry<T> | undefined;
-      resolve(entry ?? null);
-    };
+    req.onsuccess = () => resolve(req.result as CachedRecordEntry<unknown> | undefined);
     req.onerror = () => reject(req.error);
   });
+
+  if (!entry) return null;
+  const decryptedData = await decryptJsonPayload<T>(entry.data);
+  return {
+    key: entry.key,
+    data: decryptedData,
+    updatedAt: entry.updatedAt,
+  };
 }
 
 export async function getAllCachedRecordKeys(): Promise<string[]> {
@@ -405,21 +460,45 @@ export async function getMetaValue<T>(key: string): Promise<T | null> {
 // Operaciones de Voice Notes (Notas de voz offline)
 // ─────────────────────────────────────────────────────────────
 
+async function serializeVoiceNote(entry: VoiceNoteEntry): Promise<Record<string, any>> {
+  const encryptedBlob = await encryptBlobPayload(entry.audioBlob);
+  const encryptedHint =
+    entry.transcriptHint !== undefined ? await encryptJsonPayload(entry.transcriptHint) : undefined;
+  return {
+    ...entry,
+    audioBlob: encryptedBlob,
+    transcriptHint: encryptedHint,
+  };
+}
+
+async function deserializeVoiceNote(raw: Record<string, any>): Promise<VoiceNoteEntry> {
+  const [audioBlob, transcriptHint] = await Promise.all([
+    decryptBlobPayload(raw.audioBlob, raw.mimeType || "audio/webm"),
+    raw.transcriptHint !== undefined ? decryptJsonPayload<string>(raw.transcriptHint) : Promise.resolve(undefined),
+  ]);
+  return {
+    ...(raw as VoiceNoteEntry),
+    audioBlob,
+    transcriptHint,
+  };
+}
+
 export async function addVoiceNote(
   note: Omit<VoiceNoteEntry, "status" | "createdAt"> & { status?: VoiceNoteEntry["status"] }
 ): Promise<VoiceNoteEntry> {
   if (!isIndexedDBSupported()) {
     throw new Error("No hay soporte de IndexedDB");
   }
-  const db = await getOfflineDB();
   const entry: VoiceNoteEntry = {
     ...note,
     status: note.status || "pending",
     createdAt: Date.now(),
   };
+  const storedEntry = await serializeVoiceNote(entry);
+  const db = await getOfflineDB();
   return new Promise((resolve, reject) => {
     const tx = db.transaction("voice_notes", "readwrite");
-    const req = tx.objectStore("voice_notes").put(entry);
+    const req = tx.objectStore("voice_notes").put(storedEntry);
     req.onsuccess = () => resolve(entry);
     req.onerror = () => reject(req.error);
   });
@@ -428,15 +507,16 @@ export async function addVoiceNote(
 export async function getAllVoiceNotes(): Promise<VoiceNoteEntry[]> {
   if (!isIndexedDBSupported()) return [];
   const db = await getOfflineDB();
-  return new Promise((resolve, reject) => {
+  const rawList = await new Promise<Record<string, any>[]>((resolve, reject) => {
     const tx = db.transaction("voice_notes", "readonly");
     const req = tx.objectStore("voice_notes").getAll();
     req.onsuccess = () => {
-      const list: VoiceNoteEntry[] = req.result || [];
+      const list: Record<string, any>[] = req.result || [];
       resolve(list.sort((a, b) => b.createdAt - a.createdAt));
     };
     req.onerror = () => reject(req.error);
   });
+  return Promise.all(rawList.map(deserializeVoiceNote));
 }
 
 export async function getPendingVoiceNotes(): Promise<VoiceNoteEntry[]> {
@@ -452,21 +532,26 @@ export async function getPendingVoiceNotesCount(): Promise<number> {
 export async function updateVoiceNote(id: string, patch: Partial<VoiceNoteEntry>): Promise<void> {
   if (!isIndexedDBSupported()) return;
   const db = await getOfflineDB();
+  const rawCurrent = await new Promise<Record<string, any> | undefined>((resolve, reject) => {
+    const tx = db.transaction("voice_notes", "readonly");
+    const store = tx.objectStore("voice_notes");
+    const getReq = store.get(id);
+    getReq.onsuccess = () => resolve(getReq.result as Record<string, any> | undefined);
+    getReq.onerror = () => reject(getReq.error);
+  });
+
+  if (!rawCurrent) return;
+
+  const current = await deserializeVoiceNote(rawCurrent);
+  const updated: VoiceNoteEntry = { ...current, ...patch };
+  const storedUpdated = await serializeVoiceNote(updated);
+
   return new Promise((resolve, reject) => {
     const tx = db.transaction("voice_notes", "readwrite");
     const store = tx.objectStore("voice_notes");
-    const getReq = store.get(id);
-    getReq.onsuccess = () => {
-      const current = getReq.result as VoiceNoteEntry | undefined;
-      if (!current) {
-        resolve();
-        return;
-      }
-      const putReq = store.put({ ...current, ...patch });
-      putReq.onsuccess = () => resolve();
-      putReq.onerror = () => reject(putReq.error);
-    };
-    getReq.onerror = () => reject(getReq.error);
+    const putReq = store.put(storedUpdated);
+    putReq.onsuccess = () => resolve();
+    putReq.onerror = () => reject(putReq.error);
   });
 }
 

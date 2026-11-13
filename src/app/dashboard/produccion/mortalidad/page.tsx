@@ -12,6 +12,14 @@ import { useSearchParams } from "next/navigation";
 import { useActionQuery } from "@/lib/useActionQuery";
 import { syncManager } from "@/lib/offline/syncManager";
 import { getCachedRecords, setCachedRecords } from "@/lib/offline/db";
+import AttachmentPanel from "@/components/attachments/AttachmentPanel";
+import MicroInsightCard from "@/components/MicroInsightCard";
+import {
+  MORTALITY_QUICK_OBSERVATIONS,
+  bindDraftAttachments,
+  createDraftEntityId,
+} from "@/lib/attachments-shared";
+import { buildMortalityMicroInsight, type MicroInsightPayload } from "@/lib/micro-insights";
 
 type MortalityRecord = {
   id: string;
@@ -43,12 +51,13 @@ type EggLoss = {
 
 const CAUSE_LABELS: Record<string, string> = { enfermedad: "Enfermedad", depredador: "Depredador", accidente: "Accidente", sacrificio_sanitario: "Sacrificio sanitario", causa_natural: "Causa natural", otro: "Otro" };
 const CAUSE_COLORS = ["#ef4444", "#f97316", "#eab308", "#3b82f6", "#8b5cf6", "#6b7280"];
-const BATCH_TYPES = ["lote_pollos", "lote_codornices", "lote_patos", "lote_conejos"];
+const BATCH_TYPES = ["lote_pollos", "lote_codornices", "lote_patos", "lote_conejos", "lote_cuyes"];
 const BATCH_SPECIES_BY_TYPE: Record<string, string> = {
   lote_pollos: "pollo",
   lote_codornices: "codorniz",
   lote_patos: "pato",
   lote_conejos: "conejo",
+  lote_cuyes: "cuy",
 };
 const BIRD_LABELS: Record<string, string> = {
   gallina: "Gallina",
@@ -57,6 +66,7 @@ const BIRD_LABELS: Record<string, string> = {
   lote_codornices: "Lote de codornices",
   lote_patos: "Lote de patos",
   lote_conejos: "Lote de conejos",
+  lote_cuyes: "Lote de cuyes",
 };
 const REASON_COLORS = ["#ef4444", "#f97316", "#eab308", "#6b7280"];
 
@@ -80,6 +90,8 @@ export default function MortalidadPage() {
   const [roosters, setRoosters] = useState<{ id: string; code: string; locationId?: string | null }[]>([]);
   const [batches, setBatches] = useState<{ id: string; code: string; species: string; locationId?: string | null }[]>([]);
   const [editingId, setEditingId] = useState<string | null>(null);
+  const [draftMortalityId, setDraftMortalityId] = useState(() => createDraftEntityId("mort"));
+  const [lastInsight, setLastInsight] = useState<MicroInsightPayload | null>(null);
   const [mortalitySearch, setMortalitySearch] = useState("");
   const [lossSearch, setLossSearch] = useState("");
   const { locations } = useFarmLocations();
@@ -162,6 +174,15 @@ export default function MortalidadPage() {
       payload: mutationPayload,
     });
 
+    const qtyNum = Number(payload.quantity || 1);
+    const locName = locations.find((l) => l.id === payload.locationId)?.name || null;
+    const birdTypeLabel = BIRD_LABELS[payload.birdType] || payload.birdType;
+    const causeLabel = CAUSE_LABELS[payload.cause] || payload.cause;
+    const speciesVal =
+      payload.birdType === "gallina" || payload.birdType === "gallo"
+        ? "gallina"
+        : BATCH_SPECIES_BY_TYPE[payload.birdType] || "pollo";
+
     if (result.offline) {
       setModalOpen(false);
       setForm(emptyForm);
@@ -171,14 +192,14 @@ export default function MortalidadPage() {
         id: result.mutationId,
         date: payload.date,
         birdType: payload.birdType,
-        species: payload.birdType === "gallina" || payload.birdType === "gallo" ? "gallina" : "pollo",
-        quantity: payload.quantity || 1,
+        species: speciesVal,
+        quantity: qtyNum,
         cause: payload.cause,
         henId: payload.henId || null,
         roosterId: payload.roosterId || null,
         batchId: payload.batchId || null,
         locationId: payload.locationId || null,
-        locationName: locations.find((l) => l.id === payload.locationId)?.name || null,
+        locationName: locName,
         healthControlId: null,
         henCode: hens.find((h) => h.id === payload.henId)?.code || null,
         roosterCode: roosters.find((r) => r.id === payload.roosterId)?.code || null,
@@ -187,6 +208,19 @@ export default function MortalidadPage() {
       };
 
       setRecords((prev) => [optimisticRecord, ...prev.filter((r) => r.id !== optimisticRecord.id)]);
+      setLastInsight(
+        buildMortalityMicroInsight({
+          date: payload.date,
+          species: speciesVal,
+          birdTypeLabel,
+          quantity: qtyNum,
+          causeLabel,
+          locationName: locName,
+          remainingPopulation: stats.totalFlock > 0 ? Math.max(0, stats.totalFlock - qtyNum) : null,
+          notes: payload.description || null,
+          offline: true,
+        }),
+      );
       return;
     }
 
@@ -194,9 +228,28 @@ export default function MortalidadPage() {
       return setError(result.error || "Error al registrar la mortalidad");
     }
 
+    const savedId = (result.data as { id?: string } | undefined)?.id;
+    if (!editingId && savedId) {
+      await bindDraftAttachments(draftMortalityId, savedId, "mortality");
+    }
+
     setModalOpen(false);
     setForm(emptyForm);
     setEditingId(null);
+    setDraftMortalityId(createDraftEntityId("mort"));
+    setLastInsight(
+      buildMortalityMicroInsight({
+        date: payload.date,
+        species: speciesVal,
+        birdTypeLabel,
+        quantity: qtyNum,
+        causeLabel,
+        locationName: locName,
+        remainingPopulation: stats.totalFlock > 0 ? Math.max(0, stats.totalFlock - qtyNum) : null,
+        notes: payload.description || null,
+        offline: false,
+      }),
+    );
     void load();
   };
 
@@ -282,7 +335,7 @@ export default function MortalidadPage() {
       <PageHeader
         title="Mortalidad y Pérdidas"
         description="Registro de muertes por causa y pérdidas de huevo"
-        help="Registra muertes de gallinas y gallos individuales, o de animales en lotes de pollos, codornices, patos y conejos. Indica la causa para identificar problemas sanitarios. También puedes registrar pérdidas de huevo. El panel resume la mortalidad de los últimos 30 días y su distribución por causa."
+        help="Registra muertes de gallinas y gallos individuales, o de animales en lotes de pollos, codornices, patos, conejos y cuyes. Indica la causa para identificar problemas sanitarios. También puedes registrar pérdidas de huevo. El panel resume la mortalidad de los últimos 30 días y su distribución por causa."
         actions={
           <div className="flex gap-2">
             <Button variant="secondary" onClick={() => { setLossForm(emptyLoss); setLossError(""); setLossModalOpen(true); }}>Pérdida de huevos</Button>
@@ -291,7 +344,21 @@ export default function MortalidadPage() {
         }
       />
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+      {lastInsight && (
+        <MicroInsightCard
+          insight={lastInsight}
+          onAnother={() => {
+            setForm(emptyForm);
+            setError("");
+            setEditingId(null);
+            setModalOpen(true);
+          }}
+          onDismiss={() => setLastInsight(null)}
+          doneLabel="Entendido"
+        />
+      )}
+
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-2.5 sm:gap-4">
         <StatCard icon="mortality" label="Tasa mortalidad (30d)" value={`${stats.mortalityRate}%`} color="red" />
         <StatCard icon="hen" label="Muertes (30d)" value={String(stats.totalDeaths)} color="yellow" />
         <StatCard icon="home" label="Animales en inventario" value={String(stats.totalFlock)} color="green" />
@@ -396,6 +463,7 @@ export default function MortalidadPage() {
             <option value="lote_codornices">Lote de codornices</option>
             <option value="lote_patos">Lote de patos</option>
             <option value="lote_conejos">Lote de conejos</option>
+            <option value="lote_cuyes">Lote de cuyes</option>
           </Select>
 
           {form.birdType === "gallina" && (
@@ -429,7 +497,47 @@ export default function MortalidadPage() {
           <Select label="Causa" value={form.cause} onChange={(e) => setForm({ ...form, cause: e.target.value })} help="Causa principal de la muerte (enfermedad, accidente, depredador, etc.)">
             {Object.entries(CAUSE_LABELS).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
           </Select>
+          <div>
+            <span className="mb-1.5 block text-xs font-semibold text-slate-700">
+              Observación rápida en galpón (1 toque)
+            </span>
+            <div className="flex flex-wrap gap-1.5">
+              {MORTALITY_QUICK_OBSERVATIONS.map((obs) => {
+                const active = form.description.includes(obs);
+                return (
+                  <button
+                    key={obs}
+                    type="button"
+                    onClick={() =>
+                      setForm((prev) => ({
+                        ...prev,
+                        description: prev.description
+                          ? prev.description.includes(obs)
+                            ? prev.description
+                            : `${prev.description} · ${obs}`
+                          : obs,
+                      }))
+                    }
+                    className={`rounded-lg border px-2.5 py-1.5 text-xs font-semibold transition-colors ${active
+                      ? "border-red-600 bg-red-600 text-white"
+                      : "border-slate-200 bg-slate-50 text-slate-700 hover:bg-slate-100"
+                      }`}
+                  >
+                    {obs}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
           <Textarea label="Descripción" value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} help="Detalles adicionales sobre el suceso" />
+          <AttachmentPanel
+            entityType="mortality"
+            entityId={editingId || draftMortalityId}
+            defaultCategory="signo_clinico"
+            title="Evidencia fotográfica de signo clínico o hallazgo"
+            helpText="Opcional: toma foto del signo clínico o lesión para telediagnóstico veterinario (< 250 KB)."
+            compact
+          />
           <div className="flex justify-end gap-3 pt-2">
             <Button variant="secondary" onClick={() => { setModalOpen(false); setEditingId(null); }}>Cancelar</Button>
             <Button onClick={save}>{editingId ? "Actualizar" : "Guardar"}</Button>

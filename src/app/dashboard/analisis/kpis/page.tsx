@@ -2,7 +2,8 @@
 
 import { useEffect, useState, useCallback } from "react";
 import { Banknote, Bird, Coins, Egg, HeartCrack, Skull, Trophy } from "lucide-react";
-import { PageHeader, Card, StatCard, Select, EmptyState } from "@/components/ui";
+import { PageHeader, Card, StatCard, Select, EmptyState, Badge } from "@/components/ui";
+import { ANIMAL_SPECIES, SPECIES_LABELS } from "@/lib/species";
 import TableSearch from "@/components/TableSearch";
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip, Legend, AreaChart, Area, XAxis, YAxis, CartesianGrid, BarChart, Bar } from "recharts";
 import { apiFetch } from "@/lib/fetch";
@@ -17,6 +18,7 @@ interface KpiData {
   };
   laying: {
     rate: number;
+    haaRate?: number;
     totalEggs: number;
     eligibleEggs: number;
     eligibleAnimals: number;
@@ -25,9 +27,26 @@ interface KpiData {
   };
   costPerUnit: {
     perEgg: number;
+    perTray30?: number;
+    avgSalePricePerEgg?: number;
+    breakevenAlertEggs?: boolean;
     perKgMeat: number;
+    perLiveKgMeat?: number;
     totalExpenses: number;
     saleableMeatKg: number;
+  };
+  zootechnical?: {
+    cvPercent: number | null;
+    uniformityPct: number | null;
+    dailyGainG: number | null;
+    epef: number | null;
+    feedKgConsumed: number;
+    slaughterWindowAlerts: Array<{ batchId: string; code: string; species: string; ageDays: number; targetDays: number; recommendation: string }>;
+  };
+  capexRoi?: {
+    totalCapex: number;
+    roiAnnualizedPct: number | null;
+    paybackMonths: number | null;
   };
   flock: {
     avgAgeWeeks: number;
@@ -63,15 +82,17 @@ export default function KpisPage() {
   const [data, setData] = useState<KpiData | null>(null);
   const [loading, setLoading] = useState(true);
   const [period, setPeriod] = useState("30");
+  const [species, setSpecies] = useState("");
   const [search, setSearch] = useState("");
 
   const load = useCallback(() => {
     setLoading(true);
-    apiFetch(`/api/analisis/kpis?period=${period}`)
+    const qs = `period=${period}${species ? `&species=${species}` : ""}`;
+    apiFetch(`/api/analisis/kpis?${qs}`)
       .then((r) => r.json())
       .then(setData)
       .finally(() => setLoading(false));
-  }, [period]);
+  }, [period, species]);
 
   useEffect(() => { void Promise.resolve().then(load); }, [load]);
 
@@ -148,12 +169,20 @@ export default function KpisPage() {
         description="Métricas de productividad, mortalidad, postura y costos"
         help="La tasa de postura cuenta huevos asociados a gallinas en edad y estado de postura, y a lotes maduros marcados para postura. El costo por huevo estima alimento de esa población. El costo por kg de carne estima adquisición y alimento para la carne destinada a venta; excluye autoconsumo. Los egresos se muestran aparte como total financiero del período."
         actions={
-          <Select value={period} onChange={(e) => setPeriod(e.target.value)}>
-            <option value="7">Últimos 7 días</option>
-            <option value="30">Últimos 30 días</option>
-            <option value="90">Últimos 90 días</option>
-            <option value="365">Último año</option>
-          </Select>
+          <div className="flex flex-wrap gap-2">
+            <Select value={species} onChange={(e) => setSpecies(e.target.value)}>
+              <option value="">Todas las especies</option>
+              {ANIMAL_SPECIES.map((sp) => (
+                <option key={sp} value={sp}>{SPECIES_LABELS[sp]?.plural ?? sp}</option>
+              ))}
+            </Select>
+            <Select value={period} onChange={(e) => setPeriod(e.target.value)}>
+              <option value="7">Últimos 7 días</option>
+              <option value="30">Últimos 30 días</option>
+              <option value="90">Últimos 90 días</option>
+              <option value="365">Último año</option>
+            </Select>
+          </div>
         }
       />
 
@@ -182,7 +211,7 @@ export default function KpisPage() {
                 <HeartCrack className="w-5 h-5 text-red-500" aria-hidden="true" />
                 Mortalidad
               </h2>
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+              <div className="grid grid-cols-2 lg:grid-cols-4 gap-2.5 sm:gap-4">
                 <StatCard icon="skull" label="Tasa mortalidad" value={`${data.mortality.rate}%`} color="red" />
                 <StatCard icon="mortality" label="Muertes totales" value={String(data.mortality.totalDeaths)} color="yellow" />
                 <StatCard icon="home" label="Animales en inventario" value={String(data.mortality.totalFlock)} color="green" />
@@ -198,7 +227,7 @@ export default function KpisPage() {
                 <Egg className="w-5 h-5 text-amber-500" aria-hidden="true" />
                 Postura
               </h2>
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+              <div className="grid grid-cols-2 lg:grid-cols-4 gap-2.5 sm:gap-4">
                 <StatCard icon="trend-up" label="Tasa de postura" value={`${data.laying.rate}%`} color="green" />
                 <StatCard icon="egg" label="Huevos elegibles" value={String(data.laying.eligibleEggs)} color="yellow" />
                 <StatCard icon="chart" label="Huevos registrados" value={String(data.laying.totalEggs)} color="blue" />
@@ -215,11 +244,11 @@ export default function KpisPage() {
                 <Coins className="w-5 h-5 text-emerald-600" aria-hidden="true" />
                 Costos
               </h2>
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-                <StatCard icon="egg" label="Alimento estimado / huevo" value={data.laying.eligibleEggs > 0 ? fmt(data.costPerUnit.perEgg) : "—"} color="green" />
-                <StatCard icon="drumstick" label="Costo estimado / kg vendible" value={data.costPerUnit.saleableMeatKg > 0 ? fmt(data.costPerUnit.perKgMeat) : "—"} color="red" />
+              <div className="grid grid-cols-2 lg:grid-cols-4 gap-2.5 sm:gap-4">
+                <StatCard icon="egg" label="Costo real / huevo (cubeta 30)" value={data.laying.eligibleEggs > 0 ? `${fmt(data.costPerUnit.perEgg)} (${fmt(data.costPerUnit.perTray30 ?? data.costPerUnit.perEgg * 30)})` : "—"} color={data.costPerUnit.breakevenAlertEggs ? "red" : "green"} />
+                <StatCard icon="drumstick" label="Costo / kg canal (vivo)" value={data.costPerUnit.saleableMeatKg > 0 ? `${fmt(data.costPerUnit.perKgMeat)} (${fmt(data.costPerUnit.perLiveKgMeat ?? 0)})` : "—"} color="red" />
                 <StatCard icon="expense" label="Total egresos" value={fmt(data.costPerUnit.totalExpenses)} color="purple" />
-                <StatCard icon="chart" label="Días en período" value={String(data.periodDays)} color="blue" />
+                <StatCard icon="chart" label="ROI CAPEX / Payback" value={data.capexRoi?.roiAnnualizedPct != null ? `${data.capexRoi.roiAnnualizedPct}% · ${data.capexRoi.paybackMonths ?? "—"} m` : "—"} color="blue" />
               </div>
               <p className="-mt-3 text-xs text-slate-500">Los costos unitarios son estimaciones con costos de adquisición registrados y parámetros estándar de alimento. Los egresos no se reparten entre huevos y carne.</p>
             </>
@@ -232,12 +261,38 @@ export default function KpisPage() {
                 <Trophy className="w-5 h-5 text-amber-500" aria-hidden="true" />
                 Pico de Producción
               </h2>
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+              <div className="grid grid-cols-2 lg:grid-cols-4 gap-2.5 sm:gap-4">
                 <StatCard icon="calendar" label="Semana pico" value={new Date(data.peakProduction.peakWeek + "T12:00:00").toLocaleDateString("es", { day: "2-digit", month: "short" })} color="green" />
                 <StatCard icon="trend-up" label="Tasa pico" value={`${data.peakProduction.peakRate}%`} color="blue" />
                 <StatCard icon="trend-down" label="Tasa actual" value={`${data.peakProduction.currentRate}%`} color="yellow" />
                 <StatCard icon="chart" label="Declive" value={`${data.peakProduction.declinePercent}%`} color="red" />
               </div>
+            </>
+          )}
+
+          {/* Zootechnical KPIs (CV%, GDP, EPEF, HAA vs HD%, Ventana Faena) */}
+          {data.zootechnical && (
+            <>
+              <h2 className="text-lg font-bold text-slate-700 flex items-center gap-2">
+                Zootecnia, Uniformidad y Eficiencia
+              </h2>
+              <div className="grid grid-cols-2 lg:grid-cols-4 gap-2.5 sm:gap-4">
+                <StatCard icon="scale" label="CV% Uniformidad (±10%)" value={data.zootechnical.cvPercent !== null ? `${data.zootechnical.cvPercent}% (${data.zootechnical.uniformityPct ?? "—"}%)` : "—"} color="blue" />
+                <StatCard icon="trend-up" label="GDP promedio" value={data.zootechnical.dailyGainG !== null ? `${data.zootechnical.dailyGainG} g/d` : "—"} color="green" />
+                <StatCard icon="award" label="Índice EPEF (Engorde)" value={data.zootechnical.epef !== null ? String(data.zootechnical.epef) : "—"} color="yellow" />
+                <StatCard icon="egg" label="Postura HAA vs HD%" value={`${data.laying.haaRate ?? data.laying.rate}% / ${data.laying.rate}%`} color="earth" />
+              </div>
+              {data.zootechnical.slaughterWindowAlerts.length > 0 && (
+                <div className="rounded-xl border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900 space-y-1">
+                  <p className="font-semibold">Alertas de ventana óptima de sacrificio:</p>
+                  {data.zootechnical.slaughterWindowAlerts.map((a) => (
+                    <div key={a.batchId} className="flex flex-wrap items-center gap-2">
+                      <Badge color="yellow">{a.code}</Badge>
+                      <span>{a.species} · {a.ageDays}/{a.targetDays} d — {a.recommendation}</span>
+                    </div>
+                  ))}
+                </div>
+              )}
             </>
           )}
 
@@ -248,7 +303,7 @@ export default function KpisPage() {
                 <Bird className="w-5 h-5 text-green-600" aria-hidden="true" />
                 Parvada
               </h2>
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+              <div className="grid grid-cols-2 lg:grid-cols-4 gap-2.5 sm:gap-4">
                 <StatCard icon="calendar" label="Edad promedio" value={`${data.flock.avgAgeWeeks} sem`} color="blue" />
                 <StatCard icon="paw" label="Total animales" value={String(data.flock.totalBirds)} color="green" />
                 <StatCard icon="trend-up" label="Ratio productivo" value={`${(data.flock.productiveRatio * 100).toFixed(0)}%`} color="yellow" />

@@ -10,6 +10,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { useActionQuery } from "@/lib/useActionQuery";
 import ParametrosTab from "./_components/ParametrosTab";
 import EspeciesTab from "./_components/EspeciesTab";
+import ContactsDirectory from "@/components/contacts/ContactsDirectory";
 import VacunasTab from "./_components/VacunasTab";
 import PesosTab from "./_components/PesosTab";
 import GallinazaTab from "./_components/GallinazaTab";
@@ -118,7 +119,8 @@ function ListasTab() {
     setError("");
     setModalOpen(true);
   };
-  useActionQuery(searchParams.get("nuevo"), { "1": openNew });
+  const isContactCategory = activeCat === "comprador" || activeCat === "proveedor";
+  useActionQuery(isContactCategory ? null : searchParams.get("nuevo"), { "1": openNew });
 
   const openEdit = (item: CatalogItem) => {
     setEditing(item);
@@ -185,6 +187,13 @@ function ListasTab() {
         ))}
       </div>
 
+      {isContactCategory ? (
+        <ContactsDirectory
+          embedded
+          initialRole={activeCat === "comprador" ? "cliente" : "proveedor"}
+          actionNuevo={searchParams.get("nuevo")}
+        />
+      ) : (
       <Card>
         <div className="flex items-center justify-between mb-4">
           <div>
@@ -280,6 +289,7 @@ function ListasTab() {
           </>
         )}
       </Card>
+      )}
 
       <Modal open={modalOpen} onClose={() => setModalOpen(false)} title={editing ? "Editar valor" : `Agregar a ${CATEGORIES.find((c) => c.key === activeCat)?.label}`}>
         <div className="space-y-4">
@@ -331,7 +341,7 @@ function ListasTab() {
               label="Especie (tipo)"
               value={tipo}
               onChange={(e) => setTipo(e.target.value)}
-              placeholder="Ej: pollo, gallina, codorniz, pato, conejo"
+              placeholder="Ej: pollo, gallina, codorniz, pato, conejo, cuy"
               help="Especie o subtipo al que pertenece este registro"
             />
           )}
@@ -451,6 +461,7 @@ function ListasTab() {
 
 const TABS = [
   { key: "listas", label: "Listas", icon: "folder" },
+  { key: "contactos", label: "Clientes y Proveedores", icon: "handshake" },
   { key: "parametros", label: "Datos de la granja y parámetros", icon: "settings" },
   { key: "especies", label: "Especies", icon: "chart" },
   { key: "vacunas", label: "Vacunas", icon: "vaccine" },
@@ -496,6 +507,9 @@ export default function CatalogosPage() {
       </div>
 
       {tab === "listas" && <ListasTab />}
+      {tab === "contactos" && (
+        <ContactsDirectory embedded actionNuevo={searchParams.get("nuevo")} />
+      )}
       {tab === "parametros" && <ParametrosTab />}
       {tab === "especies" && <EspeciesTab />}
       {tab === "vacunas" && <VacunasTab />}

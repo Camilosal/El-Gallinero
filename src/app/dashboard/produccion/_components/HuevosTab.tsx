@@ -17,6 +17,11 @@ import { useFarmLocations } from "@/lib/useFarmLocations";
 import { useActionQuery } from "@/lib/useActionQuery";
 import { syncManager } from "@/lib/offline/syncManager";
 import { getCachedRecords, setCachedRecords } from "@/lib/offline/db";
+import { classifyWeightNtc1240, checkEggStorageTelemetry, getNtc1240Hint, generateEggLotCode } from "@/lib/ntc1240";
+import MicroInsightCard from "@/components/MicroInsightCard";
+import FeatureGateBanner from "@/components/FeatureGateBanner";
+import { useOnboardingState } from "@/lib/useOnboardingState";
+import { buildEggMicroInsight, type MicroInsightPayload } from "@/lib/micro-insights";
 
 interface EggDetail {
   size: string;
@@ -32,10 +37,15 @@ interface EggRecord {
   locationName?: string | null;
   totalCollected: number;
   broken: number;
+  discarded?: number | null;
   forIncubation: number;
   quantityAutoconsumo?: number | null;
   quantityExcedente?: number | null;
   referenceUnitPrice?: string | null;
+  lotCode?: string | null;
+  storageTempC?: string | null;
+  storageHumidityPct?: string | null;
+  storageWarnings?: string[];
   notes: string | null;
   details: EggDetail[];
 }
@@ -83,8 +93,10 @@ export default function HuevosPage() {
   const [modalOpen, setModalOpen] = useState(false);
   const [editing, setEditing] = useState<EggRecord | null>(null);
   const [error, setError] = useState("");
+  const [lastInsight, setLastInsight] = useState<MicroInsightPayload | null>(null);
   const [selectedSpeciesFilter, setSelectedSpeciesFilter] = useState<string>("all");
 
+  const [sampleEggWeightG, setSampleEggWeightG] = useState("");
   const [form, setForm] = useState<{
     date: string;
     species: string;
@@ -93,10 +105,14 @@ export default function HuevosPage() {
     totalUnits: number;
     sizes: Record<string, number>;
     broken: number;
+    discarded: number;
     forIncubation: number;
     quantityAutoconsumo: number;
     quantityExcedente: number;
     referenceUnitPrice: string;
+    lotCode: string;
+    storageTempC: string;
+    storageHumidityPct: string;
     notes: string;
   }>({
     date: new Date().toISOString().split("T")[0],
@@ -106,10 +122,14 @@ export default function HuevosPage() {
     totalUnits: 0,
     sizes: {},
     broken: 0,
+    discarded: 0,
     forIncubation: 0,
     quantityAutoconsumo: 0,
     quantityExcedente: 0,
     referenceUnitPrice: "600",
+    lotCode: "",
+    storageTempC: "",
+    storageHumidityPct: "",
     notes: "",
   });
 
@@ -121,6 +141,8 @@ export default function HuevosPage() {
   const [saleSuggestionQty, setSaleSuggestionQty] = useState(0);
   const [search, setSearch] = useState("");
   const { items: sizeOptions } = useCatalog("tamano_huevo");
+  const { isFlagEnabled } = useOnboardingState();
+  const ntc1240Enabled = isFlagEnabled("clasificacion_ntc1240_calibres");
 
   const load = useCallback(() => {
     // 1. Cargar primero de caché local para respuesta offline inmediata
@@ -172,11 +194,11 @@ export default function HuevosPage() {
   }, [load]);
 
   const sizesTotal = sizeOptions.reduce((s, o) => s + (form.sizes[o.value] || 0), 0);
-  const quickGoodTotal = Math.max(0, quickTotal - form.broken - form.forIncubation);
+  const quickGoodTotal = Math.max(0, quickTotal - form.broken - form.discarded - form.forIncubation);
   const effectiveGoodEggs = form.species === "gallina"
     ? (quickMode && !editing ? quickGoodTotal : sizesTotal)
-    : Math.max(0, form.totalUnits - form.broken - form.forIncubation);
-  const totalCollected = effectiveGoodEggs + form.broken + form.forIncubation;
+    : Math.max(0, form.totalUnits - form.broken - form.discarded - form.forIncubation);
+  const totalCollected = effectiveGoodEggs + form.broken + form.discarded + form.forIncubation;
 
   // Promedio histórico para modo rápido de gallinas
   const historicalAvg = useMemo(() => {
@@ -230,9 +252,11 @@ export default function HuevosPage() {
       totalUnits: 0,
       sizes: {},
       broken: 0,
+      discarded: 0,
       forIncubation: 0,
       quantityAutoconsumo: 0,
       quantityExcedente: 0,
+      lotCode: generateEggLotCode(prev.date, species),
     }));
   };
 
@@ -243,18 +267,24 @@ export default function HuevosPage() {
     setOverLimitMsg("");
     setQuickMode(true);
     setQuickTotal(0);
+    const todayIso = new Date().toISOString().split("T")[0];
+    setSampleEggWeightG("");
     setForm({
-      date: new Date().toISOString().split("T")[0],
+      date: todayIso,
       species: "gallina",
       batchId: "",
       locationId: "",
       totalUnits: 0,
       sizes: {},
       broken: 0,
+      discarded: 0,
       forIncubation: 0,
       quantityAutoconsumo: 0,
       quantityExcedente: 0,
       referenceUnitPrice: "600",
+      lotCode: generateEggLotCode(todayIso, "gallina"),
+      storageTempC: "",
+      storageHumidityPct: "",
       notes: "",
     });
     setModalOpen(true);
@@ -262,8 +292,9 @@ export default function HuevosPage() {
 
   useActionQuery(searchParams.get("nuevo"), {
     "1": () => {
-      setEditing(null); setError(""); setConfirmOverLimit(false); setOverLimitMsg(""); setQuickMode(true); setQuickTotal(0);
-      setForm({ date: new Date().toISOString().split("T")[0], species: "gallina", batchId: "", locationId: "", totalUnits: 0, sizes: {}, broken: 0, forIncubation: 0, quantityAutoconsumo: 0, quantityExcedente: 0, referenceUnitPrice: "600", notes: "" });
+      const todayIso = new Date().toISOString().split("T")[0];
+      setEditing(null); setError(""); setConfirmOverLimit(false); setOverLimitMsg(""); setQuickMode(true); setQuickTotal(0); setSampleEggWeightG("");
+      setForm({ date: todayIso, species: "gallina", batchId: "", locationId: "", totalUnits: 0, sizes: {}, broken: 0, discarded: 0, forIncubation: 0, quantityAutoconsumo: 0, quantityExcedente: 0, referenceUnitPrice: "600", lotCode: generateEggLotCode(todayIso, "gallina"), storageTempC: "", storageHumidityPct: "", notes: "" });
       setModalOpen(true);
     },
   });
@@ -274,24 +305,30 @@ export default function HuevosPage() {
     setConfirmOverLimit(false);
     setOverLimitMsg("");
     setQuickMode(false);
+    setSampleEggWeightG("");
     const sp = r.species || "gallina";
     const sizes: Record<string, number> = {};
     r.details.forEach((d) => { sizes[d.size] = d.quantity; });
+    const discQty = r.discarded || 0;
     const autoQty = r.quantityAutoconsumo || 0;
-    const excQty = r.quantityExcedente || Math.max(0, r.totalCollected - r.broken - r.forIncubation - autoQty);
+    const excQty = r.quantityExcedente || Math.max(0, r.totalCollected - r.broken - discQty - r.forIncubation - autoQty);
 
     setForm({
       date: r.date,
       species: sp,
       batchId: r.batchId || "",
       locationId: r.locationId || "",
-      totalUnits: r.totalCollected - r.broken - r.forIncubation,
+      totalUnits: r.totalCollected - r.broken - discQty - r.forIncubation,
       sizes,
       broken: r.broken,
+      discarded: discQty,
       forIncubation: r.forIncubation,
       quantityAutoconsumo: autoQty,
       quantityExcedente: excQty,
       referenceUnitPrice: r.referenceUnitPrice || String(priceEgg(sp)),
+      lotCode: r.lotCode || generateEggLotCode(r.date, sp, r.id.slice(0, 4)),
+      storageTempC: r.storageTempC ? String(r.storageTempC) : "",
+      storageHumidityPct: r.storageHumidityPct ? String(r.storageHumidityPct) : "",
       notes: r.notes || "",
     });
     setModalOpen(true);
@@ -321,10 +358,11 @@ export default function HuevosPage() {
     let sizesToSave: { size: string; quantity: number }[] = [];
     let totalGood = 0;
     let broken = form.broken;
+    const discarded = form.discarded || 0;
     let forIncubation = form.forIncubation;
 
     if (isGallina) {
-      if (quickMode && !editing) {
+      if ((quickMode || !ntc1240Enabled) && !editing) {
         sizesToSave = Object.entries(quickDistribution)
           .filter(([, v]) => v > 0)
           .map(([size, quantity]) => ({ size, quantity }));
@@ -339,22 +377,22 @@ export default function HuevosPage() {
       }
     } else {
       // Codorniz o Pato: tamaño genérico estándar
-      totalGood = Math.max(0, form.totalUnits - broken - forIncubation);
+      totalGood = Math.max(0, form.totalUnits - broken - discarded - forIncubation);
       const genericSizeName = form.species === "codorniz" ? "Codorniz estándar" : "Pato estándar";
       sizesToSave = [{ size: genericSizeName, quantity: totalGood }];
     }
 
-    const totalToSave = totalGood + broken + forIncubation;
+    const totalToSave = totalGood + broken + discarded + forIncubation;
     if (totalToSave <= 0) {
       setError("Debes ingresar al menos 1 huevo recolectado");
       return;
     }
-    if (isGallina && quickMode && !editing && broken + forIncubation > quickTotal) {
-      setError("Los huevos rotos y para incubación no pueden superar el total recogido");
+    if (isGallina && (quickMode || !ntc1240Enabled) && !editing && broken + discarded + forIncubation > quickTotal) {
+      setError("Rotos, descartados e incubación no pueden superar el total recogido");
       return;
     }
-    if (form.species !== "gallina" && broken + forIncubation > form.totalUnits) {
-      setError("Los huevos rotos y para incubación no pueden superar el total recogido");
+    if (form.species !== "gallina" && broken + discarded + forIncubation > form.totalUnits) {
+      setError("Rotos, descartados e incubación no pueden superar el total recogido");
       return;
     }
     if (totalGood > 0 && sizesToSave.length === 0) {
@@ -377,10 +415,14 @@ export default function HuevosPage() {
       locationId: form.locationId,
       totalCollected: totalToSave,
       broken,
+      discarded,
       forIncubation,
       quantityAutoconsumo: autoQty,
       quantityExcedente: excQty,
       referenceUnitPrice: form.referenceUnitPrice || null,
+      lotCode: ntc1240Enabled ? form.lotCode.trim() || null : null,
+      storageTempC: ntc1240Enabled && form.storageTempC ? Number(form.storageTempC) : null,
+      storageHumidityPct: ntc1240Enabled && form.storageHumidityPct ? Number(form.storageHumidityPct) : null,
       notes: form.notes || null,
       sizes: sizesToSave,
       overrideValidation,
@@ -397,6 +439,13 @@ export default function HuevosPage() {
       },
     });
 
+    const locName = locations.find((l: any) => l.id === payload.locationId)?.name || null;
+    const prevRecord = records.find((r) => (r.species || "gallina") === payload.species);
+    const activeLayingBirds =
+      payload.species === "gallina"
+        ? stageData.reduce((s, st) => s + Number(st.count || 0), 0)
+        : batches.find((b) => b.id === payload.batchId)?.currentQuantity || 0;
+
     if (mutationResult.offline) {
       setModalOpen(false);
       setConfirmOverLimit(false);
@@ -408,18 +457,35 @@ export default function HuevosPage() {
         species: payload.species,
         batchId: payload.batchId,
         locationId: payload.locationId,
-        locationName: locations.find((l: any) => l.id === payload.locationId)?.name || null,
+        locationName: locName,
         totalCollected: totalToSave,
         broken: payload.broken,
+        discarded: payload.discarded,
         forIncubation: payload.forIncubation,
         quantityAutoconsumo: payload.quantityAutoconsumo,
         quantityExcedente: payload.quantityExcedente,
         referenceUnitPrice: payload.referenceUnitPrice,
+        lotCode: payload.lotCode,
         notes: payload.notes ? `${payload.notes} (Guardado en móvil)` : "Guardado en móvil",
         details: sizesToSave,
       };
 
       setRecords((prev) => [optimisticRecord, ...prev.filter((r) => r.id !== optimisticRecord.id)]);
+      setLastInsight(
+        buildEggMicroInsight({
+          date: payload.date,
+          species: payload.species,
+          locationName: locName,
+          totalCollected: totalToSave,
+          broken: payload.broken,
+          discarded: payload.discarded,
+          forIncubation: payload.forIncubation,
+          unitPrice: Number(payload.referenceUnitPrice || priceEgg(payload.species)),
+          activeLayingBirds: activeLayingBirds > 0 ? activeLayingBirds : undefined,
+          previousDayCollected: prevRecord?.totalCollected ?? null,
+          offline: true,
+        }),
+      );
       return;
     }
 
@@ -431,6 +497,21 @@ export default function HuevosPage() {
     setModalOpen(false);
     setConfirmOverLimit(false);
     setOverLimitMsg("");
+    setLastInsight(
+      buildEggMicroInsight({
+        date: payload.date,
+        species: payload.species,
+        locationName: locName,
+        totalCollected: totalToSave,
+        broken: payload.broken,
+        discarded: payload.discarded,
+        forIncubation: payload.forIncubation,
+        unitPrice: Number(payload.referenceUnitPrice || priceEgg(payload.species)),
+        activeLayingBirds: activeLayingBirds > 0 ? activeLayingBirds : undefined,
+        previousDayCollected: prevRecord?.totalCollected ?? null,
+        offline: false,
+      }),
+    );
     load();
 
     try {
@@ -509,6 +590,23 @@ export default function HuevosPage() {
         actions={<Button onClick={openNew}>+ Registrar Recolección</Button>}
       />
 
+      <FeatureGateBanner
+        flagKey="clasificacion_ntc1240_calibres"
+        mode="banner"
+        customHint="Tu captura rápida diaria de huevos por unidades totales está activa. Al superar 150 gallinas ponedoras activas se habilita automáticamente la matriz completa por calibres NTC 1240 (Jumbo a C) y márgenes por lote PEPS."
+      />
+
+      {lastInsight && (
+        <div className="mb-6">
+          <MicroInsightCard
+            insight={lastInsight}
+            onAnother={openNew}
+            onDismiss={() => setLastInsight(null)}
+            doneLabel="Entendido"
+          />
+        </div>
+      )}
+
       {/* StatCards Principales */}
       <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3 mb-6">
         <StatCard icon="egg" label="Total Huevos" value={totalAll} color="yellow" />
@@ -526,16 +624,16 @@ export default function HuevosPage() {
             <Target className="w-4 h-4 text-slate-600" aria-hidden="true" />
             <span>Postura esperada — gallinas en etapa productiva</span>
           </h3>
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-2.5 sm:gap-3">
             {stageData.map((stage) => (
-              <div key={stage.name} className="flex items-center justify-between p-3 bg-slate-50 rounded-lg">
-                <div>
+              <div key={stage.name} className="flex flex-col sm:flex-row sm:items-center justify-between gap-1.5 p-2.5 sm:p-3 min-w-0 bg-slate-50 rounded-lg">
+                <div className="min-w-0">
                   <Badge color={stageColors[stage.name] || "gray"}>{stage.name}</Badge>
-                  <p className="text-xs text-slate-500 mt-1">{stage.count} gallina{stage.count !== 1 ? "s" : ""}</p>
+                  <p className="text-[11px] sm:text-xs text-slate-500 mt-1">{stage.count} gallina{stage.count !== 1 ? "s" : ""}</p>
                 </div>
-                <div className="text-right">
-                  <p className="text-lg font-bold text-yellow-700">{stage.expectedEggsPerDay}</p>
-                  <p className="text-xs text-slate-500">huevos/día</p>
+                <div className="sm:text-right">
+                  <p className="text-base sm:text-lg font-bold text-yellow-700">{stage.expectedEggsPerDay}</p>
+                  <p className="text-[11px] sm:text-xs text-slate-500">huevos/día</p>
                 </div>
               </div>
             ))}
@@ -617,7 +715,7 @@ export default function HuevosPage() {
             }
           />
         ) : (
-          <Table headers={["Fecha", "Especie", "Lugar", "Total Recogido", "Para el Hogar", "Para Venta", "Ahorro ($)", "Rotos / Inc.", ""]}>
+          <Table headers={[ntc1240Enabled ? "Fecha / Lote PEPS" : "Fecha", "Especie", "Lugar", "Total Recogido", "Para el Hogar", "Para Venta", "Ahorro ($)", "Mermas / Inc.", ""]}>
             {filteredRecords.map((r) => {
               const sp = r.species || "gallina";
               const icon = SPECIES_ICON[sp] || "egg";
@@ -628,7 +726,11 @@ export default function HuevosPage() {
               return (
                 <tr key={r.id} className="hover:bg-slate-50">
                   <td className="px-4 py-3 font-medium text-sm">
-                    {new Date(r.date + "T12:00:00").toLocaleDateString("es")}
+                    <div>{new Date(r.date + "T12:00:00").toLocaleDateString("es")}</div>
+                    {ntc1240Enabled && r.lotCode && <div className="text-[11px] font-mono text-slate-500">{r.lotCode}</div>}
+                    {ntc1240Enabled && (r.storageWarnings?.length ?? 0) > 0 && (
+                      <div className="text-[11px] text-amber-700 font-medium">Alerta bodega T°/HR</div>
+                    )}
                   </td>
                   <td className="px-4 py-3 text-sm">
                     <span className="inline-flex items-center gap-1.5 font-semibold text-slate-800">
@@ -662,18 +764,24 @@ export default function HuevosPage() {
                   <td className="px-4 py-3 text-xs text-slate-500">
                     <div className="flex items-center gap-2">
                       {r.broken > 0 && (
-                        <span className="inline-flex items-center gap-1 text-red-600">
+                        <span className="inline-flex items-center gap-1 text-red-600" title="Rotos">
                           <AppIcon icon="heart-crack" className="w-3.5 h-3.5" />
                           <span>{r.broken}</span>
                         </span>
                       )}
+                      {(r.discarded || 0) > 0 && (
+                        <span className="inline-flex items-center gap-1 text-amber-700" title="Descarte sanitario">
+                          <AlertTriangle className="w-3.5 h-3.5" />
+                          <span>{r.discarded} desc.</span>
+                        </span>
+                      )}
                       {r.forIncubation > 0 && (
-                        <span className="inline-flex items-center gap-1 text-purple-600">
+                        <span className="inline-flex items-center gap-1 text-purple-600" title="Para incubación">
                           <AppIcon icon="incubator" className="w-3.5 h-3.5" />
                           <span>{r.forIncubation}</span>
                         </span>
                       )}
-                      {r.broken === 0 && r.forIncubation === 0 && "0"}
+                      {r.broken === 0 && (r.discarded || 0) === 0 && r.forIncubation === 0 && "0"}
                     </div>
                   </td>
                   <td className="px-4 py-3">
@@ -763,28 +871,30 @@ export default function HuevosPage() {
           {/* Formulario específico según especie */}
           {form.species === "gallina" ? (
             <>
-              <div className="flex gap-2 mb-2">
-                <button
-                  type="button"
-                  onClick={() => setQuickMode(true)}
-                  className={`flex-1 inline-flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium border transition-colors ${quickMode ? "bg-green-600 text-white border-green-600" : "bg-white text-slate-600 border-slate-300"
-                    }`}
-                >
-                  <Zap className="w-3.5 h-3.5" aria-hidden="true" />
-                  <span>Recogida rápida</span>
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setQuickMode(false)}
-                  className={`flex-1 inline-flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium border transition-colors ${!quickMode ? "bg-green-600 text-white border-green-600" : "bg-white text-slate-600 border-slate-300"
-                    }`}
-                >
-                  <ClipboardList className="w-3.5 h-3.5" aria-hidden="true" />
-                  <span>Detallado por Tamaño</span>
-                </button>
-              </div>
+              {ntc1240Enabled && !editing && (
+                <div className="flex gap-2 mb-2">
+                  <button
+                    type="button"
+                    onClick={() => setQuickMode(true)}
+                    className={`flex-1 inline-flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium border transition-colors ${quickMode ? "bg-green-600 text-white border-green-600" : "bg-white text-slate-600 border-slate-300"
+                      }`}
+                  >
+                    <Zap className="w-3.5 h-3.5" aria-hidden="true" />
+                    <span>Recogida rápida</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setQuickMode(false)}
+                    className={`flex-1 inline-flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium border transition-colors ${!quickMode ? "bg-green-600 text-white border-green-600" : "bg-white text-slate-600 border-slate-300"
+                      }`}
+                  >
+                    <ClipboardList className="w-3.5 h-3.5" aria-hidden="true" />
+                    <span>Detallado por Tamaño</span>
+                  </button>
+                </div>
+              )}
 
-              {quickMode && !editing ? (
+              {(quickMode || !ntc1240Enabled) && !editing ? (
                 <div>
                   <Input
                     label="Total de huevos recogidos *"
@@ -797,7 +907,7 @@ export default function HuevosPage() {
                       setQuickTotal(q);
                       setForm((prev) => ({
                         ...prev,
-                        quantityExcedente: Math.max(0, q - prev.broken - prev.forIncubation - prev.quantityAutoconsumo),
+                        quantityExcedente: Math.max(0, q - prev.broken - prev.discarded - prev.forIncubation - prev.quantityAutoconsumo),
                       }));
                     }}
                   />
@@ -815,17 +925,44 @@ export default function HuevosPage() {
                   )}
                 </div>
               ) : (
-                <div className="grid grid-cols-2 gap-2">
-                  {sizeOptions.map((o) => (
-                    <Input
-                      key={o.id}
-                      label={`${o.value}`}
-                      type="number"
-                      min="0"
-                      value={form.sizes[o.value] || 0}
-                      onChange={(e) => setSizeQty(o.value, parseInt(e.target.value) || 0)}
-                    />
-                  ))}
+                <div className="space-y-3">
+                  {ntc1240Enabled && (
+                    <div className="p-2.5 bg-amber-50 border border-amber-200 rounded-lg text-xs">
+                      <div className="flex flex-wrap items-center justify-between gap-2">
+                        <span className="font-semibold text-amber-900">Calibrador rápido NTC 1240 (peso individual en gramos)</span>
+                        <div className="flex items-center gap-2">
+                          <input
+                            type="number"
+                            step="0.1"
+                            min="20"
+                            max="120"
+                            placeholder="Ej: 63.5"
+                            value={sampleEggWeightG}
+                            onChange={(e) => setSampleEggWeightG(e.target.value)}
+                            className="w-24 rounded border border-amber-300 bg-white px-2 py-1 text-xs"
+                          />
+                          {sampleEggWeightG && Number(sampleEggWeightG) > 0 && (
+                            <Badge color="green">{classifyWeightNtc1240(Number(sampleEggWeightG)).label}</Badge>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                  <div className="grid grid-cols-2 gap-2">
+                    {sizeOptions.map((o) => {
+                      const hint = getNtc1240Hint(o.value);
+                      return (
+                        <Input
+                          key={o.id}
+                          label={hint ? `${o.value} · ${hint}` : o.value}
+                          type="number"
+                          min="0"
+                          value={form.sizes[o.value] || 0}
+                          onChange={(e) => setSizeQty(o.value, parseInt(e.target.value) || 0)}
+                        />
+                      );
+                    })}
+                  </div>
                 </div>
               )}
             </>
@@ -850,19 +987,32 @@ export default function HuevosPage() {
             </div>
           )}
 
-          {/* Rotos e Incubación */}
-          <div className="grid grid-cols-2 gap-3">
+          {/* Rotos, Descarte sanitario e Incubación */}
+          <div className="grid grid-cols-3 gap-3">
             <Input
-              label="Rotos / Descarte"
+              label="Rotos (uds)"
               type="number"
               min="0"
               value={form.broken}
               onChange={(e) => {
                 const broken = parseInt(e.target.value) || 0;
                 const good = form.species === "gallina"
-                  ? (quickMode && !editing ? Math.max(0, quickTotal - broken - form.forIncubation) : sizesTotal)
-                  : Math.max(0, form.totalUnits - broken - form.forIncubation);
+                  ? (quickMode && !editing ? Math.max(0, quickTotal - broken - form.discarded - form.forIncubation) : sizesTotal)
+                  : Math.max(0, form.totalUnits - broken - form.discarded - form.forIncubation);
                 setForm({ ...form, broken, quantityExcedente: Math.max(0, good - form.quantityAutoconsumo) });
+              }}
+            />
+            <Input
+              label="Descarte sanitario"
+              type="number"
+              min="0"
+              value={form.discarded}
+              onChange={(e) => {
+                const discarded = parseInt(e.target.value) || 0;
+                const good = form.species === "gallina"
+                  ? (quickMode && !editing ? Math.max(0, quickTotal - form.broken - discarded - form.forIncubation) : sizesTotal)
+                  : Math.max(0, form.totalUnits - form.broken - discarded - form.forIncubation);
+                setForm({ ...form, discarded, quantityExcedente: Math.max(0, good - form.quantityAutoconsumo) });
               }}
             />
             <Input
@@ -873,12 +1023,47 @@ export default function HuevosPage() {
               onChange={(e) => {
                 const forIncubation = parseInt(e.target.value) || 0;
                 const good = form.species === "gallina"
-                  ? (quickMode && !editing ? Math.max(0, quickTotal - form.broken - forIncubation) : sizesTotal)
-                  : Math.max(0, form.totalUnits - form.broken - forIncubation);
+                  ? (quickMode && !editing ? Math.max(0, quickTotal - form.broken - form.discarded - forIncubation) : sizesTotal)
+                  : Math.max(0, form.totalUnits - form.broken - form.discarded - forIncubation);
                 setForm({ ...form, forIncubation, quantityExcedente: Math.max(0, good - form.quantityAutoconsumo) });
               }}
             />
           </div>
+
+          {/* Trazabilidad PEPS y condiciones de cuarto frío (solo con NTC 1240 activo) */}
+          {ntc1240Enabled && (
+            <div className="p-3 bg-slate-50 rounded-xl border border-slate-200 space-y-2">
+              <div className="grid grid-cols-3 gap-2">
+                <Input
+                  label="Código Lote PEPS"
+                  value={form.lotCode}
+                  onChange={(e) => setForm({ ...form, lotCode: e.target.value })}
+                  placeholder="Auto H-YYYYMMDD..."
+                />
+                <Input
+                  label="Temp. bodega (°C)"
+                  type="number"
+                  step="0.1"
+                  value={form.storageTempC}
+                  onChange={(e) => setForm({ ...form, storageTempC: e.target.value })}
+                  placeholder="10 – 15 °C"
+                />
+                <Input
+                  label="Humedad rel. (%)"
+                  type="number"
+                  step="0.5"
+                  value={form.storageHumidityPct}
+                  onChange={(e) => setForm({ ...form, storageHumidityPct: e.target.value })}
+                  placeholder="75 – 85 %"
+                />
+              </div>
+              {checkEggStorageTelemetry(form.storageTempC, form.storageHumidityPct).length > 0 && (
+                <p className="text-xs text-amber-700 font-medium">
+                  {checkEggStorageTelemetry(form.storageTempC, form.storageHumidityPct).join(" · ")}
+                </p>
+              )}
+            </div>
+          )}
 
           {/* Bloque de Partición Dual: Consumo Hogar vs Excedentes */}
           <div className="p-3 bg-emerald-50 rounded-xl border border-emerald-200 space-y-3">

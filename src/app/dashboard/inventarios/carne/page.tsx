@@ -54,6 +54,7 @@ const birdTypeLabels: Record<string, string> = {
   codorniz: "Codorniz",
   pato: "Pato",
   conejo: "Conejo",
+  cuy: "Cuy",
 };
 
 export default function InventarioCarnePage() {
@@ -96,7 +97,7 @@ export default function InventarioCarnePage() {
     <div>
       <PageHeader
         title="Inventario de Carne Multiespecie"
-        description="Stock de carne limpia en frío: pollo, gallina, codorniz, pato y conejo. Consumo FIFO."
+        description="Stock de carne limpia en frío: pollo, gallina, codorniz, pato, conejo y cuy. Consumo FIFO."
         help="Inventario de carne disponible proveniente de faenas. Se muestra lo producido, vendido, perdido y disponible por especie y lote. Los precios de valoración se basan en el mercado local por kg canal."
         actions={
           <div className="flex gap-2">
@@ -107,7 +108,7 @@ export default function InventarioCarnePage() {
       />
 
       {/* StatCards Principales */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-2.5 sm:gap-4 mb-6">
         <StatCard icon="beef" label="Producido Total (kg)" value={(data?.summary.produced ?? 0).toFixed(1)} color="green" />
         <StatCard icon="money" label="Vendido Total (kg)" value={(data?.summary.sold ?? 0).toFixed(1)} color="blue" />
         <StatCard icon="package" label="Disponible en Frío (kg)" value={(data?.summary.available ?? 0).toFixed(1)} color="yellow" />
@@ -121,7 +122,7 @@ export default function InventarioCarnePage() {
             <Tag className="w-4 h-4 text-slate-500" aria-hidden="true" />
             <span>Disponibilidad y Valoración por Especie</span>
           </h3>
-          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
             {data.summary.bySpecies.map((spData) => {
               const icon = SPECIES_ICON[spData.species] || "meat";
               const label = SPECIES_LABEL[spData.species] || spData.species;
@@ -161,6 +162,7 @@ export default function InventarioCarnePage() {
                 { id: "codorniz", label: "Codorniz", icon: "egg" },
                 { id: "pato", label: "Pato", icon: "duck" },
                 { id: "conejo", label: "Conejo", icon: "rabbit" },
+                { id: "cuy", label: "Cuy", icon: "paw-print" },
               ].map((sp) => {
                 const isSelected = selectedSpeciesFilter === sp.id;
                 const count = sp.id === "all"

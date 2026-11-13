@@ -3,9 +3,12 @@ import {
   COBB_500_MALE,
   COTURNIX_JAPONICA,
   CONEJO_NZ_CALIFORNIA,
+  ROSS_308_MIXED,
+  CUY_MEJORADO,
+  CUY_CRIOLLO,
 } from "@/lib/breed-standards";
 
-export type CurveSpecies = "gallina" | "pollo" | "codorniz" | "pato" | "conejo";
+export type CurveSpecies = "gallina" | "pollo" | "codorniz" | "pato" | "conejo" | "cuy";
 export type CurveMetric = "postura" | "peso";
 
 export interface StandardCurvePoint {
@@ -51,6 +54,27 @@ function mixedCobbCurve(): StandardCurvePoint[] {
     }];
   });
 }
+
+// Hy-Line Brown Management Guide: levante/pre-postura (semanas 15-18) y postura hasta semana 100 (% postura ave-día)
+const hylineBrownLayerCurve: StandardCurvePoint[] = [
+  { week: 15, min: 0, target: 0, max: 0 },
+  { week: 16, min: 0, target: 0, max: 1 },
+  { week: 17, min: 1, target: 2, max: 4 },
+  { week: 18, min: 4, target: 7, max: 10 },
+  { week: 19, min: 18, target: 24, max: 30 },
+  { week: 20, min: 48, target: 55, max: 62 },
+  { week: 22, min: 82, target: 86, max: 90 },
+  { week: 24, min: 91, target: 94, max: 96 },
+  { week: 26, min: 93, target: 95, max: 97 },
+  { week: 30, min: 93, target: 95, max: 97 },
+  { week: 40, min: 90, target: 92, max: 94 },
+  { week: 50, min: 86, target: 88, max: 90 },
+  { week: 60, min: 82, target: 84, max: 86 },
+  { week: 70, min: 76, target: 79, max: 82 },
+  { week: 80, min: 71, target: 74, max: 77 },
+  { week: 90, min: 65, target: 68, max: 71 },
+  { week: 100, min: 59, target: 62, max: 65 },
+];
 
 // Hy-Line W-36 Commercial Layers, Production Period Performance Table,
 // August 2025, weekly % hen-day reference values, aggregated to representative weeks.
@@ -117,6 +141,28 @@ const curves: StandardCurve[] = [
     points: hylineLayerCurve,
   },
   {
+    species: "gallina",
+    speciesLabel: "Gallinas ponedoras",
+    breed: "Hy-Line Brown",
+    metric: "postura",
+    unit: "% de postura ave-día",
+    sourceLabel: "Hy-Line Brown Management Guide (semanas 15–100)",
+    sourceUrl: "https://www.hyline.com/varieties/brown",
+    note: "Incluye transición de pre-postura semanas 15–18 y postura comercial hasta semana 100 (consumo objetivo ~110–115 g/ave/día).",
+    points: hylineBrownLayerCurve,
+  },
+  {
+    species: "pollo",
+    speciesLabel: "Pollos de engorde",
+    breed: "Ross 308 (mixto)",
+    metric: "peso",
+    unit: "g de peso vivo",
+    sourceLabel: "Aviagen Ross 308 Broiler Performance Objectives",
+    sourceUrl: "https://aviagen.com/en/brands/ross/products/ross-308",
+    note: "Curva mixta as-hatched semanas 0–7 para pollo comercial Ross 308.",
+    points: normalizeWeightCurve(ROSS_308_MIXED),
+  },
+  {
     species: "pollo",
     speciesLabel: "Pollos de engorde",
     breed: "Cobb 500 (mixto)",
@@ -160,6 +206,28 @@ const curves: StandardCurve[] = [
     note: "La banda publicada es 1.59–2.50 kg entre 8 y 10 semanas. Los puntos previos al engorde final son orientativos.",
     points: rabbitCurve,
   },
+  {
+    species: "cuy",
+    speciesLabel: "Cuyes",
+    breed: "Cuy Mejorado (Andino / Perú)",
+    metric: "peso",
+    unit: "g de peso vivo",
+    sourceLabel: "INIA Perú / Manual Técnico de Crianza de Cuyes",
+    sourceUrl: "https://www.inia.gob.pe/",
+    note: "Peso esperado en crianza tecnificada con forraje oreado + concentrado y suplemento de Vitamina C (destete semana 3, cosecha semanas 12–13).",
+    points: normalizeWeightCurve(CUY_MEJORADO),
+  },
+  {
+    species: "cuy",
+    speciesLabel: "Cuyes",
+    breed: "Cuy Criollo",
+    metric: "peso",
+    unit: "g de peso vivo",
+    sourceLabel: "Referencia andina micro-granja rural",
+    sourceUrl: "https://www.inia.gob.pe/",
+    note: "Curva orientativa para líneas rústicas criollas.",
+    points: normalizeWeightCurve(CUY_CRIOLLO),
+  },
 ];
 
 export function getStandardCurves(species: string): StandardCurve[] {
@@ -168,7 +236,13 @@ export function getStandardCurves(species: string): StandardCurve[] {
 
 export function getStandardCurve(species: string, breed?: string | null): StandardCurve | undefined {
   const options = getStandardCurves(species);
-  return options.find((curve) => curve.breed === breed) || options[0];
+  if (!breed) return options[0];
+  const normalized = breed.trim().toLowerCase();
+  return (
+    options.find((curve) => curve.breed === breed) ||
+    options.find((curve) => curve.breed.toLowerCase().includes(normalized)) ||
+    options[0]
+  );
 }
 
 export function interpolateStandard(curve: StandardCurve, week: number): StandardCurvePoint | null {

@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { requirePermission } from "@/lib/rbac-server";
 import { getSettingsForApi, updateSettings } from "@/lib/settings";
 import { getSessionUser } from "@/lib/auth";
 import { withApiHandler, safeParseJson } from "@/lib/api-handler";
@@ -12,6 +13,8 @@ export const GET = withApiHandler(async () => {
 
 /** PUT /api/configuracion/parametros — actualiza uno o varios parámetros. */
 export const PUT = withApiHandler(async (req: NextRequest) => {
+  const denied = await requirePermission("config:write");
+  if (denied) return denied;
   const body = await safeParseJson(req);
   const updates = Array.isArray(body.updates)
     ? body.updates

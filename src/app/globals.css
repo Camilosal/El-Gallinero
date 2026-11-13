@@ -140,12 +140,10 @@
   display: block;
 }
 
-html {
-  scroll-behavior: smooth;
-}
-@media (prefers-reduced-motion: reduce) {
-  html { scroll-behavior: auto; }
-  * { animation-duration: 0.001ms !important; transition-duration: 0.001ms !important; }
+@media (prefers-reduced-motion: no-preference) {
+  html {
+    scroll-behavior: smooth;
+  }
 }
 
 .land-wrap { max-width: 1080px; margin: 0 auto; padding: 0 28px; }
@@ -431,8 +429,180 @@ html {
 }
 
 /* ---------- REVEAL ---------- */
-.land-reveal { opacity: 0; transform: translateY(14px); transition: opacity 0.6s ease, transform 0.6s ease; }
-.land-reveal.in { opacity: 1; transform: none; }
+@media (prefers-reduced-motion: no-preference) {
+  .land-reveal {
+    opacity: 0;
+    transform: translateY(14px);
+    transition: opacity 0.6s ease, transform 0.6s ease;
+  }
+  .land-reveal.in {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+/* ---------- LANDING PRODUCT SHOWCASE (TABS, MOTION, CONTENT-VISIBILITY) ---------- */
+.land-showcase {
+  background: var(--paper);
+  border-top: 1px solid var(--line);
+  border-bottom: 1px solid var(--line);
+}
+
+.land-showcase-heavy {
+  content-visibility: auto;
+  contain-intrinsic-size: auto none auto 620px;
+}
+
+.land-tablist {
+  display: flex;
+  flex-wrap: nowrap;
+  overflow-x: auto;
+  gap: 6px;
+  border-bottom: 1px solid var(--line);
+  padding-bottom: 2px;
+  scroll-snap-type: inline proximity;
+  scrollbar-width: none;
+}
+.land-tablist::-webkit-scrollbar {
+  display: none;
+}
+
+.land-tab {
+  position: relative;
+  flex: none;
+  scroll-snap-align: start;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 16px;
+  font-family: var(--font-mono, 'IBM Plex Mono'), monospace;
+  font-size: 12.5px;
+  letter-spacing: 0.02em;
+  color: var(--moss);
+  background: transparent;
+  border: 0;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: color 0.18s ease, background-color 0.18s ease;
+}
+.land-tab:hover {
+  color: var(--forest-deep);
+}
+.land-tab[aria-selected="true"] {
+  color: var(--forest-deep);
+}
+.land-tab[aria-selected="true"]::after {
+  content: "";
+  position: absolute;
+  inset: auto 8px -1px;
+  border-block-end: 3px solid var(--amber);
+}
+
+.land-browser-frame {
+  background: var(--cream);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  overflow: hidden;
+  box-shadow: 0 20px 44px -18px rgba(19, 42, 30, 0.25);
+}
+
+.land-browser-chrome {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 9px 14px;
+  background: #ece5d2;
+  border-bottom: 1px solid var(--line);
+}
+
+.land-browser-dots {
+  display: inline-flex;
+  gap: 6px;
+  align-items: center;
+}
+.land-browser-dots span {
+  width: 8px;
+  height: 8px;
+  border-radius: 999px;
+  background: rgba(28, 36, 25, 0.22);
+}
+
+.land-browser-url {
+  font-family: var(--font-mono, 'IBM Plex Mono'), monospace;
+  font-size: 11px;
+  color: var(--moss);
+  background: var(--paper);
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  padding: 2px 10px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.land-panel-enter {
+  opacity: 1;
+}
+@media (prefers-reduced-motion: no-preference) {
+  .land-panel-enter {
+    animation: landFadeSlide 0.28s ease-out;
+  }
+  .land-voice-bar {
+    transform-origin: bottom center;
+    animation: landVoicePulse 1.15s ease-in-out infinite;
+  }
+  .land-voice-bar:nth-child(2) { animation-delay: 0.14s; }
+  .land-voice-bar:nth-child(3) { animation-delay: 0.28s; }
+  .land-voice-bar:nth-child(4) { animation-delay: 0.42s; }
+  .land-voice-bar:nth-child(5) { animation-delay: 0.2s; }
+  .land-pulse-dot {
+    animation: landSoftPulse 2.2s ease-in-out infinite;
+  }
+}
+
+@keyframes landFadeSlide {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@keyframes landVoicePulse {
+  0%, 100% {
+    transform: scaleY(0.35);
+    opacity: 0.55;
+  }
+  50% {
+    transform: scaleY(1);
+    opacity: 1;
+  }
+}
+
+@keyframes landSoftPulse {
+  0%, 100% {
+    transform: scale(1);
+    opacity: 0.85;
+  }
+  50% {
+    transform: scale(1.22);
+    opacity: 1;
+  }
+}
+
+.land-standards {
+  background: var(--cream);
+  border-bottom: 1px solid var(--line);
+}
+
+.land-adoption {
+  background: linear-gradient(180deg, var(--cream-2) 0%, var(--cream) 100%);
+  border-bottom: 1px solid var(--line);
+}
 
 /* ---------- GUIDE READER & DIALOG SCROLL CONTAINMENT ---------- */
 dialog:modal {

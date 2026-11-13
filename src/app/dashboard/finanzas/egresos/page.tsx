@@ -5,7 +5,18 @@ import { ArrowUp, BarChart3, Calculator, Package, Pencil } from "lucide-react";
 import { PageHeader, Button, Card, Table, Badge, Modal, Input, Select, Textarea, EmptyState, StatCard } from "@/components/ui";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from "recharts";
 import { apiFetch } from "@/lib/fetch";
-import { useCatalog, CatalogItem } from "@/lib/useCatalog";
+import { useCatalog } from "@/lib/useCatalog";
+import ContactField from "@/components/contacts/ContactField";
+import ContactFormModal from "@/components/contacts/ContactFormModal";
+import { notifyContactsChanged } from "@/lib/useContacts";
+import AttachmentPanel from "@/components/attachments/AttachmentPanel";
+import MicroInsightCard from "@/components/MicroInsightCard";
+import {
+  bindDraftAttachments,
+  createDraftEntityId,
+  type OcrExtractedPayload,
+} from "@/lib/attachments-shared";
+import { buildExpenseMicroInsight, type MicroInsightPayload } from "@/lib/micro-insights";
 import TableSearch from "@/components/TableSearch";
 import { matchesTextQuery } from "@/lib/text";
 import { useSearchParams } from "next/navigation";
@@ -74,6 +85,7 @@ const presentationsByUnit: Record<string, { label: string; factor: number }[]> =
   kg: [
     { label: "Kg", factor: 1 },
     { label: "Bulto 25kg", factor: 25 },
+    { label: "Bulto 40kg", factor: 40 },
     { label: "Bulto 50kg", factor: 50 },
     { label: "Arpilla 5kg", factor: 5 },
   ],
@@ -139,6 +151,8 @@ export default function EgresosPage() {
   const [search, setSearch] = useState("");
   const [modalOpen, setModalOpen] = useState(false);
   const [editing, setEditing] = useState<Transaction | null>(null);
+  const [draftEntityId, setDraftEntityId] = useState(() => createDraftEntityId("tx"));
+  const [lastInsight, setLastInsight] = useState<MicroInsightPayload | null>(null);
   const [error, setError] = useState("");
   const [form, setForm] = useState<EgresoForm>(defaultForm());
   const [feeds, setFeeds] = useState<FeedItem[]>([]);
@@ -149,10 +163,7 @@ export default function EgresosPage() {
   const [productForm, setProductForm] = useState({ name: "", defaultPresentation: "Unidad", defaultUnit: "unidades", lastPricePerPresentation: "", defaultSupplier: "", notes: "" });
   const [productEditingId, setProductEditingId] = useState<string | null>(null);
   const [productError, setProductError] = useState("");
-  const [newSupplierName, setNewSupplierName] = useState("");
-  const [supplierError, setSupplierError] = useState("");
   const { values: expenseCats } = useCatalog("categoria_egreso", expenseCategories);
-  const { values: supplierOptions, reload: reloadSuppliers } = useCatalog("proveedor");
 
   const isPurchase = purchaseCategories.includes(form.category);
   const isFeedPurchase = form.category === "Compra de alimento";
@@ -313,27 +324,7 @@ export default function EgresosPage() {
 
   // Open supplier modal
   const openSupplierNew = () => {
-    setNewSupplierName("");
-    setSupplierError("");
     setSupplierModalOpen(true);
-  };
-
-  // Save new supplier to catalogos
-  const saveSupplier = async () => {
-    setSupplierError("");
-    if (!newSupplierName.trim()) return setSupplierError("Nombre del proveedor es requerido");
-    const res = await apiFetch("/api/configuracion/catalogos", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ category: "proveedor", value: newSupplierName.trim() }),
-    });
-    if (!res.ok) {
-      const d = await res.json().catch(() => ({}));
-      return setSupplierError(d.error || "Error al guardar proveedor");
-    }
-    setSupplierModalOpen(false);
-    setForm((f) => ({ ...f, counterparty: newSupplierName.trim() }));
-    reloadSuppliers();
   };
 
   const load = useCallback(() => {
@@ -364,6 +355,7 @@ export default function EgresosPage() {
 
   const openNew = () => {
     setEditing(null);
+    setDraftEntityId(createDraftEntityId("tx"));
     setError("");
     // Preseleccionar la primera presentación (la categoría por defecto es de compra)
     const first = getPresentationsForUnit("unidades")[0];
@@ -439,6 +431,37 @@ export default function EgresosPage() {
     setSelectedProductId("");
   };
 
+  const handleOcrFacturaCompra = (extracted: OcrExtractedPayload) => {
+    if (extracted.mode !== "factura_compra") return;
+    setForm((prev) => {
+      const nextCategory = extracted.category || prev.category;
+      const isPurch = purchaseCategories.includes(nextCategory);
+      const nextPresentation = extracted.presentation || prev.presentation || (isPurch ? "Bulto 40kg" : "");
+      const nextFactor = extracted.factor ? String(extracted.factor) : prev.factor || "40";
+      const nextPresentations =
+        extracted.presentationsCount !== undefined ? String(extracted.presentationsCount) : prev.presentations;
+      const nextPricePerPresentation =
+        extracted.unitPrice !== undefined ? String(extracted.unitPrice) : prev.pricePerPresentation;
+      const nextAmount =
+        extracted.totalAmount !== undefined ? String(extracted.totalAmount) : prev.amount;
+
+      return {
+        ...prev,
+        date: extracted.date || prev.date,
+        category: nextCategory,
+        description: prev.description || extracted.productName || extracted.summary || "",
+        counterparty: extracted.supplierName || prev.counterparty,
+        presentation: nextPresentation,
+        presentations: nextPresentations,
+        pricePerPresentation: nextPricePerPresentation,
+        factor: nextFactor,
+        unit: extracted.unit || prev.unit,
+        amount: nextAmount,
+        notes: [prev.notes, extracted.notes].filter(Boolean).join(" | "),
+      };
+    });
+  };
+
   const save = async () => {
     setError("");
     const method = editing ? "PUT" : "POST";
@@ -472,11 +495,31 @@ export default function EgresosPage() {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(body),
     });
+    const saved = await res.json().catch(() => ({}));
     if (!res.ok) {
-      const data = await res.json().catch(() => ({}));
-      setError(data.error || "Error al guardar el egreso");
+      setError(saved.error || "Error al guardar el egreso");
       return;
     }
+    if (!editing && saved?.id) {
+      await bindDraftAttachments(draftEntityId, saved.id, "transaction");
+    }
+    const finalAmount = Number(
+      body.amount ||
+        (body.presentations && body.pricePerPresentation
+          ? Number(body.presentations) * Number(body.pricePerPresentation)
+          : 0),
+    );
+    setLastInsight(
+      buildExpenseMicroInsight({
+        date: form.date,
+        category: form.category,
+        description: form.description || form.category,
+        amount: finalAmount,
+        counterparty: form.counterparty || null,
+        presentations: body.presentations ? Number(body.presentations) : null,
+        factor: body.factor ? Number(body.factor) : null,
+      }),
+    );
     setModalOpen(false);
     load();
   };
@@ -541,7 +584,18 @@ export default function EgresosPage() {
         }
       />
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+      {lastInsight && (
+        <div className="mb-6">
+          <MicroInsightCard
+            insight={lastInsight}
+            onAnother={openNew}
+            onDismiss={() => setLastInsight(null)}
+            doneLabel="Entendido"
+          />
+        </div>
+      )}
+
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-2.5 sm:gap-4 mb-6">
         <StatCard icon="outgoing" label="Total Egresos" value={`$${totalExpenses.toLocaleString()}`} color="red" />
         <StatCard icon="receipt" label="Número de Egresos" value={totalCount} color="blue" />
         <StatCard icon="tag" label="Categoría Principal" value={topCategory} color="purple" />
@@ -669,22 +723,13 @@ export default function EgresosPage() {
           )}
 
           <Textarea label="Descripción" value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} placeholder="¿En qué se gastó?" required />
-          <div>
-            <label className="block text-sm font-medium text-slate-700 mb-1">Proveedor / Dónde se compró</label>
-            <div className="flex gap-2">
-              <input
-                className="flex-1 rounded-lg border border-slate-300 px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                value={form.counterparty}
-                onChange={(e) => setForm({ ...form, counterparty: e.target.value })}
-                placeholder="Nombre del proveedor o tienda"
-                list="catalog-egresos-proveedores"
-              />
-              <button type="button" onClick={openSupplierNew} className="px-3 py-2 text-sm rounded-lg bg-green-50 text-green-700 hover:bg-green-100 border border-green-200 whitespace-nowrap" title="Crear nuevo proveedor">+ Proveedor</button>
-            </div>
-            <datalist id="catalog-egresos-proveedores">
-              {supplierOptions.map((s) => <option key={s} value={s} />)}
-            </datalist>
-          </div>
+          <ContactField
+            role="proveedor"
+            label="Proveedor / Dónde se compró"
+            value={form.counterparty}
+            onChange={(name) => setForm({ ...form, counterparty: name })}
+            placeholder="Nombre del proveedor o tienda"
+          />
 
           {isPurchase ? (
             <>
@@ -750,6 +795,18 @@ export default function EgresosPage() {
           )}
 
           <Textarea label="Notas" value={form.notes} onChange={(e) => setForm({ ...form, notes: e.target.value })} />
+
+          <AttachmentPanel
+            entityType="transaction"
+            entityId={editing ? editing.id : draftEntityId}
+            defaultCategory="factura_dian"
+            ocrMode="factura_compra"
+            onOcrExtracted={handleOcrFacturaCompra}
+            title="Soporte de Factura DIAN / Recibo de Compra"
+            helpText="Adjunta foto o PDF de la factura para soporte contable y autocompletar proveedor, bultos de 40 kg, valor unitario y total."
+            compact
+          />
+
           <div className="flex gap-3">
             <Button onClick={save} disabled={!form.description || (!computedTotal && !form.amount)}>{editing ? "Actualizar Egreso" : "Registrar Egreso"}</Button>
             <Button variant="secondary" onClick={() => setModalOpen(false)}>Cancelar</Button>
@@ -776,7 +833,14 @@ export default function EgresosPage() {
             </Select>
           </div>
           <Input label="Precio por presentación ($)" type="number" step="0.01" min="0" value={productForm.lastPricePerPresentation} onChange={(e) => setProductForm({ ...productForm, lastPricePerPresentation: e.target.value })} placeholder="Ej: 12000" />
-          <Input label="Proveedor habitual" value={productForm.defaultSupplier} onChange={(e) => setProductForm({ ...productForm, defaultSupplier: e.target.value })} placeholder="Ej: Veterinaria XYZ" list="catalog-egresos-proveedores" />
+          <ContactField
+            role="proveedor"
+            label="Proveedor habitual"
+            value={productForm.defaultSupplier}
+            onChange={(name) => setProductForm({ ...productForm, defaultSupplier: name })}
+            placeholder="Ej: Veterinaria XYZ"
+            compact
+          />
           <Textarea label="Notas" value={productForm.notes} onChange={(e) => setProductForm({ ...productForm, notes: e.target.value })} placeholder="Observaciones opcionales" />
           <div className="flex gap-3">
             <Button onClick={saveProduct}>{productEditingId ? "Actualizar Producto" : "Crear Producto"}</Button>
@@ -786,16 +850,15 @@ export default function EgresosPage() {
       </Modal>
 
       {/* ─── Supplier creation modal ─── */}
-      <Modal open={supplierModalOpen} onClose={() => setSupplierModalOpen(false)} title="+ Nuevo Proveedor">
-        <div className="space-y-4">
-          {supplierError && <p className="text-sm text-red-600 bg-red-50 p-3 rounded-lg">{supplierError}</p>}
-          <Input label="Nombre del proveedor" value={newSupplierName} onChange={(e) => setNewSupplierName(e.target.value)} placeholder="Ej: Agroinsumos El Campo" required />
-          <div className="flex gap-3">
-            <Button onClick={saveSupplier} disabled={!newSupplierName.trim()}>Crear Proveedor</Button>
-            <Button variant="secondary" onClick={() => setSupplierModalOpen(false)}>Cancelar</Button>
-          </div>
-        </div>
-      </Modal>
+      <ContactFormModal
+        open={supplierModalOpen}
+        onClose={() => setSupplierModalOpen(false)}
+        defaultRole="proveedor"
+        onSaved={(saved) => {
+          notifyContactsChanged(saved);
+          setForm((f) => ({ ...f, counterparty: saved.name }));
+        }}
+      />
     </div>
   );
 }

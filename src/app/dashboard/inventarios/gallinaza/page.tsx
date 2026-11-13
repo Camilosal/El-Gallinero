@@ -73,7 +73,7 @@ export default function InventarioGallinazaPage() {
         }
       />
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-2.5 sm:gap-4 mb-6">
         <StatCard icon="sprout" label="Producido (kg)" value={(data?.summary.produced ?? 0).toFixed(1)} color="green" />
         <StatCard icon="money" label="Vendido (kg)" value={(data?.summary.sold ?? 0).toFixed(1)} color="blue" />
         <StatCard icon="package" label="Disponible (kg)" value={(data?.summary.available ?? 0).toFixed(1)} color="yellow" />

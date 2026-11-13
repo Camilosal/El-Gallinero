@@ -2,6 +2,7 @@ import { db } from "@/db";
 import { vaccinationTemplates } from "@/db/schema";
 import { and, asc, eq } from "drizzle-orm";
 import { NextRequest, NextResponse } from "next/server";
+import { requirePermission } from "@/lib/rbac-server";
 import { withApiHandler, safeParseJson } from "@/lib/api-handler";
 
 export const dynamic = "force-dynamic";
@@ -38,6 +39,8 @@ function normalize(body: Record<string, unknown>) {
 }
 
 export const POST = withApiHandler(async (req: NextRequest) => {
+  const denied = await requirePermission("config:write");
+  if (denied) return denied;
   const body = await safeParseJson(req);
   const data = normalize(body);
 
@@ -55,6 +58,8 @@ export const POST = withApiHandler(async (req: NextRequest) => {
 });
 
 export const PUT = withApiHandler(async (req: NextRequest) => {
+  const denied = await requirePermission("config:write");
+  if (denied) return denied;
   const body = await safeParseJson(req);
   if (!body.id) return NextResponse.json({ error: "ID requerido" }, { status: 400 });
 
@@ -79,6 +84,8 @@ export const PUT = withApiHandler(async (req: NextRequest) => {
 });
 
 export const DELETE = withApiHandler(async (req: NextRequest) => {
+  const denied = await requirePermission("config:write");
+  if (denied) return denied;
   const id = new URL(req.url).searchParams.get("id");
   if (!id) return NextResponse.json({ error: "ID requerido" }, { status: 400 });
   await db.delete(vaccinationTemplates).where(eq(vaccinationTemplates.id, id));

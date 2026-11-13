@@ -1,3 +1,4 @@
+import { DeveloperCredit } from "@/components/DeveloperCredit";
 import { db } from "@/db";
 import { broilerBatches, mortalityRecords } from "@/db/schema";
 import { eq, desc } from "drizzle-orm";
@@ -143,6 +144,7 @@ export default async function LoteTraceabilityPage({ params }: Props) {
           <p className="text-xs text-gray-400 mt-1">
             Sistema integral de gestion avicola
           </p>
+          <DeveloperCredit variant="inline" className="mt-3 justify-center text-gray-500" />
         </div>
       </div>
     </div>

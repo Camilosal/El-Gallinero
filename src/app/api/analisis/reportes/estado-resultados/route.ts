@@ -1,8 +1,9 @@
 import { db } from "@/db";
 import { transactions } from "@/db/schema";
-import { eq, sql, gte, lte, and } from "drizzle-orm";
+import { eq, gte, lte, and } from "drizzle-orm";
 import { NextRequest, NextResponse } from "next/server";
-import { withApiHandler, safeParseJson } from "@/lib/api-handler";
+import { withApiHandler } from "@/lib/api-handler";
+import { normalizeFeedingSpecies } from "@/lib/species";
 
 export const dynamic = "force-dynamic";
 
@@ -10,14 +11,25 @@ export const GET = withApiHandler(async (req: NextRequest) => {
   const { searchParams } = new URL(req.url);
   const from = searchParams.get("from") || new Date(new Date().getFullYear(), 0, 1).toISOString().split("T")[0];
   const to = searchParams.get("to") || new Date().toISOString().split("T")[0];
+  const speciesParam = searchParams.get("species");
+  const species = speciesParam ? normalizeFeedingSpecies(speciesParam) : null;
+  if (speciesParam && !species) {
+    return NextResponse.json({ error: "Especie no válida" }, { status: 400 });
+  }
+  const locationId = searchParams.get("locationId");
+  const batchId = searchParams.get("batchId");
+
+  const conditions = [gte(transactions.date, from), lte(transactions.date, to)];
+  if (species) conditions.push(eq(transactions.species, species));
+  if (locationId) conditions.push(eq(transactions.locationId, locationId));
+  if (batchId) conditions.push(eq(transactions.batchId, batchId));
 
   const txs = await db
     .select()
     .from(transactions)
-    .where(and(gte(transactions.date, from), lte(transactions.date, to)))
+    .where(and(...conditions))
     .orderBy(transactions.date);
 
-  // Group by type and category
   const incomeMap = new Map<string, number>();
   const expenseMap = new Map<string, number>();
 
@@ -45,6 +57,7 @@ export const GET = withApiHandler(async (req: NextRequest) => {
   return NextResponse.json({
     from,
     to,
+    filters: { species, locationId: locationId || null, batchId: batchId || null },
     income: {
       categories: incomeCategories,
       total: parseFloat(totalIncome.toFixed(2)),

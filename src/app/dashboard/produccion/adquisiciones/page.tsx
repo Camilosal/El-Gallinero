@@ -1,9 +1,15 @@
 "use client";
 
-import { useEffect, useState, useCallback, useMemo } from "react";
+import { Suspense, useEffect, useState, useCallback, useMemo } from "react";
 import Link from "next/link";
+import { useSearchParams } from "next/navigation";
+import { useActionQuery } from "@/lib/useActionQuery";
 import { apiFetch } from "@/lib/fetch";
 import { useCatalog } from "@/lib/useCatalog";
+import ContactField from "@/components/contacts/ContactField";
+import { formatContactLocation } from "@/lib/contacts-shared";
+import AttachmentPanel from "@/components/attachments/AttachmentPanel";
+import { bindDraftAttachments, createDraftEntityId } from "@/lib/attachments-shared";
 import { getBreedsForSpecies, speciesForAcquisitionType } from "@/lib/animal-breeds";
 import { Card, StatCard, PageHeader, Button, Input, Select, Textarea, Modal, Table, Badge, EmptyState } from "@/components/ui";
 import TableSearch from "@/components/TableSearch";
@@ -62,6 +68,7 @@ const BIRD_LABELS: Record<string, string> = {
   codorniz: "Lote de codornices",
   pato: "Lote de patos",
   conejo: "Lote de conejos",
+  cuy: "Lote de cuyes",
 };
 const PURPOSE_LABELS: Record<string, string> = {
   engorde_carne: "Engorde / carne",
@@ -96,6 +103,15 @@ const emptyForm = {
 };
 
 export default function AdquisicionesPage() {
+  return (
+    <Suspense fallback={<div className="p-8 text-center text-slate-400">Cargando...</div>}>
+      <AdquisicionesInner />
+    </Suspense>
+  );
+}
+
+function AdquisicionesInner() {
+  const searchParams = useSearchParams();
   const [items, setItems] = useState<Acquisition[]>([]);
   const [parentHens, setParentHens] = useState<ParentAnimal[]>([]);
   const [parentRoosters, setParentRoosters] = useState<ParentAnimal[]>([]);
@@ -105,11 +121,11 @@ export default function AdquisicionesPage() {
   const [form, setForm] = useState(emptyForm);
   const [error, setError] = useState("");
   const [editingId, setEditingId] = useState<string | null>(null);
+  const [draftAcquisitionId, setDraftAcquisitionId] = useState(() => createDraftEntityId("acq"));
   const [search, setSearch] = useState("");
   const { locations } = useFarmLocations();
 
   const razas = useCatalog("raza", ["Criolla", "Leghorn", "Rhode Island", "Plymouth Rock"]);
-  const proveedores = useCatalog("proveedor", []);
   const selectedSpecies = speciesForAcquisitionType(form.birdType) || "gallina";
   const breedOptions = getBreedsForSpecies(razas.items, selectedSpecies, editingId ? form.breed : null);
 
@@ -132,27 +148,40 @@ export default function AdquisicionesPage() {
 
   useEffect(() => { void Promise.resolve().then(load); }, [load]);
 
-  useEffect(() => {
-    void Promise.resolve().then(() => {
-      const searchParams = new URLSearchParams(window.location.search);
-      const requestedType = searchParams.get("nuevo");
-      const requestedOrigin = searchParams.get("origen");
-      const requestedPurpose = searchParams.get("proposito");
-      const validTypes = ["gallina", "gallo", "lote_pollos", "codorniz", "pato", "conejo"];
-      if (requestedType && !validTypes.includes(requestedType)) return;
-      if (!requestedType && requestedOrigin !== "cria_propia") return;
-      setEditingId(null);
-      setForm({
-        ...emptyForm,
-        birdType: requestedType || emptyForm.birdType,
-        breed: getBreedsForSpecies([], speciesForAcquisitionType(requestedType || emptyForm.birdType) || "gallina")[0] || "",
-        acquisitionType: requestedOrigin === "cria_propia" ? "cria_propia" : emptyForm.acquisitionType,
-        purpose: requestedPurpose && Object.hasOwn(PURPOSE_LABELS, requestedPurpose) ? requestedPurpose : emptyForm.purpose,
-      });
-      setError("");
-      setModalOpen(true);
+  const openAcquisitionModal = useCallback((opts?: { birdType?: string; acquisitionType?: string }) => {
+    const requestedType = opts?.birdType || emptyForm.birdType;
+    const requestedPurpose = searchParams.get("proposito");
+    setEditingId(null);
+    setDraftAcquisitionId(createDraftEntityId("acq"));
+    setForm({
+      ...emptyForm,
+      birdType: requestedType,
+      breed: getBreedsForSpecies([], speciesForAcquisitionType(requestedType) || "gallina")[0] || "",
+      acquisitionType: opts?.acquisitionType || emptyForm.acquisitionType,
+      purpose: requestedPurpose && Object.hasOwn(PURPOSE_LABELS, requestedPurpose) ? requestedPurpose : emptyForm.purpose,
     });
-  }, []);
+    setError("");
+    setModalOpen(true);
+  }, [searchParams]);
+
+  useActionQuery(searchParams.get("nuevo"), {
+    "1": () => openAcquisitionModal(),
+    compra: () => openAcquisitionModal({ acquisitionType: "compra" }),
+    cria_propia: () => openAcquisitionModal({ acquisitionType: "cria_propia" }),
+    gallina: () => openAcquisitionModal({ birdType: "gallina" }),
+    gallo: () => openAcquisitionModal({ birdType: "gallo" }),
+    lote_pollos: () => openAcquisitionModal({ birdType: "lote_pollos" }),
+    codorniz: () => openAcquisitionModal({ birdType: "codorniz" }),
+    pato: () => openAcquisitionModal({ birdType: "pato" }),
+    conejo: () => openAcquisitionModal({ birdType: "conejo" }),
+    cuy: () => openAcquisitionModal({ birdType: "cuy" }),
+  });
+
+  useEffect(() => {
+    if (searchParams.get("origen") === "cria_propia" && !searchParams.get("nuevo")) {
+      void Promise.resolve().then(() => openAcquisitionModal({ acquisitionType: "cria_propia" }));
+    }
+  }, [searchParams, openAcquisitionModal]);
 
   const totalAves = items.reduce((s, i) => s + Number(i.quantity), 0);
   const totalInversion = items.filter(i => !["donacion", "cria_propia"].includes(i.acquisitionType)).reduce((s, i) => s + Number(i.totalCost || 0), 0);
@@ -199,9 +228,14 @@ export default function AdquisicionesPage() {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(editingId ? { ...form, id: editingId } : form),
     });
-    if (!res.ok) { const e = await res.json(); return setError(e.error || "Error"); }
+    const saved = await res.json().catch(() => ({}));
+    if (!res.ok) { return setError(saved.error || "Error"); }
+    if (!editingId && saved?.id) {
+      await bindDraftAttachments(draftAcquisitionId, saved.id, "acquisition");
+    }
     setModalOpen(false);
     setEditingId(null);
+    setDraftAcquisitionId(createDraftEntityId("acq"));
     setForm(emptyForm);
     load();
   };
@@ -226,7 +260,7 @@ export default function AdquisicionesPage() {
         actions={<Button onClick={() => { setEditingId(null); setForm(emptyForm); setError(""); setModalOpen(true); }}>Nueva entrada y trazabilidad</Button>}
       />
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
+      <div className="grid grid-cols-2 lg:grid-cols-5 gap-2.5 sm:gap-4">
         <StatCard icon="incoming" label="Animales ingresados (histórico)" value={String(totalAves)} color="green" />
         <StatCard icon="money" label="Inversión total" value={`$${totalInversion.toLocaleString()}`} color="blue" />
         <StatCard icon="cart" label="Compras" value={String(compras)} color="purple" />
@@ -372,6 +406,7 @@ export default function AdquisicionesPage() {
                 <option value="codorniz">Codornices</option>
                 <option value="pato">Patos</option>
                 <option value="conejo">Conejos</option>
+                <option value="cuy">Cuyes</option>
               </optgroup>
             </Select>
           </div>
@@ -417,13 +452,25 @@ export default function AdquisicionesPage() {
               <h3 className="font-semibold text-slate-800">Origen y cadena de custodia</h3>
               <p className="mt-1 text-xs text-slate-500">Guarda quién entregó el animal y de qué criadero o lote proviene.</p>
             </div>
-            <div className="grid grid-cols-2 gap-4">
-              <Input label="Proveedor o vendedor" value={form.supplier} onChange={(e) => setForm({ ...form, supplier: e.target.value })} list="proveedores-list" help="Persona o empresa que te entregó el animal." />
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <ContactField
+                role="proveedor"
+                label="Proveedor o vendedor"
+                value={form.supplier}
+                onChange={(name, contact) => {
+                  const loc = contact ? formatContactLocation(contact) : "";
+                  setForm((prev) => ({
+                    ...prev,
+                    supplier: name,
+                    originLocation: !prev.originLocation && loc ? loc : prev.originLocation,
+                  }));
+                }}
+                help="Persona o empresa que te entregó el animal."
+              />
               <Input label="Granja o criadero de origen" value={form.originFarm} onChange={(e) => setForm({ ...form, originFarm: e.target.value })} help="Puede ser distinto del proveedor o intermediario." />
               <Input label="Ubicación de origen" value={form.originLocation} onChange={(e) => setForm({ ...form, originLocation: e.target.value })} placeholder="Municipio, departamento, país" />
               <Input label="Lote o código del criador" value={form.sourceBatchCode} onChange={(e) => setForm({ ...form, sourceBatchCode: e.target.value })} help="Código impreso en guía, factura, anillo o registro de origen." />
             </div>
-            <datalist id="proveedores-list">{proveedores.values.map((v) => <option key={v} value={v} />)}</datalist>
           </div>
 
           <div className="rounded-xl border border-slate-200 p-4 space-y-4">
@@ -457,6 +504,15 @@ export default function AdquisicionesPage() {
           </div>
 
           <Textarea label="Notas" value={form.notes} onChange={(e) => setForm({ ...form, notes: e.target.value })} help="Observaciones sobre la adquisición (condiciones de llegada, transporte, etc.)" />
+
+          <AttachmentPanel
+            entityType="acquisition"
+            entityId={editingId || draftAcquisitionId}
+            defaultCategory="gsmi_movilizacion"
+            title="Guía Sanitaria de Movilización ICA (GSMI) y Certificados"
+            helpText="Adjunta foto o PDF de la Guía ICA de movilización, certificado de genética o vacunación de la incubadora."
+            compact
+          />
 
           <div className="flex justify-end gap-3 pt-2">
             <Button variant="secondary" onClick={() => setModalOpen(false)}>Cancelar</Button>

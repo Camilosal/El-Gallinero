@@ -34,6 +34,7 @@ const SPECIES = [
   { value: "codorniz", label: "Codorniz" },
   { value: "pato", label: "Pato" },
   { value: "conejo", label: "Conejo" },
+  { value: "cuy", label: "Cuy" },
 ];
 
 const SYSTEMS = ["piso", "jaula", "pastoreo", "baterias", "mixto"];

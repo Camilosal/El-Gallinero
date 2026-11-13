@@ -6,6 +6,7 @@ import { PageHeader, Button, Card, Table, Badge, Modal, Input, Select, Textarea,
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip, Legend, AreaChart, Area, XAxis, YAxis, CartesianGrid } from "recharts";
 import { apiFetch } from "@/lib/fetch";
 import { useCatalog } from "@/lib/useCatalog";
+import ContactField from "@/components/contacts/ContactField";
 import TableSearch from "@/components/TableSearch";
 import { matchesTextQuery } from "@/lib/text";
 import { useSearchParams } from "next/navigation";
@@ -123,8 +124,6 @@ export default function FinanzasPage() {
   const { values: incomeCats } = useCatalog("categoria_ingreso", incomeCategories);
   const { values: expenseCats } = useCatalog("categoria_egreso", expenseCategories);
   const { values: unitOptions } = useCatalog("unidad_medida", ["unidades", "kg", "lb", "litros", "docenas", "otro"]);
-  const { values: buyerOptions } = useCatalog("comprador");
-  const { values: supplierOptions } = useCatalog("proveedor");
 
   const load = useCallback(() => {
     apiFetch(`/api/finanzas/finanzas?period=${period}`).then((r) => r.json()).then(setData).finally(() => setLoading(false));
@@ -266,7 +265,7 @@ export default function FinanzasPage() {
       ) : !data || !k || !cash ? null : (
         <>
           {/* KPI cards */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 mb-6">
+          <div className="grid grid-cols-2 lg:grid-cols-3 gap-2.5 sm:gap-4 mb-6">
             <StatCard icon="incoming" label="Ingresos" value={fmt(k.totalIncome)} color="green" />
             <StatCard icon="outgoing" label="Egresos" value={fmt(k.totalExpense)} color="red" />
             <StatCard icon={positive ? "trend-up" : "trend-down"} label="Utilidad Neta" value={fmt(k.profit)} color={positive ? "blue" : "red"} />
@@ -276,7 +275,7 @@ export default function FinanzasPage() {
           </div>
 
           {/* Insights */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-2.5 sm:gap-4 mb-6">
             <Card className="!p-4 flex flex-col justify-between">
               <p className="text-sm text-slate-500 flex items-center gap-1.5"><Trophy className="w-4 h-4 text-amber-500" aria-hidden="true" />Mejor día</p>
               {cash.bestDay ? (
@@ -527,17 +526,13 @@ export default function FinanzasPage() {
             ))}
           </Select>
           <Textarea label="Descripción" value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} placeholder="Detalle de la transacción..." required />
-          {form.type === "ingreso" ? (
-            <Input label="Cliente / A quién se le vendió" value={form.counterparty} onChange={(e) => setForm({ ...form, counterparty: e.target.value })} placeholder="Nombre del comprador" list="catalog-finanzas-compradores" />
-          ) : (
-            <Input label="Proveedor / Dónde se compró" value={form.counterparty} onChange={(e) => setForm({ ...form, counterparty: e.target.value })} placeholder="Nombre del proveedor o tienda" list="catalog-finanzas-proveedores" />
-          )}
-          <datalist id="catalog-finanzas-compradores">
-            {buyerOptions.map((b) => <option key={b} value={b} />)}
-          </datalist>
-          <datalist id="catalog-finanzas-proveedores">
-            {supplierOptions.map((s) => <option key={s} value={s} />)}
-          </datalist>
+          <ContactField
+            role={form.type === "ingreso" ? "cliente" : "proveedor"}
+            label={form.type === "ingreso" ? "Cliente / A quién se le vendió" : "Proveedor / Dónde se compró"}
+            value={form.counterparty}
+            onChange={(name) => setForm({ ...form, counterparty: name })}
+            placeholder={form.type === "ingreso" ? "Nombre del comprador" : "Nombre del proveedor o tienda"}
+          />
           <div className="grid grid-cols-2 gap-3">
             <Input label="Cantidad" type="number" step="0.01" min="0" value={form.quantity} onChange={(e) => setForm({ ...form, quantity: e.target.value })} placeholder="Ej: 5" />
             <Select label="Unidad de Medida" value={form.unit} onChange={(e) => setForm({ ...form, unit: e.target.value })}>

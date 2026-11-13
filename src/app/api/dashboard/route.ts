@@ -237,6 +237,18 @@ export const GET = withApiHandler(async () => {
       totalRevenue: sql<string>`coalesce(sum(${manureSales.totalAmount}), 0)::text`,
     }).from(manureSales).where(gte(manureSales.date, dateStr));
 
+    // Other sales / non-dedicated income transactions in last 30 days
+    const [otherSalesStats] = await db.select({
+      totalRevenue: sql<string>`coalesce(sum(${transactions.amount}), 0)::text`,
+    }).from(transactions).where(
+      and(
+        eq(transactions.type, "ingreso"),
+        gte(transactions.date, dateStr),
+        lte(transactions.date, todayStr),
+        sql`(${transactions.sourceType} is null or ${transactions.sourceType} not in ('venta', 'venta_ave', 'venta_carne', 'gallinaza'))`
+      )
+    );
+
     // ─── Parvada: gallos reproductores y lotes de engorde ───
     const [readyBatchCount] = await db
       .select({ count: sql<number>`count(*)::int` })
@@ -285,6 +297,20 @@ export const GET = withApiHandler(async () => {
     // Manure sales stats
     const totalManureKg = Number(manureSalesStats?.totalKg || 0);
     const totalManureRevenue = Number(manureSalesStats?.totalRevenue || 0).toFixed(2);
+
+    // 5-line commercial sales summary (huevos, carne, animales en pie, gallinaza, otros)
+    const eggSalesRevenue = Number(salesStats[0]?.totalRevenue || 0);
+    const liveAnimalSalesRevenue = Number(meatStats?.totalRevenue || 0);
+    const processedMeatSalesRevenue = Number(meatSalesStats?.totalRevenue || 0);
+    const manureSalesRevenue = Number(manureSalesStats?.totalRevenue || 0);
+    const otherSalesRevenue = Number(otherSalesStats?.totalRevenue || 0);
+    const totalAllSalesRevenue = (
+      eggSalesRevenue +
+      liveAnimalSalesRevenue +
+      processedMeatSalesRevenue +
+      manureSalesRevenue +
+      otherSalesRevenue
+    ).toFixed(2);
 
     // FCR calculations (kg feed per unit of output)
     const fcrEggs = totalEggs30 > 0 ? Math.round((totalFeedConsumedKg / totalEggs30) * 100) / 100 : 0;
@@ -343,7 +369,18 @@ export const GET = withApiHandler(async () => {
           available: eggInventory.summary.available,
         }
       },
-      sales: { totalSold: salesStats[0]?.totalSold || 0, totalRevenue: salesStats[0]?.totalRevenue || "0" },
+      sales: {
+        totalSold: salesStats[0]?.totalSold || 0,
+        eggRevenue: salesStats[0]?.totalRevenue || "0",
+        totalRevenue: totalAllSalesRevenue,
+        byLine: {
+          eggs: eggSalesRevenue,
+          meat: processedMeatSalesRevenue,
+          animals: liveAnimalSalesRevenue,
+          manure: manureSalesRevenue,
+          other: otherSalesRevenue,
+        },
+      },
       feedAlerts: feedAlerts[0]?.count || 0,
       activeIncubations: activeIncubations[0]?.count || 0,
       pendingMaintenance: pendingMaintenance[0]?.count || 0,

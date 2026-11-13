@@ -1,9 +1,15 @@
 import { db, pool } from "@/db";
+import path from "node:path";
 import { appSettings, catalogos, vaccinationTemplates } from "@/db/schema";
+import { DEFAULT_FARM_ID } from "@/db/tenant-context";
 import { DEFAULT_SETTINGS } from "@/lib/settings";
 import { VACCINATION_SCHEDULES } from "@/lib/vaccination-schedules";
 import { canonicalBreedType, DEFAULT_BREEDS_BY_SPECIES } from "@/lib/animal-breeds";
+import { syncLegacyCatalogContacts } from "@/lib/contacts";
+import { SPECIES_PARAMS } from "@/lib/species-params";
 import { and, eq, gte, sql } from "drizzle-orm";
+
+export const NORMATIVE_PACK_VERSION = "2026.11-ICA-NTC1240";
 
 /**
  * Siembra idempotente de configuración.
@@ -20,7 +26,10 @@ import { and, eq, gte, sql } from "drizzle-orm";
 const BREED_SPECIES: Record<string, string> = {
   "ISA Brown": "gallina",
   "Hy-Line W-36": "gallina",
+  "Hy-Line Brown": "gallina",
   "Cobb 500": "pollo",
+  "Ross 308": "pollo",
+  "Cuy Mejorado": "cuy",
 };
 
 /**
@@ -122,6 +131,47 @@ async function ensureAnimalBreeds(): Promise<{ added: number; associated: number
   return { added, associated };
 }
 
+/** Siembra parámetros productivos por especie cuando una especie nueva (ej. cuy) aún no tiene filas en catálogos. */
+async function ensureSpeciesParams(): Promise<number> {
+  const existing = await db
+    .select({ tipo: catalogos.tipo, sortOrder: catalogos.sortOrder })
+    .from(catalogos)
+    .where(eq(catalogos.category, "params_especie"));
+  const presentSpecies = new Set(existing.map((r) => r.tipo).filter(Boolean));
+  const missing = SPECIES_PARAMS.filter((p) => !presentSpecies.has(p.species));
+  if (missing.length === 0) return 0;
+
+  let nextOrder = existing.reduce((max, r) => Math.max(max, r.sortOrder ?? 0), 0) + 1;
+  let added = 0;
+  for (const p of missing) {
+    const [inserted] = await db
+      .insert(catalogos)
+      .values({
+        category: "params_especie",
+        value: p.label,
+        tipo: p.species,
+        minWeeks: p.cycleWeeks,
+        maxWeeks: p.cycleDays ?? p.cycleWeeks * 7,
+        targetWeightKg: String(p.targetWeightKg),
+        units: p.carcassYieldPercent,
+        dailyFeedG: p.dailyFeedGPerHead,
+        feedCostPerKg: String(p.feedCostPerKgCOP),
+        feedConversionRatio: String(p.feedConversionRatio),
+        price: String(p.marketPriceKgCanalCOP),
+        eggPrice: p.marketPriceEggUnitCOP != null ? String(p.marketPriceEggUnitCOP) : null,
+        expectedEggsPerHen: p.eggsPerDayPerFemale != null ? String(p.eggsPerDayPerFemale) : null,
+        systemType: p.systemType,
+        description: p.notes,
+        sortOrder: nextOrder++,
+        isActive: true,
+      })
+      .onConflictDoNothing()
+      .returning({ id: catalogos.id });
+    if (inserted) added += 1;
+  }
+  return added;
+}
+
 async function main() {
   const settingsRows = Object.entries(DEFAULT_SETTINGS).map(([key, value]) => ({
     key,
@@ -147,26 +197,65 @@ async function main() {
 
   const insertedTemplates = templateRows.length
     ? await db
-        .insert(vaccinationTemplates)
-        .values(templateRows)
-        .onConflictDoNothing()
-        .returning({ id: vaccinationTemplates.id })
+      .insert(vaccinationTemplates)
+      .values(templateRows)
+      .onConflictDoNothing()
+      .returning({ id: vaccinationTemplates.id })
     : [];
 
   const addedStatuses = await ensureHenStatuses();
   const animalBreeds = await ensureAnimalBreeds();
+  const addedSpeciesParams = await ensureSpeciesParams();
+  const syncedContacts = await syncLegacyCatalogContacts();
+
+  const normativePayload = JSON.stringify({
+    version: NORMATIVE_PACK_VERSION,
+    updatedAt: new Date().toISOString(),
+    standards: [
+      "NTC 1240",
+      "ICA Res. 3650-3652/2014",
+      "MADR Res. 205/2022",
+      "ICA Res. 8452/2025",
+      "ICA Res. 30292/2017",
+    ],
+  });
+
+  await db
+    .insert(appSettings)
+    .values({
+      farmId: DEFAULT_FARM_ID,
+      key: "normative.pack_version",
+      value: normativePayload,
+    })
+    .onConflictDoUpdate({
+      target: [appSettings.farmId, appSettings.key],
+      set: {
+        value: normativePayload,
+        updatedAt: new Date(),
+      },
+    });
 
   console.log(`Parámetros globales: ${insertedSettings.length} creados de ${settingsRows.length}.`);
+  console.log(`Parámetros por especie agregados: ${addedSpeciesParams}.`);
   console.log(`Plantillas de vacunación: ${insertedTemplates.length} creadas de ${templateRows.length}.`);
   console.log(`Estados de gallina: ${addedStatuses} agregados de ${HEN_STATUSES.length}.`);
   console.log(`Razas de animales: ${animalBreeds.added} agregadas, ${animalBreeds.associated} asociadas a su especie.`);
+  console.log(`Contactos migrados desde catálogos: ${syncedContacts}.`);
+  console.log(`Paquete normativo ICA/NTC: ${NORMATIVE_PACK_VERSION}.`);
 }
 
-main()
-  .catch((error) => {
-    console.error("Error sembrando configuración:", error);
-    process.exitCode = 1;
-  })
-  .finally(async () => {
-    await pool.end();
-  });
+const isSeedCli =
+  typeof process !== "undefined" &&
+  Array.isArray(process.argv) &&
+  path.basename(process.argv[1] || "") === "seed-config.ts";
+
+if (isSeedCli) {
+  main()
+    .catch((error) => {
+      console.error("Error sembrando configuración:", error);
+      process.exitCode = 1;
+    })
+    .finally(async () => {
+      await pool.end();
+    });
+}

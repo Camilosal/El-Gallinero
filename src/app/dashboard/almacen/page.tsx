@@ -8,6 +8,8 @@ import { PageHeader, Card, StatCard, Badge, EmptyState } from "@/components/ui";
 import TableSearch from "@/components/TableSearch";
 import { apiFetch } from "@/lib/fetch";
 import { matchesTextQuery } from "@/lib/text";
+import { isHrefEnabledByFlags } from "@/lib/onboarding";
+import { useOnboardingState } from "@/lib/useOnboardingState";
 
 interface Feed {
   id: string;
@@ -43,25 +45,43 @@ const quickLinks = [
     href: "/dashboard/produccion?tab=alimentacion",
     label: "Gestión de alimentación",
     icon: "wheat",
-    desc: "Alimentos, movimientos, programas y predicción",
+    desc: "Alimentos, dieta combinada (%MS/%PC/Vit. C), programas y predicción",
   },
   {
     href: "/dashboard/inventarios/alimentacion",
     label: "Inventario de alimentos",
     icon: "bar-chart",
-    desc: "Stock, valor y días restantes",
+    desc: "Stock en kg y bultos, cobertura y valor",
   },
   {
     href: "/dashboard/inventarios/insumos",
     label: "Insumos",
     icon: "package-open",
-    desc: "Medicamentos, empaques y materiales",
+    desc: "Medicamentos, empaques, bioseguridad y materiales",
+  },
+  {
+    href: "/dashboard/operaciones/activos",
+    label: "Activos y equipos",
+    icon: "equipment",
+    desc: "Equipos, jaulas, bebederos, herramientas e infraestructura",
   },
   {
     href: "/dashboard/operaciones/mantenimiento",
     label: "Mantenimiento",
     icon: "wrench",
-    desc: "Equipos, instalaciones y tareas",
+    desc: "Mantenimientos preventivos, correctivos y garantías",
+  },
+  {
+    href: "/dashboard/operaciones/compostaje",
+    label: "Compostaje",
+    icon: "sprout",
+    desc: "Pilas 3:1:1 y 7:2:2, temperatura térmica y cosecha de abono",
+  },
+  {
+    href: "/dashboard/operaciones/cierre",
+    label: "Cierre Diario y Sensores",
+    icon: "clipboard",
+    desc: "Cierre auditable antifraude y telemetría IoT (ITH, NH3, báscula)",
   },
 ];
 
@@ -91,6 +111,8 @@ export default function AlmacenPage() {
   const [maintenance, setMaintenance] = useState<MaintenanceSummary | null>(null);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
+  const { flags, isFlagEnabled } = useOnboardingState();
+  const showEnterpriseMaintenance = isFlagEnabled("reportes_dian_roi_credito");
 
   useEffect(() => {
     let cancelled = false;
@@ -133,9 +155,13 @@ export default function AlmacenPage() {
   );
   const totalAlerts = lowFeeds.length + lowSupplies.length;
 
+  const enabledQuickLinks = useMemo(
+    () => quickLinks.filter((l) => isHrefEnabledByFlags(l.href, flags)),
+    [flags],
+  );
   const filteredQuickLinks = useMemo(
-    () => (search.trim() ? quickLinks.filter((l) => matchesTextQuery(search, [l.label, l.desc])) : quickLinks),
-    [search],
+    () => (search.trim() ? enabledQuickLinks.filter((l) => matchesTextQuery(search, [l.label, l.desc])) : enabledQuickLinks),
+    [enabledQuickLinks, search],
   );
   const filteredLowFeeds = useMemo(
     () => (search.trim() ? lowFeeds.filter((f) => matchesTextQuery(search, [f.name, f.category, categoryLabels[f.category], f.supplier])) : lowFeeds),
@@ -159,8 +185,8 @@ export default function AlmacenPage() {
     <div>
       <PageHeader
         title="Almacén e insumos"
-        description="Todo lo que la granja necesita para funcionar: alimentos, insumos, materiales y mantenimiento."
-        help="Este espacio reúne los recursos que se compran, almacenan o consumen, distintos de los productos que genera la granja.\n\n• Gestión de alimentación: alimentos, stock, movimientos, programas por etapa y predicción de consumo.\n• Inventario de alimentos: valor del stock y días restantes.\n• Insumos: medicamentos, vacunas, empaques, herramientas y materiales de limpieza.\n• Mantenimiento: equipos e instalaciones.\n\nLos productos generados (huevos, carne y gallinaza) y los animales se gestionan en sus propios grupos."
+        description="Alimentos, insumos, activos, mantenimiento, compostaje térmico y cierre diario de la granja."
+        help="Este espacio reúne los recursos operativos, instalaciones y procesos de soporte diarios de la granja:\n\n• Gestión de alimentación e Inventario de alimentos: stock en bultos de 40 kg, dieta combinada (%MS/%PC/Vit. C), programas y predicción.\n• Insumos: medicamentos, vacunas, empaques y materiales.\n• Activos y equipos / Mantenimiento: hojas de vida, garantías y tareas periódicas.\n• Compostaje: pilas 3:1:1 y 7:2:2 con monitoreo de temperatura y volteos.\n• Cierre Diario y Sensores: conciliación auditable al cierre de jornada y lecturas IoT (ITH, NH3, T°/HR, báscula)."
         actions={
           <div className="flex flex-wrap gap-2">
             <Link
@@ -195,7 +221,7 @@ export default function AlmacenPage() {
             totalCount={quickLinks.length + feeds.length + supplies.length}
           />
 
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-5">
+          <div className={`grid grid-cols-2 gap-2.5 sm:gap-4 ${showEnterpriseMaintenance ? "lg:grid-cols-5" : "lg:grid-cols-4"}`}>
             <StatCard icon="wheat" label="Valor en alimentos" value={fmtMoney(feedValue)} color="blue" />
             <StatCard icon="package-open" label="Valor en insumos" value={fmtMoney(supplyValue)} color="purple" />
             <StatCard
@@ -210,29 +236,31 @@ export default function AlmacenPage() {
               value={lowSupplies.length}
               color={lowSupplies.length > 0 ? "red" : "green"}
             />
-            <StatCard
-              icon="wrench"
-              label="Mantenimientos pendientes"
-              value={maintenance?.tareasPendientes ?? 0}
-              color={(maintenance?.tareasPendientes ?? 0) > 0 ? "yellow" : "green"}
-            />
+            {showEnterpriseMaintenance && (
+              <StatCard
+                icon="wrench"
+                label="Mantenimientos pendientes"
+                value={maintenance?.tareasPendientes ?? 0}
+                color={(maintenance?.tareasPendientes ?? 0) > 0 ? "yellow" : "green"}
+              />
+            )}
           </div>
 
           {filteredQuickLinks.length === 0 ? (
             <EmptyState icon="warehouse" message="No hay accesos del almacén que coincidan con la búsqueda" />
           ) : (
-            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+            <div className="grid grid-cols-2 gap-2.5 sm:gap-4 lg:grid-cols-4">
               {filteredQuickLinks.map((link) => (
                 <Link
                   key={link.href}
                   href={link.href}
-                  className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm transition-shadow hover:shadow-md"
+                  className="rounded-xl border border-slate-200 bg-white p-3 sm:p-5 min-w-0 shadow-sm transition-shadow hover:shadow-md"
                 >
-                  <div className="w-10 h-10 rounded-xl bg-slate-100 flex items-center justify-center text-slate-700">
-                    <AppIcon icon={link.icon} className="w-5 h-5" />
+                  <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-xl bg-slate-100 flex items-center justify-center text-slate-700">
+                    <AppIcon icon={link.icon} className="w-4 h-4 sm:w-5 sm:h-5" />
                   </div>
-                  <p className="mt-3 font-semibold text-slate-800">{link.label}</p>
-                  <p className="mt-1 text-sm text-slate-500">{link.desc}</p>
+                  <p className="mt-2 sm:mt-3 text-sm sm:text-base font-semibold text-slate-800 leading-snug">{link.label}</p>
+                  <p className="mt-1 text-xs sm:text-sm text-slate-500 line-clamp-2">{link.desc}</p>
                 </Link>
               ))}
             </div>

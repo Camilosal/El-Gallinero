@@ -56,6 +56,8 @@ async function createNextOccurrence(tx: any, task: typeof maintenance.$inferSele
     status: "pendiente",
     cost: "0",
     locationId: task.locationId,
+    species: task.species,
+    batchId: task.batchId,
     assetId: task.assetId,
     recurrenceSeriesId: task.recurrenceSeriesId,
     recurrenceParentId: task.id,
@@ -69,6 +71,9 @@ async function createNextOccurrence(tx: any, task: typeof maintenance.$inferSele
     amount: "0",
     sourceType: "mantenimiento",
     sourceId: next.id,
+    species: next.species,
+    locationId: next.locationId,
+    batchId: next.batchId,
   });
   return next;
 }
@@ -100,6 +105,8 @@ export const POST = withApiHandler(async (req: NextRequest) => {
     status: body.status || "pendiente",
     cost: Number(body.cost ?? 0).toFixed(2),
     locationId: body.locationId ? String(body.locationId) : null,
+    species: typeof body.species === "string" && body.species.trim() ? body.species.trim() : null,
+    batchId: body.batchId ? String(body.batchId) : null,
     assetId: body.assetId ? String(body.assetId) : null,
     recurrenceIntervalDays: recurrenceInterval(body.recurrenceIntervalDays),
   };
@@ -126,6 +133,9 @@ export const POST = withApiHandler(async (req: NextRequest) => {
       amount: values.status === "completado" ? values.cost : "0",
       sourceType: "mantenimiento",
       sourceId: row.id,
+      species: row.species,
+      locationId: row.locationId,
+      batchId: row.batchId,
     });
     await createNextOccurrence(tx, row);
     return row;
@@ -166,6 +176,8 @@ export const PUT = withApiHandler(async (req: NextRequest) => {
       status: body.status,
       cost: Number(body.cost ?? 0).toFixed(2),
       locationId,
+      species: body.species !== undefined ? (body.species ? String(body.species) : null) : existing.species,
+      batchId: body.batchId !== undefined ? (body.batchId ? String(body.batchId) : null) : existing.batchId,
       assetId,
       recurrenceIntervalDays: recurrenceInterval(body.recurrenceIntervalDays),
     }).where(eq(maintenance.id, body.id)).returning();
@@ -181,6 +193,9 @@ export const PUT = withApiHandler(async (req: NextRequest) => {
       amount: body.status === "completado" ? Number(body.cost ?? 0).toFixed(2) : "0",
       sourceType: "mantenimiento",
       sourceId: body.id,
+      species: updated.species,
+      locationId: updated.locationId,
+      batchId: updated.batchId,
     });
 
     await createNextOccurrence(tx, updated);

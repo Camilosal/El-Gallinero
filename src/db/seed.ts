@@ -99,7 +99,7 @@ async function main() {
     },
     {
       category: "categoria_ingreso",
-      values: ["Venta de huevos", "Venta de gallinas", "Venta de pollitos", "Venta de abono/gallinaza", "Otro ingreso"],
+      values: ["Venta de huevos", "Venta de animales", "Venta de carne", "Venta de gallinas", "Venta de pollitos", "Venta de abono/gallinaza", "Venta de subproductos", "Otro ingreso"],
     },
     {
       category: "categoria_egreso",
@@ -152,7 +152,7 @@ async function main() {
     },
     {
       category: "tipo_ave",
-      values: ["gallina_descarte", "pollo", "gallo", "pollito"],
+      values: ["gallina_descarte", "pollo", "gallo", "pollito", "codorniz", "pato", "conejo", "cuy"],
     },
   ];
   const catalogRows = catalogDefaults.flatMap((c) =>
@@ -184,6 +184,8 @@ async function main() {
     { category: "params_especie", value: "Pato Muscovy / Criollo", tipo: "pato", price: "26000", units: 73, minWeeks: 12, maxWeeks: 84, targetWeightKg: "3.20", dailyFeedG: 180, feedCostPerKg: "2600", sortOrder: 5 },
     { category: "params_especie", value: "Conejo de engorde (Nueva Zelanda / California)", tipo: "conejo", price: "28000", units: 55, minWeeks: 11, maxWeeks: 77, targetWeightKg: "2.40", dailyFeedG: 130, feedCostPerKg: "2500", sortOrder: 6 },
     { category: "params_especie", value: "Gallina ponedora (Postura / Descarte)", tipo: "gallina", price: "10000", units: 65, minWeeks: 80, maxWeeks: 560, targetWeightKg: "1.80", dailyFeedG: 115, feedCostPerKg: "2700", expectedEggsPerHen: "0.85", sortOrder: 7 },
+    { category: "params_especie", value: "Cuy Mejorado (Perú / Andino)", tipo: "cuy", price: "36000", units: 68, minWeeks: 13, maxWeeks: 90, targetWeightKg: "1.10", dailyFeedG: 55, feedCostPerKg: "2700", sortOrder: 8 },
+    { category: "params_especie", value: "Cuy Criollo", tipo: "cuy", price: "32000", units: 64, minWeeks: 16, maxWeeks: 112, targetWeightKg: "0.85", dailyFeedG: 45, feedCostPerKg: "2400", sortOrder: 9 },
   ]);
 
   // ——— Usuario administrador ———

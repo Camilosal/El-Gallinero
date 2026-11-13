@@ -31,7 +31,7 @@ export const POST = withApiHandler(async () => {
   await db.insert(appSettings)
     .values({ key: SANITARY_CALENDAR_REVIEW_KEY, value: reviewedAt })
     .onConflictDoUpdate({
-      target: appSettings.key,
+      target: [appSettings.farmId, appSettings.key],
       set: { value: reviewedAt, updatedAt: new Date() },
     });
 

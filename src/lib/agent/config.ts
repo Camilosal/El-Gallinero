@@ -38,22 +38,110 @@ export function isAgentConfigured(): boolean {
 }
 
 export interface SttConfig {
+  provider: "openai" | "gemini";
   baseUrl: string;
   apiKey: string;
   model: string;
 }
 
 export function getSttConfig(): SttConfig | null {
-  const apiKey = process.env.ASSISTANT_STT_API_KEY || process.env.OPENAI_API_KEY || "";
-  if (!apiKey.trim()) return null;
+  const explicitKey = process.env.ASSISTANT_STT_API_KEY?.trim() || "";
+  const explicitBase = process.env.ASSISTANT_STT_BASE_URL?.trim() || "";
+  const explicitModel = process.env.ASSISTANT_STT_MODEL?.trim() || "";
 
-  return {
-    baseUrl: normalizeBaseUrl(process.env.ASSISTANT_STT_BASE_URL || "https://api.openai.com/v1"),
-    apiKey: apiKey.trim(),
-    model: process.env.ASSISTANT_STT_MODEL || "whisper-1",
-  };
+  if (explicitKey) {
+    const isGemini =
+      explicitBase.includes("generativelanguage.googleapis.com") ||
+      explicitModel.toLowerCase().startsWith("gemini");
+    return {
+      provider: isGemini ? "gemini" : "openai",
+      baseUrl: normalizeBaseUrl(
+        explicitBase ||
+          (isGemini ? "https://generativelanguage.googleapis.com/v1beta" : "https://api.openai.com/v1"),
+      ),
+      apiKey: explicitKey,
+      model: explicitModel || (isGemini ? "gemini-3.5-transcribe" : "whisper-1"),
+    };
+  }
+
+  const openAiKey = process.env.OPENAI_API_KEY?.trim() || "";
+  if (openAiKey && !explicitBase.includes("generativelanguage.googleapis.com")) {
+    return {
+      provider: "openai",
+      baseUrl: normalizeBaseUrl(explicitBase || "https://api.openai.com/v1"),
+      apiKey: openAiKey,
+      model: explicitModel || "whisper-1",
+    };
+  }
+
+  const geminiKey = process.env.GEMINI_API_KEY?.trim() || "";
+  if (geminiKey) {
+    return {
+      provider: "gemini",
+      baseUrl: normalizeBaseUrl(explicitBase || "https://generativelanguage.googleapis.com/v1beta"),
+      apiKey: geminiKey,
+      model: explicitModel || "gemini-3.5-transcribe",
+    };
+  }
+
+  return null;
 }
 
 export function isSttConfigured(): boolean {
   return getSttConfig() !== null;
+}
+
+export interface VisionConfig {
+  baseUrl: string;
+  apiKey: string;
+  model: string;
+}
+
+export function getVisionConfig(): VisionConfig | null {
+  const explicitKey = process.env.ASSISTANT_VISION_API_KEY?.trim() || "";
+  if (explicitKey) {
+    return {
+      baseUrl: normalizeBaseUrl(
+        process.env.ASSISTANT_VISION_BASE_URL || "https://generativelanguage.googleapis.com/v1beta/openai",
+      ),
+      apiKey: explicitKey,
+      model: process.env.ASSISTANT_VISION_MODEL || "gemini-3.5-flash-lite",
+    };
+  }
+
+  const openAiKey = process.env.OPENAI_API_KEY?.trim() || "";
+  if (openAiKey) {
+    return {
+      baseUrl: normalizeBaseUrl(process.env.ASSISTANT_VISION_BASE_URL || "https://api.openai.com/v1"),
+      apiKey: openAiKey,
+      model: process.env.ASSISTANT_VISION_MODEL || "gpt-4o-mini",
+    };
+  }
+
+  const geminiKey = process.env.GEMINI_API_KEY?.trim() || "";
+  if (geminiKey) {
+    return {
+      baseUrl: normalizeBaseUrl(
+        process.env.ASSISTANT_VISION_BASE_URL || "https://generativelanguage.googleapis.com/v1beta/openai",
+      ),
+      apiKey: geminiKey,
+      model: process.env.ASSISTANT_VISION_MODEL || "gemini-3.5-flash-lite",
+    };
+  }
+
+  // Fallback solo si hay un endpoint/modelo multimodal configurado explícitamente
+  const aiKey = process.env.ASSISTANT_AI_API_KEY || "";
+  const aiBase = process.env.ASSISTANT_AI_BASE_URL || "";
+  if (aiKey.trim() && process.env.ASSISTANT_VISION_BASE_URL && !aiBase.includes("deepseek.com")) {
+    return {
+      baseUrl: normalizeBaseUrl(process.env.ASSISTANT_VISION_BASE_URL),
+      apiKey: aiKey.trim(),
+      model: process.env.ASSISTANT_VISION_MODEL || "gpt-4o-mini",
+    };
+  }
+  return null;
+}
+
+export function isVisionConfigured(): boolean {
+  return getVisionConfig() !== null;
 }

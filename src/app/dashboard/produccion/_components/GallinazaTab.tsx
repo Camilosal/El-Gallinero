@@ -4,7 +4,7 @@ import { useEffect, useState, useCallback, useMemo } from "react";
 import { Banknote, Calculator, Ruler, Scale, Settings } from "lucide-react";
 import { PageHeader, Button, Card, Table, Modal, Input, Textarea, EmptyState, StatCard } from "@/components/ui";
 import { apiFetch } from "@/lib/fetch";
-import { useCatalog } from "@/lib/useCatalog";
+import ContactField from "@/components/contacts/ContactField";
 import TableSearch from "@/components/TableSearch";
 import { matchesTextQuery } from "@/lib/text";
 import { useSearchParams } from "next/navigation";
@@ -58,7 +58,6 @@ export default function GallinazaPage() {
   const [adjustForm, setAdjustForm] = useState({ date: new Date().toISOString().split("T")[0], deltaKg: "", reason: "" });
   const [salesSearch, setSalesSearch] = useState("");
   const [adjustSearch, setAdjustSearch] = useState("");
-  const { values: buyerOptions } = useCatalog("comprador");
 
   const load = useCallback(() => {
     apiFetch("/api/operaciones/gallinaza").then((r) => r.json()).then((d) => {
@@ -200,7 +199,7 @@ export default function GallinazaPage() {
       />
 
       {/* StatCards */}
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6">
+      <div className="grid grid-cols-2 sm:grid-cols-3 gap-2.5 sm:gap-4 mb-6">
         <StatCard icon="sprout" label="Estimación diaria" value={`${data.estimation.totalKgPerDay} kg/día`} color="green" />
         <StatCard icon="package" label="Stock disponible" value={`${data.inventory.currentStockKg.toFixed(2)} kg`} color="yellow" />
         <StatCard icon="money" label="Ingresos gallinaza (30 días)" value={`$${revenue30.toLocaleString()}`} color="blue" />
@@ -359,10 +358,14 @@ export default function GallinazaPage() {
             <option value="Costal 50 kg" />
             <option value="Granel" />
           </datalist>
-          <Input label="Comprador" help="Persona que compra la gallinaza." value={saleForm.buyer} onChange={(e) => setSaleForm({ ...saleForm, buyer: e.target.value })} placeholder="Nombre del comprador" list="gallinaza-compradores" />
-          <datalist id="gallinaza-compradores">
-            {buyerOptions.map((b) => <option key={b} value={b} />)}
-          </datalist>
+          <ContactField
+            role="cliente"
+            label="Comprador"
+            help="Persona o finca que compra la gallinaza."
+            value={saleForm.buyer}
+            onChange={(name) => setSaleForm({ ...saleForm, buyer: name })}
+            placeholder="Nombre del comprador"
+          />
           <Textarea label="Notas" help="Observaciones sobre esta venta." value={saleForm.notes} onChange={(e) => setSaleForm({ ...saleForm, notes: e.target.value })} />
           {saleTotal && (
             <div className="p-3 bg-green-50 rounded-lg text-sm text-green-700 flex items-center gap-2">

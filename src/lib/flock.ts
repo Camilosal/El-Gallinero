@@ -46,7 +46,7 @@ export interface BatchReadiness {
 /**
  * Evalúa si un lote de engorde está listo para sacrificio:
  * cumple la edad objetivo (semanas O días) O el peso promedio objetivo.
- * Los conejos usan targetDays; aves usan targetWeeks.
+ * Los conejos y cuyes usan targetDays; las aves usan targetWeeks.
  */
 export function batchReadiness(batch: BatchLike, today: Date = new Date()): BatchReadiness {
   const start = new Date(batch.startDate + "T12:00:00");
@@ -56,7 +56,7 @@ export function batchReadiness(batch: BatchLike, today: Date = new Date()): Batc
 
   const reasons: string[] = [];
 
-  // Criterio por días (conejos principalmente)
+  // Criterio por días (conejos y cuyes principalmente)
   const effectiveTargetDays = batch.targetDays ?? batch.targetWeeks * 7;
   if (ageDays >= effectiveTargetDays) {
     if (batch.targetDays) {

@@ -4,6 +4,7 @@ import { asc, desc, eq } from "drizzle-orm";
 import { loadSpeciesPriceMap } from "./species-db";
 import { lockAndReadManureStock } from "./manure-stock";
 import { buildManureEstimate } from "./manure-estimate";
+import { checkEggStorageTelemetry } from "./ntc1240";
 
 type InventoryReader = Pick<typeof db, "select">;
 
@@ -16,6 +17,11 @@ export interface EggLot {
   lost: number;
   remaining: number;
   ageDays: number;
+  lotCode?: string | null;
+  species?: string | null;
+  storageTempC?: number | null;
+  storageHumidityPct?: number | null;
+  storageWarnings?: string[];
 }
 
 export interface SizeSummary {
@@ -48,6 +54,14 @@ export interface EggInventory {
   aging: AgingBucket[];
   oldestLot: EggLot | null;
   estimatedValue: number;
+  storageAlerts: Array<{
+    id: string;
+    lotCode: string | null;
+    date: string;
+    tempC: number | null;
+    humidityPct: number | null;
+    warnings: string[];
+  }>;
 }
 
 export function eggInventoryBookBalance(inventory: EggInventory): number {
@@ -184,6 +198,10 @@ export async function computeEggInventory(
       lotDate.setHours(0, 0, 0, 0);
       const ageDays = Math.max(0, Math.floor((today.getTime() - lotDate.getTime()) / 86400000));
 
+      const tempC = p.storageTempC != null ? Number(p.storageTempC) : null;
+      const humidityPct = p.storageHumidityPct != null ? Number(p.storageHumidityPct) : null;
+      const warnings = checkEggStorageTelemetry(tempC, humidityPct);
+
       lots.push({
         id: p.id,
         date: p.date,
@@ -193,6 +211,11 @@ export async function computeEggInventory(
         lost: 0,
         remaining: initial - soldThisLot,
         ageDays,
+        lotCode: p.lotCode ?? null,
+        species: p.species ?? null,
+        storageTempC: tempC,
+        storageHumidityPct: humidityPct,
+        storageWarnings: warnings,
       });
     }
   }
@@ -241,6 +264,19 @@ export async function computeEggInventory(
   const estimatedValue = sizes.reduce((s, x) => s + x.value, 0);
 
   const availableLots = lots.filter((l) => l.remaining > 0);
+  const storageAlertMap = new Map<string, { id: string; lotCode: string | null; date: string; tempC: number | null; humidityPct: number | null; warnings: string[] }>();
+  for (const lot of availableLots) {
+    if (lot.storageWarnings && lot.storageWarnings.length > 0 && !storageAlertMap.has(lot.id)) {
+      storageAlertMap.set(lot.id, {
+        id: lot.id,
+        lotCode: lot.lotCode ?? null,
+        date: lot.date,
+        tempC: lot.storageTempC ?? null,
+        humidityPct: lot.storageHumidityPct ?? null,
+        warnings: lot.storageWarnings,
+      });
+    }
+  }
 
   const ranges: { label: string; min: number; max: number }[] = [
     { label: "0-3 días", min: 0, max: 3 },
@@ -264,6 +300,7 @@ export async function computeEggInventory(
     aging,
     oldestLot,
     estimatedValue,
+    storageAlerts: Array.from(storageAlertMap.values()),
   };
 }
 
@@ -355,7 +392,7 @@ export async function computeMeatInventory(
     const initialKg = saleableWeightKg(p);
     const birdTypeSpecies = p.birdType === "gallina_descarte" || p.birdType === "gallo"
       ? "gallina"
-      : ["pollo", "codorniz", "pato", "conejo"].includes(p.birdType)
+      : ["pollo", "codorniz", "pato", "conejo", "cuy"].includes(p.birdType)
         ? p.birdType
         : null;
     const species = birdTypeSpecies || p.species || "pollo";

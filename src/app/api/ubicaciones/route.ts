@@ -11,7 +11,10 @@ import { NextRequest, NextResponse } from "next/server";
 
 export const dynamic = "force-dynamic";
 
-const LOCATION_TYPES = new Set(["corral", "jaula", "galpon", "potrero", "jardin", "patio", "otro"]);
+const LOCATION_TYPES = new Set(["corral", "jaula", "galpon", "potrero", "jardin", "patio", "compostaje", "bodega", "cuarentena", "otro"]);
+const ZONE_TYPES = new Set(["limpia", "sucia", "produccion", "cuarentena", "almacen", "forraje"]);
+const FLOOR_TYPES = new Set(["tierra", "cemento", "cama_profunda", "jaula_elevada", "pasto", "mixto"]);
+const ALLOWED_SPECIES_SET = new Set(["gallina", "gallo", "pollo", "codorniz", "pato", "conejo", "cuy"]);
 const LOCATION_STATUSES = new Set(["activa", "inactiva"]);
 const OPERATIONAL_STATUSES = new Set(["operativa", "mantenimiento", "restringida", "fuera_servicio"]);
 const SANITARY_STATUSES = new Set(["pendiente_revision", "cumple", "requiere_atencion", "no_cumple"]);
@@ -39,6 +42,17 @@ function validateLocation(body: Record<string, unknown>) {
   if (body.sanitaryStatus !== undefined && !SANITARY_STATUSES.has(String(body.sanitaryStatus))) throw new Error("Estado sanitario inválido");
   if (body.sanitaryReviewedAt && !isDateOnly(body.sanitaryReviewedAt)) throw new Error("Fecha de revisión sanitaria inválida");
   if (body.operationalReviewedAt && !isDateOnly(body.operationalReviewedAt)) throw new Error("Fecha de revisión operativa inválida");
+  if (body.sanitaryEmptyUntil && !isDateOnly(body.sanitaryEmptyUntil)) throw new Error("Fecha de vacío sanitario inválida");
+  const zoneType = body.zoneType ? String(body.zoneType) : (body.type === "cuarentena" ? "cuarentena" : body.type === "compostaje" ? "sucia" : body.type === "bodega" ? "almacen" : "produccion");
+  if (!ZONE_TYPES.has(zoneType)) throw new Error("Zona biosegura inválida");
+  const floorType = body.floorType ? String(body.floorType) : null;
+  if (floorType && !FLOOR_TYPES.has(floorType)) throw new Error("Tipo de piso inválido");
+  const altitudeMeters = body.altitudeMeters == null || body.altitudeMeters === "" ? null : Number(body.altitudeMeters);
+  if (altitudeMeters != null && (!Number.isSafeInteger(altitudeMeters) || altitudeMeters < 0 || altitudeMeters > 5500)) throw new Error("Altitud debe estar entre 0 y 5500 msnm");
+  const environmentalTempC = optionalNumber(body.environmentalTempC, "Temperatura ambiental (°C)", -10, 60);
+  const allowedSpecies = Array.isArray(body.allowedSpecies)
+    ? Array.from(new Set(body.allowedSpecies.map((item) => String(item).trim().toLowerCase()).filter((item) => ALLOWED_SPECIES_SET.has(item))))
+    : [];
   const latitude = optionalNumber(body.latitude, "Latitud", -90, 90);
   const longitude = optionalNumber(body.longitude, "Longitud", -180, 180);
   const areaM2 = optionalNumber(body.areaM2, "Área", 0, 1_000_000_000);
@@ -63,6 +77,13 @@ function validateLocation(body: Record<string, unknown>) {
     sanitaryReviewedAt: body.sanitaryReviewedAt ? String(body.sanitaryReviewedAt) : null,
     operationalReviewedAt: body.operationalReviewedAt ? String(body.operationalReviewedAt) : null,
     maintenanceNeeds: cleanText(body.maintenanceNeeds, 4000, "Necesidades de mantenimiento"),
+    zoneType,
+    allowedSpecies,
+    sanitaryEmptyUntil: body.sanitaryEmptyUntil ? String(body.sanitaryEmptyUntil) : null,
+    altitudeMeters,
+    floorType,
+    environmentalTempC,
+    isQuarantine: Boolean(body.isQuarantine) || body.type === "cuarentena" || zoneType === "cuarentena",
     notes: cleanText(body.notes, 4000, "Notas"),
   };
 }

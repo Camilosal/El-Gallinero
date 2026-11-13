@@ -1,12 +1,19 @@
 import { isDateOnly } from "@/lib/date-validation";
 import { db } from "@/db";
-import { eggSales, eggSalesItems, transactions, accountsReceivable, payments } from "@/db/schema";
+import { eggSales, eggSalesItems, transactions } from "@/db/schema";
 import { eq, desc, and, inArray } from "drizzle-orm";
 import { NextRequest, NextResponse } from "next/server";
+import { requirePermission } from "@/lib/rbac-server";
 import { withApiHandler, safeParseJson } from "@/lib/api-handler";
 import { computeEggInventory } from "@/lib/inventory";
 import { lockEggInventory } from "@/lib/inventory-locks";
-import { deleteTransactionsAndUnpaidAccounts } from "@/lib/financial-records";
+import {
+  deleteTransactionsAndUnpaidAccounts,
+  getCreditMetaBySourceIds,
+  syncCreditReceivable,
+} from "@/lib/financial-records";
+import { resolveDimensions } from "@/lib/analytics-dimensions";
+import { assertDateNotClosed, assertNoActiveWithdrawal } from "@/lib/sanitary-locks";
 
 export const dynamic = "force-dynamic";
 
@@ -56,18 +63,35 @@ function validateItems(items: unknown): string | null {
 export const GET = withApiHandler(async () => {
   const data = await db.select().from(eggSales).orderBy(desc(eggSales.date)).limit(100);
   if (data.length === 0) return NextResponse.json([]);
-  const items = await db.select().from(eggSalesItems).where(inArray(eggSalesItems.saleId, data.map((sale) => sale.id)));
+  const saleIds = data.map((sale) => sale.id);
+  const [items, creditMetaMap] = await Promise.all([
+    db.select().from(eggSalesItems).where(inArray(eggSalesItems.saleId, saleIds)),
+    getCreditMetaBySourceIds("venta", saleIds),
+  ]);
   const itemsBySale = new Map<string, typeof items>();
   for (const item of items) {
     const saleItems = itemsBySale.get(item.saleId) || [];
     saleItems.push(item);
     itemsBySale.set(item.saleId, saleItems);
   }
-  return NextResponse.json(data.map((sale) => ({ ...sale, items: itemsBySale.get(sale.id) || [] })));
+  return NextResponse.json(
+    data.map((sale) => {
+      const creditMeta = creditMetaMap.get(sale.id);
+      return {
+        ...sale,
+        transactionId: creditMeta?.transactionId || null,
+        isCredit: creditMeta?.isCredit ?? false,
+        dueDate: creditMeta?.dueDate || null,
+        items: itemsBySale.get(sale.id) || [],
+      };
+    }),
+  );
 });
 
 // POST /api/finanzas/finanzas/ventas
 export const POST = withApiHandler(async (req: NextRequest) => {
+  const denied = await requirePermission("finance:write");
+  if (denied) return denied;
   const body = await safeParseJson(req);
   if (!body || typeof body !== "object") return NextResponse.json({ error: "Cuerpo inválido" }, { status: 400 });
   const items: { size: string; quantity: number; presentations?: number; pricePerUnit: number; presentation?: string }[] = body.items;
@@ -88,12 +112,33 @@ export const POST = withApiHandler(async (req: NextRequest) => {
 
   const result = await db.transaction(async (tx) => {
     await lockEggInventory(tx);
+    const dimRes = await resolveDimensions(tx, {
+      species: body.species || "gallina",
+      locationId: body.locationId,
+      batchId: body.batchId,
+    });
+    if ("error" in dimRes) throw new Error(dimRes.error);
+    const dims = dimRes.dimensions;
+    const effectiveSpecies = (dims.species || "gallina") as typeof eggSales.$inferInsert.species;
+    await assertDateNotClosed(tx, { date: body.date });
+    await assertNoActiveWithdrawal(tx, {
+      date: body.date,
+      species: effectiveSpecies,
+      locationId: dims.locationId,
+      batchId: dims.batchId,
+      operationLabel: "venta de huevos",
+    });
+
     const available = await getAvailableEggsBySize(tx);
     const stockError = validateAvailability(items, available);
     if (stockError) throw new Error(stockError);
 
     const [created] = await tx.insert(eggSales).values({
       date: body.date,
+      species: effectiveSpecies,
+      locationId: dims.locationId,
+      batchId: dims.batchId,
+      lotCode: typeof body.lotCode === "string" && body.lotCode.trim() ? body.lotCode.trim() : null,
       quantity: totalQuantity,
       pricePerUnit: "0",
       totalAmount: grandTotal.toFixed(2),
@@ -132,28 +177,30 @@ export const POST = withApiHandler(async (req: NextRequest) => {
       counterparty: body.buyer || null,
       sourceType: "venta",
       sourceId: created.id,
+      species: effectiveSpecies,
+      locationId: dims.locationId,
+      batchId: dims.batchId,
     }).returning();
 
     if (body.isCredit) {
-      await tx.update(transactions).set({ isCredit: true }).where(eq(transactions.id, txRow.id));
-      await tx.insert(accountsReceivable).values({
+      await syncCreditReceivable(tx, {
         transactionId: txRow.id,
-        buyer: body.buyer || "Sin nombre",
-        totalAmount: String(grandTotal),
-        paidAmount: "0",
-        pendingAmount: String(grandTotal),
-        dueDate: body.dueDate || undefined,
-        status: "pendiente",
+        totalAmount: grandTotal,
+        isCredit: true,
+        dueDate: body.dueDate || null,
+        buyer: body.buyer || null,
       });
     }
 
-    return { ...created, items: createdItems };
+    return { ...created, items: createdItems, transactionId: txRow.id };
   });
   return NextResponse.json(result, { status: 201 });
 });
 
 // PUT /api/finanzas/finanzas/ventas
 export const PUT = withApiHandler(async (req: NextRequest) => {
+  const denied = await requirePermission("finance:write");
+  if (denied) return denied;
   const body = await safeParseJson(req);
   if (!body || typeof body !== "object") return NextResponse.json({ error: "Cuerpo inválido" }, { status: 400 });
   const items: { size: string; quantity: number; presentations?: number; pricePerUnit: number; presentation?: string }[] = body.items;
@@ -177,12 +224,33 @@ export const PUT = withApiHandler(async (req: NextRequest) => {
     await lockEggInventory(tx);
     const [currentSale] = await tx.select({ id: eggSales.id }).from(eggSales).where(eq(eggSales.id, body.id));
     if (!currentSale) throw new Error("No encontrado");
+    await assertDateNotClosed(tx, { date: body.date });
+    const dimRes = await resolveDimensions(tx, {
+      species: body.species || "gallina",
+      locationId: body.locationId,
+      batchId: body.batchId,
+    });
+    if ("error" in dimRes) throw new Error(dimRes.error);
+    const dims = dimRes.dimensions;
+    const effectiveSpecies = (dims.species || "gallina") as typeof eggSales.$inferInsert.species;
+
+    await assertNoActiveWithdrawal(tx, {
+      date: body.date,
+      species: effectiveSpecies,
+      locationId: dims.locationId,
+      batchId: dims.batchId,
+      operationLabel: "venta de huevos",
+    });
     const available = await getAvailableEggsBySize(tx, { excludeSaleId: body.id });
     const stockError = validateAvailability(items, available);
     if (stockError) throw new Error(stockError);
 
     const [updated] = await tx.update(eggSales).set({
       date: body.date,
+      species: effectiveSpecies,
+      locationId: dims.locationId,
+      batchId: dims.batchId,
+      lotCode: body.lotCode !== undefined ? (body.lotCode ? String(body.lotCode).trim() : null) : undefined,
       quantity: totalQuantity,
       totalAmount: grandTotal.toFixed(2),
       size: items.length === 1 ? items[0].size : null,
@@ -221,6 +289,9 @@ export const PUT = withApiHandler(async (req: NextRequest) => {
       unitPrice: items.length === 1 ? String(items[0].pricePerUnit) : null,
       unit: "unidades",
       counterparty: body.buyer || null,
+      species: effectiveSpecies,
+      locationId: dims.locationId,
+      batchId: dims.batchId,
     };
 
     if (existing) {
@@ -232,59 +303,25 @@ export const PUT = withApiHandler(async (req: NextRequest) => {
     const [currentTx] = await tx.select().from(transactions)
       .where(and(eq(transactions.sourceType, "venta"), eq(transactions.sourceId, body.id)));
 
-    const [existingReceivable] = currentTx
-      ? await tx.select().from(accountsReceivable).where(eq(accountsReceivable.transactionId, currentTx.id)).for("update")
-      : [undefined];
-
-    if (body.isCredit) {
-      const paidAmount = Number(existingReceivable?.paidAmount || 0);
-      if (grandTotal < paidAmount) {
-        throw new Error("El total no puede quedar por debajo de los pagos ya recibidos");
-      }
-      if (currentTx) {
-        await tx.update(transactions).set({ isCredit: true }).where(eq(transactions.id, currentTx.id));
-      }
-      if (existingReceivable) {
-        const pendingAmount = Math.max(0, grandTotal - paidAmount);
-        await tx.update(accountsReceivable).set({
-          totalAmount: String(grandTotal),
-          pendingAmount: String(pendingAmount),
-          status: pendingAmount === 0 ? "pagado" : paidAmount > 0 ? "parcial" : "pendiente",
-          dueDate: body.dueDate !== undefined ? body.dueDate || null : existingReceivable.dueDate,
-          buyer: body.buyer || existingReceivable.buyer,
-          updatedAt: new Date(),
-        }).where(eq(accountsReceivable.id, existingReceivable.id));
-      } else if (currentTx) {
-        await tx.insert(accountsReceivable).values({
-          transactionId: currentTx.id,
-          buyer: body.buyer || "Sin nombre",
-          totalAmount: String(grandTotal),
-          paidAmount: "0",
-          pendingAmount: String(grandTotal),
-          dueDate: body.dueDate || undefined,
-          status: "pendiente",
-        });
-      }
-    } else if (existingReceivable) {
-      const linkedPayments = await tx.select({ id: payments.id }).from(payments).where(eq(payments.receivableId, existingReceivable.id));
-      if (Number(existingReceivable.paidAmount) > 0 || linkedPayments.length > 0) {
-        throw new Error("No se puede convertir a contado una venta que ya tiene pagos recibidos");
-      }
-      await tx.delete(accountsReceivable).where(eq(accountsReceivable.id, existingReceivable.id));
-      if (currentTx) {
-        await tx.update(transactions).set({ isCredit: false }).where(eq(transactions.id, currentTx.id));
-      }
-    } else if (currentTx) {
-      await tx.update(transactions).set({ isCredit: false }).where(eq(transactions.id, currentTx.id));
+    if (currentTx) {
+      await syncCreditReceivable(tx, {
+        transactionId: currentTx.id,
+        totalAmount: grandTotal,
+        isCredit: Boolean(body.isCredit),
+        dueDate: body.dueDate,
+        buyer: body.buyer || null,
+      });
     }
 
-    return { ...updated, items: createdItems };
+    return { ...updated, items: createdItems, transactionId: currentTx?.id || null };
   });
   return NextResponse.json(result);
 });
 
 // DELETE /api/finanzas/finanzas/ventas
 export const DELETE = withApiHandler(async (req: NextRequest) => {
+  const denied = await requirePermission("finance:write");
+  if (denied) return denied;
   const { searchParams } = new URL(req.url);
   const id = searchParams.get("id");
   if (!id) return NextResponse.json({ error: "ID requerido" }, { status: 400 });

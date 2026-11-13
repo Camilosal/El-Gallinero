@@ -49,6 +49,7 @@ export const GET = withApiHandler(async (req: NextRequest) => {
     codorniz: { meatKg: 0, eggs: 0, savings: 0 },
     pato: { meatKg: 0, eggs: 0, savings: 0 },
     conejo: { meatKg: 0, eggs: 0, savings: 0 },
+    cuy: { meatKg: 0, eggs: 0, savings: 0 },
   };
 
   const monthlySummary: Record<string, { month: string; savings: number; meatKg: number; eggs: number }> = {};

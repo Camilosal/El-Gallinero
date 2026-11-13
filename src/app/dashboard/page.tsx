@@ -1,31 +1,36 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
+import Link from "next/link";
 import {
   Banknote,
   BarChart3,
   Bird,
+  CalendarDays,
   Check,
-  CheckCircle2,
   ChevronRight,
   CircleDollarSign,
+  ClipboardCheck,
   Egg,
+  HeartHandshake,
   Home,
+  Layers,
   Package,
-  PackageOpen,
-  Pill,
+  Scale,
   Stethoscope,
+  Wand2,
   Wheat,
-  Wrench,
 } from "lucide-react";
 import { AppIcon } from "@/components/AppIcon";
 import { HeroBanner } from "@/components/HeroBanner";
-import { Card, Modal, Input, Select, Button, EmptyState } from "@/components/ui";
-import TableSearch from "@/components/TableSearch";
-import { matchesTextQuery } from "@/lib/text";
+import { Card } from "@/components/ui";
+import RoutineDayButtons from "@/components/RoutineDayButtons";
+import OnboardingWizardModal from "@/components/OnboardingWizardModal";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, LineChart, Line, Legend } from "recharts";
 import { apiFetch } from "@/lib/fetch";
-import { useCatalog } from "@/lib/useCatalog";
+import { FEATURE_FLAG_BY_KEY, PROGRESSIVE_UNLOCKABLE_KEYS } from "@/lib/onboarding";
+import { useOnboardingState } from "@/lib/useOnboardingState";
+import { OPEN_ONBOARDING_WIZARD_EVENT, openQuickCapture, QUICK_CAPTURE_SAVED_EVENT } from "@/lib/quick-capture-events";
 
 interface StageData {
   name: string;
@@ -71,7 +76,11 @@ interface DashboardData {
     avgDaily: number;
     inventory?: { produced: number; sold: number; lost: number; available: number };
   };
-  sales: { totalSold: number; totalRevenue: string };
+  sales: {
+    totalSold: number;
+    eggRevenue?: string;
+    totalRevenue: string;
+  };
   feedAlerts: number;
   activeIncubations: number;
   pendingMaintenance: number;
@@ -82,19 +91,15 @@ interface DashboardData {
   stockProjection: StockProjection[];
   fcr: FcrData;
   feedChartData: FeedChartPoint[];
-  manure: { currentStockKg: number; totalKgPerDay: number; salesLast30d?: { totalKg: number; totalRevenue: string } };
-  mortality: { total30d: number; rate: number; byCause: Record<string, number> };
   sanitaryAlerts: number;
   supplyAlerts: number;
 }
 
-// ─── Alert definition ───
-interface Alert {
+interface AttentionItem {
   id: string;
-  icon: string;
   message: string;
   href: string;
-  severity: "critical" | "warning";
+  urgent: boolean;
 }
 
 interface TareasPendientes {
@@ -121,42 +126,59 @@ interface TareasPendientes {
 export default function Dashboard() {
   const [data, setData] = useState<DashboardData | null>(null);
   const [loading, setLoading] = useState(true);
+  const [showAllAttention, setShowAllAttention] = useState(false);
   const [showDetails, setShowDetails] = useState(false);
+  const [showSetup, setShowSetup] = useState(false);
+  const [showExtendedSetup, setShowExtendedSetup] = useState(false);
+  const [wizardOpen, setWizardOpen] = useState(false);
   const [tareas, setTareas] = useState<TareasPendientes | null>(null);
-  const [search, setSearch] = useState("");
+  const [loadedAtMs, setLoadedAtMs] = useState(() => Date.now());
+  const { state: onboardingState, flags: onboardingFlags, patchOnboarding, refresh: refreshOnboarding } = useOnboardingState();
 
-  // ─── Quick sale state ───
-  const [quickSaleOpen, setQuickSaleOpen] = useState(false);
-  const [quickSaleInv, setQuickSaleInv] = useState<{ size: string; available: number; price: number | null }[]>([]);
-  const [quickSaleForm, setQuickSaleForm] = useState({ size: "", quantity: "1", buyer: "", pricePerUnit: "500" });
-  const [quickSaleError, setQuickSaleError] = useState("");
-  const [quickSaleSuccess, setQuickSaleSuccess] = useState(false);
-  const { values: buyerOptions } = useCatalog("comprador");
-  const { items: sizeOptions } = useCatalog("tamano_huevo");
-
-  useEffect(() => {
+  const loadHomeData = useCallback(() => {
     apiFetch("/api/dashboard")
       .then((r) => r.json())
-      .then(setData)
+      .then((d: DashboardData) => {
+        setData(d);
+        setLoadedAtMs(Date.now());
+      })
       .catch(console.error)
       .finally(() => setLoading(false));
     apiFetch("/api/dashboard/tareas-pendientes")
       .then((r) => r.json())
       .then(setTareas)
-      .catch(() => { });
-    // Load egg inventory for quick sale
-    apiFetch("/api/produccion/huevos/inventario")
-      .then((r) => r.json())
-      .then((d) => setQuickSaleInv(d.summary?.sizes || []))
-      .catch(() => { });
-  }, []);
+      .catch(() => {});
+    void refreshOnboarding();
+  }, [refreshOnboarding]);
+
+  useEffect(() => {
+    loadHomeData();
+    const onSaved = () => loadHomeData();
+    const onOpenWizard = () => setWizardOpen(true);
+    window.addEventListener(QUICK_CAPTURE_SAVED_EVENT, onSaved);
+    window.addEventListener(OPEN_ONBOARDING_WIZARD_EVENT, onOpenWizard);
+    void Promise.resolve().then(() => {
+      if (typeof window === "undefined") return;
+      const params = new URLSearchParams(window.location.search);
+      if (params.get("wizard") === "1") {
+        setWizardOpen(true);
+        params.delete("wizard");
+        const cleanUrl = `${window.location.pathname}${params.toString() ? `?${params.toString()}` : ""}${window.location.hash}`;
+        window.history.replaceState(null, "", cleanUrl);
+      }
+    });
+    return () => {
+      window.removeEventListener(QUICK_CAPTURE_SAVED_EVENT, onSaved);
+      window.removeEventListener(OPEN_ONBOARDING_WIZARD_EVENT, onOpenWizard);
+    };
+  }, [loadHomeData]);
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center h-96">
+      <div className="flex items-center justify-center h-80">
         <div className="text-center">
-          <Bird className="w-12 h-12 text-green-600 mx-auto mb-4 animate-bounce" aria-hidden="true" />
-          <p className="text-slate-500">Cargando datos del gallinero...</p>
+          <Bird className="w-10 h-10 text-emerald-700 mx-auto mb-3 animate-bounce" aria-hidden="true" />
+          <p className="text-sm text-slate-500">Cargando panel...</p>
         </div>
       </div>
     );
@@ -165,513 +187,557 @@ export default function Dashboard() {
   if (!data) {
     const isOffline = typeof navigator !== "undefined" && navigator.onLine === false;
     return (
-      <div className="rounded-xl border border-amber-200 bg-amber-50 p-6 text-center max-w-lg mx-auto my-8">
-        <p className="text-sm font-semibold text-amber-900">
-          {isOffline ? "Sin conexión y sin copia local para el inicio" : "Error cargando datos"}
+      <div className="rounded-xl border border-slate-200 border-l-4 border-l-amber-500 bg-white p-6 text-center max-w-lg mx-auto my-8">
+        <p className="text-sm font-semibold text-slate-900">
+          {isOffline ? "Sin conexión y sin copia local para el inicio" : "No se pudieron cargar los datos"}
         </p>
-        <p className="text-xs text-amber-700 mt-1">
+        <p className="text-xs text-slate-600 mt-1">
           {isOffline
-            ? "Conéctate a Internet una vez y abre 'Guardar copia offline' en el indicador superior para descargar toda la app en este dispositivo."
+            ? "Conéctate a Internet una vez y abre 'Guardar copia offline' en el indicador superior."
             : "Intenta recargar la página o verifica la conexión con el servidor."}
         </p>
       </div>
     );
   }
 
-  const dailyChecklistPending = Boolean(tareas && (
-    (tareas.eggApplicable && !tareas.eggCollectedToday)
-    || (tareas.feedApplicable && !tareas.feedMovedToday)
-    || tareas.pendingSanitary || tareas.maintenanceDue.length > 0 || tareas.assetsNeedAttention > 0
-  ));
-  const setupSteps = tareas ? [
-    { done: tareas.setup.farmProfileConfigured, title: "Completa los datos de la granja", description: "Indica nombre, municipio y responsable; la ubicación y fechas se pueden ampliar.", href: "/dashboard/configuracion/catalogos?tab=parametros", icon: "home" },
-    { done: tareas.setup.locationsConfigured, title: "Define los lugares de manejo", description: "Crea corrales, galpones, jaulas o potreros.", href: "/dashboard/ubicaciones", icon: "map-pin" },
-    { done: tareas.setup.animalsRegistered, title: "Registra el primer ingreso", description: "Deja documentados especie, origen y destino.", href: "/dashboard/produccion/adquisiciones", icon: "paw-print" },
-    { done: tareas.setup.starterInventoryConfigured, title: "Carga los inventarios de arranque", description: "Registra existencias iniciales de alimentos e insumos.", href: "/dashboard/almacen", icon: "wheat" },
-    { done: tareas.setup.contactsConfigured, title: "Registra clientes y proveedores", description: "Agrega al menos un cliente y un proveedor propios.", href: "/dashboard/configuracion/catalogos?tab=listas&category=proveedor", icon: "handshake" },
-    { done: tareas.setup.budgetConfigured, title: "Crea el presupuesto inicial", description: "Comienza en $0 y agrega las metas cuando las definas.", href: "/dashboard/finanzas/presupuestos?nuevo=base", icon: "money" },
-    { done: tareas.setup.sanitaryConfigured, title: "Revisa el manejo sanitario inicial", description: "Valida las actividades sugeridas y ajusta el calendario a tus animales.", href: "/dashboard/sanidad/calendario", icon: "pill" },
-    { done: tareas.setup.assetsRegistered, title: "Registra activos y equipos", description: "Incluye equipos, herramientas y estructuras de la granja.", href: "/dashboard/operaciones/activos", icon: "equipment" },
-  ] : [];
-  const completedSetupSteps = setupSteps.filter((step) => step.done).length;
+  // ─── Pasos de configuración inicial ───
+  const setupSteps = tareas
+    ? [
+        { done: tareas.setup.farmProfileConfigured, coreDay1: true, title: "Datos de la finca", description: "Nombre, municipio y altitud.", href: "/dashboard/configuracion/catalogos?tab=parametros", icon: "home" },
+        { done: tareas.setup.locationsConfigured, coreDay1: true, title: "Lugares de manejo", description: "Corrales, galpones o pozas.", href: "/dashboard/ubicaciones", icon: "map-pin" },
+        { done: tareas.setup.animalsRegistered, coreDay1: true, title: "Animales actuales", description: "Inventario vivo por especie.", href: "/dashboard/produccion/adquisiciones", icon: "paw-print" },
+        { done: tareas.setup.starterInventoryConfigured, coreDay1: true, title: "Alimento en bodega", description: "Saldo en bultos de 40 kg o kg.", href: "/dashboard/almacen", icon: "wheat" },
+        { done: tareas.setup.contactsConfigured, coreDay1: false, title: "Clientes y proveedores", description: "Contactos comerciales.", href: "/dashboard/contactos", icon: "handshake" },
+        { done: tareas.setup.budgetConfigured, coreDay1: false, title: "Presupuesto", description: "Metas de ingresos y gastos.", href: "/dashboard/finanzas/presupuestos?nuevo=base", icon: "money" },
+        { done: tareas.setup.sanitaryConfigured, coreDay1: false, title: "Calendario sanitario", description: "Vacunas y revisiones.", href: "/dashboard/sanidad/calendario", icon: "pill" },
+        { done: tareas.setup.assetsRegistered, coreDay1: false, title: "Equipos y activos", description: "Herramientas e infraestructura.", href: "/dashboard/operaciones/activos", icon: "equipment" },
+      ]
+    : [];
 
-  // ─── Build actionable alerts ───
-  const alerts: Alert[] = [];
-
-  // Critical feed stock (<=7 days remaining)
+  // ─── Métricas clave ───
   const criticalFeeds = data.stockProjection.filter((s) => s.daysRemaining !== null && s.daysRemaining <= 7);
-  if (criticalFeeds.length > 0) {
-    alerts.push({
-      id: "feed-critical",
-      icon: "wheat",
-      message: `${criticalFeeds.length} alimento${criticalFeeds.length > 1 ? "s" : ""} con stock crítico (${criticalFeeds.map((f) => f.feedName).join(", ")})`,
-      href: "/dashboard/produccion?tab=alimentacion",
-      severity: "critical",
-    });
-  }
-
-  // Sanitary alerts
-  if (data.sanitaryAlerts > 0) {
-    alerts.push({
-      id: "sanitary",
-      icon: "pill",
-      message: `${data.sanitaryAlerts} vacuna${data.sanitaryAlerts > 1 ? "s" : ""} o tratamiento${data.sanitaryAlerts > 1 ? "s" : ""} pendiente${data.sanitaryAlerts > 1 ? "s" : ""}`,
-      href: "/dashboard/sanidad/calendario",
-      severity: "critical",
-    });
-  }
-
-  // Eggs expiring soon
-  if (data.eggs.inventory && data.eggs.inventory.available > 50) {
-    alerts.push({
-      id: "eggs-expiring",
-      icon: "egg",
-      message: `${data.eggs.inventory.available} huevos en inventario — priorizar venta`,
-      href: "/dashboard/produccion?tab=inventario",
-      severity: "warning",
-    });
-  }
-
-  // Hens recommended for slaughter
-  if (data.hens.recommendedForSlaughter > 0) {
-    alerts.push({
-      id: "slaughter-rec",
-      icon: "warning",
-      message: `${data.hens.recommendedForSlaughter} gallina${data.hens.recommendedForSlaughter > 1 ? "s" : ""} recomendada${data.hens.recommendedForSlaughter > 1 ? "s" : ""} para sacrificio`,
-      href: "/dashboard/produccion?tab=gallinas",
-      severity: "warning",
-    });
-  }
-
-  // Broiler batches ready
-  if (data.readyBatches > 0) {
-    alerts.push({
-      id: "batches-ready",
-      icon: "meat",
-      message: `${data.readyBatches} lote${data.readyBatches > 1 ? "s" : ""} listo${data.readyBatches > 1 ? "s" : ""} para sacrificio`,
-      href: "/dashboard/produccion?tab=carne",
-      severity: "warning",
-    });
-  }
-
-  // Pending maintenance
-  if (data.pendingMaintenance > 0) {
-    alerts.push({
-      id: "maintenance",
-      icon: "wrench",
-      message: `${data.pendingMaintenance} mantenimiento${data.pendingMaintenance > 1 ? "s" : ""} pendiente${data.pendingMaintenance > 1 ? "s" : ""}`,
-      href: "/dashboard/operaciones/mantenimiento",
-      severity: "warning",
-    });
-  }
-
-  // Supply alerts
-  if (data.supplyAlerts > 0) {
-    alerts.push({
-      id: "supplies",
-      icon: "package-open",
-      message: `${data.supplyAlerts} insumo${data.supplyAlerts > 1 ? "s" : ""} con stock bajo`,
-      href: "/dashboard/inventarios/insumos",
-      severity: "warning",
-    });
-  }
-
-  // Min feed days remaining for mini-stat
   const minFeedDays = data.stockProjection
     .filter((s) => s.daysRemaining !== null)
     .reduce((min, s) => Math.min(min, s.daysRemaining!), Infinity);
+  const profitVal = Number(data.finance.profit);
 
-  // Desglose de la parvada con la misma definición de inventario del resto de la app.
-  const speciesBreakdown = (data.species ?? [])
-    .filter((s) => s.count > 0)
-    .map((s) => `${s.count} ${s.label.toLowerCase()}`)
-    .join(" · ");
-  const flockHint = [
-    speciesBreakdown,
-    data.hens.laying != null ? `${data.hens.laying} en postura` : "",
-  ].filter(Boolean).join(" · ");
+  // ─── Lista única y deduplicada de atención prioritaria ───
+  const attentionItems: AttentionItem[] = [];
 
-  const hasSearch = search.trim().length > 0;
-  const visibleAlerts = hasSearch
-    ? alerts.filter((a) => matchesTextQuery(search, [a.message, a.severity === "critical" ? "critica urgente" : "advertencia"]))
-    : alerts;
-  const visibleSetupSteps = hasSearch
-    ? setupSteps.filter((s) => matchesTextQuery(search, [s.title, s.description, s.done ? "completado" : "por completar"]))
-    : setupSteps;
-  const visibleMaintenanceDue = tareas
-    ? hasSearch
-      ? tareas.maintenanceDue.filter((t) => matchesTextQuery(search, [t.title, t.assetName, t.locationName, t.scheduledDate, t.isOverdue ? "vencido" : "proximo"]))
-      : tareas.maintenanceDue
+  if (criticalFeeds.length > 0) {
+    attentionItems.push({
+      id: "feed-critical",
+      message: `Alimento bajo (${criticalFeeds.map((f) => f.feedName).join(", ")})`,
+      href: "/dashboard/produccion?tab=alimentacion",
+      urgent: true,
+    });
+  }
+
+  if (tareas?.pendingSanitary) {
+    attentionItems.push({
+      id: `sanitary-${tareas.pendingSanitary.id}`,
+      message: `${tareas.pendingSanitary.isOverdue ? "Vencido" : "Pendiente"}: ${tareas.pendingSanitary.name}`,
+      href: `/dashboard/sanidad/control?pendiente=${tareas.pendingSanitary.id}`,
+      urgent: tareas.pendingSanitary.isOverdue,
+    });
+  } else if (data.sanitaryAlerts > 0) {
+    attentionItems.push({
+      id: "sanitary",
+      message: `${data.sanitaryAlerts} vacuna${data.sanitaryAlerts > 1 ? "s" : ""} o tratamiento${data.sanitaryAlerts > 1 ? "s" : ""} pendiente${data.sanitaryAlerts > 1 ? "s" : ""}`,
+      href: "/dashboard/sanidad/calendario",
+      urgent: true,
+    });
+  }
+
+  if (tareas && tareas.maintenanceDue.length > 0) {
+    for (const task of tareas.maintenanceDue.slice(0, 2)) {
+      attentionItems.push({
+        id: `maint-${task.id}`,
+        message: `${task.isOverdue ? "Vencido" : "Mantenimiento"}: ${task.title}`,
+        href: "/dashboard/operaciones/mantenimiento",
+        urgent: task.isOverdue,
+      });
+    }
+  } else if (data.pendingMaintenance > 0) {
+    attentionItems.push({
+      id: "maintenance",
+      message: `${data.pendingMaintenance} mantenimiento${data.pendingMaintenance > 1 ? "s" : ""} pendiente${data.pendingMaintenance > 1 ? "s" : ""}`,
+      href: "/dashboard/operaciones/mantenimiento",
+      urgent: false,
+    });
+  }
+
+  if (data.eggs.inventory && data.eggs.inventory.available > 50) {
+    attentionItems.push({
+      id: "eggs-expiring",
+      message: `${data.eggs.inventory.available} huevos en bodega listos para venta`,
+      href: onboardingFlags?.clasificacion_ntc1240_calibres
+        ? "/dashboard/inventarios/huevos"
+        : "/dashboard/produccion?tab=huevos",
+      urgent: false,
+    });
+  }
+
+  if (data.readyBatches > 0) {
+    attentionItems.push({
+      id: "batches-ready",
+      message: `${data.readyBatches} lote${data.readyBatches > 1 ? "s" : ""} listo${data.readyBatches > 1 ? "s" : ""} para salida`,
+      href: "/dashboard/produccion?tab=carne",
+      urgent: false,
+    });
+  }
+
+  if (data.hens.recommendedForSlaughter > 0) {
+    attentionItems.push({
+      id: "slaughter-rec",
+      message: `${data.hens.recommendedForSlaughter} gallina${data.hens.recommendedForSlaughter > 1 ? "s" : ""} para descarte`,
+      href: "/dashboard/produccion?tab=gallinas",
+      urgent: false,
+    });
+  }
+
+  if (data.supplyAlerts > 0) {
+    attentionItems.push({
+      id: "supplies",
+      message: `${data.supplyAlerts} insumo${data.supplyAlerts > 1 ? "s" : ""} con stock bajo`,
+      href: "/dashboard/inventarios/insumos",
+      urgent: false,
+    });
+  }
+
+  if (tareas && tareas.assetsNeedAttention > 0) {
+    attentionItems.push({
+      id: "assets",
+      message: `${tareas.assetsNeedAttention} equipo${tareas.assetsNeedAttention === 1 ? "" : "s"} requiere revisión`,
+      href: "/dashboard/operaciones/activos",
+      urgent: false,
+    });
+  }
+
+  const visibleAttention = showAllAttention ? attentionItems : attentionItems.slice(0, 4);
+
+  // ─── Onboarding contextual (solo cuando aplica) ───
+  const showWizardCta = Boolean(
+    onboardingState &&
+      !onboardingState.config.onboardingCompleted &&
+      !onboardingState.config.wizardDismissed &&
+      !onboardingState.metrics.hasExistingOperation,
+  );
+  const recentAutoTriggers = onboardingState
+    ? onboardingState.history
+        .filter(
+          (h) =>
+            h.origin === "AUTO_TRIGGER_CRECIMIENTO" &&
+            h.estadoNuevo &&
+            loadedAtMs - new Date(h.activatedAt).getTime() < 72 * 3600 * 1000,
+        )
+        .slice(0, 2)
     : [];
-  const showPendingEgg = Boolean(
-    tareas &&
-    tareas.eggApplicable &&
-    !tareas.eggCollectedToday &&
-    (!hasSearch || matchesTextQuery(search, ["huevos hoy recoger recoleccion pendiente"])),
+  const isMediano = onboardingState?.config.scale === "MEDIANO";
+  const selectedSpecies = onboardingState?.config.selectedSpecies ?? [];
+  const hasMammals = Boolean(
+    data.species?.some((sp) => (sp.species === "conejo" || sp.species === "cuy") && sp.count > 0) ||
+      selectedSpecies.some((sp) => sp === "conejo" || sp === "cuy"),
   );
-  const showPendingFeed = Boolean(
-    tareas &&
-    tareas.feedApplicable &&
-    !tareas.feedMovedToday &&
-    (!hasSearch || matchesTextQuery(search, ["alimentacion alimento comida consumo registro pendiente"])),
+  const hasWeightSpecies = Boolean(
+    isMediano ||
+      hasMammals ||
+      selectedSpecies.some((sp) => sp === "pollo") ||
+      data.species?.some((sp) => sp.species === "pollo" && sp.count > 0),
   );
-  const showPendingSanitary = Boolean(
-    tareas?.pendingSanitary &&
-    (!hasSearch ||
-      matchesTextQuery(search, [
-        tareas.pendingSanitary.name,
-        tareas.pendingSanitary.type,
-        tareas.pendingSanitary.isOverdue ? "vencido sanidad vacuna" : "pendiente sanidad vacuna",
-      ])),
+  const unlockedCount = onboardingState
+    ? PROGRESSIVE_UNLOCKABLE_KEYS.filter((k) => onboardingState.flags[k]).length
+    : 0;
+  const visibleSetupTrackerSteps = setupSteps.filter(
+    (step) => step.coreDay1 || isMediano || Boolean(onboardingFlags?.reportes_dian_roi_credito),
   );
-  const showAssetsAttention = Boolean(
-    tareas &&
-    tareas.assetsNeedAttention > 0 &&
-    (!hasSearch || matchesTextQuery(search, ["equipos activos mantenimiento atencion"])),
-  );
-  const hasVisiblePending =
-    showPendingEgg || showPendingFeed || showPendingSanitary || visibleMaintenanceDue.length > 0 || showAssetsAttention;
+  const completedVisibleSetupSteps = visibleSetupTrackerSteps.filter((step) => step.done).length;
 
-  const taskCards = [
+  // ─── Accesos directos limpios y filtrados por escala y especies activas ───
+  const quickShortcuts: Array<{
+    id: string;
+    label: string;
+    subtitle: string;
+    href: string;
+    icon: "sale" | "egg" | "wheat" | "sanitary" | "weight" | "repro" | "cierre" | "calendar";
+    onClick?: () => void;
+    visible: boolean;
+  }> = [
+    {
+      id: "sale",
+      label: "Registrar venta",
+      subtitle: "Huevos, carne o animales",
+      href: "#",
+      icon: "sale",
+      onClick: () => openQuickCapture({ mode: "venta" }),
+      visible: true,
+    },
     {
       id: "eggs",
-      visible: (!tareas || tareas.eggApplicable) && (!hasSearch || matchesTextQuery(search, ["recoger huevos postura recoleccion", data.eggs.avgDaily])),
+      label: "Recoger huevos",
+      subtitle: "Postura de hoy",
+      href: "/dashboard/produccion?tab=huevos&nuevo=1",
+      icon: "egg",
+      visible: !tareas || tareas.eggApplicable,
     },
     {
       id: "feed",
-      visible: (!tareas || tareas.feedApplicable) && (!hasSearch || matchesTextQuery(search, ["registrar alimentacion alimento concentrado stock", minFeedDays])),
-    },
-    {
-      id: "sale",
-      visible: !hasSearch || matchesTextQuery(search, ["registrar venta ingresos dinero facturar", data.sales.totalRevenue]),
+      label: "Alimentación",
+      subtitle: "Consumo y bodega",
+      href: "/dashboard/produccion?tab=alimentacion&subtab=movimientos&nuevo=movimiento",
+      icon: "wheat",
+      visible: !tareas || tareas.feedApplicable,
     },
     {
       id: "sanitary",
-      visible: !hasSearch || matchesTextQuery(search, ["plan sanitario vacunas salud sanidad", data.sanitaryAlerts]),
+      label: "Sanidad",
+      subtitle: "Vacunas y controles",
+      href: "/dashboard/sanidad",
+      icon: "sanitary",
+      visible: true,
+    },
+    {
+      id: "weight",
+      label: "Control de peso",
+      subtitle: "Seguimiento por lote",
+      href: "/dashboard/produccion/peso",
+      icon: "weight",
+      visible: hasWeightSpecies,
+    },
+    {
+      id: "repro",
+      label: "Reproducción",
+      subtitle: "Crías y nidos",
+      href: "/dashboard/produccion?tab=reproduccion",
+      icon: "repro",
+      visible: isMediano || hasMammals,
+    },
+    {
+      id: "cierre",
+      label: "Cierre del día",
+      subtitle: "Resumen de jornada",
+      href: "/dashboard/operaciones/cierre",
+      icon: "cierre",
+      visible: Boolean(onboardingFlags?.genealogia_3gen_qr_iot),
+    },
+    {
+      id: "calendar",
+      label: "Calendario",
+      subtitle: "Agenda semanal",
+      href: "/dashboard/planeacion/calendario",
+      icon: "calendar",
+      visible: true,
     },
   ];
-  const visibleTaskIds = new Set(taskCards.filter((c) => c.visible).map((c) => c.id));
+  const visibleShortcuts = quickShortcuts.filter((s) => s.visible);
 
-  const quickStatItems = [
-    { id: "animals", visible: !hasSearch || matchesTextQuery(search, ["animales inventario parvada gallinas gallos", flockHint, data.totalAnimals ?? data.hens.active]) },
-    { id: "eggs", visible: !hasSearch || matchesTextQuery(search, ["huevos hoy promedio postura", data.eggs.avgDaily]) },
-    { id: "feed", visible: !hasSearch || matchesTextQuery(search, ["alimento dias stock concentrado", minFeedDays]) },
-    { id: "finance", visible: !hasSearch || matchesTextQuery(search, ["balance mes finanzas dinero utilidad", data.finance.profit]) },
-    { id: "alerts", visible: !hasSearch || matchesTextQuery(search, ["alertas avisos notificaciones", alerts.length]) },
-  ];
-  const visibleStatIds = new Set(quickStatItems.filter((s) => s.visible).map((s) => s.id));
-  const visibleStages = hasSearch
-    ? data.stages.filter((s) => matchesTextQuery(search, [s.name, s.count, s.expectedEggsPerDay]))
-    : data.stages;
-  const visibleStockProjection = hasSearch
-    ? data.stockProjection.filter((s) => matchesTextQuery(search, [s.feedName, s.currentStockKg, s.daysRemaining]))
-    : data.stockProjection;
-  const noHomeMatches =
-    hasSearch &&
-    visibleAlerts.length === 0 &&
-    visibleSetupSteps.length === 0 &&
-    !hasVisiblePending &&
-    visibleTaskIds.size === 0 &&
-    visibleStatIds.size === 0 &&
-    visibleStages.length === 0 &&
-    visibleStockProjection.length === 0;
+  const animalCount = data.totalAnimals ?? data.hens.active;
+  const animalHint =
+    data.hens.laying != null && data.hens.laying > 0
+      ? `${data.hens.laying} en postura`
+      : data.species && data.species.filter((s) => s.count > 0).length > 1
+        ? `${data.species.filter((s) => s.count > 0).length} especies`
+        : "Inventario vivo";
 
   return (
     <div>
-      {/* Header */}
+      {/* Encabezado limpio */}
       <HeroBanner
         theme="inicio"
+        compact
         icon={<Home className="w-3.5 h-3.5 text-amber-200" aria-hidden="true" />}
-        title="Buenos días, Gallinero"
-        description="Esto es lo que necesita tu atención hoy"
-        helpTitle="Panel Principal"
-        help="Este es tu centro de control diario. Aquí verás alertas críticas (stock bajo, tareas pendientes, sanitarias), tareas del día, un resumen rápido de producción/huevos/mortalidad y el estado del alimento. Usa Crear para encontrar los registros y formularios de los distintos módulos; las tareas del día y el menú lateral siguen disponibles para tus accesos frecuentes."
+        title={onboardingState?.farmProfile?.name || "Panel principal"}
+        description={
+          isMediano
+            ? "Modo Mediano / Tecnificado · Control completo con analítica por especie, calibres NTC 1240, presupuestos y auditoría"
+            : "Modo Pequeño Productor · Vista esencial con tareas diarias, recolección, alimentación, sanidad y ventas"
+        }
+        badge={
+          onboardingState ? (
+            <span
+              className={`inline-flex items-center gap-1 rounded-full border px-2.5 py-0.5 text-[11px] font-semibold ${
+                isMediano
+                  ? "border-sky-300/50 bg-sky-500/25 text-sky-100"
+                  : "border-amber-300/50 bg-amber-400/20 text-amber-100"
+              }`}
+            >
+              <Layers className="w-3 h-3" aria-hidden="true" />
+              <span>{isMediano ? `Mediano · ${unlockedCount}/5` : `Pequeño · ${unlockedCount}/5`}</span>
+            </span>
+          ) : undefined
+        }
+        actions={
+          <button
+            type="button"
+            onClick={() => setWizardOpen(true)}
+            className={`inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-lg border transition-colors cursor-pointer ${
+              showWizardCta
+                ? "bg-amber-400 border-amber-300 text-slate-950 hover:bg-amber-300 shadow-sm"
+                : "bg-white/15 backdrop-blur-sm border-white/25 text-white hover:bg-white/25"
+            }`}
+          >
+            <Wand2 className="w-3.5 h-3.5" aria-hidden="true" />
+            <span>Asistente inicial</span>
+          </button>
+        }
+        helpTitle="Cómo funciona este inicio"
+        help={`• Arriba ves las 4 cifras clave del día y el botón Asistente inicial.\n• En «Tareas de hoy» ejecutas o confirmas las labores pendientes según tu rutina.\n• En «Accesos directos» entras directo a registrar o consultar cada área.`}
       />
 
-      <TableSearch
-        value={search}
-        onChange={setSearch}
-        placeholder="Buscar alertas, pendientes, tareas o indicadores en inicio..."
-        className="mb-6"
-      />
-
-      {noHomeMatches ? (
-        <Card className="mb-6">
-          <EmptyState icon="home" message="No hay elementos en inicio que coincidan con la búsqueda" />
-        </Card>
-      ) : null}
-
-      {/* ─── 1. Alert Banner ─── */}
-      {visibleAlerts.length > 0 ? (
-        <div className="mb-6 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
-          {visibleAlerts.filter((a) => a.severity === "critical").map((alert) => (
-            <a
-              key={alert.id}
-              href={alert.href}
-              className="flex items-center gap-3 p-4 bg-red-50 border border-red-200 rounded-xl hover:bg-red-100 transition-colors"
-            >
-              <AppIcon icon={alert.icon} className="w-5 h-5 text-red-600 shrink-0" />
-              <span className="flex-1 text-sm font-medium text-red-700">{alert.message}</span>
-              <span className="text-xs text-red-500 font-medium whitespace-nowrap">Atender →</span>
-            </a>
-          ))}
-          {visibleAlerts.filter((a) => a.severity === "warning").map((alert) => (
-            <a
-              key={alert.id}
-              href={alert.href}
-              className="flex items-center gap-3 p-4 bg-yellow-50 border border-yellow-200 rounded-xl hover:bg-yellow-100 transition-colors"
-            >
-              <AppIcon icon={alert.icon} className="w-5 h-5 text-yellow-700 shrink-0" />
-              <span className="flex-1 text-sm font-medium text-yellow-700">{alert.message}</span>
-              <span className="text-xs text-yellow-600 font-medium whitespace-nowrap">Ver →</span>
-            </a>
-          ))}
-        </div>
-      ) : !hasSearch && tareas && !dailyChecklistPending ? (
-        <div className="mb-6 p-6 bg-green-50 border border-green-200 rounded-xl text-center">
-          <CheckCircle2 className="w-9 h-9 text-green-600 mx-auto mb-2" aria-hidden="true" />
-          <p className="text-green-700 font-medium">Sin alertas operativas para atender hoy</p>
-          <p className="text-green-600 text-sm mt-1">Las tareas de postura y alimentación solo aparecen cuando aplican a tus animales y programas.</p>
-        </div>
-      ) : null}
-
-      {completedSetupSteps < setupSteps.length && visibleSetupSteps.length > 0 && (
-        <section className="mb-6 rounded-xl border border-blue-200 bg-blue-50 p-5" aria-labelledby="setup-title">
-          <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
-            <div>
-              <h2 id="setup-title" className="font-semibold text-blue-950">Prepara tu granja</h2>
-              <p className="mt-1 text-sm text-blue-800">Sigue estos pasos para dejar listos los registros básicos.</p>
+      {/* Tarjeta destacada de arranque Día 1 */}
+      {showWizardCta ? (
+        <section
+          aria-label="Asistente inicial de configuración"
+          className="mb-5 rounded-2xl border border-emerald-200 border-l-4 border-l-emerald-700 bg-gradient-to-r from-emerald-50/90 via-white to-amber-50/70 p-4 sm:p-5 shadow-sm"
+        >
+          <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
+            <div className="space-y-2 max-w-2xl">
+              <div className="flex flex-wrap items-center gap-2">
+                <span className="inline-flex items-center gap-1 rounded-full bg-emerald-700 px-2.5 py-0.5 text-[11px] font-bold uppercase tracking-wide text-white">
+                  <Wand2 className="w-3 h-3" aria-hidden="true" />
+                  Onboarding Día 1
+                </span>
+                <span className="text-xs font-medium text-emerald-900">
+                  Sin historial previo · Menos de 5 minutos
+                </span>
+              </div>
+              <h2 className="text-base sm:text-lg font-bold text-slate-900">
+                Asistente inicial: prepara tu granja en 3 pasos
+              </h2>
+              <p className="text-xs sm:text-sm text-slate-600">
+                Carga los datos de la finca, lugares y animales vivos hoy, y el alimento disponible (manual o desde plantilla CSV).
+              </p>
+              <div className="flex flex-wrap gap-2 pt-0.5 text-[11px] font-medium text-slate-700">
+                <span className="rounded-md border border-emerald-200 bg-white px-2.5 py-1">1. Escala y finca</span>
+                <span className="rounded-md border border-emerald-200 bg-white px-2.5 py-1">2. Lugares y especies</span>
+                <span className="rounded-md border border-emerald-200 bg-white px-2.5 py-1">3. Stock inicial o CSV</span>
+              </div>
             </div>
-            <span className="text-xs font-medium text-blue-700">{completedSetupSteps} de {setupSteps.length} pasos completados</span>
+            <div className="flex flex-wrap items-center gap-2 shrink-0">
+              <button
+                type="button"
+                onClick={() => setWizardOpen(true)}
+                className="inline-flex items-center gap-2 rounded-xl bg-emerald-700 px-4 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-emerald-800 cursor-pointer"
+              >
+                <Wand2 className="w-4 h-4" aria-hidden="true" />
+                <span>Abrir asistente inicial</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => void patchOnboarding({ wizardDismissed: true })}
+                className="rounded-xl border border-slate-200 bg-white px-3.5 py-2.5 text-xs font-medium text-slate-600 hover:bg-slate-50 cursor-pointer"
+              >
+                Omitir por ahora
+              </button>
+            </div>
           </div>
-          <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-4">
-            {visibleSetupSteps.map((step) => (
-              step.done ? (
-                <div key={step.title} className="rounded-lg border border-green-200 bg-green-50 p-3" aria-label={`${step.title}: completado`}>
-                  <div className="flex items-center justify-between gap-2">
-                    <AppIcon icon={step.icon} className="w-5 h-5 text-green-700" />
-                    <span className="inline-flex items-center gap-1 text-xs font-semibold uppercase tracking-wide text-green-700">
-                      <Check className="w-3.5 h-3.5" aria-hidden="true" /> Completado
-                    </span>
-                  </div>
-                  <span className="mt-2 block text-sm font-semibold text-slate-800">{step.title}</span>
-                  <span className="mt-1 block text-xs text-slate-600">{step.description}</span>
+        </section>
+      ) : recentAutoTriggers.length > 0 ? (
+        <div className="mb-5 rounded-xl border border-slate-200 border-l-4 border-l-emerald-600 bg-white px-4 py-2.5 flex flex-wrap items-center justify-between gap-2 text-xs text-slate-700">
+          <span>
+            <strong className="text-slate-900">Nuevas funciones habilitadas:</strong>{" "}
+            {recentAutoTriggers.map((t) => FEATURE_FLAG_BY_KEY[t.featureKey]?.name || t.featureKey).join(" · ")}
+          </span>
+          <Link href="/dashboard/configuracion/modulos" className="font-semibold text-emerald-800 hover:underline shrink-0">
+            Ver módulos →
+          </Link>
+        </div>
+      ) : null}
+
+      {/* Cifras clave siempre visibles en grupo enmarcado */}
+      <section
+        className="mb-6 rounded-2xl border border-slate-200/90 bg-slate-50/85 p-4 sm:p-5 shadow-xs"
+        aria-labelledby="overview-heading"
+      >
+        <h2 id="overview-heading" className="text-base font-bold text-slate-900 mb-3">
+          Resumen del día
+        </h2>
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-2.5 sm:gap-3">
+          <SummaryTile label="Animales activos" value={animalCount} detail={animalHint} />
+          <SummaryTile label="Huevos por día" value={data.eggs.avgDaily} detail="Promedio diario" />
+          <SummaryTile
+            label="Días de alimento"
+            value={minFeedDays === Infinity ? "Sin dato" : `${minFeedDays} d`}
+            detail={criticalFeeds.length > 0 ? "Stock crítico — reponer" : "En bodega"}
+            tone={criticalFeeds.length > 0 ? "danger" : "neutral"}
+          />
+          <SummaryTile
+            label="Balance del mes"
+            value={`$${Math.round(profitVal).toLocaleString("es-CO")}`}
+            detail="Últimos 30 días"
+            tone={profitVal < 0 ? "danger" : "positive"}
+          />
+        </div>
+      </section>
+
+      {/* Avisos prioritarios consolidados (solo visible cuando hay novedades) */}
+      {attentionItems.length > 0 && (
+        <section className="mb-6 rounded-2xl border border-amber-200/80 bg-amber-50/50 overflow-hidden shadow-xs" aria-label="Requiere atención">
+          <div className="flex items-center justify-between gap-2 border-b border-amber-200/70 bg-amber-100/50 px-4 py-2.5">
+            <h2 className="text-xs font-bold uppercase tracking-wide text-slate-700">
+              Requiere atención ({attentionItems.length})
+            </h2>
+            {attentionItems.length > 4 && (
+              <button
+                type="button"
+                onClick={() => setShowAllAttention((v) => !v)}
+                className="text-xs font-semibold text-slate-600 hover:text-slate-900"
+              >
+                {showAllAttention ? "Ver menos" : `Ver todos (${attentionItems.length})`}
+              </button>
+            )}
+          </div>
+          <div className="grid grid-cols-1 sm:grid-cols-2 divide-y sm:divide-y-0 sm:gap-px bg-slate-100">
+            {visibleAttention.map((item) => (
+              <Link
+                key={item.id}
+                href={item.href}
+                className="flex items-center justify-between gap-3 bg-white px-4 py-2.5 hover:bg-slate-50 transition-colors min-w-0"
+              >
+                <div className="flex items-center gap-2.5 min-w-0">
+                  <span
+                    className={`h-2 w-2 rounded-full shrink-0 ${item.urgent ? "bg-rose-600" : "bg-amber-500"}`}
+                    aria-hidden="true"
+                  />
+                  <span className="text-xs sm:text-sm font-medium text-slate-800 truncate">{item.message}</span>
                 </div>
-              ) : (
-                <a key={step.title} href={step.href} className="rounded-lg border border-blue-200 bg-white p-3 transition hover:border-blue-400 hover:bg-blue-50">
-                  <div className="flex items-center justify-between gap-2">
-                    <AppIcon icon={step.icon} className="w-5 h-5 text-blue-700" />
-                    <span className="text-xs font-semibold uppercase tracking-wide text-blue-600">Por completar</span>
-                  </div>
-                  <span className="mt-2 block text-sm font-semibold text-slate-800">{step.title}</span>
-                  <span className="mt-1 block text-xs text-slate-500">{step.description}</span>
-                </a>
-              )
+                <span className="text-xs font-semibold text-emerald-800 shrink-0">Revisar →</span>
+              </Link>
             ))}
           </div>
         </section>
       )}
 
-      {/* ─── 2. Daily Check-ins ─── */}
-      {tareas && hasVisiblePending && (
-        <div className="mb-6">
-          <h2 className="text-sm font-semibold text-slate-500 uppercase tracking-wide mb-3">Pendientes y próximos 7 días</h2>
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-            {showPendingEgg && (
-              <div className="flex items-center gap-3 p-4 bg-yellow-50 border border-yellow-200 rounded-xl">
-                <Egg className="w-6 h-6 text-yellow-600 shrink-0" aria-hidden="true" />
-                <span className="flex-1 text-sm font-medium text-yellow-700">¿Ya recogiste huevos hoy?</span>
-                <a href="/dashboard/produccion?tab=huevos&nuevo=1" className="px-3 py-1.5 bg-yellow-600 text-white text-xs font-medium rounded-lg hover:bg-yellow-700">
-                  Recoger ahora
-                </a>
-              </div>
-            )}
-            {showPendingFeed && (
-              <div className="flex items-center gap-3 p-4 bg-amber-50 border border-amber-200 rounded-xl">
-                <Wheat className="w-6 h-6 text-amber-600 shrink-0" aria-hidden="true" />
-                <span className="flex-1 text-sm font-medium text-amber-700">No hay registro de alimentación hoy</span>
-                <a href="/dashboard/produccion?tab=alimentacion&subtab=movimientos&nuevo=movimiento" className="px-3 py-1.5 bg-amber-600 text-white text-xs font-medium rounded-lg hover:bg-amber-700">
-                  Ver alimentación
-                </a>
-              </div>
-            )}
-            {showPendingSanitary && tareas.pendingSanitary && (
-              <div className={`flex items-center gap-3 p-4 border rounded-xl ${tareas.pendingSanitary.isOverdue ? "bg-red-50 border-red-200" : "bg-blue-50 border-blue-200"}`}>
-                <Pill className={`w-6 h-6 shrink-0 ${tareas.pendingSanitary.isOverdue ? "text-red-600" : "text-blue-600"}`} aria-hidden="true" />
-                <span className={`flex-1 text-sm font-medium ${tareas.pendingSanitary.isOverdue ? "text-red-700" : "text-blue-700"}`}>
-                  {tareas.pendingSanitary.isOverdue ? "Vencido: " : "Pendiente: "}{tareas.pendingSanitary.name}
-                </span>
-                <a href={`/dashboard/sanidad/control?pendiente=${tareas.pendingSanitary.id}`} className={`px-3 py-1.5 text-white text-xs font-medium rounded-lg ${tareas.pendingSanitary.isOverdue ? "bg-red-600 hover:bg-red-700" : "bg-blue-600 hover:bg-blue-700"}`}>
-                  Aplicar
-                </a>
-              </div>
-            )}
-            {visibleMaintenanceDue.map((task) => (
-              <div key={task.id} className={`flex items-center gap-3 rounded-xl border p-4 ${task.isOverdue ? "border-red-200 bg-red-50" : "border-orange-200 bg-orange-50"}`}>
-                <Wrench className={`w-6 h-6 shrink-0 ${task.isOverdue ? "text-red-600" : "text-orange-600"}`} aria-hidden="true" />
-                <span className={`flex-1 text-sm font-medium ${task.isOverdue ? "text-red-700" : "text-orange-800"}`}>
-                  {task.isOverdue ? "Vencido: " : "Próximo: "}{task.title}
-                  <span className="mt-1 block text-xs font-normal">{task.assetName ? `${task.assetName} · ` : ""}{task.locationName || "Finca"} · {new Date(`${task.scheduledDate}T12:00:00`).toLocaleDateString("es-CO")}</span>
-                </span>
-                <a href="/dashboard/operaciones/mantenimiento" className={`rounded-lg px-3 py-1.5 text-xs font-medium text-white ${task.isOverdue ? "bg-red-600 hover:bg-red-700" : "bg-orange-600 hover:bg-orange-700"}`}>Revisar</a>
-              </div>
-            ))}
-            {showAssetsAttention && (
-              <div className="flex items-center gap-3 rounded-xl border border-orange-200 bg-orange-50 p-4">
-                <PackageOpen className="w-6 h-6 text-orange-600 shrink-0" aria-hidden="true" />
-                <span className="flex-1 text-sm font-medium text-orange-800">{tareas.assetsNeedAttention} equipo{tareas.assetsNeedAttention === 1 ? "" : "s"} requiere{tareas.assetsNeedAttention === 1 ? "" : "n"} atención</span>
-                <a href="/dashboard/operaciones/activos" className="rounded-lg bg-orange-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-orange-700">Ver equipos</a>
-              </div>
-            )}
-          </div>
-          {tareas.maintenanceDueCount > tareas.maintenanceDue.length && (
-            <a href="/dashboard/operaciones/mantenimiento" className="mt-3 inline-block text-sm font-medium text-green-700 hover:underline">
-              Ver las {tareas.maintenanceDueCount - tareas.maintenanceDue.length} tareas restantes →
-            </a>
-          )}
+      {/* Paso 1: Tareas de hoy (Rutina auto-ajustable con verificación real) */}
+      <RoutineDayButtons onOpenQuickSale={() => openQuickCapture({ mode: "venta" })} />
+
+      {/* Accesos directos enmarcados */}
+      <section className="mb-6 rounded-2xl border border-slate-200/90 bg-slate-50/85 p-4 sm:p-5 shadow-xs" aria-labelledby="shortcuts-heading">
+        <h2 id="shortcuts-heading" className="text-base font-bold text-slate-900 mb-3">
+          Accesos directos
+        </h2>
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-2.5 sm:gap-3">
+          {visibleShortcuts.map((item) => {
+            const IconEl =
+              item.icon === "sale"
+                ? CircleDollarSign
+                : item.icon === "egg"
+                  ? Egg
+                  : item.icon === "wheat"
+                    ? Wheat
+                    : item.icon === "sanitary"
+                      ? Stethoscope
+                      : item.icon === "weight"
+                        ? Scale
+                        : item.icon === "repro"
+                          ? HeartHandshake
+                          : item.icon === "cierre"
+                            ? ClipboardCheck
+                            : CalendarDays;
+
+            const content = (
+              <>
+                <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-slate-100 text-slate-700 group-hover:bg-emerald-50 group-hover:text-emerald-800 transition-colors">
+                  <IconEl className="h-4 w-4" aria-hidden="true" />
+                </div>
+                <div className="min-w-0">
+                  <p className="text-xs sm:text-sm font-semibold text-slate-900 truncate">{item.label}</p>
+                  <p className="text-[11px] text-slate-500 truncate">{item.subtitle}</p>
+                </div>
+              </>
+            );
+
+            if (item.onClick) {
+              return (
+                <button
+                  key={item.id}
+                  type="button"
+                  onClick={item.onClick}
+                  className="group flex items-center gap-3 rounded-xl border border-slate-200 bg-white p-3 text-left hover:border-emerald-600/60 transition-colors min-w-0"
+                >
+                  {content}
+                </button>
+              );
+            }
+
+            return (
+              <Link
+                key={item.id}
+                href={item.href}
+                className="group flex items-center gap-3 rounded-xl border border-slate-200 bg-white p-3 hover:border-emerald-600/60 transition-colors min-w-0"
+              >
+                {content}
+              </Link>
+            );
+          })}
         </div>
-      )}
+      </section>
 
-      {/* ─── 3. Task Buttons ─── */}
-      {visibleTaskIds.size > 0 && (
-        <div className="mb-6">
-          <h2 className="text-sm font-semibold text-slate-500 uppercase tracking-wide mb-3">Tareas del día</h2>
-          <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-            {visibleTaskIds.has("eggs") && <a
-              href="/dashboard/produccion?tab=huevos&nuevo=1"
-              className="flex flex-col items-center gap-3 p-6 bg-yellow-50 border-2 border-yellow-200 rounded-2xl hover:bg-yellow-100 hover:border-yellow-300 transition-all"
-            >
-              <div className="w-12 h-12 rounded-2xl bg-yellow-100 flex items-center justify-center text-yellow-700">
-                <Egg className="w-6 h-6" aria-hidden="true" />
-              </div>
-              <span className="text-sm font-semibold text-yellow-800 text-center">Recoger Huevos</span>
-              <span className="text-xs text-yellow-600">{data.eggs.avgDaily} prom/día</span>
-            </a>}
-            {visibleTaskIds.has("feed") && <a
-              href="/dashboard/produccion?tab=alimentacion&subtab=movimientos&nuevo=movimiento"
-              className="flex flex-col items-center gap-3 p-6 bg-amber-50 border-2 border-amber-200 rounded-2xl hover:bg-amber-100 hover:border-amber-300 transition-all"
-            >
-              <div className="w-12 h-12 rounded-2xl bg-amber-100 flex items-center justify-center text-amber-700">
-                <Wheat className="w-6 h-6" aria-hidden="true" />
-              </div>
-              <span className="text-sm font-semibold text-amber-800 text-center">Registrar Alimentación</span>
-              <span className="text-xs text-amber-600">
-                {minFeedDays === Infinity ? "Stock OK" : `${minFeedDays} días de stock`}
-              </span>
-            </a>}
-            {visibleTaskIds.has("sale") && <a
-              href="#"
-              onClick={(e) => { e.preventDefault(); setQuickSaleOpen(true); }}
-              className="flex flex-col items-center gap-3 p-6 bg-green-50 border-2 border-green-200 rounded-2xl hover:bg-green-100 hover:border-green-300 transition-all"
-            >
-              <div className="w-12 h-12 rounded-2xl bg-green-100 flex items-center justify-center text-green-700">
-                <CircleDollarSign className="w-6 h-6" aria-hidden="true" />
-              </div>
-              <span className="text-sm font-semibold text-green-800 text-center">Registrar Venta</span>
-              <span className="text-xs text-green-600">${Number(data.sales.totalRevenue).toLocaleString()} este mes</span>
-            </a>}
-            {visibleTaskIds.has("sanitary") && <a
-              href="/dashboard/sanidad"
-              className="flex flex-col items-center gap-3 p-6 bg-blue-50 border-2 border-blue-200 rounded-2xl hover:bg-blue-100 hover:border-blue-300 transition-all"
-            >
-              <div className="w-12 h-12 rounded-2xl bg-blue-100 flex items-center justify-center text-blue-700">
-                <Stethoscope className="w-6 h-6" aria-hidden="true" />
-              </div>
-              <span className="text-sm font-semibold text-blue-800 text-center">Plan Sanitario</span>
-              <span className="text-xs text-blue-600">
-                {data.sanitaryAlerts > 0 ? `${data.sanitaryAlerts} pendiente${data.sanitaryAlerts > 1 ? "s" : ""}` : "Al día"}
-              </span>
-            </a>}
-          </div>
+      {/* Gráficas y resumen mensual (mismo formato plegable estándar) */}
+      <section className="mb-4 rounded-2xl border border-emerald-200/80 bg-white overflow-hidden shadow-xs" aria-labelledby="details-toggle">
+        <div className="flex flex-wrap items-center justify-between gap-2 px-4 py-3 bg-emerald-50/40">
+          <button
+            id="details-toggle"
+            type="button"
+            onClick={() => setShowDetails((v) => !v)}
+            aria-expanded={showDetails}
+            className="flex flex-1 min-w-0 items-center gap-2 text-left text-sm font-semibold text-slate-800 hover:text-emerald-900 transition-colors cursor-pointer"
+          >
+            <ChevronRight className={`w-4 h-4 text-emerald-700 shrink-0 transition-transform ${showDetails ? "rotate-90" : ""}`} aria-hidden="true" />
+            <span className="truncate">{isMediano ? "Tablero técnico y gráficas del mes" : "Resumen del mes (opcional)"}</span>
+          </button>
         </div>
-      )}
 
-      {/* ─── 4. Mini Summary ─── */}
-      {visibleStatIds.size > 0 && (
-        <div className="mb-6">
-          <h2 className="text-sm font-semibold text-slate-500 uppercase tracking-wide mb-3">Resumen rápido</h2>
-          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
-            {visibleStatIds.has("animals") && <QuickStat icon="paw-print" label="Animales en inventario" value={data.totalAnimals ?? data.hens.active} hint={flockHint} />}
-            {visibleStatIds.has("eggs") && <QuickStat icon="egg" label="Huevos hoy" value={`${data.eggs.avgDaily} prom`} />}
-            {visibleStatIds.has("feed") && <QuickStat
-              icon="wheat"
-              label="Alimento"
-              value={minFeedDays === Infinity ? "OK" : `${minFeedDays}d`}
-              alert={criticalFeeds.length > 0}
-            />}
-            {visibleStatIds.has("finance") && <QuickStat
-              icon="money"
-              label="Balance mes"
-              value={`$${Number(data.finance.profit).toLocaleString()}`}
-              alert={Number(data.finance.profit) < 0}
-            />}
-            {visibleStatIds.has("alerts") && <QuickStat icon="bell" label="Alertas" value={alerts.length} alert={alerts.length > 0} />}
-          </div>
-        </div>
-      )}
-
-      {/* ─── 5. Collapsible Details ─── */}
-      <div className="mb-6">
-        <button
-          onClick={() => setShowDetails(!showDetails)}
-          className="flex items-center gap-2 text-sm font-medium text-slate-600 hover:text-slate-800 transition-colors"
-        >
-          <ChevronRight className={`w-4 h-4 transition-transform ${showDetails ? "rotate-90" : ""}`} aria-hidden="true" />
-          <span>{showDetails ? "Ocultar detalles" : "Ver más detalles"}</span>
-        </button>
-
-        {(showDetails || (hasSearch && (visibleStages.length > 0 || visibleStockProjection.length > 0))) && (
-          <div className="mt-4 space-y-6">
-            {/* Stage Distribution & Stock Projection */}
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        {showDetails && (
+          <div className="border-t border-slate-100 p-4 space-y-4 bg-slate-50/40">
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
               <Card>
-                <h3 className="font-semibold text-slate-700 mb-4 flex items-center gap-2">
-                  <Bird className="w-4 h-4 text-green-700" aria-hidden="true" />
-                  <span>Distribución por Etapa</span>
+                <h3 className="font-semibold text-slate-800 mb-3 flex items-center gap-2 text-sm">
+                  <Bird className="w-4 h-4 text-slate-600" aria-hidden="true" />
+                  <span>Distribución por etapa</span>
                 </h3>
-                {visibleStages.length > 0 ? (
+                {data.stages.length > 0 ? (
                   <div className="space-y-2">
-                    {visibleStages.map((stage) => (
-                      <div key={stage.name} className="flex items-center justify-between p-2 bg-slate-50 rounded-lg">
+                    {data.stages.map((stage) => (
+                      <div key={stage.name} className="flex items-center justify-between p-2.5 bg-slate-50 rounded-lg">
                         <div className="flex items-center gap-2">
-                          <span className="text-sm font-medium">{stage.name}</span>
-                          <span className="text-xs text-slate-500">{stage.count} aves</span>
+                          <span className="text-sm font-medium text-slate-800">{stage.name}</span>
+                          <span className="text-xs text-slate-500">{stage.count} animales</span>
                         </div>
                         {stage.expectedEggsPerDay > 0 && (
-                          <span className="text-sm font-bold text-yellow-700">{stage.expectedEggsPerDay} huevos/día</span>
+                          <span className="text-xs font-semibold text-slate-700">{stage.expectedEggsPerDay} huevos/día</span>
                         )}
                       </div>
                     ))}
-                    <div className="flex justify-between p-2 bg-green-50 rounded-lg border border-green-200">
-                      <span className="text-sm font-semibold text-green-700">TOTAL</span>
-                      <span className="text-sm font-bold text-green-700">{data.totalExpectedEggsPerDay} huevos/día</span>
+                    <div className="flex justify-between p-2.5 bg-slate-100 rounded-lg border border-slate-200">
+                      <span className="text-xs font-bold uppercase text-slate-700">Total estimado</span>
+                      <span className="text-sm font-bold text-slate-900">{data.totalExpectedEggsPerDay} huevos/día</span>
                     </div>
                   </div>
                 ) : (
-                  <p className="text-center text-slate-400 py-4 text-sm">{hasSearch ? "Sin etapas coincidentes" : "Sin etapas definidas"}</p>
+                  <p className="text-center text-slate-400 py-4 text-sm">Sin etapas definidas</p>
                 )}
               </Card>
 
               <Card>
-                <h3 className="font-semibold text-slate-700 mb-4 flex items-center gap-2">
+                <h3 className="font-semibold text-slate-800 mb-3 flex items-center gap-2 text-sm">
                   <Package className="w-4 h-4 text-slate-600" aria-hidden="true" />
-                  <span>Stock de Alimento</span>
+                  <span>Alimento en bodega</span>
                 </h3>
-                {visibleStockProjection.length > 0 ? (
+                {data.stockProjection.length > 0 ? (
                   <div className="space-y-2">
-                    {visibleStockProjection.map((item) => {
+                    {data.stockProjection.map((item) => {
                       const isCritical = item.daysRemaining !== null && item.daysRemaining <= 7;
-                      const isWarning = item.daysRemaining !== null && item.daysRemaining > 7 && item.daysRemaining <= 14;
                       return (
-                        <div key={item.feedId} className={`p-2 rounded-lg ${isCritical ? "bg-red-50 border border-red-200" : isWarning ? "bg-yellow-50 border border-yellow-200" : "bg-slate-50"}`}>
+                        <div key={item.feedId} className={`p-2.5 rounded-lg border ${isCritical ? "bg-rose-50/40 border-rose-200" : "bg-slate-50 border-slate-100"}`}>
                           <div className="flex justify-between items-center">
-                            <span className="text-sm font-medium">{item.feedName}</span>
-                            <span className={`text-sm font-bold ${isCritical ? "text-red-600" : isWarning ? "text-yellow-600" : "text-green-600"}`}>
-                              {item.daysRemaining !== null ? `${item.daysRemaining} días` : "∞"}
+                            <span className="text-sm font-medium text-slate-800">{item.feedName}</span>
+                            <span className={`text-sm font-bold ${isCritical ? "text-rose-700" : "text-slate-800"}`}>
+                              {item.daysRemaining !== null ? `${item.daysRemaining} días` : "Sin límite"}
                             </span>
                           </div>
                           <div className="flex justify-between text-xs text-slate-500 mt-0.5">
-                            <span>{item.currentStockKg} kg</span>
+                            <span>{item.currentStockKg} kg disponibles</span>
                             <span>{item.dailyNeedKg} kg/día</span>
                           </div>
                         </div>
@@ -679,29 +745,32 @@ export default function Dashboard() {
                     })}
                   </div>
                 ) : (
-                  <p className="text-center text-slate-400 py-4 text-sm">{hasSearch ? "Sin alimentos coincidentes" : "Sin datos de programas"}</p>
+                  <p className="text-center text-slate-400 py-4 text-sm">Sin programas registrados</p>
                 )}
               </Card>
             </div>
 
-            {/* Charts */}
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
               <Card>
-                <h3 className="font-semibold text-slate-700 mb-4 flex items-center gap-2">
+                <h3 className="font-semibold text-slate-800 mb-3 flex items-center gap-2 text-sm">
                   <BarChart3 className="w-4 h-4 text-slate-600" aria-hidden="true" />
                   <span>Huevos (últimos 14 días)</span>
                 </h3>
                 {data.recentEggs.length > 0 ? (
                   <ResponsiveContainer width="100%" height={200}>
-                    <BarChart data={data.recentEggs.map((e) => ({
-                      fecha: new Date(e.date + "T12:00:00").toLocaleDateString("es", { day: "2-digit", month: "short" }),
-                      huevos: e.total,
-                    })).reverse()}>
-                      <CartesianGrid strokeDasharray="3 3" />
+                    <BarChart
+                      data={data.recentEggs
+                        .map((e) => ({
+                          fecha: new Date(e.date + "T12:00:00").toLocaleDateString("es", { day: "2-digit", month: "short" }),
+                          huevos: e.total,
+                        }))
+                        .reverse()}
+                    >
+                      <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
                       <XAxis dataKey="fecha" fontSize={10} />
                       <YAxis fontSize={10} />
                       <Tooltip />
-                      <Bar dataKey="huevos" fill="#eab308" radius={[4, 4, 0, 0]} />
+                      <Bar dataKey="huevos" fill="#15803d" radius={[4, 4, 0, 0]} />
                     </BarChart>
                   </ResponsiveContainer>
                 ) : (
@@ -710,182 +779,206 @@ export default function Dashboard() {
               </Card>
 
               <Card>
-                <h3 className="font-semibold text-slate-700 mb-4 flex items-center gap-2">
-                  <Banknote className="w-4 h-4 text-green-700" aria-hidden="true" />
-                  <span>Finanzas (30 días)</span>
+                <h3 className="font-semibold text-slate-800 mb-3 flex items-center gap-2 text-sm">
+                  <Banknote className="w-4 h-4 text-slate-600" aria-hidden="true" />
+                  <span>Finanzas (últimos 30 días)</span>
                 </h3>
-                <div className="space-y-3">
-                  <div className="flex justify-between items-center p-2 bg-green-50 rounded-lg">
-                    <span className="text-sm text-green-700">Ingresos</span>
-                    <span className="text-sm font-bold text-green-700">${Number(data.finance.income).toLocaleString()}</span>
+                <div className="space-y-2.5">
+                  <div className="flex justify-between items-center p-2.5 bg-slate-50 rounded-lg">
+                    <span className="text-sm text-slate-600">Ingresos</span>
+                    <span className="text-sm font-bold text-emerald-800">${Number(data.finance.income).toLocaleString("es-CO")}</span>
                   </div>
-                  <div className="flex justify-between items-center p-2 bg-red-50 rounded-lg">
-                    <span className="text-sm text-red-700">Egresos</span>
-                    <span className="text-sm font-bold text-red-700">${Number(data.finance.expenses).toLocaleString()}</span>
+                  <div className="flex justify-between items-center p-2.5 bg-slate-50 rounded-lg">
+                    <span className="text-sm text-slate-600">Egresos</span>
+                    <span className="text-sm font-bold text-rose-700">${Number(data.finance.expenses).toLocaleString("es-CO")}</span>
                   </div>
-                  <div className={`flex justify-between items-center p-2 rounded-lg ${Number(data.finance.profit) >= 0 ? "bg-blue-50" : "bg-orange-50"}`}>
-                    <span className={`text-sm font-medium ${Number(data.finance.profit) >= 0 ? "text-blue-700" : "text-orange-700"}`}>Balance</span>
-                    <span className={`text-sm font-bold ${Number(data.finance.profit) >= 0 ? "text-blue-700" : "text-orange-700"}`}>${Number(data.finance.profit).toLocaleString()}</span>
+                  <div className="flex justify-between items-center p-2.5 bg-slate-100 rounded-lg border border-slate-200">
+                    <span className="text-sm font-semibold text-slate-800">Balance neto</span>
+                    <span className={`text-sm font-bold ${profitVal >= 0 ? "text-emerald-800" : "text-rose-700"}`}>
+                      ${profitVal.toLocaleString("es-CO")}
+                    </span>
                   </div>
                 </div>
               </Card>
             </div>
 
-            {/* Feed vs Production Chart */}
             {data.feedChartData.length > 0 && (
               <Card>
-                <h3 className="font-semibold text-slate-700 mb-4 flex items-center gap-2">
-                  <Wheat className="w-4 h-4 text-amber-600" aria-hidden="true" />
+                <h3 className="font-semibold text-slate-800 mb-3 flex items-center gap-2 text-sm">
+                  <Wheat className="w-4 h-4 text-slate-600" aria-hidden="true" />
                   <span>Alimento vs Huevos</span>
                 </h3>
                 <ResponsiveContainer width="100%" height={220}>
                   <LineChart data={data.feedChartData}>
-                    <CartesianGrid strokeDasharray="3 3" />
+                    <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
                     <XAxis dataKey="fecha" fontSize={10} />
                     <YAxis yAxisId="left" fontSize={10} />
                     <YAxis yAxisId="right" orientation="right" fontSize={10} />
                     <Tooltip />
                     <Legend />
-                    <Line yAxisId="left" type="monotone" dataKey="alimento" stroke="#f97316" strokeWidth={2} name="Alimento (kg)" dot={{ r: 2 }} />
-                    <Line yAxisId="right" type="monotone" dataKey="huevos" stroke="#eab308" strokeWidth={2} name="Huevos" dot={{ r: 2 }} />
+                    <Line yAxisId="left" type="monotone" dataKey="alimento" stroke="#64748b" strokeWidth={2} name="Alimento (kg)" dot={{ r: 2 }} />
+                    <Line yAxisId="right" type="monotone" dataKey="huevos" stroke="#15803d" strokeWidth={2} name="Huevos" dot={{ r: 2 }} />
                   </LineChart>
                 </ResponsiveContainer>
               </Card>
             )}
 
-            {/* FCR */}
             <Card>
-              <h3 className="font-semibold text-slate-700 mb-3 flex items-center gap-2">
-                <Wheat className="w-4 h-4 text-amber-600" aria-hidden="true" />
-                <span>Conversión Alimenticia (30 días)</span>
+              <h3 className="font-semibold text-slate-800 mb-3 text-sm">
+                Rendimiento del último mes
               </h3>
               <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-                <div className="p-2 bg-slate-50 rounded-lg text-center">
-                  <p className="text-lg font-bold">{data.fcr.feedConsumed30d}</p>
-                  <p className="text-xs text-slate-500">kg alimento</p>
+                <div className="p-2.5 bg-slate-50 rounded-lg text-center">
+                  <p className="text-lg font-bold text-slate-900">{data.fcr.feedConsumed30d}</p>
+                  <p className="text-xs text-slate-500">kg de alimento</p>
                 </div>
-                <div className="p-2 bg-slate-50 rounded-lg text-center">
-                  <p className="text-lg font-bold">{data.fcr.fcrEggs}</p>
-                  <p className="text-xs text-slate-500">kg/huevo</p>
+                <div className="p-2.5 bg-slate-50 rounded-lg text-center">
+                  <p className="text-lg font-bold text-slate-900">{data.fcr.fcrEggs}</p>
+                  <p className="text-xs text-slate-500">kg por huevo</p>
                 </div>
-                <div className="p-2 bg-slate-50 rounded-lg text-center">
-                  <p className="text-lg font-bold">{data.fcr.totalBirdsSold}</p>
-                  <p className="text-xs text-slate-500">aves vendidas</p>
+                <div className="p-2.5 bg-slate-50 rounded-lg text-center">
+                  <p className="text-lg font-bold text-slate-900">{data.fcr.totalBirdsSold}</p>
+                  <p className="text-xs text-slate-500">animales vendidos</p>
                 </div>
-                <div className="p-2 bg-slate-50 rounded-lg text-center">
-                  <p className="text-lg font-bold">{data.fcr.incubationEfficiency > 0 ? `${data.fcr.incubationEfficiency}%` : "—"}</p>
-                  <p className="text-xs text-slate-500">ef. incubación</p>
+                <div className="p-2.5 bg-slate-50 rounded-lg text-center">
+                  <p className="text-lg font-bold text-slate-900">
+                    {data.fcr.incubationEfficiency > 0 ? `${data.fcr.incubationEfficiency}%` : "—"}
+                  </p>
+                  <p className="text-xs text-slate-500">éxito de nacimientos</p>
                 </div>
               </div>
             </Card>
           </div>
         )}
-      </div>
+      </section>
 
-      {/* ─── Quick Sale Modal ─── */}
-      <Modal open={quickSaleOpen} onClose={() => { setQuickSaleOpen(false); setQuickSaleSuccess(false); setQuickSaleError(""); }} title="Venta rápida de huevos">
-        <div className="space-y-4">
-          {quickSaleError && <p className="text-sm text-red-600 bg-red-50 p-3 rounded-lg">{quickSaleError}</p>}
-          {quickSaleSuccess ? (
-            <div className="text-center py-6">
-              <CheckCircle2 className="w-10 h-10 text-green-600 mx-auto mb-3" aria-hidden="true" />
-              <p className="text-lg font-semibold text-green-700">Venta registrada</p>
-              <Button className="mt-4" onClick={() => { setQuickSaleOpen(false); setQuickSaleSuccess(false); setQuickSaleForm({ size: "", quantity: "1", buyer: "", pricePerUnit: "500" }); }}>Cerrar</Button>
+      {/* Configuración pendiente + acceso rápido al asistente guiado */}
+      {!showWizardCta && completedVisibleSetupSteps < visibleSetupTrackerSteps.length && (
+        <section className="mb-4 rounded-2xl border border-emerald-200/80 bg-white overflow-hidden shadow-xs" aria-labelledby="setup-title">
+          <div className="flex flex-wrap items-center justify-between gap-2 px-4 py-3 bg-emerald-50/40">
+            <button
+              id="setup-title"
+              type="button"
+              onClick={() => setShowSetup((v) => !v)}
+              aria-expanded={showSetup}
+              className="flex flex-1 min-w-0 items-center gap-2 text-left text-sm font-semibold text-slate-800 hover:text-emerald-900 transition-colors cursor-pointer"
+            >
+              <ChevronRight className={`w-4 h-4 text-emerald-700 shrink-0 transition-transform ${showSetup ? "rotate-90" : ""}`} aria-hidden="true" />
+              <span className="truncate">Completar configuración de finca ({completedVisibleSetupSteps} de {visibleSetupTrackerSteps.length})</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => setWizardOpen(true)}
+              className="inline-flex items-center gap-1.5 rounded-lg bg-emerald-700 px-3 py-1.5 text-xs font-semibold text-white hover:bg-emerald-800 transition-colors shrink-0 cursor-pointer"
+            >
+              <Wand2 className="w-3.5 h-3.5" aria-hidden="true" />
+              <span>Abrir asistente inicial</span>
+            </button>
+          </div>
+          {showSetup && (
+            <div className="border-t border-slate-100 p-4 space-y-3 bg-slate-50/40">
+              <div className="grid grid-cols-2 gap-2.5 xl:grid-cols-4">
+                {setupSteps
+                  .filter((step) => showExtendedSetup || step.coreDay1 || (onboardingFlags && onboardingFlags.reportes_dian_roi_credito))
+                  .map((step) =>
+                    step.done ? (
+                      <div key={step.title} className="rounded-xl border border-slate-200 bg-slate-50 p-3 min-w-0">
+                        <div className="flex items-center justify-between gap-1.5">
+                          <AppIcon icon={step.icon} className="w-4 h-4 text-slate-500 shrink-0" />
+                          <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-emerald-700">
+                            <Check className="w-3 h-3" aria-hidden="true" /> Listo
+                          </span>
+                        </div>
+                        <span className="mt-2 block text-xs sm:text-sm font-semibold text-slate-600">{step.title}</span>
+                        <span className="mt-0.5 block text-[11px] text-slate-500 line-clamp-1">{step.description}</span>
+                      </div>
+                    ) : (
+                      <Link
+                        key={step.title}
+                        href={step.href}
+                        className="rounded-xl border border-slate-200 bg-white p-3 min-w-0 hover:border-emerald-600/60 transition-colors"
+                      >
+                        <div className="flex items-center justify-between gap-1.5">
+                          <AppIcon icon={step.icon} className="w-4 h-4 text-slate-700 shrink-0" />
+                          <span className="text-[11px] font-medium text-slate-500">Pendiente</span>
+                        </div>
+                        <span className="mt-2 block text-xs sm:text-sm font-semibold text-slate-900">{step.title}</span>
+                        <span className="mt-0.5 block text-[11px] text-slate-500 line-clamp-1">{step.description}</span>
+                      </Link>
+                    ),
+                  )}
+              </div>
+              {!(onboardingFlags && onboardingFlags.reportes_dian_roi_credito) && (
+                <button
+                  type="button"
+                  onClick={() => setShowExtendedSetup((v) => !v)}
+                  className="text-xs font-medium text-slate-600 hover:text-slate-900 hover:underline"
+                >
+                  {showExtendedSetup ? "Mostrar solo esenciales" : "Ver pasos opcionales (presupuesto, contactos y activos)"}
+                </button>
+              )}
             </div>
-          ) : (
-            <>
-              {/* Inventory preview */}
-              {quickSaleInv.some((i) => i.available > 0) && (
-                <div className="flex flex-wrap gap-2 mb-2">
-                  {quickSaleInv.filter((i) => i.available > 0).map((i) => (
-                    <button
-                      key={i.size}
-                      type="button"
-                      onClick={() => {
-                        const price = i.price || sizeOptions.find((o) => o.value === i.size)?.price || "500";
-                        setQuickSaleForm({ ...quickSaleForm, size: i.size, pricePerUnit: String(price) });
-                      }}
-                      className={`px-3 py-2 rounded-lg text-xs font-medium border transition-colors ${quickSaleForm.size === i.size ? "bg-green-600 text-white border-green-600" : "bg-green-50 text-green-700 border-green-200 hover:bg-green-100"}`}
-                    >
-                      {i.size}: <strong>{i.available}</strong> disp{i.price ? ` · $${Number(i.price).toLocaleString()}/u` : ""}
-                    </button>
-                  ))}
-                </div>
-              )}
-              <div className="grid grid-cols-2 gap-3">
-                <Select label="Tamaño" value={quickSaleForm.size} onChange={(e) => {
-                  const price = sizeOptions.find((o) => o.value === e.target.value)?.price || "500";
-                  setQuickSaleForm({ ...quickSaleForm, size: e.target.value, pricePerUnit: String(price) });
-                }}>
-                  <option value="">— Selecciona —</option>
-                  {quickSaleInv.filter((i) => i.available > 0).map((i) => (
-                    <option key={i.size} value={i.size}>{i.size} ({i.available} disp)</option>
-                  ))}
-                </Select>
-                <Input label="Cantidad (huevos)" type="number" min="1" value={quickSaleForm.quantity} onChange={(e) => setQuickSaleForm({ ...quickSaleForm, quantity: e.target.value })} />
-              </div>
-              <div className="grid grid-cols-2 gap-3">
-                <Input label="Precio por huevo ($}" type="number" step="1" value={quickSaleForm.pricePerUnit} onChange={(e) => setQuickSaleForm({ ...quickSaleForm, pricePerUnit: e.target.value })} />
-                <Input label="Comprador" value={quickSaleForm.buyer} onChange={(e) => setQuickSaleForm({ ...quickSaleForm, buyer: e.target.value })} placeholder="Nombre del cliente" list="dash-buyers" />
-              </div>
-              <datalist id="dash-buyers">
-                {buyerOptions.map((b) => <option key={b} value={b} />)}
-              </datalist>
-              {quickSaleForm.size && quickSaleForm.quantity && (
-                <div className="p-3 bg-green-50 rounded-lg text-sm text-green-700">
-                  <p>Total: <strong className="text-xl">${(Number(quickSaleForm.quantity) * Number(quickSaleForm.pricePerUnit)).toLocaleString()}</strong></p>
-                  <p className="text-xs">{quickSaleForm.quantity} huevos × ${Number(quickSaleForm.pricePerUnit).toLocaleString()}</p>
-                </div>
-              )}
-              <div className="flex gap-3">
-                <Button onClick={async () => {
-                  setQuickSaleError("");
-                  const qty = Number(quickSaleForm.quantity);
-                  if (!quickSaleForm.size) return setQuickSaleError("Selecciona un tamaño");
-                  if (!qty || qty < 1) return setQuickSaleError("Cantidad inválida");
-                  const price = Number(quickSaleForm.pricePerUnit);
-                  if (!price || price <= 0) return setQuickSaleError("Precio inválido");
-                  const res = await apiFetch("/api/finanzas/finanzas/ventas", {
-                    method: "POST",
-                    headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify({
-                      date: new Date().toISOString().split("T")[0],
-                      buyer: quickSaleForm.buyer || null,
-                      notes: null,
-                      isCredit: false,
-                      dueDate: null,
-                      items: [{ size: quickSaleForm.size, quantity: qty, presentations: qty, pricePerUnit: price, presentation: null }],
-                    }),
-                  });
-                  if (!res.ok) {
-                    const d = await res.json().catch(() => ({}));
-                    return setQuickSaleError(d.error || "Error al guardar");
-                  }
-                  setQuickSaleSuccess(true);
-                }} disabled={!quickSaleForm.size || !quickSaleForm.quantity}>
-                  Registrar Venta
-                </Button>
-                <Button variant="secondary" onClick={() => setQuickSaleOpen(false)}>Cancelar</Button>
-              </div>
-              <p className="text-xs text-slate-400 text-center">¿Necesitas más opciones? Usa el <a href="/dashboard/finanzas/ventas" className="text-green-600 hover:underline">formulario completo</a></p>
-            </>
           )}
-        </div>
-      </Modal>
+        </section>
+      )}
+
+      {/* Pie discreto para ajustes de escala y asistente */}
+      {onboardingState && (
+        <footer className="mt-6 pt-4 border-t border-slate-200 flex flex-wrap items-center justify-between gap-2 text-xs text-slate-500">
+          <span>
+            Modo {onboardingState.config.scale === "MEDIANO" ? "Avanzado" : "Básico"} · {unlockedCount} de{" "}
+            {PROGRESSIVE_UNLOCKABLE_KEYS.length} módulos adicionales activos
+          </span>
+          <div className="flex flex-wrap items-center gap-2.5">
+            <button
+              type="button"
+              onClick={() => setWizardOpen(true)}
+              className="inline-flex items-center gap-1.5 rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-1.5 text-xs font-semibold text-emerald-800 hover:bg-emerald-100 transition-colors cursor-pointer"
+            >
+              <Wand2 className="w-3.5 h-3.5" aria-hidden="true" />
+              <span>Asistente inicial (3 pasos)</span>
+            </button>
+            <Link href="/dashboard/configuracion/modulos" className="font-semibold text-emerald-800 hover:underline">
+              Personalizar módulos →
+            </Link>
+          </div>
+        </footer>
+      )}
+
+      <OnboardingWizardModal
+        open={wizardOpen}
+        onClose={() => setWizardOpen(false)}
+        onCompleted={() => loadHomeData()}
+      />
     </div>
   );
 }
 
-// ─── Quick stat component ───
-function QuickStat({ icon, label, value, alert, hint }: { icon: string; label: string; value: string | number; alert?: boolean; hint?: string }) {
+function SummaryTile({
+  label,
+  value,
+  detail,
+  tone = "neutral",
+}: {
+  label: string;
+  value: string | number;
+  detail: string;
+  tone?: "neutral" | "positive" | "danger";
+}) {
+  const valueClass =
+    tone === "danger"
+      ? "text-rose-700"
+      : tone === "positive"
+        ? "text-emerald-800"
+        : "text-slate-900";
+
   return (
-    <div className={`p-3 rounded-xl border text-center ${alert ? "border-red-200 bg-red-50" : "border-slate-200 bg-white"}`}>
-      <div className={`mx-auto mb-1 w-8 h-8 rounded-lg flex items-center justify-center ${alert ? "bg-red-100 text-red-600" : "bg-slate-100 text-slate-700"}`}>
-        <AppIcon icon={icon} className="w-4 h-4" />
-      </div>
-      <p className={`text-lg font-bold ${alert ? "text-red-600" : "text-slate-800"}`}>{value}</p>
-      <p className="text-[11px] text-slate-500">{label}</p>
-      {hint && <p className="text-[10px] text-slate-400 mt-0.5 leading-tight">{hint}</p>}
+    <div className="rounded-xl border border-slate-200 bg-white p-3.5 sm:p-4 min-w-0">
+      <p className="text-[11px] sm:text-xs font-medium text-slate-500 truncate">{label}</p>
+      <p className={`mt-1 text-lg sm:text-2xl font-bold tracking-tight truncate ${valueClass}`}>{value}</p>
+      <p className={`mt-0.5 text-[11px] truncate ${tone === "danger" ? "text-rose-600 font-medium" : "text-slate-500"}`}>
+        {detail}
+      </p>
     </div>
   );
 }

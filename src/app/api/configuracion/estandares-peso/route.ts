@@ -2,6 +2,7 @@ import { db } from "@/db";
 import { breedWeightStandards } from "@/db/schema";
 import { and, asc, eq } from "drizzle-orm";
 import { NextRequest, NextResponse } from "next/server";
+import { requirePermission } from "@/lib/rbac-server";
 import { withApiHandler, safeParseJson } from "@/lib/api-handler";
 
 export const dynamic = "force-dynamic";
@@ -45,6 +46,8 @@ function validate(data: ReturnType<typeof normalize>): string | null {
 }
 
 export const POST = withApiHandler(async (req: NextRequest) => {
+  const denied = await requirePermission("config:write");
+  if (denied) return denied;
   const body = await safeParseJson(req);
   const data = normalize(body);
   const error = validate(data);
@@ -59,6 +62,8 @@ export const POST = withApiHandler(async (req: NextRequest) => {
 });
 
 export const PUT = withApiHandler(async (req: NextRequest) => {
+  const denied = await requirePermission("config:write");
+  if (denied) return denied;
   const body = await safeParseJson(req);
   if (!body.id) return NextResponse.json({ error: "ID requerido" }, { status: 400 });
 
@@ -81,6 +86,8 @@ export const PUT = withApiHandler(async (req: NextRequest) => {
 });
 
 export const DELETE = withApiHandler(async (req: NextRequest) => {
+  const denied = await requirePermission("config:write");
+  if (denied) return denied;
   const id = new URL(req.url).searchParams.get("id");
   if (!id) return NextResponse.json({ error: "ID requerido" }, { status: 400 });
   await db.delete(breedWeightStandards).where(eq(breedWeightStandards.id, id));

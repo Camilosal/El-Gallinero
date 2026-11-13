@@ -1,18 +1,13 @@
-export type FeedingSpecies = "gallina" | "gallo" | "pollo" | "codorniz" | "pato" | "conejo";
+import { FEEDING_SPECIES, type FeedingSpecies } from "@/lib/species";
+
+export type { FeedingSpecies };
 
 type StageLike = {
   value?: string | null;
   tipo?: string | null;
 };
 
-const knownSpecies = new Set<FeedingSpecies>([
-  "gallina",
-  "gallo",
-  "pollo",
-  "codorniz",
-  "pato",
-  "conejo",
-]);
+const knownSpecies = new Set<FeedingSpecies>(FEEDING_SPECIES);
 
 function normalize(value: string): string {
   return value
@@ -30,6 +25,7 @@ export function getStageSpecies(stage: StageLike): FeedingSpecies {
   }
 
   const name = normalize(stage.value || "");
+  if (/\b(?:cuy|cuyes|cobayo|cobayos|cobaya|cobayas)\b/.test(name)) return "cuy";
   if (/\bconej[oa]s?\b/.test(name)) return "conejo";
   if (/\bcodorniz(?:es)?\b/.test(name)) return "codorniz";
   if (/\bpat[oa]s?\b/.test(name)) return "pato";
@@ -40,3 +36,4 @@ export function getStageSpecies(stage: StageLike): FeedingSpecies {
   // Legacy stages such as "Juvenil" and "Postura" were defined for individual hens.
   return "gallina";
 }
+

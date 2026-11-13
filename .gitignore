@@ -26,3 +26,7 @@ test-results/
 playwright-report/
 playwright/.cache/
 tests/e2e/.auth/
+# internal agent harness & private roadmap plans
+.agents/
+docs/superpowers/
+docs/plan-maestro-adopcion-y-analisis-brechas.md

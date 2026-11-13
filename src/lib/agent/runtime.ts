@@ -1,11 +1,18 @@
 import { db } from "@/db";
 import { aiActions, aiConversations, aiMessages } from "@/db/schema";
 import { and, asc, desc, eq } from "drizzle-orm";
-import { getAgentConfig, isSttConfigured, type AgentConfig } from "./config";
+import { getAgentConfig, isSttConfigured, isVisionConfigured, type AgentConfig } from "./config";
 import { callLlm, type LlmMessage, type LlmToolCall } from "./llm";
 import { InternalApiClient, resolveInternalBaseUrl } from "./internal-api";
 import { buildSystemPrompt } from "./prompt";
 import { isJevRoutingEnabled, routeAgentTools } from "./jev-routing";
+import { getKnowledgeCorpus } from "./knowledge";
+import {
+  distillMemoriesFromTurn,
+  maybeCompactConversationSummary,
+  recallRelevantMemories,
+} from "./memory";
+import { formatSituationalBrief, getLiveSituationalSnapshot } from "./situational";
 import {
   getAgentTool,
   llmToolDefinitions,
@@ -43,6 +50,9 @@ export interface AgentTurnResult {
   conversationId: string;
   reply: string;
   pendingActions: PendingActionView[];
+  jevMode?: string;
+  jevDomains?: string[];
+  memorySavedCount?: number;
 }
 
 const MAX_MESSAGE_LENGTH = 4_000;
@@ -59,12 +69,13 @@ function conversationTitle(message: string): string {
 
 type ContextInput = Pick<AgentTurnInput, "userId" | "userName" | "cookie" | "requestOrigin">;
 
-function makeContext(input: ContextInput): ToolContext {
+function makeContext(input: ContextInput, conversationId?: string): ToolContext {
   const baseUrl = resolveInternalBaseUrl(input.requestOrigin);
   return {
     api: new InternalApiClient(baseUrl, input.cookie),
     userId: input.userId,
     userName: input.userName,
+    conversationId,
   };
 }
 
@@ -103,6 +114,57 @@ async function touchConversation(conversationId: string) {
     .where(eq(aiConversations.id, conversationId));
 }
 
+export function sanitizeLlmHistory(raw: LlmMessage[]): LlmMessage[] {
+  const clean: LlmMessage[] = [];
+  let expectedToolIds: Set<string> | null = null;
+
+  const stripIncompleteToolGroup = () => {
+    if (!expectedToolIds || expectedToolIds.size === 0 || clean.length === 0) return;
+    // Truncamiento o falla previa dejó tool_calls sin todas sus respuestas; limpiamos el bloque para no romper la API OpenAI.
+    for (let i = clean.length - 1; i >= 0; i -= 1) {
+      if (clean[i].role === "tool") clean.pop();
+      else break;
+    }
+    const prev = clean[clean.length - 1];
+    if (prev && prev.role === "assistant" && prev.tool_calls) {
+      if (prev.content) {
+        clean[clean.length - 1] = { role: "assistant", content: prev.content };
+      } else {
+        clean.pop();
+      }
+    }
+    expectedToolIds = null;
+  };
+
+  for (const msg of raw) {
+    if (msg.role === "tool") {
+      if (expectedToolIds && msg.tool_call_id && expectedToolIds.has(msg.tool_call_id)) {
+        clean.push(msg);
+        expectedToolIds.delete(msg.tool_call_id);
+        if (expectedToolIds.size === 0) expectedToolIds = null;
+      }
+      continue;
+    }
+
+    stripIncompleteToolGroup();
+
+    if (msg.role === "assistant" && msg.tool_calls && msg.tool_calls.length > 0) {
+      expectedToolIds = new Set(msg.tool_calls.map((tc) => tc.id).filter(Boolean));
+      clean.push(msg);
+    } else {
+      expectedToolIds = null;
+      clean.push(msg);
+    }
+  }
+
+  stripIncompleteToolGroup();
+
+  while (clean.length > 0 && clean[0].role === "tool") {
+    clean.shift();
+  }
+  return clean;
+}
+
 function toLlmHistory(rows: (typeof aiMessages.$inferSelect)[]): LlmMessage[] {
   const messages: LlmMessage[] = [];
   for (const row of rows) {
@@ -122,7 +184,7 @@ function toLlmHistory(rows: (typeof aiMessages.$inferSelect)[]): LlmMessage[] {
       });
     }
   }
-  return messages;
+  return sanitizeLlmHistory(messages);
 }
 
 function parseArguments(raw: string): Record<string, any> {
@@ -524,19 +586,34 @@ export async function runAgentTurn(input: AgentTurnInput): Promise<AgentTurnResu
     };
   }
 
-  const historyRows = await db
-    .select()
-    .from(aiMessages)
-    .where(eq(aiMessages.conversationId, conversationId))
-    .orderBy(desc(aiMessages.createdAt))
-    .limit(HISTORY_LIMIT);
+  const [historyRows, convSummaryRow, recalledMemories, situationalSnapshot, routing] = await Promise.all([
+    db
+      .select()
+      .from(aiMessages)
+      .where(eq(aiMessages.conversationId, conversationId))
+      .orderBy(desc(aiMessages.createdAt))
+      .limit(HISTORY_LIMIT),
+    db
+      .select({ summary: aiConversations.summary })
+      .from(aiConversations)
+      .where(eq(aiConversations.id, conversationId))
+      .limit(1)
+      .then((rows) => rows[0]?.summary || null)
+      .catch(() => null),
+    recallRelevantMemories(input.userId, text, 6),
+    getLiveSituationalSnapshot(),
+    routeAgentTools(text, llmToolDefinitions()),
+  ]);
 
   const history = toLlmHistory(historyRows.reverse());
-  const systemPrompt = await buildSystemPrompt(input.userName);
+  const systemPrompt = await buildSystemPrompt(input.userName, {
+    situationalBrief: formatSituationalBrief(situationalSnapshot),
+    memories: recalledMemories,
+    conversationSummary: convSummaryRow,
+  });
   const llmMessages: LlmMessage[] = [{ role: "system", content: systemPrompt }, ...history];
-  const routing = await routeAgentTools(text, llmToolDefinitions());
   const tools = routing.tools;
-  const ctx = makeContext(input);
+  const ctx = makeContext(input, conversationId);
 
   let reply = "";
   let lastAssistantContent = "";
@@ -564,8 +641,22 @@ export async function runAgentTurn(input: AgentTurnInput): Promise<AgentTurnResu
       break;
     }
 
-    for (const call of assistant.tool_calls) {
-      const outcome = await handleToolCall(call, ctx, conversationId, input.userId, assistantRow.id);
+    const allReads = assistant.tool_calls.every((c) => getAgentTool(c.function?.name)?.kind === "read");
+    const outcomes: ToolCallOutcome[] = allReads
+      ? await Promise.all(
+          assistant.tool_calls.map((call) => handleToolCall(call, ctx, conversationId, input.userId, assistantRow.id)),
+        )
+      : await (async () => {
+          const list: ToolCallOutcome[] = [];
+          for (const call of assistant.tool_calls!) {
+            list.push(await handleToolCall(call, ctx, conversationId, input.userId, assistantRow.id));
+          }
+          return list;
+        })();
+
+    for (let i = 0; i < assistant.tool_calls.length; i += 1) {
+      const call = assistant.tool_calls[i];
+      const outcome = outcomes[i];
       if (outcome.pendingAction) pendingActions.push(outcome.pendingAction);
 
       const content = JSON.stringify(truncate(outcome.content, 10_000));
@@ -590,12 +681,20 @@ export async function runAgentTurn(input: AgentTurnInput): Promise<AgentTurnResu
     await saveMessage({ conversationId, role: "assistant", content: reply });
   }
 
-  await touchConversation(conversationId);
+  const [distillRes] = await Promise.allSettled([
+    distillMemoriesFromTurn({ userId: input.userId, conversationId, userMessage: text }),
+    maybeCompactConversationSummary(conversationId, config),
+    touchConversation(conversationId),
+  ]);
+  const memorySavedCount = distillRes.status === "fulfilled" ? distillRes.value : 0;
 
   return {
     conversationId,
     reply,
     pendingActions: await getPendingActions(input.userId, conversationId),
+    jevMode: routing.mode,
+    jevDomains: routing.domains,
+    memorySavedCount,
   };
 }
 
@@ -688,8 +787,11 @@ export function agentStatus(config: AgentConfig | null) {
   return {
     configured: Boolean(config),
     sttConfigured: isSttConfigured(),
+    visionConfigured: isVisionConfigured(),
     model: config?.model || null,
     baseUrl: config?.baseUrl || null,
     jevRouting: isJevRoutingEnabled(),
+    knowledgeCount: getKnowledgeCorpus().length,
+    toolCount: llmToolDefinitions().length,
   };
 }

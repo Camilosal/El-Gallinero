@@ -35,9 +35,15 @@ function sha256(value: string): string {
 }
 
 // ─── Sessions ───
-export async function createSession(userId: string): Promise<string> {
+export async function createSession(userId: string, farmId?: string | null): Promise<string> {
   const token = randomBytes(32).toString("hex");
   const expiresAt = new Date(Date.now() + SESSION_DAYS * 24 * 60 * 60 * 1000);
+
+  let resolvedFarmId = farmId || null;
+  if (!resolvedFarmId) {
+    const [u] = await db.select({ farmId: users.farmId }).from(users).where(eq(users.id, userId)).limit(1);
+    resolvedFarmId = u?.farmId || null;
+  }
 
   // Limit active sessions per user (rotate oldest)
   const active = await db.select().from(sessions).where(eq(sessions.userId, userId)).orderBy(desc(sessions.createdAt));
@@ -50,6 +56,7 @@ export async function createSession(userId: string): Promise<string> {
 
   await db.insert(sessions).values({
     userId,
+    ...(resolvedFarmId ? { farmId: resolvedFarmId } : {}),
     tokenHash: sha256(token),
     expiresAt,
   });
@@ -71,6 +78,7 @@ export async function getSessionUser() {
         username: users.username,
         name: users.name,
         role: users.role,
+        farmId: users.farmId,
       },
     })
     .from(sessions)

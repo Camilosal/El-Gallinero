@@ -4,7 +4,7 @@ import { and, asc, eq } from "drizzle-orm";
 import { SPECIES_PARAMS, type SpeciesProductionParams } from "./species-params";
 
 /** Orden canónico de especies para reportes y desgloses. */
-export const SPECIES_ORDER = ["gallina", "pollo", "codorniz", "pato", "conejo"] as const;
+export const SPECIES_ORDER = ["gallina", "pollo", "codorniz", "pato", "conejo", "cuy"] as const;
 export type SpeciesKey = (typeof SPECIES_ORDER)[number];
 
 export const SPECIES_LABEL: Record<string, string> = {
@@ -13,6 +13,7 @@ export const SPECIES_LABEL: Record<string, string> = {
   codorniz: "Codorniz",
   pato: "Pato",
   conejo: "Conejo",
+  cuy: "Cuy",
 };
 
 export const SPECIES_PLURAL: Record<string, string> = {
@@ -21,6 +22,7 @@ export const SPECIES_PLURAL: Record<string, string> = {
   codorniz: "Codornices",
   pato: "Patos",
   conejo: "Conejos",
+  cuy: "Cuyes",
 };
 
 export const SPECIES_ICON: Record<string, string> = {
@@ -30,6 +32,7 @@ export const SPECIES_ICON: Record<string, string> = {
   codorniz: "egg",
   pato: "duck",
   conejo: "rabbit",
+  cuy: "paw-print",
 };
 
 /** Especies que son aves (el conejo queda por fuera del término "aves"). */
@@ -73,6 +76,11 @@ export function normalizeSpecies(input: string): SpeciesKey | null {
     patos: "pato",
     conejo: "conejo",
     conejos: "conejo",
+    cuy: "cuy",
+    cuyes: "cuy",
+    cobayo: "cuy",
+    cobayos: "cuy",
+    curi: "cuy",
   };
 
   return aliases[text] || null;
@@ -137,7 +145,10 @@ export async function loadSpeciesParams(species?: string): Promise<SpeciesDbPara
       .orderBy(asc(catalogos.sortOrder), asc(catalogos.value));
 
     if (rows.length === 0) return fallback;
-    return rows.map(rowToParams);
+    const mapped = rows.map(rowToParams);
+    const presentSpecies = new Set(mapped.map((item) => item.species));
+    const missingDefaults = fallback.filter((item) => !presentSpecies.has(item.species));
+    return missingDefaults.length > 0 ? [...mapped, ...missingDefaults] : mapped;
   } catch {
     return fallback;
   }

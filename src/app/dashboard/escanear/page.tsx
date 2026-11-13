@@ -23,6 +23,13 @@ import {
 } from "lucide-react";
 import { HeroBanner } from "@/components/HeroBanner";
 import { Card, Button, Badge, Modal, Input, Select, Textarea } from "@/components/ui";
+import ContactField from "@/components/contacts/ContactField";
+import AttachmentPanel from "@/components/attachments/AttachmentPanel";
+import {
+  createDraftEntityId,
+  type OcrExtractedPayload,
+  type OcrExtractionMode,
+} from "@/lib/attachments-shared";
 import TableSearch from "@/components/TableSearch";
 import { matchesTextQuery } from "@/lib/text";
 import { apiFetch } from "@/lib/fetch";
@@ -137,6 +144,9 @@ export default function EscanearPage() {
   const [error, setError] = useState("");
   const [manualInput, setManualInput] = useState("");
   const [quickToast, setQuickToast] = useState("");
+  const [ocrScanMode, setOcrScanMode] = useState<OcrExtractionMode>("factura_compra");
+  const [ocrDraftId] = useState(() => createDraftEntityId("scan"));
+  const [lastOcrPayload, setLastOcrPayload] = useState<OcrExtractedPayload | null>(null);
 
   // Hen-specific quick modals preserved for compatibility
   const [actionModal, setActionModal] = useState<"vender" | "tratar" | "muerte" | null>(null);
@@ -272,7 +282,7 @@ export default function EscanearPage() {
           setError("");
           return true;
         }
-        setError(`No se encontró el ave "${parsed.id}" en caché.`);
+        setError(`No se encontró el animal "${parsed.id}" en caché.`);
         return false;
       }
 
@@ -307,7 +317,7 @@ export default function EscanearPage() {
         return true;
       }
 
-      setError(`No se encontró ningún lugar, lote, equipo ni ave con "${clean}".`);
+      setError(`No se encontró ningún lugar, lote, equipo ni animal con "${clean}".`);
       return false;
     },
     [assets, batches, hens, locations],
@@ -366,7 +376,7 @@ export default function EscanearPage() {
           key: `loc-${loc.id}`,
           type: "ubicacion",
           title: `${loc.name} (${loc.code})`,
-          subtitle: `Lugar · ${LOCATION_TYPE_LABELS[loc.type] || loc.type}${loc.animals ? ` · ${loc.animals} aves` : ""}`,
+          subtitle: `Lugar · ${LOCATION_TYPE_LABELS[loc.type] || loc.type}${loc.animals ? ` · ${loc.animals} animales` : ""}`,
           badgeText: loc.status === "activa" ? "Activa" : "Inactiva",
           badgeColor: loc.status === "activa" ? "green" : "gray",
           selection: { type: "ubicacion", location: loc },
@@ -382,7 +392,7 @@ export default function EscanearPage() {
           key: `lote-${batch.id}`,
           type: "lote",
           title: `${batch.code} · ${sp}`,
-          subtitle: `Lote · ${batch.breed} · ${batch.currentQuantity} aves`,
+          subtitle: `Lote · ${batch.breed} · ${batch.currentQuantity} animales`,
           badgeText: st.label,
           badgeColor: st.color,
           selection: { type: "lote", batch },
@@ -411,7 +421,7 @@ export default function EscanearPage() {
           key: `hen-${h.id}`,
           type: "gallina",
           title: `${h.code} · ${h.breed}`,
-          subtitle: `Ave · ${h.stage || "Sin etapa"}${h.ageWeeks ? ` · ${h.ageWeeks} sem` : ""}`,
+          subtitle: `Ejemplar · ${h.stage || "Sin etapa"}${h.ageWeeks ? ` · ${h.ageWeeks} sem` : ""}`,
           badgeText: statusLabels[h.status] || h.status,
           badgeColor: statusColors[h.status] || "gray",
           selection: { type: "gallina", hen: h },
@@ -561,9 +571,9 @@ export default function EscanearPage() {
         compact
         icon={<Camera className="w-3.5 h-3.5 text-amber-200" aria-hidden="true" />}
         title="Escáner QR de Granja"
-        description="Escanea la puerta del galpón, un lote, un equipo o una gallina para registrar acciones al instante"
+        description="Escanea la puerta del lugar, un lote, un equipo o una ficha animal para registrar acciones al instante"
         helpTitle="Escáner QR Multifunción"
-        help="Escanea códigos QR impresos en puertas de galpones/corrales, lotes, equipos o bandas de aves. También funciona offline usando los catálogos guardados en el dispositivo."
+        help="Escanea códigos QR impresos en puertas de lugares/corrales, lotes, equipos o identificadores de animales. También funciona offline usando los catálogos guardados en el dispositivo."
       />
 
       {!online && (
@@ -878,7 +888,7 @@ export default function EscanearPage() {
                   </div>
                 ) : (
                   <p className="mb-3 rounded-lg bg-slate-100 p-3 text-center text-sm text-slate-600">
-                    Esta ave ya salió del inventario y no admite nuevas acciones.
+                    Este animal ya salió del inventario y no admite nuevas acciones.
                   </p>
                 )}
 
@@ -911,7 +921,7 @@ export default function EscanearPage() {
                 </Button>
                 <div className="flex items-center gap-2">
                   <div className="flex-1 border-t border-slate-200" />
-                  <span className="text-xs text-slate-400">o busca galpón, lote, equipo o ave</span>
+                  <span className="text-xs text-slate-400">o busca lugar, lote, equipo o animal</span>
                   <div className="flex-1 border-t border-slate-200" />
                 </div>
                 <div className="space-y-2 text-left">
@@ -972,6 +982,108 @@ export default function EscanearPage() {
         )}
       </Card>
 
+      {/* Escáner Inteligente OCR de Documentos y Etiquetas ICA */}
+      <Card className="mb-4">
+        <div className="space-y-3">
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <div>
+              <h2 className="text-sm font-bold text-slate-800">
+                Escáner OCR de Facturas, Etiquetas ICA y Comprobantes
+              </h2>
+              <p className="text-xs text-slate-500">
+                Digitaliza soportes en campo (bultos de 40 kg, Reg. ICA con días de retiro, Nequi o RUT) y abre el módulo correspondiente.
+              </p>
+            </div>
+            <div className="flex flex-wrap gap-1.5">
+              {(
+                [
+                  { mode: "factura_compra", label: "Factura / Compra" },
+                  { mode: "etiqueta_ica", label: "Etiqueta ICA" },
+                  { mode: "comprobante_pago", label: "Pago Nequi/Banco" },
+                  { mode: "rut_contacto", label: "RUT / Contacto" },
+                ] as { mode: OcrExtractionMode; label: string }[]
+              ).map((item) => (
+                <button
+                  key={item.mode}
+                  type="button"
+                  onClick={() => {
+                    setOcrScanMode(item.mode);
+                    setLastOcrPayload(null);
+                  }}
+                  className={`rounded-lg border px-2.5 py-1.5 text-xs font-semibold transition-colors ${
+                    ocrScanMode === item.mode
+                      ? "border-emerald-600 bg-emerald-600 text-white"
+                      : "border-slate-200 bg-slate-50 text-slate-700 hover:bg-slate-100"
+                  }`}
+                >
+                  {item.label}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          <AttachmentPanel
+            entityType="other"
+            entityId={ocrDraftId}
+            defaultCategory={
+              ocrScanMode === "factura_compra"
+                ? "factura_dian"
+                : ocrScanMode === "etiqueta_ica"
+                  ? "etiqueta_ica"
+                  : ocrScanMode === "comprobante_pago"
+                    ? "comprobante_pago"
+                    : "rut_documento"
+            }
+            ocrMode={ocrScanMode}
+            onOcrExtracted={(extracted) => setLastOcrPayload(extracted)}
+            title="Capturar o analizar documento"
+            compact
+          />
+
+          {lastOcrPayload && (
+            <div className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-emerald-200 bg-emerald-50 p-3 text-xs text-emerald-950">
+              <div>
+                <p className="font-bold">Resultado detectado: {lastOcrPayload.summary}</p>
+              </div>
+              <div className="flex flex-wrap gap-2">
+                {lastOcrPayload.mode === "factura_compra" && (
+                  <Link
+                    href="/dashboard/finanzas/egresos?nuevo=1"
+                    className="rounded-lg bg-emerald-700 px-3 py-1.5 font-semibold text-white hover:bg-emerald-800"
+                  >
+                    Ir a Egresos / Compras →
+                  </Link>
+                )}
+                {lastOcrPayload.mode === "etiqueta_ica" && (
+                  <Link
+                    href="/dashboard/sanidad/control?nuevo=1"
+                    className="rounded-lg bg-emerald-700 px-3 py-1.5 font-semibold text-white hover:bg-emerald-800"
+                  >
+                    Ir a Control Sanitario ICA →
+                  </Link>
+                )}
+                {lastOcrPayload.mode === "comprobante_pago" && (
+                  <Link
+                    href="/dashboard/finanzas/cuentas"
+                    className="rounded-lg bg-emerald-700 px-3 py-1.5 font-semibold text-white hover:bg-emerald-800"
+                  >
+                    Ir a Cuentas y Pagos →
+                  </Link>
+                )}
+                {lastOcrPayload.mode === "rut_contacto" && (
+                  <Link
+                    href="/dashboard/contactos"
+                    className="rounded-lg bg-emerald-700 px-3 py-1.5 font-semibold text-white hover:bg-emerald-800"
+                  >
+                    Ir a Directorio de Contactos →
+                  </Link>
+                )}
+              </div>
+            </div>
+          )}
+        </div>
+      </Card>
+
       <Modal
         open={!!actionModal}
         onClose={() => !actionSubmitting && setActionModal(null)}
@@ -994,10 +1106,11 @@ export default function EscanearPage() {
 
             {actionModal === "vender" && (
               <>
-                <Input
+                <ContactField
+                  role="cliente"
                   label="Comprador"
                   value={actionForm.buyer || ""}
-                  onChange={(e) => setActionForm({ ...actionForm, buyer: e.target.value })}
+                  onChange={(name) => setActionForm({ ...actionForm, buyer: name })}
                   placeholder="Nombre del comprador"
                 />
                 <Input
@@ -1009,7 +1122,7 @@ export default function EscanearPage() {
                   placeholder="Ej: 2.5"
                 />
                 <Input
-                  label="Precio por ave ($)"
+                  label="Precio por animal ($)"
                   type="number"
                   value={actionForm.pricePerUnit || ""}
                   onChange={(e) => setActionForm({ ...actionForm, pricePerUnit: e.target.value })}

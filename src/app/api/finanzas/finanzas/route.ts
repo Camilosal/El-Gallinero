@@ -1,10 +1,24 @@
+import { resolveDimensions } from "@/lib/analytics-dimensions";
 import { isDateOnly } from "@/lib/date-validation";
 import { db } from "@/db";
-import { transactions, feedInventory, feedMovements, accountsPayable, payments, purchaseProducts } from "@/db/schema";
-import { eq, desc, sql, gte, lte, and } from "drizzle-orm";
+import {
+  transactions,
+  feedInventory,
+  feedMovements,
+  accountsPayable,
+  accountsReceivable,
+  payments,
+  purchaseProducts,
+} from "@/db/schema";
+import { eq, desc, sql, gte, lte, and, inArray } from "drizzle-orm";
 import { NextRequest, NextResponse } from "next/server";
+import { requirePermission } from "@/lib/rbac-server";
 import { withApiHandler, safeParseJson } from "@/lib/api-handler";
-import { deleteFeedMovementAndReverseStock, deleteTransactionsAndUnpaidAccounts } from "@/lib/financial-records";
+import {
+  deleteFeedMovementAndReverseStock,
+  deleteTransactionsAndUnpaidAccounts,
+  syncCreditReceivable,
+} from "@/lib/financial-records";
 
 export const dynamic = "force-dynamic";
 
@@ -39,14 +53,30 @@ export const GET = withApiHandler(async (req: NextRequest) => {
     db.select().from(payments).where(and(gte(payments.date, dateStr), lte(payments.date, todayStr))),
   ]);
 
-  // Enriquecer compras de alimento con el feedId del movimiento vinculado (para pre-llenar edición)
+  // Enriquecer compras de alimento con el feedId del movimiento vinculado y fechas de vencimiento CxC/CxP
+  const txIds = data.map((t) => t.id);
+  const [receivables, payables] = txIds.length
+    ? await Promise.all([
+        db.select({ transactionId: accountsReceivable.transactionId, dueDate: accountsReceivable.dueDate })
+          .from(accountsReceivable)
+          .where(inArray(accountsReceivable.transactionId, txIds)),
+        db.select({ transactionId: accountsPayable.transactionId, dueDate: accountsPayable.dueDate })
+          .from(accountsPayable)
+          .where(inArray(accountsPayable.transactionId, txIds)),
+      ])
+    : [[], []];
+  const dueDateByTx = new Map<string, string | null>();
+  for (const r of receivables) dueDateByTx.set(r.transactionId, r.dueDate || null);
+  for (const p of payables) dueDateByTx.set(p.transactionId, p.dueDate || null);
+
   const enriched = await Promise.all(
     data.map(async (t) => {
+      const dueDate = dueDateByTx.get(t.id) ?? null;
       if (t.sourceType === "alimento" && t.sourceId) {
         const [mov] = await db.select({ feedId: feedMovements.feedId }).from(feedMovements).where(eq(feedMovements.id, t.sourceId));
-        if (mov) return { ...t, feedId: mov.feedId };
+        if (mov) return { ...t, dueDate, feedId: mov.feedId };
       }
-      return t;
+      return { ...t, dueDate };
     })
   );
 
@@ -215,9 +245,14 @@ function computeKpis(txs: any[], periodDays: number): Kpis {
 }
 
 export const POST = withApiHandler(async (req: NextRequest) => {
+  const denied = await requirePermission("finance:write");
+  if (denied) return denied;
   const body = await safeParseJson(req);
   if (!body || typeof body !== "object") return NextResponse.json({ error: "Cuerpo inválido" }, { status: 400 });
   if (!isDateOnly(body.date)) return NextResponse.json({ error: "Fecha inválida" }, { status: 400 });
+  const resolvedDimensions = await resolveDimensions(db, body);
+  if ("error" in resolvedDimensions) return NextResponse.json({ error: resolvedDimensions.error }, { status: 400 });
+  const dims = resolvedDimensions.dimensions;
   if (body.type !== undefined && body.type !== "ingreso" && body.type !== "egreso") {
     return NextResponse.json({ error: "Tipo de transacción inválido" }, { status: 400 });
   }
@@ -276,6 +311,7 @@ export const POST = withApiHandler(async (req: NextRequest) => {
 
         // 2. Insert financial transaction
         const [created] = await tx.insert(transactions).values({
+        ...dims,
           date: body.date,
           type: body.type || "egreso",
           category: body.category,
@@ -341,6 +377,7 @@ export const POST = withApiHandler(async (req: NextRequest) => {
     // Non-feed purchase with presentation — just save the transaction
     const result = await db.transaction(async (tx) => {
       const [created] = await tx.insert(transactions).values({
+        ...dims,
         date: body.date,
         type: body.type || "egreso",
         category: body.category,
@@ -354,17 +391,27 @@ export const POST = withApiHandler(async (req: NextRequest) => {
         notes: body.notes || null,
       }).returning();
 
-      if (body.isCredit && (body.type || "egreso") === "egreso") {
-        await tx.update(transactions).set({ isCredit: true }).where(eq(transactions.id, created.id));
-        await tx.insert(accountsPayable).values({
-          transactionId: created.id,
-          supplier: body.counterparty || body.description || "Sin nombre",
-          totalAmount: presentationAmount,
-          paidAmount: "0",
-          pendingAmount: presentationAmount,
-          dueDate: body.dueDate || null,
-          status: "pendiente",
-        });
+      if (body.isCredit) {
+        if ((body.type || "egreso") === "egreso") {
+          await tx.update(transactions).set({ isCredit: true }).where(eq(transactions.id, created.id));
+          await tx.insert(accountsPayable).values({
+            transactionId: created.id,
+            supplier: body.counterparty || body.description || "Sin nombre",
+            totalAmount: presentationAmount,
+            paidAmount: "0",
+            pendingAmount: presentationAmount,
+            dueDate: body.dueDate || null,
+            status: "pendiente",
+          });
+        } else {
+          await syncCreditReceivable(tx, {
+            transactionId: created.id,
+            totalAmount: presentationAmount,
+            isCredit: true,
+            dueDate: body.dueDate || null,
+            buyer: body.counterparty || body.description || null,
+          });
+        }
       }
 
       if (body.purchaseProductId) {
@@ -387,6 +434,7 @@ export const POST = withApiHandler(async (req: NextRequest) => {
   // Legacy path: no presentation data
   const result = await db.transaction(async (tx) => {
     const [created] = await tx.insert(transactions).values({
+        ...dims,
       date: body.date,
       type: body.type,
       category: body.category,
@@ -400,17 +448,27 @@ export const POST = withApiHandler(async (req: NextRequest) => {
       notes: body.notes || null,
     }).returning();
 
-    if (body.isCredit && (body.type || "egreso") === "egreso") {
-      await tx.update(transactions).set({ isCredit: true }).where(eq(transactions.id, created.id));
-      await tx.insert(accountsPayable).values({
-        transactionId: created.id,
-        supplier: body.counterparty || body.description || "Sin nombre",
-        totalAmount: String(amount),
-        paidAmount: "0",
-        pendingAmount: String(amount),
-        dueDate: body.dueDate || null,
-        status: "pendiente",
-      });
+    if (body.isCredit) {
+      if ((body.type || "egreso") === "egreso") {
+        await tx.update(transactions).set({ isCredit: true }).where(eq(transactions.id, created.id));
+        await tx.insert(accountsPayable).values({
+          transactionId: created.id,
+          supplier: body.counterparty || body.description || "Sin nombre",
+          totalAmount: String(amount),
+          paidAmount: "0",
+          pendingAmount: String(amount),
+          dueDate: body.dueDate || null,
+          status: "pendiente",
+        });
+      } else {
+        await syncCreditReceivable(tx, {
+          transactionId: created.id,
+          totalAmount: amount,
+          isCredit: true,
+          dueDate: body.dueDate || null,
+          buyer: body.counterparty || body.description || null,
+        });
+      }
     }
 
     return created;
@@ -420,6 +478,8 @@ export const POST = withApiHandler(async (req: NextRequest) => {
 });
 
 export const PUT = withApiHandler(async (req: NextRequest) => {
+  const denied = await requirePermission("finance:write");
+  if (denied) return denied;
   const body = await safeParseJson(req);
   if (!body || typeof body !== "object") return NextResponse.json({ error: "Cuerpo inválido" }, { status: 400 });
   if (!body.id) {
@@ -430,6 +490,10 @@ export const PUT = withApiHandler(async (req: NextRequest) => {
     return NextResponse.json({ error: "Defina el monto o cantidad y valor unitario" }, { status: 400 });
   }
   if (!isDateOnly(body.date)) return NextResponse.json({ error: "Fecha inválida" }, { status: 400 });
+  const resolvedDimensions = await resolveDimensions(db, body);
+  if ("error" in resolvedDimensions) return NextResponse.json({ error: resolvedDimensions.error }, { status: 400 });
+  const dims = resolvedDimensions.dimensions;
+  const hasDimensions = ["species", "locationId", "batchId"].some((key) => body[key] !== undefined);
   if (body.type !== undefined && body.type !== "ingreso" && body.type !== "egreso") {
     return NextResponse.json({ error: "Tipo de transacción inválido" }, { status: 400 });
   }
@@ -502,6 +566,7 @@ export const PUT = withApiHandler(async (req: NextRequest) => {
       throw new Error("Transacción vinculada: debe editarse desde el módulo que la creó");
     }
     const [updated] = await tx.update(transactions).set({
+      ...(hasDimensions ? dims : {}),
       date: body.date,
       type: body.type,
       category: body.category,
@@ -538,12 +603,25 @@ export const PUT = withApiHandler(async (req: NextRequest) => {
 
     const wantsCredit = body.isCredit !== undefined
       ? Boolean(body.isCredit)
-      : current.isCredit && updated.type === "egreso";
-    if (wantsCredit && updated.type !== "egreso") {
-      throw new Error("Una cuenta por pagar solo puede vincularse a un egreso");
-    }
+      : current.isCredit;
     const [payable] = await tx.select().from(accountsPayable).where(eq(accountsPayable.transactionId, updated.id)).for("update");
-    if (wantsCredit) {
+
+    if (updated.type === "ingreso") {
+      if (payable) {
+        const linkedPayments = await tx.select({ id: payments.id }).from(payments).where(eq(payments.payableId, payable.id));
+        if (Number(payable.paidAmount) > 0 || linkedPayments.length > 0) {
+          throw new Error("No se puede cambiar a ingreso una transacción con pagos registrados");
+        }
+        await tx.delete(accountsPayable).where(eq(accountsPayable.id, payable.id));
+      }
+      await syncCreditReceivable(tx, {
+        transactionId: updated.id,
+        totalAmount: amount,
+        isCredit: wantsCredit,
+        dueDate: body.dueDate,
+        buyer: body.counterparty || body.description || null,
+      });
+    } else if (wantsCredit) {
       const paidAmount = Number(payable?.paidAmount || 0);
       if (Number(amount) < paidAmount) throw new Error("El total no puede quedar por debajo de los pagos ya registrados");
       const pendingAmount = Number(amount) - paidAmount;
@@ -587,6 +665,8 @@ export const PUT = withApiHandler(async (req: NextRequest) => {
 });
 
 export const DELETE = withApiHandler(async (req: NextRequest) => {
+  const denied = await requirePermission("finance:write");
+  if (denied) return denied;
   const { searchParams } = new URL(req.url);
   const id = searchParams.get("id");
   if (!id) return NextResponse.json({ error: "ID requerido" }, { status: 400 });

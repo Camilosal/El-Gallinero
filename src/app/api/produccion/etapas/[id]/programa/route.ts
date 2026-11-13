@@ -3,6 +3,7 @@ import { feedPrograms, feedInventory, catalogos } from "@/db/schema";
 import { eq, and } from "drizzle-orm";
 import { NextRequest, NextResponse } from "next/server";
 import { withApiHandler, safeParseJson } from "@/lib/api-handler";
+import { findMissingFeeds, normalizeProgramEntries } from "@/lib/feeding/program-validation";
 
 export const dynamic = "force-dynamic";
 
@@ -47,11 +48,12 @@ export const POST = withApiHandler(async (
     return NextResponse.json({ error: "Etapa no encontrada" }, { status: 404 });
   }
 
-  // body.entries = [{ feedId, percentage, dailyAmountPerHen }]
-  const entries: { feedId: string; percentage: string; dailyAmountPerHen: string }[] = body.entries || [];
-  if (entries.length === 0) {
-    return NextResponse.json({ error: "Debe enviar al menos una entrada de programa" }, { status: 400 });
-  }
+  // body.entries = [{ feedId, dailyAmountPerHen }]; el porcentaje se deriva de los gramos.
+  const normalized = normalizeProgramEntries(body.entries);
+  if ("error" in normalized) return NextResponse.json({ error: normalized.error }, { status: 400 });
+  const entries = normalized.entries;
+  const missingFeeds = await findMissingFeeds(db, entries.map((entry) => entry.feedId));
+  if (missingFeeds.length > 0) return NextResponse.json({ error: "Alguno de los alimentos del programa no existe" }, { status: 400 });
 
   // Upsert: eliminar entradas existentes para esta etapa y re-insertar
   const inserted = await db.transaction(async (tx) => {

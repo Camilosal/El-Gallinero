@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { ArrowLeft, Bird, Leaf } from "lucide-react";
 import { HeroFrame } from "@/components/HeroFrame";
+import { DeveloperCredit } from "@/components/DeveloperCredit";
 
 export default function LoginPage() {
   const router = useRouter();
@@ -118,18 +119,27 @@ export default function LoginPage() {
                   "Iniciar Sesión"
                 )}
               </button>
-              <div className="text-center">
-                <Link href="/login/recuperar" className="text-sm font-medium text-earth-700 hover:underline">¿Olvidaste tu contraseña?</Link>
+              <div className="text-center space-y-2">
+                <div>
+                  <Link href="/login/recuperar" className="text-sm font-medium text-earth-700 hover:underline">¿Olvidaste tu contraseña?</Link>
+                </div>
+                <div className="pt-2 border-t border-earth-100">
+                  <span className="text-sm text-earth-600">¿Es tu primera vez? </span>
+                  <Link href="/registro" className="text-sm font-bold text-emerald-700 hover:underline">
+                    Crear cuenta de finca gratis (3 min)
+                  </Link>
+                </div>
               </div>
             </form>
           </div>
 
           {/* Footer Info */}
-          <div className="mt-8 text-center">
+          <div className="mt-8 text-center space-y-2">
             <div className="inline-flex items-center gap-2 text-sm text-earth-600">
               <Leaf className="w-4 h-4" />
               <span>Granja Autosustentable Iwagé</span>
             </div>
+            <DeveloperCredit variant="inline" className="justify-center" />
           </div>
         </div>
       </div>

@@ -1,4 +1,4 @@
-export type ManagedAnimalSpecies = "gallina" | "pollo" | "codorniz" | "pato" | "conejo";
+export type ManagedAnimalSpecies = "gallina" | "pollo" | "codorniz" | "pato" | "conejo" | "cuy";
 
 export const MANAGED_SPECIES: { value: ManagedAnimalSpecies; label: string }[] = [
   { value: "gallina", label: "Gallina" },
@@ -6,6 +6,7 @@ export const MANAGED_SPECIES: { value: ManagedAnimalSpecies; label: string }[] =
   { value: "codorniz", label: "Codorniz" },
   { value: "pato", label: "Pato" },
   { value: "conejo", label: "Conejo" },
+  { value: "cuy", label: "Cuy" },
 ];
 
 /** Razas base asociadas al tipo de animal; pueden ampliarse desde Catálogos. */
@@ -15,6 +16,7 @@ export const DEFAULT_BREEDS_BY_SPECIES: Record<ManagedAnimalSpecies, string[]> =
   codorniz: ["Coturnix japonica"],
   pato: ["Pato Pekín", "Pato Muscovy (Criollo)"],
   conejo: ["Nueva Zelanda / California"],
+  cuy: ["Cuy Mejorado (Andino)", "Cuy Criollo"],
 };
 
 const SPECIES_ALIASES: Record<string, ManagedAnimalSpecies> = {
@@ -23,6 +25,7 @@ const SPECIES_ALIASES: Record<string, ManagedAnimalSpecies> = {
   codorniz: "codorniz", codornices: "codorniz",
   pato: "pato", patos: "pato",
   conejo: "conejo", conejos: "conejo",
+  cuy: "cuy", cuyes: "cuy", cobayo: "cuy", cobayos: "cuy", curi: "cuy",
 };
 
 const HISTORICAL_BREED_ALIASES: Record<ManagedAnimalSpecies, string[]> = {
@@ -31,6 +34,7 @@ const HISTORICAL_BREED_ALIASES: Record<ManagedAnimalSpecies, string[]> = {
   codorniz: ["Codorniz Japónica", "Codorniz Japónica (Doble propósito)"],
   pato: ["Pato Muscovy / Criollo", "Pato Muscovy (Criollo)"],
   conejo: ["Conejo de engorde (Nueva Zelanda / California)"],
+  cuy: ["Cuy Mejorado", "Cuy Mejorado (Perú / Andino)", "Perú", "Andina"],
 };
 
 function normalized(value: string): string {

@@ -51,13 +51,13 @@ export function StatCard({ label, value, icon, color = "green" }: { label: strin
     earth: "from-earth-400 to-earth-600",
   };
   return (
-    <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-5 flex items-center gap-4">
-      <div className={`w-12 h-12 rounded-lg bg-gradient-to-br ${colorMap[color] || colorMap.green} flex items-center justify-center text-white shrink-0 shadow-xs`}>
-        {typeof icon === "string" ? <AppIcon icon={icon} className="w-6 h-6 text-white" /> : icon}
+    <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-3 sm:p-5 flex items-center gap-2.5 sm:gap-4 min-w-0">
+      <div className={`w-9 h-9 sm:w-12 sm:h-12 rounded-lg bg-gradient-to-br ${colorMap[color] || colorMap.green} flex items-center justify-center text-white shrink-0 shadow-xs`}>
+        {typeof icon === "string" ? <AppIcon icon={icon} className="w-4 h-4 sm:w-6 sm:h-6 text-white" /> : icon}
       </div>
-      <div>
-        <p className="text-2xl font-bold text-slate-800">{value}</p>
-        <p className="text-sm text-slate-500">{label}</p>
+      <div className="min-w-0 flex-1">
+        <p className="text-base sm:text-2xl font-bold text-slate-800 truncate">{value}</p>
+        <p className="text-xs sm:text-sm text-slate-500 leading-tight line-clamp-2">{label}</p>
       </div>
     </div>
   );
@@ -93,16 +93,26 @@ export function PageHeader({
   );
 }
 
-export function Button({ children, variant = "primary", className = "", ...props }: ButtonHTMLAttributes<HTMLButtonElement> & { variant?: "primary" | "secondary" | "danger" | "success" }) {
+export function Button({
+  children,
+  variant = "primary",
+  touchSize = "default",
+  className = "",
+  ...props
+}: ButtonHTMLAttributes<HTMLButtonElement> & {
+  variant?: "primary" | "secondary" | "danger" | "success";
+  touchSize?: "default" | "field";
+}) {
   const variants: Record<string, string> = {
     primary: "bg-green-600 hover:bg-green-700 text-white",
-    secondary: "bg-slate-200 hover:bg-slate-300 text-slate-700",
+    secondary: "bg-slate-200 hover:bg-slate-300 text-slate-800 border border-slate-300",
     danger: "bg-red-600 hover:bg-red-700 text-white",
     success: "bg-emerald-600 hover:bg-emerald-700 text-white",
   };
+  const sizeCls = touchSize === "field" ? "min-h-[48px] px-5 py-3 text-base font-semibold" : "px-4 py-2 text-sm font-medium";
   return (
     <button
-      className={`px-4 py-2 rounded-lg font-medium text-sm transition-colors disabled:opacity-50 ${variants[variant]} ${className}`}
+      className={`rounded-lg transition-colors disabled:opacity-50 ${sizeCls} ${variants[variant]} ${className}`}
       {...props}
     >
       {children}
@@ -110,12 +120,26 @@ export function Button({ children, variant = "primary", className = "", ...props
   );
 }
 
-export function Input({ label, help, className = "", ...props }: InputHTMLAttributes<HTMLInputElement> & { label?: string; help?: string }) {
+export function Input({
+  label,
+  help,
+  touchSize = "default",
+  className = "",
+  ...props
+}: InputHTMLAttributes<HTMLInputElement> & {
+  label?: string;
+  help?: string;
+  touchSize?: "default" | "field";
+}) {
+  const inputCls =
+    touchSize === "field"
+      ? "min-h-[48px] px-3.5 py-2.5 text-base font-medium border-slate-400 text-slate-900"
+      : "px-3 py-2 text-sm border-slate-300";
   return (
     <div className={className}>
       {label && <label className="block text-sm font-medium text-slate-700 mb-1"><FieldLabel label={label} help={help} /></label>}
       <input
-        className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent"
+        className={`w-full border rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent ${inputCls}`}
         {...props}
       />
     </div>

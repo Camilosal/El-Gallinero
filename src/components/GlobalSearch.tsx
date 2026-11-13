@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { Search } from "lucide-react";
 import { AppIcon } from "@/components/AppIcon";
 import { searchNavigation, type SearchEntry } from "@/lib/navigation";
+import { useOnboardingState } from "@/lib/useOnboardingState";
 
 interface GlobalSearchProps {
   collapsed?: boolean;
@@ -22,8 +23,9 @@ export default function GlobalSearch({
   const [query, setQuery] = useState("");
   const [activeIndex, setActiveIndex] = useState(0);
   const inputRef = useRef<HTMLInputElement>(null);
+  const { flags } = useOnboardingState();
 
-  const results = useMemo(() => searchNavigation(query), [query]);
+  const results = useMemo(() => searchNavigation(query, 12, flags), [query, flags]);
   const openSearch = useCallback(() => {
     setQuery("");
     setActiveIndex(0);
@@ -150,7 +152,7 @@ export default function GlobalSearch({
                   setActiveIndex(0);
                 }}
                 onKeyDown={handleInputKeyDown}
-                placeholder="Busca módulos, acciones o sinónimos..."
+                placeholder="Busca módulos, guías, subvistas o acciones..."
                 className="flex-1 bg-transparent py-4 text-sm text-slate-800 outline-none placeholder:text-slate-400"
                 aria-label="Término de búsqueda"
                 autoComplete="off"
@@ -171,7 +173,7 @@ export default function GlobalSearch({
                     Sin resultados para “{query}”
                   </p>
                   <p className="mt-1 text-xs text-slate-500">
-                    Prueba con “huevos”, “gastos”, “vacunas” o “inventario”.
+                    Prueba con “huevos”, “cuyes”, “rutinas”, “sensores”, “prorrateo” o “vacunas”.
                   </p>
                 </div>
               ) : (
@@ -231,8 +233,13 @@ function SearchResultRow({
         <AppIcon icon={entry.icon} className="w-4 h-4" />
       </span>
       <span className="min-w-0 flex-1">
-        <span className="block truncate text-sm font-medium text-slate-800">
-          {entry.label}
+        <span className="flex items-center gap-2 truncate text-sm font-medium text-slate-800">
+          <span className="truncate">{entry.label}</span>
+          {entry.lockedByFlag && (
+            <span className="rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-semibold text-amber-800 shrink-0">
+              Por desbloquear
+            </span>
+          )}
         </span>
         <span className="flex items-center gap-1.5 truncate text-xs text-slate-500">
           <AppIcon icon={entry.groupIcon} className="w-3 h-3 text-slate-400 shrink-0" />

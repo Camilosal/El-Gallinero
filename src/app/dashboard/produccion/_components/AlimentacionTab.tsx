@@ -6,6 +6,7 @@ import { AlertTriangle, ArrowDown, ArrowUp, BarChart3, ClipboardList, Lightbulb,
 import { PageHeader, Button, Card, Table, Badge, Modal, Input, Select, Textarea, EmptyState, StatCard } from "@/components/ui";
 import { AppIcon } from "@/components/AppIcon";
 import { useCatalog } from "@/lib/useCatalog";
+import ContactField from "@/components/contacts/ContactField";
 import { apiFetch } from "@/lib/fetch";
 import TableSearch from "@/components/TableSearch";
 import { matchesTextQuery } from "@/lib/text";
@@ -24,6 +25,8 @@ import {
   normalizeFeedType,
 } from "@/lib/feed-classification";
 import { getStageSpecies, type FeedingSpecies } from "@/lib/feeding/stage-species";
+import MicroInsightCard from "@/components/MicroInsightCard";
+import { buildFeedMicroInsight, type MicroInsightPayload } from "@/lib/micro-insights";
 
 interface Feed {
   id: string;
@@ -35,6 +38,8 @@ interface Feed {
   minStock: string;
   costPerUnit: string;
   supplier: string | null;
+  dryMatterPct?: string | null;
+  crudeProteinPct?: string | null;
 }
 
 interface FeedProgramEntry {
@@ -55,6 +60,20 @@ interface Stage {
   animalCount?: number;
   henCount: number;
   programs: FeedProgramEntry[];
+  ration?: {
+    totalGrams: number;
+    dryMatterGrams: number;
+    dryMatterComplete: boolean;
+    crudeProteinPctAsFed: number | null;
+    freshSharePct: number;
+  };
+}
+
+/** El porcentaje de cada alimento se deriva de sus gramos (lo calcula también el servidor). */
+function derivedPercent(entries: { dailyAmountPerHen: string }[], index: number): string {
+  const total = entries.reduce((sum, entry) => sum + (Number(entry.dailyAmountPerHen) || 0), 0);
+  const grams = Number(entries[index]?.dailyAmountPerHen) || 0;
+  return total > 0 ? ((grams / total) * 100).toFixed(2) : "0.00";
 }
 
 const speciesPresentation: Record<FeedingSpecies, { icon: string; singular: string; plural: string }> = {
@@ -64,6 +83,7 @@ const speciesPresentation: Record<FeedingSpecies, { icon: string; singular: stri
   codorniz: { icon: "egg", singular: "codorniz", plural: "codornices" },
   pato: { icon: "duck", singular: "pato", plural: "patos" },
   conejo: { icon: "rabbit", singular: "conejo", plural: "conejos" },
+  cuy: { icon: "rabbit", singular: "cuy", plural: "cuyes" },
 };
 
 interface Movement {
@@ -132,6 +152,17 @@ interface DailyData {
   fecha: string;
   planned: Record<string, number>;
   actual: Record<string, number>;
+}
+
+interface DietPerformanceItem {
+  species: string;
+  activeAnimals: number;
+  dailyFeedPerAnimalKg: number | null;
+  feedCostPerKg: number | null;
+  totalWeightGainKg: number;
+  estimatedFeedKg: number;
+  fcr: number | null;
+  costPerKgGain: number | null;
 }
 
 interface PredictionItem {
@@ -226,6 +257,7 @@ export default function AlimentacionPage() {
   const [stages, setStages] = useState<Stage[]>([]);
   const [comparativo, setComparativo] = useState<ComparativoItem[]>([]);
   const [dailyData, setDailyData] = useState<DailyData[]>([]);
+  const [dietPerformance, setDietPerformance] = useState<DietPerformanceItem[]>([]);
   const [comparativoDays, setComparativoDays] = useState<number>(14);
   const [loading, setLoading] = useState(true);
   const [modalOpen, setModalOpen] = useState(false);
@@ -246,18 +278,18 @@ export default function AlimentacionPage() {
     maxWeeks: "7",
     entries: [{ feedId: "", percentage: "100", dailyAmountPerHen: "100" }],
   });
-  const [form, setForm] = useState({ name: "", category: "En Fresco", feedType: "Pastos y gramíneas", unit: "kg", currentStock: "0", minStock: "0", costPerUnit: "0", supplier: "" });
+  const [form, setForm] = useState({ name: "", category: "En Fresco", feedType: "Pastos y gramíneas", unit: "kg", currentStock: "0", minStock: "0", costPerUnit: "0", supplier: "", dryMatterPct: "", crudeProteinPct: "" });
   const [feedError, setFeedError] = useState("");
   const [savingFeed, setSavingFeed] = useState(false);
   const [movForm, setMovForm] = useState({ feedId: "", quantity: "", isEntry: true, movementType: "compra", stageCatalogoId: "", henCount: "", date: new Date().toISOString().split("T")[0], locationId: "", notes: "" });
   const [movementError, setMovementError] = useState("");
+  const [lastInsight, setLastInsight] = useState<MicroInsightPayload | null>(null);
   const [prediccion, setPrediccion] = useState<PredictionData | null>(null);
   const [prediccionDays, setPrediccionDays] = useState<number>(14);
   const [feedSearch, setFeedSearch] = useState("");
   const [movementSearch, setMovementSearch] = useState("");
   const [comparativoSearch, setComparativoSearch] = useState("");
   const [predictionSearch, setPredictionSearch] = useState("");
-  const { values: supplierOptions } = useCatalog("proveedor");
   const { values: unitOptions } = useCatalog("unidad_medida", ["kg", "lb", "litros"]);
   const { values: categoryOptions } = useCatalog("categoria_alimento", categoryFallback);
   const { values: feedTypeOptions } = useCatalog("tipo_alimento", feedTypeFallback);
@@ -324,6 +356,7 @@ export default function AlimentacionPage() {
       setStages(Array.isArray(s) ? s : []);
       setComparativo(comp?.comparativo || []);
       setDailyData(comp?.dailyData || []);
+      setDietPerformance(Array.isArray(comp?.dietPerformance) ? comp.dietPerformance : []);
       if (pred) setPrediccion(pred);
     })).catch(() => {
       // Si falla la red, mantenemos los datos de IndexedDB
@@ -342,14 +375,14 @@ export default function AlimentacionPage() {
   const openNewFeed = () => {
     setEditing(null);
     setFeedError("");
-    setForm({ name: "", category: "En Fresco", feedType: "Pastos y gramíneas", unit: "kg", currentStock: "0", minStock: "0", costPerUnit: "0", supplier: "" });
+    setForm({ name: "", category: "En Fresco", feedType: "Pastos y gramíneas", unit: "kg", currentStock: "0", minStock: "0", costPerUnit: "0", supplier: "", dryMatterPct: "", crudeProteinPct: "" });
     setModalOpen(true);
   };
 
   const openEditFeed = (f: Feed) => {
     setEditing(f);
     setFeedError("");
-    setForm({ name: f.name, category: currentFeedCategory(f.category) || f.category, feedType: currentFeedType(f.feedType) || f.feedType, unit: f.unit, currentStock: f.currentStock, minStock: f.minStock, costPerUnit: f.costPerUnit, supplier: f.supplier || "" });
+    setForm({ name: f.name, category: currentFeedCategory(f.category) || f.category, feedType: currentFeedType(f.feedType) || f.feedType, unit: f.unit, currentStock: f.currentStock, minStock: f.minStock, costPerUnit: f.costPerUnit, supplier: f.supplier || "", dryMatterPct: f.dryMatterPct ?? "", crudeProteinPct: f.crudeProteinPct ?? "" });
     setModalOpen(true);
   };
 
@@ -395,6 +428,12 @@ export default function AlimentacionPage() {
 
     const selectedFeed = feeds.find((f) => f.id === movForm.feedId);
     const feedName = selectedFeed?.name || "alimento";
+    const qtyNum = Number(movForm.quantity || 0);
+    const priorStock = selectedFeed ? Number(selectedFeed.currentStock || 0) : null;
+    const remainingStockAfter =
+      priorStock !== null
+        ? Math.max(0, movForm.isEntry ? priorStock + qtyNum : priorStock - qtyNum)
+        : null;
 
     const result = await syncManager.executeMutation({
       endpoint: "/api/produccion/alimentacion/movimientos",
@@ -426,6 +465,19 @@ export default function AlimentacionPage() {
       };
 
       setMovements((prev) => [optimisticMov, ...prev.filter((m) => m.id !== optimisticMov.id)]);
+      setLastInsight(
+        buildFeedMicroInsight({
+          date: movForm.date,
+          feedName,
+          unit: selectedFeed?.unit || "kg",
+          quantity: qtyNum,
+          isEntry: movForm.isEntry,
+          remainingStockAfter,
+          unitCost: selectedFeed ? Number(selectedFeed.costPerUnit || 0) : null,
+          activeAnimalsCount: totalAnimals > 0 ? totalAnimals : null,
+          offline: true,
+        }),
+      );
       return;
     }
 
@@ -435,6 +487,19 @@ export default function AlimentacionPage() {
     }
 
     setMovModalOpen(false);
+    setLastInsight(
+      buildFeedMicroInsight({
+        date: movForm.date,
+        feedName,
+        unit: selectedFeed?.unit || "kg",
+        quantity: qtyNum,
+        isEntry: movForm.isEntry,
+        remainingStockAfter,
+        unitCost: selectedFeed ? Number(selectedFeed.costPerUnit || 0) : null,
+        activeAnimalsCount: totalAnimals > 0 ? totalAnimals : null,
+        offline: false,
+      }),
+    );
     load();
   };
 
@@ -498,7 +563,7 @@ export default function AlimentacionPage() {
     alimento: () => {
       selectTab("inventario");
       setEditing(null);
-      setForm({ name: "", category: "En Fresco", feedType: "Pastos y gramíneas", unit: "kg", currentStock: "0", minStock: "0", costPerUnit: "0", supplier: "" });
+      setForm({ name: "", category: "En Fresco", feedType: "Pastos y gramíneas", unit: "kg", currentStock: "0", minStock: "0", costPerUnit: "0", supplier: "", dryMatterPct: "", crudeProteinPct: "" });
       setModalOpen(true);
     },
     movimiento: () => {
@@ -707,8 +772,19 @@ export default function AlimentacionPage() {
         }
       />
 
+      {lastInsight && (
+        <div className="mb-6">
+          <MicroInsightCard
+            insight={lastInsight}
+            onAnother={() => openMovement(false)}
+            onDismiss={() => setLastInsight(null)}
+            doneLabel="Entendido"
+          />
+        </div>
+      )}
+
       {/* Stats */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4 mb-6">
+      <div className="grid grid-cols-2 lg:grid-cols-5 gap-2.5 sm:gap-4 mb-6">
         <StatCard icon="sprout" label="Alimentos de Granja" value={farmFeeds.length} color="green" />
         <StatCard icon="cart" label="Suplementarios" value={purchasedFeeds.length} color="blue" />
         <StatCard icon="warning" label="Stock Bajo" value={lowStock.length} color={lowStock.length > 0 ? "red" : "green"} />
@@ -867,6 +943,7 @@ export default function AlimentacionPage() {
                 { id: "codorniz", label: "Codornices", icon: "egg" },
                 { id: "pato", label: "Patos", icon: "duck" },
                 { id: "conejo", label: "Conejos", icon: "rabbit" },
+                { id: "cuy", label: "Cuyes", icon: "rabbit" },
               ].map((sp) => {
                 const isSelected = selectedProgramSpeciesFilter === sp.id;
                 return (
@@ -888,6 +965,25 @@ export default function AlimentacionPage() {
 
             <Button onClick={openNewPlanModal}>+ Nuevo Plan de Alimentación</Button>
           </div>
+
+          {(selectedProgramSpeciesFilter === "all" || selectedProgramSpeciesFilter === "conejo" || selectedProgramSpeciesFilter === "cuy") && (
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+              <div className="p-3 bg-amber-50 border border-amber-200 rounded-xl text-xs text-amber-900">
+                <p className="font-bold flex items-center gap-1.5">
+                  <AlertTriangle className="w-4 h-4 text-amber-700 shrink-0" />
+                  <span>Protocolo de Forraje Oreado (12–24 horas)</span>
+                </p>
+                <p className="mt-1">En conejos y cuyes, orear el pasto/alfalfa antes del suministro para reducir humedad excesiva y prevenir timpanismo o meteorismo digestivo.</p>
+              </div>
+              <div className="p-3 bg-emerald-50 border border-emerald-200 rounded-xl text-xs text-emerald-900">
+                <p className="font-bold flex items-center gap-1.5">
+                  <Sparkles className="w-4 h-4 text-emerald-700 shrink-0" />
+                  <span>Vitamina C Obligatoria en Cuyes (25 mg/animal/día)</span>
+                </p>
+                <p className="mt-1">Los cobayos no sintetizan ácido ascórbico: garantiza aporte diario en agua limpia, forraje fresco o premezcla estable (~25 mg/cuy/día).</p>
+              </div>
+            </div>
+          )}
 
           {stages.length === 0 ? (
             <Card>
@@ -960,6 +1056,13 @@ export default function AlimentacionPage() {
                             </td>
                           </tr>
                         </Table>
+                        {stage.ration && stage.ration.totalGrams > 0 && (
+                          <p className="mt-2 text-xs text-slate-500">
+                            Forraje fresco {stage.ration.freshSharePct}% de la ración
+                            {stage.ration.dryMatterComplete ? ` · materia seca ${stage.ration.dryMatterGrams} g/animal/día` : " · agrega la materia seca de los alimentos para ver la ración en base seca"}
+                            {stage.ration.crudeProteinPctAsFed !== null ? ` · proteína ${stage.ration.crudeProteinPctAsFed}%` : ""}
+                          </p>
+                        )}
                       </div>
                     )}
                   </Card>
@@ -1110,6 +1213,36 @@ export default function AlimentacionPage() {
                 <p className="text-2xl font-bold text-purple-600">{comparativo.reduce((s, c) => s + c.entryTotal, 0).toFixed(1)} kg</p>
               </Card>
             </div>
+          )}
+
+          {dietPerformance.length > 0 && (
+            <Card>
+              <h3 className="font-semibold text-slate-700 mb-1 flex items-center gap-2">
+                <Sparkles className="w-4 h-4 text-emerald-600" aria-hidden="true" />
+                <span>Comparativo de Eficiencia de Dietas (FCR y Costo / kg Ganado)</span>
+              </h3>
+              <p className="text-xs text-slate-500 mb-3">
+                Evalúa qué mezcla y especie logra menor Índice de Conversión Alimenticia (ICA/FCR) y menor costo alimenticio por kilo de peso vivo ganado.
+              </p>
+              <Table headers={["Especie", "Animales activos", "Ración/día", "Costo dieta/kg", "Ganancia peso", "Alimento est.", "FCR (ICA)", "Costo / kg ganado"]}>
+                {dietPerformance.map((row) => (
+                  <tr key={row.species} className="hover:bg-slate-50">
+                    <td className="px-4 py-2 font-semibold capitalize">{speciesPresentation[row.species as FeedingSpecies]?.plural || row.species}</td>
+                    <td className="px-4 py-2">{row.activeAnimals}</td>
+                    <td className="px-4 py-2">{row.dailyFeedPerAnimalKg != null ? `${(row.dailyFeedPerAnimalKg * 1000).toFixed(0)} g` : "—"}</td>
+                    <td className="px-4 py-2">{row.feedCostPerKg != null ? `$${row.feedCostPerKg.toLocaleString()}` : "—"}</td>
+                    <td className="px-4 py-2">{row.totalWeightGainKg} kg</td>
+                    <td className="px-4 py-2">{row.estimatedFeedKg} kg</td>
+                    <td className="px-4 py-2 font-bold">
+                      {row.fcr != null ? <Badge color={row.fcr <= 2.2 ? "green" : row.fcr <= 3.2 ? "blue" : "orange"}>{row.fcr}:1</Badge> : "—"}
+                    </td>
+                    <td className="px-4 py-2 font-semibold text-emerald-700">
+                      {row.costPerKgGain != null ? `$${row.costPerKgGain.toLocaleString()}` : "—"}
+                    </td>
+                  </tr>
+                ))}
+              </Table>
+            </Card>
           )}
         </div>
       )}
@@ -1269,10 +1402,18 @@ export default function AlimentacionPage() {
             <Input label="Stock mínimo" help="Se actualiza automáticamente en la predicción según el consumo estimado y el horizonte elegido. Mientras no haya consumo programado, puedes definirlo manualmente." type="number" step="0.01" value={form.minStock} onChange={(e) => setForm({ ...form, minStock: e.target.value })} />
             <Input label="Costo por unidad ($)" help="Costo de cada unidad de este alimento. Se usa para calcular gastos." type="number" step="0.01" value={form.costPerUnit} onChange={(e) => setForm({ ...form, costPerUnit: e.target.value })} />
           </div>
-          <Input label="Proveedor (vacío si es producción propia)" help="Nombre del proveedor de este alimento. Déjalo vacío si lo produces tú mismo." value={form.supplier} onChange={(e) => setForm({ ...form, supplier: e.target.value })} placeholder="Nombre del proveedor" list="catalog-proveedores" />
-          <datalist id="catalog-proveedores">
-            {supplierOptions.map((s) => <option key={s} value={s} />)}
-          </datalist>
+          <div className="grid grid-cols-2 gap-3">
+            <Input label="Materia seca (%)" help="Opcional. Forrajes frescos suelen estar entre 20 y 30; concentrados cerca de 88 a 90. Permite comparar dietas combinadas en base seca." type="number" step="0.1" min="0" max="100" value={form.dryMatterPct} onChange={(e) => setForm({ ...form, dryMatterPct: e.target.value })} />
+            <Input label="Proteína cruda (%)" help="Opcional. Proteína del alimento tal como se ofrece." type="number" step="0.1" min="0" max="100" value={form.crudeProteinPct} onChange={(e) => setForm({ ...form, crudeProteinPct: e.target.value })} />
+          </div>
+          <ContactField
+            role="proveedor"
+            label="Proveedor (vacío si es producción propia)"
+            help="Nombre del proveedor de este alimento. Déjalo vacío si lo produces tú mismo."
+            value={form.supplier}
+            onChange={(name) => setForm({ ...form, supplier: name })}
+            placeholder="Nombre del proveedor"
+          />
           <div className="flex gap-3">
             <Button onClick={saveFeed} disabled={!form.name || savingFeed}>{savingFeed ? "Guardando…" : editing ? "Actualizar" : "Registrar"}</Button>
             <Button variant="secondary" onClick={() => setModalOpen(false)}>Cancelar</Button>
@@ -1356,8 +1497,10 @@ export default function AlimentacionPage() {
                     type="number"
                     step="0.01"
                     className="w-full border rounded-lg px-3 py-2 text-sm"
-                    value={entry.percentage}
-                    onChange={(e) => updateProgramEntry(idx, "percentage", e.target.value)}
+                    value={derivedPercent(programEntries, idx)}
+                    readOnly
+                    tabIndex={-1}
+                    title="Se calcula a partir de los gramos"
                   />
                 </div>
                 <div className="w-28">
@@ -1408,6 +1551,7 @@ export default function AlimentacionPage() {
                   : sp === "codorniz" ? "Codorniz Postura (6+ sem)"
                   : sp === "pato" ? "Pato Engorde (4-9 sem)"
                   : sp === "conejo" ? "Conejo Engorde (8-12 sem)"
+                  : sp === "cuy" ? "Cuy Engorde (10-12 sem)"
                   : "Gallina Postura";
                 setNewPlanForm((prev) => ({ ...prev, species: sp, name: defaultName }));
               }}
@@ -1417,6 +1561,7 @@ export default function AlimentacionPage() {
               <option value="codorniz">Codorniz</option>
               <option value="pato">Pato</option>
               <option value="conejo">Conejo de engorde</option>
+              <option value="cuy">Cuy</option>
             </Select>
 
             <Input
@@ -1476,8 +1621,10 @@ export default function AlimentacionPage() {
                       min="0"
                       max="100"
                       className="w-full border rounded-md px-2 py-1.5 text-xs bg-white"
-                      value={entry.percentage}
-                      onChange={(e) => updatePlanEntry(idx, "percentage", e.target.value)}
+                      value={derivedPercent(newPlanForm.entries, idx)}
+                      readOnly
+                      tabIndex={-1}
+                      title="Se calcula a partir de los gramos"
                     />
                   </div>
                   <div className="w-24">

@@ -5,6 +5,7 @@ import { AlertTriangle } from "lucide-react";
 import { PageHeader, Button, Card, Table, Badge, Modal, Input, Select, Textarea, EmptyState, StatCard } from "@/components/ui";
 import { apiFetch } from "@/lib/fetch";
 import { useCatalog } from "@/lib/useCatalog";
+import ContactField from "@/components/contacts/ContactField";
 import TableSearch from "@/components/TableSearch";
 import { matchesTextQuery } from "@/lib/text";
 import { useSearchParams } from "next/navigation";
@@ -177,7 +178,7 @@ export default function InsumosPage() {
         }
       />
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-2.5 sm:gap-4">
         <StatCard icon="wrench" label="Total insumos" value={String(supplies.length)} color="blue" />
         <StatCard icon="money" label="Valor inventario" value={fmt(totalValue)} color="green" />
         <StatCard icon="warning" label="Stock bajo" value={String(lowStockItems.length)} color="red" />
@@ -315,7 +316,13 @@ export default function InsumosPage() {
             <Input label="Stock mínimo" type="number" step="0.01" value={form.minStock} onChange={(e) => setForm({ ...form, minStock: e.target.value })} help="Cantidad mínima antes de generar alerta de reabastecimiento" />
           </div>
           <Input label="Costo unitario ($)" type="number" step="0.01" value={form.costPerUnit} onChange={(e) => setForm({ ...form, costPerUnit: e.target.value })} help="Costo por cada unidad del insumo" />
-          <Input label="Proveedor" value={form.supplier} onChange={(e) => setForm({ ...form, supplier: e.target.value })} help="Nombre del proveedor habitual de este insumo" />
+          <ContactField
+            role="proveedor"
+            label="Proveedor"
+            value={form.supplier}
+            onChange={(name) => setForm({ ...form, supplier: name })}
+            help="Nombre del proveedor habitual de este insumo"
+          />
           <Input label="Fecha de vencimiento" type="date" value={form.expiryDate} onChange={(e) => setForm({ ...form, expiryDate: e.target.value })} help="Fecha de caducidad si aplica (para control de vencimientos)" />
           <div className="flex gap-3">
             <Button onClick={saveSupply} disabled={!form.name}>Guardar</Button>

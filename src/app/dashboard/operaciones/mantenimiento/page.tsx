@@ -10,6 +10,8 @@ import { matchesTextQuery } from "@/lib/text";
 import { useFarmLocations } from "@/lib/useFarmLocations";
 import { useSearchParams } from "next/navigation";
 import { useActionQuery } from "@/lib/useActionQuery";
+import AttachmentPanel from "@/components/attachments/AttachmentPanel";
+import { bindDraftAttachments, createDraftEntityId } from "@/lib/attachments-shared";
 
 interface Maintenance {
   id: string;
@@ -62,6 +64,7 @@ export default function MantenimientoPage() {
   const [search, setSearch] = useState("");
   const [modalOpen, setModalOpen] = useState(false);
   const [editing, setEditing] = useState<Maintenance | null>(null);
+  const [draftMaintId, setDraftMaintId] = useState(() => createDraftEntityId("maint"));
   const [error, setError] = useState("");
   const [form, setForm] = useState({ title: "", description: "", scheduledDate: new Date().toISOString().split("T")[0], status: "pendiente", cost: "0", completedDate: "", locationId: "", assetId: "", recurrenceIntervalDays: "" });
   const { locations } = useFarmLocations();
@@ -82,6 +85,7 @@ export default function MantenimientoPage() {
 
   const openNew = () => {
     setEditing(null);
+    setDraftMaintId(createDraftEntityId("maint"));
     setError("");
     setForm({ title: "", description: "", scheduledDate: new Date().toISOString().split("T")[0], status: "pendiente", cost: "0", completedDate: "", locationId: "", assetId: "", recurrenceIntervalDays: "" });
     setModalOpen(true);
@@ -99,10 +103,13 @@ export default function MantenimientoPage() {
     const method = editing ? "PUT" : "POST";
     const body = editing ? { ...form, id: editing.id } : form;
     const res = await apiFetch("/api/operaciones/mantenimiento", { method, headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
+    const saved = await res.json().catch(() => ({}));
     if (!res.ok) {
-      const data = await res.json().catch(() => ({}));
-      setError(data.error || "No se pudo guardar la tarea");
+      setError(saved.error || "No se pudo guardar la tarea");
       return;
+    }
+    if (!editing && saved?.id) {
+      await bindDraftAttachments(draftMaintId, saved.id, "maintenance");
     }
     setModalOpen(false);
     setError("");
@@ -151,7 +158,7 @@ export default function MantenimientoPage() {
       />
       {error && !modalOpen && <p className="mb-4 rounded-lg bg-red-50 p-3 text-sm text-red-700">{error}</p>}
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-2.5 sm:gap-4 mb-6">
         <StatCard icon="hourglass" label="Pendientes" value={pending} color={pending > 0 ? "yellow" : "green"} />
         <StatCard icon="refresh" label="En Progreso" value={inProgress} color="blue" />
         <StatCard icon="check-circle" label="Completadas" value={completed} color="green" />
@@ -256,6 +263,14 @@ export default function MantenimientoPage() {
               <Input label="Fecha Completada" type="date" value={form.completedDate} onChange={(e) => setForm({ ...form, completedDate: e.target.value })} help="Fecha real en que se terminó la tarea" />
             )}
           </div>
+          <AttachmentPanel
+            entityType="maintenance"
+            entityId={editing ? editing.id : draftMaintId}
+            defaultCategory="antes_despues"
+            title="Evidencia Antes / Después o Factura de Repuesto"
+            helpText="Adjunta foto de la reparación realizada o soporte de repuestos."
+            compact
+          />
           <div className="flex gap-3">
             <Button onClick={save} disabled={!form.title}>{editing ? "Actualizar" : "Crear Tarea"}</Button>
             <Button variant="secondary" onClick={() => setModalOpen(false)}>Cancelar</Button>

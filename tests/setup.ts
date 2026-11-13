@@ -9,6 +9,7 @@ vi.mock("@/lib/auth", async (importOriginal) => {
       username: "test",
       name: "Test User",
       role: "admin",
+      farmId: "00000000-0000-0000-0000-000000000001",
     }),
   };
 });

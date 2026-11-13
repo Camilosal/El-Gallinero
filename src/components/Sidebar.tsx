@@ -4,7 +4,10 @@ import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useState, useEffect } from "react";
 import { AppIcon } from "@/components/AppIcon";
-import { navigationGroups, type MenuGroup } from "@/lib/navigation";
+import { filterNavigationGroups, navigationGroups, type MenuGroup } from "@/lib/navigation";
+import { useOnboardingState } from "@/lib/useOnboardingState";
+import { DeveloperCredit } from "@/components/DeveloperCredit";
+import { clearOfflineCryptoKey } from "@/lib/offline/crypto";
 import {
   BarChart3,
   Bird,
@@ -33,6 +36,8 @@ export default function Sidebar() {
   const locationKey = query ? `${pathname}?${query}` : pathname;
   const mobileOpen = mobileOpenAt === locationKey;
   const setMobileOpen = (open: boolean) => setMobileOpenAt(open ? locationKey : null);
+  const { flags } = useOnboardingState();
+  const visibleGroups = flags ? filterNavigationGroups(flags) : navigationGroups;
 
   useEffect(() => {
     let active = true;
@@ -99,6 +104,7 @@ export default function Sidebar() {
   };
 
   const logout = async () => {
+    clearOfflineCryptoKey(true);
     await fetch("/api/auth/logout", { method: "POST" });
     router.push("/login");
     router.refresh();
@@ -212,14 +218,14 @@ export default function Sidebar() {
                 ? "bg-green-700 border-r-4 border-farm-400 font-semibold"
                 : ""
               }`}
-            title={collapsed ? "Escanear Ave" : undefined}
+            title={collapsed ? "Escanear" : undefined}
           >
             <QrCode className="w-4 h-4 flex-shrink-0 text-green-200" />
-            {!collapsed && <span>Escanear Ave</span>}
+            {!collapsed && <span>Escanear</span>}
           </Link>
 
-          {/* Unified groups */}
-          {navigationGroups.map((group) => (
+          {/* Progressive navigation groups (single-codebase feature flags) */}
+          {visibleGroups.map((group) => (
             <GroupItem
               key={group.id}
               group={group}
@@ -263,6 +269,7 @@ export default function Sidebar() {
             <LogOut className="w-3.5 h-3.5 shrink-0" />
             {!collapsed && <span>Cerrar Sesión</span>}
           </button>
+          <DeveloperCredit variant="sidebar" collapsed={collapsed} />
         </div>
       </aside>
     </>
@@ -322,9 +329,12 @@ function GroupItem({
         {hasItems && (
           <button
             onClick={() => toggleGroup(group.id)}
-            className="px-3 py-3 hover:bg-green-700 transition-colors text-green-300"
+            className="px-3 py-3 hover:bg-green-700 transition-colors text-green-300 inline-flex items-center gap-1.5"
             aria-label={`${isExpanded ? "Colapsar" : "Expandir"} ${group.label}`}
           >
+            <span className="rounded bg-green-950/60 px-1.5 py-0.5 text-[10px] font-semibold text-green-200/90 tabular-nums">
+              {group.items.length}
+            </span>
             <ChevronRight className={`w-3.5 h-3.5 transition-transform ${isExpanded ? "rotate-90" : ""}`} />
           </button>
         )}

@@ -1,11 +1,11 @@
 import { describe, it, expect, beforeAll, afterAll, afterEach } from "vitest";
 import { eq, and, sql, inArray } from "drizzle-orm";
-import {
-  db, pool, mockRequest, parseJson, createCleanup, cleanup,
+import { db, pool, mockRequest, parseJson, createCleanup, cleanup,
   createTestFeed, getSeedFeed, getSeedStage, purgeManureData,
   createTestFarmLocation,
   type TestCleanup,
 } from "./helpers";
+import { DEFAULT_FARM_ID, runWithFarmContext } from "@/db/tenant-context";
 import { transactions, eggSales, eggSalesItems, feedInventory, feedMovements, eggProduction, eggProductionDetails, hens, roosters, broilerBatches, birdAcquisitions, manureSales, manureAdjustments, manureProduction } from "@/db/schema";
 import { requiredRoosters, assignMales, batchReadiness, flockBalance } from "@/lib/flock";
 import { isAvailableForExit } from "@/lib/lifecycle";
@@ -136,6 +136,14 @@ describe("Income Flow (Ventas → Transactions)", () => {
   it("POST /api/ventas creates a sale AND auto-registers an income transaction", async () => {
     cleanupData = createCleanup();
     const today = new Date().toISOString().split("T")[0];
+    const [grandeProd] = await db.insert(eggProduction).values({
+      date: today, totalCollected: 24, broken: 0, forIncubation: 0,
+      notes: "Stock Grande para prueba de ventas",
+    }).returning();
+    cleanupData.productionIds.push(grandeProd.id);
+    await db.insert(eggProductionDetails).values({
+      productionId: grandeProd.id, size: "Grande", quantity: 24,
+    });
 
     const res = await ventasPOST(mockRequest("http://localhost/api/ventas", {
       method: "POST",
@@ -768,6 +776,15 @@ describe("Cross-Module Correlations", () => {
     expect(Number(expenseTx.amount)).toBe(500000); // 50 × 10000
     cleanupData.transactionIds.push(expenseTx.id);
 
+    const [grandeProd] = await db.insert(eggProduction).values({
+      date: today, totalCollected: 24, broken: 0, forIncubation: 0,
+      notes: "Stock Grande para prueba de ventas",
+    }).returning();
+    cleanupData.productionIds.push(grandeProd.id);
+    await db.insert(eggProductionDetails).values({
+      productionId: grandeProd.id, size: "Grande", quantity: 24,
+    });
+
     // 2. Create a sale (income) - 1 docena (12 eggs) at $7,200
     const saleRes = await ventasPOST(mockRequest("http://localhost/api/ventas", {
       method: "POST",
@@ -1089,13 +1106,15 @@ describe("Incubación (asignación automática de machos)", () => {
     const fatherRoosterId = fatherAcquisition.createdBirdIds[0] as string;
     cleanupData.roosterIds.push(fatherRoosterId);
 
-    // Estado previo de la parvada (computado directamente desde DB)
-    const [roosterCount] = await db.select({ count: sql<number>`count(*)::int` })
-      .from(roosters).where(eq(roosters.status, "activo"));
-    const henRows = await db.select({ status: hens.status }).from(hens);
-    const activeHens = henRows.filter((h) => isAvailableForExit(h.status)).length;
-    const balBefore = flockBalance(activeHens, roosterCount?.count || 0);
-    const expected = assignMales(4, balBefore.active, balBefore.required);
+    // Estado previo de la parvada (computado directamente desde DB con contexto de granja)
+    const { balBefore, expected } = await runWithFarmContext(DEFAULT_FARM_ID, async () => {
+      const [roosterCount] = await db.select({ count: sql<number>`count(*)::int` })
+        .from(roosters).where(eq(roosters.status, "activo"));
+      const henRows = await db.select({ status: hens.status }).from(hens);
+      const activeHens = henRows.filter((h) => isAvailableForExit(h.status)).length;
+      const bal = flockBalance(activeHens, roosterCount?.count || 0);
+      return { balBefore: bal, expected: assignMales(4, bal.active, bal.required) };
+    });
 
     // Iniciar incubación con ambos progenitores registrados
     const incRes = await incubacionPOST(mockRequest("http://localhost/api/incubacion", {

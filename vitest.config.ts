@@ -20,6 +20,7 @@ export default defineConfig({
   test: {
     include: ["tests/**/*.test.ts"],
     setupFiles: ["./tests/setup.ts"],
+    fileParallelism: false,
     sequence: { concurrent: false },
     testTimeout: 30000,
   },

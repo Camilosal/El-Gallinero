@@ -2,11 +2,15 @@ import type { Metadata, Viewport } from "next";
 import type { ReactNode } from "react";
 import "./globals.css";
 import PwaRegister from "@/components/PwaRegister";
+import { APP_DEVELOPER } from "@/lib/branding";
 
 export const metadata: Metadata = {
   title: "El Gallinero — Iwagé Granja",
   description:
     "Gestiona animales y producción multiespecie con trazabilidad, inventarios, finanzas y un agente de IA para consultar y registrar operaciones.",
+  authors: [{ name: APP_DEVELOPER.name, url: APP_DEVELOPER.url }],
+  creator: APP_DEVELOPER.name,
+  publisher: APP_DEVELOPER.name,
   metadataBase: new URL("https://gallinero.iwage.co"),
   alternates: { canonical: "/" },
   manifest: "/manifest.json",

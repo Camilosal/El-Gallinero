@@ -17,11 +17,12 @@ import { withApiHandler, safeParseJson } from "@/lib/api-handler";
 
 export const dynamic = "force-dynamic";
 
-const BATCH_MORTALITY_SPECIES: Record<string, "pollo" | "codorniz" | "pato" | "conejo"> = {
+const BATCH_MORTALITY_SPECIES: Record<string, "pollo" | "codorniz" | "pato" | "conejo" | "cuy"> = {
   lote_pollos: "pollo",
   lote_codornices: "codorniz",
   lote_patos: "pato",
   lote_conejos: "conejo",
+  lote_cuyes: "cuy",
 };
 const MORTALITY_TYPES = new Set(["gallina", "gallo", ...Object.keys(BATCH_MORTALITY_SPECIES)]);
 const MORTALITY_CAUSES = new Set(["enfermedad", "depredador", "accidente", "sacrificio_sanitario", "causa_natural", "otro"]);

@@ -2,6 +2,7 @@ import { db } from "@/db";
 import { catalogos, manureFactors } from "@/db/schema";
 import { and, asc, eq, isNull, sql } from "drizzle-orm";
 import { NextRequest, NextResponse } from "next/server";
+import { requirePermission } from "@/lib/rbac-server";
 import { withApiHandler, safeParseJson } from "@/lib/api-handler";
 
 export const dynamic = "force-dynamic";
@@ -86,6 +87,8 @@ export const GET = withApiHandler(async () => {
 });
 
 export const PUT = withApiHandler(async (req: NextRequest) => {
+  const denied = await requirePermission("config:write");
+  if (denied) return denied;
   const body = await safeParseJson(req);
   if (!body.id) return NextResponse.json({ error: "ID requerido" }, { status: 400 });
 

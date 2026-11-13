@@ -17,7 +17,7 @@ export default function ScrollReveal({ children }: { children: ReactNode }) {
           }
         });
       },
-      { threshold: 0.15 },
+      { threshold: 0.05, rootMargin: "0px 0px 40px 0px" },
     );
     el.querySelectorAll(".land-reveal").forEach((item) => io.observe(item));
     return () => io.disconnect();

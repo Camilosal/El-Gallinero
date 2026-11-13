@@ -2,14 +2,17 @@ import { InternalApiClient, InternalApiError } from "./internal-api";
 import { normalizeSpecies, speciesLabel } from "@/lib/species-db";
 import { isBatchPresent, isHenPresent, isRoosterPresent } from "@/lib/animal-status";
 import type { LlmToolDefinition } from "./llm";
+import { searchFarmKnowledge } from "./knowledge";
+import { jevRerankCandidates } from "./jev-routing";
 
 /**
  * Herramientas del asistente.
  *
  * - Lecturas: se ejecutan de inmediato.
  * - Escrituras de bajo riesgo (producción, mortalidad, peso, consumo,
- *   autoconsumo): se ejecutan automáticamente.
- * - Ventas, gastos e ingresos: quedan pendientes de confirmación humana.
+ *   autoconsumo, sensores, reproducción, incubación, bioseguridad, compostaje,
+ *   control sanitario, rutinas diarias y contactos): se ejecutan automáticamente.
+ * - Ventas, gastos, ingresos, prorrateos y cierres diarios: quedan pendientes de confirmación humana.
  *
  * Ninguna herramienta recibe SQL. Todas reutilizan endpoints existentes.
  */
@@ -18,6 +21,7 @@ export interface ToolContext {
   api: InternalApiClient;
   userId: string;
   userName: string;
+  conversationId?: string;
 }
 
 export interface PreparedWrite {
@@ -307,8 +311,8 @@ const consultarResumenGranja: AgentTool = {
 const consultarInventario: AgentTool = {
   name: "consultar_inventario",
   description:
-    "Consulta el inventario de animales (gallinas, gallos, pollos, codornices, patos y conejos), huevos disponibles, " +
-    "valor del inventario y alertas de stock. La unidad es 'animal'; 'aves' excluye conejos.",
+    "Consulta el inventario de animales (gallinas, gallos, pollos, codornices, patos, conejos y cuyes), huevos disponibles, " +
+    "valor del inventario y alertas de stock. La unidad es 'animal'; 'aves' excluye conejos y cuyes.",
   parameters: {
     type: "object",
     properties: {
@@ -377,7 +381,7 @@ const consultarAves: AgentTool = {
     properties: {
       especie: {
         type: "string",
-        description: "Filtra por especie: gallina, gallo, pollo, codorniz, pato o conejo.",
+        description: "Filtra por especie: gallina, gallo, pollo, codorniz, pato, conejo o cuy.",
       },
       solo_activas: {
         type: "boolean",
@@ -746,12 +750,14 @@ const consultarProduccion: AgentTool = {
     const bySize = new Map<string, number>();
     let totalCollected = 0;
     let broken = 0;
+    let discarded = 0;
     let forIncubation = 0;
     let autoconsumo = 0;
 
     for (const row of filtered) {
       totalCollected += Number(row.totalCollected || 0);
       broken += Number(row.broken || 0);
+      discarded += Number(row.discarded || 0);
       forIncubation += Number(row.forIncubation || 0);
       autoconsumo += Number(row.quantityAutoconsumo || 0);
       for (const detail of row.details || []) {
@@ -766,6 +772,7 @@ const consultarProduccion: AgentTool = {
       registros: filtered.length,
       totalRecolectado: totalCollected,
       roto: broken,
+      descartados: discarded,
       paraIncubacion: forIncubation,
       autoconsumo,
       porTamano: Array.from(bySize.entries()).map(([size, quantity]) => ({ tamano: size, cantidad: quantity })),
@@ -773,10 +780,15 @@ const consultarProduccion: AgentTool = {
         fecha: row.date,
         especie: row.species,
         lugar: row.locationName || null,
+        codigoLote: row.lotCode || null,
         total: row.totalCollected,
         roto: row.broken,
+        descartados: row.discarded || 0,
         incubacion: row.forIncubation,
         autoconsumo: row.quantityAutoconsumo,
+        temperaturaAlmacenC: row.storageTempC ?? null,
+        humedadAlmacenPct: row.storageHumidityPct ?? null,
+        alertasAlmacenamiento: row.storageWarnings || [],
         tamanos: row.details,
       })),
     };
@@ -821,7 +833,7 @@ const consultarFinanzas: AgentTool = {
 const consultarLotes: AgentTool = {
   name: "consultar_lotes",
   description:
-    "Lista los lotes de producción (pollos, codornices, patos, conejos) con especie, cantidad, edad, peso y estado de sacrificio.",
+    "Lista los lotes de producción (pollos, codornices, patos, conejos, cuyes) con especie, cantidad, edad, peso y estado de sacrificio.",
   parameters: { type: "object", properties: {}, additionalProperties: false },
   kind: "read",
   requiresConfirmation: false,
@@ -850,11 +862,14 @@ const consultarLotes: AgentTool = {
 
 const consultarSanidad: AgentTool = {
   name: "consultar_sanidad",
-  description: "Consulta el calendario sanitario: vacunaciones, desparasitaciones y eventos vencidos o próximos.",
+  description:
+    "Consulta el calendario sanitario (vacunaciones, desparasitaciones, vencidos o próximos) y, " +
+    "si se indica incluir_controles=true, los últimos controles aplicados con lote de vacuna, cadena de frío y días de retiro.",
   parameters: {
     type: "object",
     properties: {
       solo_pendientes: { type: "boolean", description: "Si es true, excluye eventos ya aplicados. Por defecto true." },
+      incluir_controles: { type: "boolean", description: "Si es true, incluye bitácora de controles sanitarios aplicados. Por defecto false." },
     },
     additionalProperties: false,
   },
@@ -863,7 +878,7 @@ const consultarSanidad: AgentTool = {
   async execute(args, ctx) {
     const rows = asArray<any>(await ctx.api.get("/api/sanidad/calendario"));
     const pending = args.solo_pendientes === false ? rows : rows.filter((row) => row.isActive);
-    return {
+    const result: Record<string, unknown> = {
       total: pending.length,
       vencidos: pending.filter((row) => row.isOverdue).length,
       proximos7Dias: pending.filter((row) => row.isDueSoon).length,
@@ -878,6 +893,23 @@ const consultarSanidad: AgentTool = {
         descripcion: row.description,
       })),
     };
+    if (args.incluir_controles === true) {
+      const controls = asArray<any>(await ctx.api.get("/api/sanidad/control"));
+      result.controlesRecientes = controls.slice(0, 20).map((c) => ({
+        fecha: c.date,
+        tipo: c.type,
+        especie: c.species || "todas",
+        lugar: c.locationName || null,
+        descripcion: c.description,
+        producto: c.product || null,
+        loteVacuna: c.vaccineLot || null,
+        vencimientoVacuna: c.vaccineExpiryDate || null,
+        tempFrioC: c.coldChainTempC || null,
+        finRetiro: c.withdrawalUntilDate || null,
+        proximaFecha: c.nextScheduled || null,
+      }));
+    }
+    return result;
   },
 };
 
@@ -982,8 +1014,12 @@ const registrarProduccionHuevos: AgentTool = {
       },
       total_recolectado: { type: "integer", minimum: 0, description: "Total si no se detalla por tamaño." },
       roto: { type: "integer", minimum: 0 },
+      descartados: { type: "integer", minimum: 0, description: "Huevos sucios/deformes descartados no vendibles." },
       para_incubacion: { type: "integer", minimum: 0 },
       autoconsumo: { type: "integer", minimum: 0 },
+      codigo_lote: { type: "string", description: "Código de lote PEPS/FIFO de huevo (ej. HUE-20261112). Opcional." },
+      temperatura_almacen_c: { type: "number", description: "Temperatura de cuarto frío / almacenamiento en °C." },
+      humedad_almacen_pct: { type: "number", minimum: 0, maximum: 100, description: "Humedad relativa de almacenamiento en %." },
       precio_referencia: { type: "number", minimum: 0, description: "Precio de referencia por huevo en COP." },
       notas: { type: "string" },
       confirmar_exceso: {
@@ -1030,6 +1066,18 @@ const registrarProduccionHuevos: AgentTool = {
       notes: args.notas ? String(args.notas) : null,
       overrideValidation: args.confirmar_exceso === true,
     };
+    if (args.descartados !== undefined && args.descartados !== null && args.descartados !== "") {
+      body.discarded = asNumber(args.descartados, "descartados", { min: 0, integer: true });
+    }
+    if (args.codigo_lote) body.lotCode = String(args.codigo_lote).trim();
+    if (args.temperatura_almacen_c !== undefined && args.temperatura_almacen_c !== null && args.temperatura_almacen_c !== "") {
+      body.storageTempC = asNumber(args.temperatura_almacen_c, "temperatura_almacen_c");
+    }
+    if (args.humedad_almacen_pct !== undefined && args.humedad_almacen_pct !== null && args.humedad_almacen_pct !== "") {
+      const hum = asNumber(args.humedad_almacen_pct, "humedad_almacen_pct", { min: 0 });
+      if (hum > 100) throw new Error("humedad_almacen_pct debe estar entre 0 y 100");
+      body.storageHumidityPct = hum;
+    }
     if (batch) body.batchId = batch.id;
     if (sizes.length > 0) body.sizes = sizes;
     if (args.precio_referencia !== undefined && args.precio_referencia !== null && args.precio_referencia !== "") {
@@ -1071,7 +1119,7 @@ const registrarMortalidad: AgentTool = {
       fecha: { type: "string", description: "Fecha AAAA-MM-DD. Por defecto hoy." },
       especie: {
         type: "string",
-        description: "gallina, gallo, pollo, codorniz, pato o conejo.",
+        description: "gallina, gallo, pollo, codorniz, pato, conejo o cuy.",
       },
       cantidad: { type: "integer", minimum: 1, description: "Por defecto 1. Solo lotes admiten más de 1." },
       causa: { type: "string", description: "Causa de la muerte." },
@@ -1120,7 +1168,7 @@ const registrarMortalidad: AgentTool = {
     }
 
     const species = normalizeSpecies(rawSpecies);
-    if (!species) throw new Error("Especie no reconocida. Usa gallina, gallo, pollo, codorniz, pato o conejo.");
+    if (!species) throw new Error("Especie no reconocida. Usa gallina, gallo, pollo, codorniz, pato, conejo o cuy.");
     const batches = activeBatches(await loadBatches(ctx)).filter((batch) => batch.species === species);
     const selected = findByIdOrCode(batches, args.codigo);
     if (args.codigo && !selected) throw new Error(`No se encontró un lote activo de ${species} con código ${args.codigo}`);
@@ -1132,11 +1180,19 @@ const registrarMortalidad: AgentTool = {
     }
     const location = await resolveFarmLocation(ctx, args.lugar, batch.locationId);
 
+    const mortalityBatchTypeBySpecies: Record<string, string> = {
+      pollo: "lote_pollos",
+      codorniz: "lote_codornices",
+      pato: "lote_patos",
+      conejo: "lote_conejos",
+      cuy: "lote_cuyes",
+    };
+
     return {
       args: {
         date,
         locationId: location.id,
-        birdType: "lote_pollos",
+        birdType: mortalityBatchTypeBySpecies[species] || "lote_pollos",
         quantity,
         cause,
         batchId: batch.id,
@@ -1405,7 +1461,7 @@ const registrarVentaAnimales: AgentTool = {
   name: "registrar_venta_animales",
   description:
     "Propone la venta de animales individuales o de un lote. Requiere confirmación. " +
-    "Las gallinas y gallos se venden de a uno; los lotes admiten varias aves.",
+    "Las gallinas y gallos se venden de a uno; los lotes admiten varios animales.",
   parameters: {
     type: "object",
     properties: {
@@ -1413,11 +1469,11 @@ const registrarVentaAnimales: AgentTool = {
       tipo: {
         type: "string",
         enum: ["gallina", "gallo", "lote"],
-        description: "Tipo de venta. Para pollos, codornices, patos o conejos usa 'lote'.",
+        description: "Tipo de venta. Para pollos, codornices, patos, conejos o cuyes usa 'lote'.",
       },
       especie: {
         type: "string",
-        description: "Si el tipo es 'lote', especie del lote: pollo, codorniz, pato o conejo.",
+        description: "Si el tipo es 'lote', especie del lote: pollo, codorniz, pato, conejo o cuy.",
       },
       codigo: { type: "string", description: "Código o id del animal o lote." },
       cantidad: { type: "integer", minimum: 1, description: "Cantidad. Para gallina/gallo debe ser 1." },
@@ -1425,7 +1481,9 @@ const registrarVentaAnimales: AgentTool = {
       modo_precio: { type: "string", enum: ["por_ave", "por_kg"], description: "Por defecto por_ave." },
       peso_kg: { type: "number", minimum: 0.001, description: "Peso vendido, si el modo es por_kg." },
       comprador: { type: "string" },
-      presentacion: { type: "string", description: " canal, vivo, etc." },
+      presentacion: { type: "string", description: "canal, vivo, etc." },
+      credito: { type: "boolean", description: "Si la venta queda a crédito." },
+      fecha_vencimiento: { type: "string", description: "AAAA-MM-DD, si es a crédito." },
       notas: { type: "string" },
     },
     required: ["tipo", "precio_unitario"],
@@ -1439,6 +1497,10 @@ const registrarVentaAnimales: AgentTool = {
     const quantity = args.cantidad ? asNumber(args.cantidad, "cantidad", { min: 1, integer: true }) : 1;
     const price = asNumber(args.precio_unitario, "precio_unitario", { min: 1 });
     const mode = args.modo_precio === "por_kg" ? "por_kg" : "por_ave";
+    const creditFields = {
+      isCredit: args.credito === true,
+      dueDate: args.fecha_vencimiento ? normalizeDate(args.fecha_vencimiento) : null,
+    };
 
     if (mode === "por_kg" && !args.peso_kg) {
       throw new Error("Indica el peso en kg para una venta por kg");
@@ -1463,6 +1525,7 @@ const registrarVentaAnimales: AgentTool = {
           buyer: args.comprador ? String(args.comprador) : null,
           presentation: args.presentacion ? String(args.presentacion) : null,
           henId: hen.id,
+          ...creditFields,
           notes: args.notas ? String(args.notas) : null,
         },
         summary: `Vender la gallina ${hen.code} por ${formatCop(price)}${args.comprador ? ` a ${args.comprador}` : ""} el ${formatDateEs(date)}.`,
@@ -1488,6 +1551,7 @@ const registrarVentaAnimales: AgentTool = {
           buyer: args.comprador ? String(args.comprador) : null,
           presentation: args.presentacion ? String(args.presentacion) : null,
           roosterId: rooster.id,
+          ...creditFields,
           notes: args.notas ? String(args.notas) : null,
         },
         summary: `Vender el gallo ${rooster.code} por ${formatCop(price)}${args.comprador ? ` a ${args.comprador}` : ""} el ${formatDateEs(date)}.`,
@@ -1509,7 +1573,7 @@ const registrarVentaAnimales: AgentTool = {
     return {
       args: {
         date,
-        birdType: "lote_pollos",
+        birdType: batch.species || "pollo",
         quantity,
         pricePerUnit: price,
         priceMode: mode,
@@ -1517,6 +1581,7 @@ const registrarVentaAnimales: AgentTool = {
         buyer: args.comprador ? String(args.comprador) : null,
         presentation: args.presentacion ? String(args.presentacion) : null,
         batchId: batch.id,
+        ...creditFields,
         notes: args.notas ? String(args.notas) : null,
       },
       summary: `Vender ${quantity} ${speciesLabel(batch.species, true).toLowerCase()} del lote ${batch.code} a ${formatCop(price)} ${mode === "por_kg" ? "por kg" : "cada uno"}${args.comprador ? ` a ${args.comprador}` : ""} el ${formatDateEs(date)}.`,
@@ -1524,6 +1589,108 @@ const registrarVentaAnimales: AgentTool = {
   },
   async execute(args, ctx) {
     return ctx.api.post("/api/finanzas/finanzas/ventas-aves", args);
+  },
+};
+
+const registrarVentaCarne: AgentTool = {
+  name: "registrar_venta_carne",
+  description:
+    "Propone una venta de carne en canal o despiece por kilogramos (pollo, gallina, codorniz, pato, conejo o cuy). Requiere confirmación del usuario.",
+  parameters: {
+    type: "object",
+    properties: {
+      fecha: { type: "string", description: "Fecha AAAA-MM-DD. Por defecto hoy." },
+      especie: {
+        type: "string",
+        description: "Especie de carne: pollo, gallina, codorniz, pato, conejo o cuy. Por defecto pollo.",
+      },
+      cantidad_kg: { type: "number", minimum: 0.01, description: "Cantidad vendida en kg." },
+      precio_kg: { type: "number", minimum: 1, description: "Precio por kg en COP." },
+      presentacion: { type: "string", description: "canal entero, despiece, empacado, etc." },
+      comprador: { type: "string" },
+      credito: { type: "boolean", description: "Si la venta queda a crédito." },
+      fecha_vencimiento: { type: "string", description: "AAAA-MM-DD, si es a crédito." },
+      notas: { type: "string" },
+    },
+    required: ["cantidad_kg", "precio_kg"],
+    additionalProperties: false,
+  },
+  kind: "write",
+  requiresConfirmation: true,
+  async prepare(args) {
+    const date = normalizeDate(args.fecha);
+    const quantityKg = asNumber(args.cantidad_kg, "cantidad_kg", { min: 0.01 });
+    const pricePerKg = asNumber(args.precio_kg, "precio_kg", { min: 1 });
+    const parsedSpecies = args.especie ? normalizeSpecies(String(args.especie)) : "pollo";
+    if (args.especie && !parsedSpecies) {
+      throw new Error(`Especie no reconocida: ${args.especie}`);
+    }
+    const species = parsedSpecies || "pollo";
+    const total = quantityKg * pricePerKg;
+    return {
+      args: {
+        date,
+        species,
+        quantityKg,
+        pricePerKg,
+        presentation: args.presentacion ? String(args.presentacion) : null,
+        buyer: args.comprador ? String(args.comprador) : null,
+        isCredit: args.credito === true,
+        dueDate: args.fecha_vencimiento ? normalizeDate(args.fecha_vencimiento) : null,
+        notes: args.notas ? String(args.notas) : null,
+      },
+      summary: `Vender ${quantityKg} kg de carne de ${speciesLabel(species, false).toLowerCase()} por ${formatCop(total)}${args.comprador ? ` a ${args.comprador}` : ""} el ${formatDateEs(date)}.`,
+    };
+  },
+  async execute(args, ctx) {
+    return ctx.api.post("/api/produccion/carne/ventas", args);
+  },
+};
+
+const registrarVentaGallinaza: AgentTool = {
+  name: "registrar_venta_gallinaza",
+  description:
+    "Propone una venta de gallinaza o abono orgánico en kilogramos. Requiere confirmación del usuario.",
+  parameters: {
+    type: "object",
+    properties: {
+      fecha: { type: "string", description: "Fecha AAAA-MM-DD. Por defecto hoy." },
+      cantidad_kg: { type: "number", minimum: 0.01, description: "Cantidad vendida en kg." },
+      precio_kg: { type: "number", minimum: 1, description: "Precio por kg en COP." },
+      especie: { type: "string", description: "Especie de origen o mixta (opcional)." },
+      presentacion: { type: "string", description: "bulto 40kg, granel, saco, etc." },
+      comprador: { type: "string" },
+      credito: { type: "boolean", description: "Si la venta queda a crédito." },
+      fecha_vencimiento: { type: "string", description: "AAAA-MM-DD, si es a crédito." },
+      notas: { type: "string" },
+    },
+    required: ["cantidad_kg", "precio_kg"],
+    additionalProperties: false,
+  },
+  kind: "write",
+  requiresConfirmation: true,
+  async prepare(args) {
+    const date = normalizeDate(args.fecha);
+    const quantityKg = asNumber(args.cantidad_kg, "cantidad_kg", { min: 0.01 });
+    const pricePerKg = asNumber(args.precio_kg, "precio_kg", { min: 1 });
+    const total = quantityKg * pricePerKg;
+    return {
+      args: {
+        date,
+        quantityKg,
+        pricePerKg,
+        species: args.especie ? normalizeSpecies(String(args.especie)) : null,
+        presentation: args.presentacion ? String(args.presentacion) : null,
+        buyer: args.comprador ? String(args.comprador) : null,
+        isCredit: args.credito === true,
+        dueDate: args.fecha_vencimiento ? normalizeDate(args.fecha_vencimiento) : null,
+        notes: args.notas ? String(args.notas) : null,
+      },
+      summary: `Vender ${quantityKg} kg de gallinaza/abono por ${formatCop(total)}${args.comprador ? ` a ${args.comprador}` : ""} el ${formatDateEs(date)}.`,
+    };
+  },
+  async execute(args, ctx) {
+    return ctx.api.post("/api/produccion/gallinaza/ventas", args);
   },
 };
 
@@ -1597,7 +1764,7 @@ const registrarGasto: AgentTool = {
 const registrarIngreso: AgentTool = {
   name: "registrar_ingreso",
   description:
-    "Propone registrar un ingreso que no sea venta de huevos ni de animales (esos tienen herramientas propias). " +
+    "Propone registrar un ingreso o venta de otro producto o subproducto que no sea huevo, carne, animal en pie ni gallinaza (esos tienen herramientas propias). " +
     "Requiere confirmación del usuario.",
   parameters: financeParameters,
   kind: "write",
@@ -1608,7 +1775,1982 @@ const registrarIngreso: AgentTool = {
   },
 };
 
+const consultarReproduccion: AgentTool = {
+  name: "consultar_reproduccion",
+  description:
+    "Consulta el historial de reproducción de mamíferos (conejos F1 y cuyes): empadres activos, palpaciones, nidales, partos, " +
+    "destetes con lotes sexados, ganancia diaria, alertas de descarte por paridad y madres élite.",
+  parameters: {
+    type: "object",
+    properties: {
+      especie: { type: "string", description: "Opcional: conejo o cuy." },
+    },
+    additionalProperties: false,
+  },
+  kind: "read",
+  requiresConfirmation: false,
+  async execute(args, ctx) {
+    const sp = args.especie ? normalizeSpecies(String(args.especie)) : null;
+    if (sp && sp !== "conejo" && sp !== "cuy") {
+      throw new Error("La reproducción mamífera aplica solo a conejo o cuy. Para aves usa consultar_incubacion.");
+    }
+    const path = sp ? `/api/produccion/reproduccion?species=${encodeURIComponent(sp)}` : "/api/produccion/reproduccion";
+    const rows = asArray<any>(await ctx.api.get(path));
+    const gestacionesActivas = rows.filter((r) => r.eventType === "empadre" && r.status === "activo").length;
+    const camadasPorDestetar = rows.filter((r) => r.eventType === "parto" && r.status === "lactancia").length;
+    const madresElite = Array.from(
+      new Set(rows.filter((r) => r.isEliteDam).map((r) => `${r.damCode} (${r.species}${r.litterDailyGainG ? `, ${r.litterDailyGainG} g/día` : ""})`)),
+    );
+    const alertasDescarte = Array.from(
+      new Set(rows.filter((r) => r.cullRecommended).map((r) => `${r.damCode} (${r.species}, parto #${r.parityNumber ?? "?"})`)),
+    );
+    return {
+      resumen: {
+        totalEventos: rows.length,
+        gestacionesActivas,
+        camadasPorDestetar,
+        madresElite,
+        alertasDescarte,
+      },
+      eventosRecientes: rows.slice(0, 25).map((r) => ({
+        fecha: r.eventDate,
+        especie: r.species,
+        tipo: r.eventType,
+        estado: r.status,
+        madre: r.damCode,
+        padre: r.sireCode || null,
+        lugar: r.locationName || null,
+        paridad: r.parityNumber ?? null,
+        resultadoPalpacion: r.palpationResult || null,
+        fechaPalpacion: r.expectedPalpationDate || null,
+        fechaNidal: r.expectedNestboxDate || null,
+        fechaEstimadaParto: r.expectedBirthDate || null,
+        nacidosVivos: r.bornAlive ?? null,
+        nacidosMuertos: r.bornDead ?? null,
+        destetadosTotal: r.weanedTotal ?? null,
+        destetadosMachos: r.weanedMales ?? null,
+        destetadosHembras: r.weanedFemales ?? null,
+        gananciaDiariaG: r.litterDailyGainG ?? null,
+        loteDestetado: r.weanedBatchCode || null,
+        madreElite: Boolean(r.isEliteDam),
+        descarteRecomendado: Boolean(r.cullRecommended),
+      })),
+    };
+  },
+};
+
+const consultarBioseguridad: AgentTool = {
+  name: "consultar_bioseguridad",
+  description:
+    "Consulta cumplimiento POE GAB (ICA 3651/3652), puntaje de bienestar Resolución 8452/2025, " +
+    "puntaje bioseguridad granja mixta y vencimientos de capacitaciones (vigencia 5 años).",
+  parameters: { type: "object", properties: {}, additionalProperties: false },
+  kind: "read",
+  requiresConfirmation: false,
+  async execute(_args, ctx) {
+    const data = await ctx.api.get<any>("/api/sanidad/bioseguridad");
+    return {
+      resumen: data.summary ?? null,
+      alertasCapacitacion: data.certificateAlerts ?? [],
+      ultimasBitacoras: (data.logs || []).slice(0, 20).map((l: any) => ({
+        fecha: l.date,
+        tipo: l.logType,
+        lugar: l.locationName || "General",
+        puntajeBienestar: l.welfareScore,
+        cumplimiento: l.complianceStatus,
+        personal: l.staffName || l.inspectorName || null,
+        tema: l.trainingTopic || l.disinfectantUsed || null,
+        venceCertificado: l.trainingCertificateUntil || null,
+      })),
+    };
+  },
+};
+
+const consultarCompostaje: AgentTool = {
+  name: "consultar_compostaje",
+  description:
+    "Consulta pilas activas y cosechadas de compostaje (fórmulas 3:1:1 y 7:2:2), fechas de volteo/cosecha y alertas (>70 °C o humedad > 20%).",
+  parameters: { type: "object", properties: {}, additionalProperties: false },
+  kind: "read",
+  requiresConfirmation: false,
+  async execute(_args, ctx) {
+    const data = await ctx.api.get<any>("/api/operaciones/compostaje");
+    return {
+      resumen: data.summary ?? null,
+      pilas: (data.piles || []).slice(0, 20).map((p: any) => ({
+        codigo: p.code,
+        nombre: p.name,
+        lugar: p.locationName || null,
+        especie: p.species || null,
+        formula: p.formulaRatio,
+        estado: p.status,
+        fechaInicio: p.startDate,
+        gallinazaKg: p.manureKg,
+        mortalidadKg: p.mortalityKg,
+        materialCarbonoKg: p.carbonMaterialKg,
+        ultimoVolteo: p.lastTurnDate || null,
+        proximoVolteo: p.nextTurnDueDate || null,
+        cosechaEstimada: p.expectedHarvestDate || null,
+        cosechadoKg: p.harvestedKg ?? null,
+        temperaturaC: p.currentTempC,
+        humedadPct: p.moisturePct,
+        volteos: p.turnCount ?? 0,
+        alertas: p.alerts || [],
+      })),
+    };
+  },
+};
+
+function describeSensorAlert(r: any): string {
+  const ith = r.ithIndex != null ? Number(r.ithIndex) : r.metricType === "ith" ? Number(r.value) : null;
+  if (ith != null && Number.isFinite(ith) && ith >= 72) {
+    return ith >= 78 ? `Estrés calórico severo (ITH ${ith} ≥ 78)` : `Alerta estrés calórico moderado (ITH ${ith} ≥ 72)`;
+  }
+  const val = Number(r.value);
+  if (r.metricType === "amoniaco_ppm" && Number.isFinite(val) && val >= 20) {
+    return `Nivel crítico de NH3 (${val} ppm ≥ 20 ppm)`;
+  }
+  if (r.metricType === "temperatura" && Number.isFinite(val) && (val > 32 || val < 10)) {
+    return `Temperatura fuera de rango (${val} °C)`;
+  }
+  return "Lectura en alerta";
+}
+
+const consultarCierreYSensores: AgentTool = {
+  name: "consultar_cierre_y_sensores",
+  description:
+    "Consulta el estado de cierre diario auditable (snapshot del día y cierres recientes) y lecturas ambientales IoT " +
+    "(temperatura, humedad, índice ITH de estrés calórico, amoníaco NH3 ppm, báscula automática y consumo de agua).",
+  parameters: {
+    type: "object",
+    properties: {
+      fecha: { type: "string", description: "Opcional AAAA-MM-DD para consultar el pre-cierre de ese día." },
+    },
+    additionalProperties: false,
+  },
+  kind: "read",
+  requiresConfirmation: false,
+  async execute(args, ctx) {
+    const dateParam = args.fecha ? `?date=${encodeURIComponent(normalizeDate(args.fecha))}` : "";
+    const [closureData, sensorData] = await Promise.all([
+      ctx.api.get<any>(`/api/operaciones/cierre-diario${dateParam}`),
+      ctx.api.get<any>("/api/operaciones/sensores"),
+    ]);
+    const readings = Array.isArray(sensorData.readings) ? sensorData.readings : [];
+    return {
+      cierreDelDia: {
+        fechaObjetivo: closureData.targetDate,
+        resumenDia: closureData.preview,
+        cierresRecientes: (closureData.closures || []).slice(0, 10).map((c: any) => ({
+          fecha: c.closureDate,
+          estado: c.status,
+          motivoReapertura: c.reopenReason || null,
+        })),
+      },
+      sensores: {
+        resumen: sensorData.summary ?? null,
+        alertasActivas: readings
+          .filter((r: any) => r.alertTriggered)
+          .slice(0, 15)
+          .map((r: any) => ({
+            dispositivo: r.deviceId,
+            lugar: r.locationName || "General",
+            metrica: r.metricType,
+            valor: r.value,
+            unidad: r.unit,
+            ith: r.ithIndex,
+            motivo: describeSensorAlert(r),
+            registrado: r.recordedAt,
+          })),
+        lecturasRecientes: readings.slice(0, 15).map((r: any) => ({
+          dispositivo: r.deviceId,
+          lugar: r.locationName || "General",
+          metrica: r.metricType,
+          valor: r.value,
+          unidad: r.unit,
+          ith: r.ithIndex,
+          alerta: Boolean(r.alertTriggered),
+          registrado: r.recordedAt,
+        })),
+      },
+    };
+  },
+};
+
+const consultarIncubacion: AgentTool = {
+  name: "consultar_incubacion",
+  description:
+    "Consulta las tandas de incubación de huevos (gallina, codorniz y pato): huevos incubados, fértiles, fertilidad %, " +
+    "natalidad %, fecha de parada de volteo y fecha estimada de eclosión.",
+  parameters: {
+    type: "object",
+    properties: {
+      solo_activas: { type: "boolean", description: "Si es true, muestra solo tandas sin eclosionar. Opcional." },
+      especie: { type: "string", description: "Opcional: gallina, codorniz o pato." },
+    },
+    additionalProperties: false,
+  },
+  kind: "read",
+  requiresConfirmation: false,
+  async execute(args, ctx) {
+    const rows = asArray<any>(await ctx.api.get("/api/produccion/incubacion"));
+    const sp = args.especie ? normalizeSpecies(String(args.especie)) : null;
+    const filtered = rows.filter((row) => {
+      if (args.solo_activas === true && row.isComplete) return false;
+      if (sp && row.species !== sp) return false;
+      return true;
+    });
+    return {
+      total: filtered.length,
+      activas: filtered.filter((r) => !r.isComplete).length,
+      completadas: filtered.filter((r) => r.isComplete).length,
+      tandas: filtered.slice(0, 25).map((r) => ({
+        id: r.id,
+        especie: r.species || "gallina",
+        incubadora: r.incubatorName || null,
+        bandeja: r.trayCode || null,
+        madre: r.henCode || null,
+        padre: r.roosterCode || null,
+        lote: r.batchCode || null,
+        lugar: r.locationName || null,
+        fechaInicio: r.startDate,
+        pararVolteo: r.turnStopDate || null,
+        eclosionEstimada: r.expectedHatchDate || null,
+        huevosIncubados: r.eggsSet,
+        fertiles: r.fertileEggs,
+        descartados: r.discardedEggs,
+        nacidos: r.eggsHatched,
+        fertilidadPct: r.fertilityPct,
+        natalidadFertilesPct: r.hatchOfFertilePct,
+        natalidadTotalPct: r.hatchTotalPct,
+        tempObjetivoC: r.tempTargetC,
+        humedadObjetivoPct: r.humidityTargetPct,
+        completa: Boolean(r.isComplete),
+      })),
+    };
+  },
+};
+
+const consultarCalendarioRutinas: AgentTool = {
+  name: "consultar_calendario_rutinas",
+  description:
+    "Consulta la agenda unificada, las tareas de la rutina diaria de hoy, los incumplimientos/vencimientos recientes y los próximos hitos (7, 30 y 90 días).",
+  parameters: {
+    type: "object",
+    properties: {
+      modulo: { type: "string", description: "Filtro opcional: huevos, alimentacion, rutina, sanidad, incubacion, reproduccion, mantenimiento, compostaje, bioseguridad, finanzas." },
+    },
+    additionalProperties: false,
+  },
+  kind: "read",
+  requiresConfirmation: false,
+  async execute(args, ctx) {
+    const data = await ctx.api.get<any>("/api/planeacion/calendario");
+    const mod = args.modulo ? normalizeLookup(args.modulo) : null;
+    const matchModule = (ev: any) => !mod || normalizeLookup(ev.module) === mod;
+    const mapEv = (ev: any) => ({
+      id: ev.routineTaskId || ev.id,
+      fecha: ev.date,
+      titulo: ev.title,
+      modulo: ev.module,
+      estado: ev.status,
+      prioridad: ev.priority,
+      esRutina: Boolean(ev.isRoutine),
+      detalle: ev.subtitle || null,
+    });
+    return {
+      fechaHoy: data.today,
+      metricas: data.metrics || null,
+      tareasHoy: asArray<any>(data.todayRoutineTasks).filter(matchModule).slice(0, 30).map(mapEv),
+      vencidas: asArray<any>(data.overdueItems).filter(matchModule).slice(0, 20).map(mapEv),
+      proximas7Dias: asArray<any>(data.upcomingMediumLongTerm?.next7Days).filter(matchModule).slice(0, 20).map(mapEv),
+    };
+  },
+};
+
+async function findAnyLocationByName(ctx: ToolContext, requestedName?: unknown): Promise<FarmLocationRow | null> {
+  const requested = normalizeLookup(requestedName);
+  if (!requested) return null;
+  const locations = asArray<FarmLocationRow>(await ctx.api.get("/api/ubicaciones"));
+  const exact = locations.filter((loc) => normalizeLookup(loc.name) === requested);
+  const matches = exact.length > 0 ? exact : locations.filter((loc) => normalizeLookup(loc.name).includes(requested));
+  if (matches.length === 0) {
+    throw new Error(`No encontré el lugar "${String(requestedName).trim()}". Lugares disponibles: ${locations.map((l) => l.name).join(", ") || "ninguno"}`);
+  }
+  if (matches.length > 1) {
+    throw new Error(`El lugar "${String(requestedName).trim()}" coincide con varios: ${matches.map((l) => l.name).join(", ")}. Indica el nombre completo.`);
+  }
+  return matches[0];
+}
+
+const consultarContabilidadAnalitica: AgentTool = {
+  name: "consultar_contabilidad_analitica",
+  description:
+    "Consulta la contabilidad analítica: ingresos, costos directos, costos indirectos prorrateados y utilidad neta desglosados por especie y por lugar, " +
+    "costos unitarios por huevo y kg de carne, margen por calibre NTC 1240 y ROI del CAPEX en activos.",
+  parameters: {
+    type: "object",
+    properties: {
+      dias: { type: "integer", minimum: 1, maximum: 3650, description: "Días hacia atrás desde hoy si no se pasan desde/hasta. Por defecto 30." },
+      desde: { type: "string", description: "Fecha inicial AAAA-MM-DD (opcional)." },
+      hasta: { type: "string", description: "Fecha final AAAA-MM-DD (opcional)." },
+      especie: { type: "string", description: "Filtro opcional por especie." },
+      lugar: { type: "string", description: "Filtro opcional por nombre de lugar." },
+      incluir_prorrateo: { type: "boolean", description: "Si es true, incluye costos indirectos prorrateados. Por defecto true." },
+    },
+    additionalProperties: false,
+  },
+  kind: "read",
+  requiresConfirmation: false,
+  async execute(args, ctx) {
+    const to = args.hasta ? normalizeDate(args.hasta) : todayISO();
+    let from: string;
+    if (args.desde) {
+      from = normalizeDate(args.desde);
+    } else {
+      const days = args.dias ? asNumber(args.dias, "dias", { min: 1, integer: true }) : 30;
+      const d = new Date(`${to}T12:00:00`);
+      d.setDate(d.getDate() - days);
+      from = d.toISOString().split("T")[0];
+    }
+    const sp = args.especie ? normalizeSpecies(String(args.especie)) : null;
+    const loc = args.lugar ? await findAnyLocationByName(ctx, args.lugar) : null;
+    const includeProrated = args.incluir_prorrateo !== false;
+    const params = new URLSearchParams({ from, to, includeProrated: String(includeProrated) });
+    if (sp) params.set("species", sp);
+    if (loc) params.set("locationId", loc.id);
+    const data = await ctx.api.get<any>(`/api/analisis/contabilidad-analitica?${params.toString()}`);
+    return {
+      periodo: { desde: data.from, hasta: data.to, incluyeProrrateo: data.includeProrated },
+      totales: data.totals || null,
+      porEspecie: data.bySpecies || [],
+      porLugar: data.byLocation || [],
+      economiaUnitaria: data.unitEconomics || null,
+      roiCapex: data.capexRoi || null,
+      reglasProrrateo: data.proratedRulesCount ?? 0,
+    };
+  },
+};
+
+const consultarKpisYAlimentacion: AgentTool = {
+  name: "consultar_kpis_y_alimentacion",
+  description:
+    "Consulta indicadores zootécnicos y productivos (EPEF, CV%, uniformidad, ganancia diaria, HAA, ventanas de sacrificio), " +
+    "el comparativo nutricional y conversión alimenticia (FCR, costo/kg ganado, alertas de forraje o vitamina C) " +
+    "y la predicción de días de alimento restantes por producto.",
+  parameters: {
+    type: "object",
+    properties: {
+      dias: { type: "integer", minimum: 1, maximum: 365, description: "Período de análisis en días. Por defecto 30." },
+      especie: { type: "string", description: "Filtro opcional de especie para KPIs." },
+      lugar: { type: "string", description: "Filtro opcional de lugar para KPIs." },
+    },
+    additionalProperties: false,
+  },
+  kind: "read",
+  requiresConfirmation: false,
+  async execute(args, ctx) {
+    const days = args.dias ? asNumber(args.dias, "dias", { min: 1, integer: true }) : 30;
+    const sp = args.especie ? normalizeSpecies(String(args.especie)) : null;
+    const loc = args.lugar ? await findAnyLocationByName(ctx, args.lugar) : null;
+    const params = new URLSearchParams({ days: String(days) });
+    if (sp) params.set("species", sp);
+    if (loc) params.set("locationId", loc.id);
+
+    const [kpis, comp, pred] = await Promise.all([
+      ctx.api.get<any>(`/api/analisis/kpis?${params.toString()}`),
+      ctx.api.get<any>(`/api/produccion/alimentacion/comparativo?days=${days}`).catch(() => null),
+      ctx.api.post<any>("/api/produccion/alimentacion/prediccion", { days: Math.min(days, 60) }).catch(() => null),
+    ]);
+
+    return {
+      periodoDias: days,
+      kpis: {
+        mortalidad: kpis.mortality ?? null,
+        postura: kpis.laying ?? null,
+        costoUnitario: kpis.costPerUnit ?? null,
+        zootecnia: kpis.zootechnical ?? null,
+        roiCapex: kpis.capexRoi ?? null,
+      },
+      alimentacionYConversion: {
+        desempenoPorEspecie: comp?.dietPerformance || [],
+        comparativoProgramas: (comp?.comparativo || []).slice(0, 20),
+        alertasNutricionales: comp?.nutritionAlerts || null,
+      },
+      prediccionInventarioAlimento: {
+        resumen: pred?.summary || null,
+        alertasYProyeccion: (pred?.predictions || []).slice(0, 20),
+      },
+    };
+  },
+};
+
+const consultarContactos: AgentTool = {
+  name: "consultar_contactos",
+  description:
+    "Consulta el directorio de clientes y proveedores activos con teléfono, WhatsApp, ubicación, plazo de crédito, saldo pendiente por cobrar/pagar y volumen comercial.",
+  parameters: {
+    type: "object",
+    properties: {
+      rol: { type: "string", enum: ["cliente", "proveedor", "ambos", "all"], description: "Filtrar por rol comercial. Por defecto all." },
+      buscar: { type: "string", description: "Texto para buscar por nombre, ciudad, documento o categoría." },
+    },
+    additionalProperties: false,
+  },
+  kind: "read",
+  requiresConfirmation: false,
+  async execute(args, ctx) {
+    const role = args.rol ? String(args.rol) : "all";
+    const rows = asArray<any>(await ctx.api.get(`/api/contactos?role=${encodeURIComponent(role)}&activeOnly=1&includeStats=1`));
+    const needle = normalizeLookup(args.buscar);
+    const filtered = needle
+      ? rows.filter((c) =>
+          [c.name, c.contactName, c.city, c.zone, c.documentNumber, c.categoryTag, c.phone].some((v) =>
+            normalizeLookup(v).includes(needle),
+          ),
+        )
+      : rows;
+    return {
+      total: filtered.length,
+      contactos: filtered.slice(0, 30).map((c) => ({
+        nombre: c.name,
+        rol: c.role,
+        contacto: c.contactName || null,
+        telefono: c.phone || null,
+        whatsapp: c.whatsapp || null,
+        ciudad: c.city || null,
+        zona: c.zone || null,
+        diasCredito: c.creditDays ?? 0,
+        formaPago: c.paymentMethod || null,
+        porCobrarCOP: c.stats?.receivablePending ?? 0,
+        porPagarCOP: c.stats?.payablePending ?? 0,
+        ventasTotalesCOP: c.stats?.totalSalesAmount ?? 0,
+        comprasTotalesCOP: c.stats?.totalPurchasesAmount ?? 0,
+      })),
+    };
+  },
+};
+
+const registrarLecturaSensor: AgentTool = {
+  name: "registrar_lectura_sensor",
+  description:
+    "Registra una lectura manual o de sensor IoT: temperatura °C, humedad %, ITH calculado automáticamente, amoníaco NH3 ppm, peso de báscula en kg o consumo de agua en litros. " +
+    "Dispara alerta si ITH >= 72 o NH3 >= 20 ppm. Se ejecuta automáticamente.",
+  parameters: {
+    type: "object",
+    properties: {
+      lugar: { type: "string", description: "Nombre del galpón, corral o área. Opcional si solo hay un lugar." },
+      dispositivo: { type: "string", description: "Identificador del sensor o báscula (opcional)." },
+      temperatura_c: { type: "number", description: "Temperatura ambiente en °C." },
+      humedad_pct: { type: "number", minimum: 0, maximum: 100, description: "Humedad relativa en %." },
+      amoniaco_ppm: { type: "number", minimum: 0, description: "Concentración de amoníaco NH3 en ppm (alerta >= 20)." },
+      peso_bascula_kg: { type: "number", minimum: 0.01, description: "Peso capturado por báscula en kg." },
+      consumo_agua_l: { type: "number", minimum: 0.01, description: "Consumo de agua en litros." },
+      notas: { type: "string" },
+    },
+    additionalProperties: false,
+  },
+  kind: "write",
+  requiresConfirmation: false,
+  async prepare(args, ctx) {
+    const location = args.lugar ? await resolveFarmLocation(ctx, args.lugar) : null;
+    const hasNh3 = args.amoniaco_ppm !== undefined && args.amoniaco_ppm !== null;
+    const hasScale = args.peso_bascula_kg !== undefined && args.peso_bascula_kg !== null;
+    const hasWater = args.consumo_agua_l !== undefined && args.consumo_agua_l !== null;
+    const hasTemp = args.temperatura_c !== undefined && args.temperatura_c !== null;
+    const hasHum = args.humedad_pct !== undefined && args.humedad_pct !== null;
+    if (!hasNh3 && !hasScale && !hasWater && !hasTemp && !hasHum) {
+      throw new Error("Indica al menos temperatura_c, humedad_pct, amoniaco_ppm, peso_bascula_kg o consumo_agua_l.");
+    }
+
+    const base = {
+      locationId: location?.id || null,
+      deviceId: args.dispositivo ? String(args.dispositivo).trim() : undefined,
+      notes: args.notas ? String(args.notas) : "Registrado por asistente IA",
+    };
+
+    let payload: Record<string, unknown>;
+    let desc: string;
+    if (hasNh3) {
+      const val = asNumber(args.amoniaco_ppm, "amoniaco_ppm", { min: 0 });
+      payload = { ...base, metricType: "amoniaco_ppm", value: val };
+      desc = `NH3 ${val} ppm`;
+    } else if (hasScale) {
+      const val = asNumber(args.peso_bascula_kg, "peso_bascula_kg", { min: 0.01 });
+      payload = { ...base, metricType: "peso_bascula", value: val };
+      desc = `Báscula ${val} kg`;
+    } else if (hasWater) {
+      const val = asNumber(args.consumo_agua_l, "consumo_agua_l", { min: 0.01 });
+      payload = { ...base, metricType: "consumo_agua", value: val };
+      desc = `Consumo de agua ${val} L`;
+    } else {
+      const hum = hasHum
+        ? (() => {
+            const h = asNumber(args.humedad_pct, "humedad_pct", { min: 0 });
+            if (h > 100) throw new Error("La humedad debe estar entre 0 y 100%");
+            return h;
+          })()
+        : null;
+      payload = {
+        ...base,
+        metricType: hasTemp && hasHum ? "ith" : hasTemp ? "temperatura" : "humedad",
+        temperatureC: hasTemp ? asNumber(args.temperatura_c, "temperatura_c") : null,
+        humidityPct: hum,
+      };
+      desc = [hasTemp ? `${args.temperatura_c}°C` : null, hasHum ? `${args.humedad_pct}% HR` : null].filter(Boolean).join(" / ");
+    }
+
+    return {
+      args: payload,
+      summary: `Registrar lectura ambiental/IoT (${desc})${location ? ` en ${location.name}` : ""}.`,
+    };
+  },
+  async execute(args, ctx) {
+    return ctx.api.post("/api/operaciones/sensores", args);
+  },
+};
+
+const registrarReproduccion: AgentTool = {
+  name: "registrar_reproduccion",
+  description:
+    "Registra eventos reproductivos de conejos o cuyes: empadre/monta (con bloqueo anti-consanguinidad y agenda automática de palpación/nidal/parto), " +
+    "palpación, nidal, parto, diagnóstico o destete (con creación opcional de lote destetado sexado). Se ejecuta automáticamente.",
+  parameters: {
+    type: "object",
+    properties: {
+      especie: { type: "string", enum: ["conejo", "cuy"], description: "Especie mamífera: conejo o cuy." },
+      tipo_evento: { type: "string", enum: ["empadre", "palpacion", "nidal", "parto", "destete", "diagnostico"] },
+      fecha: { type: "string", description: "Fecha AAAA-MM-DD. Por defecto hoy." },
+      codigo_madre: { type: "string", description: "Código identificador de la madre." },
+      codigo_padre: { type: "string", description: "Código identificador del macho reproductor (opcional o requerido en empadre)." },
+      lugar: { type: "string", description: "Nombre del corral/jaula; necesario en destete si se crea lote nuevo." },
+      resultado_palpacion: { type: "string", enum: ["positiva", "negativa", "dudosa"] },
+      nacidos_vivos: { type: "integer", minimum: 0 },
+      nacidos_muertos: { type: "integer", minimum: 0 },
+      peso_camada_nacimiento_g: { type: "number", minimum: 0 },
+      destetados_machos: { type: "integer", minimum: 0 },
+      destetados_hembras: { type: "integer", minimum: 0 },
+      destetados_total: { type: "integer", minimum: 0 },
+      peso_camada_destete_g: { type: "number", minimum: 0 },
+      proposito_lote_destete: { type: "string", enum: ["engorde_carne", "pie_cria"] },
+      crear_lote_destete: { type: "boolean", description: "En destete, crea lote activo automáticamente si es true (por defecto true)." },
+      numero_parto: { type: "integer", minimum: 1 },
+      notas: { type: "string" },
+    },
+    required: ["especie", "tipo_evento", "codigo_madre"],
+    additionalProperties: false,
+  },
+  kind: "write",
+  requiresConfirmation: false,
+  async prepare(args, ctx) {
+    const species = normalizeSpecies(String(args.especie));
+    if (species !== "conejo" && species !== "cuy") {
+      throw new Error("El evento reproductivo solo aplica para conejo o cuy.");
+    }
+    const eventType = String(args.tipo_evento || "").trim().toLowerCase();
+    const eventDate = normalizeDate(args.fecha);
+    const damCode = String(args.codigo_madre || "").trim().toUpperCase();
+    if (!damCode) throw new Error("Indica el código de la madre.");
+    const sireCode = args.codigo_padre ? String(args.codigo_padre).trim().toUpperCase() : null;
+
+    const existing = asArray<any>(await ctx.api.get(`/api/produccion/reproduccion?species=${species}`));
+    const matchingParent = existing.find(
+      (r) => String(r.damCode || "").toUpperCase() === damCode &&
+        ((eventType === "destete" && r.eventType === "parto") || (eventType !== "empadre" && r.eventType === "empadre")),
+    );
+
+    const createBatch = eventType === "destete" ? args.crear_lote_destete !== false : false;
+    let locationId: string | null = null;
+    let locationName: string | null = null;
+    if (args.lugar || (eventType === "destete" && createBatch && !matchingParent?.locationId)) {
+      const loc = await resolveFarmLocation(ctx, args.lugar, matchingParent?.locationId || null);
+      locationId = loc.id;
+      locationName = loc.name;
+    } else if (matchingParent?.locationId) {
+      locationId = matchingParent.locationId;
+    }
+
+    const body: Record<string, unknown> = {
+      species,
+      eventType,
+      eventDate,
+      damCode,
+      sireCode: sireCode || matchingParent?.sireCode || null,
+      locationId,
+      parentEventId: matchingParent?.id || null,
+      palpationResult: args.resultado_palpacion || null,
+      bornAlive: args.nacidos_vivos !== undefined ? asNumber(args.nacidos_vivos, "nacidos_vivos", { min: 0, integer: true }) : null,
+      bornDead: args.nacidos_muertos !== undefined ? asNumber(args.nacidos_muertos, "nacidos_muertos", { min: 0, integer: true }) : 0,
+      litterBirthWeightG: args.peso_camada_nacimiento_g !== undefined ? asNumber(args.peso_camada_nacimiento_g, "peso_camada_nacimiento_g", { min: 0 }) : null,
+      weanedMales: args.destetados_machos !== undefined ? asNumber(args.destetados_machos, "destetados_machos", { min: 0, integer: true }) : null,
+      weanedFemales: args.destetados_hembras !== undefined ? asNumber(args.destetados_hembras, "destetados_hembras", { min: 0, integer: true }) : null,
+      weanedTotal: args.destetados_total !== undefined ? asNumber(args.destetados_total, "destetados_total", { min: 0, integer: true }) : null,
+      litterWeanWeightG: args.peso_camada_destete_g !== undefined ? asNumber(args.peso_camada_destete_g, "peso_camada_destete_g", { min: 0 }) : null,
+      weanPurpose: args.proposito_lote_destete || "engorde_carne",
+      createWeanedBatch: eventType === "destete" ? createBatch : false,
+      parityNumber: args.numero_parto !== undefined ? asNumber(args.numero_parto, "numero_parto", { min: 1, integer: true }) : undefined,
+      notes: args.notas ? String(args.notas) : null,
+    };
+
+    return {
+      args: body,
+      summary: `Registrar ${eventType} de ${species} (madre ${damCode}${sireCode ? `, padre ${sireCode}` : ""})${locationName ? ` en ${locationName}` : ""} el ${formatDateEs(eventDate)}.`,
+    };
+  },
+  async execute(args, ctx) {
+    return ctx.api.post("/api/produccion/reproduccion", args);
+  },
+};
+
+const registrarBioseguridad: AgentTool = {
+  name: "registrar_bioseguridad",
+  description:
+    "Registra bitácora de bioseguridad y cumplimiento: POE GAB (ICA 3651/3652), bienestar animal Resolución 8452/2025 (puntaje 0/20/55/100), " +
+    "capacitación del personal (vigencia 5 años), ingreso de visitantes o desinfección. Se ejecuta automáticamente.",
+  parameters: {
+    type: "object",
+    properties: {
+      tipo: { type: "string", enum: ["poe_gab", "bienestar_animal", "capacitacion", "ingreso_visitante", "desinfeccion"] },
+      fecha: { type: "string", description: "Fecha AAAA-MM-DD. Por defecto hoy." },
+      lugar: { type: "string", description: "Nombre del galpón/corral o vacío si aplica a toda la granja." },
+      especie: { type: "string" },
+      puntaje_bienestar: { type: "integer", enum: [0, 20, 55, 100], description: "Puntaje Resolución 8452/2025 cuando aplique." },
+      cumplimiento: { type: "string", enum: ["cumple", "parcial", "no_cumple"] },
+      inspector: { type: "string" },
+      personal: { type: "string", description: "Nombre de la persona capacitada o visitante." },
+      tema_capacitacion: { type: "string" },
+      vigencia_certificado: { type: "string", description: "AAAA-MM-DD (por defecto +5 años en capacitaciones)." },
+      desinfectante: { type: "string" },
+      notas: { type: "string" },
+    },
+    required: ["tipo"],
+    additionalProperties: false,
+  },
+  kind: "write",
+  requiresConfirmation: false,
+  async prepare(args, ctx) {
+    const date = normalizeDate(args.fecha);
+    const location = args.lugar ? await resolveFarmLocation(ctx, args.lugar) : null;
+    const species = args.especie ? normalizeSpecies(String(args.especie)) : null;
+    const body = {
+      date,
+      logType: String(args.tipo),
+      locationId: location?.id || null,
+      species,
+      welfareScore: args.puntaje_bienestar !== undefined ? Number(args.puntaje_bienestar) : null,
+      complianceStatus: args.cumplimiento || undefined,
+      inspectorName: args.inspector ? String(args.inspector) : null,
+      staffName: args.personal ? String(args.personal) : null,
+      trainingTopic: args.tema_capacitacion ? String(args.tema_capacitacion) : null,
+      trainingCertificateUntil: args.vigencia_certificado ? normalizeDate(args.vigencia_certificado) : null,
+      disinfectantUsed: args.desinfectante ? String(args.desinfectante) : null,
+      notes: args.notas ? String(args.notas) : null,
+    };
+    return {
+      args: body,
+      summary: `Registrar bitácora de bioseguridad (${args.tipo})${location ? ` en ${location.name}` : ""} el ${formatDateEs(date)}.`,
+    };
+  },
+  async execute(args, ctx) {
+    return ctx.api.post("/api/sanidad/bioseguridad", args);
+  },
+};
+
+const registrarCompostaje: AgentTool = {
+  name: "registrar_compostaje",
+  description:
+    "Crea una nueva pila de compostaje (fórmula 3:1:1 o 7:2:2 con cálculo automático de carbono) o registra volteo, actualización térmica/humedad " +
+    "o cosecha sobre una pila existente. Se ejecuta automáticamente.",
+  parameters: {
+    type: "object",
+    properties: {
+      accion: { type: "string", enum: ["crear", "volteo", "cosecha", "actualizar"], description: "Acción a realizar. Por defecto crear." },
+      pila: { type: "string", description: "Código o nombre de pila existente (requerido para volteo, cosecha o actualizar)." },
+      nombre: { type: "string", description: "Nombre de la nueva pila cuando accion=crear." },
+      fecha: { type: "string", description: "Fecha AAAA-MM-DD. Por defecto hoy." },
+      lugar: { type: "string", description: "Lugar asociado al compostaje (opcional)." },
+      especie: { type: "string" },
+      formula: { type: "string", enum: ["3:1:1", "7:2:2", "otra"] },
+      gallinaza_kg: { type: "number", minimum: 0 },
+      mortalidad_kg: { type: "number", minimum: 0 },
+      material_carbono_kg: { type: "number", minimum: 0 },
+      tipo_material_carbono: { type: "string" },
+      temperatura_c: { type: "number" },
+      humedad_pct: { type: "number", minimum: 0, maximum: 100 },
+      cosechado_kg: { type: "number", minimum: 0.01, description: "Kg cosechados cuando accion=cosecha." },
+      notas: { type: "string" },
+    },
+    additionalProperties: false,
+  },
+  kind: "write",
+  requiresConfirmation: false,
+  async prepare(args, ctx) {
+    const action = String(args.accion || "crear").toLowerCase();
+    const date = normalizeDate(args.fecha);
+
+    if (action === "crear") {
+      const name = String(args.nombre || args.pila || "").trim();
+      if (!name) throw new Error("Indica un nombre para la nueva pila de compostaje.");
+      const manureKg = args.gallinaza_kg !== undefined ? asNumber(args.gallinaza_kg, "gallinaza_kg", { min: 0 }) : 0;
+      const mortalityKg = args.mortalidad_kg !== undefined ? asNumber(args.mortalidad_kg, "mortalidad_kg", { min: 0 }) : 0;
+      if (manureKg + mortalityKg <= 0) {
+        throw new Error("Indica al menos gallinaza_kg o mortalidad_kg mayor a 0.");
+      }
+      const location = args.lugar ? await resolveFarmLocation(ctx, args.lugar) : null;
+      const species = args.especie ? normalizeSpecies(String(args.especie)) : null;
+      return {
+        args: {
+          method: "POST",
+          payload: {
+            name,
+            startDate: date,
+            locationId: location?.id || null,
+            species,
+            formulaRatio: args.formula || "3:1:1",
+            manureKg,
+            mortalityKg,
+            carbonMaterialKg: args.material_carbono_kg !== undefined ? asNumber(args.material_carbono_kg, "material_carbono_kg", { min: 0 }) : undefined,
+            carbonMaterialType: args.tipo_material_carbono ? String(args.tipo_material_carbono) : undefined,
+            currentTempC: args.temperatura_c !== undefined ? asNumber(args.temperatura_c, "temperatura_c") : undefined,
+            moisturePct: args.humedad_pct !== undefined ? asNumber(args.humedad_pct, "humedad_pct", { min: 0 }) : undefined,
+            notes: args.notas ? String(args.notas) : null,
+          },
+        },
+        summary: `Crear pila de compostaje "${name}" (${args.formula || "3:1:1"}, ${manureKg} kg cama + ${mortalityKg} kg mortalidad) el ${formatDateEs(date)}.`,
+      };
+    }
+
+    const needle = normalizeLookup(args.pila || args.nombre);
+    if (!needle) throw new Error("Indica el código o nombre de la pila de compostaje.");
+    const data = await ctx.api.get<any>("/api/operaciones/compostaje");
+    const piles = asArray<any>(data.piles);
+    const exact = piles.filter((p) => normalizeLookup(p.code) === needle || normalizeLookup(p.name) === needle || p.id === args.pila);
+    const matches = exact.length > 0 ? exact : piles.filter((p) => normalizeLookup(p.name).includes(needle) || normalizeLookup(p.code).includes(needle));
+    if (matches.length === 0) {
+      throw new Error(`No encontré la pila "${String(args.pila || args.nombre)}".`);
+    }
+    if (matches.length > 1) {
+      throw new Error(`Varias pilas coinciden: ${matches.map((m) => `${m.code} (${m.name})`).join(", ")}. Indica el código exacto.`);
+    }
+    const pile = matches[0];
+    const putAction = action === "volteo" ? "turn" : action === "cosecha" ? "harvest" : "update";
+    const payload: Record<string, unknown> = {
+      id: pile.id,
+      action: putAction,
+      actionDate: date,
+      currentTempC: args.temperatura_c !== undefined ? asNumber(args.temperatura_c, "temperatura_c") : undefined,
+      moisturePct: args.humedad_pct !== undefined ? asNumber(args.humedad_pct, "humedad_pct", { min: 0 }) : undefined,
+      notes: args.notas ? String(args.notas) : undefined,
+    };
+    if (putAction === "harvest") {
+      payload.harvestedKg = asNumber(args.cosechado_kg, "cosechado_kg", { min: 0.01 });
+    }
+    return {
+      args: { method: "PUT", payload },
+      summary: `Registrar ${action} en pila de compostaje ${pile.code} (${pile.name}) el ${formatDateEs(date)}.`,
+    };
+  },
+  async execute(args, ctx) {
+    if (args.method === "PUT") return ctx.api.put("/api/operaciones/compostaje", args.payload);
+    return ctx.api.post("/api/operaciones/compostaje", args.payload);
+  },
+};
+
+const registrarIncubacion: AgentTool = {
+  name: "registrar_incubacion",
+  description:
+    "Inicia una tanda de incubación para huevos de gallina (con o sin gallina clueca/gallo), codorniz o pato, calculando parada de volteo y fecha de eclosión. Se ejecuta automáticamente.",
+  parameters: {
+    type: "object",
+    properties: {
+      especie: { type: "string", enum: ["gallina", "codorniz", "pato"], description: "Por defecto gallina." },
+      huevos_incubados: { type: "integer", minimum: 1 },
+      fecha_inicio: { type: "string", description: "AAAA-MM-DD. Por defecto hoy." },
+      gallina: { type: "string", description: "Código de gallina empollando (solo gallina, opcional)." },
+      gallo: { type: "string", description: "Código de gallo padre (opcional)." },
+      lote: { type: "string", description: "Código del lote origen (opcional)." },
+      lugar: { type: "string", description: "Nombre del lugar donde está la incubadora o nidal (opcional)." },
+      incubadora: { type: "string", description: "Nombre o código de incubadora." },
+      bandeja: { type: "string", description: "Código de bandeja." },
+      huevos_fertiles: { type: "integer", minimum: 0 },
+      huevos_descartados: { type: "integer", minimum: 0 },
+      temperatura_c: { type: "number" },
+      humedad_pct: { type: "number", minimum: 0, maximum: 100 },
+      notas: { type: "string" },
+    },
+    required: ["huevos_incubados"],
+    additionalProperties: false,
+  },
+  kind: "write",
+  requiresConfirmation: false,
+  async prepare(args, ctx) {
+    const species = args.especie ? normalizeSpecies(String(args.especie)) || "gallina" : "gallina";
+    if (!["gallina", "codorniz", "pato"].includes(species)) {
+      throw new Error("Solo se pueden incubar huevos de gallina, codorniz o pato.");
+    }
+    const eggsSet = asNumber(args.huevos_incubados, "huevos_incubados", { min: 1, integer: true });
+    const startDate = normalizeDate(args.fecha_inicio);
+
+    let henId: string | null = null;
+    let roosterId: string | null = null;
+    let batchId: string | null = null;
+    let preferredLocId: string | null = null;
+
+    if (args.gallina) {
+      if (species !== "gallina") throw new Error("Solo se asigna gallina individual en incubación de gallina.");
+      const hens = activeHens(await loadHens(ctx));
+      const hen = findByIdOrCode(hens, String(args.gallina));
+      if (!hen) throw new Error(`No encontré la gallina activa ${args.gallina}.`);
+      henId = hen.id;
+      preferredLocId = hen.locationId || null;
+    }
+    if (args.gallo) {
+      const roosters = activeRoosters(await loadRoosters(ctx));
+      const rooster = findByIdOrCode(roosters, String(args.gallo));
+      if (!rooster) throw new Error(`No encontré el gallo activo ${args.gallo}.`);
+      roosterId = rooster.id;
+    }
+    if (args.lote) {
+      const batches = activeBatches(await loadBatches(ctx));
+      const batch = findByIdOrCode(batches, String(args.lote));
+      if (!batch || batch.species !== species) throw new Error(`No encontré el lote activo de ${species} con código ${args.lote}.`);
+      batchId = batch.id;
+      preferredLocId = preferredLocId || batch.locationId || null;
+    }
+    const location = args.lugar || preferredLocId ? await resolveFarmLocation(ctx, args.lugar, preferredLocId) : null;
+
+    const body: Record<string, unknown> = {
+      species,
+      eggsSet,
+      startDate,
+      henId,
+      roosterId,
+      batchId,
+      locationId: location?.id || null,
+      incubatorName: args.incubadora ? String(args.incubadora) : null,
+      trayCode: args.bandeja ? String(args.bandeja) : null,
+      fertileEggs: args.huevos_fertiles !== undefined ? asNumber(args.huevos_fertiles, "huevos_fertiles", { min: 0, integer: true }) : null,
+      discardedEggs: args.huevos_descartados !== undefined ? asNumber(args.huevos_descartados, "huevos_descartados", { min: 0, integer: true }) : 0,
+      tempTargetC: args.temperatura_c !== undefined ? asNumber(args.temperatura_c, "temperatura_c") : undefined,
+      humidityTargetPct: args.humedad_pct !== undefined ? asNumber(args.humedad_pct, "humedad_pct", { min: 0 }) : undefined,
+      notes: args.notas ? String(args.notas) : null,
+    };
+
+    return {
+      args: body,
+      summary: `Iniciar incubación de ${eggsSet} huevos de ${species}${location ? ` en ${location.name}` : ""} desde el ${formatDateEs(startDate)}.`,
+    };
+  },
+  async execute(args, ctx) {
+    return ctx.api.post("/api/produccion/incubacion", args);
+  },
+};
+
+const completarRutinaCalendario: AgentTool = {
+  name: "completar_rutina_calendario",
+  description:
+    "Confirma con evidencia de campo (observación obligatoria de al menos 5 caracteres) una tarea manual o de verificación sin novedad del calendario unificado (ej. '0 bajas hoy', 'Recarga física'). NO sirve para tareas que requieren registro real en BD (huevos, alimento, pesaje, bioseguridad, cierre): para esas debes usar la herramienta del módulo correspondiente.",
+  parameters: {
+    type: "object",
+    properties: {
+      tarea: { type: "string", description: "Nombre o ID de la tarea del día." },
+      fecha: { type: "string", description: "Fecha AAAA-MM-DD. Por defecto hoy." },
+      completada: { type: "boolean", description: "true para completar (por defecto), false para desmarcar." },
+      nota: { type: "string", description: "Evidencia u observación real en campo (obligatoria al confirmar, mínimo 5 caracteres; ej. '0 bajas · aves activas, agua y cama OK')." },
+    },
+    required: ["tarea"],
+    additionalProperties: false,
+  },
+  kind: "write",
+  requiresConfirmation: false,
+  async prepare(args, ctx) {
+    const date = normalizeDate(args.fecha);
+    const data = await ctx.api.get<any>("/api/planeacion/calendario");
+    const needle = normalizeLookup(args.tarea);
+    const candidates = asArray<any>(data.allEvents).filter((ev) => ev.date === date);
+    const exact = candidates.filter(
+      (ev) => normalizeLookup(ev.title) === needle || ev.id === args.tarea || ev.routineTaskId === args.tarea,
+    );
+    const matches = exact.length > 0
+      ? exact
+      : candidates.filter((ev) => normalizeLookup(ev.title).includes(needle));
+    if (matches.length === 0) {
+      throw new Error(`No encontré la tarea "${String(args.tarea)}" para el ${date}. Usa consultar_calendario_rutinas para ver las tareas del día.`);
+    }
+    if (matches.length > 1) {
+      throw new Error(`Varias tareas coinciden: ${matches.map((m) => m.title).join(", ")}. Indica el nombre completo.`);
+    }
+    const target = matches[0];
+    if (target.verificationMode === "record_required") {
+      throw new Error(
+        `La tarea "${target.title}" requiere un registro real en su módulo (${target.actionLabel}). Registra primero el dato en el sistema en lugar de marcarla manualmente.`,
+      );
+    }
+    const taskId = String(target.routineTaskId || target.id);
+    const completed = args.completada !== false;
+    const note = args.nota ? String(args.nota).trim() : "";
+    if (completed && note.length < 5) {
+      throw new Error(
+        `Debes incluir una observación/evidencia de campo real (mínimo 5 caracteres) en "nota" para confirmar "${target.title}".`,
+      );
+    }
+    return {
+      args: { date, taskId, completed, note: note || undefined },
+      summary: `${completed ? "Confirmar con evidencia" : "Desmarcar"} tarea "${target.title}" del ${formatDateEs(date)}.`,
+    };
+  },
+  async execute(args, ctx) {
+    return ctx.api.post("/api/planeacion/calendario", args);
+  },
+};
+
+const registrarControlSanitario: AgentTool = {
+  name: "registrar_control_sanitario",
+  description:
+    "Registra una vacunación (con lote, laboratorio, vencimiento, vía y temperatura de cadena de frío), tratamiento, desparasitación, revisión o brote sanitario. Se ejecuta automáticamente.",
+  parameters: {
+    type: "object",
+    properties: {
+      tipo: { type: "string", enum: ["vacunacion", "tratamiento", "desparasitacion", "revision", "brote"] },
+      descripcion: { type: "string", description: "Descripción de la vacuna, tratamiento o revisión." },
+      lugar: { type: "string", description: "Nombre del galpón/corral donde se aplicó (si hay varios lugares, es obligatorio)." },
+      especie: { type: "string" },
+      lote: { type: "string", description: "Código del lote tratado (opcional)." },
+      fecha: { type: "string", description: "Fecha AAAA-MM-DD. Por defecto hoy." },
+      producto: { type: "string", description: "Nombre comercial de vacuna o medicamento." },
+      dias_retiro: { type: "integer", minimum: 0, description: "Días de retiro en carne o huevo." },
+      lote_vacuna: { type: "string" },
+      laboratorio_vacuna: { type: "string" },
+      vencimiento_vacuna: { type: "string", description: "AAAA-MM-DD." },
+      temperatura_frio_c: { type: "number", description: "Temperatura de cadena de frío en °C (ideal 2 a 8 °C)." },
+      via_administracion: { type: "string", description: "Ej. ocular, agua_bebida, subcutanea, muscular." },
+      proxima_fecha: { type: "string", description: "Próxima dosis AAAA-MM-DD." },
+      aves_afectadas: { type: "string", description: "Códigos de gallinas afectadas si tipo=tratamiento." },
+      notas: { type: "string" },
+    },
+    required: ["tipo", "descripcion"],
+    additionalProperties: false,
+  },
+  kind: "write",
+  requiresConfirmation: false,
+  async prepare(args, ctx) {
+    const date = normalizeDate(args.fecha);
+    const description = String(args.descripcion || "").trim();
+    if (!description) throw new Error("Indica la descripción del control sanitario.");
+    let batch: BatchRow | undefined;
+    if (args.lote) {
+      const batches = activeBatches(await loadBatches(ctx));
+      batch = findByIdOrCode(batches, String(args.lote));
+      if (!batch) throw new Error(`No encontré el lote activo ${args.lote}.`);
+    }
+    const location = await resolveFarmLocation(ctx, args.lugar, batch?.locationId || null);
+    const species = args.especie ? normalizeSpecies(String(args.especie)) : batch?.species || null;
+
+    const body: Record<string, unknown> = {
+      date,
+      locationId: location.id,
+      species,
+      batchId: batch?.id || null,
+      type: String(args.tipo),
+      description,
+      product: args.producto ? String(args.producto) : null,
+      withdrawalDays: args.dias_retiro !== undefined ? asNumber(args.dias_retiro, "dias_retiro", { min: 0, integer: true }) : 0,
+      vaccineLot: args.lote_vacuna ? String(args.lote_vacuna) : null,
+      vaccineLab: args.laboratorio_vacuna ? String(args.laboratorio_vacuna) : null,
+      vaccineExpiryDate: args.vencimiento_vacuna ? normalizeDate(args.vencimiento_vacuna) : null,
+      coldChainTempC: args.temperatura_frio_c !== undefined ? asNumber(args.temperatura_frio_c, "temperatura_frio_c") : null,
+      administrationRoute: args.via_administracion ? String(args.via_administracion) : null,
+      nextScheduled: args.proxima_fecha ? normalizeDate(args.proxima_fecha) : null,
+      affectedHens: args.aves_afectadas ? String(args.aves_afectadas) : null,
+      notes: args.notas ? String(args.notas) : null,
+    };
+
+    return {
+      args: body,
+      summary: `Registrar ${args.tipo} sanitario "${description}" en ${location.name}${batch ? ` (lote ${batch.code})` : ""} el ${formatDateEs(date)}.`,
+    };
+  },
+  async execute(args, ctx) {
+    return ctx.api.post("/api/sanidad/control", args);
+  },
+};
+
+const registrarContacto: AgentTool = {
+  name: "registrar_contacto",
+  description:
+    "Registra o actualiza en el directorio un cliente, proveedor o contacto mixto con teléfono, WhatsApp, ubicación y días de crédito. Se ejecuta automáticamente.",
+  parameters: {
+    type: "object",
+    properties: {
+      nombre: { type: "string", description: "Nombre completo o razón social." },
+      rol: { type: "string", enum: ["cliente", "proveedor", "ambos"], description: "Por defecto cliente." },
+      telefono: { type: "string" },
+      whatsapp: { type: "string" },
+      correo: { type: "string" },
+      direccion: { type: "string" },
+      ciudad: { type: "string" },
+      zona: { type: "string" },
+      dias_credito: { type: "integer", minimum: 0 },
+      forma_pago: { type: "string" },
+      fusionar_si_existe: { type: "boolean", description: "Si ya existe el nombre, actualiza/fusiona rol si es true." },
+      notas: { type: "string" },
+    },
+    required: ["nombre"],
+    additionalProperties: false,
+  },
+  kind: "write",
+  requiresConfirmation: false,
+  async prepare(args) {
+    const name = String(args.nombre || "").trim();
+    if (!name) throw new Error("Indica el nombre o razón social del contacto.");
+    const role = args.rol ? String(args.rol) : "cliente";
+    const body = {
+      name,
+      role,
+      phone: args.telefono ? String(args.telefono) : null,
+      whatsapp: args.whatsapp ? String(args.whatsapp) : null,
+      email: args.correo ? String(args.correo) : null,
+      address: args.direccion ? String(args.direccion) : null,
+      city: args.ciudad ? String(args.ciudad) : null,
+      zone: args.zona ? String(args.zona) : null,
+      creditDays: args.dias_credito !== undefined ? asNumber(args.dias_credito, "dias_credito", { min: 0, integer: true }) : 0,
+      paymentMethod: args.forma_pago ? String(args.forma_pago) : null,
+      mergeIfExists: args.fusionar_si_existe === true,
+      notes: args.notas ? String(args.notas) : null,
+    };
+    return {
+      args: body,
+      summary: `Registrar ${role} "${name}"${args.telefono ? ` (${args.telefono})` : ""}.`,
+    };
+  },
+  async execute(args, ctx) {
+    return ctx.api.post("/api/contactos", args);
+  },
+};
+
+const registrarProrrateo: AgentTool = {
+  name: "registrar_prorrateo",
+  description:
+    "Propone prorratear un costo indirecto o gasto compartido entre especies y lugares según cabezas vivas, biomasa, consumo de alimento o área (m²). Requiere confirmación del usuario.",
+  parameters: {
+    type: "object",
+    properties: {
+      titulo: { type: "string", description: "Concepto del gasto compartido (ej. 'Energía eléctrica octubre')." },
+      monto_total: { type: "number", minimum: 1, description: "Monto total en COP a repartir." },
+      criterio: { type: "string", enum: ["head_count", "biomass", "feed_kg", "area_m2", "manual"], description: "Criterio de distribución automática. Por defecto head_count." },
+      categoria: { type: "string", description: "Ej. 'Energía / Servicios', 'Mano de obra', 'Mantenimiento general'." },
+      fecha: { type: "string", description: "Fecha AAAA-MM-DD. Por defecto hoy." },
+      periodo_desde: { type: "string", description: "AAAA-MM-DD opcional." },
+      periodo_hasta: { type: "string", description: "AAAA-MM-DD opcional." },
+      notas: { type: "string" },
+    },
+    required: ["titulo", "monto_total"],
+    additionalProperties: false,
+  },
+  kind: "write",
+  requiresConfirmation: true,
+  async prepare(args) {
+    const title = String(args.titulo || "").trim();
+    if (!title) throw new Error("Indica el título o concepto del prorrateo.");
+    const totalAmount = asNumber(args.monto_total, "monto_total", { min: 1 });
+    const basis = String(args.criterio || "head_count");
+    const date = normalizeDate(args.fecha);
+    const basisLabel: Record<string, string> = {
+      head_count: "animales vivos",
+      biomass: "biomasa (kg)",
+      feed_kg: "consumo de alimento (kg)",
+      area_m2: "área de instalaciones (m²)",
+      manual: "asignación manual",
+    };
+    return {
+      args: {
+        title,
+        totalAmount,
+        basis,
+        expenseCategory: args.categoria ? String(args.categoria) : "Costos indirectos",
+        date,
+        periodFrom: args.periodo_desde ? normalizeDate(args.periodo_desde) : undefined,
+        periodTo: args.periodo_hasta ? normalizeDate(args.periodo_hasta) : undefined,
+        notes: args.notas ? String(args.notas) : null,
+      },
+      summary: `Prorratear ${formatCop(totalAmount)} ("${title}") por ${basisLabel[basis] || basis} con fecha ${formatDateEs(date)}.`,
+    };
+  },
+  async execute(args, ctx) {
+    return ctx.api.post("/api/finanzas/prorrateo", args);
+  },
+};
+
+const registrarCierreDiario: AgentTool = {
+  name: "registrar_cierre_diario",
+  description:
+    "Propone ejecutar el cierre diario auditable de una fecha (bloquea ediciones de esa jornada hasta reapertura por Propietario/Admin). Requiere confirmación del usuario.",
+  parameters: {
+    type: "object",
+    properties: {
+      fecha: { type: "string", description: "Fecha AAAA-MM-DD a cerrar. Por defecto hoy." },
+      notas: { type: "string" },
+    },
+    additionalProperties: false,
+  },
+  kind: "write",
+  requiresConfirmation: true,
+  async prepare(args, ctx) {
+    const date = normalizeDate(args.fecha);
+    const data = await ctx.api.get<any>(`/api/operaciones/cierre-diario?date=${encodeURIComponent(date)}`);
+    const existing = asArray<any>(data.closures).find((c) => c.closureDate === date);
+    if (existing?.status === "cerrado") {
+      throw new Error(`El día ${formatDateEs(date)} ya se encuentra cerrado.`);
+    }
+    const p = data.preview || {};
+    const detail = [
+      p.eggsCollected != null ? `${p.eggsCollected} huevos` : null,
+      p.feedKg != null ? `${p.feedKg} kg alimento` : null,
+      p.mortalityCount != null ? `${p.mortalityCount} bajas` : null,
+      p.salesIncomeCOP != null ? `ventas ${formatCop(Number(p.salesIncomeCOP))}` : null,
+    ].filter(Boolean).join(", ");
+    return {
+      args: { closureDate: date, notes: args.notas ? String(args.notas) : null },
+      summary: `Ejecutar cierre diario auditable del ${formatDateEs(date)}${detail ? ` (${detail})` : ""}.`,
+    };
+  },
+  async execute(args, ctx) {
+    return ctx.api.post("/api/operaciones/cierre-diario", args);
+  },
+};
+
+
+// ─── Conocimiento, memoria persistente y consultas avanzadas ───
+
+const consultarConocimiento: AgentTool = {
+  name: "consultar_conocimiento",
+  description:
+    "Busca en el manual operativo completo de El Gallinero (43 guías reales de pantallas/flujos) y normas técnicas " +
+    "colombianas (NTC 1240, Res. ICA 3651/8452, retiro vacunal, ITH/NH3, compostaje AGROSAVIA 3:1:1/7:2:2, ciclos cuy/conejo).",
+  parameters: {
+    type: "object",
+    properties: {
+      pregunta: { type: "string", description: "Tema, duda operativa, norma técnica o flujo a consultar." },
+      modulo: { type: "string", description: "Filtro opcional de módulo (sanidad, produccion, finanzas, compostaje, etc.)." },
+      limite: { type: "integer", minimum: 1, maximum: 6, description: "Cantidad máxima de guías a devolver (por defecto 3)." },
+    },
+    required: ["pregunta"],
+    additionalProperties: false,
+  },
+  kind: "read",
+  requiresConfirmation: false,
+  async execute(args) {
+    const query = String(args.pregunta || "").trim();
+    if (!query) throw new Error("Indica qué tema o procedimiento deseas consultar.");
+    return searchFarmKnowledge(query, {
+      modulo: args.modulo ? String(args.modulo) : undefined,
+      limit: args.limite != null ? Number(args.limite) : 3,
+      rerankFn: (q, cands) => jevRerankCandidates({ query: q, candidates: cands }),
+    });
+  },
+};
+
+const consultarMemoriaGranja: AgentTool = {
+  name: "consultar_memoria_granja",
+  description:
+    "Consulta hechos duraderos, preferencias del usuario, reglas internas de la granja, proveedores habituales " +
+    "o notas guardadas en memoria persistente entre conversaciones.",
+  parameters: {
+    type: "object",
+    properties: {
+      consulta: { type: "string", description: "Texto o entidad a buscar en la memoria persistente." },
+      categoria: {
+        type: "string",
+        enum: ["preferencia", "protocolo", "proveedor", "comprador", "instalacion", "lote", "restriccion", "hecho"],
+      },
+      limite: { type: "integer", minimum: 1, maximum: 30 },
+    },
+    additionalProperties: false,
+  },
+  kind: "read",
+  requiresConfirmation: false,
+  async execute(args, ctx) {
+    const mem = await import("./memory");
+    const limit = args.limite != null ? Number(args.limite) : 10;
+    const records = args.consulta
+      ? await mem.recallRelevantMemories(ctx.userId, String(args.consulta), limit)
+      : await mem.listFarmMemories(ctx.userId, args.categoria ? String(args.categoria) : undefined, limit);
+    return {
+      total: records.length,
+      memorias: records.map((r) => ({
+        id: r.id,
+        categoria: r.category,
+        clave: r.subjectKey,
+        contenido: r.content,
+        entidades: r.entities,
+        importancia: r.importance,
+        actualizado: r.updatedAt,
+      })),
+    };
+  },
+};
+
+const recordarDatoGranja: AgentTool = {
+  name: "recordar_dato_granja",
+  description:
+    "Guarda o actualiza un hecho duradero en la memoria persistente de la granja (preferencias de respuesta, reglas " +
+    "internas, acuerdos con compradores/proveedores, peculiaridades de un galpón o lote).",
+  parameters: {
+    type: "object",
+    properties: {
+      contenido: { type: "string", description: "Hecho, regla o preferencia clara a recordar en el futuro." },
+      categoria: {
+        type: "string",
+        enum: ["preferencia", "protocolo", "proveedor", "comprador", "instalacion", "lote", "restriccion", "hecho"],
+      },
+      clave: { type: "string", description: "Identificador corto único (ej: 'comprador_laura', 'formato_reporte')." },
+      importancia: { type: "integer", minimum: 1, maximum: 5, description: "1=baja, 3=normal, 5=crítica." },
+    },
+    required: ["contenido"],
+    additionalProperties: false,
+  },
+  kind: "write",
+  requiresConfirmation: false,
+  async execute(args, ctx) {
+    const mem = await import("./memory");
+    const content = String(args.contenido || "").trim();
+    const saved = await mem.saveFarmMemory({
+      userId: ctx.userId,
+      category: args.categoria ? String(args.categoria) : mem.normalizeMemoryCategory(content),
+      subjectKey: args.clave ? String(args.clave) : content.split(/\s+/).slice(0, 6).join("_"),
+      content,
+      importance: args.importancia != null ? Number(args.importancia) : 4,
+      sourceConversationId: ctx.conversationId || null,
+    });
+    return { ok: true, id: saved.id, categoria: saved.category, clave: saved.subjectKey, contenido: saved.content };
+  },
+};
+
+const consultarProgramasNutricion: AgentTool = {
+  name: "consultar_programas_nutricion",
+  description:
+    "Consulta las etapas de crecimiento configuradas, conteo de animales por etapa, raciones diarias, materia seca, " +
+    "proteína cruda y necesidad proyectada de alimento y postura.",
+  parameters: {
+    type: "object",
+    properties: {
+      dias: { type: "integer", minimum: 1, maximum: 90, description: "Horizonte en días para proyectar stock necesario (por defecto 7)." },
+    },
+    additionalProperties: false,
+  },
+  kind: "read",
+  requiresConfirmation: false,
+  async execute(args, ctx) {
+    const days = args.dias != null ? Number(args.dias) : 7;
+    const [etapas, resumen] = await Promise.all([
+      ctx.api.get<any>("/api/produccion/etapas"),
+      ctx.api.get<any>(`/api/produccion/etapas/resumen?days=${days}`).catch(() => null),
+    ]);
+    return { etapas, resumen };
+  },
+};
+
+const consultarPresupuestos: AgentTool = {
+  name: "consultar_presupuestos",
+  description:
+    "Consulta presupuestos configurados y su comparativo real vs meta por categoría financiera (variación en COP y %).",
+  parameters: {
+    type: "object",
+    properties: {
+      presupuesto: { type: "string", description: "Nombre o ID opcional de un presupuesto para ver su detalle comparativo." },
+    },
+    additionalProperties: false,
+  },
+  kind: "read",
+  requiresConfirmation: false,
+  async execute(args, ctx) {
+    const budgets = asArray<any>(await ctx.api.get("/api/presupuestos"));
+    let selected = budgets[0] || null;
+    if (args.presupuesto) {
+      const needle = normalizeLookup(args.presupuesto);
+      selected =
+        budgets.find((b) => b.id === args.presupuesto || normalizeLookup(b.name).includes(needle)) || selected;
+    }
+    const comparativo = selected
+      ? await ctx.api.get<any>(`/api/presupuestos/comparativo?budgetId=${encodeURIComponent(selected.id)}`).catch(() => null)
+      : null;
+    return { total: budgets.length, presupuestos: budgets, comparativo };
+  },
+};
+
+const consultarCuentasPendientes: AgentTool = {
+  name: "consultar_cuentas_pendientes",
+  description:
+    "Consulta cartera por cobrar (clientes) y cuentas por pagar (proveedores) con saldos pendientes, vencimientos y días de mora.",
+  parameters: {
+    type: "object",
+    properties: {
+      tipo: { type: "string", enum: ["ambas", "cobrar", "pagar"], description: "Por defecto 'ambas'." },
+      solo_pendientes: { type: "boolean", description: "Si es true (por defecto), filtra solo cuentas no pagadas." },
+    },
+    additionalProperties: false,
+  },
+  kind: "read",
+  requiresConfirmation: false,
+  async execute(args, ctx) {
+    const tipo = String(args.tipo || "ambas");
+    const onlyOpen = args.solo_pendientes !== false;
+    const [cobrarRaw, pagarRaw] = await Promise.all([
+      tipo === "pagar" ? Promise.resolve([]) : ctx.api.get<any>("/api/cuentas-cobrar"),
+      tipo === "cobrar" ? Promise.resolve([]) : ctx.api.get<any>("/api/cuentas-pagar"),
+    ]);
+    const cobrar = asArray<any>(cobrarRaw).filter((a) => !onlyOpen || a.status !== "pagado");
+    const pagar = asArray<any>(pagarRaw).filter((a) => !onlyOpen || a.status !== "pagado");
+    return {
+      resumen: {
+        porCobrarCop: cobrar.reduce((s, r) => s + Number(r.pendingAmount || 0), 0),
+        porCobrarVencidas: cobrar.filter((r) => r.isOverdue).length,
+        porPagarCop: pagar.reduce((s, r) => s + Number(r.pendingAmount || 0), 0),
+        porPagarVencidas: pagar.filter((r) => r.isOverdue).length,
+      },
+      cuentasPorCobrar: cobrar.slice(0, 30),
+      cuentasPorPagar: pagar.slice(0, 30),
+    };
+  },
+};
+
+
+const gestionarLugar: AgentTool = {
+  name: "gestionar_lugar",
+  description:
+    "Crea o actualiza un lugar de manejo (corral, jaula, galpón, potrero, bodega, cuarentena, compostaje), su capacidad, estado sanitario o especies permitidas. Requiere confirmación.",
+  parameters: {
+    type: "object",
+    properties: {
+      accion: { type: "string", enum: ["crear", "actualizar"], description: "'crear' o 'actualizar'." },
+      lugar_actual: { type: "string", description: "Nombre o código del lugar existente cuando accion='actualizar'." },
+      nombre: { type: "string", description: "Nombre del lugar." },
+      tipo: {
+        type: "string",
+        enum: ["corral", "jaula", "galpon", "potrero", "jardin", "patio", "compostaje", "bodega", "cuarentena", "otro"],
+      },
+      capacidad: { type: "integer", minimum: 0 },
+      area_m2: { type: "number", minimum: 0 },
+      zona: { type: "string", enum: ["limpia", "sucia", "produccion", "cuarentena", "almacen", "forraje"] },
+      estado_operativo: { type: "string", enum: ["operativa", "mantenimiento", "restringida", "fuera_servicio"] },
+      estado_sanitario: { type: "string", enum: ["pendiente_revision", "cumple", "requiere_atencion", "no_cumple"] },
+      especies_permitidas: { type: "array", items: { type: "string" } },
+      piso: { type: "string", enum: ["tierra", "cemento", "cama_profunda", "jaula_elevada", "pasto", "mixto"] },
+      vacio_sanitario_hasta: { type: "string", description: "YYYY-MM-DD" },
+      notas: { type: "string" },
+    },
+    required: ["accion"],
+    additionalProperties: false,
+  },
+  kind: "write",
+  requiresConfirmation: true,
+  async prepare(args, ctx) {
+    const accion = args.accion === "actualizar" ? "actualizar" : "crear";
+    if (accion === "actualizar") {
+      const all = asArray<any>(await ctx.api.get("/api/ubicaciones"));
+      const needle = normalizeLookup(args.lugar_actual || args.nombre);
+      const found = all.find(
+        (l) => l.id === args.lugar_actual || normalizeLookup(l.code) === needle || normalizeLookup(l.name) === needle || normalizeLookup(l.name).includes(needle),
+      );
+      if (!found) throw new Error(`No encontré el lugar "${args.lugar_actual || args.nombre}" para actualizar.`);
+      const payload = {
+        id: found.id,
+        name: args.nombre ? String(args.nombre).trim() : found.name,
+        type: args.tipo || found.type,
+        capacity: args.capacidad !== undefined ? Number(args.capacidad) : found.capacity,
+        areaM2: args.area_m2 !== undefined ? Number(args.area_m2) : found.areaM2,
+        zoneType: args.zona || found.zoneType,
+        operationalStatus: args.estado_operativo || found.operationalStatus,
+        sanitaryStatus: args.estado_sanitario || found.sanitaryStatus,
+        allowedSpecies: Array.isArray(args.especies_permitidas) ? args.especies_permitidas : found.allowedSpecies,
+        floorType: args.piso || found.floorType,
+        sanitaryEmptyUntil: args.vacio_sanitario_hasta !== undefined ? args.vacio_sanitario_hasta : found.sanitaryEmptyUntil,
+        notes: args.notas !== undefined ? String(args.notas) : found.notes,
+        status: found.status || "activa",
+      };
+      return {
+        args: { _method: "PUT", payload },
+        summary: `Actualizar lugar ${found.name} (${found.code}) -> estado operativo ${payload.operationalStatus}, sanitario ${payload.sanitaryStatus}${payload.capacity != null ? `, capacidad ${payload.capacity}` : ""}.`,
+      };
+    }
+
+    if (!args.nombre || !args.tipo) {
+      throw new Error("Para crear un lugar indica al menos nombre y tipo (galpon, corral, jaula, etc.).");
+    }
+    const payload = {
+      name: String(args.nombre).trim(),
+      type: String(args.tipo),
+      capacity: args.capacidad !== undefined ? Number(args.capacidad) : undefined,
+      areaM2: args.area_m2 !== undefined ? Number(args.area_m2) : undefined,
+      zoneType: args.zona || undefined,
+      operationalStatus: args.estado_operativo || "operativa",
+      sanitaryStatus: args.estado_sanitario || "pendiente_revision",
+      allowedSpecies: Array.isArray(args.especies_permitidas) ? args.especies_permitidas : [],
+      floorType: args.piso || undefined,
+      sanitaryEmptyUntil: args.vacio_sanitario_hasta || undefined,
+      notes: args.notas ? String(args.notas) : undefined,
+    };
+    return {
+      args: { _method: "POST", payload },
+      summary: `Crear nuevo lugar "${payload.name}" (${payload.type})${payload.capacity != null ? ` con capacidad para ${payload.capacity} animales` : ""}.`,
+    };
+  },
+  async execute(args, ctx) {
+    return args._method === "PUT"
+      ? ctx.api.put("/api/ubicaciones", args.payload)
+      : ctx.api.post("/api/ubicaciones", args.payload);
+  },
+};
+
+const trasladarAnimales: AgentTool = {
+  name: "trasladar_animales",
+  description:
+    "Traslada una gallina, un gallo o un lote completo a otro lugar de manejo respetando capacidad, especies permitidas y bloqueos por retiro/vacío sanitario. Requiere confirmación.",
+  parameters: {
+    type: "object",
+    properties: {
+      tipo_animal: { type: "string", enum: ["gallina", "gallo", "lote"] },
+      codigo_o_id: { type: "string", description: "Código o ID de la gallina, gallo o lote." },
+      lugar_destino: { type: "string", description: "Nombre del lugar de destino activo." },
+      motivo: { type: "string", description: "Motivo del traslado (máx 100 caracteres)." },
+      fecha: { type: "string", description: "YYYY-MM-DD (por defecto hoy)." },
+      notas: { type: "string" },
+    },
+    required: ["tipo_animal", "codigo_o_id", "lugar_destino", "motivo"],
+    additionalProperties: false,
+  },
+  kind: "write",
+  requiresConfirmation: true,
+  async prepare(args, ctx) {
+    const tipo = String(args.tipo_animal);
+    const date = normalizeDate(args.fecha);
+    const reason = String(args.motivo || "").trim();
+    if (!reason || reason.length > 100) throw new Error("Indica un motivo de traslado (1–100 caracteres).");
+    const destination = await resolveFarmLocation(ctx, args.lugar_destino);
+
+    let animalId = "";
+    let animalLabel = "";
+    if (tipo === "gallina") {
+      const list = activeHens(await loadHens(ctx));
+      const hen = findByIdOrCode(list, args.codigo_o_id);
+      if (!hen) throw new Error(`No encontré la gallina activa "${args.codigo_o_id}".`);
+      animalId = hen.id;
+      animalLabel = `Gallina ${hen.code}`;
+    } else if (tipo === "gallo") {
+      const list = activeRoosters(await loadRoosters(ctx));
+      const rooster = findByIdOrCode(list, args.codigo_o_id);
+      if (!rooster) throw new Error(`No encontré el gallo activo "${args.codigo_o_id}".`);
+      animalId = rooster.id;
+      animalLabel = `Gallo ${rooster.code}`;
+    } else if (tipo === "lote") {
+      const list = activeBatches(await loadBatches(ctx));
+      const batch = findByIdOrCode(list, args.codigo_o_id);
+      if (!batch) throw new Error(`No encontré el lote activo "${args.codigo_o_id}".`);
+      animalId = batch.id;
+      animalLabel = `Lote ${batch.code} (${batch.currentQuantity} ${batch.species})`;
+    } else {
+      throw new Error("tipo_animal debe ser gallina, gallo o lote.");
+    }
+
+    return {
+      args: {
+        animalType: tipo,
+        animalId,
+        toLocationId: destination.id,
+        date,
+        reason,
+        notes: args.notas ? String(args.notas) : null,
+      },
+      summary: `Trasladar ${animalLabel} hacia ${destination.name} el ${formatDateEs(date)} (motivo: ${reason}).`,
+    };
+  },
+  async execute(args, ctx) {
+    return ctx.api.post("/api/ubicaciones/movimientos", args);
+  },
+};
+
+const registrarAdquisicion: AgentTool = {
+  name: "registrar_adquisicion",
+  description:
+    "Registra un ingreso o adquisición de animales (compra, pollito_comprado, cria_propia o donacion) en un lugar de destino creando fichas o lote con trazabilidad. Requiere confirmación.",
+  parameters: {
+    type: "object",
+    properties: {
+      tipo_adquisicion: { type: "string", enum: ["compra", "pollito_comprado", "cria_propia", "donacion"] },
+      tipo_animal: { type: "string", enum: ["gallina", "gallo", "lote_pollos", "codorniz", "pato", "conejo", "cuy"] },
+      cantidad: { type: "integer", minimum: 1 },
+      lugar_destino: { type: "string", description: "Nombre del lugar donde ingresan los animales." },
+      costo_unitario: { type: "number", minimum: 0 },
+      fecha: { type: "string", description: "YYYY-MM-DD." },
+      proveedor: { type: "string" },
+      raza: { type: "string" },
+      proposito: { type: "string", enum: ["engorde_carne", "postura_huevo", "pie_cria", "mixto"] },
+      notas: { type: "string" },
+    },
+    required: ["tipo_adquisicion", "tipo_animal", "cantidad", "lugar_destino"],
+    additionalProperties: false,
+  },
+  kind: "write",
+  requiresConfirmation: true,
+  async prepare(args, ctx) {
+    const qty = asNumber(args.cantidad, "cantidad", { min: 1, integer: true });
+    const date = normalizeDate(args.fecha);
+    const rawBird = normalizeLookup(args.tipo_animal);
+    const birdType = rawBird === "pollo" || rawBird === "pollos" ? "lote_pollos" : String(args.tipo_animal);
+    const rawType = normalizeLookup(args.tipo_adquisicion);
+    const acqType =
+      rawType === "nacimiento_propio" || rawType === "incubacion_propia" ? "cria_propia" : String(args.tipo_adquisicion);
+    const noCost = acqType === "donacion" || acqType === "cria_propia";
+    const unitCost = args.costo_unitario != null ? Number(args.costo_unitario) : null;
+    if (!noCost && (unitCost == null || !Number.isFinite(unitCost) || unitCost <= 0)) {
+      throw new Error("En compras debes indicar un costo_unitario en COP mayor que cero.");
+    }
+    const destination = await resolveFarmLocation(ctx, args.lugar_destino);
+    const rawPurpose = normalizeLookup(args.proposito);
+    const purpose = rawPurpose === "reproduccion" ? "pie_cria" : args.proposito || "engorde_carne";
+    const total = !noCost && unitCost != null ? unitCost * qty : 0;
+
+    return {
+      args: {
+        date,
+        acquisitionType: acqType,
+        birdType,
+        quantity: qty,
+        unitCost: noCost ? null : unitCost,
+        supplier: args.proveedor ? String(args.proveedor) : null,
+        breed: args.raza ? String(args.raza) : null,
+        destinationLocationId: destination.id,
+        purpose,
+        notes: args.notas ? String(args.notas) : null,
+      },
+      summary: `Registrar adquisición (${acqType}) de ${qty} ${birdType}${args.raza ? ` raza ${args.raza}` : ""} hacia ${destination.name}${total > 0 ? ` por total ${formatCop(total)}` : ""} el ${formatDateEs(date)}.`,
+    };
+  },
+  async execute(args, ctx) {
+    return ctx.api.post("/api/produccion/adquisiciones", args);
+  },
+};
+
+const registrarSacrificioCarne: AgentTool = {
+  name: "registrar_sacrificio_carne",
+  description:
+    "Registra sacrificio/faena de una gallina, gallo o unidades de un lote hacia inventario de carne (consumo propio o venta), validando retiro sanitario activo y cierre diario. Requiere confirmación.",
+  parameters: {
+    type: "object",
+    properties: {
+      tipo_animal: { type: "string", enum: ["gallina", "gallo", "lote"] },
+      codigo_o_id: { type: "string", description: "Código o ID del animal o lote." },
+      peso_canal_kg: { type: "number", minimum: 0.1, description: "Peso total en canal (kg)." },
+      cantidad: { type: "integer", minimum: 1, description: "Cantidad (1 para gallina/gallo; N para lote)." },
+      destino: { type: "string", enum: ["consumo_propio", "venta"] },
+      peso_vivo_kg: { type: "number", minimum: 0.1 },
+      precio_referencia_kg: { type: "number", minimum: 0 },
+      fecha: { type: "string", description: "YYYY-MM-DD" },
+      notas: { type: "string" },
+    },
+    required: ["tipo_animal", "codigo_o_id", "peso_canal_kg"],
+    additionalProperties: false,
+  },
+  kind: "write",
+  requiresConfirmation: true,
+  async prepare(args, ctx) {
+    const tipo = String(args.tipo_animal);
+    const date = normalizeDate(args.fecha);
+    const weightKg = asNumber(args.peso_canal_kg, "peso_canal_kg", { min: 0.1 });
+    const destination = args.destino === "venta" ? "venta" : "consumo_propio";
+
+    let species = "pollo";
+    let birdType = "Pollo de Engorde";
+    let locationId = "";
+    let qty = args.cantidad != null ? asNumber(args.cantidad, "cantidad", { min: 1, integer: true }) : 1;
+    let label = "";
+    const ref: Record<string, string> = {};
+
+    if (tipo === "gallina") {
+      const hen = findByIdOrCode(activeHens(await loadHens(ctx)), args.codigo_o_id);
+      if (!hen || !hen.locationId) throw new Error(`Gallina "${args.codigo_o_id}" no encontrada o sin ubicación.`);
+      qty = 1;
+      species = "gallina";
+      birdType = "Gallina";
+      locationId = hen.locationId;
+      ref.henId = hen.id;
+      label = `gallina ${hen.code}`;
+    } else if (tipo === "gallo") {
+      const rooster = findByIdOrCode(activeRoosters(await loadRoosters(ctx)), args.codigo_o_id);
+      if (!rooster || !rooster.locationId) throw new Error(`Gallo "${args.codigo_o_id}" no encontrado o sin ubicación.`);
+      qty = 1;
+      species = "gallina";
+      birdType = "Gallo";
+      locationId = rooster.locationId;
+      ref.roosterId = rooster.id;
+      label = `gallo ${rooster.code}`;
+    } else {
+      const batch = findByIdOrCode(activeBatches(await loadBatches(ctx)), args.codigo_o_id);
+      if (!batch || !batch.locationId) throw new Error(`Lote "${args.codigo_o_id}" no encontrado o sin ubicación.`);
+      if (qty > batch.currentQuantity) {
+        throw new Error(`El lote ${batch.code} solo tiene ${batch.currentQuantity} animales disponibles.`);
+      }
+      species = batch.species || "pollo";
+      birdType = species === "cuy" ? "Cuy" : species === "conejo" ? "Conejo" : species === "pato" ? "Pato" : "Pollo de Engorde";
+      locationId = batch.locationId;
+      ref.batchId = batch.id;
+      label = `${qty} unidades de lote ${batch.code}`;
+    }
+
+    return {
+      args: {
+        date,
+        birdType,
+        species,
+        quantity: qty,
+        weightKg,
+        locationId,
+        destination,
+        liveWeightKg: args.peso_vivo_kg != null ? Number(args.peso_vivo_kg) : null,
+        marketReferencePricePerKg: args.precio_referencia_kg != null ? Number(args.precio_referencia_kg) : null,
+        notes: args.notas ? String(args.notas) : null,
+        ...ref,
+      },
+      summary: `Registrar sacrificio de ${label} (${weightKg} kg en canal, destino: ${destination}) el ${formatDateEs(date)}.`,
+    };
+  },
+  async execute(args, ctx) {
+    return ctx.api.post("/api/produccion/sacrificio", args);
+  },
+};
+
+
+const ajustarGallinaza: AgentTool = {
+  name: "ajustar_gallinaza",
+  description:
+    "Registra un ajuste manual de inventario de gallinaza/abono en kg (positivo por entrada/ajuste o negativo por merma). Requiere confirmación.",
+  parameters: {
+    type: "object",
+    properties: {
+      delta_kg: { type: "number", description: "Variación en kg (distinto de cero; negativo resta, positivo suma)." },
+      motivo: { type: "string", description: "Justificación técnica del ajuste." },
+      fecha: { type: "string", description: "YYYY-MM-DD (no futura)." },
+    },
+    required: ["delta_kg", "motivo"],
+    additionalProperties: false,
+  },
+  kind: "write",
+  requiresConfirmation: true,
+  async prepare(args) {
+    const deltaKg = Number(Number(args.delta_kg).toFixed(2));
+    if (!Number.isFinite(deltaKg) || deltaKg === 0) throw new Error("delta_kg debe ser distinto de cero.");
+    const reason = String(args.motivo || "").trim();
+    if (!reason) throw new Error("Indica el motivo del ajuste de gallinaza.");
+    const date = normalizeDate(args.fecha);
+    return {
+      args: { date, deltaKg, reason },
+      summary: `Ajustar inventario de gallinaza en ${deltaKg > 0 ? `+${deltaKg}` : deltaKg} kg el ${formatDateEs(date)} (${reason}).`,
+    };
+  },
+  async execute(args, ctx) {
+    return ctx.api.post("/api/produccion/gallinaza/ajustes", args);
+  },
+};
+
+const gestionarAlimento: AgentTool = {
+  name: "gestionar_alimento",
+  description:
+    "Crea o actualiza un alimento en el catálogo/inventario (nombre, categoría, tipo, unidad, stock mínimo, costo unitario, materia seca y proteína cruda). Requiere confirmación.",
+  parameters: {
+    type: "object",
+    properties: {
+      accion: { type: "string", enum: ["crear", "actualizar"] },
+      nombre: { type: "string" },
+      categoria: { type: "string", enum: ["Concentrado", "En Fresco", "Preparados"] },
+      tipo_alimento: {
+        type: "string",
+        enum: [
+          "Concentrado Aves",
+          "Concentrado Codorniz",
+          "Concentrado Conejos",
+          "Forraje Verde",
+          "Maiz en Grano",
+          "Maíz Germinado",
+          "Bore o Raices",
+          "Mosca Soldado",
+          "Pastos y gramíneas",
+          "Purinas",
+          "Otro",
+        ],
+      },
+      unidad: { type: "string", description: "kg, lb o litros (por defecto kg)." },
+      stock_actual: { type: "number", minimum: 0 },
+      stock_minimo: { type: "number", minimum: 0 },
+      costo_unitario: { type: "number", minimum: 0 },
+      proveedor: { type: "string" },
+      materia_seca_pct: { type: "number", minimum: 1, maximum: 100 },
+      proteina_cruda_pct: { type: "number", minimum: 0, maximum: 100 },
+    },
+    required: ["nombre"],
+    additionalProperties: false,
+  },
+  kind: "write",
+  requiresConfirmation: true,
+  async prepare(args, ctx) {
+    const existingList = asArray<any>(await ctx.api.get("/api/produccion/alimentacion?days=30"));
+    const needle = normalizeLookup(args.nombre);
+    const existing = existingList.find((item) => normalizeLookup(item.name) === needle);
+    const isUpdate = args.accion === "actualizar" || (args.accion !== "crear" && Boolean(existing));
+
+    if (isUpdate && !existing) {
+      throw new Error(`No encontré un alimento llamado "${args.nombre}" para actualizar.`);
+    }
+
+    if (isUpdate && existing) {
+      const payload = {
+        id: existing.id,
+        name: String(args.nombre).trim(),
+        category: args.categoria || existing.category,
+        feedType: args.tipo_alimento || existing.feedType,
+        unit: args.unidad || existing.unit,
+        currentStock: args.stock_actual !== undefined ? Number(args.stock_actual) : Number(existing.currentStock),
+        minStock: args.stock_minimo !== undefined ? String(args.stock_minimo) : existing.minStock,
+        costPerUnit: args.costo_unitario !== undefined ? String(args.costo_unitario) : existing.costPerUnit,
+        supplier: args.proveedor !== undefined ? args.proveedor : existing.supplier,
+        dryMatterPct: args.materia_seca_pct !== undefined ? Number(args.materia_seca_pct) : existing.dryMatterPct,
+        crudeProteinPct: args.proteina_cruda_pct !== undefined ? Number(args.proteina_cruda_pct) : existing.crudeProteinPct,
+      };
+      return {
+        args: { _method: "PUT", payload },
+        summary: `Actualizar alimento "${payload.name}" (stock ${payload.currentStock} ${payload.unit}, costo ${formatCop(Number(payload.costPerUnit))}/${payload.unit}).`,
+      };
+    }
+
+    const payload = {
+      name: String(args.nombre).trim(),
+      category: args.categoria || "Concentrado",
+      feedType: args.tipo_alimento || "Concentrado Aves",
+      unit: args.unidad || "kg",
+      currentStock: args.stock_actual !== undefined ? Number(args.stock_actual) : 0,
+      minStock: args.stock_minimo !== undefined ? String(args.stock_minimo) : "0",
+      costPerUnit: args.costo_unitario !== undefined ? String(args.costo_unitario) : "0",
+      supplier: args.proveedor || null,
+      dryMatterPct: args.materia_seca_pct !== undefined ? Number(args.materia_seca_pct) : undefined,
+      crudeProteinPct: args.proteina_cruda_pct !== undefined ? Number(args.proteina_cruda_pct) : undefined,
+    };
+    return {
+      args: { _method: "POST", payload },
+      summary: `Crear alimento "${payload.name}" (${payload.category} / ${payload.feedType}, stock inicial ${payload.currentStock} ${payload.unit}).`,
+    };
+  },
+  async execute(args, ctx) {
+    return args._method === "PUT"
+      ? ctx.api.put("/api/produccion/alimentacion", args.payload)
+      : ctx.api.post("/api/produccion/alimentacion", args.payload);
+  },
+};
+
+const registrarMovimientoInsumo: AgentTool = {
+  name: "registrar_movimiento_insumo",
+  description:
+    "Registra entrada o salida de inventario de un insumo veterinario o de operación (desinfectante, vitamina, vacuna, empaque, cal, etc.).",
+  parameters: {
+    type: "object",
+    properties: {
+      insumo: { type: "string", description: "Nombre o ID del insumo." },
+      tipo: { type: "string", enum: ["entrada", "salida"] },
+      cantidad: { type: "number", minimum: 0.01 },
+      motivo: { type: "string", description: "compra, consumo, ajuste, vencimiento, etc." },
+      fecha: { type: "string", description: "YYYY-MM-DD" },
+      notas: { type: "string" },
+    },
+    required: ["insumo", "tipo", "cantidad"],
+    additionalProperties: false,
+  },
+  kind: "write",
+  requiresConfirmation: false,
+  async execute(args, ctx) {
+    const supplies = asArray<any>(await ctx.api.get("/api/inventarios/insumos"));
+    const needle = normalizeLookup(args.insumo);
+    const exact = supplies.filter((s) => s.id === args.insumo || normalizeLookup(s.name) === needle);
+    const matches = exact.length > 0 ? exact : supplies.filter((s) => normalizeLookup(s.name).includes(needle));
+    if (matches.length === 0) {
+      throw new Error(`No encontré el insumo "${args.insumo}". Disponibles: ${supplies.slice(0, 12).map((s) => s.name).join(", ") || "ninguno"}`);
+    }
+    if (matches.length > 1) {
+      throw new Error(`"${args.insumo}" coincide con varios insumos: ${matches.map((s) => s.name).join(", ")}. Especifica el nombre exacto.`);
+    }
+    const supply = matches[0];
+    const qty = asNumber(args.cantidad, "cantidad", { min: 0.01 });
+    const isEntry = args.tipo === "entrada";
+    return ctx.api.post("/api/inventarios/insumos/movimientos", {
+      supplyId: supply.id,
+      quantity: qty,
+      isEntry,
+      movementType: String(args.motivo || (isEntry ? "entrada" : "uso_diario")),
+      date: normalizeDate(args.fecha),
+      notes: args.notas ? String(args.notas) : null,
+    });
+  },
+};
+
+const gestionarMantenimiento: AgentTool = {
+  name: "gestionar_mantenimiento",
+  description:
+    "Crea una orden de mantenimiento para un lugar o equipo o actualiza/marca como completado un mantenimiento existente.",
+  parameters: {
+    type: "object",
+    properties: {
+      accion: { type: "string", enum: ["crear", "actualizar", "completar"] },
+      id_o_titulo: { type: "string", description: "ID o título aproximado de una tarea existente si accion='actualizar'|'completar'." },
+      titulo: { type: "string" },
+      fecha_programada: { type: "string", description: "YYYY-MM-DD" },
+      fecha_completada: { type: "string", description: "YYYY-MM-DD" },
+      estado: { type: "string", enum: ["pendiente", "en_progreso", "completado"] },
+      costo: { type: "number", minimum: 0 },
+      lugar: { type: "string" },
+      equipo: { type: "string", description: "Código o nombre del activo/equipo." },
+      especie: { type: "string" },
+      repeticion_dias: { type: "integer", minimum: 1, maximum: 3650 },
+      descripcion: { type: "string" },
+    },
+    required: ["accion"],
+    additionalProperties: false,
+  },
+  kind: "write",
+  requiresConfirmation: false,
+  async execute(args, ctx) {
+    const accion = args.accion === "actualizar" || args.accion === "completar" ? args.accion : "crear";
+    let locationId: string | null = null;
+    if (args.lugar) {
+      locationId = (await resolveFarmLocation(ctx, args.lugar)).id;
+    }
+    let assetId: string | null = null;
+    if (args.equipo) {
+      const assets = asArray<any>(await ctx.api.get("/api/operaciones/activos"));
+      const needle = normalizeLookup(args.equipo);
+      const foundAsset = assets.find((a) => a.id === args.equipo || normalizeLookup(a.code) === needle || normalizeLookup(a.name).includes(needle));
+      if (!foundAsset) throw new Error(`No encontré el activo/equipo "${args.equipo}".`);
+      assetId = foundAsset.id;
+    }
+
+    if (accion !== "crear") {
+      const tasks = asArray<any>(await ctx.api.get("/api/operaciones/mantenimiento"));
+      const needle = normalizeLookup(args.id_o_titulo || args.titulo);
+      const existing = tasks.find((t) => t.id === args.id_o_titulo || normalizeLookup(t.title).includes(needle));
+      if (!existing) throw new Error(`No encontré la orden de mantenimiento "${args.id_o_titulo || args.titulo}".`);
+      const nextStatus = accion === "completar" ? "completado" : args.estado || existing.status;
+      return ctx.api.put("/api/operaciones/mantenimiento", {
+        id: existing.id,
+        title: args.titulo ? String(args.titulo).trim() : existing.title,
+        description: args.descripcion !== undefined ? String(args.descripcion) : existing.description,
+        scheduledDate: args.fecha_programada ? normalizeDate(args.fecha_programada) : existing.scheduledDate,
+        completedDate:
+          nextStatus === "completado"
+            ? normalizeDate(args.fecha_completada || todayISO())
+            : args.fecha_completada || existing.completedDate || null,
+        status: nextStatus,
+        cost: args.costo !== undefined ? Number(args.costo) : Number(existing.cost || 0),
+        locationId: locationId || existing.locationId || null,
+        assetId: assetId || existing.assetId || null,
+        species: args.especie !== undefined ? normalizeSpecies(String(args.especie)) : existing.species,
+        recurrenceIntervalDays:
+          args.repeticion_dias !== undefined ? Number(args.repeticion_dias) : existing.recurrenceIntervalDays,
+      });
+    }
+
+    if (!args.titulo) throw new Error("Indica un título para crear la orden de mantenimiento.");
+    return ctx.api.post("/api/operaciones/mantenimiento", {
+      title: String(args.titulo).trim(),
+      description: args.descripcion ? String(args.descripcion) : null,
+      scheduledDate: normalizeDate(args.fecha_programada),
+      completedDate: args.estado === "completado" ? normalizeDate(args.fecha_completada || todayISO()) : null,
+      status: args.estado || "pendiente",
+      cost: args.costo !== undefined ? Number(args.costo) : 0,
+      locationId,
+      assetId,
+      species: args.especie ? normalizeSpecies(String(args.especie)) : null,
+      recurrenceIntervalDays: args.repeticion_dias != null ? Number(args.repeticion_dias) : null,
+    });
+  },
+};
+
+const registrarPagoCuenta: AgentTool = {
+  name: "registrar_pago_cuenta",
+  description:
+    "Registra un cobro (abono de cliente a cuenta por cobrar) o un pago (abono a proveedor de cuenta por pagar). Requiere confirmación.",
+  parameters: {
+    type: "object",
+    properties: {
+      tipo: { type: "string", enum: ["cobro", "pago"] },
+      cuenta_id: { type: "string", description: "UUID opcional de la cuenta específica." },
+      tercero: { type: "string", description: "Nombre del cliente (para cobro) o proveedor (para pago)." },
+      monto: { type: "number", minimum: 1 },
+      metodo: { type: "string", enum: ["efectivo", "transferencia", "nequi", "daviplata", "credito", "otro"] },
+      referencia: { type: "string" },
+      fecha: { type: "string", description: "YYYY-MM-DD" },
+      notas: { type: "string" },
+    },
+    required: ["tipo", "monto"],
+    additionalProperties: false,
+  },
+  kind: "write",
+  requiresConfirmation: true,
+  async prepare(args, ctx) {
+    const tipo = args.tipo === "cobro" ? "cobro" : "pago";
+    const amount = asNumber(args.monto, "monto", { min: 1 });
+    const date = normalizeDate(args.fecha);
+    const endpoint = tipo === "cobro" ? "/api/cuentas-cobrar" : "/api/cuentas-pagar";
+    const list = asArray<any>(await ctx.api.get(endpoint)).filter((a) => a.status !== "pagado");
+    const needle = normalizeLookup(args.tercero);
+
+    let account: any;
+    if (args.cuenta_id) {
+      account = list.find((a) => a.id === args.cuenta_id);
+    } else if (needle) {
+      const matches = list.filter((a) => {
+        const name = tipo === "cobro" ? a.buyer : a.supplier;
+        return normalizeLookup(name).includes(needle);
+      });
+      if (matches.length === 1) {
+        account = matches[0];
+      } else if (matches.length > 1) {
+        const sorted = matches.sort((a, b) => Number(a.pendingAmount || 0) - Number(b.pendingAmount || 0));
+        const exactAmt = sorted.find((a) => Number(a.pendingAmount) >= amount);
+        if (exactAmt && sorted.filter((a) => Number(a.pendingAmount) >= amount).length === 1) {
+          account = exactAmt;
+        } else {
+          throw new Error(
+            `Hay ${matches.length} cuentas pendientes de "${args.tercero}". Indica el cuenta_id o primero usa consultar_cuentas_pendientes.`,
+          );
+        }
+      }
+    }
+
+    if (!account) {
+      throw new Error(`No encontré una cuenta pendiente de ${tipo} ${args.tercero ? `para "${args.tercero}"` : "con ese ID"}.`);
+    }
+    const pending = Number(account.pendingAmount || 0);
+    if (amount > pending) {
+      throw new Error(`El monto (${formatCop(amount)}) supera el saldo pendiente de la cuenta (${formatCop(pending)}).`);
+    }
+    const party = tipo === "cobro" ? account.buyer : account.supplier;
+    return {
+      args: {
+        date,
+        type: tipo,
+        receivableId: tipo === "cobro" ? account.id : undefined,
+        payableId: tipo === "pago" ? account.id : undefined,
+        amount,
+        method: args.metodo || "efectivo",
+        reference: args.referencia ? String(args.referencia) : null,
+        notes: args.notas ? String(args.notas) : null,
+      },
+      summary: `Registrar ${tipo} de ${formatCop(amount)} a "${party}" (saldo actual ${formatCop(pending)}, método ${args.metodo || "efectivo"}) el ${formatDateEs(date)}.`,
+    };
+  },
+  async execute(args, ctx) {
+    return ctx.api.post("/api/pagos", args);
+  },
+};
+
 // ─── Registro de herramientas ───
+
 
 export const AGENT_TOOLS: AgentTool[] = [
   consultarResumenGranja,
@@ -1624,15 +3766,51 @@ export const AGENT_TOOLS: AgentTool[] = [
   consultarSanidad,
   consultarParametros,
   consultarAlimentos,
+  consultarReproduccion,
+  consultarBioseguridad,
+  consultarCompostaje,
+  consultarCierreYSensores,
+  consultarIncubacion,
+  consultarCalendarioRutinas,
+  consultarContabilidadAnalitica,
+  consultarKpisYAlimentacion,
+  consultarContactos,
   registrarProduccionHuevos,
   registrarMortalidad,
   registrarPeso,
   registrarConsumoAlimento,
   registrarAutoconsumo,
+  registrarLecturaSensor,
+  registrarReproduccion,
+  registrarBioseguridad,
+  registrarCompostaje,
+  registrarIncubacion,
+  completarRutinaCalendario,
+  registrarControlSanitario,
+  registrarContacto,
   registrarVentaHuevos,
   registrarVentaAnimales,
+  registrarVentaCarne,
+  registrarVentaGallinaza,
   registrarGasto,
   registrarIngreso,
+  registrarProrrateo,
+  registrarCierreDiario,
+  consultarConocimiento,
+  consultarMemoriaGranja,
+  recordarDatoGranja,
+  consultarProgramasNutricion,
+  consultarPresupuestos,
+  consultarCuentasPendientes,
+  gestionarLugar,
+  trasladarAnimales,
+  registrarAdquisicion,
+  registrarSacrificioCarne,
+  ajustarGallinaza,
+  gestionarAlimento,
+  registrarMovimientoInsumo,
+  gestionarMantenimiento,
+  registrarPagoCuenta,
 ];
 
 const TOOL_MAP = new Map(AGENT_TOOLS.map((tool) => [tool.name, tool]));

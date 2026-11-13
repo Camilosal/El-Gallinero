@@ -35,6 +35,8 @@ interface CurveResponse {
   curve: StandardCurve;
   actualPoints: ActualPoint[];
   comparison: Comparison | null;
+  environmentAdjustment?: { locationName: string | null; factor: number; altitudeMeters: number | null; floorType: string | null; notes: string[] };
+  zootechnics?: { cvPercent: number | null; uniformityPct: number | null; dailyGainG: number | null } | null;
   logs: { id: string; date: string; week: number | null; avgWeightKg: number; sampleSize: number; batchCode: string | null; breed: string }[];
 }
 
@@ -44,6 +46,7 @@ const SPECIES_OPTIONS: { value: CurveSpecies; label: string }[] = [
   { value: "codorniz", label: "Codornices" },
   { value: "pato", label: "Patos" },
   { value: "conejo", label: "Conejos" },
+  { value: "cuy", label: "Cuyes" },
 ];
 
 const STATUS: Record<Comparison["status"], { label: string; style: string }> = {
@@ -61,17 +64,24 @@ function formatMetric(value: number | null | undefined, curve: StandardCurve): s
 export default function RazasPage() {
   const [species, setSpecies] = useState<CurveSpecies>("gallina");
   const [breed, setBreed] = useState("");
+  const [locationId, setLocationId] = useState("");
+  const [locations, setLocations] = useState<Array<{ id: string; name: string; altitudeMeters?: number | null; floorType?: string | null }>>([]);
   const [data, setData] = useState<CurveResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [pointSearch, setPointSearch] = useState("");
   const breedOptions = getStandardCurves(species);
   const selectedBreed = breedOptions.some((option) => option.breed === breed) ? breed : breedOptions[0]?.breed || "";
 
+  useEffect(() => {
+    apiFetch("/api/ubicaciones").then((r) => r.json()).then((d) => setLocations(Array.isArray(d) ? d : [])).catch(() => {});
+  }, []);
+
   const load = useCallback(async () => {
     if (!selectedBreed) return;
     setLoading(true);
     try {
       const params = new URLSearchParams({ species, breed: selectedBreed });
+      if (locationId) params.set("locationId", locationId);
       const response = await apiFetch(`/api/analisis/curvas?${params.toString()}`);
       const result = await response.json();
       if (response.ok) setData(result);
@@ -79,7 +89,7 @@ export default function RazasPage() {
     } finally {
       setLoading(false);
     }
-  }, [species, selectedBreed]);
+  }, [species, selectedBreed, locationId]);
 
   useEffect(() => { void Promise.resolve().then(load); }, [load]);
 
@@ -120,6 +130,14 @@ export default function RazasPage() {
             <Select label="Curva" value={selectedBreed} onChange={(event) => setBreed(event.target.value)}>
               {breedOptions.map((option) => <option key={option.breed} value={option.breed}>{option.breed}</option>)}
             </Select>
+            <Select label="Lugar (Altitud/Piso)" value={locationId} onChange={(event) => setLocationId(event.target.value)}>
+              <option value="">General (sin ajuste)</option>
+              {locations.map((loc) => (
+                <option key={loc.id} value={loc.id}>
+                  {loc.name}{loc.altitudeMeters ? ` (${loc.altitudeMeters} m)` : ""}
+                </option>
+              ))}
+            </Select>
           </div>
         }
       />
@@ -158,6 +176,25 @@ export default function RazasPage() {
               Referencia: <a className="font-medium text-blue-700 underline" href={selectedCurve.sourceUrl} target="_blank" rel="noreferrer">{selectedCurve.sourceLabel}</a>.
               {" "}{selectedCurve.note}
             </p>
+            {data?.environmentAdjustment && data.environmentAdjustment.notes.length > 0 && (
+              <div className="mt-2 rounded-lg border border-blue-200 bg-blue-50 px-3 py-2 text-xs text-blue-800">
+                <strong>Calibración ambiental ({data.environmentAdjustment.locationName || "lugar"}):</strong>{" "}
+                {data.environmentAdjustment.notes.join(" · ")}
+              </div>
+            )}
+            {data?.zootechnics && (
+              <div className="mt-2 flex flex-wrap gap-3 text-xs text-slate-700">
+                {data.zootechnics.cvPercent != null && (
+                  <span className="rounded bg-slate-100 px-2.5 py-1 font-semibold">CV%: {data.zootechnics.cvPercent.toFixed(1)}%</span>
+                )}
+                {data.zootechnics.uniformityPct != null && (
+                  <span className="rounded bg-slate-100 px-2.5 py-1 font-semibold">Uniformidad ±10%: {data.zootechnics.uniformityPct.toFixed(1)}%</span>
+                )}
+                {data.zootechnics.dailyGainG != null && (
+                  <span className="rounded bg-slate-100 px-2.5 py-1 font-semibold">GDP: {data.zootechnics.dailyGainG.toFixed(1)} g/día</span>
+                )}
+              </div>
+            )}
           </Card>
 
           <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">

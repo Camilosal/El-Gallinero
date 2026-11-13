@@ -1,7 +1,9 @@
 "use client";
 
 import Link from "next/link";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { Suspense, useCallback, useEffect, useMemo, useState } from "react";
+import { useSearchParams } from "next/navigation";
+import { useActionQuery } from "@/lib/useActionQuery";
 import { CalendarDays, Target, TrendingUp } from "lucide-react";
 import { PageHeader, Button, Card, Badge, Modal, Input, Textarea, EmptyState } from "@/components/ui";
 import { AppIcon } from "@/components/AppIcon";
@@ -192,6 +194,15 @@ function MetricCard({
 }
 
 export default function PlanParvadaPage() {
+  return (
+    <Suspense fallback={<div className="p-8 text-center text-slate-400">Cargando...</div>}>
+      <PlanParvadaInner />
+    </Suspense>
+  );
+}
+
+function PlanParvadaInner() {
+  const searchParams = useSearchParams();
   const [data, setData] = useState<PlanResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [pageError, setPageError] = useState("");
@@ -313,6 +324,11 @@ export default function PlanParvadaPage() {
     setModalOpen(true);
   };
 
+  useActionQuery(searchParams.get("nuevo"), {
+    "1": openNew,
+    plan: openNew,
+  });
+
   const openEdit = () => {
     if (!selectedPlan || !data) return;
     setEditingId(selectedPlan.id);
@@ -389,7 +405,7 @@ export default function PlanParvadaPage() {
 
       {loading ? (
         <Card>
-          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
+          <div className="grid grid-cols-2 gap-2.5 sm:gap-3 lg:grid-cols-4">
             {[1, 2, 3, 4].map((item) => (
               <div key={item} className="h-24 animate-pulse rounded-xl bg-slate-100" />
             ))}
@@ -409,7 +425,7 @@ export default function PlanParvadaPage() {
       ) : (
         <>
           {/* Diagnóstico actual */}
-          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-5">
+          <div className="grid grid-cols-2 gap-2.5 sm:gap-3 lg:grid-cols-5">
             <MetricCard
               icon="paw"
               label="Animales en inventario"
@@ -529,7 +545,7 @@ export default function PlanParvadaPage() {
                 </div>
               </div>
 
-              <div className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
+              <div className="mt-4 grid grid-cols-2 gap-2.5 sm:gap-3 lg:grid-cols-4">
                 <MetricCard
                   icon="hen"
                   label="Gallinas meta"

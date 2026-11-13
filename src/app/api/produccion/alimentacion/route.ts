@@ -6,6 +6,7 @@ import { getFeedInventoryProjection } from "@/lib/feeding/inventory";
 import { withApiHandler, safeParseJson } from "@/lib/api-handler";
 import { deleteTransactionsAndUnpaidAccounts } from "@/lib/financial-records";
 import { normalizeFeedCategory, normalizeFeedType } from "@/lib/feed-classification";
+import { parseOptionalPercent } from "@/lib/feeding/ration";
 
 export const dynamic = "force-dynamic";
 
@@ -23,6 +24,10 @@ export const GET = withApiHandler(async (req: NextRequest) => {
 export const POST = withApiHandler(async (req: NextRequest) => {
   const body = await safeParseJson(req);
   if (!body || typeof body !== "object") return NextResponse.json({ error: "Cuerpo inválido" }, { status: 400 });
+  const dryMatter = parseOptionalPercent(body.dryMatterPct, "La materia seca", { positive: true });
+  if ("error" in dryMatter) return NextResponse.json({ error: dryMatter.error }, { status: 400 });
+  const protein = parseOptionalPercent(body.crudeProteinPct, "La proteína cruda");
+  if ("error" in protein) return NextResponse.json({ error: protein.error }, { status: 400 });
   const initialStock = Number(body.currentStock ?? 0);
   if (!Number.isFinite(initialStock) || initialStock < 0) {
     return NextResponse.json({ error: "Stock inicial inválido" }, { status: 400 });
@@ -41,6 +46,8 @@ export const POST = withApiHandler(async (req: NextRequest) => {
       minStock: body.minStock || "0",
       costPerUnit: body.costPerUnit || "0",
       supplier: body.supplier || null,
+      dryMatterPct: dryMatter.value,
+      crudeProteinPct: protein.value,
     }).returning();
     if (initialStock > 0) {
       await tx.insert(feedMovements).values({
@@ -63,6 +70,10 @@ export const PUT = withApiHandler(async (req: NextRequest) => {
   if (!body || typeof body !== "object") return NextResponse.json({ error: "Cuerpo inválido" }, { status: 400 });
   if (!body.id) return NextResponse.json({ error: "ID requerido" }, { status: 400 });
 
+  const dryMatter = body.dryMatterPct === undefined ? undefined : parseOptionalPercent(body.dryMatterPct, "La materia seca", { positive: true });
+  if (dryMatter && "error" in dryMatter) return NextResponse.json({ error: dryMatter.error }, { status: 400 });
+  const protein = body.crudeProteinPct === undefined ? undefined : parseOptionalPercent(body.crudeProteinPct, "La proteína cruda");
+  if (protein && "error" in protein) return NextResponse.json({ error: protein.error }, { status: 400 });
   const requestedCategory = body.category == null ? undefined : normalizeFeedCategory(body.category);
   const requestedFeedType = body.feedType == null ? undefined : normalizeFeedType(body.feedType);
   if (body.category != null && !requestedCategory) {
@@ -87,6 +98,8 @@ export const PUT = withApiHandler(async (req: NextRequest) => {
       minStock: body.minStock ?? existing.minStock,
       costPerUnit: body.costPerUnit ?? existing.costPerUnit,
       supplier: body.supplier !== undefined ? body.supplier : existing.supplier,
+      dryMatterPct: dryMatter === undefined ? existing.dryMatterPct : dryMatter.value,
+      crudeProteinPct: protein === undefined ? existing.crudeProteinPct : protein.value,
       updatedAt: new Date(),
     }).where(eq(feedInventory.id, body.id)).returning();
 

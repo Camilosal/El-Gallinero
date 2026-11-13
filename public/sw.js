@@ -1,10 +1,13 @@
-const CACHE_VERSION = 'v7';
+const CACHE_VERSION = 'v8';
 const APP_CACHE = `gallinero-app-${CACHE_VERSION}`;
 const PRECACHE = [
   '/',
   '/login',
   '/login/recuperar',
   '/guia',
+  '/dashboard',
+  '/dashboard/escanear',
+  '/dashboard/operaciones/cierre',
   '/dashboard/guia',
   '/manifest.json',
   '/icon-192.svg',
@@ -40,7 +43,8 @@ self.addEventListener('install', (e) => {
       Promise.allSettled(
         PRECACHE.map((url) =>
           fetch(url, { credentials: 'include' }).then((res) => {
-            if (res.ok) {
+            const reqUrl = new URL(url, self.location.origin);
+            if (res.ok && !isRedirectedToLogin(reqUrl, res)) {
               return cache.put(url, res);
             }
           })

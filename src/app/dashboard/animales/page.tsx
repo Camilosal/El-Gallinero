@@ -8,6 +8,8 @@ import { PageHeader, Card, StatCard, Table, Badge, EmptyState } from "@/componen
 import TableSearch from "@/components/TableSearch";
 import { apiFetch } from "@/lib/fetch";
 import { matchesTextQuery } from "@/lib/text";
+import { isHrefEnabledByFlags } from "@/lib/onboarding";
+import { useOnboardingState } from "@/lib/useOnboardingState";
 
 interface AnimalGroup {
   key: string;
@@ -84,6 +86,7 @@ const animalFilters = [
   { id: "codorniz", label: "Lotes de codornices", icon: "egg" },
   { id: "pato", label: "Lotes de patos", icon: "duck" },
   { id: "conejo", label: "Lotes de conejos", icon: "rabbit" },
+  { id: "cuy", label: "Lotes de cuyes", icon: "paw-print" },
 ];
 
 function groupMatchesAnimalFilter(group: AnimalGroup, filter: string): boolean {
@@ -95,9 +98,12 @@ function groupMatchesAnimalFilter(group: AnimalGroup, filter: string): boolean {
 
 const quickLinks = [
   { href: "/dashboard/produccion/adquisiciones", label: "Adquisiciones", icon: "incoming", desc: "Origen y destino de nuevas entradas" },
-  { href: "/dashboard/produccion?tab=animales", label: "Gestión de Animales", icon: "paw-print", desc: "Gallinas, gallos y lotes separados por especie" },
-  { href: "/dashboard/produccion/mortalidad", label: "Mortalidad", icon: "mortality", desc: "Bajas y causas por lote" },
-  { href: "/dashboard/produccion?tab=incubacion", label: "Incubación", icon: "incubator", desc: "Nacimientos y fertilidad" },
+  { href: "/dashboard/produccion?tab=animales", label: "Gestión de Animales", icon: "paw-print", desc: "Gallinas, gallos, conejos, cuyes y lotes por especie" },
+  { href: "/dashboard/ubicaciones", label: "Lugares de manejo", icon: "map-pin", desc: "Corrales, galpones, jaulas y potreros" },
+  { href: "/dashboard/produccion?tab=reproduccion", label: "Reproducción", icon: "rabbit", desc: "Empadre, palpación, parto, destete y consanguinidad" },
+  { href: "/dashboard/produccion/peso", label: "Control de peso", icon: "scale", desc: "Biometría, ganancia diaria, CV% y uniformidad" },
+  { href: "/dashboard/produccion?tab=incubacion", label: "Incubación", icon: "incubator", desc: "Nacimientos, ovoscopía y fertilidad" },
+  { href: "/dashboard/produccion/mortalidad", label: "Mortalidad", icon: "mortality", desc: "Bajas y causas por lote o ficha" },
 ];
 
 const fmtMoney = (value: number) => `$${Math.round(value).toLocaleString("es-CO")}`;
@@ -108,6 +114,7 @@ export default function AnimalesPage() {
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [speciesFilter, setSpeciesFilter] = useState("all");
+  const { config, flags } = useOnboardingState();
   const [unassignedAnimals, setUnassignedAnimals] = useState<UnassignedAnimal[]>([]);
   const [locations, setLocations] = useState<AssignmentLocation[]>([]);
   const [targetByAnimal, setTargetByAnimal] = useState<Record<string, string>>({});
@@ -182,10 +189,29 @@ export default function AnimalesPage() {
     if (!search.trim()) return true;
     return matchesTextQuery(search, [species.label, species.species, species.isBird ? "ave" : "no ave", species.count]);
   });
-  const visibleQuickLinks = useMemo(
-    () => (search.trim() ? quickLinks.filter((l) => matchesTextQuery(search, [l.label, l.desc])) : quickLinks),
-    [search],
+  const hasMammals = Boolean(
+    data?.species?.some((s) => (s.species === "conejo" || s.species === "cuy") && s.count > 0) ||
+      config?.selectedSpecies?.some((s) => s === "conejo" || s === "cuy"),
   );
+  const hasWeightFocus = Boolean(
+    config?.scale === "MEDIANO" ||
+      hasMammals ||
+      data?.species?.some((s) => s.species === "pollo" && s.count > 0) ||
+      config?.selectedSpecies?.some((s) => s === "pollo"),
+  );
+  const visibleQuickLinks = useMemo(() => {
+    const enabled = quickLinks.filter((l) => {
+      if (!isHrefEnabledByFlags(l.href, flags)) return false;
+      if (config?.scale === "PEQUENO" && l.href === "/dashboard/produccion?tab=reproduccion" && !hasMammals) {
+        return false;
+      }
+      if (config?.scale === "PEQUENO" && l.href === "/dashboard/produccion/peso" && !hasWeightFocus) {
+        return false;
+      }
+      return true;
+    });
+    return search.trim() ? enabled.filter((l) => matchesTextQuery(search, [l.label, l.desc])) : enabled;
+  }, [config?.scale, flags, hasMammals, hasWeightFocus, search]);
   const visibleUnassigned = useMemo(
     () =>
       search.trim()
@@ -199,8 +225,8 @@ export default function AnimalesPage() {
     <div>
       <PageHeader
         title="Inventario de Animales"
-        description="Inventario y seguimiento unificado de gallinas, gallos, pollos, codornices, patos y conejos."
-        help="Aquí ves los animales que están en la granja, separados por especie en los filtros. Para registrar una entrada nueva, empieza por Adquisiciones: ahí indicas el tipo, su raza asociada y el origen. El inventario incluye únicamente animales no vendidos, faenados ni muertos."
+        description="Inventario y seguimiento unificado de gallinas, gallos, pollos, codornices, patos, conejos y cuyes."
+        help="Aquí ves los animales activos en la granja separados por especie, junto con accesos directos a Adquisiciones, Gestión de Animales, Lugares de manejo, Reproducción (conejos y cuyes), Control de peso y biometría, Incubación y Mortalidad. El inventario excluye animales vendidos, faenados o fallecidos."
         actions={
           <div className="flex flex-wrap gap-2">
             <Link
@@ -231,7 +257,7 @@ export default function AnimalesPage() {
             totalCount={data.groups.filter((group) => groupMatchesAnimalFilter(group, speciesFilter)).length}
           />
 
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+          <div className="grid grid-cols-2 gap-2.5 sm:gap-4 lg:grid-cols-4">
             <StatCard icon="paw-print" label="Animales en inventario" value={data.summary.totalAnimals} color="green" />
             <StatCard icon="hen" label="Aves" value={data.summary.totalBirds} color="yellow" />
             <StatCard icon="rabbit" label="No aves" value={data.summary.totalNonBirds} color="blue" />
@@ -267,18 +293,18 @@ export default function AnimalesPage() {
           </Card>
 
           {visibleQuickLinks.length > 0 && (
-            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
+            <div className="grid grid-cols-2 gap-2.5 sm:gap-3 lg:grid-cols-4">
               {visibleQuickLinks.map((link) => (
                 <Link
                   key={link.href}
                   href={link.href}
-                  className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm transition-shadow hover:shadow-md"
+                  className="rounded-xl border border-slate-200 bg-white p-3 sm:p-4 min-w-0 shadow-sm transition-shadow hover:shadow-md"
                 >
-                  <div className="w-9 h-9 rounded-lg bg-slate-100 flex items-center justify-center text-slate-700">
-                    <AppIcon icon={link.icon} className="w-5 h-5" />
+                  <div className="w-8 h-8 sm:w-9 sm:h-9 rounded-lg bg-slate-100 flex items-center justify-center text-slate-700">
+                    <AppIcon icon={link.icon} className="w-4 h-4 sm:w-5 sm:h-5" />
                   </div>
-                  <p className="mt-2 font-semibold text-slate-800">{link.label}</p>
-                  <p className="mt-1 text-xs text-slate-500">{link.desc}</p>
+                  <p className="mt-2 text-xs sm:text-base font-semibold text-slate-800 leading-snug">{link.label}</p>
+                  <p className="mt-1 text-[11px] sm:text-xs text-slate-500 line-clamp-2">{link.desc}</p>
                 </Link>
               ))}
             </div>
@@ -287,7 +313,7 @@ export default function AnimalesPage() {
           {visibleSpecies.length > 0 && (
             <div>
               <h2 className="mb-3 text-lg font-semibold text-slate-800">Composición por especie</h2>
-              <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
+              <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-7">
                 {visibleSpecies.map((species) => (
                   <Card key={species.species}>
                     <div className="flex items-center justify-between">
@@ -315,7 +341,7 @@ export default function AnimalesPage() {
                   <h2 className="text-lg font-semibold text-amber-950">Pendientes de asignar lugar</h2>
                   <p className="mt-1 text-sm text-amber-800">{visibleUnassigned.reduce((sum, animal) => sum + animal.quantity, 0)} animales activos no tienen una ubicación actual registrada. Asignarlos conserva el historial de traslado.</p>
                 </div>
-                {locations.length === 0 && <Link href="/dashboard/ubicaciones" className="rounded-lg bg-amber-700 px-3 py-2 text-sm font-semibold text-white">Crear un lugar</Link>}
+                {locations.length === 0 && <Link href="/dashboard/ubicaciones?nuevo=1" className="rounded-lg bg-amber-700 px-3 py-2 text-sm font-semibold text-white">Crear un lugar</Link>}
               </div>
               {assignmentError && <p role="alert" className="mb-3 rounded-lg bg-red-50 p-3 text-sm text-red-700">{assignmentError}</p>}
               <div className="space-y-2">

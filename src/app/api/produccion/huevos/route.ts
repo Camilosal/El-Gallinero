@@ -8,6 +8,8 @@ import { withApiHandler, safeParseJson } from "@/lib/api-handler";
 import { lockEggInventory } from "@/lib/inventory-locks";
 import { computeEggInventory, eggInventoryBookBalance } from "@/lib/inventory";
 import { loadSpeciesParams } from "@/lib/species-db";
+import { assertDateNotClosed } from "@/lib/sanitary-locks";
+import { checkEggStorageTelemetry, generateEggLotCode } from "@/lib/ntc1240";
 
 export const dynamic = "force-dynamic";
 
@@ -90,7 +92,7 @@ export const GET = withApiHandler(async (req: NextRequest) => {
   }
   const locations = await db.select({ id: farmLocations.id, name: farmLocations.name }).from(farmLocations);
   const locationNames = new Map(locations.map((item) => [item.id, item.name]));
-  return NextResponse.json(records.map((r) => ({ ...r, locationName: r.locationId ? locationNames.get(r.locationId) || null : null, details: byProd.get(r.id) || [] })));
+  return NextResponse.json(records.map((r) => ({ ...r, locationName: r.locationId ? locationNames.get(r.locationId) || null : null, storageWarnings: checkEggStorageTelemetry(r.storageTempC, r.storageHumidityPct), details: byProd.get(r.id) || [] })));
 });
 
 
@@ -144,10 +146,31 @@ async function handleSave(req: NextRequest, isUpdate: boolean) {
   }
 
   const broken = Number(body.broken ?? 0);
+  const discarded = Number(body.discarded ?? 0);
   const forIncubation = Number(body.forIncubation ?? 0);
-  if (!Number.isSafeInteger(broken) || broken < 0 || !Number.isSafeInteger(forIncubation) || forIncubation < 0) {
-    return NextResponse.json({ error: "Rotos e incubación deben ser cantidades enteras no negativas" }, { status: 400 });
+  if (!Number.isSafeInteger(broken) || broken < 0 || !Number.isSafeInteger(discarded) || discarded < 0 || !Number.isSafeInteger(forIncubation) || forIncubation < 0) {
+    return NextResponse.json({ error: "Rotos, descartados e incubación deben ser cantidades enteras no negativas" }, { status: 400 });
   }
+
+  let storageTempC: string | null = null;
+  if (body.storageTempC !== undefined && body.storageTempC !== null && body.storageTempC !== "") {
+    const t = Number(body.storageTempC);
+    if (!Number.isFinite(t) || t < -10 || t > 50) {
+      return NextResponse.json({ error: "Temperatura de almacenamiento inválida (-10 a 50 °C)" }, { status: 400 });
+    }
+    storageTempC = t.toFixed(1);
+  }
+  let storageHumidityPct: string | null = null;
+  if (body.storageHumidityPct !== undefined && body.storageHumidityPct !== null && body.storageHumidityPct !== "") {
+    const h = Number(body.storageHumidityPct);
+    if (!Number.isFinite(h) || h < 0 || h > 100) {
+      return NextResponse.json({ error: "Humedad de almacenamiento inválida (0 a 100 %)" }, { status: 400 });
+    }
+    storageHumidityPct = h.toFixed(1);
+  }
+  const requestedLotCode = typeof body.lotCode === "string" && body.lotCode.trim()
+    ? body.lotCode.trim().slice(0, 60)
+    : null;
 
   if (body.sizes !== undefined && !Array.isArray(body.sizes)) {
     return NextResponse.json({ error: "El detalle por tamaño debe ser una lista" }, { status: 400 });
@@ -167,14 +190,14 @@ async function handleSave(req: NextRequest, isUpdate: boolean) {
   }
 
   const totalCollected = sizes.length > 0
-    ? sizes.reduce((s, x) => s + x.quantity, 0) + broken + forIncubation
+    ? sizes.reduce((s, x) => s + x.quantity, 0) + broken + discarded + forIncubation
     : Number(body.totalCollected);
   if (!Number.isSafeInteger(totalCollected) || totalCollected < 0) {
     return NextResponse.json({ error: "Total recolectado inválido" }, { status: 400 });
   }
 
   const goodTotal = sizes.reduce((sum, row) => sum + row.quantity, 0);
-  if (goodTotal === 0 && totalCollected > broken + forIncubation) {
+  if (goodTotal === 0 && totalCollected > broken + discarded + forIncubation) {
     return NextResponse.json({ error: "Clasifica por tamaño los huevos buenos antes de guardar" }, { status: 400 });
   }
 
@@ -219,6 +242,7 @@ async function handleSave(req: NextRequest, isUpdate: boolean) {
 
   if (isUpdate) {
     const updated = await db.transaction(async (tx) => {
+      await assertDateNotClosed(tx, { date: body.date });
       await lockEggInventory(tx);
       const inventoryBefore = await computeEggInventory(tx);
       const [row] = await tx.update(eggProduction).set({
@@ -228,10 +252,14 @@ async function handleSave(req: NextRequest, isUpdate: boolean) {
         locationId: body.locationId,
         totalCollected,
         broken,
+        discarded,
         forIncubation,
         quantityAutoconsumo: qtyAutoconsumo,
         quantityExcedente: qtyExcedente,
         referenceUnitPrice: refPrice,
+        lotCode: requestedLotCode ?? undefined,
+        storageTempC,
+        storageHumidityPct,
         notes: body.notes || null,
       }).where(eq(eggProduction.id, body.id)).returning();
 
@@ -287,11 +315,16 @@ async function handleSave(req: NextRequest, isUpdate: boolean) {
       return row;
     });
 
-    return NextResponse.json(updated);
+      return NextResponse.json({
+      ...updated,
+      storageWarnings: checkEggStorageTelemetry(updated.storageTempC, updated.storageHumidityPct),
+    });
   }
 
   const created = await db.transaction(async (tx) => {
+    await assertDateNotClosed(tx, { date: body.date });
     await lockEggInventory(tx);
+    const lotCodeToSave = requestedLotCode || generateEggLotCode(body.date, species, typeof body.id === "string" ? body.id.slice(0, 4) : undefined);
     const [row] = await tx.insert(eggProduction).values({
       id: body.id || undefined,
       date: body.date,
@@ -300,10 +333,14 @@ async function handleSave(req: NextRequest, isUpdate: boolean) {
       locationId: body.locationId,
       totalCollected,
       broken,
+      discarded,
       forIncubation,
       quantityAutoconsumo: qtyAutoconsumo,
       quantityExcedente: qtyExcedente,
       referenceUnitPrice: refPrice,
+      lotCode: lotCodeToSave,
+      storageTempC,
+      storageHumidityPct,
       notes: body.notes || null,
     }).returning();
 
@@ -334,7 +371,10 @@ async function handleSave(req: NextRequest, isUpdate: boolean) {
     return row;
   });
 
-  return NextResponse.json(created, { status: 201 });
+  return NextResponse.json({
+    ...created,
+    storageWarnings: checkEggStorageTelemetry(created.storageTempC, created.storageHumidityPct),
+  }, { status: 201 });
 }
 
 export const POST = withApiHandler(async (req: NextRequest) => {
@@ -352,8 +392,9 @@ export const DELETE = withApiHandler(async (req: NextRequest) => {
   await db.transaction(async (tx) => {
     await lockEggInventory(tx);
     const inventoryBefore = await computeEggInventory(tx);
-    const [production] = await tx.select({ id: eggProduction.id }).from(eggProduction).where(eq(eggProduction.id, id));
+    const [production] = await tx.select({ id: eggProduction.id, date: eggProduction.date }).from(eggProduction).where(eq(eggProduction.id, id));
     if (!production) throw new Error("No encontrado");
+    await assertDateNotClosed(tx, { date: production.date });
     await tx.delete(autoconsumoLogs).where(eq(autoconsumoLogs.eggProductionId, id));
     await tx.delete(eggProductionDetails).where(eq(eggProductionDetails.productionId, id));
     await tx.delete(eggProduction).where(eq(eggProduction.id, id));

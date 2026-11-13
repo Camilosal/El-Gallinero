@@ -1,14 +1,15 @@
 import { db } from "@/db";
-import { hens, eggProduction, sanitaryCalendar, weightLogs, breedWeightStandards, catalogos } from "@/db/schema";
-import { eq, sql, and, lt, gte, desc } from "drizzle-orm";
+import { hens, eggProduction, sanitaryCalendar, weightLogs, breedWeightStandards, catalogos, broilerBatches } from "@/db/schema";
+import { eq, sql, and, lt, gte, desc, inArray, gt } from "drizzle-orm";
 import { NextResponse } from "next/server";
 import { ageInWeeks } from "@/lib/lifecycle";
 import { withApiHandler, safeParseJson } from "@/lib/api-handler";
+import { evaluateHarvestWindowWarning } from "@/lib/micro-insights";
 
 export const dynamic = "force-dynamic";
 
 interface Alert {
-  type: "feed_change" | "point_of_lay" | "overdue_vaccination" | "production_drop" | "weight_deviation";
+  type: "feed_change" | "point_of_lay" | "overdue_vaccination" | "production_drop" | "weight_deviation" | "harvest_window";
   severity: "info" | "warning" | "critical";
   title: string;
   message: string;
@@ -153,6 +154,33 @@ export const GET = withApiHandler(async () => {
         message: `${w.breed} semana ${w.weekNumber}: ${actualG.toFixed(0)}g vs objetivo ${targetG.toFixed(0)}g`,
         date: w.date,
         birdGroup: w.henGroup || undefined,
+      });
+    }
+  }
+
+  // 6. Ventana óptima de sacrificio / venta (lotes de carne)
+  const activeBatches = await db
+    .select({
+      code: broilerBatches.code,
+      species: broilerBatches.species,
+      startDate: broilerBatches.startDate,
+    })
+    .from(broilerBatches)
+    .where(and(inArray(broilerBatches.status, ["activo", "listo_sacrificio"]), gt(broilerBatches.currentQuantity, 0)));
+
+  const todayMs = Date.now();
+  for (const b of activeBatches) {
+    const startMs = new Date(`${b.startDate}T00:00:00Z`).getTime();
+    const ageDays = Number.isFinite(startMs) ? Math.max(0, Math.floor((todayMs - startMs) / 86400000)) : 0;
+    const hw = evaluateHarvestWindowWarning({ species: b.species, ageDays, code: b.code });
+    if (hw) {
+      alerts.push({
+        type: "harvest_window",
+        severity: hw.severity,
+        title: hw.title,
+        message: hw.message,
+        date: todayStr,
+        birdGroup: b.code,
       });
     }
   }

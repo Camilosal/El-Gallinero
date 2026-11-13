@@ -2,19 +2,22 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import {
-  Bot,
+  Brain,
+  Camera,
+  CheckCircle2,
   CloudOff,
+  FileText,
   History,
-  MessageSquare,
+  Loader2,
   Mic,
   Plus,
   Send,
-  Sparkles,
   Square,
   Trash2,
   Volume2,
   X,
 } from "lucide-react";
+import { compressImageToDataUrl, type OcrExtractionMode } from "@/lib/attachments-shared";
 import { apiFetch } from "@/lib/fetch";
 import ChatMarkdown from "@/components/ChatMarkdown";
 import type { VoiceNoteEntry } from "@/lib/offline/db";
@@ -57,13 +60,71 @@ const STORAGE_KEY = "gallinero-assistant-conversation";
 
 const SUGGESTIONS = [
   "¿Cómo está la granja hoy?",
-  "¿Cuántos animales y huevos tengo?",
-  "¿Qué producción hubo en el galpón principal este mes?",
-  "¿Cómo van las finanzas este mes?",
-  "¿Qué vacunas están pendientes?",
-  "¿Qué tareas de mantenimiento están pendientes por lugar?",
-  "¿Qué equipos requieren atención y qué tareas vencen esta semana?",
+  "¿Qué tareas tengo en la rutina diaria hoy?",
+  "¿Cómo va la rentabilidad por especie y lugar este mes?",
+  "¿Cuántos días de alimento quedan y cuál es el FCR?",
+  "¿Cómo van la reproducción de cuyes/conejos y la incubación?",
+  "¿Hay alertas de sensores ITH/NH3, bioseguridad o compostaje?",
+  "¿Qué vacunas, mantenimientos o vencimientos están pendientes?",
 ];
+
+function GinaAvatar({ size = "md" }: { size?: "sm" | "md" | "lg" }) {
+  const dims =
+    size === "sm"
+      ? "h-6 w-6"
+      : size === "lg"
+      ? "h-12 w-12"
+      : "h-9 w-9";
+  return (
+    <span
+      className={`inline-flex shrink-0 items-center justify-center rounded-full bg-amber-50 ring-2 ring-amber-200/80 shadow-xs overflow-hidden ${dims}`}
+      aria-hidden="true"
+    >
+      <svg viewBox="0 0 64 64" className="h-full w-full" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <circle cx="32" cy="32" r="32" fill="#FEF3C7" />
+        {/* Cresta */}
+        <path
+          d="M23 18C21.5 13 26.5 10 29 14C30.5 9.5 36.5 10 36.5 15C40 12 44.5 15.5 41.5 20"
+          fill="#DC2626"
+        />
+        {/* Cabeza y cuello */}
+        <path
+          d="M16 40C16 25 22.5 17 32 17C41.5 17 48 25 48 40C48 49 41.5 55 32 55C22.5 55 16 49 16 40Z"
+          fill="#FFFFFF"
+          stroke="#E2E8F0"
+          strokeWidth="1.5"
+        />
+        {/* Mejillas suaves */}
+        <ellipse cx="20.5" cy="37" rx="3.2" ry="2" fill="#FDA4AF" fillOpacity="0.6" />
+        <ellipse cx="43.5" cy="37" rx="3.2" ry="2" fill="#FDA4AF" fillOpacity="0.6" />
+        {/* Gafas redondas */}
+        <circle cx="24" cy="31.5" r="7" fill="#E0F2FE" fillOpacity="0.45" stroke="#1E293B" strokeWidth="2.4" />
+        <circle cx="40" cy="31.5" r="7" fill="#E0F2FE" fillOpacity="0.45" stroke="#1E293B" strokeWidth="2.4" />
+        <path d="M31 31.2H33" stroke="#1E293B" strokeWidth="2.4" strokeLinecap="round" />
+        <path d="M14.5 29.5L17.2 30.8" stroke="#1E293B" strokeWidth="2" strokeLinecap="round" />
+        <path d="M49.5 29.5L46.8 30.8" stroke="#1E293B" strokeWidth="2" strokeLinecap="round" />
+        {/* Brillo en lentes */}
+        <path d="M20.5 28.5L22.5 27" stroke="#FFFFFF" strokeWidth="1.4" strokeLinecap="round" />
+        <path d="M36.5 28.5L38.5 27" stroke="#FFFFFF" strokeWidth="1.4" strokeLinecap="round" />
+        {/* Ojos tras las gafas */}
+        <circle cx="24.5" cy="31.8" r="2.2" fill="#0F172A" />
+        <circle cx="39.5" cy="31.8" r="2.2" fill="#0F172A" />
+        <circle cx="25.2" cy="31" r="0.7" fill="#FFFFFF" />
+        <circle cx="40.2" cy="31" r="0.7" fill="#FFFFFF" />
+        {/* Barbilla */}
+        <path d="M29 43.5C29 47.2 35 47.2 35 43.5Z" fill="#EF4444" />
+        {/* Pico */}
+        <path
+          d="M27.2 38.5L32 35.2L36.8 38.5L32 43.8L27.2 38.5Z"
+          fill="#F59E0B"
+          stroke="#D97706"
+          strokeWidth="1.2"
+          strokeLinejoin="round"
+        />
+      </svg>
+    </span>
+  );
+}
 
 function uid(prefix: string): string {
   return `${prefix}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
@@ -78,7 +139,6 @@ export default function AssistantWidget() {
   const [isOnline, setIsOnline] = useState(true);
   const [configured, setConfigured] = useState<boolean | null>(null);
   const [sttConfigured, setSttConfigured] = useState(false);
-  const [jevRouting, setJevRouting] = useState(false);
   const [conversationId, setConversationId] = useState<string | null>(null);
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [pendingActions, setPendingActions] = useState<PendingAction[]>([]);
@@ -89,6 +149,20 @@ export default function AssistantWidget() {
   const [historyOpen, setHistoryOpen] = useState(false);
   const [conversations, setConversations] = useState<ConversationSummary[]>([]);
   const [historyLoading, setHistoryLoading] = useState(false);
+  const [memoryOpen, setMemoryOpen] = useState(false);
+  const [memories, setMemories] = useState<Array<{ id: string; category: string; content: string; importance: number }>>([]);
+  const [memoryLoading, setMemoryLoading] = useState(false);
+  const [newMemoryText, setNewMemoryText] = useState("");
+  const [ocrPickerOpen, setOcrPickerOpen] = useState(false);
+  const [ocrMode, setOcrMode] = useState<OcrExtractionMode>("factura_compra");
+  const [ocrScanning, setOcrScanning] = useState(false);
+  const [pendingOcr, setPendingOcr] = useState<{
+    mode: OcrExtractionMode;
+    fileName: string;
+    summary: string;
+    extracted: Record<string, unknown>;
+    provider: string;
+  } | null>(null);
 
   const [voiceNotes, setVoiceNotes] = useState<VoiceNoteEntry[]>([]);
   const [audioUrls, setAudioUrls] = useState<Record<string, string>>({});
@@ -99,6 +173,7 @@ export default function AssistantWidget() {
 
   const scrollRef = useRef<HTMLDivElement | null>(null);
   const inputRef = useRef<HTMLTextAreaElement | null>(null);
+  const imageInputRef = useRef<HTMLInputElement | null>(null);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const mediaStreamRef = useRef<MediaStream | null>(null);
   const audioChunksRef = useRef<Blob[]>([]);
@@ -187,7 +262,6 @@ export default function AssistantWidget() {
       .then((data) => {
         setConfigured(Boolean(data.configured));
         setSttConfigured(Boolean(data.sttConfigured));
-        setJevRouting(Boolean(data.jevRouting));
       })
       .catch(() => setConfigured(false));
   }, [open, configured, isOnline]);
@@ -236,7 +310,91 @@ export default function AssistantWidget() {
   const toggleHistory = () => {
     const next = !historyOpen;
     setHistoryOpen(next);
-    if (next) refreshConversations().catch(() => undefined);
+    if (next) {
+      setMemoryOpen(false);
+      refreshConversations().catch(() => undefined);
+    }
+  };
+
+  const refreshMemories = useCallback(async () => {
+    setMemoryLoading(true);
+    try {
+      const res = await apiFetch("/api/asistente/memoria");
+      if (!res.ok) return;
+      const data = await res.json();
+      setMemories(Array.isArray(data.memories) ? data.memories : []);
+    } finally {
+      setMemoryLoading(false);
+    }
+  }, []);
+
+  const toggleMemory = () => {
+    const next = !memoryOpen;
+    setMemoryOpen(next);
+    if (next) {
+      setHistoryOpen(false);
+      refreshMemories().catch(() => undefined);
+    }
+  };
+
+  const addQuickMemory = async () => {
+    const content = newMemoryText.trim();
+    if (!content) return;
+    const res = await apiFetch("/api/asistente/memoria", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ content, importance: 4 }),
+    });
+    if (res.ok) {
+      setNewMemoryText("");
+      await refreshMemories();
+    }
+  };
+
+  const removeMemory = async (id: string) => {
+    const res = await apiFetch(`/api/asistente/memoria?id=${encodeURIComponent(id)}`, { method: "DELETE" });
+    if (res.ok) setMemories((prev) => prev.filter((m) => m.id !== id));
+  };
+
+  const handleImageSelected = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    event.target.value = "";
+    if (!file) return;
+    setError("");
+    setOcrScanning(true);
+    try {
+      const compressed = await compressImageToDataUrl(file);
+      const res = await apiFetch("/api/asistente/ocr", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          mode: ocrMode,
+          dataUrl: compressed.dataUrl,
+          fileName: file.name,
+          textHint: input.trim(),
+        }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        setError(data.error || "No se pudo leer la imagen con OCR.");
+        return;
+      }
+      const extracted = (data.extracted || {}) as Record<string, unknown>;
+      const summary = String(extracted.summary || data.extractedText || file.name);
+      setPendingOcr({
+        mode: ocrMode,
+        fileName: file.name,
+        summary,
+        extracted,
+        provider: String(data.provider || "deterministic"),
+      });
+      setOcrPickerOpen(false);
+      setTimeout(() => inputRef.current?.focus(), 60);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Error al procesar la imagen");
+    } finally {
+      setOcrScanning(false);
+    }
   };
 
   const selectConversation = async (id: string) => {
@@ -258,7 +416,16 @@ export default function AssistantWidget() {
 
   const sendMessage = useCallback(
     async (text?: string): Promise<boolean> => {
-      const content = (text ?? input).trim();
+      const typed = (text ?? input).trim();
+      const ocrAttached = text === undefined ? pendingOcr : null;
+      const content = ocrAttached
+        ? [
+            typed || "Analiza este documento escaneado y prepara el registro correspondiente si hace falta.",
+            `[Documento OCR (${ocrAttached.mode}) · ${ocrAttached.fileName}]: ${ocrAttached.summary}`,
+            `Datos extraídos: ${JSON.stringify(ocrAttached.extracted)}`,
+          ].join("\n")
+        : typed;
+
       if (!content || sending) return false;
       if (!isOnline) {
         setError("Sin conexión. Graba una nota de voz o usa + Crear para guardar en el teléfono.");
@@ -267,9 +434,15 @@ export default function AssistantWidget() {
 
       setError("");
       setSending(true);
-      const optimistic: ChatMessage = { id: uid("user"), role: "user", content };
+      const displayContent = ocrAttached
+        ? `${typed ? `${typed}\n` : ""}📎 ${ocrAttached.fileName}: ${ocrAttached.summary}`
+        : typed;
+      const optimistic: ChatMessage = { id: uid("user"), role: "user", content: displayContent };
       setMessages((prev) => [...prev, optimistic]);
-      if (text === undefined) setInput("");
+      if (text === undefined) {
+        setInput("");
+        setPendingOcr(null);
+      }
 
       try {
         const res = await apiFetch("/api/asistente/chat", {
@@ -306,7 +479,7 @@ export default function AssistantWidget() {
         setTimeout(() => inputRef.current?.focus(), 50);
       }
     },
-    [conversationId, input, isOnline, sending],
+    [conversationId, input, isOnline, pendingOcr, sending],
   );
 
   useEffect(() => {
@@ -548,11 +721,11 @@ export default function AssistantWidget() {
       <button
         type="button"
         onClick={() => setOpen((prev) => !prev)}
-        className="fixed bottom-5 right-5 z-40 flex items-center gap-2 rounded-full bg-green-700 px-4 py-3 text-sm font-semibold text-white shadow-xl transition hover:bg-green-800 focus:outline-none focus:ring-4 focus:ring-green-300"
-        aria-label={open ? "Cerrar asistente" : "Abrir asistente"}
+        className="fixed bottom-5 right-5 z-40 flex items-center gap-2 rounded-full bg-green-700 px-3.5 py-2.5 text-sm font-semibold text-white shadow-xl transition hover:bg-green-800 focus:outline-none focus:ring-4 focus:ring-green-300"
+        aria-label={open ? "Cerrar a Gina" : "Hablar con Gina, tu asistente de granja"}
       >
-        {open ? <X className="w-5 h-5" /> : <MessageSquare className="w-5 h-5" />}
-        <span className="hidden sm:inline">{open ? "Cerrar" : "Asistente"}</span>
+        {open ? <X className="w-5 h-5" /> : <GinaAvatar size="sm" />}
+        <span className="hidden sm:inline">{open ? "Cerrar" : "Gina"}</span>
         {voiceNotes.length > 0 && !open && (
           <span className="ml-0.5 rounded-full bg-amber-400 px-1.5 py-0.5 text-[10px] font-bold text-slate-900">
             {voiceNotes.length}
@@ -563,38 +736,45 @@ export default function AssistantWidget() {
       {open && (
         <section
           className="fixed bottom-20 right-3 z-40 flex h-[min(680px,78vh)] w-[calc(100vw-1.5rem)] max-w-md flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-2xl md:right-5"
-          aria-label="Asistente de la granja"
+          aria-label="Gina, asistente de la granja"
         >
           <header className="flex items-center justify-between gap-2 bg-green-800 px-4 py-3 text-white">
-            <div className="min-w-0">
-              <div className="flex items-center gap-2">
-                <Bot className="w-5 h-5 text-green-200 shrink-0" />
-                <h2 className="truncate text-sm font-semibold">Asistente de la granja</h2>
+            <div className="flex items-center gap-2.5 min-w-0">
+              <GinaAvatar size="md" />
+              <div className="min-w-0">
+                <h2 className="truncate text-sm font-semibold">Gina · Asistente de tu granja</h2>
+                <p className="mt-0.5 flex items-center gap-1.5 truncate text-[11px] text-green-100">
+                  <span
+                    className={`inline-block h-1.5 w-1.5 shrink-0 rounded-full ${
+                      !isOnline
+                        ? "bg-amber-300"
+                        : configured === null
+                        ? "bg-slate-300"
+                        : configured
+                        ? "bg-emerald-300"
+                        : "bg-amber-300"
+                    }`}
+                  />
+                  {!isOnline
+                    ? "Sin señal · Notas de voz listas para luego"
+                    : configured === null
+                    ? "Preparando a Gina..."
+                    : configured
+                    ? "Lista para ayudarte en tu granja"
+                    : "Pendiente de activación"}
+                </p>
               </div>
-              <p className="mt-0.5 flex items-center gap-1.5 truncate text-[11px] text-green-100">
-                <span
-                  className={`inline-block h-1.5 w-1.5 shrink-0 rounded-full ${
-                    !isOnline
-                      ? "bg-amber-300"
-                      : configured === null
-                      ? "bg-slate-300"
-                      : configured
-                      ? "bg-blue-300"
-                      : "bg-amber-300"
-                  }`}
-                />
-                {!isOnline
-                  ? "Sin conexión · Notas de voz offline"
-                  : configured === null
-                  ? "Conectando..."
-                  : configured
-                  ? jevRouting
-                    ? "Asistente activo · Jev conectado"
-                    : "Asistente activo"
-                  : "Sin configuración"}
-              </p>
             </div>
             <div className="flex shrink-0 items-center gap-1">
+              <button
+                type="button"
+                onClick={toggleMemory}
+                className={`rounded-lg p-1.5 transition-colors ${memoryOpen ? "bg-green-700" : "hover:bg-green-700"}`}
+                aria-label="Memoria persistente"
+                title="Memoria de la granja"
+              >
+                <Brain className="w-4 h-4" />
+              </button>
               <button
                 type="button"
                 onClick={toggleHistory}
@@ -659,6 +839,67 @@ export default function AssistantWidget() {
             </div>
           )}
 
+          {memoryOpen && (
+            <div className="max-h-64 overflow-y-auto border-b border-slate-200 bg-emerald-50/60 p-3 space-y-2">
+              <div className="flex items-center justify-between gap-2">
+                <span className="text-[11px] font-semibold text-emerald-900">
+                  Memoria persistente de la granja ({memories.length})
+                </span>
+              </div>
+              <div className="flex gap-1.5">
+                <input
+                  type="text"
+                  value={newMemoryText}
+                  onChange={(e) => setNewMemoryText(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") void addQuickMemory();
+                  }}
+                  placeholder="Ej: Proveedor principal Concentrados del Valle..."
+                  className="flex-1 rounded-lg border border-emerald-200 bg-white px-2.5 py-1 text-xs focus:outline-none focus:ring-2 focus:ring-green-500"
+                />
+                <button
+                  type="button"
+                  onClick={() => void addQuickMemory()}
+                  disabled={!newMemoryText.trim()}
+                  className="rounded-lg bg-green-700 px-2.5 py-1 text-[11px] font-semibold text-white hover:bg-green-800 disabled:opacity-40"
+                >
+                  Guardar
+                </button>
+              </div>
+              {memoryLoading ? (
+                <p className="py-2 text-center text-xs text-slate-500">Cargando memoria...</p>
+              ) : memories.length === 0 ? (
+                <p className="py-2 text-center text-[11px] text-slate-500">
+                  Aún no hay recuerdos guardados. Dile al asistente &quot;recuerda que...&quot;.
+                </p>
+              ) : (
+                <div className="space-y-1">
+                  {memories.map((mem) => (
+                    <div
+                      key={mem.id}
+                      className="flex items-start justify-between gap-2 rounded-lg border border-emerald-200 bg-white px-2.5 py-1.5 text-[11px]"
+                    >
+                      <div className="min-w-0">
+                        <span className="inline-block rounded bg-emerald-100 px-1.5 py-0.5 text-[10px] font-semibold uppercase text-emerald-800 mr-1.5">
+                          {mem.category}
+                        </span>
+                        <span className="text-slate-700">{mem.content}</span>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => void removeMemory(mem.id)}
+                        className="text-slate-400 hover:text-rose-600 shrink-0"
+                        aria-label="Eliminar memoria"
+                      >
+                        <Trash2 className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
+
           {!isOnline && (
             <div className="border-b border-amber-200 bg-amber-50 px-4 py-2.5 text-xs text-amber-900 flex items-start gap-2">
               <CloudOff className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
@@ -671,7 +912,7 @@ export default function AssistantWidget() {
 
           {isOnline && configured === false && (
             <div className="border-b border-amber-200 bg-amber-50 p-4 text-xs text-amber-800">
-              <p className="font-semibold">Asistente no configurado</p>
+              <p className="font-semibold">Gina aún no está activada</p>
               <p className="mt-1">
                 Falta <code className="rounded bg-amber-100 px-1">ASSISTANT_AI_API_KEY</code> en el servidor.
                 Mientras tanto puedes usar todas las pantallas de la aplicación con normalidad.
@@ -737,28 +978,52 @@ export default function AssistantWidget() {
             )}
 
             {messages.length === 0 && (
-              <div className="rounded-xl border border-slate-200 bg-white p-4 text-sm text-slate-600">
-                <p className="flex items-center gap-1.5 font-semibold text-slate-800">
-                  <Sparkles className="w-4 h-4 text-green-600 shrink-0" />
-                  <span>Hola</span>
-                </p>
-                <p className="mt-1">
-                  Dicta por voz o escribe lo que pasó en el galpón: huevos, mortalidad, pesajes, consumo de alimento,
-                  ventas o gastos. Las acciones financieras quedan para que las confirmes con un toque.
-                </p>
-                <p className="mt-3 text-xs font-medium uppercase tracking-wide text-slate-400">Prueba con</p>
-                <div className="mt-2 flex flex-wrap gap-2">
-                  {SUGGESTIONS.map((suggestion) => (
-                    <button
-                      key={suggestion}
-                      type="button"
-                      onClick={() => void sendMessage(suggestion)}
-                      disabled={!isOnline}
-                      className="rounded-full border border-green-200 bg-green-50 px-3 py-1 text-xs text-green-800 hover:bg-green-100 disabled:opacity-50"
-                    >
-                      {suggestion}
-                    </button>
-                  ))}
+              <div className="rounded-xl border border-slate-200 bg-white p-4 text-sm text-slate-600 space-y-3">
+                <div className="flex items-center gap-3">
+                  <GinaAvatar size="lg" />
+                  <div className="min-w-0">
+                    <p className="font-semibold text-slate-900">¡Hola! Soy Gina</p>
+                    <p className="text-xs text-slate-500">
+                      Tu compañera para llevar al día los animales, cultivos, cuentas y tareas.
+                    </p>
+                  </div>
+                </div>
+
+                <div className="rounded-lg bg-emerald-50/60 border border-emerald-100 p-3 space-y-1.5 text-xs text-slate-700">
+                  <p className="font-semibold text-emerald-900">¿En qué puedo ayudarte?</p>
+                  <p className="flex items-start gap-1.5">
+                    <CheckCircle2 className="w-3.5 h-3.5 text-emerald-700 shrink-0 mt-0.5" aria-hidden="true" />
+                    <span><strong>Anotar movimientos:</strong> huevos, alimento, gastos, ventas o traslados (siempre te pido confirmar antes de guardar).</span>
+                  </p>
+                  <p className="flex items-start gap-1.5">
+                    <CheckCircle2 className="w-3.5 h-3.5 text-emerald-700 shrink-0 mt-0.5" aria-hidden="true" />
+                    <span><strong>Leer facturas y etiquetas:</strong> tómale foto con la cámara para cargar los datos rápido.</span>
+                  </p>
+                  <p className="flex items-start gap-1.5">
+                    <CheckCircle2 className="w-3.5 h-3.5 text-emerald-700 shrink-0 mt-0.5" aria-hidden="true" />
+                    <span><strong>Revisar tu granja al instante:</strong> tareas de hoy, días de alimento, alertas sanitarias o balance del mes.</span>
+                  </p>
+                  <p className="flex items-start gap-1.5">
+                    <CheckCircle2 className="w-3.5 h-3.5 text-emerald-700 shrink-0 mt-0.5" aria-hidden="true" />
+                    <span><strong>Recordar tus reglas:</strong> guarda indicaciones de tu finca en memoria (ícono del cerebro arriba).</span>
+                  </p>
+                </div>
+
+                <div>
+                  <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-400">Pregúntame algo rápido</p>
+                  <div className="mt-2 flex flex-wrap gap-1.5">
+                    {SUGGESTIONS.map((suggestion) => (
+                      <button
+                        key={suggestion}
+                        type="button"
+                        onClick={() => void sendMessage(suggestion)}
+                        disabled={!isOnline}
+                        className="rounded-full border border-green-200 bg-green-50 px-3 py-1 text-left text-xs text-green-800 hover:bg-green-100 disabled:opacity-50"
+                      >
+                        {suggestion}
+                      </button>
+                    ))}
+                  </div>
                 </div>
               </div>
             )}
@@ -845,8 +1110,73 @@ export default function AssistantWidget() {
             </div>
           )}
 
-          <div className="border-t border-slate-200 bg-white p-3">
-            <div className="flex items-end gap-2">
+          <div className="border-t border-slate-200 bg-white p-3 space-y-2">
+            {ocrPickerOpen && (
+              <div className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-slate-200 bg-slate-50 px-2.5 py-2 text-[11px]">
+                <div className="flex flex-wrap items-center gap-1">
+                  {(
+                    [
+                      ["factura_compra", "Factura"],
+                      ["etiqueta_ica", "Etiqueta ICA"],
+                      ["comprobante_pago", "Comprobante"],
+                      ["rut_contacto", "RUT"],
+                    ] as const
+                  ).map(([val, label]) => (
+                    <button
+                      key={val}
+                      type="button"
+                      onClick={() => setOcrMode(val)}
+                      className={`rounded-md px-2 py-0.5 font-medium transition ${
+                        ocrMode === val
+                          ? "bg-green-700 text-white"
+                          : "bg-white text-slate-700 border border-slate-200 hover:bg-slate-100"
+                      }`}
+                    >
+                      {label}
+                    </button>
+                  ))}
+                </div>
+                <button
+                  type="button"
+                  onClick={() => imageInputRef.current?.click()}
+                  disabled={ocrScanning || !isOnline}
+                  className="inline-flex items-center gap-1 rounded-lg bg-slate-800 px-2.5 py-1 font-semibold text-white hover:bg-slate-900 disabled:opacity-50"
+                >
+                  {ocrScanning ? <Loader2 className="w-3 h-3 animate-spin" /> : <Camera className="w-3 h-3" />}
+                  {ocrScanning ? "Leyendo..." : "Subir foto"}
+                </button>
+              </div>
+            )}
+
+            {pendingOcr && (
+              <div className="flex items-start justify-between gap-2 rounded-xl border border-emerald-200 bg-emerald-50 px-2.5 py-1.5 text-[11px] text-emerald-900">
+                <div className="flex items-start gap-1.5 min-w-0">
+                  <FileText className="w-3.5 h-3.5 text-emerald-700 shrink-0 mt-0.5" />
+                  <p className="truncate">
+                    <strong>{pendingOcr.fileName}:</strong> {pendingOcr.summary}
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setPendingOcr(null)}
+                  className="text-emerald-700 hover:text-rose-600 shrink-0"
+                  aria-label="Quitar documento OCR"
+                >
+                  <X className="w-3.5 h-3.5" />
+                </button>
+              </div>
+            )}
+
+            <input
+              ref={imageInputRef}
+              type="file"
+              accept="image/*"
+              capture="environment"
+              onChange={(e) => void handleImageSelected(e)}
+              className="hidden"
+            />
+
+            <div className="flex items-end gap-1.5">
               <button
                 type="button"
                 onClick={() => void startVoiceCapture(false)}
@@ -860,6 +1190,20 @@ export default function AssistantWidget() {
               >
                 {isRecording ? <Square className="w-4 h-4" /> : <Mic className="w-4 h-4" />}
               </button>
+              <button
+                type="button"
+                onClick={() => setOcrPickerOpen((prev) => !prev)}
+                disabled={!isOnline || ocrScanning}
+                className={`rounded-xl p-2.5 transition-colors shrink-0 ${
+                  ocrPickerOpen || pendingOcr
+                    ? "border border-green-500 bg-green-50 text-green-700"
+                    : "border border-slate-300 bg-slate-50 text-slate-700 hover:bg-slate-100"
+                } disabled:opacity-40`}
+                aria-label="Escanear factura o etiqueta con cámara"
+                title="Escanear documento (Factura, Etiqueta ICA, Comprobante, RUT)"
+              >
+                {ocrScanning ? <Loader2 className="w-4 h-4 animate-spin" /> : <Camera className="w-4 h-4" />}
+              </button>
               <textarea
                 ref={inputRef}
                 value={input}
@@ -868,26 +1212,26 @@ export default function AssistantWidget() {
                 rows={2}
                 placeholder={
                   !isOnline
-                    ? "Sin señal: usa el micrófono para grabar una nota de voz..."
+                    ? "Graba una nota de voz..."
                     : configured === false
-                    ? "Asistente no configurado"
-                    : "Escribe o dicta: 'Galpón 1, 140 huevos, 2 bajas'..."
+                    ? "Gina no está activada"
+                    : "Ej: Recogí 140 huevos hoy..."
                 }
                 disabled={(!isOnline && !input.trim()) || (isOnline && configured === false) || sending}
-                className="max-h-28 min-h-[44px] flex-1 resize-none rounded-xl border border-slate-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-500 disabled:bg-slate-100"
+                className="min-w-0 max-h-28 min-h-[44px] flex-1 resize-none rounded-xl border border-slate-300 px-3 py-2 text-sm placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-green-500 disabled:bg-slate-100"
               />
               <button
                 type="button"
                 onClick={() => void sendMessage()}
-                disabled={!isOnline || configured === false || sending || !input.trim()}
+                disabled={!isOnline || configured === false || sending || (!input.trim() && !pendingOcr)}
                 className="rounded-xl bg-green-700 px-3.5 py-2.5 text-sm font-semibold text-white hover:bg-green-800 disabled:cursor-not-allowed disabled:opacity-40 inline-flex items-center gap-1"
                 aria-label="Enviar mensaje"
               >
                 <Send className="w-4 h-4" />
               </button>
             </div>
-            <p className="mt-1.5 text-[10px] text-slate-400">
-              Micrófono: dictado en vivo con red o nota de audio offline · Verifica antes de confirmar acciones.
+            <p className="text-[10px] text-slate-400">
+              Escribe, dicta con el micrófono o envía foto de una factura.
             </p>
           </div>
         </section>

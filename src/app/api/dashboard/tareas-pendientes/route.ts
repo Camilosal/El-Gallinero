@@ -1,7 +1,7 @@
 import { db } from "@/db";
 import {
   eggProduction, eggProductionDetails, feedMovements, sanitaryCalendar, maintenance, farmLocations, farmAssets,
-  hens, roosters, broilerBatches, catalogos, feedPrograms, feedInventory, supplyInventory, appSettings, budgets,
+  hens, roosters, broilerBatches, catalogos, contacts, feedPrograms, feedInventory, supplyInventory, appSettings, budgets,
 } from "@/db/schema";
 import { eq, and, sql, inArray, asc, desc, ne } from "drizzle-orm";
 import { NextResponse } from "next/server";
@@ -20,7 +20,7 @@ export const GET = withApiHandler(async () => {
   const [stages, henRows, roosterRows, batchRows, speciesParams, programRows, eggRows, feedRows,
     pendingSanitary, maintenanceDue, maintenanceDueCount, assetsNeedAttention,
     locationsCount, feedStockCount, supplyStockCount, registeredAssetsCount, sanitaryCount, sanitaryReview,
-    clientCount, supplierCount, farmProfileValues, budgetCount, lastEggRows, lastFeedRows] = await Promise.all([
+    clientCount, supplierCount, contactClientCount, contactSupplierCount, farmProfileValues, budgetCount, lastEggRows, lastFeedRows] = await Promise.all([
     db.select().from(catalogos).where(and(eq(catalogos.category, "etapa_crecimiento"), eq(catalogos.isActive, true))),
     db.select({ birthDate: hens.birthDate, status: hens.status }).from(hens),
     db.select({ birthDate: roosters.birthDate, status: roosters.status }).from(roosters),
@@ -83,6 +83,10 @@ export const GET = withApiHandler(async () => {
       .where(and(eq(catalogos.category, "comprador"), eq(catalogos.isActive, true))),
     db.select({ total: sql<number>`count(*)::int` }).from(catalogos)
       .where(and(eq(catalogos.category, "proveedor"), eq(catalogos.isActive, true))),
+    db.select({ total: sql<number>`count(*)::int` }).from(contacts)
+      .where(and(inArray(contacts.role, ["cliente", "ambos"]), eq(contacts.isActive, true))),
+    db.select({ total: sql<number>`count(*)::int` }).from(contacts)
+      .where(and(inArray(contacts.role, ["proveedor", "ambos"]), eq(contacts.isActive, true))),
     db.select({ key: appSettings.key, value: appSettings.value }).from(appSettings)
       .where(inArray(appSettings.key, ["farm.name", "farm.city", "farm.admin_name"])),
     db.select({ total: sql<number>`count(*)::int` }).from(budgets),
@@ -168,7 +172,9 @@ export const GET = withApiHandler(async () => {
       locationsConfigured: (locationsCount[0]?.total || 0) > 0,
       animalsRegistered: presentAnimals > 0,
       starterInventoryConfigured: (feedStockCount[0]?.total || 0) > 0 && (supplyStockCount[0]?.total || 0) > 0,
-      contactsConfigured: (clientCount[0]?.total || 0) > 0 && (supplierCount[0]?.total || 0) > 0,
+      contactsConfigured:
+        ((clientCount[0]?.total || 0) > 0 || (contactClientCount[0]?.total || 0) > 0) &&
+        ((supplierCount[0]?.total || 0) > 0 || (contactSupplierCount[0]?.total || 0) > 0),
       budgetConfigured: (budgetCount[0]?.total || 0) > 0,
       assetsRegistered: (registeredAssetsCount[0]?.total || 0) > 0,
       sanitaryConfigured: (sanitaryCount[0]?.total || 0) > 0 && Boolean(sanitaryReview[0]?.value),

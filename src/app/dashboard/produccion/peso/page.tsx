@@ -45,6 +45,10 @@ interface WeightLog {
   weekNumber: number | null;
   avgWeightKg: string;
   sampleSize: number;
+  individualWeightsG?: number[] | null;
+  cvPercent?: string | null;
+  uniformityPct?: string | null;
+  dailyGainG?: string | null;
   notes: string | null;
 }
 
@@ -58,13 +62,14 @@ interface BatchOption {
   locationId: string | null;
 }
 
-const BREEDS = ["ISA Brown", "Hy-Line W-36", "Cobb 500"];
+const BREEDS = ["ISA Brown", "Hy-Line W-36", "Cobb 500", "Ross 308", "Cuy Mejorado"];
 const SPECIES = [
   { value: "gallina", label: "Gallina" },
   { value: "pollo", label: "Pollo" },
   { value: "codorniz", label: "Codorniz" },
   { value: "pato", label: "Pato" },
   { value: "conejo", label: "Conejo" },
+  { value: "cuy", label: "Cuy" },
 ];
 
 export default function PesoPage() {
@@ -89,6 +94,7 @@ export default function PesoPage() {
     weekNumber: "",
     avgWeightKg: "",
     sampleSize: "1",
+    individualWeightsRaw: "",
     notes: "",
   });
 
@@ -121,6 +127,7 @@ export default function PesoPage() {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         ...form,
+        individualWeightsG: form.individualWeightsRaw.trim() || undefined,
         weekNumber: form.weekNumber ? parseInt(form.weekNumber) : null,
         sampleSize: parseInt(form.sampleSize) || 1,
       }),
@@ -131,7 +138,7 @@ export default function PesoPage() {
       return;
     }
     setModalOpen(false);
-    setForm({ date: new Date().toISOString().split("T")[0], species: "gallina", batchId: "", locationId: "", henGroup: "", breed: "ISA Brown", weekNumber: "", avgWeightKg: "", sampleSize: "1", notes: "" });
+    setForm({ date: new Date().toISOString().split("T")[0], species: "gallina", batchId: "", locationId: "", henGroup: "", breed: "ISA Brown", weekNumber: "", avgWeightKg: "", sampleSize: "1", individualWeightsRaw: "", notes: "" });
     load();
   };
 
@@ -253,7 +260,7 @@ export default function PesoPage() {
           />
         ) : (
           <div className="overflow-x-auto">
-            <Table headers={["Fecha", "Especie", "Lugar", "Raza", "Grupo / lote", "Semana", "Peso (kg)", "Muestra", "Notas", ""]}>
+            <Table headers={["Fecha", "Especie", "Lugar", "Raza", "Grupo / lote", "Semana", "Peso (kg)", "CV% / Unif.", "GDP", "Muestra", ""]}>
               {filteredLogs.map((l) => (
                 <tr key={l.id} className="border-b border-slate-100">
                   <td className="py-2">{l.date}</td>
@@ -262,9 +269,10 @@ export default function PesoPage() {
                   <td className="py-2">{l.breed || "-"}</td>
                   <td className="py-2">{l.batchCode || l.henGroup || "-"}</td>
                   <td className="py-2">{l.weekNumber ?? "-"}</td>
-                  <td className="py-2">{l.avgWeightKg}</td>
+                  <td className="py-2 font-semibold">{Number(l.avgWeightKg).toFixed(3)}</td>
+                  <td className="py-2 text-xs">{l.cvPercent ? `${Number(l.cvPercent).toFixed(1)}% / ${Number(l.uniformityPct || 0).toFixed(0)}%` : "—"}</td>
+                  <td className="py-2 text-xs">{l.dailyGainG ? `${Number(l.dailyGainG).toFixed(1)} g/d` : "—"}</td>
                   <td className="py-2">{l.sampleSize}</td>
-                  <td className="py-2 text-sm text-slate-500">{l.notes || "-"}</td>
                   <td className="py-2">
                     <button onClick={() => deleteLog(l.id)} className="text-red-500 hover:text-red-700 text-sm">Eliminar</button>
                   </td>
@@ -300,8 +308,9 @@ export default function PesoPage() {
             </Select>
           )}
           <FarmLocationSelect value={form.locationId} onChange={(locationId) => setForm({ ...form, locationId })} label="Lugar donde se realizó el pesaje *" help="Los pesos se comparan con los estándares dentro del lugar donde está el grupo." />
-          <Input label="Peso promedio (kg)" type="number" step="0.01" value={form.avgWeightKg} onChange={(e) => setForm({ ...form, avgWeightKg: e.target.value })} help="Peso promedio del grupo en kilogramos" />
-          <Input label="Tamaño muestra" type="number" value={form.sampleSize} onChange={(e) => setForm({ ...form, sampleSize: e.target.value })} help="Cuántos animales se pesaron para obtener el promedio" />
+          <Input label="Peso promedio (kg)" type="number" step="0.001" value={form.avgWeightKg} onChange={(e) => setForm({ ...form, avgWeightKg: e.target.value })} help="Opcional si ingresas los pesos individuales abajo" />
+          <Input label="Pesos individuales (gramos, opcional)" value={form.individualWeightsRaw} onChange={(e) => setForm({ ...form, individualWeightsRaw: e.target.value })} placeholder="Ej: 1850, 1920, 1790, 1880" help="Calcula automáticamente promedio, CV%, uniformidad ±10% y tamaño de muestra" />
+          <Input label="Tamaño muestra" type="number" value={form.sampleSize} onChange={(e) => setForm({ ...form, sampleSize: e.target.value })} help="Cuántos animales se pesaron si no detallaste pesos individuales" />
           <Input label="Notas" value={form.notes} onChange={(e) => setForm({ ...form, notes: e.target.value })} help="Observaciones del pesaje (condiciones, comentarios, etc.)" />
           <Button onClick={createLog} className="w-full">Guardar</Button>
         </div>

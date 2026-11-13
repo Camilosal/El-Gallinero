@@ -2,13 +2,18 @@
 
 import { Suspense, useEffect, useState, useCallback, useMemo } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { AlertTriangle, BarChart3, Banknote, Bird, CheckCircle2, Egg, Info, Package, Sprout, Utensils } from "lucide-react";
+import { AlertTriangle, BarChart3, Banknote, Bird, Egg, Info, Package, Sprout, Tag, Utensils } from "lucide-react";
 import { AppIcon } from "@/components/AppIcon";
 import { PageHeader, Button, Card, Table, Modal, Input, Select, Textarea, EmptyState, StatCard, Badge } from "@/components/ui";
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from "recharts";
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from "recharts";
 import { apiFetch } from "@/lib/fetch";
 import { useCatalog } from "@/lib/useCatalog";
+import ContactField from "@/components/contacts/ContactField";
+import MicroInsightCard from "@/components/MicroInsightCard";
+import { computeCreditDueDate } from "@/lib/contacts-shared";
+import { buildSaleMicroInsight, type MicroInsightPayload } from "@/lib/micro-insights";
 import KgSaleTab from "./_components/KgSaleTab";
+import OtherSalesTab from "./_components/OtherSalesTab";
 import TableSearch from "@/components/TableSearch";
 import { matchesTextQuery } from "@/lib/text";
 import { useActionQuery } from "@/lib/useActionQuery";
@@ -90,6 +95,7 @@ interface Rooster {
 interface Batch {
   id: string;
   code: string;
+  species?: string;
   currentQuantity: number;
   status: string;
 }
@@ -115,15 +121,27 @@ const birdTypeLabels: Record<string, string> = {
   pollo: "Pollo",
   gallo: "Gallo",
   pollito: "Pollito",
+  codorniz: "Codorniz",
+  pato: "Pato",
+  conejo: "Conejo",
+  cuy: "Cuy",
 };
 
-type Tab = "huevos" | "aves" | "carne" | "gallinaza";
+type Tab = "huevos" | "aves" | "carne" | "gallinaza" | "otros";
 
 function parseSalesTab(value: string | null): Tab {
-  return value === "huevos" || value === "aves" || value === "carne" || value === "gallinaza"
+  if (value === "animales" || value === "aves") return "aves";
+  return value === "huevos" || value === "carne" || value === "gallinaza" || value === "otros"
     ? value
     : "huevos";
 }
+
+interface ChartAmountRow {
+  date: string;
+  totalAmount: string;
+}
+
+const EXCLUDED_TX_SOURCES = new Set(["venta", "venta_ave", "venta_carne", "gallinaza"]);
 
 export default function VentasPage() {
   return (
@@ -151,16 +169,25 @@ function VentasContent() {
   const [loading, setLoading] = useState(true);
   const [modalOpen, setModalOpen] = useState(false);
   const [editing, setEditing] = useState<Sale | null>(null);
+  const [lastInsight, setLastInsight] = useState<MicroInsightPayload | null>(null);
   const [error, setError] = useState("");
   const [inventory, setInventory] = useState<InventorySize[]>([]);
+  const [pepsLots, setPepsLots] = useState<Array<{ id: string; lotCode?: string | null; date: string; size: string; remaining: number }>>([]);
+  const [locations, setLocations] = useState<Array<{ id: string; name: string }>>([]);
   const [form, setForm] = useState({
     date: new Date().toISOString().split("T")[0],
+    species: "gallina",
+    locationId: "",
+    lotCode: "",
     buyer: "",
     notes: "",
     items: [{ key: "1", size: "", presentations: 1, presentation: "", pricePerUnit: "500" }] as SaleFormItem[],
   });
   const [isCredit, setIsCredit] = useState(false);
   const [dueDate, setDueDate] = useState("");
+  const [meatChartRows, setMeatChartRows] = useState<ChartAmountRow[]>([]);
+  const [manureChartRows, setManureChartRows] = useState<ChartAmountRow[]>([]);
+  const [otherChartRows, setOtherChartRows] = useState<ChartAmountRow[]>([]);
   const [eggSearch, setEggSearch] = useState("");
 
   // ─── Chicken sales state ───
@@ -188,13 +215,21 @@ function VentasContent() {
   });
   const [birdIsCredit, setBirdIsCredit] = useState(false);
   const [birdDueDate, setBirdDueDate] = useState("");
+  const [eggBuyerCreditDays, setEggBuyerCreditDays] = useState(0);
+  const [birdBuyerCreditDays, setBirdBuyerCreditDays] = useState(0);
   const [birdSearch, setBirdSearch] = useState("");
 
   // ─── Catalogs ───
-  const { values: buyerOptions } = useCatalog("comprador");
   const { items: sizeOptions } = useCatalog("tamano_huevo");
   const { items: presentOptions } = useCatalog("presentacion_venta");
-  const { values: birdTypeOptions } = useCatalog("tipo_ave", ["gallina_descarte", "pollo", "gallo", "pollito"]);
+  const { values: rawBirdTypeOptions } = useCatalog("tipo_ave", ["gallina_descarte", "pollo", "gallo", "pollito", "codorniz", "pato", "conejo", "cuy"]);
+  const birdTypeOptions = useMemo(() => {
+    const merged = [...rawBirdTypeOptions];
+    for (const sp of ["codorniz", "pato", "conejo", "cuy"]) {
+      if (!merged.includes(sp)) merged.push(sp);
+    }
+    return merged;
+  }, [rawBirdTypeOptions]);
   const saleableSizeOptions = useMemo(() => {
     const bySize = new Map<string, { id: string; value: string; price: string | null }>();
     sizeOptions.forEach((option) => bySize.set(option.value, option));
@@ -219,10 +254,24 @@ function VentasContent() {
       apiFetch("/api/produccion/gallinas").then((r) => r.json()),
       apiFetch("/api/produccion/gallos").then((r) => r.json()),
       apiFetch("/api/produccion/pollos").then((r) => r.json()),
-    ]).then(([salesData, invData, birdData, hensData, gallosData, lotesData]) => {
+      apiFetch("/api/ubicaciones").then((r) => r.json()),
+      apiFetch("/api/produccion/carne/ventas").then((r) => r.json()).catch(() => []),
+      apiFetch("/api/produccion/gallinaza/ventas").then((r) => r.json()).catch(() => []),
+      apiFetch("/api/finanzas/finanzas?period=3650").then((r) => r.json()).catch(() => ({ transactions: [] })),
+    ]).then(([salesData, invData, birdData, hensData, gallosData, lotesData, locsData, meatData, manureData, finData]) => {
+      setLocations(Array.isArray(locsData) ? locsData : []);
       setSales(salesData);
       setInventory(invData.summary?.sizes || []);
+      setPepsLots(Array.isArray(invData.lots) ? invData.lots.filter((l: { remaining: number; lotCode?: string | null }) => l.remaining > 0 && l.lotCode) : []);
       setChickenSales(Array.isArray(birdData) ? birdData : []);
+      setMeatChartRows(Array.isArray(meatData) ? meatData : []);
+      setManureChartRows(Array.isArray(manureData) ? manureData : []);
+      const txList = Array.isArray(finData?.transactions) ? finData.transactions : [];
+      setOtherChartRows(
+        txList
+          .filter((tx: { type?: string; sourceType?: string | null }) => tx.type === "ingreso" && !EXCLUDED_TX_SOURCES.has(tx.sourceType || ""))
+          .map((tx: { date: string; amount: string }) => ({ date: tx.date, totalAmount: tx.amount })),
+      );
       setHens(Array.isArray(hensData) ? hensData
         .filter((h: Hen) => h.status === "activa" || h.status === "empollando" || h.status === "recomendada_sacrificio")
         .sort((a: Hen, b: Hen) => Number(b.status === "recomendada_sacrificio") - Number(a.status === "recomendada_sacrificio")) : []);
@@ -255,6 +304,9 @@ function VentasContent() {
     setDueDate("");
     setForm({
       date: new Date().toISOString().split("T")[0],
+      species: "gallina",
+      locationId: "",
+      lotCode: "",
       buyer: "",
       notes: "",
       items: [{ key: "1", size: "", presentations: 1, presentation: "", pricePerUnit: "500" }],
@@ -274,7 +326,7 @@ function VentasContent() {
         return { key: String(idx + 1), size: item.size, presentations, presentation: item.presentation || "", pricePerUnit: String(item.pricePerUnit) };
       })
       : [{ key: "1", size: s.size || "", presentations: 1, presentation: s.presentation || "", pricePerUnit: s.pricePerUnit }];
-    setForm({ date: s.date, buyer: s.buyer || "", notes: s.notes || "", items: editItems });
+    setForm({ date: s.date, species: (s as Sale & { species?: string }).species || "gallina", locationId: (s as Sale & { locationId?: string | null }).locationId || "", lotCode: (s as Sale & { lotCode?: string | null }).lotCode || "", buyer: s.buyer || "", notes: s.notes || "", items: editItems });
     setModalOpen(true);
   };
 
@@ -329,7 +381,12 @@ function VentasContent() {
       if (eggs > remaining) { setError(`No hay suficientes huevos tamaño ${item.size}. Disponibles: ${remaining}`); return; }
     }
     const payload = {
-      date: form.date, buyer: form.buyer || null, notes: form.notes || null,
+      date: form.date,
+      species: form.species || "gallina",
+      locationId: form.locationId || null,
+      lotCode: form.lotCode || null,
+      buyer: form.buyer || null,
+      notes: form.notes || null,
       isCredit, dueDate: dueDate || null,
       items: form.items.map((item) => ({ size: item.size, quantity: getItemEggs(item), presentations: item.presentations, pricePerUnit: Number(item.pricePerUnit), presentation: item.presentation || null })),
     };
@@ -337,6 +394,20 @@ function VentasContent() {
     const body = editing ? { ...payload, id: editing.id } : payload;
     const res = await apiFetch("/api/finanzas/finanzas/ventas", { method, headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
     if (!res.ok) { const data = await res.json().catch(() => ({})); setError(data.error || "Error al guardar la venta"); return; }
+    const summaryText = form.items.map((item) => `${getItemEggs(item)} huevos ${item.size}`).join(" + ");
+    const unitPriceAvg = totalEggsAllItems > 0 ? totalAmountAllItems / totalEggsAllItems : 500;
+    setLastInsight(
+      buildSaleMicroInsight({
+        date: form.date,
+        itemSummary: summaryText,
+        totalUnits: totalEggsAllItems,
+        unitPrice: unitPriceAvg,
+        totalAmount: totalAmountAllItems,
+        buyer: form.buyer || null,
+        species: form.species || "gallina",
+        isBirdSale: false,
+      }),
+    );
     setModalOpen(false);
     setIsCredit(false);
     setDueDate("");
@@ -358,12 +429,16 @@ function VentasContent() {
     setBirdForm({ date: new Date().toISOString().split("T")[0], birdType: "gallina_descarte", quantity: "1", weightKg: "", priceMode: "por_ave", pricePerUnit: "25000", buyer: "", presentation: "", henId: "", roosterId: "", batchId: "", notes: "" });
     setBirdModalOpen(true);
   };
-  useActionQuery(searchParams.get("tab") === "carne" ? null : searchParams.get("nuevo"), {
-    "1": () => {
-      if (searchParams.get("tab") === "aves") openNewBird();
-      else if (searchParams.get("tab") === "huevos") openNew();
+  const activeTab = searchParams.get("tab");
+  useActionQuery(
+    activeTab === "aves" || activeTab === "animales" || activeTab === "huevos" ? searchParams.get("nuevo") : null,
+    {
+      "1": () => {
+        if (activeTab === "aves" || activeTab === "animales") openNewBird();
+        else if (activeTab === "huevos") openNew();
+      },
     },
-  });
+  );
 
   const openEditBird = (s: ChickenSale) => {
     setEditingBird(s);
@@ -397,7 +472,7 @@ function VentasContent() {
   const handleBirdBatchSelect = (batchId: string) => {
     if (batchId) {
       const batch = batches.find((b) => b.id === batchId);
-      setBirdForm({ ...birdForm, batchId, henId: "", roosterId: "", birdType: "pollo", quantity: String(batch?.currentQuantity || 1) });
+      setBirdForm({ ...birdForm, batchId, henId: "", roosterId: "", birdType: batch?.species || "pollo", quantity: String(batch?.currentQuantity || 1) });
     } else {
       setBirdForm({ ...birdForm, batchId: "" });
     }
@@ -443,6 +518,19 @@ function VentasContent() {
     const method = editingBird ? "PUT" : "POST";
     const res = await apiFetch("/api/finanzas/finanzas/ventas-aves", { method, headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) });
     if (!res.ok) { const data = await res.json().catch(() => ({})); setBirdError(data.error || "Error al guardar"); return; }
+    const totalAmt = Number(birdTotal() || 0);
+    setLastInsight(
+      buildSaleMicroInsight({
+        date: birdForm.date,
+        itemSummary: `${qty} ${birdTypeLabels[birdForm.birdType] || birdForm.birdType}`,
+        totalUnits: qty,
+        unitPrice: qty > 0 ? totalAmt / qty : price,
+        totalAmount: totalAmt,
+        buyer: birdForm.buyer || null,
+        isBirdSale: true,
+        saleKind: "animales",
+      }),
+    );
     setBirdModalOpen(false);
     setBirdIsCredit(false);
     setBirdDueDate("");
@@ -464,19 +552,27 @@ function VentasContent() {
   const totalBirds = chickenSales.reduce((s, r) => s + r.quantity, 0);
   const totalBirdWeight = chickenSales.reduce((s, r) => s + (Number(r.weightKg) || 0), 0);
 
-  // Chart data (combined)
-  const chartMap = new Map<string, { huevos: number; aves: number }>();
-  sales.forEach((s) => {
-    const key = new Date(s.date + "T12:00:00").toLocaleDateString("es", { day: "2-digit", month: "short" });
-    const prev = chartMap.get(key) || { huevos: 0, aves: 0 };
-    chartMap.set(key, { ...prev, huevos: prev.huevos + Number(s.totalAmount) });
-  });
-  chickenSales.forEach((s) => {
-    const key = new Date(s.date + "T12:00:00").toLocaleDateString("es", { day: "2-digit", month: "short" });
-    const prev = chartMap.get(key) || { huevos: 0, aves: 0 };
-    chartMap.set(key, { ...prev, aves: prev.aves + Number(s.totalAmount) });
-  });
-  const chartData = Array.from(chartMap.entries()).map(([f, v]) => ({ fecha: f, ...v })).reverse();
+  // Chart data (all 5 sales streams sorted chronologically)
+  const chartMap = new Map<string, { huevos: number; animales: number; carne: number; gallinaza: number; otros: number }>();
+  const addChartSeries = (rows: ChartAmountRow[], field: "huevos" | "animales" | "carne" | "gallinaza" | "otros") => {
+    rows.forEach((r) => {
+      const prev = chartMap.get(r.date) || { huevos: 0, animales: 0, carne: 0, gallinaza: 0, otros: 0 };
+      prev[field] += Number(r.totalAmount) || 0;
+      chartMap.set(r.date, prev);
+    });
+  };
+  addChartSeries(sales, "huevos");
+  addChartSeries(chickenSales, "animales");
+  addChartSeries(meatChartRows, "carne");
+  addChartSeries(manureChartRows, "gallinaza");
+  addChartSeries(otherChartRows, "otros");
+  const chartData = Array.from(chartMap.entries())
+    .sort(([a], [b]) => a.localeCompare(b))
+    .slice(-30)
+    .map(([iso, v]) => ({
+      fecha: new Date(iso + "T12:00:00").toLocaleDateString("es", { day: "2-digit", month: "short" }),
+      ...v,
+    }));
 
   const formatSaleItems = (s: Sale) => {
     if (s.items.length > 0) return s.items.map((i) => `${i.quantity} ${i.size}`).join(", ");
@@ -529,23 +625,34 @@ function VentasContent() {
     <div>
       <PageHeader
         title="Ventas"
-        description="Gestión de ventas de huevos, aves, carne y gallinaza"
-        help="Registra todas las ventas del gallinero organizadas por tipo.\n\n• Huevos: venta de huevos por tamaño. El stock se descuenta automáticamente del inventario.\n• Aves: venta de gallinas, gallos o lotes completos.\n• Carne: venta de carne producida del sacrificio.\n• Gallinaza: venta de abono.\n• Puedes registrar ventas a crédito y gestionar cobros desde Cuentas."
+        description="Gestión de ventas de huevos, animales en pie, carne, gallinaza y otros productos"
+        help="Registra todas las ventas de la granja organizadas por línea comercial.\n\n• Huevos: venta por tamaño NTC 1240 (descuento PEPS del inventario).\n• Animales en pie: venta de gallinas, gallos o lotes (pollos, codornices, patos, conejos y cuyes).\n• Carne: venta en canal o despiece por kilogramos.\n• Gallinaza: venta de abono y subproductos compostados.\n• Otras ventas: subproductos, plumas, humus u otro producto comercial.\n• Todos los canales soportan ventas a crédito en Cuentas."
         actions={
           <div className="flex gap-2">
             {tab === "huevos" && <Button onClick={openNew}>+ Nueva Venta de Huevos</Button>}
-            {tab === "aves" && <Button onClick={openNewBird}>+ Nueva Venta de Aves</Button>}
+            {tab === "aves" && <Button onClick={openNewBird}>+ Nueva Venta de Animales</Button>}
           </div>
         }
       />
 
+      {lastInsight && (
+        <div className="mb-6">
+          <MicroInsightCard
+            insight={lastInsight}
+            onAnother={tab === "aves" ? openNewBird : tab === "huevos" ? openNew : undefined}
+            onDismiss={() => setLastInsight(null)}
+            doneLabel="Entendido"
+          />
+        </div>
+      )}
+
       {/* Tabs */}
-      <div className="flex gap-1 mb-6 bg-slate-100 p-1 rounded-lg w-fit">
+      <div className="flex flex-wrap gap-1 mb-6 bg-slate-100 p-1 rounded-lg w-fit">
         <button onClick={() => selectTab("huevos")} className={`inline-flex items-center gap-1.5 px-4 py-2 rounded-md text-sm font-medium transition-colors ${tab === "huevos" ? "bg-white text-green-700 shadow-sm" : "text-slate-600 hover:text-slate-800"}`}>
           <Egg className="w-4 h-4" aria-hidden="true" /> Huevos
         </button>
         <button onClick={() => selectTab("aves")} className={`inline-flex items-center gap-1.5 px-4 py-2 rounded-md text-sm font-medium transition-colors ${tab === "aves" ? "bg-white text-green-700 shadow-sm" : "text-slate-600 hover:text-slate-800"}`}>
-          <Bird className="w-4 h-4" aria-hidden="true" /> Aves
+          <Bird className="w-4 h-4" aria-hidden="true" /> Animales en pie
         </button>
         <button onClick={() => selectTab("carne")} className={`inline-flex items-center gap-1.5 px-4 py-2 rounded-md text-sm font-medium transition-colors ${tab === "carne" ? "bg-white text-green-700 shadow-sm" : "text-slate-600 hover:text-slate-800"}`}>
           <Utensils className="w-4 h-4" aria-hidden="true" /> Carne
@@ -553,12 +660,35 @@ function VentasContent() {
         <button onClick={() => selectTab("gallinaza")} className={`inline-flex items-center gap-1.5 px-4 py-2 rounded-md text-sm font-medium transition-colors ${tab === "gallinaza" ? "bg-white text-green-700 shadow-sm" : "text-slate-600 hover:text-slate-800"}`}>
           <Sprout className="w-4 h-4" aria-hidden="true" /> Gallinaza
         </button>
+        <button onClick={() => selectTab("otros")} className={`inline-flex items-center gap-1.5 px-4 py-2 rounded-md text-sm font-medium transition-colors ${tab === "otros" ? "bg-white text-green-700 shadow-sm" : "text-slate-600 hover:text-slate-800"}`}>
+          <Tag className="w-4 h-4" aria-hidden="true" /> Otras ventas
+        </button>
       </div>
+
+      {chartData.length > 0 && (
+        <Card className="mb-6">
+          <h3 className="font-semibold text-slate-700 mb-4 flex items-center gap-2"><BarChart3 className="w-4 h-4 text-slate-500" aria-hidden="true" />Ingresos por Ventas (Todas las líneas)</h3>
+          <ResponsiveContainer width="100%" height={240}>
+            <BarChart data={chartData}>
+              <CartesianGrid strokeDasharray="3 3" />
+              <XAxis dataKey="fecha" fontSize={11} />
+              <YAxis fontSize={11} />
+              <Tooltip formatter={(v) => `$${Number(v).toLocaleString()}`} />
+              <Legend />
+              <Bar dataKey="huevos" fill="#eab308" name="Huevos" stackId="a" />
+              <Bar dataKey="animales" fill="#22c55e" name="Animales en pie" stackId="a" />
+              <Bar dataKey="carne" fill="#ef4444" name="Carne" stackId="a" />
+              <Bar dataKey="gallinaza" fill="#84cc16" name="Gallinaza" stackId="a" />
+              <Bar dataKey="otros" fill="#6366f1" radius={[4, 4, 0, 0]} name="Otras ventas" stackId="a" />
+            </BarChart>
+          </ResponsiveContainer>
+        </Card>
+      )}
 
       {/* ─── TAB: HUEVOS ─── */}
       {tab === "huevos" && (
         <>
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-2.5 sm:gap-4 mb-6">
             <StatCard icon="banknote" label="Ingresos Huevos" value={`$${totalRevenue.toLocaleString()}`} color="green" />
             <StatCard icon="egg" label="Huevos Vendidos" value={totalEggs} color="yellow" />
             <StatCard icon="chart" label="Precio Prom./Huevo" value={`$${avgPrice}`} color="blue" />
@@ -578,22 +708,6 @@ function VentasContent() {
                   </div>
                 ))}
               </div>
-            </Card>
-          )}
-
-          {chartData.length > 0 && (
-            <Card className="mb-6">
-              <h3 className="font-semibold text-slate-700 mb-4 flex items-center gap-2"><BarChart3 className="w-4 h-4 text-slate-500" aria-hidden="true" />Ingresos por Ventas</h3>
-              <ResponsiveContainer width="100%" height={250}>
-                <BarChart data={chartData}>
-                  <CartesianGrid strokeDasharray="3 3" />
-                  <XAxis dataKey="fecha" fontSize={11} />
-                  <YAxis fontSize={11} />
-                  <Tooltip formatter={(v) => `$${Number(v).toLocaleString()}`} />
-                  <Bar dataKey="huevos" fill="#eab308" radius={[4, 4, 0, 0]} name="Huevos" stackId="a" />
-                  <Bar dataKey="aves" fill="#22c55e" radius={[4, 4, 0, 0]} name="Aves" stackId="a" />
-                </BarChart>
-              </ResponsiveContainer>
             </Card>
           )}
 
@@ -642,40 +756,21 @@ function VentasContent() {
         </>
       )}
 
-      {/* ─── TAB: AVES ─── */}
+      {/* ─── TAB: ANIMALES EN PIE ─── */}
       {tab === "aves" && (
         <>
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
-            <StatCard icon="banknote" label="Ingresos Aves" value={`$${totalBirdRevenue.toLocaleString()}`} color="green" />
-            <StatCard icon="hen" label="Aves Vendidas" value={totalBirds} color="yellow" />
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-2.5 sm:gap-4 mb-6">
+            <StatCard icon="banknote" label="Ingresos Animales" value={`$${totalBirdRevenue.toLocaleString()}`} color="green" />
+            <StatCard icon="hen" label="Animales Vendidos" value={totalBirds} color="yellow" />
             <StatCard icon="scale" label="Peso Total" value={`${totalBirdWeight.toFixed(1)} kg`} color="blue" />
             <StatCard icon="cart" label="Total Ventas" value={chickenSales.length} color="purple" />
           </div>
-
-          {chartData.length > 0 && (
-            <Card className="mb-6">
-              <h3 className="font-semibold text-slate-700 mb-4 flex items-center gap-2">
-                <BarChart3 className="w-4 h-4 text-slate-500" aria-hidden="true" />
-                Ingresos por Ventas
-              </h3>
-              <ResponsiveContainer width="100%" height={250}>
-                <BarChart data={chartData}>
-                  <CartesianGrid strokeDasharray="3 3" />
-                  <XAxis dataKey="fecha" fontSize={11} />
-                  <YAxis fontSize={11} />
-                  <Tooltip formatter={(v) => `$${Number(v).toLocaleString()}`} />
-                  <Bar dataKey="huevos" fill="#eab308" radius={[4, 4, 0, 0]} name="Huevos" stackId="a" />
-                  <Bar dataKey="aves" fill="#22c55e" radius={[4, 4, 0, 0]} name="Aves" stackId="a" />
-                </BarChart>
-              </ResponsiveContainer>
-            </Card>
-          )}
 
           <Card>
             <TableSearch
               value={birdSearch}
               onChange={setBirdSearch}
-              placeholder="Buscar por fecha, ave, tipo o comprador..."
+              placeholder="Buscar por fecha, animal, lote o comprador..."
               resultCount={filteredChickenSales.length}
               totalCount={chickenSales.length}
               className="mb-4"
@@ -688,11 +783,11 @@ function VentasContent() {
                 message={
                   birdSearch.trim()
                     ? "No hay ventas que coincidan con la búsqueda"
-                    : "No hay ventas de aves registradas"
+                    : "No hay ventas de animales registradas"
                 }
               />
             ) : (
-              <Table headers={["Fecha", "Ave", "Tipo", "Peso", "Precio", "Total", "Comprador", ""]}>
+              <Table headers={["Fecha", "Animal / Lote", "Tipo", "Peso", "Precio", "Total", "Comprador", ""]}>
                 {filteredChickenSales.map((s) => (
                   <tr key={s.id} className="hover:bg-slate-50">
                     <td className="px-4 py-3">{new Date(s.date + "T12:00:00").toLocaleDateString("es")}</td>
@@ -709,9 +804,14 @@ function VentasContent() {
                     </td>
                     <td className="px-4 py-3 text-sm">{birdTypeLabels[s.birdType] || s.birdType}</td>
                     <td className="px-4 py-3 text-sm">{s.weightKg ? `${s.weightKg} kg` : "—"}</td>
-                    <td className="px-4 py-3 text-sm">${Number(s.pricePerUnit).toLocaleString()}/{s.priceMode === "por_kg" ? "kg" : "ave"}</td>
+                    <td className="px-4 py-3 text-sm">${Number(s.pricePerUnit).toLocaleString()}/{s.priceMode === "por_kg" ? "kg" : "u."}</td>
                     <td className="px-4 py-3 font-bold text-green-600">${Number(s.totalAmount).toLocaleString()}</td>
-                    <td className="px-4 py-3 text-sm">{s.buyer || "—"}</td>
+                    <td className="px-4 py-3 text-sm">
+                      <div className="flex items-center gap-1.5">
+                        <span>{s.buyer || "—"}</span>
+                        {s.isCredit && <Badge color="orange">Crédito</Badge>}
+                      </div>
+                    </td>
                     <td className="px-4 py-3">
                       <div className="flex gap-1">
                         <button onClick={() => openEditBird(s)} className="text-blue-600 hover:underline text-xs">Editar</button>
@@ -730,6 +830,7 @@ function VentasContent() {
       {tab === "carne" && (
         <KgSaleTab
           apiEndpoint="/api/produccion/carne/ventas"
+          onSaved={load}
           labels={{
             emptyIcon: "drumstick",
             emptyMessage: "No hay ventas de carne registradas",
@@ -749,6 +850,7 @@ function VentasContent() {
       {tab === "gallinaza" && (
         <KgSaleTab
           apiEndpoint="/api/produccion/gallinaza/ventas"
+          onSaved={load}
           labels={{
             emptyIcon: "sprout",
             emptyMessage: "No hay ventas de gallinaza registradas",
@@ -764,20 +866,67 @@ function VentasContent() {
         />
       )}
 
+      {/* ─── TAB: OTRAS VENTAS ─── */}
+      {tab === "otros" && <OtherSalesTab onSaved={load} />}
+
       {/* ─── Modal: Egg Sale ─── */}
       <Modal open={modalOpen} onClose={() => setModalOpen(false)} title={editing ? "Editar Venta de Huevos" : "Nueva Venta de Huevos"}>
         <div className="space-y-4">
           {error && <p className="text-sm text-red-600 bg-red-50 p-3 rounded-lg">{error}</p>}
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <Input label="Fecha" type="date" value={form.date} onChange={(e) => setForm({ ...form, date: e.target.value })} />
-            <Input label="Comprador" value={form.buyer} onChange={(e) => setForm({ ...form, buyer: e.target.value })} placeholder="Nombre del cliente" list="catalog-compradores" />
+            <Select label="Especie" value={form.species} onChange={(e) => setForm({ ...form, species: e.target.value })}>
+              <option value="gallina">Gallina</option>
+              <option value="codorniz">Codorniz</option>
+              <option value="pato">Pato</option>
+            </Select>
           </div>
-          <datalist id="catalog-compradores">
-            {buyerOptions.map((b) => <option key={b} value={b} />)}
-          </datalist>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <Select label="Lugar / Galpón (opcional)" value={form.locationId} onChange={(e) => setForm({ ...form, locationId: e.target.value })}>
+              <option value="">— Sin asignar —</option>
+              {locations.map((l) => (
+                <option key={l.id} value={l.id}>{l.name}</option>
+              ))}
+            </Select>
+            {pepsLots.length > 0 && (
+              <Select label="Lote PEPS (trazabilidad)" value={form.lotCode} onChange={(e) => setForm({ ...form, lotCode: e.target.value })}>
+                <option value="">Automático PEPS (más antiguo)</option>
+                {Array.from(new Map(pepsLots.map((l) => [l.lotCode!, l])).values()).map((l) => (
+                  <option key={l.lotCode} value={l.lotCode!}>
+                    {l.lotCode} · {l.date} ({l.size}: {l.remaining} uds)
+                  </option>
+                ))}
+              </Select>
+            )}
+            <ContactField
+              role="cliente"
+              label="Comprador"
+              value={form.buyer}
+              onChange={(name, contact) => {
+                const days = contact?.creditDays || 0;
+                setEggBuyerCreditDays(days);
+                setForm({ ...form, buyer: name });
+                if (isCredit && days > 0 && !dueDate) {
+                  setDueDate(computeCreditDueDate(form.date, days));
+                }
+              }}
+            />
+          </div>
 
           <div className="flex items-center gap-2">
-            <input type="checkbox" id="isCredit" checked={isCredit} onChange={(e) => setIsCredit(e.target.checked)} className="rounded" />
+            <input
+              type="checkbox"
+              id="isCredit"
+              checked={isCredit}
+              onChange={(e) => {
+                const checked = e.target.checked;
+                setIsCredit(checked);
+                if (checked && eggBuyerCreditDays > 0 && !dueDate) {
+                  setDueDate(computeCreditDueDate(form.date, eggBuyerCreditDays));
+                }
+              }}
+              className="rounded"
+            />
             <label htmlFor="isCredit" className="text-sm font-medium text-gray-700">Venta a crédito</label>
           </div>
           {isCredit && (
@@ -880,13 +1029,13 @@ function VentasContent() {
         </div>
       </Modal>
 
-      {/* ─── Modal: Bird Sale ─── */}
-      <Modal open={birdModalOpen} onClose={() => setBirdModalOpen(false)} title={editingBird ? "Editar Venta de Aves" : "Nueva Venta de Aves"}>
+      {/* ─── Modal: Live Animal Sale ─── */}
+      <Modal open={birdModalOpen} onClose={() => setBirdModalOpen(false)} title={editingBird ? "Editar Venta de Animal" : "Nueva Venta de Animal"}>
         <div className="space-y-4">
           {birdError && <p className="text-sm text-red-600 bg-red-50 p-3 rounded-lg">{birdError}</p>}
           <div className="grid grid-cols-2 gap-3">
             <Input label="Fecha" type="date" value={birdForm.date} onChange={(e) => setBirdForm({ ...birdForm, date: e.target.value })} />
-            <Select label="Tipo de ave" value={birdForm.birdType} onChange={(e) => setBirdForm({ ...birdForm, birdType: e.target.value })}>
+            <Select label="Tipo / Especie" value={birdForm.birdType} onChange={(e) => setBirdForm({ ...birdForm, birdType: e.target.value })}>
               {birdTypeOptions.map((t) => (
                 <option key={t} value={t}>{birdTypeLabels[t] || t}</option>
               ))}
@@ -910,36 +1059,57 @@ function VentasContent() {
               <option key={r.id} value={r.id}>{r.code}{r.weight ? ` — ${r.weight} kg` : ""}</option>
             ))}
           </Select>
-          <Select label="Lote de pollos" value={birdForm.batchId} onChange={(e) => handleBirdBatchSelect(e.target.value)}>
+          <Select label="Lote multiespecie" value={birdForm.batchId} onChange={(e) => handleBirdBatchSelect(e.target.value)}>
             <option value="">— Sin lote —</option>
             {batches.map((b) => (
-              <option key={b.id} value={b.id}>{b.code} — {b.currentQuantity} disponibles{b.status === "listo_sacrificio" ? " (Listo)" : ""}</option>
+              <option key={b.id} value={b.id}>{b.code}{b.species ? ` (${birdTypeLabels[b.species] || b.species})` : ""} — {b.currentQuantity} disponibles{b.status === "listo_sacrificio" ? " (Listo)" : ""}</option>
             ))}
           </Select>
           {!birdForm.henId && !birdForm.roosterId && !birdForm.batchId && (
             <p className="text-xs text-slate-500">Seleccione una gallina, un gallo o un lote (obligatorio para descontar del inventario).</p>
           )}
           <div className="grid grid-cols-2 gap-3">
-            <Input label="Cantidad (aves)" type="number" min="1" value={birdForm.quantity} onChange={(e) => setBirdForm({ ...birdForm, quantity: e.target.value })} />
+            <Input label="Cantidad (animales)" type="number" min="1" value={birdForm.quantity} onChange={(e) => setBirdForm({ ...birdForm, quantity: e.target.value })} />
             <Input label="Peso total (kg)" type="number" step="0.1" value={birdForm.weightKg} onChange={(e) => setBirdForm({ ...birdForm, weightKg: e.target.value })} placeholder="Opcional" />
           </div>
           <div className="grid grid-cols-2 gap-3">
             <Select label="Precio por" value={birdForm.priceMode} onChange={(e) => setBirdForm({ ...birdForm, priceMode: e.target.value })}>
-              <option value="por_ave">Por ave</option>
+              <option value="por_ave">Por animal</option>
               <option value="por_kg">Por kg</option>
             </Select>
-            <Input label={`Precio ($ ${birdForm.priceMode === "por_kg" ? "/kg" : "/ave"})`} type="number" step="1" value={birdForm.pricePerUnit} onChange={(e) => setBirdForm({ ...birdForm, pricePerUnit: e.target.value })} />
+            <Input label={`Precio ($ ${birdForm.priceMode === "por_kg" ? "/kg" : "/animal"})`} type="number" step="1" value={birdForm.pricePerUnit} onChange={(e) => setBirdForm({ ...birdForm, pricePerUnit: e.target.value })} />
           </div>
-          <div className="grid grid-cols-2 gap-3">
-            <Input label="Comprador" value={birdForm.buyer} onChange={(e) => setBirdForm({ ...birdForm, buyer: e.target.value })} placeholder="Nombre del cliente" list="catalog-compradores-bird" />
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <ContactField
+              role="cliente"
+              label="Comprador"
+              value={birdForm.buyer}
+              onChange={(name, contact) => {
+                const days = contact?.creditDays || 0;
+                setBirdBuyerCreditDays(days);
+                setBirdForm({ ...birdForm, buyer: name });
+                if (birdIsCredit && days > 0 && !birdDueDate) {
+                  setBirdDueDate(computeCreditDueDate(birdForm.date, days));
+                }
+              }}
+            />
             <Input label="Presentación" value={birdForm.presentation} onChange={(e) => setBirdForm({ ...birdForm, presentation: e.target.value })} placeholder="Ej: entera, despresada, por kg" />
           </div>
-          <datalist id="catalog-compradores-bird">
-            {buyerOptions.map((b) => <option key={b} value={b} />)}
-          </datalist>
 
           <div className="flex items-center gap-2">
-            <input type="checkbox" id="birdIsCredit" checked={birdIsCredit} onChange={(e) => setBirdIsCredit(e.target.checked)} className="rounded" />
+            <input
+              type="checkbox"
+              id="birdIsCredit"
+              checked={birdIsCredit}
+              onChange={(e) => {
+                const checked = e.target.checked;
+                setBirdIsCredit(checked);
+                if (checked && birdBuyerCreditDays > 0 && !birdDueDate) {
+                  setBirdDueDate(computeCreditDueDate(birdForm.date, birdBuyerCreditDays));
+                }
+              }}
+              className="rounded"
+            />
             <label htmlFor="birdIsCredit" className="text-sm font-medium text-gray-700">Venta a crédito</label>
           </div>
           {birdIsCredit && (

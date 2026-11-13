@@ -5,6 +5,25 @@ export interface BreedStandardPoint {
   maxG?: number;
 }
 
+export const HY_LINE_BROWN_HEN: BreedStandardPoint[] = [
+  { week: 0, targetG: 40, minG: 36, maxG: 44 },
+  { week: 4, targetG: 260, minG: 235, maxG: 285 },
+  { week: 8, targetG: 660, minG: 595, maxG: 725 },
+  { week: 12, targetG: 1050, minG: 945, maxG: 1155 },
+  { week: 15, targetG: 1290, minG: 1160, maxG: 1420 },
+  { week: 16, targetG: 1370, minG: 1235, maxG: 1505 },
+  { week: 17, targetG: 1450, minG: 1305, maxG: 1595 },
+  { week: 18, targetG: 1540, minG: 1385, maxG: 1695 },
+  { week: 20, targetG: 1680, minG: 1510, maxG: 1850 },
+  { week: 24, targetG: 1820, minG: 1640, maxG: 2000 },
+  { week: 26, targetG: 1860, minG: 1675, maxG: 2045 },
+  { week: 30, targetG: 1920, minG: 1730, maxG: 2110 },
+  { week: 40, targetG: 1960, minG: 1765, maxG: 2155 },
+  { week: 60, targetG: 1990, minG: 1790, maxG: 2190 },
+  { week: 80, targetG: 2010, minG: 1810, maxG: 2210 },
+  { week: 100, targetG: 2020, minG: 1820, maxG: 2220 },
+];
+
 export const ISA_BROWN_HEN: BreedStandardPoint[] = [
   { week: 0, targetG: 40, minG: 36, maxG: 44 },
   { week: 1, targetG: 60, minG: 54, maxG: 66 },
@@ -83,11 +102,72 @@ export const COBB_500_FEMALE: BreedStandardPoint[] = [
   { week: 8, targetG: 1820, minG: 1638, maxG: 2002 },
 ];
 
+export const ROSS_308_MALE: BreedStandardPoint[] = [
+  { week: 0, targetG: 43, minG: 39, maxG: 47 },
+  { week: 1, targetG: 185, minG: 167, maxG: 204 },
+  { week: 2, targetG: 480, minG: 432, maxG: 528 },
+  { week: 3, targetG: 960, minG: 864, maxG: 1056 },
+  { week: 4, targetG: 1580, minG: 1422, maxG: 1738 },
+  { week: 5, targetG: 2290, minG: 2061, maxG: 2519 },
+  { week: 6, targetG: 2980, minG: 2682, maxG: 3278 },
+  { week: 7, targetG: 3640, minG: 3276, maxG: 4004 },
+];
+
+export const ROSS_308_FEMALE: BreedStandardPoint[] = [
+  { week: 0, targetG: 42, minG: 38, maxG: 46 },
+  { week: 1, targetG: 175, minG: 158, maxG: 193 },
+  { week: 2, targetG: 445, minG: 400, maxG: 490 },
+  { week: 3, targetG: 860, minG: 774, maxG: 946 },
+  { week: 4, targetG: 1380, minG: 1242, maxG: 1518 },
+  { week: 5, targetG: 1960, minG: 1764, maxG: 2156 },
+  { week: 6, targetG: 2530, minG: 2277, maxG: 2783 },
+  { week: 7, targetG: 3060, minG: 2754, maxG: 3366 },
+];
+
+export const ROSS_308_MIXED: BreedStandardPoint[] = ROSS_308_MALE.map((m, idx) => {
+  const f = ROSS_308_FEMALE[idx];
+  return {
+    week: m.week,
+    targetG: Math.round((m.targetG + f.targetG) / 2),
+    minG: f.minG,
+    maxG: m.maxG,
+  };
+});
+
+export const CUY_MEJORADO: BreedStandardPoint[] = [
+  { week: 0, targetG: 120, minG: 95, maxG: 145 },
+  { week: 1, targetG: 175, minG: 150, maxG: 200 },
+  { week: 2, targetG: 240, minG: 210, maxG: 270 },
+  { week: 3, targetG: 320, minG: 280, maxG: 360 },
+  { week: 4, targetG: 410, minG: 360, maxG: 460 },
+  { week: 6, targetG: 590, minG: 520, maxG: 660 },
+  { week: 8, targetG: 770, minG: 690, maxG: 860 },
+  { week: 10, targetG: 940, minG: 840, maxG: 1040 },
+  { week: 12, targetG: 1060, minG: 950, maxG: 1180 },
+  { week: 13, targetG: 1120, minG: 1000, maxG: 1250 },
+];
+
+export const CUY_CRIOLLO: BreedStandardPoint[] = [
+  { week: 0, targetG: 95, minG: 80, maxG: 115 },
+  { week: 2, targetG: 175, minG: 150, maxG: 205 },
+  { week: 4, targetG: 290, minG: 255, maxG: 330 },
+  { week: 6, targetG: 415, minG: 365, maxG: 465 },
+  { week: 8, targetG: 540, minG: 480, maxG: 605 },
+  { week: 10, targetG: 655, minG: 585, maxG: 730 },
+  { week: 12, targetG: 750, minG: 675, maxG: 830 },
+  { week: 14, targetG: 820, minG: 735, maxG: 910 },
+  { week: 16, targetG: 870, minG: 780, maxG: 960 },
+];
+
 export const ALL_BREED_STANDARDS: Record<string, BreedStandardPoint[]> = {
   "ISA Brown_hembra": ISA_BROWN_HEN,
   "Hy-Line W-36_hembra": HY_LINE_W36_HEN,
   "Cobb 500_macho": COBB_500_MALE,
   "Cobb 500_hembra": COBB_500_FEMALE,
+  "Ross 308_macho": ROSS_308_MALE,
+  "Ross 308_hembra": ROSS_308_FEMALE,
+  "Ross 308_mixto": ROSS_308_MIXED,
+  "Cuy Mejorado_mixto": CUY_MEJORADO,
 };
 
 
@@ -169,4 +249,5 @@ export const SPECIES_WEIGHT_CURVES: Record<string, BreedStandardPoint[]> = {
     { week: 9, targetG: 2100 }, { week: 10, targetG: 2300 }, { week: 11, targetG: 2450 },
     { week: 12, targetG: 2550 },
   ],
+  cuy: CUY_MEJORADO,
 };

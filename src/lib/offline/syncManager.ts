@@ -19,6 +19,11 @@ const BATCHABLE_ENTITIES = new Set<OutboxMutation["entity"]>([
   "huevos",
   "mortalidad",
   "alimentacion",
+  "pesaje",
+  "sanidad",
+  "reproduccion",
+  "bioseguridad",
+  "cierre_diario",
 ]);
 
 export const SYNC_COMPLETED_EVENT = "gallinero-sync-completed";

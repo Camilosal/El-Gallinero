@@ -15,6 +15,9 @@ export async function upsertExpenseTransaction(
     sourceType: string;
     sourceId: string;
     counterparty?: string | null;
+    species?: string | null;
+    locationId?: string | null;
+    batchId?: string | null;
   },
 ): Promise<void> {
   if (!input.condition) throw new Error("No se puede vincular el egreso a un origen válido");
@@ -35,6 +38,9 @@ export async function upsertExpenseTransaction(
     amount: amount.toFixed(2),
     sourceType: input.sourceType,
     sourceId: input.sourceId,
+    ...(input.species !== undefined ? { species: input.species } : {}),
+    ...(input.locationId !== undefined ? { locationId: input.locationId } : {}),
+    ...(input.batchId !== undefined ? { batchId: input.batchId } : {}),
   };
   const [transaction] = existing
     ? await tx.update(transactions).set(values).where(eq(transactions.id, existing.id)).returning()
@@ -162,4 +168,114 @@ export async function deleteFeedMovementAndReverseStock(
     and(eq(transactions.sourceType, "alimento"), eq(transactions.sourceId, movementId)),
   );
   await tx.delete(feedMovements).where(eq(feedMovements.id, movementId));
+}
+
+/**
+ * Sincroniza la cuenta por cobrar (accounts_receivable) vinculada a una venta/ingreso.
+ * Si isCredit=true crea o actualiza la CxC respetando los cobros ya registrados;
+ * si isCredit=false la elimina únicamente si no tiene abonos aplicados.
+ */
+export async function syncCreditReceivable(
+  tx: DbTransaction,
+  input: {
+    transactionId: string;
+    totalAmount: string | number;
+    isCredit: boolean;
+    dueDate?: string | null;
+    buyer?: string | null;
+  },
+): Promise<void> {
+  const totalNum = Number(input.totalAmount);
+  const totalStr = Number.isFinite(totalNum) ? totalNum.toFixed(2) : "0.00";
+  const [receivable] = await tx
+    .select()
+    .from(accountsReceivable)
+    .where(eq(accountsReceivable.transactionId, input.transactionId))
+    .for("update");
+
+  if (input.isCredit) {
+    const paidAmount = Number(receivable?.paidAmount || 0);
+    if (totalNum < paidAmount) {
+      throw new Error("El total no puede quedar por debajo de los pagos ya recibidos");
+    }
+    await tx.update(transactions).set({ isCredit: true }).where(eq(transactions.id, input.transactionId));
+    if (receivable) {
+      const pendingAmount = Math.max(0, totalNum - paidAmount);
+      await tx.update(accountsReceivable).set({
+        buyer: input.buyer || receivable.buyer,
+        totalAmount: totalStr,
+        paidAmount: String(paidAmount),
+        pendingAmount: pendingAmount.toFixed(2),
+        dueDate: input.dueDate !== undefined ? input.dueDate || null : receivable.dueDate,
+        status: pendingAmount === 0 ? "pagado" : paidAmount > 0 ? "parcial" : "pendiente",
+        updatedAt: new Date(),
+      }).where(eq(accountsReceivable.id, receivable.id));
+    } else {
+      await tx.insert(accountsReceivable).values({
+        transactionId: input.transactionId,
+        buyer: input.buyer || "Sin nombre",
+        totalAmount: totalStr,
+        paidAmount: "0",
+        pendingAmount: totalStr,
+        dueDate: input.dueDate || null,
+        status: "pendiente",
+      });
+    }
+    return;
+  }
+
+  if (receivable) {
+    const linkedPayments = await tx
+      .select({ id: payments.id })
+      .from(payments)
+      .where(eq(payments.receivableId, receivable.id));
+    if (Number(receivable.paidAmount) > 0 || linkedPayments.length > 0) {
+      throw new Error("No se puede convertir a contado una venta que ya tiene cobros recibidos");
+    }
+    await tx.delete(accountsReceivable).where(eq(accountsReceivable.id, receivable.id));
+  }
+  await tx.update(transactions).set({ isCredit: false }).where(eq(transactions.id, input.transactionId));
+}
+
+export interface SaleCreditMeta {
+  transactionId: string | null;
+  isCredit: boolean;
+  dueDate: string | null;
+}
+
+/** Obtiene metadatos de crédito/cartera vinculados a una lista de registros por sourceType. */
+export async function getCreditMetaBySourceIds(
+  sourceType: string,
+  sourceIds: string[],
+): Promise<Map<string, SaleCreditMeta>> {
+  const result = new Map<string, SaleCreditMeta>();
+  if (sourceIds.length === 0) return result;
+
+  const linkedTxs = await db
+    .select({
+      id: transactions.id,
+      sourceId: transactions.sourceId,
+      isCredit: transactions.isCredit,
+    })
+    .from(transactions)
+    .where(and(eq(transactions.sourceType, sourceType), inArray(transactions.sourceId, sourceIds)));
+
+  const txIds = linkedTxs.map((t) => t.id);
+  const receivables = txIds.length
+    ? await db
+        .select({ transactionId: accountsReceivable.transactionId, dueDate: accountsReceivable.dueDate })
+        .from(accountsReceivable)
+        .where(inArray(accountsReceivable.transactionId, txIds))
+    : [];
+  const dueByTx = new Map(receivables.map((r) => [r.transactionId, r.dueDate || null]));
+
+  for (const tx of linkedTxs) {
+    if (!tx.sourceId) continue;
+    result.set(tx.sourceId, {
+      transactionId: tx.id,
+      isCredit: Boolean(tx.isCredit),
+      dueDate: dueByTx.get(tx.id) || null,
+    });
+  }
+  return result;
 }

@@ -15,6 +15,10 @@ interface EggLot {
   sold: number;
   remaining: number;
   ageDays: number;
+  lotCode?: string | null;
+  storageTempC?: number | null;
+  storageHumidityPct?: number | null;
+  storageWarnings?: string[];
 }
 
 interface SizeSummary {
@@ -41,6 +45,14 @@ interface InventoryData {
   aging: { label: string; count: number }[];
   oldestLot: EggLot | null;
   estimatedValue: number;
+  storageAlerts?: Array<{
+    id: string;
+    lotCode: string | null;
+    date: string;
+    tempC: number | null;
+    humidityPct: number | null;
+    warnings: string[];
+  }>;
 }
 
 export default function InventarioPage() {
@@ -80,6 +92,7 @@ export default function InventarioPage() {
     return lots.filter((lot) =>
       matchesTextQuery(lotSearch, [
         lot.date,
+        lot.lotCode,
         new Date(lot.date + "T12:00:00").toLocaleDateString("es"),
         lot.size,
         lot.initial,
@@ -105,7 +118,7 @@ export default function InventarioPage() {
         help="Muestra el stock de huevos disponible cruzando producción y ventas. Usa consumo PEPS (Primero en Entrar, Primero en Salir): se consume primero lo más antiguo para evitar mermas. Los lotes muestran cuántos huevos quedan por tamaño y su edad en días. El resumen indica total producido, vendido, disponible y valor estimado."
       />
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-2.5 sm:gap-4 mb-6">
         <StatCard icon="egg" label="Huevos buenos producidos" value={data?.summary.produced ?? 0} color="blue" />
         <StatCard icon="money" label="Huevos Vendidos" value={data?.summary.sold ?? 0} color="purple" />
         <StatCard icon="package" label="Disponibles" value={data?.summary.available ?? 0} color="green" />
@@ -121,6 +134,22 @@ export default function InventarioPage() {
         <Card><p className="text-center py-8 text-slate-400">Cargando...</p></Card>
       ) : data && data.summary.produced > 0 ? (
         <>
+          {(data.storageAlerts?.length ?? 0) > 0 && (
+            <div className="mb-4 p-4 bg-amber-50 border border-amber-200 rounded-xl text-sm text-amber-800">
+              <p className="font-semibold flex items-center gap-1.5">
+                <AlertTriangle className="w-4 h-4 shrink-0" aria-hidden="true" />
+                <span>Alerta de conservación de huevo (ideal 10–15 °C y 75–85 % HR)</span>
+              </p>
+              <ul className="mt-1 list-disc list-inside text-xs space-y-0.5">
+                {data.storageAlerts!.map((a) => (
+                  <li key={a.id}>
+                    <strong>{a.lotCode || a.date}</strong>: {a.warnings.join(" · ")}
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+
           {expiring > 0 && (
             <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-xl text-sm text-red-700">
               <p className="font-semibold flex items-center gap-1.5">
@@ -225,17 +254,27 @@ export default function InventarioPage() {
                 }
               />
             ) : (
-            <Table headers={["Fecha Lote", "Tamaño", "Inicial", "Vendido", "Disponible", "Edad", "Estado"]}>
+            <Table headers={["Fecha / Lote PEPS", "Tamaño", "Inicial", "Vendido", "Disponible", "Bodega (T° / HR)", "Edad", "Estado"]}>
               {filteredLots.map((l) => {
                 const isOld = l.remaining > 0 && l.ageDays > 14;
                 const isExpiring = l.remaining > 0 && l.ageDays > 21;
                 return (
                   <tr key={l.id + l.size} className="hover:bg-slate-50">
-                    <td className="px-4 py-3">{new Date(l.date + "T12:00:00").toLocaleDateString("es")}</td>
+                    <td className="px-4 py-3">
+                      <div>{new Date(l.date + "T12:00:00").toLocaleDateString("es")}</div>
+                      {l.lotCode && <div className="text-[11px] font-mono text-slate-500">{l.lotCode}</div>}
+                    </td>
                     <td className="px-4 py-3"><Badge color="green">{l.size}</Badge></td>
                     <td className="px-4 py-3">{l.initial}</td>
                     <td className="px-4 py-3 text-slate-500">{l.sold}</td>
                     <td className="px-4 py-3 font-semibold">{l.remaining}</td>
+                    <td className="px-4 py-3 text-xs">
+                      {l.storageTempC != null || l.storageHumidityPct != null ? (
+                        <span className={(l.storageWarnings?.length ?? 0) > 0 ? "text-amber-700 font-semibold" : "text-slate-600"}>
+                          {l.storageTempC != null ? `${l.storageTempC}°C` : "—"} / {l.storageHumidityPct != null ? `${l.storageHumidityPct}%` : "—"}
+                        </span>
+                      ) : "—"}
+                    </td>
                     <td className="px-4 py-3 text-sm">{l.ageDays} días</td>
                     <td className="px-4 py-3">
                       {l.remaining === 0 ? (

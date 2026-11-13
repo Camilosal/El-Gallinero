@@ -6,16 +6,18 @@ import {
   MARKET_PRICE_PER_KG,
 } from "@/lib/species-params";
 import { batchReadiness } from "@/lib/flock";
+import { computeMeatInventory } from "@/lib/inventory";
 import { GET } from "@/app/api/especies/params/route";
 import { mockRequest } from "./helpers";
 
 describe("Parámetros Zootécnicos Multiespecie y Calculadoras", () => {
-  it("debe contener parámetros para las 4 especies principales (pollo, codorniz, pato, conejo)", () => {
+  it("debe contener parámetros para las 5 especies principales (pollo, codorniz, pato, conejo, cuy)", () => {
     const speciesList = SPECIES_PARAMS.map((p) => p.species);
     expect(speciesList).toContain("pollo");
     expect(speciesList).toContain("codorniz");
     expect(speciesList).toContain("pato");
     expect(speciesList).toContain("conejo");
+    expect(speciesList).toContain("cuy");
   });
 
   it("getSpeciesParams debe retornar los valores esperados por especie", () => {
@@ -30,6 +32,12 @@ describe("Parámetros Zootécnicos Multiespecie y Calculadoras", () => {
     expect(conejo?.cycleDays).toBe(77);
     expect(conejo?.targetWeightKg).toBe(2.4);
     expect(conejo?.carcassYieldPercent).toBe(55);
+
+    const cuy = getSpeciesParams("cuy");
+    expect(cuy).toBeDefined();
+    expect(cuy?.cycleDays).toBe(90);
+    expect(cuy?.targetWeightKg).toBe(1.1);
+    expect(cuy?.carcassYieldPercent).toBe(68);
   });
 
   it("calcularRentabilidadLote debe calcular correctamente costo de alimento, canal, ahorro e ingresos", () => {
@@ -88,6 +96,43 @@ describe("Parámetros Zootécnicos Multiespecie y Calculadoras", () => {
     expect(patoItem.species).toBe("pato");
     expect(patoItem.proyeccion).toBeDefined();
     expect(patoItem.proyeccion.kgCanalTotal).toBeGreaterThan(0);
+  });
+
+  it("computeMeatInventory clasifica correctamente carne de cuy por birdType", async () => {
+    const today = new Date().toISOString().split("T")[0];
+    const slaughterRows = [
+      {
+        id: "slaughter-cuy-1",
+        date: today,
+        species: "pollo",
+        birdType: "cuy",
+        quantity: 2,
+        weightKg: "1.6",
+        weightKgAutoconsumo: "0",
+        weightKgExcedente: "1.6",
+        destination: "venta",
+        presentation: "Canal cuy",
+        locationId: null,
+        notes: null,
+      },
+    ];
+    const saleRows = [{ id: "sale-cuy-1", date: today, species: "cuy", quantityKg: "0.6" }];
+    let callIdx = 0;
+    const rowsByCall = [slaughterRows, saleRows, []];
+    const fakeReader = {
+      select: () => ({
+        from: () => ({
+          orderBy: async () => rowsByCall[callIdx++] ?? [],
+        }),
+      }),
+    } as unknown as Parameters<typeof computeMeatInventory>[0];
+
+    const meat = await computeMeatInventory(fakeReader);
+    expect(meat.lots).toHaveLength(1);
+    expect(meat.lots[0].species).toBe("cuy");
+    expect(meat.lots[0].remainingKg).toBeCloseTo(1.0, 2);
+    const cuySummary = meat.summary.bySpecies?.find((s) => s.species === "cuy");
+    expect(cuySummary?.availableKg).toBeCloseTo(1.0, 2);
   });
 });
 

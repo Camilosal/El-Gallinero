@@ -19,7 +19,7 @@ interface VaccineTemplate {
   isActive: boolean;
 }
 
-const SPECIES = ["gallina", "pollo", "codorniz", "pato", "conejo"];
+const SPECIES = ["gallina", "pollo", "codorniz", "pato", "conejo", "cuy"];
 
 const EMPTY = {
   species: "gallina",

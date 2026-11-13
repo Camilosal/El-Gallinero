@@ -10,6 +10,15 @@ import TableSearch from "@/components/TableSearch";
 import { matchesTextQuery } from "@/lib/text";
 import { useFarmLocations } from "@/lib/useFarmLocations";
 import { useActionQuery } from "@/lib/useActionQuery";
+import AttachmentPanel from "@/components/attachments/AttachmentPanel";
+import MicroInsightCard from "@/components/MicroInsightCard";
+import {
+  bindDraftAttachments,
+  calculateWithdrawalUntilDate,
+  createDraftEntityId,
+  type OcrExtractedPayload,
+} from "@/lib/attachments-shared";
+import { buildHealthMicroInsight, type MicroInsightPayload } from "@/lib/micro-insights";
 import Link from "next/link";
 
 interface HealthRecord {
@@ -21,6 +30,13 @@ interface HealthRecord {
   description: string;
   affectedHens: string | null;
   product: string | null;
+  withdrawalDays?: number | null;
+  withdrawalUntilDate?: string | null;
+  vaccineLot?: string | null;
+  vaccineLab?: string | null;
+  vaccineExpiryDate?: string | null;
+  coldChainTempC?: string | null;
+  administrationRoute?: string | null;
   cost: string | null;
   nextScheduled: string | null;
   notes: string | null;
@@ -74,6 +90,8 @@ function SanidadPageInner() {
   const [loading, setLoading] = useState(true);
   const [modalOpen, setModalOpen] = useState(false);
   const [editing, setEditing] = useState<HealthRecord | null>(null);
+  const [draftEntityId, setDraftEntityId] = useState(() => createDraftEntityId("health"));
+  const [lastInsight, setLastInsight] = useState<MicroInsightPayload | null>(null);
   const [error, setError] = useState("");
   const [calendarEvents, setCalendarEvents] = useState<CalendarEvent[]>([]);
   const [search, setSearch] = useState("");
@@ -84,6 +102,12 @@ function SanidadPageInner() {
     description: "",
     affectedHens: "todas",
     product: "",
+    withdrawalDays: "0",
+    vaccineLot: "",
+    vaccineLab: "",
+    vaccineExpiryDate: "",
+    coldChainTempC: "",
+    administrationRoute: "",
     cost: "0",
     nextScheduled: "",
     notes: "",
@@ -110,14 +134,32 @@ function SanidadPageInner() {
 
   const openNew = () => {
     setEditing(null);
+    setDraftEntityId(createDraftEntityId("health"));
     setError("");
-    setForm({ date: new Date().toISOString().split("T")[0], locationId: "", type: "inspeccion", description: "", affectedHens: "todas", product: "", cost: "0", nextScheduled: "", notes: "" });
+    setForm({
+      date: new Date().toISOString().split("T")[0],
+      locationId: "",
+      type: "inspeccion",
+      description: "",
+      affectedHens: "todas",
+      product: "",
+      withdrawalDays: "0",
+      vaccineLot: "",
+      vaccineLab: "",
+      vaccineExpiryDate: "",
+      coldChainTempC: "",
+      administrationRoute: "",
+      cost: "0",
+      nextScheduled: "",
+      notes: "",
+    });
     setModalOpen(true);
   };
   useActionQuery(searchParams.get("nuevo"), { "1": openNew });
 
   const openNewWithEvent = useCallback((event: CalendarEvent) => {
     setEditing(null);
+    setDraftEntityId(createDraftEntityId("health"));
     setError("");
     // Calculate next scheduled date based on frequency
     let nextDate = "";
@@ -133,6 +175,12 @@ function SanidadPageInner() {
       description: `${event.name}${event.description ? ` — ${event.description}` : ""}`,
       affectedHens: event.targetBirds || "todas",
       product: "",
+      withdrawalDays: "0",
+      vaccineLot: "",
+      vaccineLab: "",
+      vaccineExpiryDate: "",
+      coldChainTempC: "",
+      administrationRoute: "",
       cost: "0",
       nextScheduled: nextDate,
       notes: "",
@@ -179,6 +227,12 @@ function SanidadPageInner() {
       description: r.description,
       affectedHens: r.affectedHens || "",
       product: r.product || "",
+      withdrawalDays: String(r.withdrawalDays ?? 0),
+      vaccineLot: r.vaccineLot || "",
+      vaccineLab: r.vaccineLab || "",
+      vaccineExpiryDate: r.vaccineExpiryDate || "",
+      coldChainTempC: r.coldChainTempC || "",
+      administrationRoute: r.administrationRoute || "",
       cost: r.cost || "0",
       nextScheduled: r.nextScheduled || "",
       notes: r.notes || "",
@@ -186,21 +240,80 @@ function SanidadPageInner() {
     setModalOpen(true);
   };
 
+  const handleOcrEtiquetaIca = (extracted: OcrExtractedPayload) => {
+    if (extracted.mode !== "etiqueta_ica") return;
+    setForm((prev) => {
+      const nextProduct = extracted.product || prev.product;
+      const nextLot = extracted.vaccineLot || prev.vaccineLot;
+      const nextLab = extracted.vaccineLab || prev.vaccineLab;
+      const nextType = extracted.eventType || prev.type;
+      const extraDesc = [
+        nextProduct ? `Aplicación de ${nextProduct}` : "",
+        extracted.icaRegistration ? `Reg. ICA ${extracted.icaRegistration}` : "",
+        nextLot ? `Lote ${nextLot}` : "",
+      ]
+        .filter(Boolean)
+        .join(" · ");
+      return {
+        ...prev,
+        type: nextType,
+        product: nextProduct,
+        description: prev.description || extraDesc,
+        vaccineLot: nextLot,
+        vaccineLab: nextLab,
+        vaccineExpiryDate: extracted.vaccineExpiryDate || prev.vaccineExpiryDate,
+        withdrawalDays:
+          extracted.withdrawalDays !== undefined ? String(extracted.withdrawalDays) : prev.withdrawalDays,
+        coldChainTempC: extracted.coldChainTempC || prev.coldChainTempC,
+        administrationRoute: extracted.administrationRoute || prev.administrationRoute,
+        notes: [prev.notes, extracted.icaRegistration ? `Reg. ICA: ${extracted.icaRegistration}` : ""]
+          .filter(Boolean)
+          .join(" | "),
+      };
+    });
+  };
+
   const save = async () => {
     setError("");
     if (!form.locationId) return setError("Selecciona el lugar donde se realizó el control");
     const method = editing ? "PUT" : "POST";
-    const body = editing ? { ...form, id: editing.id } : form;
+    const withdrawalDaysNum = Math.max(0, Math.round(Number(form.withdrawalDays || 0)));
+    const withdrawalUntilDate = calculateWithdrawalUntilDate(form.date, withdrawalDaysNum);
+    const body = {
+      ...(editing ? { id: editing.id } : {}),
+      ...form,
+      withdrawalDays: withdrawalDaysNum,
+      withdrawalUntilDate,
+    };
     const res = await apiFetch("/api/sanidad/control", {
       method,
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(body),
     });
+    const saved = await res.json().catch(() => ({}));
     if (!res.ok) {
-      const data = await res.json().catch(() => ({}));
-      setError(data.error || "Error al guardar el registro");
+      setError(saved.error || "Error al guardar el registro");
       return;
     }
+    if (!editing && saved?.id) {
+      await bindDraftAttachments(draftEntityId, saved.id, "health_control");
+    }
+    const eventTypeLabel =
+      eventTypes.find((t) => t.value === form.type)?.label || form.type;
+    const locName = locations.find((l) => l.id === form.locationId)?.name || null;
+    setLastInsight(
+      buildHealthMicroInsight({
+        date: form.date,
+        eventTypeLabel,
+        product: form.product || null,
+        withdrawalDays: withdrawalDaysNum,
+        withdrawalUntilDate,
+        coldChainTempC: form.coldChainTempC || null,
+        vaccineLot: form.vaccineLot || null,
+        nextScheduled: form.nextScheduled || null,
+        locationName: locName,
+      }),
+    );
     setModalOpen(false);
     load();
   };
@@ -239,7 +352,18 @@ function SanidadPageInner() {
         actions={<Button onClick={openNew}>+ Nuevo Registro</Button>}
       />
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+      {lastInsight && (
+        <div className="mb-6">
+          <MicroInsightCard
+            insight={lastInsight}
+            onAnother={openNew}
+            onDismiss={() => setLastInsight(null)}
+            doneLabel="Entendido"
+          />
+        </div>
+      )}
+
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-2.5 sm:gap-4 mb-6">
         <StatCard icon="clipboard" label="Total Registros" value={records.length} color="blue" />
         <StatCard icon="vaccine" label="Vacunaciones" value={records.filter((r) => r.type === "vacunacion").length} color="purple" />
         <StatCard icon="calendar" label="Próximos Eventos" value={upcoming.length} color={upcoming.length > 0 ? "yellow" : "green"} />
@@ -296,7 +420,19 @@ function SanidadPageInner() {
                 <td className="px-4 py-3"><Badge color={typeColors[r.type] || "gray"}>{eventTypes.find((t) => t.value === r.type)?.label || r.type}</Badge></td>
                 <td className="px-4 py-3 text-sm max-w-[200px]">{r.description}</td>
                 <td className="px-4 py-3 text-sm">{r.affectedHens || "—"}</td>
-                <td className="px-4 py-3 text-sm">{r.product || "—"}</td>
+                <td className="px-4 py-3 text-sm">
+                  <div>{r.product || "—"}</div>
+                  {(r.vaccineLot || r.vaccineLab) && (
+                    <div className="text-[11px] text-slate-500">
+                      {[r.vaccineLab, r.vaccineLot ? `Lote ${r.vaccineLot}` : ""].filter(Boolean).join(" · ")}
+                    </div>
+                  )}
+                  {r.withdrawalUntilDate && Number(r.withdrawalDays || 0) > 0 && (
+                    <span className="mt-1 inline-block rounded bg-red-100 px-1.5 py-0.5 text-[10px] font-bold text-red-800">
+                      Retiro ICA hasta {r.withdrawalUntilDate} ({r.withdrawalDays}d)
+                    </span>
+                  )}
+                </td>
                 <td className="px-4 py-3">{Number(r.cost) > 0 ? `$${Number(r.cost).toLocaleString()}` : "—"}</td>
                 <td className="px-4 py-3 text-sm">{r.nextScheduled ? new Date(r.nextScheduled + "T12:00:00").toLocaleDateString("es") : "—"}</td>
                 <td className="px-4 py-3">
@@ -358,11 +494,88 @@ function SanidadPageInner() {
           <Textarea label="Descripción" value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} placeholder="Detalle del evento sanitario..." required />
           <Input label="Gallinas Afectadas" value={form.affectedHens} onChange={(e) => setForm({ ...form, affectedHens: e.target.value })} placeholder="'todas' o códigos: G-001, G-002" />
           <Input label="Producto Utilizado" value={form.product} onChange={(e) => setForm({ ...form, product: e.target.value })} placeholder="Ej: Newcastle B1, Ivermectina..." />
+
+          {/* Trazabilidad ICA y Tiempo de Retiro Farmacológico (Res. ICA 3651/2014) */}
+          <div className="rounded-xl border border-blue-200 bg-blue-50/60 p-3.5 space-y-3">
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-bold uppercase tracking-wide text-blue-900">
+                Trazabilidad ICA, Lote de Vacuna y Tiempo de Retiro
+              </span>
+              {Number(form.withdrawalDays || 0) > 0 && (
+                <span className="rounded-full bg-red-100 px-2.5 py-0.5 text-[11px] font-bold text-red-800">
+                  Bloqueo sanitario hasta {calculateWithdrawalUntilDate(form.date, form.withdrawalDays)}
+                </span>
+              )}
+            </div>
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+              <Input
+                label="Lote vacuna / fármaco"
+                value={form.vaccineLot}
+                onChange={(e) => setForm({ ...form, vaccineLot: e.target.value })}
+                placeholder="Ej: NK-2026A"
+              />
+              <Input
+                label="Laboratorio"
+                value={form.vaccineLab}
+                onChange={(e) => setForm({ ...form, vaccineLab: e.target.value })}
+                placeholder="Ej: MSD, Vecol, Ceva"
+              />
+              <Input
+                label="Vencimiento lote"
+                type="date"
+                value={form.vaccineExpiryDate}
+                onChange={(e) => setForm({ ...form, vaccineExpiryDate: e.target.value })}
+              />
+            </div>
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+              <Input
+                label="Días de retiro ICA"
+                type="number"
+                min="0"
+                max="180"
+                value={form.withdrawalDays}
+                onChange={(e) => setForm({ ...form, withdrawalDays: e.target.value })}
+                help="0 para vacunas sin retiro; >0 bloquea venta/faena."
+              />
+              <Select
+                label="Vía de administración"
+                value={form.administrationRoute}
+                onChange={(e) => setForm({ ...form, administrationRoute: e.target.value })}
+              >
+                <option value="">Seleccionar vía…</option>
+                <option value="agua_bebida">Agua de bebida</option>
+                <option value="ocular_nasal">Ocular / Nasal (gota)</option>
+                <option value="punzon_alar">Punzón alar</option>
+                <option value="intramuscular">Intramuscular (I.M.)</option>
+                <option value="subcutanea">Subcutánea (S.C.)</option>
+                <option value="aspersor">Aspersión / Spray</option>
+              </Select>
+              <Input
+                label="Cadena de frío (°C)"
+                value={form.coldChainTempC}
+                onChange={(e) => setForm({ ...form, coldChainTempC: e.target.value })}
+                placeholder="Ej: 4.5 (rango 2-8°C)"
+              />
+            </div>
+          </div>
+
           <div className="grid grid-cols-2 gap-3">
             <Input label="Costo ($)" type="number" step="0.01" value={form.cost} onChange={(e) => setForm({ ...form, cost: e.target.value })} />
             <Input label="Próxima Aplicación" type="date" value={form.nextScheduled} onChange={(e) => setForm({ ...form, nextScheduled: e.target.value })} />
           </div>
           <Textarea label="Notas adicionales" value={form.notes} onChange={(e) => setForm({ ...form, notes: e.target.value })} />
+
+          <AttachmentPanel
+            entityType="health_control"
+            entityId={editing ? editing.id : draftEntityId}
+            defaultCategory="etiqueta_ica"
+            ocrMode="etiqueta_ica"
+            onOcrExtracted={handleOcrEtiquetaIca}
+            title="Etiqueta ICA, frasco de vacuna o receta veterinaria"
+            helpText="Toma foto del frasco o etiqueta para extraer automáticamente el Reg. ICA, lote, vencimiento y días de retiro."
+            compact
+          />
+
           <div className="flex gap-3">
             <Button onClick={save} disabled={!form.description}>{editing ? "Actualizar Registro" : "Registrar"}</Button>
             <Button variant="secondary" onClick={() => setModalOpen(false)}>Cancelar</Button>

@@ -308,7 +308,7 @@ export default function PollosPage({ embedded = false, initialTab, initialSpecie
 
   // Conteo de animales por especie en lotes activos
   const animalsBySpecies = useMemo(() => {
-    const map: Record<string, number> = { pollo: 0, codorniz: 0, pato: 0, conejo: 0 };
+    const map: Record<string, number> = { pollo: 0, codorniz: 0, pato: 0, conejo: 0, cuy: 0 };
     batches.forEach((b) => {
       const sp = b.species || "pollo";
       map[sp] = (map[sp] || 0) + b.currentQuantity;
@@ -371,8 +371,8 @@ export default function PollosPage({ embedded = false, initialTab, initialSpecie
       {!embedded && <PageHeader
         theme="aves"
         title="Lotes Multiespecie y Gallos"
-        description="Gestión integral de lotes de engorde (pollos, codornices, patos y conejos) y gallos reproductores"
-        help="Aquí gestionas los lotes de crianza y engorde de todas las especies de la granja:\n\n• Pollos de engorde (ciclo ~7 sem, ~2.5 kg)\n• Codornices (ciclo ~6 sem, postura o carne)\n• Patos Pekín y Criollos (ciclo 8-12 sem, carne tierna)\n• Conejos de engorde (ciclo ~11 sem / 77 días, carne magra)\n\nEl sistema evalúa automáticamente si el lote cumplió la edad o peso objetivo para faena."
+        description="Gestión integral de lotes de engorde o cría (pollos, codornices, patos, conejos y cuyes) y gallos reproductores"
+        help="Aquí gestionas los lotes de crianza y engorde de todas las especies de la granja:\n\n• Pollos de engorde (ciclo ~7 sem, ~2.5 kg)\n• Codornices (ciclo ~6 sem, postura o carne)\n• Patos Pekín y Criollos (ciclo 8-12 sem, carne tierna)\n• Conejos de engorde (ciclo ~11 sem / 77 días, carne magra)\n• Cuyes / Curíes (ciclo ~13 sem / 90 días, dieta forraje + Vitamina C)\n\nEl sistema evalúa automáticamente si el lote cumplió la edad o peso objetivo para faena."
         actions={
           <div className="flex gap-2">
             {tab === "gallos" && <Link href="/dashboard/produccion/adquisiciones?nuevo=gallo" className="inline-flex items-center rounded-lg bg-green-700 px-4 py-2 text-sm font-semibold text-white hover:bg-green-800">Registrar ingreso de gallos</Link>}
@@ -410,6 +410,7 @@ export default function PollosPage({ embedded = false, initialTab, initialSpecie
             <span className="inline-flex items-center gap-1"><AppIcon icon="egg" className="w-3.5 h-3.5 text-slate-600" /> {animalsBySpecies.codorniz || 0}</span>
             <span className="inline-flex items-center gap-1"><AppIcon icon="duck" className="w-3.5 h-3.5 text-slate-600" /> {animalsBySpecies.pato || 0}</span>
             <span className="inline-flex items-center gap-1"><AppIcon icon="rabbit" className="w-3.5 h-3.5 text-slate-600" /> {animalsBySpecies.conejo || 0}</span>
+            <span className="inline-flex items-center gap-1"><AppIcon icon="paw-print" className="w-3.5 h-3.5 text-slate-600" /> {animalsBySpecies.cuy || 0}</span>
           </div>
         </div>
       </div>}
@@ -496,6 +497,7 @@ export default function PollosPage({ embedded = false, initialTab, initialSpecie
                 { id: "codorniz", label: "Codornices", icon: "egg" },
                 { id: "pato", label: "Patos", icon: "duck" },
                 { id: "conejo", label: "Conejos", icon: "rabbit" },
+                { id: "cuy", label: "Cuyes", icon: "paw-print" },
               ].map((sp) => {
                 const isSelected = selectedSpeciesFilter === sp.id;
                 const count = sp.id === "all"
@@ -545,7 +547,7 @@ export default function PollosPage({ embedded = false, initialTab, initialSpecie
                 const sp = b.species || "pollo";
                 const icon = SPECIES_ICON[sp] || "package";
                 const st = batchStatusLabels[b.status] || { label: b.status, color: "gray" };
-                const isConejo = sp === "conejo";
+                const isConejo = sp === "conejo" || sp === "cuy";
 
                 return (
                   <tr key={b.id} className="hover:bg-slate-50">
@@ -656,6 +658,7 @@ export default function PollosPage({ embedded = false, initialTab, initialSpecie
               <option value="codorniz">Codorniz</option>
               <option value="pato">Pato</option>
               <option value="conejo">Conejo de engorde</option>
+              <option value="cuy">Cuy</option>
             </Select>
 
             <Select
@@ -754,7 +757,7 @@ export default function PollosPage({ embedded = false, initialTab, initialSpecie
             />
             <Input
               label="Días objetivo"
-              help="Días totales del ciclo (clave para conejos y codornices)."
+              help="Días totales del ciclo (clave para conejos, cuyes y codornices)."
               type="number"
               min="1"
               value={batchForm.targetDays}

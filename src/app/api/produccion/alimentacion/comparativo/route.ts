@@ -1,6 +1,6 @@
 import { db } from "@/db";
-import { feedPrograms, feedInventory, feedMovements } from "@/db/schema";
-import { eq, and, sql, desc, gte } from "drizzle-orm";
+import { feedPrograms, feedInventory, feedMovements, broilerBatches, weightLogs, catalogos } from "@/db/schema";
+import { eq, and, sql, desc, gte, inArray } from "drizzle-orm";
 import { NextRequest, NextResponse } from "next/server";
 import { runFeedProgramCatchup, countAnimalsByStageForDate } from "@/lib/feeding/runProgram";
 import { withApiHandler, safeParseJson } from "@/lib/api-handler";
@@ -154,9 +154,91 @@ export const GET = withApiHandler(async (req: NextRequest) => {
     dailyData.push({ fecha: label, planned: plannedMap, actual: actualMap });
   }
 
+  // 8. Comparativo zootécnico por especie/dieta (FCR y costo por kg ganado) + alertas nutricionales
+  const [activeBatches, recentWeights, feedsList, stageCats] = await Promise.all([
+    db.select().from(broilerBatches).where(inArray(broilerBatches.status, ["activo", "listo_sacrificio"])),
+    db.select().from(weightLogs).orderBy(desc(weightLogs.date)).limit(500),
+    db.select().from(feedInventory),
+    db.select().from(catalogos).where(and(eq(catalogos.category, "etapa_crecimiento"), eq(catalogos.isActive, true))),
+  ]);
+
+  const feedCostMap = new Map(feedsList.map((f) => [f.id, Number(f.costPerUnit) || 0]));
+  const weightsByBatch = new Map<string, number[]>();
+  for (const w of recentWeights) {
+    if (!w.batchId) continue;
+    const arr = weightsByBatch.get(w.batchId) || [];
+    arr.push(Number(w.avgWeightKg) || 0);
+    weightsByBatch.set(w.batchId, arr);
+  }
+
+  const stageCostBySpecies = new Map<string, { dailyFeedKgPerAnimal: number; weightedCostPerKg: number; programCount: number }>();
+  const stageSpeciesMap = new Map(stageCats.map((c) => [c.id, (c.tipo || "gallina").toLowerCase()]));
+  for (const p of programs) {
+    const sp = stageSpeciesMap.get(p.stageCatalogoId) || "gallina";
+    const cur = stageCostBySpecies.get(sp) || { dailyFeedKgPerAnimal: 0, weightedCostPerKg: 0, programCount: 0 };
+    const dailyKg = Number(p.dailyAmountPerHen || 0) / 1000;
+    const unitCost = feedCostMap.get(p.feedId) || 0;
+    const prevTotalKg = cur.dailyFeedKgPerAnimal;
+    cur.dailyFeedKgPerAnimal = prevTotalKg + dailyKg;
+    cur.weightedCostPerKg = (prevTotalKg * cur.weightedCostPerKg + dailyKg * unitCost) / (cur.dailyFeedKgPerAnimal || 1);
+    cur.programCount += 1;
+    stageCostBySpecies.set(sp, cur);
+  }
+
+  const speciesBatches = new Map<string, { animals: number; totalGainKg: number; estimatedFeedKg: number; estimatedFeedCost: number }>();
+  for (const b of activeBatches) {
+    const sp = (b.species || "pollo").toLowerCase();
+    const cur = speciesBatches.get(sp) || { animals: 0, totalGainKg: 0, estimatedFeedKg: 0, estimatedFeedCost: 0 };
+    const qty = Math.max(0, Number(b.currentQuantity) || 0);
+    const wArr = weightsByBatch.get(b.id) || [];
+    const avgCurrentW = wArr.length > 0 ? wArr[0] : (b.avgWeightKg ? Number(b.avgWeightKg) : 0);
+    const initialAvgW = wArr.length > 1 ? wArr[wArr.length - 1] : (sp === "cuy" ? 0.12 : sp === "conejo" ? 0.45 : sp === "codorniz" ? 0.02 : 0.045);
+    const gainKgPerAnimal = Math.max(0, avgCurrentW - initialAvgW);
+    const stageStats = stageCostBySpecies.get(sp);
+    const daysElapsed = Math.max(1, Math.min(days, Math.round((today.getTime() - new Date(`${b.startDate}T12:00:00`).getTime()) / 86400000)));
+    const dailyFeedKg = stageStats?.dailyFeedKgPerAnimal || (sp === "cuy" ? 0.065 : sp === "conejo" ? 0.13 : sp === "codorniz" ? 0.025 : 0.11);
+    const feedKg = qty * dailyFeedKg * daysElapsed;
+    const costPerKg = stageStats?.weightedCostPerKg || 0;
+    cur.animals += qty;
+    cur.totalGainKg += qty * gainKgPerAnimal;
+    cur.estimatedFeedKg += feedKg;
+    cur.estimatedFeedCost += feedKg * costPerKg;
+    speciesBatches.set(sp, cur);
+  }
+
+  const dietPerformance = Array.from(new Set([...speciesBatches.keys(), ...stageCostBySpecies.keys()])).map((sp) => {
+    const batchStats = speciesBatches.get(sp) || { animals: 0, totalGainKg: 0, estimatedFeedKg: 0, estimatedFeedCost: 0 };
+    const stageStats = stageCostBySpecies.get(sp);
+    const fcr = batchStats.totalGainKg > 0 && batchStats.estimatedFeedKg > 0
+      ? Number((batchStats.estimatedFeedKg / batchStats.totalGainKg).toFixed(2))
+      : null;
+    const costPerKgGain = batchStats.totalGainKg > 0 && batchStats.estimatedFeedCost > 0
+      ? Math.round(batchStats.estimatedFeedCost / batchStats.totalGainKg)
+      : null;
+    return {
+      species: sp,
+      activeAnimals: batchStats.animals,
+      dailyFeedPerAnimalKg: stageStats ? Number(stageStats.dailyFeedKgPerAnimal.toFixed(3)) : null,
+      feedCostPerKg: stageStats ? Math.round(stageStats.weightedCostPerKg) : null,
+      totalWeightGainKg: Number(batchStats.totalGainKg.toFixed(2)),
+      estimatedFeedKg: Number(batchStats.estimatedFeedKg.toFixed(2)),
+      fcr,
+      costPerKgGain,
+    };
+  });
+
+  const hasForage = feedsList.some((f) => /forraje|pasto|alfalfa|raygrass|morera|ramio/i.test(`${f.name} ${f.feedType} ${f.category}`));
+  const hasCuy = speciesBatches.has("cuy") || stageCostBySpecies.has("cuy");
+  const hasConejo = speciesBatches.has("conejo") || stageCostBySpecies.has("conejo");
+
   return NextResponse.json({
     days,
     comparativo: comparativo.reverse(),
     dailyData: dailyData.reverse(),
+    dietPerformance,
+    nutritionAlerts: {
+      forageWiltingRecommended: hasForage || hasCuy || hasConejo,
+      vitaminCForCuyRecommended: hasCuy,
+    },
   });
 });

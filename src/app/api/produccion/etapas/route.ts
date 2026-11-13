@@ -5,6 +5,9 @@ import { NextRequest, NextResponse } from "next/server";
 import { withApiHandler, safeParseJson } from "@/lib/api-handler";
 import { countAnimalsByStageForDate } from "@/lib/feeding/runProgram";
 import { getStageSpecies } from "@/lib/feeding/stage-species";
+import { ANIMAL_SPECIES } from "@/lib/species";
+import { findMissingFeeds, normalizeProgramEntries } from "@/lib/feeding/program-validation";
+import { summarizeRation } from "@/lib/feeding/ration";
 
 export const dynamic = "force-dynamic";
 
@@ -31,6 +34,9 @@ export const GET = withApiHandler(async () => {
         feedUnit: feedInventory.unit,
         percentage: feedPrograms.percentage,
         dailyAmountPerHen: feedPrograms.dailyAmountPerHen,
+        feedCategory: feedInventory.category,
+        dryMatterPct: feedInventory.dryMatterPct,
+        crudeProteinPct: feedInventory.crudeProteinPct,
       })
       .from(feedPrograms)
       .leftJoin(feedInventory, eq(feedPrograms.feedId, feedInventory.id))
@@ -42,6 +48,13 @@ export const GET = withApiHandler(async () => {
       // Compatibility for older clients; this value now counts the stage's species.
       henCount: animalCount,
       programs,
+      // Composición de la dieta combinada (materia seca, proteína y proporción de forraje fresco).
+      ration: summarizeRation(programs.map((p) => ({
+        grams: Number(p.dailyAmountPerHen),
+        dryMatterPct: p.dryMatterPct === null ? null : Number(p.dryMatterPct),
+        crudeProteinPct: p.crudeProteinPct === null ? null : Number(p.crudeProteinPct),
+        category: p.feedCategory,
+      }))),
     });
   }
 
@@ -54,7 +67,7 @@ export const POST = withApiHandler(async (req: NextRequest) => {
   if (!body || typeof body !== "object") return NextResponse.json({ error: "Cuerpo inválido" }, { status: 400 });
   const value = typeof body.value === "string" ? body.value.trim() : "";
   if (!value) return NextResponse.json({ error: "Nombre del plan o etapa requerido" }, { status: 400 });
-  const supportedSpecies = ["gallina", "pollo", "codorniz", "pato", "conejo"] as const;
+  const supportedSpecies = ANIMAL_SPECIES;
   const requestedSpecies = typeof body.species === "string" ? body.species.trim().toLocaleLowerCase("es") : "";
   if (requestedSpecies && !supportedSpecies.includes(requestedSpecies as typeof supportedSpecies[number])) {
     return NextResponse.json({ error: "Especie del plan no válida" }, { status: 400 });
@@ -71,22 +84,11 @@ export const POST = withApiHandler(async (req: NextRequest) => {
     return NextResponse.json({ error: "Rango de semanas inválido" }, { status: 400 });
   }
 
-  if (!Array.isArray(body.programs) || body.programs.length === 0) {
-    return NextResponse.json({ error: "Agrega al menos un alimento al programa" }, { status: 400 });
-  }
-  const programs: { feedId: string; percentage: string; dailyAmountPerHen: string }[] = [];
-  for (const program of body.programs) {
-    const feedId = typeof program?.feedId === "string" ? program.feedId.trim() : "";
-    const percentage = Number(program?.percentage ?? 100);
-    const dailyAmount = Number(program?.dailyAmountPerHen);
-    if (!feedId || !Number.isFinite(percentage) || percentage < 0 || percentage > 100 || !Number.isFinite(dailyAmount) || dailyAmount <= 0) {
-      return NextResponse.json({ error: "Cada alimento requiere una dosis mayor a 0 y un porcentaje entre 0 y 100" }, { status: 400 });
-    }
-    if (programs.some((entry) => entry.feedId === feedId)) {
-      return NextResponse.json({ error: "No repitas un alimento en el mismo programa" }, { status: 400 });
-    }
-    programs.push({ feedId, percentage: percentage.toFixed(2), dailyAmountPerHen: dailyAmount.toFixed(2) });
-  }
+  const normalized = normalizeProgramEntries(body.programs);
+  if ("error" in normalized) return NextResponse.json({ error: normalized.error }, { status: 400 });
+  const programs = normalized.entries;
+  const missingFeeds = await findMissingFeeds(db, programs.map((program) => program.feedId));
+  if (missingFeeds.length > 0) return NextResponse.json({ error: "Alguno de los alimentos del programa no existe" }, { status: 400 });
 
   const createdStage = await db.transaction(async (tx) => {
     const [stage] = await tx.insert(catalogos).values({

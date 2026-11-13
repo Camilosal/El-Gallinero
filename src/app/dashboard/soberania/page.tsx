@@ -47,6 +47,7 @@ const speciesConfig: Record<string, { label: string; icon: string; badgeColor: s
   codorniz: { label: "Codorniz", icon: "egg", badgeColor: "purple" },
   pato: { label: "Pato", icon: "duck", badgeColor: "green" },
   conejo: { label: "Conejo", icon: "rabbit", badgeColor: "earth" },
+  cuy: { label: "Cuy", icon: "paw-print", badgeColor: "pink" },
 };
 
 const productTypeLabels: Record<string, string> = {
@@ -129,7 +130,8 @@ export default function SoberaniaPage() {
       suggestedPrice = newSpecies === "codorniz" ? "300" : "600";
     } else if (newProduct === "carne_canal") {
       suggestedUnit = "kg";
-      if (newSpecies === "conejo") suggestedPrice = "28000";
+      if (newSpecies === "cuy") suggestedPrice = "36000";
+      else if (newSpecies === "conejo") suggestedPrice = "28000";
       else if (newSpecies === "pato") suggestedPrice = "24000";
       else if (newSpecies === "codorniz") suggestedPrice = "32000";
       else suggestedPrice = "14000"; // pollo/gallina
@@ -202,7 +204,7 @@ export default function SoberaniaPage() {
       <PageHeader
         title="Soberanía Alimentaria y Autoconsumo"
         description="Gestión integral de la proteína producida para el hogar y cuantificación del ahorro económico en la canasta familiar."
-        help="Este módulo mide el impacto directo de la granja en la alimentación de la familia. Cada huevo o kilo de carne de pollo, pato, conejo o codorniz que se queda en casa se valoriza al precio que costaría comprarlo en el mercado, calculando el ahorro real generado."
+        help="Este módulo mide el impacto directo de la granja en la alimentación de la familia. Cada huevo o kilo de carne de pollo, pato, conejo, cuy o codorniz que se queda en casa se valoriza al precio que costaría comprarlo en el mercado, calculando el ahorro real generado."
         actions={
           <div className="flex flex-wrap gap-2">
             <Link
@@ -220,7 +222,7 @@ export default function SoberaniaPage() {
       />
 
       {/* Tarjetas de Métricas Principales */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-2.5 sm:gap-4">
         <StatCard
           icon="money"
           label="Ahorro en Canasta Familiar"
@@ -248,7 +250,7 @@ export default function SoberaniaPage() {
       </div>
 
       {/* Tarjetas de Aporte Multiespecie */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+      <div className="grid grid-cols-2 lg:grid-cols-3 gap-2.5 sm:gap-4">
         {/* Gallinas / Pollos */}
         <Card className="border-l-4 border-l-amber-500">
           <div className="flex items-center gap-3 mb-2">
@@ -356,6 +358,33 @@ export default function SoberaniaPage() {
             </div>
           </div>
         </Card>
+
+        {/* Cuyes */}
+        <Card className="border-l-4 border-l-pink-500">
+          <div className="flex items-center gap-3 mb-2">
+            <div className="w-9 h-9 rounded-lg bg-pink-100 flex items-center justify-center text-pink-700 shrink-0">
+              <AppIcon icon="paw-print" className="w-5 h-5" />
+            </div>
+            <div>
+              <h3 className="font-semibold text-slate-800">Cuyes / Curíes</h3>
+              <p className="text-xs text-slate-500">Proteína tradicional andina</p>
+            </div>
+          </div>
+          <div className="mt-3 pt-3 border-t border-slate-100 space-y-1 text-sm">
+            <div className="flex justify-between">
+              <span className="text-slate-500">Carne canal:</span>
+              <span className="font-semibold">{(data?.bySpecies.cuy?.meatKg || 0).toFixed(1)} kg</span>
+            </div>
+            <div className="flex justify-between">
+              <span className="text-slate-500">Subproducto:</span>
+              <span className="font-semibold">Cuyaza para compostaje</span>
+            </div>
+            <div className="flex justify-between text-green-700 font-medium pt-1">
+              <span>Ahorro generado:</span>
+              <span>$ {(data?.bySpecies.cuy?.savings || 0).toLocaleString("es-CO")}</span>
+            </div>
+          </div>
+        </Card>
       </div>
 
       {/* Gráfico de Tendencia Mensual */}
@@ -404,6 +433,7 @@ export default function SoberaniaPage() {
               <option value="codorniz">Codornices</option>
               <option value="pato">Patos</option>
               <option value="conejo">Conejos</option>
+              <option value="cuy">Cuyes</option>
             </select>
           </div>
         </div>
@@ -496,6 +526,7 @@ export default function SoberaniaPage() {
                 onChange={(e) => handleSpeciesOrProductChange(e.target.value, form.productType)}
               >
                 <option value="conejo">Conejo</option>
+                <option value="cuy">Cuy</option>
                 <option value="codorniz">Codorniz</option>
                 <option value="pato">Pato</option>
                 <option value="pollo">Pollo</option>

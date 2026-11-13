@@ -20,8 +20,8 @@ import {
  * Inventario consolidado de animales del gallinero.
  *
  * La unidad de inventario es "animal", no "gallina": incluye gallinas, gallos,
- * pollos, codornices, patos y conejos. El término "aves" se usa solo para las
- * especies avícolas; el conejo se reporta como animal no avícola.
+ * pollos, codornices, patos, conejos y cuyes. El término "aves" se usa solo para las
+ * especies avícolas; conejos y cuyes se reportan como animales no avícolas.
  */
 
 export type AnimalSource = "hen" | "rooster" | "batch";

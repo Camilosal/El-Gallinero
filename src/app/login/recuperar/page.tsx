@@ -3,6 +3,7 @@
 import { useState } from "react";
 import Link from "next/link";
 import { HeroFrame } from "@/components/HeroFrame";
+import { DeveloperCredit } from "@/components/DeveloperCredit";
 
 export default function RecoverAccessPage() {
   const [username, setUsername] = useState("");
@@ -70,6 +71,7 @@ export default function RecoverAccessPage() {
             </>
           )}
         </section>
+        <DeveloperCredit variant="inline" className="justify-center" />
       </div>
     </main>
   );

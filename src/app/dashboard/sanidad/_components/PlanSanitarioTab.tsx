@@ -1,7 +1,8 @@
 "use client";
 
 import { useEffect, useState, useCallback, useMemo } from "react";
-import { AlertCircle, AlertTriangle, BarChart3, Bird, Calendar, CheckCircle2, ClipboardList, Clock, History, Lightbulb, Stethoscope, Wrench, Zap } from "lucide-react";
+import Link from "next/link";
+import { AlertCircle, AlertTriangle, BarChart3, Bird, Calendar, CheckCircle2, ClipboardList, Clock, History, Lightbulb, ShieldCheck, Stethoscope, Wrench, Zap } from "lucide-react";
 import { PageHeader, Button, Card, Table, Badge, Modal, Input, Select, Textarea, EmptyState, StatCard } from "@/components/ui";
 import { apiFetch } from "@/lib/fetch";
 import TableSearch from "@/components/TableSearch";
@@ -341,10 +342,16 @@ export default function PlanSanitarioTab() {
     <div>
       <PageHeader
         title="Plan Sanitario"
-        description="Plan sanitario proactivo: protocolos por etapa, acciones programadas y recursos necesarios"
-        help="El Plan Sanitario es tu sistema proactivo de salud para la parvada.\n\n• Plan de Acción: muestra las acciones pendientes organizadas por urgencia.\n• Protocolos por Etapa: define qué acciones sanitarias corresponden a cada etapa de crecimiento.\n• Ejecutar: registra la aplicación de cada acción, confirmando los recursos utilizados.\n• Historial: registro completo de todas las acciones sanitarias ejecutadas.\n• Recursos: estado del inventario de insumos sanitarios (medicamentos, vacunas, antiparasitarios).\n\nEl sistema genera automáticamente eventos en el calendario según los protocolos definidos."
+        description="Plan sanitario proactivo: protocolos por etapa, bioseguridad ICA, control y alertas de retiro"
+        help="El Plan Sanitario es tu sistema proactivo de salud multi-especie.\n\n• Plan de Acción: muestra las acciones pendientes organizadas por urgencia.\n• Protocolos por Etapa: define qué acciones sanitarias corresponden a cada etapa.\n• Ejecutar: registra la aplicación de cada acción confirmando recursos y días de retiro.\n• Historial y Recursos: trazabilidad e inventario de medicamentos.\n• Módulos hermanos: accede directo a Control sanitario, Calendario, Alertas y Bioseguridad/Bienestar (POE GAB ICA / Res. 8452)."
         actions={
-          <div className="flex gap-2">
+          <div className="flex flex-wrap gap-2">
+            <Link
+              href="/dashboard/sanidad/bioseguridad"
+              className="inline-flex items-center gap-1.5 rounded-lg border border-emerald-300 bg-emerald-50 px-3 py-2 text-sm font-medium text-emerald-800 hover:bg-emerald-100"
+            >
+              <ShieldCheck className="w-4 h-4" aria-hidden="true" /> Bioseguridad e ICA
+            </Link>
             <Button onClick={() => { setSeedStage(stages[0]?.value || ""); setSeedModalOpen(true); }}>
               <span className="inline-flex items-center gap-1.5">
                 <ClipboardList className="w-4 h-4" aria-hidden="true" /> Generar desde Protocolo
@@ -353,6 +360,25 @@ export default function PlanSanitarioTab() {
           </div>
         }
       />
+
+      <div className="mb-4 flex flex-wrap items-center gap-2 rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-xs font-medium text-slate-700">
+        <span className="font-bold uppercase tracking-wide text-slate-500 mr-1">Sanidad:</span>
+        <Link href="/dashboard/sanidad/control" className="rounded-lg border border-slate-200 bg-white px-2.5 py-1 hover:border-blue-300 hover:text-blue-700">
+          Control sanitario
+        </Link>
+        <Link href="/dashboard/sanidad/calendario" className="rounded-lg border border-slate-200 bg-white px-2.5 py-1 hover:border-blue-300 hover:text-blue-700">
+          Calendario
+        </Link>
+        <Link href="/dashboard/sanidad/alertas" className="rounded-lg border border-slate-200 bg-white px-2.5 py-1 hover:border-blue-300 hover:text-blue-700">
+          Alertas y retiros
+        </Link>
+        <Link href="/dashboard/sanidad/bioseguridad" className="rounded-lg border border-emerald-200 bg-emerald-50 px-2.5 py-1 text-emerald-800 hover:border-emerald-300">
+          Bioseguridad y Bienestar
+        </Link>
+        <Link href="/dashboard/produccion/mortalidad" className="rounded-lg border border-slate-200 bg-white px-2.5 py-1 hover:border-red-300 hover:text-red-700">
+          Mortalidad
+        </Link>
+      </div>
 
       {/* Stats */}
       <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3 mb-6">

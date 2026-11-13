@@ -56,6 +56,7 @@ const birdTypeLabels: Record<string, string> = {
   codorniz: "Codorniz",
   pato: "Pato",
   conejo: "Conejo de engorde",
+  cuy: "Cuy",
 };
 
 const destinationLabels: Record<string, string> = {
@@ -432,20 +433,20 @@ export default function CarneTab() {
         actions={<Button onClick={openNew}>+ Registrar Faena</Button>}
       />
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-2.5 sm:gap-4 mb-6">
         <StatCard icon="meat" label="Animales Faenados" value={totalBirds} color="green" />
         <StatCard icon="scale" label="Carne Canal Total" value={`${totalWeight.toFixed(1)} kg`} color="yellow" />
         <StatCard icon="home" label="Ahorro Familiar Generado" value={`$${Math.round(totalSavings).toLocaleString("es-CO")}`} color="purple" />
-        <div className="bg-white rounded-lg shadow-sm p-4 border border-slate-200 flex flex-col justify-center">
-          <p className="text-xs text-slate-500 font-medium mb-1 flex items-center gap-1.5">
-            <Beef className="w-3.5 h-3.5 text-slate-500" aria-hidden="true" />
-            <span>Carne para Venta (Excedentes)</span>
+        <div className="bg-white rounded-lg shadow-sm p-3 sm:p-4 min-w-0 border border-slate-200 flex flex-col justify-center">
+          <p className="text-[11px] sm:text-xs text-slate-500 font-medium mb-1 flex items-center gap-1.5">
+            <Beef className="w-3.5 h-3.5 text-slate-500 shrink-0" aria-hidden="true" />
+            <span className="truncate">Carne para Venta</span>
           </p>
-          <div className="text-xl font-bold text-blue-700">{totalCarneExcedente.toFixed(1)} kg</div>
-          <div className="flex gap-2 mt-2">
-            <Link href="/dashboard/inventarios/carne" className="text-xs text-blue-600 hover:underline">Ver inventario</Link>
+          <div className="text-base sm:text-xl font-bold text-blue-700 truncate">{totalCarneExcedente.toFixed(1)} kg</div>
+          <div className="flex flex-wrap gap-1.5 sm:gap-2 mt-1.5 sm:mt-2">
+            <Link href="/dashboard/inventarios/carne" className="text-[11px] sm:text-xs text-blue-600 hover:underline">Inventario</Link>
             <span className="text-slate-300">|</span>
-            <Link href="/dashboard/finanzas/ventas?tab=carne" className="text-xs text-blue-600 hover:underline">Registrar venta</Link>
+            <Link href="/dashboard/finanzas/ventas?tab=carne" className="text-[11px] sm:text-xs text-blue-600 hover:underline">Vender</Link>
           </div>
         </div>
       </div>
@@ -478,6 +479,7 @@ export default function CarneTab() {
               { id: "codorniz", label: "Codornices", icon: "egg" },
               { id: "pato", label: "Patos", icon: "duck" },
               { id: "conejo", label: "Conejos", icon: "rabbit" },
+              { id: "cuy", label: "Cuyes", icon: "paw-print" },
             ].map((sp) => {
               const isSelected = selectedSpeciesFilter === sp.id;
               const count = sp.id === "all"
@@ -625,6 +627,7 @@ export default function CarneTab() {
               <option value="codorniz">Codorniz</option>
               <option value="pato">Pato</option>
               <option value="conejo">Conejo de engorde</option>
+              <option value="cuy">Cuy</option>
             </Select>
           </div>
 

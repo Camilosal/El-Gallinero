@@ -167,7 +167,7 @@ export default function GallinasPage({ embedded = false }: { embedded?: boolean 
   const henAge = useCallback((h: Hen) => h.ageWeeks ?? getHenAgeWeeks(h.birthDate), []);
 
   // Solo mostramos etapas que realmente aplican a las gallinas registradas:
-  // el catálogo también contiene etapas de pollos, codornices, patos y conejos.
+  // el catálogo también contiene etapas de pollos, codornices, patos, conejos y cuyes.
   const stageNames = useMemo(() => {
     const present = new Set(hens.map((h) => henStage(h)));
     return [...new Set(stages.map((s) => s.value))].filter((name) => present.has(name));

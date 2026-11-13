@@ -8,6 +8,8 @@ import { matchesTextQuery } from "@/lib/text";
 import { CREATE_ACTION_GROUPS } from "@/lib/create-actions";
 import { openQuickCapture, type QuickCaptureMode } from "@/lib/quick-capture-events";
 import { OPEN_ASSISTANT_VOICE_EVENT } from "@/lib/offline/voiceNotes";
+import { isHrefEnabledByFlags } from "@/lib/onboarding";
+import { useOnboardingState } from "@/lib/useOnboardingState";
 
 interface ExpressAction {
   id: string;
@@ -24,8 +26,8 @@ const EXPRESS_ACTIONS: ExpressAction[] = [
   {
     id: "express-huevos",
     label: "Recoger huevos",
-    description: "Por cubetas o sueltos · sin cambiar de vista",
-    keywords: ["huevo", "postura", "cubeta", "recoger", "hoy"],
+    description: "Por cubetas, calibres NTC 1240 o sueltos",
+    keywords: ["huevo", "postura", "cubeta", "recoger", "hoy", "ntc 1240", "codorniz", "pato"],
     mode: "huevos",
     icon: Egg,
     badgeClass: "bg-yellow-100 text-yellow-700",
@@ -42,8 +44,8 @@ const EXPRESS_ACTIONS: ExpressAction[] = [
   {
     id: "express-mortalidad",
     label: "Reportar baja",
-    description: "Registro de mortalidad en 3 toques",
-    keywords: ["mortalidad", "baja", "muerte", "murio", "ave"],
+    description: "Registro de mortalidad multiespecie en 3 toques",
+    keywords: ["mortalidad", "baja", "muerte", "murio", "ave", "pollo", "conejo", "cuy"],
     mode: "mortalidad",
     icon: HeartPulse,
     badgeClass: "bg-red-100 text-red-700",
@@ -51,17 +53,17 @@ const EXPRESS_ACTIONS: ExpressAction[] = [
   {
     id: "express-gasto",
     label: "Anotar gasto",
-    description: "Compra o pago rápido desde la finca",
-    keywords: ["gasto", "egreso", "pago", "compra", "factura"],
+    description: "Compra o pago rápido por especie o lugar",
+    keywords: ["gasto", "egreso", "pago", "compra", "factura", "especie", "lugar"],
     mode: "gasto",
     icon: Receipt,
     badgeClass: "bg-slate-200 text-slate-700",
   },
   {
     id: "express-venta",
-    label: "Vender huevos",
-    description: "Venta rápida al contado desde inventario",
-    keywords: ["venta", "vender", "cliente", "huevos", "cubeta"],
+    label: "Registrar venta",
+    description: "Huevos, carne, animales en pie, gallinaza u otros",
+    keywords: ["venta", "vender", "cliente", "huevos", "carne", "animales", "pollo", "cuy", "conejo", "gallinaza", "abono", "producto"],
     mode: "venta",
     icon: ShoppingBag,
     badgeClass: "bg-green-100 text-green-700",
@@ -83,6 +85,7 @@ export default function QuickCreateMenu() {
   const triggerRef = useRef<HTMLButtonElement>(null);
   const dialogRef = useRef<HTMLElement>(null);
   const wasOpenRef = useRef(false);
+  const { flags } = useOnboardingState();
 
   useEffect(() => {
     if (!open) {
@@ -137,11 +140,14 @@ export default function QuickCreateMenu() {
     const trimmedQuery = query.trim();
     return CREATE_ACTION_GROUPS.map((group) => ({
       ...group,
-      actions: group.actions.filter((action) =>
-        matchesTextQuery(trimmedQuery, [group.label, action.label, action.description, ...(action.keywords ?? [])]),
-      ),
+      actions: group.actions.filter((action) => {
+        if (!trimmedQuery && flags && !isHrefEnabledByFlags(action.href, flags)) {
+          return false;
+        }
+        return matchesTextQuery(trimmedQuery, [group.label, action.label, action.description, ...(action.keywords ?? [])]);
+      }),
     })).filter((group) => group.actions.length > 0);
-  }, [query]);
+  }, [query, flags]);
 
   const close = () => {
     setOpen(false);
@@ -211,7 +217,7 @@ export default function QuickCreateMenu() {
                   autoFocus
                   value={query}
                   onChange={(event) => setQuery(event.target.value)}
-                  placeholder="Buscar: gallina, venta, vacuna, alimento, voz…"
+                  placeholder="Buscar: huevo, cuy, reproducción, sensor, prorrateo, vacuna, rutina…"
                   className="w-full rounded-xl border border-slate-300 bg-slate-50 py-3 pl-10 pr-4 text-sm text-slate-800 outline-none transition focus:border-green-500 focus:bg-white focus:ring-2 focus:ring-green-100"
                 />
               </div>
@@ -227,7 +233,7 @@ export default function QuickCreateMenu() {
                         Registro exprés (en esta pantalla · offline)
                       </h3>
                     </div>
-                    <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-3">
+                    <div className="grid grid-cols-2 gap-2 lg:grid-cols-3">
                       {visibleExpress.map((action) => {
                         const Icon = action.icon;
                         return (
@@ -235,14 +241,14 @@ export default function QuickCreateMenu() {
                             key={action.id}
                             type="button"
                             onClick={() => triggerExpress(action)}
-                            className="group flex items-center gap-3 rounded-xl border border-green-200 bg-green-50/40 p-3 text-left transition hover:border-green-400 hover:bg-green-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-green-500"
+                            className="group flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-3 min-w-0 rounded-xl border border-green-200 bg-green-50/40 p-2.5 sm:p-3 text-left transition hover:border-green-400 hover:bg-green-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-green-500"
                           >
-                            <span aria-hidden="true" className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl ${action.badgeClass}`}>
-                              <Icon className="h-5 w-5" />
+                            <span aria-hidden="true" className={`flex h-9 w-9 sm:h-10 sm:w-10 shrink-0 items-center justify-center rounded-xl ${action.badgeClass}`}>
+                              <Icon className="h-4 w-4 sm:h-5 sm:w-5" />
                             </span>
                             <span className="min-w-0 flex-1">
-                              <span className="block text-sm font-semibold text-slate-800">{action.label}</span>
-                              <span className="mt-0.5 block text-xs leading-snug text-slate-500">{action.description}</span>
+                              <span className="block text-xs sm:text-sm font-semibold text-slate-800 line-clamp-1">{action.label}</span>
+                              <span className="mt-0.5 block text-[11px] sm:text-xs leading-snug text-slate-500 line-clamp-2">{action.description}</span>
                             </span>
                           </button>
                         );
@@ -255,22 +261,22 @@ export default function QuickCreateMenu() {
                   visibleGroups.map((group) => (
                     <section key={group.label} aria-label={group.label}>
                       <h3 className="mb-3 text-xs font-bold uppercase tracking-[0.12em] text-slate-500">{group.label}</h3>
-                      <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+                      <div className="grid grid-cols-2 gap-2">
                         {group.actions.map((action) => (
                           <Link
                             key={`${action.label}-${action.href}`}
                             href={action.href}
                             onClick={close}
-                            className="group flex min-h-[76px] items-center gap-3 rounded-xl border border-slate-200 p-3 transition hover:border-green-300 hover:bg-green-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-green-500"
+                            className="group flex min-h-[72px] items-start sm:items-center gap-2 sm:gap-3 min-w-0 rounded-xl border border-slate-200 p-2.5 sm:p-3 transition hover:border-green-300 hover:bg-green-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-green-500"
                           >
-                            <span aria-hidden="true" className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-slate-100 text-slate-700 transition group-hover:bg-white group-hover:text-green-700">
-                              <AppIcon icon={action.icon} className="w-5 h-5" />
+                            <span aria-hidden="true" className="flex h-9 w-9 sm:h-11 sm:w-11 shrink-0 items-center justify-center rounded-xl bg-slate-100 text-slate-700 transition group-hover:bg-white group-hover:text-green-700">
+                              <AppIcon icon={action.icon} className="w-4 h-4 sm:w-5 sm:h-5" />
                             </span>
                             <span className="min-w-0 flex-1">
-                              <span className="block text-sm font-semibold text-slate-800">{action.label}</span>
-                              <span className="mt-0.5 block text-xs leading-relaxed text-slate-500">{action.description}</span>
+                              <span className="block text-xs sm:text-sm font-semibold text-slate-800 line-clamp-2">{action.label}</span>
+                              <span className="mt-0.5 hidden sm:block text-xs leading-relaxed text-slate-500">{action.description}</span>
                             </span>
-                            <ArrowRight aria-hidden="true" className="w-4 h-4 text-slate-300 transition group-hover:translate-x-0.5 group-hover:text-green-700" />
+                            <ArrowRight aria-hidden="true" className="hidden sm:block w-4 h-4 text-slate-300 transition group-hover:translate-x-0.5 group-hover:text-green-700 shrink-0" />
                           </Link>
                         ))}
                       </div>

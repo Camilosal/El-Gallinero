@@ -1,7 +1,20 @@
 "use client";
 
-import { useEffect, useState, useCallback, useMemo } from "react";
+import { Suspense, useEffect, useState, useCallback, useMemo } from "react";
+import Link from "next/link";
+import { useSearchParams } from "next/navigation";
+import { useActionQuery } from "@/lib/useActionQuery";
+import { MapPin, MessageCircle, Pencil, Phone } from "lucide-react";
 import { PageHeader, Button, Card, Table, Badge, Modal, Input, Select, EmptyState, StatCard } from "@/components/ui";
+import ContactFormModal from "@/components/contacts/ContactFormModal";
+import AttachmentPanel from "@/components/attachments/AttachmentPanel";
+import {
+  bindDraftAttachments,
+  createDraftEntityId,
+  type OcrExtractedPayload,
+} from "@/lib/attachments-shared";
+import { buildWhatsAppUrl, formatContactLocation, type ContactRecord, type ContactRole } from "@/lib/contacts-shared";
+import { findContactByName, useContacts } from "@/lib/useContacts";
 import { apiFetch } from "@/lib/fetch";
 import TableSearch from "@/components/TableSearch";
 import { matchesTextQuery } from "@/lib/text";
@@ -53,14 +66,29 @@ interface Payment {
 const fmt = (n: number) => `$${Math.round(n).toLocaleString()}`;
 
 export default function CuentasPage() {
+  return (
+    <Suspense fallback={<div className="p-8 text-center text-slate-400">Cargando...</div>}>
+      <CuentasInner />
+    </Suspense>
+  );
+}
+
+function CuentasInner() {
+  const searchParams = useSearchParams();
   const [tab, setTab] = useState<"cobrar" | "pagar">("cobrar");
   const [receivables, setReceivables] = useState<ReceivableAccount[]>([]);
   const [payables, setPayables] = useState<PayableAccount[]>([]);
   const [payments, setPayments] = useState<Payment[]>([]);
   const [loading, setLoading] = useState(true);
   const [accountSearch, setAccountSearch] = useState("");
+  const { allContacts, reload: reloadContacts } = useContacts("all", { includeInactive: true });
+  const [contactModalOpen, setContactModalOpen] = useState(false);
+  const [editingContact, setEditingContact] = useState<ContactRecord | null>(null);
+  const [prefillName, setPrefillName] = useState("");
+  const [prefillRole, setPrefillRole] = useState<ContactRole>("cliente");
   const [paymentSearch, setPaymentSearch] = useState("");
   const [paymentModalOpen, setPaymentModalOpen] = useState(false);
+  const [draftPaymentId, setDraftPaymentId] = useState(() => createDraftEntityId("pay"));
   const [selectedAccount, setSelectedAccount] = useState<{ id: string; type: "cobrar" | "pagar"; pending: number } | null>(null);
   const [payForm, setPayForm] = useState({ date: new Date().toISOString().split("T")[0], amount: "", method: "efectivo", reference: "", notes: "" });
   const [error, setError] = useState("");
@@ -86,9 +114,37 @@ export default function CuentasPage() {
 
   const openPayment = (accountId: string, type: "cobrar" | "pagar", pending: number) => {
     setSelectedAccount({ id: accountId, type, pending });
+    setDraftPaymentId(createDraftEntityId("pay"));
     setPayForm({ date: new Date().toISOString().split("T")[0], amount: String(pending), method: "efectivo", reference: "", notes: "" });
     setError("");
     setPaymentModalOpen(true);
+  };
+
+  const openQuickPaymentModal = useCallback(() => {
+    setSelectedAccount(null);
+    setDraftPaymentId(createDraftEntityId("pay"));
+    setPayForm({ date: new Date().toISOString().split("T")[0], amount: "", method: "efectivo", reference: "", notes: "" });
+    setError("");
+    setPaymentModalOpen(true);
+  }, []);
+
+  useActionQuery(searchParams.get("nuevo"), {
+    "1": openQuickPaymentModal,
+    pago: openQuickPaymentModal,
+  });
+
+  const handleOcrComprobante = (extracted: OcrExtractedPayload) => {
+    if (extracted.mode !== "comprobante_pago") return;
+    setPayForm((prev) => ({
+      ...prev,
+      date: extracted.date || prev.date,
+      amount: extracted.amount !== undefined ? String(extracted.amount) : prev.amount,
+      method: extracted.method || prev.method,
+      reference: extracted.reference || prev.reference,
+      notes: [prev.notes, extracted.counterparty ? `Beneficiario: ${extracted.counterparty}` : ""]
+        .filter(Boolean)
+        .join(" · "),
+    }));
   };
 
   const savePayment = async () => {
@@ -118,9 +174,12 @@ export default function CuentasPage() {
       body: JSON.stringify(body),
     });
 
+    const saved = await res.json().catch(() => ({}));
     if (!res.ok) {
-      const d = await res.json().catch(() => ({}));
-      return setError(d.error || "Error al registrar pago");
+      return setError(saved.error || "Error al registrar pago");
+    }
+    if (saved?.id) {
+      await bindDraftAttachments(draftPaymentId, saved.id, "payment");
     }
 
     setPaymentModalOpen(false);
@@ -181,9 +240,30 @@ export default function CuentasPage() {
       <PageHeader
         title="Cuentas"
         description="Gestión de cuentas por cobrar y por pagar"
+        actions={
+          <div className="flex flex-wrap gap-2">
+            <Button
+              variant="secondary"
+              onClick={() => {
+                setEditingContact(null);
+                setPrefillName("");
+                setPrefillRole(tab === "cobrar" ? "cliente" : "proveedor");
+                setContactModalOpen(true);
+              }}
+            >
+              + Nuevo contacto
+            </Button>
+            <Link
+              href="/dashboard/contactos"
+              className="inline-flex items-center px-3 py-2 rounded-lg text-sm font-medium bg-white border border-slate-300 text-slate-700 hover:bg-slate-50"
+            >
+              Directorio completo
+            </Link>
+          </div>
+        }
       />
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-2.5 sm:gap-4">
         <StatCard icon="incoming" label="Por cobrar" value={fmt(totalPendingCobrar)} color="green" />
         <StatCard icon="outgoing" label="Por pagar" value={fmt(totalPendingPagar)} color="red" />
         <StatCard icon="warning" label="Vencidas (cobrar)" value={String(overdueCobrar)} color="yellow" />
@@ -233,9 +313,41 @@ export default function CuentasPage() {
             />
           ) : (
           <Table headers={[tab === "cobrar" ? "Comprador" : "Proveedor", "Total", "Pagado", "Pendiente", "Vencimiento", "Días", "Estado", "Acciones"]}>
-            {filteredAccounts.map((a) => (
+            {filteredAccounts.map((a) => {
+              const counterparty = "buyer" in a ? a.buyer : a.supplier;
+              const contact = findContactByName(allContacts, counterparty);
+              const waUrl = buildWhatsAppUrl(contact?.whatsapp || contact?.phone);
+              const location = contact ? formatContactLocation(contact) : "";
+              const phone = contact?.phone || contact?.whatsapp;
+              return (
               <tr key={a.id} className={`hover:bg-slate-50 ${a.isOverdue ? "bg-red-50" : ""}`}>
-                <td className="px-4 py-3 text-sm font-medium">{"buyer" in a ? a.buyer : a.supplier}</td>
+                <td className="px-4 py-3 text-sm">
+                  <div className="font-medium text-slate-900">{counterparty}</div>
+                  {contact && (phone || waUrl || location || contact.creditDays > 0) && (
+                    <div className="mt-1 flex flex-wrap items-center gap-1.5 text-[11px] text-slate-500">
+                      {phone && (
+                        <a href={`tel:${phone.replace(/\s+/g, "")}`} className="inline-flex items-center gap-0.5 hover:text-slate-800">
+                          <Phone className="w-3 h-3" /> {phone}
+                        </a>
+                      )}
+                      {waUrl && (
+                        <a href={waUrl} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-0.5 text-emerald-700 hover:underline">
+                          <MessageCircle className="w-3 h-3" /> WhatsApp
+                        </a>
+                      )}
+                      {location && (
+                        <span className="inline-flex items-center gap-0.5">
+                          <MapPin className="w-3 h-3" /> {location}
+                        </span>
+                      )}
+                      {contact.creditDays > 0 && (
+                        <span className="rounded bg-blue-50 px-1.5 py-0.5 text-blue-700 font-medium">
+                          {contact.creditDays}d plazo
+                        </span>
+                      )}
+                    </div>
+                  )}
+                </td>
                 <td className="px-4 py-3 text-sm">{fmt(Number(a.totalAmount))}</td>
                 <td className="px-4 py-3 text-sm text-green-600">{fmt(Number(a.paidAmount))}</td>
                 <td className="px-4 py-3 text-sm font-bold text-red-600">{fmt(Number(a.pendingAmount))}</td>
@@ -249,17 +361,33 @@ export default function CuentasPage() {
                 </td>
                 <td className="px-4 py-3">{statusBadge(a.status)}</td>
                 <td className="px-4 py-3">
-                  {a.status !== "pagado" && (
+                  <div className="flex flex-col items-start gap-1">
+                    {a.status !== "pagado" && (
+                      <button
+                        onClick={() => openPayment(a.id, tab, Number(a.pendingAmount))}
+                        className="text-green-600 hover:underline text-xs font-medium"
+                      >
+                        Registrar pago
+                      </button>
+                    )}
                     <button
-                      onClick={() => openPayment(a.id, tab, Number(a.pendingAmount))}
-                      className="text-green-600 hover:underline text-xs"
+                      type="button"
+                      onClick={() => {
+                        setEditingContact(contact);
+                        setPrefillName(contact ? "" : counterparty);
+                        setPrefillRole(tab === "cobrar" ? "cliente" : "proveedor");
+                        setContactModalOpen(true);
+                      }}
+                      className="inline-flex items-center gap-1 text-slate-500 hover:text-blue-700 text-xs"
                     >
-                      Registrar pago
+                      <Pencil className="w-3 h-3" />
+                      <span>{contact ? "Editar ficha" : "Completar ficha"}</span>
                     </button>
-                  )}
+                  </div>
                 </td>
               </tr>
-            ))}
+              );
+            })}
           </Table>
           )}
         </Card>
@@ -314,9 +442,40 @@ export default function CuentasPage() {
       <Modal open={paymentModalOpen} onClose={() => setPaymentModalOpen(false)} title="Registrar Pago">
         <div className="space-y-4">
           {error && <p className="text-sm text-red-600 bg-red-50 p-3 rounded-lg">{error}</p>}
-          <div className="p-3 bg-slate-50 rounded-lg">
-            <p className="text-sm text-slate-500">Pendiente: <strong className="text-lg text-red-600">{selectedAccount ? fmt(selectedAccount.pending) : ""}</strong></p>
-          </div>
+          {!selectedAccount ? (
+            <Select
+              label="Cuenta pendiente *"
+              value=""
+              onChange={(e) => {
+                const [accType, accId] = e.target.value.split("|");
+                if (!accId) return;
+                const list = accType === "cobrar" ? receivables : payables;
+                const found = list.find((a) => a.id === accId);
+                if (found) {
+                  const pend = Number(found.pendingAmount);
+                  setSelectedAccount({ id: found.id, type: accType === "cobrar" ? "cobrar" : "pagar", pending: pend });
+                  setPayForm((prev) => ({ ...prev, amount: String(pend) }));
+                }
+              }}
+            >
+              <option value="">Selecciona una cuenta por cobrar o pagar…</option>
+              {receivables.filter((a) => a.status !== "pagado").map((a) => (
+                <option key={`c-${a.id}`} value={`cobrar|${a.id}`}>
+                  Cobro · {a.buyer} · Pendiente {fmt(Number(a.pendingAmount))}
+                </option>
+              ))}
+              {payables.filter((a) => a.status !== "pagado").map((a) => (
+                <option key={`p-${a.id}`} value={`pagar|${a.id}`}>
+                  Pago · {a.supplier} · Pendiente {fmt(Number(a.pendingAmount))}
+                </option>
+              ))}
+            </Select>
+          ) : (
+            <div className="p-3 bg-slate-50 rounded-lg flex items-center justify-between gap-2">
+              <p className="text-sm text-slate-500">Pendiente ({selectedAccount.type === "cobrar" ? "Cobro" : "Pago"}): <strong className="text-lg text-red-600">{fmt(selectedAccount.pending)}</strong></p>
+              <button type="button" onClick={() => setSelectedAccount(null)} className="text-xs text-blue-600 hover:underline">Cambiar cuenta</button>
+            </div>
+          )}
           <Input label="Fecha" type="date" value={payForm.date} onChange={(e) => setPayForm({ ...payForm, date: e.target.value })} />
           <Input label="Monto ($)" type="number" step="0.01" min="0" value={payForm.amount} onChange={(e) => setPayForm({ ...payForm, amount: e.target.value })} required />
           <Select label="Método" value={payForm.method} onChange={(e) => setPayForm({ ...payForm, method: e.target.value })}>
@@ -328,12 +487,38 @@ export default function CuentasPage() {
           </Select>
           <Input label="Referencia" value={payForm.reference} onChange={(e) => setPayForm({ ...payForm, reference: e.target.value })} placeholder="Nº de comprobante" />
           <Input label="Notas" value={payForm.notes} onChange={(e) => setPayForm({ ...payForm, notes: e.target.value })} />
+          <AttachmentPanel
+            entityType="payment"
+            entityId={draftPaymentId}
+            defaultCategory="comprobante_pago"
+            ocrMode="comprobante_pago"
+            onOcrExtracted={handleOcrComprobante}
+            title="Comprobante Nequi, Daviplata o Transferencia"
+            helpText="Adjunta captura o recibo para extraer automáticamente monto, método y referencia."
+            compact
+          />
           <div className="flex gap-3">
             <Button onClick={savePayment}>Registrar</Button>
             <Button variant="secondary" onClick={() => setPaymentModalOpen(false)}>Cancelar</Button>
           </div>
         </div>
       </Modal>
+
+      <ContactFormModal
+        open={contactModalOpen}
+        onClose={() => {
+          setContactModalOpen(false);
+          setEditingContact(null);
+          setPrefillName("");
+        }}
+        initialContact={editingContact}
+        initialName={prefillName}
+        defaultRole={prefillRole}
+        onSaved={() => {
+          reloadContacts();
+          load();
+        }}
+      />
     </div>
   );
 }

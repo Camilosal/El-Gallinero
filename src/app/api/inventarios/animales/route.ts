@@ -7,7 +7,7 @@ export const dynamic = "force-dynamic";
 /**
  * GET /api/inventarios/animales
  * Inventario consolidado de animales: gallinas, gallos, pollos, codornices,
- * patos y conejos. La unidad es "animal"; el subtotal "aves" excluye conejos.
+ * patos, conejos y cuyes. La unidad es "animal"; el subtotal "aves" excluye conejos y cuyes.
  */
 export const GET = withApiHandler(async () => {
   const inventory = await computeAnimalInventory();

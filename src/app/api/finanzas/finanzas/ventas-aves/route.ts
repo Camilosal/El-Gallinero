@@ -1,8 +1,10 @@
+import { dimensionsFromAnimals } from "@/lib/analytics-dimensions";
 import { isDateOnly } from "@/lib/date-validation";
 import { db } from "@/db";
-import { chickenSales, transactions, hens, roosters, broilerBatches, slaughter, mortalityRecords, accountsReceivable, payments } from "@/db/schema";
+import { chickenSales, transactions, hens, roosters, broilerBatches, slaughter, mortalityRecords } from "@/db/schema";
 import { eq, desc, and, sql, inArray } from "drizzle-orm";
 import { NextRequest, NextResponse } from "next/server";
+import { requirePermission } from "@/lib/rbac-server";
 import { isAvailableForExit } from "@/lib/lifecycle";
 import {
   captureAnimalExitSnapshots,
@@ -10,7 +12,12 @@ import {
   applyRoosterExit, restoreHenExit, restoreRoosterExit, applyBatchExit, restoreBatchExit,
 } from "@/lib/birdExit";
 import { withApiHandler, safeParseJson } from "@/lib/api-handler";
-import { deleteTransactionsAndUnpaidAccounts } from "@/lib/financial-records";
+import {
+  deleteTransactionsAndUnpaidAccounts,
+  getCreditMetaBySourceIds,
+  syncCreditReceivable,
+} from "@/lib/financial-records";
+import { assertDateNotClosed, assertNoActiveWithdrawal } from "@/lib/sanitary-locks";
 
 export const dynamic = "force-dynamic";
 
@@ -30,6 +37,20 @@ function normalizeSaleReferences(body: Record<string, any>): string | null {
   return null;
 }
 
+const BATCH_LIVE_SALE_TYPES = new Set([
+  "pollo",
+  "pollito",
+  "codorniz",
+  "pato",
+  "conejo",
+  "cuy",
+  "lote_pollos",
+  "lote_codornices",
+  "lote_patos",
+  "lote_conejos",
+  "lote_cuyes",
+]);
+
 function validateSaleValues(body: Record<string, any>, qty: number, priceMode: string, weightKg: number | null): string | null {
   if (!Number.isSafeInteger(qty) || qty < 1) return "Cantidad inválida";
   if ((body.henId || body.roosterId) && qty !== 1) {
@@ -44,7 +65,7 @@ function validateSaleValues(body: Record<string, any>, qty: number, priceMode: s
   }
   if (body.henId && body.birdType !== "gallina_descarte") return "El tipo de ave debe ser gallina descarte";
   if (body.roosterId && body.birdType !== "gallo") return "El tipo de ave debe ser gallo";
-  if (body.batchId && body.birdType !== "pollo" && body.birdType !== "pollito") return "El tipo de ave debe ser pollo o pollito";
+  if (body.batchId && !BATCH_LIVE_SALE_TYPES.has(body.birdType)) return "El tipo de animal del lote debe ser pollo, pollito, codorniz, pato, conejo o cuy";
   return null;
 }
 
@@ -52,21 +73,11 @@ function validateSaleValues(body: Record<string, any>, qty: number, priceMode: s
 export const GET = withApiHandler(async () => {
   const data = await db.select().from(chickenSales).orderBy(desc(chickenSales.date)).limit(100);
   if (data.length === 0) return NextResponse.json([]);
-  const linkedTransactions = await db.select().from(transactions).where(and(
-    eq(transactions.sourceType, "venta_ave"),
-    inArray(transactions.sourceId, data.map((sale) => sale.id)),
-  ));
-  const transactionsBySale = new Map(linkedTransactions.map((transaction) => [transaction.sourceId, transaction]));
-  const txIds = linkedTransactions.map((transaction) => transaction.id);
-  const receivables = txIds.length
-    ? await db.select().from(accountsReceivable).where(inArray(accountsReceivable.transactionId, txIds))
-    : [];
-  const receivableByTransaction = new Map(receivables.map((account) => [account.transactionId, account]));
+  const creditMetaMap = await getCreditMetaBySourceIds("venta_ave", data.map((sale) => sale.id));
 
   const enriched = await Promise.all(
     data.map(async (record) => {
-      const transaction = transactionsBySale.get(record.id);
-      const receivable = transaction ? receivableByTransaction.get(transaction.id) : undefined;
+      const creditMeta = creditMetaMap.get(record.id);
       const [hen] = record.henId
         ? await db.select().from(hens).where(eq(hens.id, record.henId))
         : [undefined];
@@ -78,8 +89,9 @@ export const GET = withApiHandler(async () => {
         : [undefined];
       return {
         ...record,
-        isCredit: Boolean(transaction?.isCredit),
-        dueDate: receivable?.dueDate || null,
+        transactionId: creditMeta?.transactionId || null,
+        isCredit: creditMeta?.isCredit ?? false,
+        dueDate: creditMeta?.dueDate || null,
         hen: hen || null,
         rooster: rooster || null,
         batch: batch || null,
@@ -92,6 +104,8 @@ export const GET = withApiHandler(async () => {
 
 // POST /api/finanzas/finanzas/ventas-aves
 export const POST = withApiHandler(async (req: NextRequest) => {
+  const denied = await requirePermission("finance:write");
+  if (denied) return denied;
   const body = await safeParseJson(req);
   if (!body || typeof body !== "object") return NextResponse.json({ error: "Cuerpo inválido" }, { status: 400 });
 
@@ -147,6 +161,18 @@ export const POST = withApiHandler(async (req: NextRequest) => {
       if (error) throw new Error(error);
     }
 
+    const saleDims = await dimensionsFromAnimals(tx, body);
+    await assertDateNotClosed(tx, { date: body.date });
+    await assertNoActiveWithdrawal(tx, {
+      date: body.date,
+      species: saleDims.species,
+      locationId: saleDims.locationId,
+      batchId: body.batchId || null,
+      henId: body.henId || null,
+      roosterId: body.roosterId || null,
+      operationLabel: "venta de animales",
+    });
+
     const previousAnimalStates = await captureAnimalExitSnapshots(tx, {
       henId: body.henId,
       roosterId: body.roosterId,
@@ -155,6 +181,8 @@ export const POST = withApiHandler(async (req: NextRequest) => {
 
     const [inserted] = await tx.insert(chickenSales).values({
       date: body.date,
+      species: saleDims.species,
+      locationId: saleDims.locationId,
       birdType: body.birdType,
       quantity: qty,
       weightKg: weightKg ? String(weightKg) : null,
@@ -176,30 +204,29 @@ export const POST = withApiHandler(async (req: NextRequest) => {
 
     const birdLabel = body.birdType.replace(/_/g, " ");
     const weightDesc = weightKg ? ` (${weightKg} kg)` : "";
+    const isMammal = saleDims.species === "conejo" || saleDims.species === "cuy";
     const [transaction] = await tx.insert(transactions).values({
+      ...saleDims,
       date: body.date,
       type: "ingreso",
-      category: "Venta de aves",
+      category: isMammal ? "Venta de animales" : "Venta de aves",
       description: `Venta de ${qty} ${birdLabel}${weightDesc}${body.buyer ? ` a ${body.buyer}` : ""}`,
       amount: totalAmount,
       quantity: String(qty),
       unitPrice: String(pricePerUnit),
-      unit: priceMode === "por_kg" ? "kg" : "aves",
+      unit: priceMode === "por_kg" ? "kg" : "animales",
       counterparty: body.buyer || null,
       sourceType: "venta_ave",
       sourceId: inserted.id,
     }).returning();
 
     if (body.isCredit) {
-      await tx.update(transactions).set({ isCredit: true }).where(eq(transactions.id, transaction.id));
-      await tx.insert(accountsReceivable).values({
+      await syncCreditReceivable(tx, {
         transactionId: transaction.id,
-        buyer: body.buyer || "Sin nombre",
         totalAmount,
-        paidAmount: "0",
-        pendingAmount: totalAmount,
+        isCredit: true,
         dueDate: body.dueDate || null,
-        status: "pendiente",
+        buyer: body.buyer || null,
       });
     }
 
@@ -210,7 +237,7 @@ export const POST = withApiHandler(async (req: NextRequest) => {
       await applyBatchExit(body.batchId, qty, "venta", tx);
     }
 
-    return inserted;
+    return { ...inserted, transactionId: transaction.id };
   });
 
   return NextResponse.json(created, { status: 201 });
@@ -218,6 +245,8 @@ export const POST = withApiHandler(async (req: NextRequest) => {
 
 // PUT /api/finanzas/finanzas/ventas-aves
 export const PUT = withApiHandler(async (req: NextRequest) => {
+  const denied = await requirePermission("finance:write");
+  if (denied) return denied;
   const body = await safeParseJson(req);
   if (!body || typeof body !== "object") return NextResponse.json({ error: "Cuerpo inválido" }, { status: 400 });
 
@@ -304,14 +333,29 @@ export const PUT = withApiHandler(async (req: NextRequest) => {
         const err = await validateBatchForExit(body.batchId, qty, tx);
         if (err) throw new Error(err);
       }
+      const editDims = await dimensionsFromAnimals(tx, body);
+      await assertDateNotClosed(tx, { date: body.date });
+      await assertNoActiveWithdrawal(tx, {
+        date: body.date,
+        species: editDims.species,
+        locationId: editDims.locationId,
+        batchId: body.batchId || null,
+        henId: body.henId || null,
+        roosterId: body.roosterId || null,
+        operationLabel: "venta de animales",
+      });
       Object.assign(previousAnimalStates, await captureAnimalExitSnapshots(tx, {
         henId: body.henId && body.henId !== currentSale.henId ? body.henId : null,
         roosterId: body.roosterId && body.roosterId !== currentSale.roosterId ? body.roosterId : null,
         batchId: body.batchId || null,
       }));
 
+      const dims = await dimensionsFromAnimals(tx, body);
+      const isMammal = dims.species === "conejo" || dims.species === "cuy";
       const [sale] = await tx.update(chickenSales).set({
         date: body.date,
+        species: dims.species,
+        locationId: dims.locationId,
         birdType: body.birdType,
         quantity: qty,
         weightKg: weightKg ? String(weightKg) : null,
@@ -345,15 +389,16 @@ export const PUT = withApiHandler(async (req: NextRequest) => {
       const birdLabel = body.birdType.replace(/_/g, " ");
       const weightDesc = weightKg ? ` (${weightKg} kg)` : "";
       const transactionValues = {
+        ...dims,
         date: body.date,
         type: "ingreso" as const,
-        category: "Venta de aves",
+        category: isMammal ? "Venta de animales" : "Venta de aves",
         description: `Venta de ${qty} ${birdLabel}${weightDesc}${body.buyer ? ` a ${body.buyer}` : ""}`,
         counterparty: body.buyer || null,
         amount: totalAmount,
         quantity: String(qty),
         unitPrice: String(pricePerUnit),
-        unit: priceMode === "por_kg" ? "kg" : "aves",
+        unit: priceMode === "por_kg" ? "kg" : "animales",
         presentation: body.presentation || null,
         sourceType: "venta_ave",
         sourceId: body.id,
@@ -362,46 +407,16 @@ export const PUT = withApiHandler(async (req: NextRequest) => {
       const [transaction] = existingTx
         ? await tx.update(transactions).set(transactionValues).where(eq(transactions.id, existingTx.id)).returning()
         : await tx.insert(transactions).values(transactionValues).returning();
-      const [receivable] = await tx.select().from(accountsReceivable).where(eq(accountsReceivable.transactionId, transaction.id)).for("update");
 
-      if (body.isCredit) {
-        const paidAmount = Number(receivable?.paidAmount || 0);
-        if (Number(totalAmount) < paidAmount) throw new Error("El total no puede quedar por debajo de los pagos ya recibidos");
-        await tx.update(transactions).set({ isCredit: true }).where(eq(transactions.id, transaction.id));
-        if (receivable) {
-          const pendingAmount = Math.max(0, Number(totalAmount) - paidAmount);
-          await tx.update(accountsReceivable).set({
-            buyer: body.buyer || receivable.buyer,
-            totalAmount,
-            paidAmount: String(paidAmount),
-            pendingAmount: pendingAmount.toFixed(2),
-            dueDate: body.dueDate !== undefined ? body.dueDate || null : receivable.dueDate,
-            status: pendingAmount === 0 ? "pagado" : paidAmount > 0 ? "parcial" : "pendiente",
-            updatedAt: new Date(),
-          }).where(eq(accountsReceivable.id, receivable.id));
-        } else {
-          await tx.insert(accountsReceivable).values({
-            transactionId: transaction.id,
-            buyer: body.buyer || "Sin nombre",
-            totalAmount,
-            paidAmount: "0",
-            pendingAmount: totalAmount,
-            dueDate: body.dueDate || null,
-            status: "pendiente",
-          });
-        }
-      } else {
-        if (receivable) {
-          const linkedPayments = await tx.select({ id: payments.id }).from(payments).where(eq(payments.receivableId, receivable.id));
-          if (Number(receivable.paidAmount) > 0 || linkedPayments.length > 0) {
-            throw new Error("No se puede convertir a contado una venta que ya tiene cobros recibidos");
-          }
-          await tx.delete(accountsReceivable).where(eq(accountsReceivable.id, receivable.id));
-        }
-        await tx.update(transactions).set({ isCredit: false }).where(eq(transactions.id, transaction.id));
-      }
+      await syncCreditReceivable(tx, {
+        transactionId: transaction.id,
+        totalAmount,
+        isCredit: Boolean(body.isCredit),
+        dueDate: body.dueDate,
+        buyer: body.buyer || null,
+      });
 
-      return sale;
+      return { ...sale, transactionId: transaction.id };
     });
   } catch (e: any) {
     const msg = e.message || "";
@@ -415,6 +430,8 @@ export const PUT = withApiHandler(async (req: NextRequest) => {
 
 // DELETE /api/finanzas/finanzas/ventas-aves
 export const DELETE = withApiHandler(async (req: NextRequest) => {
+  const denied = await requirePermission("finance:write");
+  if (denied) return denied;
   const { searchParams } = new URL(req.url);
   const id = searchParams.get("id");
   if (!id) return NextResponse.json({ error: "ID requerido" }, { status: 400 });

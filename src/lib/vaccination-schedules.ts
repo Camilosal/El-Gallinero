@@ -39,8 +39,22 @@ export const COBB_500_VACCINATIONS: VaccinationEvent[] = [
   { weekNumber: 5, name: "Viruela", description: "Pox ala", type: "vacunacion", frequencyDays: null },
 ];
 
+export const ROSS_308_VACCINATIONS: VaccinationEvent[] = [
+  { weekNumber: 0, name: "Marek + HVT-IBD", description: "Día 1 en incubadora", type: "vacunacion", frequencyDays: null },
+  { weekNumber: 1, name: "Newcastle + Bronquitis", description: "ND B1 + IB H120 gota ocular/spray", type: "vacunacion", frequencyDays: null },
+  { weekNumber: 2, name: "Gumboro", description: "IBD cepa intermedia en agua de bebida", type: "vacunacion", frequencyDays: null },
+  { weekNumber: 3, name: "Newcastle refuerzo", description: "LaSota agua de bebida", type: "vacunacion", frequencyDays: null },
+];
+
+export const CUY_SANIDAD_SCHEDULE: VaccinationEvent[] = [
+  { weekNumber: 3, name: "Desparasitación destete + Vitamina C", description: "Control antiparasitario al destete y refuerzo Vitamina C 25 mg/día", type: "vacunacion", frequencyDays: 90 },
+  { weekNumber: 8, name: "Control ectoparásitos y Salmonella", description: "Inspección de ácaros/piojos y bioseguridad de pozas", type: "vacunacion", frequencyDays: 60 },
+];
+
 export const VACCINATION_SCHEDULES: Record<string, VaccinationEvent[]> = {
   "ISA Brown": ISA_BROWN_VACCINATIONS,
   "Hy-Line W-36": HY_LINE_W36_VACCINATIONS,
   "Cobb 500": COBB_500_VACCINATIONS,
+  "Ross 308": ROSS_308_VACCINATIONS,
+  "Cuy Mejorado": CUY_SANIDAD_SCHEDULE,
 };

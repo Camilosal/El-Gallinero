@@ -1,10 +1,9 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   AlertTriangle,
   Banknote,
-  CheckCircle2,
   ChevronDown,
   ChevronUp,
   Copy,
@@ -19,7 +18,25 @@ import {
   WifiOff,
 } from "lucide-react";
 import { Button, Input, Modal, Select } from "@/components/ui";
+import ContactField from "@/components/contacts/ContactField";
 import FarmLocationSelect from "@/components/FarmLocationSelect";
+import AttachmentPanel from "@/components/attachments/AttachmentPanel";
+import MicroInsightCard from "@/components/MicroInsightCard";
+import {
+  MORTALITY_QUICK_OBSERVATIONS,
+  bindDraftAttachments,
+  createDraftEntityId,
+  type OcrExtractedPayload,
+} from "@/lib/attachments-shared";
+import { computeCreditDueDate } from "@/lib/contacts-shared";
+import {
+  buildEggMicroInsight,
+  buildExpenseMicroInsight,
+  buildFeedMicroInsight,
+  buildMortalityMicroInsight,
+  buildSaleMicroInsight,
+  type MicroInsightPayload,
+} from "@/lib/micro-insights";
 import { apiFetch } from "@/lib/fetch";
 import { todayColombiaIso } from "@/lib/date-validation";
 import { useCatalog } from "@/lib/useCatalog";
@@ -33,6 +50,7 @@ import {
   QUICK_CAPTURE_SAVED_EVENT,
   type QuickCaptureDetail,
   type QuickCaptureMode,
+  type QuickCaptureSaleType,
 } from "@/lib/quick-capture-events";
 
 interface EggRecordCache {
@@ -52,6 +70,7 @@ interface FeedItem {
   name: string;
   unit: string;
   currentStock: string;
+  costPerUnit?: string | number | null;
 }
 
 interface FeedMovementCache {
@@ -89,6 +108,8 @@ interface BatchItem {
   currentQuantity: number;
   status: string;
   locationId?: string | null;
+  startDate?: string;
+  initialAgeDays?: number;
 }
 
 interface EggSizeInventory {
@@ -104,6 +125,25 @@ interface EggInventoryPayload {
   };
 }
 
+interface MeatSpeciesStock {
+  species: string;
+  availableKg: number;
+  estimatedPriceKg: number;
+}
+
+interface MeatInventoryPayload {
+  summary?: {
+    available?: number;
+    bySpecies?: MeatSpeciesStock[];
+  };
+}
+
+interface ManureInventoryPayload {
+  summary?: {
+    available?: number;
+  };
+}
+
 const MODE_TABS: { mode: QuickCaptureMode; label: string; icon: typeof Egg }[] = [
   { mode: "huevos", label: "Huevos", icon: Egg },
   { mode: "alimentacion", label: "Alimento", icon: Wheat },
@@ -112,10 +152,27 @@ const MODE_TABS: { mode: QuickCaptureMode; label: string; icon: typeof Egg }[] =
   { mode: "venta", label: "Venta", icon: ShoppingBag },
 ];
 
+const SALE_TYPE_TABS: { value: QuickCaptureSaleType; label: string }[] = [
+  { value: "huevos", label: "Huevos" },
+  { value: "carne", label: "Carne" },
+  { value: "animales", label: "Animales" },
+  { value: "gallinaza", label: "Gallinaza" },
+  { value: "otros", label: "Otros" },
+];
+
 const EGG_SPECIES_OPTIONS = [
   { value: "gallina", label: "Gallina" },
   { value: "codorniz", label: "Codorniz" },
   { value: "pato", label: "Pato" },
+];
+
+const ANIMAL_SPECIES_OPTIONS = [
+  { value: "gallina", label: "Gallina" },
+  { value: "pollo", label: "Pollo" },
+  { value: "codorniz", label: "Codorniz" },
+  { value: "pato", label: "Pato" },
+  { value: "conejo", label: "Conejo" },
+  { value: "cuy", label: "Cuy" },
 ];
 
 const MORTALITY_BIRD_TYPES = [
@@ -125,6 +182,7 @@ const MORTALITY_BIRD_TYPES = [
   { value: "lote_codornices", label: "Lote codornices" },
   { value: "lote_patos", label: "Lote patos" },
   { value: "lote_conejos", label: "Lote conejos" },
+  { value: "lote_cuyes", label: "Lote cuyes" },
 ];
 
 const BATCH_SPECIES_BY_TYPE: Record<string, string> = {
@@ -132,6 +190,7 @@ const BATCH_SPECIES_BY_TYPE: Record<string, string> = {
   lote_codornices: "codorniz",
   lote_patos: "pato",
   lote_conejos: "conejo",
+  lote_cuyes: "cuy",
 };
 
 const MORTALITY_CAUSES = [
@@ -153,8 +212,35 @@ const DEFAULT_EXPENSE_CATEGORIES = [
   "Transporte",
 ];
 
+const DEFAULT_INCOME_CATEGORIES = [
+  "Venta de subproductos",
+  "Venta de carne",
+  "Venta de animales",
+  "Otros ingresos",
+];
+
 function todayIso(): string {
   return todayColombiaIso();
+}
+
+function addDaysIso(baseDate: string, days: number): string {
+  const safe = /^\d{4}-\d{2}-\d{2}$/.test(baseDate) ? baseDate : todayIso();
+  return computeCreditDueDate(safe, days) || todayIso();
+}
+
+function batchTypeForSpecies(sp?: string): string {
+  switch (sp) {
+    case "codorniz":
+      return "lote_codornices";
+    case "pato":
+      return "lote_patos";
+    case "conejo":
+      return "lote_conejos";
+    case "cuy":
+      return "lote_cuyes";
+    default:
+      return "lote_pollos";
+  }
 }
 
 function normalizeFeeds(raw: unknown): FeedItem[] {
@@ -210,12 +296,12 @@ export default function QuickCaptureModal() {
   const [online, setOnline] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
-  const [successInfo, setSuccessInfo] = useState<{ title: string; subtitle: string; offline: boolean } | null>(null);
+  const [successInfo, setSuccessInfo] = useState<MicroInsightPayload | null>(null);
 
   const { locations } = useFarmLocations(true);
   const { items: sizeCatalog } = useCatalog("tamano_huevo");
   const { values: expenseCategories } = useCatalog("categoria_egreso", DEFAULT_EXPENSE_CATEGORIES);
-  const { values: buyerOptions } = useCatalog("comprador");
+  const { values: incomeCategories } = useCatalog("categoria_ingreso", DEFAULT_INCOME_CATEGORIES);
   const { priceEgg } = useSpeciesCatalog();
 
   // Cached/live domain catalogs
@@ -225,7 +311,21 @@ export default function QuickCaptureModal() {
   const [hens, setHens] = useState<HenItem[]>([]);
   const [roosters, setRoosters] = useState<RoosterItem[]>([]);
   const [batches, setBatches] = useState<BatchItem[]>([]);
+  const openedAtRef = useRef<number>(0);
+
+  const trackCaptureTelemetry = useCallback((captureMode: QuickCaptureMode) => {
+    const startMs = openedAtRef.current || Date.now();
+    const durationSec = Math.max(1, Math.min(3600, Math.round((Date.now() - startMs) / 1000)));
+    void apiFetch("/api/analisis/kpis-adopcion", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ type: "capture", mode: captureMode, durationSec }),
+    }).catch(() => {});
+  }, []);
   const [eggInventory, setEggInventory] = useState<EggSizeInventory[]>([]);
+  const [meatInventory, setMeatInventory] = useState<MeatSpeciesStock[]>([]);
+  const [meatAvailableTotal, setMeatAvailableTotal] = useState<number | null>(null);
+  const [manureAvailable, setManureAvailable] = useState<number | null>(null);
 
   // Eggs state
   const [eggDate, setEggDate] = useState(todayIso);
@@ -259,6 +359,7 @@ export default function QuickCaptureModal() {
   const [mortQty, setMortQty] = useState("1");
   const [mortCause, setMortCause] = useState("enfermedad");
   const [mortNotes, setMortNotes] = useState("");
+  const [draftMortalityId, setDraftMortalityId] = useState(() => createDraftEntityId("qmort"));
 
   // Expense state
   const [expDate, setExpDate] = useState(todayIso);
@@ -266,13 +367,46 @@ export default function QuickCaptureModal() {
   const [expAmount, setExpAmount] = useState("");
   const [expDescription, setExpDescription] = useState("");
   const [expCounterparty, setExpCounterparty] = useState("");
+  const [expSpecies, setExpSpecies] = useState("");
+  const [expLocationId, setExpLocationId] = useState("");
+  const [draftExpenseId, setDraftExpenseId] = useState(() => createDraftEntityId("qexp"));
 
-  // Sale state
+  // Sale state (5 líneas comerciales)
+  const [saleType, setSaleType] = useState<QuickCaptureSaleType>("huevos");
   const [saleDate, setSaleDate] = useState(todayIso);
+  const [saleSpecies, setSaleSpecies] = useState("gallina");
+  const [saleLocationId, setSaleLocationId] = useState("");
+  const [saleBuyer, setSaleBuyer] = useState("");
+  const [salePresentation, setSalePresentation] = useState("");
+  const [saleIsCredit, setSaleIsCredit] = useState(false);
+  const [saleDueDate, setSaleDueDate] = useState("");
+  const [saleClientCreditDays, setSaleClientCreditDays] = useState<number | null>(null);
+  const [draftSaleId, setDraftSaleId] = useState(() => createDraftEntityId("qsale"));
+  // Eggs sale
   const [saleSize, setSaleSize] = useState("");
   const [saleQty, setSaleQty] = useState("30");
   const [salePrice, setSalePrice] = useState("500");
-  const [saleBuyer, setSaleBuyer] = useState("");
+  // Meat sale
+  const [saleMeatKg, setSaleMeatKg] = useState("1");
+  const [saleMeatPriceKg, setSaleMeatPriceKg] = useState("14000");
+  // Live animals sale
+  const [saleAnimalType, setSaleAnimalType] = useState("gallina");
+  const [saleHenId, setSaleHenId] = useState("");
+  const [saleRoosterId, setSaleRoosterId] = useState("");
+  const [saleBatchId, setSaleBatchId] = useState("");
+  const [saleAnimalQty, setSaleAnimalQty] = useState("1");
+  const [saleAnimalPriceMode, setSaleAnimalPriceMode] = useState<"por_ave" | "por_kg">("por_ave");
+  const [saleAnimalWeightKg, setSaleAnimalWeightKg] = useState("");
+  const [saleAnimalPrice, setSaleAnimalPrice] = useState("25000");
+  // Manure sale
+  const [saleManureKg, setSaleManureKg] = useState("40");
+  const [saleManurePriceKg, setSaleManurePriceKg] = useState("500");
+  // Other farm products / subproducts sale
+  const [saleOtherCategory, setSaleOtherCategory] = useState("Venta de subproductos");
+  const [saleOtherDesc, setSaleOtherDesc] = useState("");
+  const [saleOtherQty, setSaleOtherQty] = useState("1");
+  const [saleOtherUnit, setSaleOtherUnit] = useState("unidad");
+  const [saleOtherUnitPrice, setSaleOtherUnitPrice] = useState("");
 
   const hydrateFromCacheAndNetwork = useCallback(async (detail?: QuickCaptureDetail) => {
     const [
@@ -340,7 +474,7 @@ export default function QuickCaptureModal() {
 
     if (typeof navigator !== "undefined" && navigator.onLine !== false) {
       try {
-        const [eggsRes, feedsRes, movRes, hensRes, roostersRes, batchesRes, invRes] = await Promise.all([
+        const [eggsRes, feedsRes, movRes, hensRes, roostersRes, batchesRes, invRes, carneRes, gallinazaRes] = await Promise.all([
           apiFetch("/api/produccion/huevos").catch(() => null),
           apiFetch("/api/produccion/alimentacion").catch(() => null),
           apiFetch("/api/produccion/alimentacion/movimientos").catch(() => null),
@@ -348,6 +482,8 @@ export default function QuickCaptureModal() {
           apiFetch("/api/produccion/gallos").catch(() => null),
           apiFetch("/api/produccion/pollos").catch(() => null),
           apiFetch("/api/produccion/huevos/inventario").catch(() => null),
+          apiFetch("/api/inventarios/carne").catch(() => null),
+          apiFetch("/api/inventarios/gallinaza").catch(() => null),
         ]);
 
         if (eggsRes?.ok) {
@@ -386,6 +522,20 @@ export default function QuickCaptureModal() {
             setSaleSize((prev) => prev || firstAvail.size);
             if (firstAvail.price) setSalePrice(String(firstAvail.price));
           }
+        }
+        if (carneRes?.ok) {
+          const data = (await carneRes.json().catch(() => null)) as MeatInventoryPayload | null;
+          const bySpecies = data?.summary?.bySpecies || [];
+          setMeatInventory(bySpecies);
+          setMeatAvailableTotal(typeof data?.summary?.available === "number" ? data.summary.available : null);
+          const match = bySpecies.find((s) => s.availableKg > 0) || bySpecies[0];
+          if (match?.estimatedPriceKg) {
+            setSaleMeatPriceKg(String(match.estimatedPriceKg));
+          }
+        }
+        if (gallinazaRes?.ok) {
+          const data = (await gallinazaRes.json().catch(() => null)) as ManureInventoryPayload | null;
+          setManureAvailable(typeof data?.summary?.available === "number" ? data.summary.available : null);
         }
       } catch {
         // Silencioso en modo offline
@@ -427,19 +577,12 @@ export default function QuickCaptureModal() {
     // Reset mortality
     setMortDate(today);
     setMortLocationId(detail.locationId || "");
-    if (detail.roosterId) setMortBirdType("gallo");
-    else if (detail.batchId) {
-      const batchType = detail.species === "codorniz"
-        ? "lote_codornices"
-        : detail.species === "pato"
-          ? "lote_patos"
-          : detail.species === "conejo"
-            ? "lote_conejos"
-            : "lote_pollos";
-      setMortBirdType(batchType);
-    } else {
-      setMortBirdType("gallina");
-    }
+    const initialAnimalType = detail.roosterId
+      ? "gallo"
+      : detail.batchId
+        ? batchTypeForSpecies(detail.species)
+        : "gallina";
+    setMortBirdType(initialAnimalType);
     setMortHenId(detail.henId || "");
     setMortRoosterId(detail.roosterId || "");
     setMortBatchId(detail.batchId || "");
@@ -454,10 +597,36 @@ export default function QuickCaptureModal() {
     setExpCounterparty("");
 
     // Reset sale
+    const nextSaleType: QuickCaptureSaleType = detail.saleType || "huevos";
+    setSaleType(nextSaleType);
     setSaleDate(today);
-    setSaleQty("30");
+    setSaleSpecies(
+      detail.species ||
+        (nextSaleType === "carne" ? "pollo" : nextSaleType === "huevos" ? "gallina" : ""),
+    );
+    setSaleLocationId(detail.locationId || "");
     setSaleBuyer("");
+    setSalePresentation("");
+    setSaleIsCredit(false);
+    setSaleDueDate(addDaysIso(today, 15));
+    setSaleClientCreditDays(null);
+    setDraftSaleId(createDraftEntityId("qsale"));
+    setSaleQty("30");
+    setSaleMeatKg("1");
+    setSaleAnimalType(initialAnimalType);
+    setSaleHenId(detail.henId || "");
+    setSaleRoosterId(detail.roosterId || "");
+    setSaleBatchId(detail.batchId || "");
+    setSaleAnimalQty("1");
+    setSaleAnimalPriceMode("por_ave");
+    setSaleAnimalWeightKg("");
+    setSaleManureKg("40");
+    setSaleOtherDesc("");
+    setSaleOtherQty("1");
+    setSaleOtherUnit("unidad");
+    setSaleOtherUnitPrice("");
 
+    openedAtRef.current = Date.now();
     setOpen(true);
     void hydrateFromCacheAndNetwork(detail);
   }, [hydrateFromCacheAndNetwork]);
@@ -624,7 +793,7 @@ export default function QuickCaptureModal() {
 
       if (!result.ok && !result.offline) {
         if (result.status === 409) {
-          setEggOverLimitMsg(result.error || "La cantidad supera el máximo esperado para las aves en postura.");
+          setEggOverLimitMsg(result.error || "La cantidad supera el máximo esperado para los animales en postura.");
           return;
         }
         setError(result.error || "No se pudo guardar la recolección.");
@@ -632,12 +801,51 @@ export default function QuickCaptureModal() {
       }
 
       const locName = locations.find((l) => l.id === loc)?.name || "la granja";
+      const activeLayingCount =
+        eggSpecies === "gallina"
+          ? hens.filter(
+              (h) =>
+                !["muerta", "vendida", "sacrificada"].includes(h.status) &&
+                (!loc || !h.locationId || h.locationId === loc),
+            ).length || hens.filter((h) => !["muerta", "vendida", "sacrificada"].includes(h.status)).length
+          : batches.find((b) => b.id === eggBatchId)?.currentQuantity || 0;
+
+      const todayMovements = feedHistory.filter(
+        (m) => !m.isEntry && m.date === eggDate && (!m.locationId || m.locationId === loc),
+      );
+      let todayFeedKg = 0;
+      let todayFeedCostCOP = 0;
+      for (const m of todayMovements) {
+        const qty = Number(m.quantity || 0);
+        if (!Number.isFinite(qty) || qty <= 0) continue;
+        const feedObj = feeds.find((f) => f.id === m.feedId);
+        const unitStr = (m.feedUnit || feedObj?.unit || "kg").toLowerCase();
+        const kgFactor = unitStr.includes("bulto") || unitStr.includes("saco") ? 40 : unitStr === "g" ? 0.001 : 1;
+        todayFeedKg += qty * kgFactor;
+        const unitCost = Number(feedObj?.costPerUnit || 0);
+        if (Number.isFinite(unitCost) && unitCost > 0) {
+          todayFeedCostCOP += qty * unitCost;
+        }
+      }
+
       setEggOverLimitMsg("");
-      setSuccessInfo({
-        title: `${totalEggsCollected} huevos registrados en ${locName}`,
-        subtitle: `Valor estimado: $${estimatedEggValue.toLocaleString("es-CO")} (${goodEggs} aprovechables)`,
-        offline: result.offline,
-      });
+      setSuccessInfo(
+        buildEggMicroInsight({
+          date: eggDate,
+          species: eggSpecies,
+          locationName: locName,
+          totalCollected: totalEggsCollected,
+          broken: brokenEggs,
+          forIncubation: incubEggs,
+          unitPrice: eggUnitPrice,
+          activeLayingBirds: activeLayingCount > 0 ? activeLayingCount : undefined,
+          previousDayCollected: lastEggRecord?.totalCollected ?? null,
+          todayFeedKg: todayFeedKg > 0 ? Math.round(todayFeedKg * 100) / 100 : null,
+          todayFeedCostCOP: todayFeedCostCOP > 0 ? Math.round(todayFeedCostCOP) : null,
+          offline: result.offline,
+        }),
+      );
+      trackCaptureTelemetry("huevos");
       window.dispatchEvent(new CustomEvent(QUICK_CAPTURE_SAVED_EVENT, { detail: { mode: "huevos" } }));
     } finally {
       setSaving(false);
@@ -678,11 +886,57 @@ export default function QuickCaptureModal() {
       }
 
       const locName = locations.find((l) => l.id === loc)?.name || "la granja";
-      setSuccessInfo({
-        title: `${qty} ${unitLabel} de ${feedLabel} registrados`,
-        subtitle: `Entregado en ${locName}`,
-        offline: result.offline,
-      });
+      const priorStock = selectedFeedObj ? Number(selectedFeedObj.currentStock || 0) : null;
+      const remainingStockAfter =
+        priorStock !== null ? Math.max(0, priorStock - qty) : null;
+      const birdsInLoc =
+        hens.filter(
+          (h) =>
+            !["muerta", "vendida", "sacrificada"].includes(h.status) &&
+            h.locationId === loc,
+        ).length +
+        roosters.filter(
+          (r) =>
+            !["muerta", "muerto", "vendido", "vendida", "sacrificado"].includes(r.status) &&
+            r.locationId === loc,
+        ).length +
+        batches
+          .filter((b) => b.status !== "cerrado" && b.locationId === loc)
+          .reduce((sum, b) => sum + Number(b.currentQuantity || 0), 0);
+
+      const meatBatchInLoc = batches.find(
+        (b) =>
+          b.status !== "cerrado" &&
+          b.currentQuantity > 0 &&
+          b.purpose === "engorde_carne" &&
+          b.startDate &&
+          (!loc || b.locationId === loc),
+      );
+      const feedBatchInfo = meatBatchInLoc?.startDate
+        ? {
+            species: meatBatchInLoc.species,
+            code: meatBatchInLoc.code,
+            ageDays:
+              (meatBatchInLoc.initialAgeDays ?? 1) +
+              Math.max(0, Math.floor((Date.now() - new Date(`${meatBatchInLoc.startDate}T00:00:00Z`).getTime()) / 86400000)),
+          }
+        : null;
+
+      setSuccessInfo(
+        buildFeedMicroInsight({
+          date: feedDate,
+          feedName: feedLabel,
+          unit: unitLabel,
+          quantity: qty,
+          isEntry: false,
+          locationName: locName,
+          remainingStockAfter,
+          activeAnimalsCount: birdsInLoc > 0 ? birdsInLoc : null,
+          batch: feedBatchInfo,
+          offline: result.offline,
+        }),
+      );
+      trackCaptureTelemetry("alimentacion");
       window.dispatchEvent(new CustomEvent(QUICK_CAPTURE_SAVED_EVENT, { detail: { mode: "alimentacion" } }));
     } finally {
       setSaving(false);
@@ -701,8 +955,13 @@ export default function QuickCaptureModal() {
 
     setSaving(true);
     try {
+      const mortSpecies =
+        mortBirdType === "gallina" || mortBirdType === "gallo"
+          ? "gallina"
+          : BATCH_SPECIES_BY_TYPE[mortBirdType] || "pollo";
       const payload: Record<string, unknown> = {
         date: mortDate,
+        species: mortSpecies,
         birdType: mortBirdType,
         cause: mortCause,
         locationId: loc,
@@ -726,12 +985,49 @@ export default function QuickCaptureModal() {
         return;
       }
 
+      const savedId = (result.data as { id?: string } | undefined)?.id;
+      if (savedId && !result.offline) {
+        await bindDraftAttachments(draftMortalityId, savedId, "mortality");
+      }
+      setDraftMortalityId(createDraftEntityId("qmort"));
+
       const causeLabel = MORTALITY_CAUSES.find((c) => c.value === mortCause)?.label || mortCause;
-      setSuccessInfo({
-        title: `Baja registrada (${qty})`,
-        subtitle: `Causa: ${causeLabel}`,
-        offline: result.offline,
-      });
+      const birdTypeLabel =
+        MORTALITY_BIRD_TYPES.find((bt) => bt.value === mortBirdType)?.label || mortBirdType;
+      const locName = locations.find((l) => l.id === loc)?.name || "la granja";
+      const targetBatch = isBatch ? batches.find((b) => b.id === mortBatchId) : null;
+      const remainingPop = targetBatch
+        ? Math.max(0, targetBatch.currentQuantity - qty)
+        : mortBirdType === "gallina"
+          ? Math.max(0, activeHens.length - 1)
+          : Math.max(0, activeRoosters.length - 1);
+
+      const mortBatchInfo =
+        targetBatch?.startDate && targetBatch.purpose === "engorde_carne"
+          ? {
+              species: targetBatch.species,
+              code: targetBatch.code,
+              ageDays:
+                (targetBatch.initialAgeDays ?? 1) +
+                Math.max(0, Math.floor((Date.now() - new Date(`${targetBatch.startDate}T00:00:00Z`).getTime()) / 86400000)),
+            }
+          : null;
+
+      setSuccessInfo(
+        buildMortalityMicroInsight({
+          date: mortDate,
+          species: mortSpecies,
+          birdTypeLabel,
+          quantity: qty,
+          causeLabel,
+          locationName: locName,
+          remainingPopulation: remainingPop,
+          notes: mortNotes.trim() || null,
+          batch: mortBatchInfo,
+          offline: result.offline,
+        }),
+      );
+      trackCaptureTelemetry("mortalidad");
       window.dispatchEvent(new CustomEvent(QUICK_CAPTURE_SAVED_EVENT, { detail: { mode: "mortalidad" } }));
     } finally {
       setSaving(false);
@@ -756,62 +1052,302 @@ export default function QuickCaptureModal() {
           description: expDescription.trim(),
           amount,
           counterparty: expCounterparty.trim() || null,
+          species: expSpecies || null,
+          locationId: expLocationId || null,
           isCredit: false,
         }),
       });
       const isQueued = res.headers.get("X-Gallinero-Offline-Queued") === "1";
+      const data = await res.json().catch(() => ({}));
       if (!res.ok && !isQueued) {
-        const data = await res.json().catch(() => ({}));
         setError(data.error || "No se pudo guardar el gasto.");
         return;
       }
+      if (data?.id && !isQueued) {
+        await bindDraftAttachments(draftExpenseId, data.id, "transaction");
+      }
+      setDraftExpenseId(createDraftEntityId("qexp"));
 
-      setSuccessInfo({
-        title: `Gasto guardado: $${amount.toLocaleString("es-CO")}`,
-        subtitle: `${expCategory} · ${expDescription.trim()}`,
-        offline: isQueued,
-      });
+      const locName = locations.find((l) => l.id === expLocationId)?.name || null;
+      setSuccessInfo(
+        buildExpenseMicroInsight({
+          date: expDate,
+          category: expCategory,
+          description: expDescription.trim(),
+          amount,
+          counterparty: expCounterparty.trim() || null,
+          species: expSpecies || null,
+          locationName: locName,
+          offline: isQueued,
+        }),
+      );
+      trackCaptureTelemetry("gasto");
       window.dispatchEvent(new CustomEvent(QUICK_CAPTURE_SAVED_EVENT, { detail: { mode: "gasto" } }));
     } finally {
       setSaving(false);
     }
   };
 
+  const activeSaleBatches = useMemo(() => {
+    const targetSpecies = BATCH_SPECIES_BY_TYPE[saleAnimalType];
+    return batches.filter(
+      (b) => (!targetSpecies || b.species === targetSpecies) && b.status !== "cerrado" && b.currentQuantity > 0,
+    );
+  }, [batches, saleAnimalType]);
+
+  const saleTotalPreview = useMemo(() => {
+    switch (saleType) {
+      case "huevos":
+        return Math.max(0, Number(saleQty || 0)) * Math.max(0, Number(salePrice || 0));
+      case "carne":
+        return Math.max(0, Number(saleMeatKg || 0)) * Math.max(0, Number(saleMeatPriceKg || 0));
+      case "animales": {
+        const qty = saleAnimalType === "gallina" || saleAnimalType === "gallo" ? 1 : Math.max(0, Number(saleAnimalQty || 0));
+        const base = saleAnimalPriceMode === "por_kg" ? Math.max(0, Number(saleAnimalWeightKg || 0)) : qty;
+        return base * Math.max(0, Number(saleAnimalPrice || 0));
+      }
+      case "gallinaza":
+        return Math.max(0, Number(saleManureKg || 0)) * Math.max(0, Number(saleManurePriceKg || 0));
+      case "otros":
+        return Math.max(0, Number(saleOtherQty || 0)) * Math.max(0, Number(saleOtherUnitPrice || 0));
+    }
+  }, [
+    saleType,
+    saleQty,
+    salePrice,
+    saleMeatKg,
+    saleMeatPriceKg,
+    saleAnimalType,
+    saleAnimalQty,
+    saleAnimalPriceMode,
+    saleAnimalWeightKg,
+    saleAnimalPrice,
+    saleManureKg,
+    saleManurePriceKg,
+    saleOtherQty,
+    saleOtherUnitPrice,
+  ]);
+
+  const incomeCategoriesList = useMemo(
+    () => (incomeCategories.length > 0 ? incomeCategories : DEFAULT_INCOME_CATEGORIES),
+    [incomeCategories],
+  );
+
   const submitSale = async () => {
     setError("");
-    const qty = Math.round(Number(saleQty));
-    const price = Number(salePrice);
-    if (!saleSize) return setError("Selecciona el tamaño de huevo a vender.");
-    if (!Number.isFinite(qty) || qty < 1) return setError("Cantidad mínima: 1 huevo.");
-    if (!Number.isFinite(price) || price <= 0) return setError("Ingresa un precio unitario válido.");
+    if (saleIsCredit && !saleDueDate) {
+      return setError("Indica la fecha de vencimiento para ventas a crédito.");
+    }
+
+    let endpoint = "";
+    let payload: Record<string, unknown> = {};
+    let insightArgs: Parameters<typeof buildSaleMicroInsight>[0];
+
+    switch (saleType) {
+      case "huevos": {
+        const qty = Math.round(Number(saleQty));
+        const price = Number(salePrice);
+        if (!saleSize) return setError("Selecciona o escribe el tamaño de huevo a vender.");
+        if (!Number.isFinite(qty) || qty < 1) return setError("Cantidad mínima: 1 huevo.");
+        if (!Number.isFinite(price) || price <= 0) return setError("Ingresa un precio unitario válido.");
+        endpoint = "/api/finanzas/finanzas/ventas";
+        payload = {
+          date: saleDate,
+          species: saleSpecies || "gallina",
+          locationId: saleLocationId || null,
+          buyer: saleBuyer.trim() || null,
+          notes: null,
+          isCredit: saleIsCredit,
+          dueDate: saleIsCredit ? saleDueDate : null,
+          items: [{ size: saleSize, quantity: qty, presentations: qty, pricePerUnit: price, presentation: salePresentation.trim() || null }],
+        };
+        insightArgs = {
+          date: saleDate,
+          itemSummary: `${qty} huevos ${saleSize}`,
+          totalUnits: qty,
+          unitPrice: price,
+          totalAmount: qty * price,
+          buyer: saleBuyer.trim() || null,
+          species: saleSpecies || "gallina",
+          saleKind: "huevos",
+        };
+        break;
+      }
+      case "carne": {
+        const kg = Number(saleMeatKg);
+        const priceKg = Number(saleMeatPriceKg);
+        const sp = saleSpecies || "pollo";
+        if (!Number.isFinite(kg) || kg <= 0) return setError("Ingresa los kilogramos vendidos.");
+        if (!Number.isFinite(priceKg) || priceKg <= 0) return setError("Ingresa el precio por kg.");
+        endpoint = "/api/produccion/carne/ventas";
+        payload = {
+          date: saleDate,
+          species: sp,
+          locationId: saleLocationId || null,
+          quantityKg: kg,
+          pricePerKg: priceKg,
+          presentation: salePresentation.trim() || null,
+          buyer: saleBuyer.trim() || null,
+          isCredit: saleIsCredit,
+          dueDate: saleIsCredit ? saleDueDate : null,
+          notes: null,
+        };
+        insightArgs = {
+          date: saleDate,
+          itemSummary: `${kg} kg carne (${sp})`,
+          totalUnits: kg,
+          unitPrice: priceKg,
+          totalAmount: kg * priceKg,
+          buyer: saleBuyer.trim() || null,
+          species: sp,
+          saleKind: "carne",
+          unitLabel: "kg",
+        };
+        break;
+      }
+      case "animales": {
+        const isSingle = saleAnimalType === "gallina" || saleAnimalType === "gallo";
+        const qty = isSingle ? 1 : Math.round(Number(saleAnimalQty));
+        const price = Number(saleAnimalPrice);
+        const weight = saleAnimalWeightKg ? Number(saleAnimalWeightKg) : null;
+        if (saleAnimalType === "gallina" && !saleHenId) return setError("Selecciona la gallina vendida.");
+        if (saleAnimalType === "gallo" && !saleRoosterId) return setError("Selecciona el gallo vendido.");
+        if (!isSingle && !saleBatchId) return setError("Selecciona el lote vendido.");
+        if (!isSingle && (!Number.isFinite(qty) || qty < 1)) return setError("Ingresa al menos 1 animal vendido.");
+        if (saleAnimalPriceMode === "por_kg" && (!weight || !Number.isFinite(weight) || weight <= 0)) {
+          return setError("Ingresa el peso total en kg.");
+        }
+        if (!Number.isFinite(price) || price <= 0) return setError("Ingresa el precio unitario o por kg.");
+        const isBatch = saleAnimalType.startsWith("lote_");
+        const total = saleAnimalPriceMode === "por_kg" ? (weight || 0) * price : qty * price;
+        const animalLabel =
+          MORTALITY_BIRD_TYPES.find((t) => t.value === saleAnimalType)?.label || saleAnimalType;
+        endpoint = "/api/finanzas/finanzas/ventas-aves";
+        payload = {
+          date: saleDate,
+          birdType: saleAnimalType,
+          quantity: qty,
+          weightKg: weight,
+          priceMode: saleAnimalPriceMode,
+          pricePerUnit: price,
+          presentation: salePresentation.trim() || null,
+          buyer: saleBuyer.trim() || null,
+          henId: saleAnimalType === "gallina" ? saleHenId : null,
+          roosterId: saleAnimalType === "gallo" ? saleRoosterId : null,
+          batchId: isBatch ? saleBatchId : null,
+          isCredit: saleIsCredit,
+          dueDate: saleIsCredit ? saleDueDate : null,
+          notes: null,
+        };
+        insightArgs = {
+          date: saleDate,
+          itemSummary: `${qty} ${animalLabel.toLowerCase()}`,
+          totalUnits: saleAnimalPriceMode === "por_kg" && weight ? weight : qty,
+          unitPrice: price,
+          totalAmount: total,
+          buyer: saleBuyer.trim() || null,
+          species: BATCH_SPECIES_BY_TYPE[saleAnimalType] || saleAnimalType,
+          isBirdSale: true,
+          saleKind: "animales",
+          unitLabel: saleAnimalPriceMode === "por_kg" ? "kg" : "animales",
+        };
+        break;
+      }
+      case "gallinaza": {
+        const kg = Number(saleManureKg);
+        const priceKg = Number(saleManurePriceKg);
+        if (!Number.isFinite(kg) || kg <= 0) return setError("Ingresa los kilogramos vendidos.");
+        if (!Number.isFinite(priceKg) || priceKg < 0) return setError("Ingresa un precio por kg válido.");
+        endpoint = "/api/produccion/gallinaza/ventas";
+        payload = {
+          date: saleDate,
+          species: saleSpecies || null,
+          locationId: saleLocationId || null,
+          quantityKg: kg,
+          pricePerKg: priceKg,
+          presentation: salePresentation.trim() || null,
+          buyer: saleBuyer.trim() || null,
+          isCredit: saleIsCredit,
+          dueDate: saleIsCredit ? saleDueDate : null,
+          notes: null,
+        };
+        insightArgs = {
+          date: saleDate,
+          itemSummary: `${kg} kg de gallinaza / abono`,
+          totalUnits: kg,
+          unitPrice: priceKg,
+          totalAmount: kg * priceKg,
+          buyer: saleBuyer.trim() || null,
+          species: saleSpecies || undefined,
+          saleKind: "gallinaza",
+          unitLabel: "kg",
+        };
+        break;
+      }
+      case "otros": {
+        const qty = Number(saleOtherQty);
+        const unitPrice = Number(saleOtherUnitPrice);
+        if (!saleOtherDesc.trim()) return setError("Describe el producto o concepto vendido.");
+        if (!Number.isFinite(qty) || qty <= 0) return setError("Ingresa una cantidad válida.");
+        if (!Number.isFinite(unitPrice) || unitPrice <= 0) return setError("Ingresa el precio unitario.");
+        const total = Math.round(qty * unitPrice * 100) / 100;
+        const unitLabel = saleOtherUnit.trim() || "u.";
+        endpoint = "/api/finanzas/finanzas";
+        payload = {
+          date: saleDate,
+          type: "ingreso",
+          category: saleOtherCategory || incomeCategoriesList[0] || "Venta de subproductos",
+          description: saleOtherDesc.trim(),
+          counterparty: saleBuyer.trim() || null,
+          quantity: qty,
+          unit: unitLabel,
+          unitPrice,
+          amount: total,
+          presentation: salePresentation.trim() || null,
+          species: saleSpecies || null,
+          locationId: saleLocationId || null,
+          isCredit: saleIsCredit,
+          dueDate: saleIsCredit ? saleDueDate : null,
+          notes: null,
+        };
+        insightArgs = {
+          date: saleDate,
+          itemSummary: `${qty} ${unitLabel} · ${saleOtherDesc.trim()}`,
+          totalUnits: qty,
+          unitPrice,
+          totalAmount: total,
+          buyer: saleBuyer.trim() || null,
+          species: saleSpecies || undefined,
+          saleKind: "otros",
+          unitLabel,
+        };
+        break;
+      }
+    }
 
     setSaving(true);
     try {
-      const res = await apiFetch("/api/finanzas/finanzas/ventas", {
+      const res = await apiFetch(endpoint, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          date: saleDate,
-          buyer: saleBuyer.trim() || null,
-          notes: null,
-          isCredit: false,
-          dueDate: null,
-          items: [{ size: saleSize, quantity: qty, presentations: qty, pricePerUnit: price, presentation: null }],
-        }),
+        body: JSON.stringify(payload),
       });
       const isQueued = res.headers.get("X-Gallinero-Offline-Queued") === "1";
+      const data = await res.json().catch(() => ({}));
       if (!res.ok && !isQueued) {
-        const data = await res.json().catch(() => ({}));
         setError(data.error || "No se pudo registrar la venta.");
         return;
       }
 
-      setSuccessInfo({
-        title: `Venta guardada: $${(qty * price).toLocaleString("es-CO")}`,
-        subtitle: `${qty} huevos ${saleSize}${saleBuyer.trim() ? ` · ${saleBuyer.trim()}` : ""}`,
-        offline: isQueued,
-      });
-      window.dispatchEvent(new CustomEvent(QUICK_CAPTURE_SAVED_EVENT, { detail: { mode: "venta" } }));
+      const targetTxId = data?.transactionId || (saleType === "otros" ? data?.id : null);
+      if (targetTxId && !isQueued) {
+        await bindDraftAttachments(draftSaleId, targetTxId, "transaction");
+      }
+      setDraftSaleId(createDraftEntityId("qsale"));
+
+      setSuccessInfo(buildSaleMicroInsight({ ...insightArgs, offline: isQueued }));
+      trackCaptureTelemetry("venta");
+      window.dispatchEvent(new CustomEvent(QUICK_CAPTURE_SAVED_EVENT, { detail: { mode: "venta", saleType } }));
     } finally {
       setSaving(false);
     }
@@ -846,8 +1382,8 @@ export default function QuickCaptureModal() {
                   setSuccessInfo(null);
                   setEggOverLimitMsg("");
                 }}
-                className={`flex flex-col items-center justify-center gap-1 rounded-lg px-2 py-2 text-[11px] font-semibold transition-all ${
-                  active ? "bg-white text-green-700 shadow-xs" : "text-slate-600 hover:text-slate-800"
+                className={`flex min-h-[48px] flex-col items-center justify-center gap-1 rounded-lg px-2 py-2 text-xs font-semibold transition-all ${
+                  active ? "bg-white text-green-700 shadow-xs" : "text-slate-700 hover:text-slate-900"
                 }`}
               >
                 <Icon className="h-4 w-4" aria-hidden="true" />
@@ -880,35 +1416,22 @@ export default function QuickCaptureModal() {
         )}
 
         {successInfo ? (
-          <div className="space-y-4 py-4 text-center">
-            <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-green-100 text-green-700">
-              <CheckCircle2 className="h-7 w-7" aria-hidden="true" />
-            </div>
-            <div>
-              <p className="text-base font-bold text-slate-800">{successInfo.title}</p>
-              <p className="mt-1 text-sm text-slate-600">{successInfo.subtitle}</p>
-              {successInfo.offline && (
-                <p className="mt-1.5 text-xs font-medium text-amber-700">
-                  Guardado en modo offline · pendiente por sincronizar
-                </p>
-              )}
-            </div>
-            <div className="flex justify-center gap-2 pt-2">
-              <Button
-                type="button"
-                variant="secondary"
-                onClick={() => {
-                  setSuccessInfo(null);
-                  setError("");
-                }}
-              >
-                Registrar otro
-              </Button>
-              <Button type="button" onClick={() => setOpen(false)}>
-                Listo
-              </Button>
-            </div>
-          </div>
+          <MicroInsightCard
+            insight={successInfo}
+            onAnother={() => {
+              setSuccessInfo(null);
+              setError("");
+            }}
+            onNextAction={(action) => {
+              if (action.mode) {
+                setMode(action.mode);
+                setSuccessInfo(null);
+                setError("");
+              }
+            }}
+            onDismiss={() => setOpen(false)}
+            doneLabel="Listo"
+          />
         ) : (
           <>
             {mode === "huevos" && (
@@ -969,7 +1492,7 @@ export default function QuickCaptureModal() {
                     <option value="">Selecciona un lote de {eggSpecies}…</option>
                     {eggLayingBatches.map((b) => (
                       <option key={b.id} value={b.id}>
-                        {b.code} ({b.currentQuantity} aves)
+                        {b.code} ({b.currentQuantity} animales)
                       </option>
                     ))}
                   </Select>
@@ -1098,7 +1621,7 @@ export default function QuickCaptureModal() {
                   </div>
                 )}
 
-                <Button type="button" onClick={() => void submitEggs(false)} disabled={saving} className="w-full py-2.5">
+                <Button type="button" touchSize="field" onClick={() => void submitEggs(false)} disabled={saving} className="w-full">
                   {saving ? "Guardando..." : "Guardar huevos"}
                 </Button>
               </div>
@@ -1167,7 +1690,7 @@ export default function QuickCaptureModal() {
 
                 <Input label="Nota breve (opcional)" value={feedNotes} onChange={(e) => setFeedNotes(e.target.value)} placeholder="Ej: ración de la tarde" />
 
-                <Button type="button" onClick={() => void submitFeed()} disabled={saving} className="w-full py-2.5">
+                <Button type="button" touchSize="field" onClick={() => void submitFeed()} disabled={saving} className="w-full">
                   {saving ? "Guardando..." : "Guardar consumo"}
                 </Button>
               </div>
@@ -1191,7 +1714,7 @@ export default function QuickCaptureModal() {
                 </div>
 
                 <div>
-                  <span className="mb-1.5 block text-xs font-semibold text-slate-700">Tipo de ave / lote</span>
+                  <span className="mb-1.5 block text-xs font-semibold text-slate-700">Tipo de animal / lote</span>
                   <div className="flex flex-wrap gap-1.5">
                     {MORTALITY_BIRD_TYPES.map((bt) => (
                       <button
@@ -1288,10 +1811,10 @@ export default function QuickCaptureModal() {
                         key={c.value}
                         type="button"
                         onClick={() => setMortCause(c.value)}
-                        className={`rounded-lg border px-2.5 py-2 text-xs font-semibold transition-colors ${
+                        className={`min-h-[48px] rounded-lg border px-2.5 py-2 text-xs font-semibold transition-colors ${
                           mortCause === c.value
-                            ? "border-red-500 bg-red-600 text-white"
-                            : "border-slate-200 bg-white text-slate-700 hover:bg-slate-50"
+                            ? "border-red-600 bg-red-600 text-white"
+                            : "border-slate-300 bg-white text-slate-800 hover:bg-slate-50"
                         }`}
                       >
                         {c.label}
@@ -1300,9 +1823,48 @@ export default function QuickCaptureModal() {
                   </div>
                 </div>
 
+                <div>
+                  <span className="mb-1.5 block text-xs font-semibold text-slate-700">Observación rápida (1 toque)</span>
+                  <div className="flex flex-wrap gap-1.5">
+                    {MORTALITY_QUICK_OBSERVATIONS.map((obs) => {
+                      const active = mortNotes.includes(obs);
+                      return (
+                        <button
+                          key={obs}
+                          type="button"
+                          onClick={() =>
+                            setMortNotes((prev) =>
+                              prev
+                                ? prev.includes(obs)
+                                  ? prev
+                                  : `${prev} · ${obs}`
+                                : obs,
+                            )
+                          }
+                          className={`rounded-lg border px-2.5 py-1.5 text-xs font-semibold transition-colors ${
+                            active
+                              ? "border-amber-600 bg-amber-600 text-white"
+                              : "border-slate-200 bg-white text-slate-700 hover:bg-slate-50"
+                          }`}
+                        >
+                          {obs}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+
                 <Input label="Nota breve (opcional)" value={mortNotes} onChange={(e) => setMortNotes(e.target.value)} placeholder="Observación clínica o suceso" />
 
-                <Button type="button" variant="danger" onClick={() => void submitMortality()} disabled={saving} className="w-full py-2.5">
+                <AttachmentPanel
+                  entityType="mortality"
+                  entityId={draftMortalityId}
+                  defaultCategory="signo_clinico"
+                  title="Foto de signo clínico (opcional, <250KB)"
+                  compact
+                />
+
+                <Button type="button" variant="danger" touchSize="field" onClick={() => void submitMortality()} disabled={saving} className="w-full">
                   {saving ? "Guardando..." : "Registrar baja"}
                 </Button>
               </div>
@@ -1350,14 +1912,47 @@ export default function QuickCaptureModal() {
                   placeholder="Ej: Bulto de ponedora, vacunas, transporte..."
                 />
 
-                <Input
+                <ContactField
+                  role="proveedor"
                   label="Proveedor / a quién pagaste (opcional)"
                   value={expCounterparty}
-                  onChange={(e) => setExpCounterparty(e.target.value)}
+                  onChange={(name) => setExpCounterparty(name)}
                   placeholder="Agropecuaria o persona"
+                  compact
                 />
 
-                <Button type="button" onClick={() => void submitExpense()} disabled={saving} className="w-full py-2.5">
+                <div className="grid grid-cols-2 gap-2.5">
+                  <Select label="Especie (opc.)" value={expSpecies} onChange={(e) => setExpSpecies(e.target.value)}>
+                    <option value="">General / Sin asignar</option>
+                    {ANIMAL_SPECIES_OPTIONS.map((o) => (
+                      <option key={o.value} value={o.value}>{o.label}</option>
+                    ))}
+                  </Select>
+                  <Select label="Lugar (opc.)" value={expLocationId} onChange={(e) => setExpLocationId(e.target.value)}>
+                    <option value="">General / Sin asignar</option>
+                    {locations.map((l) => <option key={l.id} value={l.id}>{l.name}</option>)}
+                  </Select>
+                </div>
+
+                <AttachmentPanel
+                  entityType="transaction"
+                  entityId={draftExpenseId}
+                  defaultCategory="factura_dian"
+                  ocrMode="factura_compra"
+                  onOcrExtracted={(extracted: OcrExtractedPayload) => {
+                    if (extracted.mode !== "factura_compra") return;
+                    if (extracted.date) setExpDate(extracted.date);
+                    if (extracted.totalAmount) setExpAmount(String(extracted.totalAmount));
+                    if (extracted.supplierName) setExpCounterparty(extracted.supplierName);
+                    if (extracted.productName || extracted.summary) {
+                      setExpDescription((prev) => prev || extracted.productName || extracted.summary);
+                    }
+                  }}
+                  title="Foto de recibo o factura (Autocompletar)"
+                  compact
+                />
+
+                <Button type="button" touchSize="field" onClick={() => void submitExpense()} disabled={saving} className="w-full">
                   {saving ? "Guardando..." : "Guardar gasto"}
                 </Button>
               </div>
@@ -1365,76 +1960,394 @@ export default function QuickCaptureModal() {
 
             {mode === "venta" && (
               <div className="space-y-3.5">
-                {availableSizes.length > 0 ? (
-                  <div>
-                    <span className="mb-1.5 block text-xs font-semibold text-slate-700">Tamaño disponible</span>
+                {/* Selector de tipo de venta */}
+                <div>
+                  <span className="mb-1.5 block text-xs font-semibold text-slate-700">¿Qué vas a vender?</span>
+                  <div className="grid grid-cols-5 gap-1 rounded-xl bg-slate-100 p-1">
+                    {SALE_TYPE_TABS.map((opt) => (
+                      <button
+                        key={opt.value}
+                        type="button"
+                        onClick={() => {
+                          setSaleType(opt.value);
+                          setError("");
+                          if (opt.value === "huevos") {
+                            setSaleSpecies((prev) => (["gallina", "codorniz", "pato"].includes(prev) ? prev : "gallina"));
+                          } else if (opt.value === "carne") {
+                            const withStock = meatInventory.find((m) => m.availableKg > 0) || meatInventory[0];
+                            if (withStock) {
+                              setSaleSpecies(withStock.species);
+                              if (withStock.estimatedPriceKg) setSaleMeatPriceKg(String(withStock.estimatedPriceKg));
+                            } else {
+                              setSaleSpecies("pollo");
+                            }
+                          } else if (opt.value === "animales") {
+                            if (!saleHenId && activeHens[0]) setSaleHenId(activeHens[0].id);
+                            if (!saleRoosterId && activeRoosters[0]) setSaleRoosterId(activeRoosters[0].id);
+                            if (!saleBatchId && activeSaleBatches[0]) setSaleBatchId(activeSaleBatches[0].id);
+                          } else {
+                            setSaleSpecies("");
+                          }
+                        }}
+                        className={`rounded-lg px-2 py-1.5 text-xs font-semibold transition-all ${
+                          saleType === opt.value
+                            ? "bg-green-700 text-white shadow-sm"
+                            : "text-slate-600 hover:bg-white hover:text-slate-900"
+                        }`}
+                      >
+                        {opt.label}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                {saleType === "huevos" && (
+                  <>
+                    {availableSizes.length > 0 ? (
+                      <div>
+                        <span className="mb-1.5 block text-xs font-semibold text-slate-700">Tamaño disponible</span>
+                        <div className="flex flex-wrap gap-1.5">
+                          {availableSizes.map((item) => (
+                            <button
+                              key={item.size}
+                              type="button"
+                              onClick={() => {
+                                setSaleSize(item.size);
+                                if (item.price) setSalePrice(String(item.price));
+                              }}
+                              className={`rounded-lg border px-2.5 py-1.5 text-xs font-semibold transition-colors ${
+                                saleSize === item.size
+                                  ? "border-green-600 bg-green-600 text-white"
+                                  : "border-green-200 bg-green-50 text-green-800 hover:bg-green-100"
+                              }`}
+                            >
+                              {item.size}: {item.available} disp.
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                    ) : (
+                      <Input
+                        label="Tamaño de huevo"
+                        value={saleSize}
+                        onChange={(e) => setSaleSize(e.target.value)}
+                        placeholder={sizeCatalog.length > 0 ? `Ej: ${sizeCatalog.map((s) => s.value).slice(0, 3).join(", ")}` : "Ej: AA, A, B, Jumbo"}
+                      />
+                    )}
+
+                    <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+                      <Input label="Huevos" type="number" min={1} value={saleQty} onChange={(e) => setSaleQty(e.target.value)} />
+                      <Input label="Precio/u ($)" type="number" min={1} value={salePrice} onChange={(e) => setSalePrice(e.target.value)} />
+                      <Input label="Fecha" type="date" value={saleDate} onChange={(e) => setSaleDate(e.target.value)} />
+                    </div>
+
                     <div className="flex flex-wrap gap-1.5">
-                      {availableSizes.map((item) => (
+                      {[
+                        { qty: 6, label: "6 huevos" },
+                        { qty: 12, label: "1 docena (12)" },
+                        { qty: 30, label: "1 cubeta (30)" },
+                        { qty: 60, label: "2 cubetas (60)" },
+                      ].map((preset) => (
                         <button
-                          key={item.size}
+                          key={preset.qty}
                           type="button"
-                          onClick={() => {
-                            setSaleSize(item.size);
-                            if (item.price) setSalePrice(String(item.price));
-                          }}
-                          className={`rounded-lg border px-2.5 py-1.5 text-xs font-semibold transition-colors ${
-                            saleSize === item.size
-                              ? "border-green-600 bg-green-600 text-white"
-                              : "border-green-200 bg-green-50 text-green-800 hover:bg-green-100"
-                          }`}
+                          onClick={() => setSaleQty(String(preset.qty))}
+                          className="rounded-lg border border-slate-200 bg-slate-50 px-2.5 py-1 text-xs font-medium text-slate-700 hover:bg-slate-100"
                         >
-                          {item.size}: {item.available} disp.
+                          {preset.label}
                         </button>
                       ))}
                     </div>
-                  </div>
-                ) : (
-                  <Input label="Tamaño de huevo" value={saleSize} onChange={(e) => setSaleSize(e.target.value)} placeholder="Ej: Grande, Extra, Mediano" />
+
+                    <div className="grid grid-cols-2 gap-2.5">
+                      <Select label="Especie" value={saleSpecies} onChange={(e) => setSaleSpecies(e.target.value)}>
+                        {EGG_SPECIES_OPTIONS.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
+                      </Select>
+                      <Select label="Lugar (opc.)" value={saleLocationId} onChange={(e) => setSaleLocationId(e.target.value)}>
+                        <option value="">General</option>
+                        {locations.map((l) => <option key={l.id} value={l.id}>{l.name}</option>)}
+                      </Select>
+                    </div>
+                  </>
                 )}
 
-                <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
-                  <Input label="Huevos" type="number" min={1} value={saleQty} onChange={(e) => setSaleQty(e.target.value)} />
-                  <Input label="Precio/u ($)" type="number" min={1} value={salePrice} onChange={(e) => setSalePrice(e.target.value)} />
-                  <Input label="Fecha" type="date" value={saleDate} onChange={(e) => setSaleDate(e.target.value)} />
-                </div>
+                {saleType === "carne" && (
+                  <>
+                    {meatInventory.some((m) => m.availableKg > 0) && (
+                      <div>
+                        <span className="mb-1.5 block text-xs font-semibold text-slate-700">
+                          Disponible en frío {meatAvailableTotal !== null ? `(${meatAvailableTotal.toFixed(1)} kg total)` : ""}
+                        </span>
+                        <div className="flex flex-wrap gap-1.5">
+                          {meatInventory.filter((m) => m.availableKg > 0).map((m) => (
+                            <button
+                              key={m.species}
+                              type="button"
+                              onClick={() => {
+                                setSaleSpecies(m.species);
+                                if (m.estimatedPriceKg) setSaleMeatPriceKg(String(m.estimatedPriceKg));
+                              }}
+                              className={`rounded-lg border px-2.5 py-1.5 text-xs font-semibold transition-colors ${
+                                saleSpecies === m.species
+                                  ? "border-green-600 bg-green-600 text-white"
+                                  : "border-green-200 bg-green-50 text-green-800 hover:bg-green-100"
+                              }`}
+                            >
+                              {ANIMAL_SPECIES_OPTIONS.find((s) => s.value === m.species)?.label || m.species}: {m.availableKg.toFixed(1)} kg
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                    )}
 
-                <div className="flex flex-wrap gap-1.5">
-                  {[
-                    { qty: 6, label: "6 huevos" },
-                    { qty: 12, label: "1 docena (12)" },
-                    { qty: 30, label: "1 cubeta (30)" },
-                    { qty: 60, label: "2 cubetas (60)" },
-                  ].map((preset) => (
-                    <button
-                      key={preset.qty}
-                      type="button"
-                      onClick={() => setSaleQty(String(preset.qty))}
-                      className="rounded-lg border border-slate-200 bg-slate-50 px-2.5 py-1 text-xs font-medium text-slate-700 hover:bg-slate-100"
-                    >
-                      {preset.label}
-                    </button>
-                  ))}
-                </div>
+                    <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+                      <Select
+                        label="Especie"
+                        value={saleSpecies}
+                        onChange={(e) => {
+                          const nextSp = e.target.value;
+                          setSaleSpecies(nextSp);
+                          const match = meatInventory.find((m) => m.species === nextSp);
+                          if (match?.estimatedPriceKg) setSaleMeatPriceKg(String(match.estimatedPriceKg));
+                        }}
+                      >
+                        {ANIMAL_SPECIES_OPTIONS.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
+                      </Select>
+                      <Input label="Cantidad (kg)" type="number" step="0.1" min="0.1" value={saleMeatKg} onChange={(e) => setSaleMeatKg(e.target.value)} />
+                      <Input label="Precio/kg ($)" type="number" step="100" min="1" value={saleMeatPriceKg} onChange={(e) => setSaleMeatPriceKg(e.target.value)} />
+                    </div>
 
-                <Input
+                    <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+                      <Input label="Fecha" type="date" value={saleDate} onChange={(e) => setSaleDate(e.target.value)} />
+                      <Select label="Lugar (opc.)" value={saleLocationId} onChange={(e) => setSaleLocationId(e.target.value)}>
+                        <option value="">General</option>
+                        {locations.map((l) => <option key={l.id} value={l.id}>{l.name}</option>)}
+                      </Select>
+                      <Input label="Presentación" value={salePresentation} onChange={(e) => setSalePresentation(e.target.value)} placeholder="Canal, despiece..." />
+                    </div>
+                  </>
+                )}
+
+                {saleType === "animales" && (
+                  <>
+                    <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                      <Select
+                        label="Tipo / Especie en pie"
+                        value={saleAnimalType}
+                        onChange={(e) => {
+                          const nextType = e.target.value;
+                          setSaleAnimalType(nextType);
+                          if (nextType === "gallina") {
+                            setSaleAnimalQty("1");
+                            if (!saleHenId && activeHens[0]) setSaleHenId(activeHens[0].id);
+                          } else if (nextType === "gallo") {
+                            setSaleAnimalQty("1");
+                            if (!saleRoosterId && activeRoosters[0]) setSaleRoosterId(activeRoosters[0].id);
+                          } else {
+                            const sp = BATCH_SPECIES_BY_TYPE[nextType];
+                            const firstBatch = batches.find(
+                              (b) => b.species === sp && b.status !== "cerrado" && b.currentQuantity > 0,
+                            );
+                            setSaleBatchId(firstBatch?.id || "");
+                          }
+                        }}
+                      >
+                        {MORTALITY_BIRD_TYPES.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
+                      </Select>
+
+                      {saleAnimalType === "gallina" && (
+                        <Select label="Gallina" value={saleHenId} onChange={(e) => setSaleHenId(e.target.value)}>
+                          <option value="">— Selecciona —</option>
+                          {activeHens.map((h) => <option key={h.id} value={h.id}>{h.code}{h.breed ? ` (${h.breed})` : ""}</option>)}
+                        </Select>
+                      )}
+                      {saleAnimalType === "gallo" && (
+                        <Select label="Gallo" value={saleRoosterId} onChange={(e) => setSaleRoosterId(e.target.value)}>
+                          <option value="">— Selecciona —</option>
+                          {activeRoosters.map((r) => <option key={r.id} value={r.id}>{r.code}</option>)}
+                        </Select>
+                      )}
+                      {saleAnimalType.startsWith("lote_") && (
+                        <Select label="Lote" value={saleBatchId} onChange={(e) => setSaleBatchId(e.target.value)}>
+                          <option value="">— Selecciona —</option>
+                          {activeSaleBatches.map((b) => (
+                            <option key={b.id} value={b.id}>{b.code} ({b.currentQuantity} disp.)</option>
+                          ))}
+                        </Select>
+                      )}
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-4">
+                      {saleAnimalType.startsWith("lote_") && (
+                        <Input label="Cantidad" type="number" min={1} value={saleAnimalQty} onChange={(e) => setSaleAnimalQty(e.target.value)} />
+                      )}
+                      <Select label="Cobro" value={saleAnimalPriceMode} onChange={(e) => setSaleAnimalPriceMode(e.target.value as "por_ave" | "por_kg")}>
+                        <option value="por_ave">Por animal</option>
+                        <option value="por_kg">Por kg</option>
+                      </Select>
+                      <Input
+                        label={saleAnimalPriceMode === "por_kg" ? "Peso (kg) *" : "Peso kg (opc.)"}
+                        type="number"
+                        step="0.1"
+                        min="0"
+                        value={saleAnimalWeightKg}
+                        onChange={(e) => setSaleAnimalWeightKg(e.target.value)}
+                      />
+                      <Input
+                        label={saleAnimalPriceMode === "por_kg" ? "Precio/kg ($)" : "Precio/u ($)"}
+                        type="number"
+                        min={1}
+                        value={saleAnimalPrice}
+                        onChange={(e) => setSaleAnimalPrice(e.target.value)}
+                      />
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-2.5">
+                      <Input label="Fecha" type="date" value={saleDate} onChange={(e) => setSaleDate(e.target.value)} />
+                      <Input label="Presentación (opc.)" value={salePresentation} onChange={(e) => setSalePresentation(e.target.value)} placeholder="En pie, limpio..." />
+                    </div>
+                  </>
+                )}
+
+                {saleType === "gallinaza" && (
+                  <>
+                    {manureAvailable !== null && (
+                      <div className="rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-xs text-emerald-800">
+                        Disponible en inventario: <strong>{manureAvailable.toFixed(1)} kg</strong> ({(manureAvailable / 40).toFixed(1)} bultos de 40 kg)
+                      </div>
+                    )}
+
+                    <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+                      <Input label="Cantidad (kg)" type="number" step="0.5" min="0.5" value={saleManureKg} onChange={(e) => setSaleManureKg(e.target.value)} />
+                      <Input label="Precio/kg ($)" type="number" step="50" min="0" value={saleManurePriceKg} onChange={(e) => setSaleManurePriceKg(e.target.value)} />
+                      <Input label="Fecha" type="date" value={saleDate} onChange={(e) => setSaleDate(e.target.value)} />
+                    </div>
+
+                    <div className="flex flex-wrap gap-1.5">
+                      {[
+                        { kg: 25, label: "25 kg" },
+                        { kg: 40, label: "1 bulto (40 kg)" },
+                        { kg: 80, label: "2 bultos (80 kg)" },
+                        { kg: 200, label: "5 bultos (200 kg)" },
+                      ].map((preset) => (
+                        <button
+                          key={preset.kg}
+                          type="button"
+                          onClick={() => setSaleManureKg(String(preset.kg))}
+                          className="rounded-lg border border-slate-200 bg-slate-50 px-2.5 py-1 text-xs font-medium text-slate-700 hover:bg-slate-100"
+                        >
+                          {preset.label}
+                        </button>
+                      ))}
+                    </div>
+
+                    <div className="grid grid-cols-1 gap-2.5 sm:grid-cols-3">
+                      <Select label="Especie origen (opc.)" value={saleSpecies} onChange={(e) => setSaleSpecies(e.target.value)}>
+                        <option value="">Mixta / General</option>
+                        {ANIMAL_SPECIES_OPTIONS.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
+                      </Select>
+                      <Select label="Lugar (opc.)" value={saleLocationId} onChange={(e) => setSaleLocationId(e.target.value)}>
+                        <option value="">General</option>
+                        {locations.map((l) => <option key={l.id} value={l.id}>{l.name}</option>)}
+                      </Select>
+                      <Input label="Presentación" value={salePresentation} onChange={(e) => setSalePresentation(e.target.value)} placeholder="Bulto 40kg, granel" />
+                    </div>
+                  </>
+                )}
+
+                {saleType === "otros" && (
+                  <>
+                    <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                      <Select label="Categoría" value={saleOtherCategory} onChange={(e) => setSaleOtherCategory(e.target.value)}>
+                        {incomeCategoriesList.map((cat) => <option key={cat} value={cat}>{cat}</option>)}
+                      </Select>
+                      <Input label="Fecha" type="date" value={saleDate} onChange={(e) => setSaleDate(e.target.value)} />
+                    </div>
+
+                    <Input
+                      label="Producto o subproducto vendido *"
+                      value={saleOtherDesc}
+                      onChange={(e) => setSaleOtherDesc(e.target.value)}
+                      placeholder="Ej: Plumas seleccionadas, humus sólido, empaque..."
+                    />
+
+                    <div className="grid grid-cols-3 gap-2.5">
+                      <Input label="Cantidad *" type="number" step="0.1" min="0.1" value={saleOtherQty} onChange={(e) => setSaleOtherQty(e.target.value)} />
+                      <Input label="Unidad" value={saleOtherUnit} onChange={(e) => setSaleOtherUnit(e.target.value)} placeholder="unidad, kg, litro" />
+                      <Input label="Precio/u ($) *" type="number" min="1" value={saleOtherUnitPrice} onChange={(e) => setSaleOtherUnitPrice(e.target.value)} />
+                    </div>
+
+                    <div className="grid grid-cols-1 gap-2.5 sm:grid-cols-3">
+                      <Select label="Especie (opc.)" value={saleSpecies} onChange={(e) => setSaleSpecies(e.target.value)}>
+                        <option value="">General</option>
+                        {ANIMAL_SPECIES_OPTIONS.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
+                      </Select>
+                      <Select label="Lugar (opc.)" value={saleLocationId} onChange={(e) => setSaleLocationId(e.target.value)}>
+                        <option value="">General</option>
+                        {locations.map((l) => <option key={l.id} value={l.id}>{l.name}</option>)}
+                      </Select>
+                      <Input label="Presentación (opc.)" value={salePresentation} onChange={(e) => setSalePresentation(e.target.value)} placeholder="Bolsa, caja..." />
+                    </div>
+                  </>
+                )}
+
+                <ContactField
+                  role="cliente"
                   label="Comprador (opcional)"
                   value={saleBuyer}
-                  onChange={(e) => setSaleBuyer(e.target.value)}
-                  list="quick-capture-buyers"
+                  onChange={(name, contact) => {
+                    setSaleBuyer(name);
+                    if (contact?.creditDays) {
+                      setSaleClientCreditDays(contact.creditDays);
+                      if (saleIsCredit) setSaleDueDate(addDaysIso(saleDate, contact.creditDays));
+                    } else {
+                      setSaleClientCreditDays(null);
+                    }
+                  }}
                   placeholder="Nombre del cliente o tienda"
+                  compact
                 />
-                <datalist id="quick-capture-buyers">
-                  {buyerOptions.map((b) => (
-                    <option key={b} value={b} />
-                  ))}
-                </datalist>
 
-                <div className="flex items-center justify-between rounded-lg bg-green-50 px-3 py-2 text-sm text-green-800">
-                  <span>Total venta:</span>
-                  <strong>${(Math.max(0, Number(saleQty || 0)) * Math.max(0, Number(salePrice || 0))).toLocaleString("es-CO")}</strong>
+                <div className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 space-y-2">
+                  <label className="flex items-center gap-2 text-xs font-medium text-slate-700 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={saleIsCredit}
+                      onChange={(e) => {
+                        const checked = e.target.checked;
+                        setSaleIsCredit(checked);
+                        if (checked && !saleDueDate) {
+                          setSaleDueDate(addDaysIso(saleDate, saleClientCreditDays || 15));
+                        }
+                      }}
+                      className="rounded border-slate-300 text-green-600 focus:ring-green-500"
+                    />
+                    <span>Venta a crédito (cuenta por cobrar)</span>
+                  </label>
+                  {saleIsCredit && (
+                    <Input
+                      label="Fecha de vencimiento *"
+                      type="date"
+                      value={saleDueDate}
+                      onChange={(e) => setSaleDueDate(e.target.value)}
+                    />
+                  )}
                 </div>
 
-                <Button type="button" onClick={() => void submitSale()} disabled={saving} className="w-full py-2.5">
+                <AttachmentPanel
+                  entityType="transaction"
+                  entityId={draftSaleId}
+                  defaultCategory="comprobante_pago"
+                  title="Soporte o comprobante de venta (opcional)"
+                  compact
+                />
+
+                <div className="flex items-center justify-between rounded-lg bg-green-50 px-3 py-2 text-sm text-green-800">
+                  <span>{saleIsCredit ? "Total a crédito:" : "Total venta:"}</span>
+                  <strong>${Math.round(saleTotalPreview).toLocaleString("es-CO")}</strong>
+                </div>
+
+                <Button type="button" touchSize="field" onClick={() => void submitSale()} disabled={saving} className="w-full">
                   {saving ? "Guardando..." : "Registrar venta"}
                 </Button>
               </div>

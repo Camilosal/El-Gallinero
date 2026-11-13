@@ -201,7 +201,7 @@ export default function CalendarioSanitarioPage() {
         }
       />
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-2.5 sm:gap-4">
         <StatCard icon="calendar" label="Total eventos" value={String(events.length)} color="blue" />
         <StatCard icon="dot-red" label="Vencidos" value={String(overdueEvents.length)} color="red" />
         <StatCard icon="dot-amber" label="Próximos (7 días)" value={String(dueSoonEvents.length)} color="yellow" />

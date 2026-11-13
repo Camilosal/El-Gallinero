@@ -9,6 +9,7 @@ import { daysSince, isTodayOrEarlierManureDate } from "@/lib/manure";
 import { buildManureEstimate } from "@/lib/manure-estimate";
 import { computeManureInventory } from "@/lib/inventory";
 import { withApiHandler, safeParseJson } from "@/lib/api-handler";
+import { resolveDimensions } from "@/lib/analytics-dimensions";
 import {
   createManureAdjustment,
   createManureSale,
@@ -67,15 +68,27 @@ export const POST = withApiHandler(async (req: NextRequest) => {
       if (!isDateOnly(body.date) || !isTodayOrEarlierManureDate(body.date) || !Number.isFinite(quantityKg) || quantityKg <= 0 || !Number.isFinite(pricePerKg) || pricePerKg < 0) {
         return NextResponse.json({ error: "La fecha no puede ser futura y la cantidad/precio deben ser válidos" }, { status: 400 });
       }
+      if (body.isCredit && body.dueDate && !isDateOnly(body.dueDate)) {
+        return NextResponse.json({ error: "Fecha de vencimiento inválida" }, { status: 400 });
+      }
 
-      const sale = await db.transaction((tx) => createManureSale(tx, {
-        date: body.date,
-        quantityKg,
-        pricePerKg,
-        presentation: body.presentation,
-        buyer: body.buyer,
-        notes: body.notes,
-      }));
+      const sale = await db.transaction(async (tx) => {
+        const dimRes = await resolveDimensions(tx, { species: body.species, locationId: body.locationId, batchId: body.batchId });
+        if ("error" in dimRes) throw new Error(dimRes.error);
+        return createManureSale(tx, {
+          date: body.date,
+          quantityKg,
+          pricePerKg,
+          presentation: body.presentation,
+          buyer: body.buyer,
+          notes: body.notes,
+          species: dimRes.dimensions.species,
+          locationId: dimRes.dimensions.locationId,
+          batchId: dimRes.dimensions.batchId,
+          isCredit: Boolean(body.isCredit),
+          dueDate: body.dueDate || null,
+        });
+      });
 
       return NextResponse.json(sale, { status: 201 });
     }

@@ -1,9 +1,10 @@
 import { db } from "@/db";
-import { broilerBatches, catalogos, eggProduction, hens, weightLogs } from "@/db/schema";
+import { broilerBatches, catalogos, eggProduction, farmLocations, hens, weightLogs } from "@/db/schema";
 import { and, desc, eq, gte, lte, sql } from "drizzle-orm";
 import { NextRequest, NextResponse } from "next/server";
 import { withApiHandler } from "@/lib/api-handler";
 import { getStandardCurve, interpolateStandard } from "@/lib/standard-curves";
+import { calibrateTargetForEnvironment } from "@/lib/zootechnics";
 
 export const dynamic = "force-dynamic";
 
@@ -27,8 +28,29 @@ export const GET = withApiHandler(async (req: NextRequest) => {
   const { searchParams } = new URL(req.url);
   const species = searchParams.get("species") || "gallina";
   const breed = searchParams.get("breed");
-  const curve = getStandardCurve(species, breed);
-  if (!curve) return NextResponse.json({ error: "No hay una curva de referencia para esta especie" }, { status: 404 });
+  const locationId = searchParams.get("locationId") || null;
+  const baseCurve = getStandardCurve(species, breed);
+  if (!baseCurve) return NextResponse.json({ error: "No hay una curva de referencia para esta especie" }, { status: 404 });
+
+  const [selectedLoc] = locationId
+    ? await db.select().from(farmLocations).where(eq(farmLocations.id, locationId)).limit(1)
+    : [undefined];
+  const envCal = calibrateTargetForEnvironment(
+    species,
+    selectedLoc?.altitudeMeters ?? null,
+    selectedLoc?.floorType ?? null,
+  );
+  const curve = baseCurve.metric === "peso" && envCal.factor !== 1
+    ? {
+        ...baseCurve,
+        points: baseCurve.points.map((pt) => ({
+          ...pt,
+          target: Math.round(pt.target * envCal.factor),
+          min: Math.round(pt.min * envCal.factor),
+          max: Math.round(pt.max * envCal.factor),
+        })),
+      }
+    : baseCurve;
 
   const today = new Date();
   const todayStr = isoDate(today);
@@ -43,8 +65,13 @@ export const GET = withApiHandler(async (req: NextRequest) => {
     henGroup: weightLogs.henGroup,
     breed: weightLogs.breed,
     weekNumber: weightLogs.weekNumber,
+    species: weightLogs.species,
+    locationId: weightLogs.locationId,
     avgWeightKg: weightLogs.avgWeightKg,
     sampleSize: weightLogs.sampleSize,
+    cvPercent: weightLogs.cvPercent,
+    uniformityPct: weightLogs.uniformityPct,
+    dailyGainG: weightLogs.dailyGainG,
     notes: weightLogs.notes,
     batchSpecies: broilerBatches.species,
     batchBreed: broilerBatches.breed,
@@ -57,8 +84,9 @@ export const GET = withApiHandler(async (req: NextRequest) => {
     .limit(500);
 
   const logs = rawWeightLogs
+    .filter((log) => !locationId || log.locationId === locationId)
     .map((log) => {
-      const logSpecies = log.batchSpecies || "gallina";
+      const logSpecies = log.species || log.batchSpecies || "gallina";
       const measuredAtWeeks = log.weekNumber != null
         ? Number(log.weekNumber)
         : log.batchStartDate
@@ -76,6 +104,9 @@ export const GET = withApiHandler(async (req: NextRequest) => {
         avgWeightKg: Number(log.avgWeightKg || 0),
         avgWeightG: Number(log.avgWeightKg || 0) * 1000,
         sampleSize: log.sampleSize || 1,
+        cvPercent: log.cvPercent != null ? Number(log.cvPercent) : null,
+        uniformityPct: log.uniformityPct != null ? Number(log.uniformityPct) : null,
+        dailyGainG: log.dailyGainG != null ? Number(log.dailyGainG) : null,
         notes: log.notes,
       };
     })
@@ -178,5 +209,22 @@ export const GET = withApiHandler(async (req: NextRequest) => {
     }
   }
 
-  return NextResponse.json({ curve, logs, actualPoints, comparison });
+  const latestMetrics = [...logs].reverse().find((l) => l.cvPercent != null || l.dailyGainG != null);
+  return NextResponse.json({
+    curve,
+    logs,
+    actualPoints,
+    comparison,
+    environmentAdjustment: {
+      locationName: selectedLoc?.name || null,
+      ...envCal,
+    },
+    zootechnics: latestMetrics
+      ? {
+          cvPercent: latestMetrics.cvPercent,
+          uniformityPct: latestMetrics.uniformityPct,
+          dailyGainG: latestMetrics.dailyGainG,
+        }
+      : null,
+  });
 });

@@ -7,10 +7,17 @@ import { AppIcon } from "@/components/AppIcon";
 import { HeroBanner } from "@/components/HeroBanner";
 import TableSearch from "@/components/TableSearch";
 import { EmptyState } from "@/components/ui";
+import { DeveloperCredit } from "@/components/DeveloperCredit";
 import { matchesTextQuery } from "@/lib/text";
 
 const secciones = [
-  { href: "/dashboard/configuracion/catalogos", label: "Catálogos y datos de la granja", icon: "folder", desc: "Perfil del predio, clientes, proveedores y parámetros del sistema" },
+  { href: "/dashboard?wizard=1", label: "Asistente inicial (Día 1 · 3 pasos)", icon: "sparkles", desc: "Lanza el asistente guiado para cargar datos de la finca, lugares, animales actuales y alimento o plantilla CSV" },
+  { href: "/dashboard/configuracion/kit-campo", label: "Kit de Campo y Entrega Llave en Mano", icon: "qrcode", desc: "Cronograma vivo de 4 semanas, plancha QR plastificable en lote, mapa ICA y Acta Semana 4 PDF" },
+  { href: "/dashboard/configuracion/usuarios", label: "Usuarios y Roles de la Granja", icon: "users", desc: "Crea accesos para operario de galpón, veterinario o gerente sin usar consola técnica" },
+  { href: "/dashboard/configuracion/plan", label: "Plan por Ciclo y Pagos (Nequi / PSE)", icon: "credit-card", desc: "Renueva por cosecha de 60 días o plan semestral/anual mediante Nequi, Daviplata o PSE" },
+  { href: "/dashboard/configuracion/modulos", label: "Onboarding Progresivo, Escala y Módulos", icon: "sparkles", desc: "Perfil Pequeño vs Mediano, auto-triggers de crecimiento, Feature Flags y Asistente Día 1 sin historial" },
+  { href: "/dashboard/configuracion/catalogos", label: "Catálogos y datos de la granja", icon: "folder", desc: "8 pestañas maestras: listas, contactos, parámetros, 6 especies, vacunas, pesos, gallinaza y tabla nutricional" },
+  { href: "/dashboard/contactos", label: "Clientes y Proveedores", icon: "handshake", desc: "Directorio comercial con teléfonos, WhatsApp, ubicación GPS y plazos de crédito" },
 ];
 
 export default function ConfiguracionPage() {
@@ -43,26 +50,28 @@ export default function ConfiguracionPage() {
           message="No hay apartados de configuración que coincidan con la búsqueda"
         />
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <div className="grid grid-cols-2 gap-2.5 sm:gap-6">
           {visibleSecciones.map((sec) => (
             <Link
               key={sec.href}
               href={sec.href}
-              className="bg-white rounded-lg shadow-md p-6 hover:shadow-lg transition-shadow border border-gray-200"
+              className="bg-white rounded-lg shadow-md p-3.5 sm:p-6 min-w-0 hover:shadow-lg transition-shadow border border-gray-200"
             >
-              <div className="flex items-start gap-4">
-                <div className="w-11 h-11 rounded-xl bg-slate-100 flex items-center justify-center text-slate-700 shrink-0">
-                  <AppIcon icon={sec.icon} className="w-6 h-6" />
+              <div className="flex flex-col sm:flex-row sm:items-start gap-2.5 sm:gap-4">
+                <div className="w-9 h-9 sm:w-11 sm:h-11 rounded-xl bg-slate-100 flex items-center justify-center text-slate-700 shrink-0">
+                  <AppIcon icon={sec.icon} className="w-5 h-5 sm:w-6 sm:h-6" />
                 </div>
-                <div>
-                  <h3 className="text-lg font-semibold text-gray-900">{sec.label}</h3>
-                  <p className="text-sm text-gray-600 mt-1">{sec.desc}</p>
+                <div className="min-w-0">
+                  <h3 className="text-sm sm:text-lg font-semibold text-gray-900 leading-snug">{sec.label}</h3>
+                  <p className="text-xs sm:text-sm text-gray-600 mt-1 line-clamp-2">{sec.desc}</p>
                 </div>
               </div>
             </Link>
           ))}
         </div>
       )}
+
+      <DeveloperCredit variant="card" className="mt-8" />
     </div>
   );
 }

@@ -10,6 +10,8 @@ import { withApiHandler, safeParseJson } from "@/lib/api-handler";
 import { deleteTransactionsAndUnpaidAccounts, upsertExpenseTransaction } from "@/lib/financial-records";
 import { speciesLabel } from "@/lib/species-db";
 import { validateBreedAssociation } from "@/lib/animal-breed-validation";
+import { assertLocationEntryAllowed } from "@/lib/sanitary-locks";
+import { assertCanCreateActiveBatch } from "@/lib/subscription";
 import type { ManagedAnimalSpecies } from "@/lib/animal-breeds";
 
 export const dynamic = "force-dynamic";
@@ -50,7 +52,7 @@ async function nextCodesInTx(tx: any, table: any, prefix: string, count: number)
   return Array.from({ length: count }, (_, i) => `${prefix}-${String(max + i + 1).padStart(3, "0")}`);
 }
 
-const BATCH_TYPES = ["lote_pollos", "codorniz", "pato", "conejo"] as const;
+const BATCH_TYPES = ["lote_pollos", "codorniz", "pato", "conejo", "cuy"] as const;
 const VALID_BIRD_TYPES = ["gallina", "gallo", ...BATCH_TYPES] as const;
 const ACQUISITION_TYPES = ["compra", "donacion", "pollito_comprado", "cria_propia"] as const;
 const BATCH_PURPOSES = ["engorde_carne", "postura_huevo", "pie_cria", "mixto"] as const;
@@ -76,6 +78,7 @@ async function nextBatchCodeInTx(tx: any, species: string): Promise<string> {
   const prefix = species === "codorniz" ? "L-COD-"
     : species === "pato" ? "L-PAT-"
     : species === "conejo" ? "L-CON-"
+    : species === "cuy" ? "L-CUY-"
     : "L-";
   const rows = await tx.select({ code: broilerBatches.code })
     .from(broilerBatches)
@@ -150,8 +153,22 @@ export const POST = withApiHandler(async (req: NextRequest) => {
   const breedError = await validateBreedAssociation(db, String(breed || ""), species as ManagedAnimalSpecies);
   if (breedError) return NextResponse.json({ error: breedError }, { status: 400 });
   const purpose = body.purpose || "engorde_carne";
-  if ((BATCH_TYPES as readonly string[]).includes(birdType) && !(BATCH_PURPOSES as readonly string[]).includes(purpose)) {
+  const isBatchCreation = (BATCH_TYPES as readonly string[]).includes(birdType);
+  if (isBatchCreation && !(BATCH_PURPOSES as readonly string[]).includes(purpose)) {
     return NextResponse.json({ error: "Destino del lote inválido" }, { status: 400 });
+  }
+  if (isBatchCreation) {
+    const quotaCheck = await assertCanCreateActiveBatch();
+    if (!quotaCheck.allowed) {
+      return NextResponse.json(
+        {
+          error: quotaCheck.error,
+          code: quotaCheck.code || "UPGRADE_REQUIRED",
+          subscription: quotaCheck.status,
+        },
+        { status: 402 },
+      );
+    }
   }
   if (purpose === "postura_huevo" && !["codorniz", "pato"].includes(species)) {
     return NextResponse.json({ error: "Los lotes para postura deben ser de codornices o patos; las gallinas se registran individualmente" }, { status: 400 });
@@ -172,10 +189,12 @@ export const POST = withApiHandler(async (req: NextRequest) => {
   const today = birthDate || new Date().toISOString().split("T")[0];
 
   const result = await db.transaction(async (tx) => {
-    const [destination] = await tx.select({ id: farmLocations.id, status: farmLocations.status, operationalStatus: farmLocations.operationalStatus })
-      .from(farmLocations).where(eq(farmLocations.id, String(body.destinationLocationId))).for("update");
-    if (!destination || destination.status !== "activa") throw new Error("El lugar de destino no está activo");
-    if (["fuera_servicio", "restringida"].includes(destination.operationalStatus)) throw new Error("El lugar seleccionado está restringido o fuera de servicio");
+    const destination = await assertLocationEntryAllowed(tx, {
+      locationId: String(body.destinationLocationId),
+      species,
+      date,
+      lock: true,
+    });
     const [capacity] = await tx.select({ capacity: farmLocations.capacity }).from(farmLocations).where(eq(farmLocations.id, destination.id));
     if (capacity?.capacity != null) {
       const [[henCount], [roosterCount], [batchCount]] = await Promise.all([
@@ -282,10 +301,12 @@ export const POST = withApiHandler(async (req: NextRequest) => {
       const targetWeeks = species === "codorniz" ? 5
         : species === "pato" ? 9
         : species === "conejo" ? 11
+        : species === "cuy" ? 13
         : 7;
       const targetWeightKg = species === "codorniz" ? "0.15"
         : species === "pato" ? "3.2"
         : species === "conejo" ? "2.4"
+        : species === "cuy" ? "1.10"
         : "2.5";
       const [batch] = await tx.insert(broilerBatches).values({
         code,
@@ -327,6 +348,8 @@ export const POST = withApiHandler(async (req: NextRequest) => {
         unit: "animales",
         sourceType: "adquisicion",
         sourceId: acquisition.id,
+        species: acquisition.species ?? null,
+        locationId: destination.id,
         notes: notes || null,
       });
     }
@@ -462,6 +485,8 @@ export const PUT = withApiHandler(async (req: NextRequest) => {
         sourceType: "adquisicion",
         sourceId: body.id,
         counterparty: row.supplier,
+        species: row.species ?? null,
+        locationId: row.destinationLocationId ?? null,
       });
     }
 

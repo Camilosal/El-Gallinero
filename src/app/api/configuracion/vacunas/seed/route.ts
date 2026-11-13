@@ -2,6 +2,7 @@ import { db } from "@/db";
 import { vaccinationTemplates } from "@/db/schema";
 import { VACCINATION_SCHEDULES } from "@/lib/vaccination-schedules";
 import { NextResponse } from "next/server";
+import { requirePermission } from "@/lib/rbac-server";
 import { withApiHandler } from "@/lib/api-handler";
 
 export const dynamic = "force-dynamic";
@@ -14,6 +15,8 @@ const BREED_SPECIES: Record<string, string> = {
 
 /** POST /api/configuracion/vacunas/seed — carga idempotente de planes de referencia. */
 export const POST = withApiHandler(async () => {
+  const denied = await requirePermission("config:write");
+  if (denied) return denied;
   const rows = Object.entries(VACCINATION_SCHEDULES).flatMap(([breed, events]) =>
     events.map((event) => ({
       species: BREED_SPECIES[breed] || "gallina",

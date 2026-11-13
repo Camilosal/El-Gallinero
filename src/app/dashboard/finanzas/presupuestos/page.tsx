@@ -9,6 +9,7 @@ import TableSearch from "@/components/TableSearch";
 import { matchesTextQuery } from "@/lib/text";
 import { useSearchParams } from "next/navigation";
 import { useActionQuery } from "@/lib/useActionQuery";
+import FeatureGateBanner from "@/components/FeatureGateBanner";
 
 interface BudgetItem {
   id: string;
@@ -188,13 +189,14 @@ export default function PresupuestosPage() {
         }
       />
 
+      <FeatureGateBanner flagKey="reportes_dian_roi_credito" mode="gate">
       {loading ? (
         <Card><p className="text-center py-8 text-slate-400">Cargando...</p></Card>
       ) : budgets.length === 0 ? (
         <EmptyState icon="calendar" message="No hay presupuestos. Crea el presupuesto inicial en $0 y complétalo a medida que definas tus metas." />
       ) : (
         <>
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+          <div className="grid grid-cols-2 sm:grid-cols-3 gap-2.5 sm:gap-4">
             <StatCard icon="calendar" label="Presupuestos" value={String(budgets.length)} color="blue" />
             <StatCard icon="bar-chart" label="Items totales" value={String(budgets.reduce((s, b) => s + b.items.length, 0))} color="green" />
             <StatCard icon="money" label="Meta total" value={fmt(budgets.reduce((s, b) => s + b.items.reduce((is, i) => is + Number(i.monthlyTarget), 0), 0))} color="yellow" />
@@ -366,6 +368,7 @@ export default function PresupuestosPage() {
           </div>
         </div>
       </Modal>
+      </FeatureGateBanner>
     </div>
   );
 }

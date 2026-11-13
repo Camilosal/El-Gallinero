@@ -5,6 +5,7 @@ import { useParams } from "next/navigation";
 import Link from "next/link";
 import { Bird, CheckCircle2, CircleDollarSign, ClipboardList, Egg, FileEdit, Pill, Skull } from "lucide-react";
 import { Card, Badge, Button, Modal, Input, Select, Textarea, EmptyState } from "@/components/ui";
+import ContactField from "@/components/contacts/ContactField";
 import { AppIcon } from "@/components/AppIcon";
 import { HeroBanner } from "@/components/HeroBanner";
 import TableSearch from "@/components/TableSearch";
@@ -383,10 +384,11 @@ export default function HenDetailPage() {
 
             {actionModal === "vender" && (
               <>
-                <Input
+                <ContactField
+                  role="cliente"
                   label="Comprador"
                   value={actionForm.buyer || ""}
-                  onChange={(e) => setActionForm({ ...actionForm, buyer: e.target.value })}
+                  onChange={(name) => setActionForm({ ...actionForm, buyer: name })}
                   placeholder="Nombre del comprador"
                 />
                 <Input

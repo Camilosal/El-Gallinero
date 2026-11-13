@@ -12,6 +12,7 @@ import {
 import { withApiHandler, safeParseJson } from "@/lib/api-handler";
 import { lockMeatInventory } from "@/lib/inventory-locks";
 import { computeMeatInventory, meatInventoryBookBalance } from "@/lib/inventory";
+import { assertDateNotClosed, assertNoActiveWithdrawal } from "@/lib/sanitary-locks";
 
 export const dynamic = "force-dynamic";
 
@@ -139,6 +140,16 @@ export const POST = withApiHandler(async (req: NextRequest) => {
       const error = await validateBatchForExit(body.batchId, qty, tx);
       if (error) throw new Error(error);
     }
+    await assertDateNotClosed(tx, { date: body.date });
+    await assertNoActiveWithdrawal(tx, {
+      date: body.date,
+      species,
+      locationId: body.locationId,
+      batchId: body.batchId || null,
+      henId: body.henId || null,
+      roosterId: body.roosterId || null,
+      operationLabel: "sacrificio / faena",
+    });
     const previousAnimalStates = await captureAnimalExitSnapshots(tx, {
       henId: body.henId,
       roosterId: body.roosterId,

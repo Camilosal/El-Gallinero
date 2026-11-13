@@ -1,8 +1,10 @@
 import { db } from "@/db";
 import { manureAdjustments, manureSales, transactions } from "@/db/schema";
 import { and, eq } from "drizzle-orm";
-import { deleteTransactionsAndUnpaidAccounts } from "@/lib/financial-records";
+import { deleteTransactionsAndUnpaidAccounts, syncCreditReceivable } from "@/lib/financial-records";
 import { lockAndReadManureStock } from "@/lib/manure-stock";
+import { resolveDimensions } from "@/lib/analytics-dimensions";
+import { assertDateNotClosed } from "@/lib/sanitary-locks";
 
 type DbTransaction = Parameters<Parameters<typeof db.transaction>[0]>[0];
 
@@ -13,17 +15,34 @@ export interface ManureSaleInput {
   presentation?: string | null;
   buyer?: string | null;
   notes?: string | null;
+  species?: string | null;
+  locationId?: string | null;
+  batchId?: string | null;
+  isCredit?: boolean;
+  dueDate?: string | null;
 }
 
 export async function createManureSale(tx: DbTransaction, input: ManureSaleInput) {
+  await assertDateNotClosed(tx, { date: input.date });
   const availableKg = await lockAndReadManureStock(tx);
   if (input.quantityKg > availableKg) {
     throw new Error(`Stock insuficiente: disponibles ${Math.max(0, availableKg).toFixed(2)} kg`);
   }
 
+  const dimRes = await resolveDimensions(tx, {
+    species: input.species,
+    locationId: input.locationId,
+    batchId: input.batchId,
+  });
+  if ("error" in dimRes) throw new Error(dimRes.error);
+  const dims = dimRes.dimensions;
+
   const totalAmount = (input.quantityKg * input.pricePerKg).toFixed(2);
   const [created] = await tx.insert(manureSales).values({
     date: input.date,
+    species: dims.species,
+    locationId: dims.locationId,
+    batchId: dims.batchId,
     quantityKg: input.quantityKg.toFixed(2),
     pricePerKg: input.pricePerKg.toFixed(2),
     totalAmount,
@@ -32,7 +51,7 @@ export async function createManureSale(tx: DbTransaction, input: ManureSaleInput
     notes: input.notes || null,
   }).returning();
 
-  await tx.insert(transactions).values({
+  const [txRow] = await tx.insert(transactions).values({
     date: input.date,
     type: "ingreso",
     category: "Venta de abono/gallinaza",
@@ -45,10 +64,23 @@ export async function createManureSale(tx: DbTransaction, input: ManureSaleInput
     presentation: input.presentation || null,
     sourceType: "gallinaza",
     sourceId: created.id,
+    species: dims.species,
+    locationId: dims.locationId,
+    batchId: dims.batchId,
     notes: input.notes || null,
-  });
+  }).returning();
 
-  return created;
+  if (input.isCredit) {
+    await syncCreditReceivable(tx, {
+      transactionId: txRow.id,
+      totalAmount,
+      isCredit: true,
+      dueDate: input.dueDate || null,
+      buyer: input.buyer || null,
+    });
+  }
+
+  return { ...created, transactionId: txRow.id };
 }
 
 export async function deleteManureSale(tx: DbTransaction, saleId: string): Promise<boolean> {

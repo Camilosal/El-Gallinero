@@ -16,7 +16,7 @@ type Movement = {
 };
 
 const EMPTY_TRANSFER = { animalType: "gallina", animalId: "", toLocationId: "", date: new Date().toISOString().slice(0, 10), reason: "Cambio de alojamiento", notes: "" };
-const SPECIES_PLURAL: Record<string, string> = { gallina: "gallinas", gallo: "gallos", pollo: "pollos", codorniz: "codornices", pato: "patos", conejo: "conejos" };
+const SPECIES_PLURAL: Record<string, string> = { gallina: "gallinas", gallo: "gallos", pollo: "pollos", codorniz: "codornices", pato: "patos", conejo: "conejos", cuy: "cuyes" };
 const speciesLabel = (species: string) => SPECIES_PLURAL[species] || species;
 
 export default function UbicacionFichaPage() {
@@ -125,7 +125,7 @@ export default function UbicacionFichaPage() {
         <StatCard icon="wrench" label="Mantenimientos pendientes" value={location.pendingMaintenance || 0} color={location.pendingMaintenance ? "yellow" : "green"} />
       </div>
 
-      <Card className="grid gap-4 text-sm sm:grid-cols-3">
+      <Card className="grid grid-cols-2 gap-3 sm:gap-4 text-xs sm:text-sm sm:grid-cols-3">
         <div><p className="font-semibold text-slate-800">Huevos por especie · 30 días</p><p className="mt-1 text-slate-600">{eggBySpecies}</p></div>
         <div><p className="font-semibold text-slate-800">Carne por especie · 30 días</p><p className="mt-1 text-slate-600">{meatBySpecies}</p></div>
         <div><p className="font-semibold text-slate-800">Peso promedio por especie · 30 días</p><p className="mt-1 text-slate-600">{weightBySpecies}</p></div>

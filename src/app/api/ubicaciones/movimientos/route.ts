@@ -2,7 +2,8 @@ import { db } from "@/db";
 import { animalLocationMovements, broilerBatches, farmLocations, hens, roosters } from "@/db/schema";
 import { HEN_PRESENT_STATUSES } from "@/lib/animal-status";
 import { isDateOnly } from "@/lib/date-validation";
-import { withApiHandler, safeParseJson } from "@/lib/api-handler";
+import { ApiHttpError, withApiHandler, safeParseJson } from "@/lib/api-handler";
+import { assertLocationEntryAllowed, assertNoActiveWithdrawal } from "@/lib/sanitary-locks";
 import { and, desc, eq, inArray, or, sql } from "drizzle-orm";
 import { NextRequest, NextResponse } from "next/server";
 
@@ -62,24 +63,21 @@ export const POST = withApiHandler(async (req: NextRequest) => {
 
   try {
     const created = await db.transaction(async (tx) => {
-      const [destination] = await tx.select().from(farmLocations).where(eq(farmLocations.id, body.toLocationId)).for("update");
-      if (!destination || destination.status !== "activa") throw new Error("Selecciona un lugar activo");
-      if (["fuera_servicio", "restringida"].includes(destination.operationalStatus)) {
-        throw new Error("El destino está fuera de servicio o restringido y no admite traslados");
-      }
-
       let fromLocationId: string | null = null;
       let quantity = 1;
+      let animalSpecies = "gallina";
       let target: { henId?: string; roosterId?: string; batchId?: string } = {};
       if (body.animalType === "gallina") {
         const [animal] = await tx.select().from(hens).where(eq(hens.id, String(body.animalId))).for("update");
         if (!animal || !HEN_PRESENT_STATUSES.includes(animal.status)) throw new Error("La gallina no está disponible para traslado");
         fromLocationId = animal.locationId;
+        animalSpecies = "gallina";
         target = { henId: animal.id };
       } else if (body.animalType === "gallo") {
         const [animal] = await tx.select().from(roosters).where(eq(roosters.id, String(body.animalId))).for("update");
         if (!animal || !["activo", "enfermo"].includes(animal.status)) throw new Error("El gallo no está disponible para traslado");
         fromLocationId = animal.locationId;
+        animalSpecies = "gallina";
         target = { roosterId: animal.id };
       } else {
         const [batch] = await tx.select().from(broilerBatches).where(eq(broilerBatches.id, String(body.animalId))).for("update");
@@ -88,8 +86,25 @@ export const POST = withApiHandler(async (req: NextRequest) => {
         }
         fromLocationId = batch.locationId;
         quantity = batch.currentQuantity;
+        animalSpecies = batch.species || "pollo";
         target = { batchId: batch.id };
       }
+
+      const destination = await assertLocationEntryAllowed(tx, {
+        locationId: String(body.toLocationId),
+        species: animalSpecies,
+        date: body.date,
+        lock: true,
+      });
+      await assertNoActiveWithdrawal(tx, {
+        date: body.date,
+        species: animalSpecies,
+        locationId: fromLocationId,
+        batchId: target.batchId || null,
+        henId: target.henId || null,
+        roosterId: target.roosterId || null,
+        operationLabel: "traslado de animales",
+      });
 
       if (fromLocationId === destination.id) throw new Error("El animal ya está en este lugar");
       if (destination.capacity != null) {
@@ -128,6 +143,9 @@ export const POST = withApiHandler(async (req: NextRequest) => {
     });
     return NextResponse.json(created, { status: 201 });
   } catch (error) {
+    if (error instanceof ApiHttpError || typeof (error as { statusCode?: unknown })?.statusCode === "number") {
+      throw error;
+    }
     return NextResponse.json({ error: error instanceof Error ? error.message : "No se pudo registrar el traslado" }, { status: 400 });
   }
 });

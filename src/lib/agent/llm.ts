@@ -1,6 +1,6 @@
 import type { AgentConfig } from "./config";
 
-/** Contrato mínimo de la API OpenAI-compatible usada por DeepSeek. */
+/** Contrato mínimo de la API OpenAI-compatible usada por DeepSeek/OpenAI. */
 
 export interface LlmToolCall {
   id: string;
@@ -28,10 +28,18 @@ export interface LlmToolDefinition {
   };
 }
 
+export interface LlmUsage {
+  prompt_tokens?: number;
+  completion_tokens?: number;
+  total_tokens?: number;
+  prompt_cache_hit_tokens?: number;
+}
+
 export interface LlmAssistantMessage {
   role: "assistant";
   content: string | null;
   tool_calls?: LlmToolCall[];
+  usage?: LlmUsage;
 }
 
 export class LlmError extends Error {
@@ -43,15 +51,11 @@ export class LlmError extends Error {
   }
 }
 
-/**
- * Traduce las fallas más comunes del proveedor a mensajes accionables en
- * español. El detalle técnico se conserva solo cuando no hay traducción.
- */
 function friendlyProviderError(status: number, detail: string): string {
   const text = detail.toLowerCase();
 
   if (status === 402 || /insufficient (balance|credits)|quota|billing/.test(text)) {
-    return "El proveedor de IA no tiene saldo disponible. Recarga la cuenta de DeepSeek y vuelve a intentar.";
+    return "El proveedor de IA no tiene saldo disponible. Recarga la cuenta del proveedor y vuelve a intentar.";
   }
   if (status === 401 || status === 403) {
     return "La clave del proveedor de IA no es válida o expiró. Revisa la configuración del asistente.";
@@ -70,59 +74,76 @@ export async function callLlm(
   tools: LlmToolDefinition[],
   config: AgentConfig,
 ): Promise<LlmAssistantMessage> {
-  const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), config.timeoutMs);
+  const deadline = Date.now() + config.timeoutMs;
+  let attempt = 0;
 
-  try {
-    const response = await fetch(`${config.baseUrl}/chat/completions`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${config.apiKey}`,
-      },
-      body: JSON.stringify({
-        model: config.model,
-        messages,
-        tools,
-        tool_choice: "auto",
-        temperature: config.temperature,
-        max_tokens: 1400,
-      }),
-      signal: controller.signal,
-      cache: "no-store",
-    });
+  while (true) {
+    attempt += 1;
+    const remainingMs = Math.max(2_000, deadline - Date.now());
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), remainingMs);
 
-    const payload = await response.json().catch(() => null) as any;
+    try {
+      const response = await fetch(`${config.baseUrl}/chat/completions`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${config.apiKey}`,
+        },
+        body: JSON.stringify({
+          model: config.model,
+          messages,
+          tools: tools.length > 0 ? tools : undefined,
+          tool_choice: tools.length > 0 ? "auto" : undefined,
+          temperature: config.temperature,
+          max_tokens: 1800,
+        }),
+        signal: controller.signal,
+        cache: "no-store",
+      });
 
-    if (!response.ok) {
-      const detail =
-        payload?.error?.message ||
-        payload?.message ||
-        `El proveedor de IA respondió con estado ${response.status}`;
-      throw new LlmError(friendlyProviderError(response.status, detail), response.status);
+      const payload = (await response.json().catch(() => null)) as any;
+
+      if (!response.ok) {
+        const transient = response.status === 429 || response.status >= 502;
+        if (transient && attempt === 1 && Date.now() + 2_500 < deadline) {
+          await new Promise((r) => setTimeout(r, 450));
+          continue;
+        }
+        const detail =
+          payload?.error?.message ||
+          payload?.message ||
+          `El proveedor de IA respondió con estado ${response.status}`;
+        throw new LlmError(friendlyProviderError(response.status, detail), response.status);
+      }
+
+      const message = payload?.choices?.[0]?.message;
+      if (!message) {
+        throw new LlmError("El proveedor de IA no devolvió una respuesta válida");
+      }
+
+      return {
+        role: "assistant",
+        content: message.content ?? null,
+        tool_calls: Array.isArray(message.tool_calls) ? message.tool_calls : undefined,
+        usage: payload?.usage,
+      };
+    } catch (error) {
+      if (error instanceof LlmError) throw error;
+      if (error instanceof Error && error.name === "AbortError") {
+        throw new LlmError("El asistente tardó demasiado en responder. Intenta de nuevo.");
+      }
+      if (attempt === 1 && Date.now() + 2_500 < deadline) {
+        await new Promise((r) => setTimeout(r, 400));
+        continue;
+      }
+      throw new LlmError(
+        error instanceof Error
+          ? `No se pudo conectar con el proveedor de IA: ${error.message}`
+          : "No se pudo conectar con el proveedor de IA",
+      );
+    } finally {
+      clearTimeout(timer);
     }
-
-    const message = payload?.choices?.[0]?.message;
-    if (!message) {
-      throw new LlmError("El proveedor de IA no devolvió una respuesta válida");
-    }
-
-    return {
-      role: "assistant",
-      content: message.content ?? null,
-      tool_calls: Array.isArray(message.tool_calls) ? message.tool_calls : undefined,
-    };
-  } catch (error) {
-    if (error instanceof LlmError) throw error;
-    if (error instanceof Error && error.name === "AbortError") {
-      throw new LlmError("El asistente tardó demasiado en responder. Intenta de nuevo.");
-    }
-    throw new LlmError(
-      error instanceof Error
-        ? `No se pudo conectar con el proveedor de IA: ${error.message}`
-        : "No se pudo conectar con el proveedor de IA",
-    );
-  } finally {
-    clearTimeout(timer);
   }
 }
