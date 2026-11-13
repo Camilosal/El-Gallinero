@@ -6,6 +6,7 @@
  * legales muestran un aviso de BORRADOR pendiente de revisión por abogado.
  */
 export const PENDING = "[por confirmar]";
+export const IVA_PENDING = "IVA: por confirmar";
 
 function env(name: string, fallback: string): string {
   const value = process.env[name]?.trim();
@@ -23,7 +24,7 @@ export const LEGAL = {
   email: env("LEGAL_EMAIL", PENDING),
   whatsapp: env("LEGAL_WHATSAPP", PENDING),
   /** Texto exacto sobre IVA mostrado junto a los precios. */
-  ivaNote: env("LEGAL_IVA_NOTE", "IVA: por confirmar"),
+  ivaNote: env("LEGAL_IVA_NOTE", IVA_PENDING),
   sitio: "gallinero.iwage.co",
   marca: "El Gallinero · Iwagé Granja",
 } as const;
@@ -54,7 +55,8 @@ export function legalIsDraft(): boolean {
     LEGAL.tipoPersona,
     LEGAL.email,
     LEGAL.whatsapp,
-  ].some((v) => v === PENDING);
+    LEGAL.ivaNote,
+  ].some((v) => v.toLowerCase().includes("por confirmar"));
 }
 
 export function whatsappLink(message?: string): string | null {
