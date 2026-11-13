@@ -32,7 +32,7 @@ describe("Lanzamiento: legal, confianza y soporte", () => {
     expect(landing).toContain("PLAN_PROMISES.noAutoCharge");
     expect(landing).toContain("PLAN_PROMISES.expiry");
     expect(landing).toContain("priceNote()");
-    expect(landing).toContain("<LegalFooter />");
+    expect(landing).toContain("<LandingFooter />");
   });
 
   it("retracto y privacidad enlazan la SIC y describen derechos y canal", () => {

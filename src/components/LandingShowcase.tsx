@@ -15,6 +15,7 @@ import Image from "next/image";
 import {
   Bot,
   CheckCircle2,
+  ChevronDown,
   ChevronLeft,
   ChevronRight,
   Egg,
@@ -536,7 +537,12 @@ function ShowcaseSimulation({ kind }: { kind: ShowcaseSimulationKind }) {
   );
 }
 
-export function LandingShowcase() {
+export function LandingShowcase({
+  variant = "full",
+}: {
+  variant?: "full" | "hero";
+}) {
+  const isHero = variant === "hero";
   const prefersReducedMotion = useSyncExternalStore(
     subscribeReducedMotion,
     getReducedMotionSnapshot,
@@ -574,6 +580,7 @@ export function LandingShowcase() {
   }, []);
 
   useEffect(() => {
+    if (isHero) return;
     const el = sectionRef.current;
     if (!el || typeof IntersectionObserver === "undefined") return;
 
@@ -599,10 +606,10 @@ export function LandingShowcase() {
       io.disconnect();
       el.removeEventListener("contentvisibilityautostatechange", onVisibilityChange);
     };
-  }, []);
+  }, [isHero]);
 
   useEffect(() => {
-    if (paused || prefersReducedMotion || !inView || lightboxIndex !== null) {
+    if (isHero || paused || prefersReducedMotion || !inView || lightboxIndex !== null) {
       return;
     }
     const timer = window.setInterval(() => {
@@ -610,7 +617,7 @@ export function LandingShowcase() {
       setSecondaryView(false);
     }, 8500);
     return () => window.clearInterval(timer);
-  }, [paused, prefersReducedMotion, inView, lightboxIndex]);
+  }, [isHero, paused, prefersReducedMotion, inView, lightboxIndex]);
 
   useEffect(() => {
     const dialog = dialogRef.current;
@@ -665,49 +672,123 @@ export function LandingShowcase() {
   const activeLightbox =
     lightboxIndex !== null ? lightboxEntries[lightboxIndex] : null;
 
+  const browserFrame = (
+    <div className="land-browser-frame">
+      <div className="flex items-center justify-between gap-2 px-3.5 py-2.5 border-b border-[var(--line)] bg-[#f4ede0]">
+        <div className="flex items-center gap-1.5" aria-hidden="true">
+          <span className="w-2.5 h-2.5 rounded-full bg-[#d4a373]" />
+          <span className="w-2.5 h-2.5 rounded-full bg-[#e9c46a]" />
+          <span className="w-2.5 h-2.5 rounded-full bg-[#4f775d]" />
+        </div>
+
+        <span className="truncate font-mono text-[11px] text-[var(--moss)]">
+          {activeTab.routeLabel}
+        </span>
+
+        <button
+          type="button"
+          onClick={() => setLightboxIndex(activeIndex)}
+          aria-label="Ampliar captura de pantalla"
+          className="inline-flex items-center gap-1 rounded-md border border-[var(--line)] bg-white px-2 py-1 text-[11px] font-semibold text-[var(--ink)] hover:border-[var(--forest)] transition shrink-0"
+        >
+          <Expand className="w-3 h-3" />
+          Ampliar
+        </button>
+      </div>
+
+      <div className="relative bg-white overflow-hidden">
+        <Image
+          key={displayImage}
+          src={displayImage}
+          alt={displayAlt}
+          width={1280}
+          height={800}
+          priority={activeIndex === 0}
+          onClick={() => setLightboxIndex(activeIndex)}
+          className="w-full h-auto object-cover cursor-zoom-in block land-panel-enter"
+        />
+      </div>
+
+      {activeTab.secondaryScreenshot && (
+        <div className="flex items-center justify-between gap-2 px-3.5 py-2 border-t border-[var(--line)] bg-[#fbf7ee]">
+          <span className="text-[11px] text-[var(--moss)]">
+            Vista: {secondaryView ? activeTab.secondaryLabel : "Principal"}
+          </span>
+          <div className="flex items-center gap-1.5">
+            <button
+              type="button"
+              onClick={() => setSecondaryView(false)}
+              className={`rounded-md px-2.5 py-1 text-[11px] font-semibold transition ${
+                !secondaryView
+                  ? "bg-[var(--forest)] text-white"
+                  : "text-[var(--moss)] hover:text-[var(--ink)]"
+              }`}
+            >
+              Principal
+            </button>
+            <button
+              type="button"
+              onClick={() => setSecondaryView(true)}
+              className={`rounded-md px-2.5 py-1 text-[11px] font-semibold transition ${
+                secondaryView
+                  ? "bg-[var(--forest)] text-white"
+                  : "text-[var(--moss)] hover:text-[var(--ink)]"
+              }`}
+            >
+              {activeTab.secondaryLabel}
+            </button>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+
   return (
     <section
-      id="vitrina"
+      id={isHero ? undefined : "vitrina"}
       ref={sectionRef}
-      className="land-section land-showcase"
-      aria-labelledby="vitrina-heading"
+      className={isHero ? "land-hero-showcase" : "land-section land-showcase"}
+      aria-labelledby={isHero ? undefined : "vitrina-heading"}
+      aria-label={isHero ? "Vista interactiva de El Gallinero" : undefined}
     >
-      <div className="land-wrap">
-        <div className="flex flex-col md:flex-row md:items-end justify-between gap-4 mb-6">
-          <div>
-            <p className="land-eyebrow">1 · Así se ve por dentro</p>
-            <h2 id="vitrina-heading" className="land-h2">
-              Pantallas reales y pruebas interactivas
-            </h2>
-            <p className="land-section-sub" style={{ marginBottom: 0 }}>
-              Explora cómo trabajas cada módulo en el día a día antes de crear tu granja.
-            </p>
-          </div>
+      <div className={isHero ? "" : "land-wrap"}>
+        {!isHero && (
+          <div className="flex flex-col md:flex-row md:items-end justify-between gap-4 mb-6">
+            <div>
+              <p className="land-eyebrow">1 · Así se ve por dentro</p>
+              <h2 id="vitrina-heading" className="land-h2">
+                Pantallas reales y pruebas interactivas
+              </h2>
+              <p className="land-section-sub" style={{ marginBottom: 0 }}>
+                Explora cómo trabajas cada módulo en el día a día antes de crear tu granja.
+              </p>
+            </div>
 
-          <button
-            type="button"
-            onClick={() => setPaused((p) => !p)}
-            aria-pressed={paused}
-            className="self-start md:self-auto inline-flex items-center gap-2 rounded-full border border-[var(--line)] bg-[var(--paper)] px-3.5 py-1.5 text-xs font-semibold text-[var(--ink)] hover:border-[var(--forest)] transition"
-          >
-            {paused || prefersReducedMotion ? (
-              <>
-                <Play className="w-3.5 h-3.5 text-[var(--forest)]" />
-                Reanudar
-              </>
-            ) : (
-              <>
-                <Pause className="w-3.5 h-3.5 text-[var(--forest)]" />
-                Pausar recorrido
-              </>
-            )}
-          </button>
-        </div>
+            <button
+              type="button"
+              onClick={() => setPaused((p) => !p)}
+              aria-pressed={paused}
+              className="self-start md:self-auto inline-flex items-center gap-2 rounded-full border border-[var(--line)] bg-[var(--paper)] px-3.5 py-1.5 text-xs font-semibold text-[var(--ink)] hover:border-[var(--forest)] transition"
+            >
+              {paused || prefersReducedMotion ? (
+                <>
+                  <Play className="w-3.5 h-3.5 text-[var(--forest)]" />
+                  Reanudar
+                </>
+              ) : (
+                <>
+                  <Pause className="w-3.5 h-3.5 text-[var(--forest)]" />
+                  Pausar recorrido
+                </>
+              )}
+            </button>
+          </div>
+        )}
 
         <div
           role="tablist"
           aria-label="Módulos de El Gallinero"
-          className="land-tablist mb-6"
+          className={`land-tablist ${isHero ? "land-tablist-hero mb-3" : "mb-6"}`}
         >
           {SHOWCASE_TABS.map((tab, idx) => {
             const isSelected = idx === activeIndex;
@@ -738,158 +819,130 @@ export function LandingShowcase() {
           id={`${tabBaseId}-panel-${activeTab.id}`}
           role="tabpanel"
           aria-labelledby={`${tabBaseId}-tab-${activeTab.id}`}
-          className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start"
+          className={isHero ? "land-hero-panel" : "grid grid-cols-1 lg:grid-cols-12 gap-6 items-start"}
         >
-          <div className="lg:col-span-7">
-            <div className="land-browser-frame">
-              <div className="flex items-center justify-between gap-2 px-3.5 py-2.5 border-b border-[var(--line)] bg-[#f4ede0]">
-                <div className="flex items-center gap-1.5" aria-hidden="true">
-                  <span className="w-2.5 h-2.5 rounded-full bg-[#d4a373]" />
-                  <span className="w-2.5 h-2.5 rounded-full bg-[#e9c46a]" />
-                  <span className="w-2.5 h-2.5 rounded-full bg-[#4f775d]" />
-                </div>
-
-                <span className="truncate font-mono text-[11px] text-[var(--moss)]">
-                  {activeTab.routeLabel}
-                </span>
-
-                <button
-                  type="button"
-                  onClick={() => setLightboxIndex(activeIndex)}
-                  aria-label="Ampliar captura de pantalla"
-                  className="inline-flex items-center gap-1 rounded-md border border-[var(--line)] bg-white px-2 py-1 text-[11px] font-semibold text-[var(--ink)] hover:border-[var(--forest)] transition shrink-0"
-                >
-                  <Expand className="w-3 h-3" />
-                  Ampliar
-                </button>
-              </div>
-
-              <div className="relative bg-white overflow-hidden">
-                <Image
-                  key={displayImage}
-                  src={displayImage}
-                  alt={displayAlt}
-                  width={1280}
-                  height={800}
-                  priority={activeIndex === 0}
-                  onClick={() => setLightboxIndex(activeIndex)}
-                  className="w-full h-auto object-cover cursor-zoom-in block land-panel-enter"
-                />
-              </div>
-
-              {activeTab.secondaryScreenshot && (
-                <div className="flex items-center justify-between gap-2 px-3.5 py-2 border-t border-[var(--line)] bg-[#fbf7ee]">
-                  <span className="text-[11px] text-[var(--moss)]">
-                    Vista: {secondaryView ? activeTab.secondaryLabel : "Principal"}
-                  </span>
-                  <div className="flex items-center gap-1.5">
-                    <button
-                      type="button"
-                      onClick={() => setSecondaryView(false)}
-                      className={`rounded-md px-2.5 py-1 text-[11px] font-semibold transition ${
-                        !secondaryView
-                          ? "bg-[var(--forest)] text-white"
-                          : "text-[var(--moss)] hover:text-[var(--ink)]"
-                      }`}
-                    >
-                      Principal
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setSecondaryView(true)}
-                      className={`rounded-md px-2.5 py-1 text-[11px] font-semibold transition ${
-                        secondaryView
-                          ? "bg-[var(--forest)] text-white"
-                          : "text-[var(--moss)] hover:text-[var(--ink)]"
-                      }`}
-                    >
-                      {activeTab.secondaryLabel}
-                    </button>
-                  </div>
-                </div>
-              )}
-            </div>
-          </div>
-
-          <div className="lg:col-span-5">
-            <div
-              key={activeTab.id}
-              className="rounded-2xl border border-[var(--line)] bg-[var(--paper)] p-5 sm:p-6 space-y-4 shadow-sm land-panel-enter"
-            >
-              <div>
-                <p className="font-mono text-[11px] font-bold uppercase tracking-widest text-[var(--forest)] mb-1">
+          {isHero ? (
+            <>
+              {browserFrame}
+              <div
+                key={activeTab.id}
+                className="land-hero-caption rounded-xl border border-white/15 bg-[var(--paper)] p-3.5 shadow-sm land-panel-enter"
+              >
+                <p className="font-mono text-[10px] font-bold uppercase tracking-widest text-[var(--forest)]">
                   {activeTab.eyebrow}
                 </p>
-                <h3 className="font-display text-xl sm:text-2xl font-bold text-[var(--ink)] leading-snug">
+                <p className="mt-1 font-display text-sm font-bold text-[var(--ink)] leading-snug">
                   {activeTab.title}
-                </h3>
-                <p className="mt-2 text-sm text-[var(--moss)] leading-relaxed">
+                </p>
+                <p className="mt-1 text-xs text-[var(--moss)] leading-relaxed line-clamp-2">
                   {activeTab.description}
                 </p>
+                <details className="land-hero-details mt-2 border-t border-[var(--line)] pt-2">
+                  <summary className="flex cursor-pointer list-none items-center justify-between gap-2 text-xs font-semibold text-[var(--forest)]">
+                    Probar esta pantalla
+                    <ChevronDown className="land-norm-chevron w-3.5 h-3.5 shrink-0" />
+                  </summary>
+                  <div className="mt-3 space-y-3">
+                    <ul className="space-y-1.5 text-xs text-[var(--ink)]">
+                      {activeTab.highlights.map((hl) => (
+                        <li key={hl} className="flex items-start gap-2">
+                          <CheckCircle2 className="w-3.5 h-3.5 text-[var(--forest)] shrink-0 mt-0.5" />
+                          <span>{hl}</span>
+                        </li>
+                      ))}
+                    </ul>
+                    <ShowcaseSimulation kind={activeTab.simulationKind} />
+                  </div>
+                </details>
               </div>
+            </>
+          ) : (
+            <>
+              <div className="lg:col-span-7">{browserFrame}</div>
 
-              <ul className="space-y-1.5 text-xs sm:text-sm text-[var(--ink)]">
-                {activeTab.highlights.map((hl) => (
-                  <li key={hl} className="flex items-start gap-2">
-                    <CheckCircle2 className="w-4 h-4 text-[var(--forest)] shrink-0 mt-0.5" />
-                    <span>{hl}</span>
-                  </li>
-                ))}
-              </ul>
+              <div className="lg:col-span-5">
+                <div
+                  key={activeTab.id}
+                  className="rounded-2xl border border-[var(--line)] bg-[var(--paper)] p-5 sm:p-6 space-y-4 shadow-sm land-panel-enter"
+                >
+                  <div>
+                    <p className="font-mono text-[11px] font-bold uppercase tracking-widest text-[var(--forest)] mb-1">
+                      {activeTab.eyebrow}
+                    </p>
+                    <h3 className="font-display text-xl sm:text-2xl font-bold text-[var(--ink)] leading-snug">
+                      {activeTab.title}
+                    </h3>
+                    <p className="mt-2 text-sm text-[var(--moss)] leading-relaxed">
+                      {activeTab.description}
+                    </p>
+                  </div>
 
-              <ShowcaseSimulation kind={activeTab.simulationKind} />
-            </div>
-          </div>
+                  <ul className="space-y-1.5 text-xs sm:text-sm text-[var(--ink)]">
+                    {activeTab.highlights.map((hl) => (
+                      <li key={hl} className="flex items-start gap-2">
+                        <CheckCircle2 className="w-4 h-4 text-[var(--forest)] shrink-0 mt-0.5" />
+                        <span>{hl}</span>
+                      </li>
+                    ))}
+                  </ul>
+
+                  <ShowcaseSimulation kind={activeTab.simulationKind} />
+                </div>
+              </div>
+            </>
+          )}
         </div>
 
-        <div className="mt-10 pt-8 border-t border-[var(--line)]">
-          <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-2 mb-4">
-            <div>
-              <h3 className="font-display text-lg sm:text-xl font-bold text-[var(--ink)]">
-                Más pantallas del sistema
-              </h3>
-              <p className="text-xs sm:text-sm text-[var(--moss)]">
-                Toca cualquier vista para abrirla en tamaño completo.
-              </p>
-            </div>
-            <Link
-              href="/login"
-              className="text-xs font-semibold text-[var(--forest)] hover:underline shrink-0"
-            >
-              Probar en vivo →
-            </Link>
-          </div>
-
-          <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
-            {SHOWCASE_GALLERY.map((item, idx) => (
-              <button
-                key={item.id}
-                type="button"
-                onClick={() => setLightboxIndex(SHOWCASE_TABS.length + idx)}
-                className="group text-left rounded-xl border border-[var(--line)] bg-[var(--paper)] overflow-hidden hover:border-[var(--forest)] transition focus-visible:outline-2 focus-visible:outline-[var(--forest)]"
+        {!isHero && (
+          <div className="mt-10 pt-8 border-t border-[var(--line)]">
+            <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-2 mb-4">
+              <div>
+                <h3 className="font-display text-lg sm:text-xl font-bold text-[var(--ink)]">
+                  Más pantallas del sistema
+                </h3>
+                <p className="text-xs sm:text-sm text-[var(--moss)]">
+                  Toca cualquier vista para abrirla en tamaño completo.
+                </p>
+              </div>
+              <Link
+                href="/login"
+                className="text-xs font-semibold text-[var(--forest)] hover:underline shrink-0"
               >
-                <div className="relative aspect-[16/10] bg-white overflow-hidden border-b border-[var(--line)]">
-                  <Image
-                    src={item.image}
-                    alt={item.alt}
-                    width={640}
-                    height={400}
-                    loading="lazy"
-                    className="w-full h-full object-cover object-top group-hover:scale-[1.02] transition-transform duration-300"
-                  />
-                </div>
-                <div className="p-3">
-                  <span className="font-mono text-[10px] font-semibold uppercase tracking-wider text-[var(--moss)] block">
-                    {item.moduleTag}
-                  </span>
-                  <p className="text-xs sm:text-sm font-semibold text-[var(--ink)] line-clamp-1 mt-0.5">
-                    {item.title}
-                  </p>
-                </div>
-              </button>
-            ))}
+                Probar en vivo →
+              </Link>
+            </div>
+
+            <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
+              {SHOWCASE_GALLERY.map((item, idx) => (
+                <button
+                  key={item.id}
+                  type="button"
+                  onClick={() => setLightboxIndex(SHOWCASE_TABS.length + idx)}
+                  className="group text-left rounded-xl border border-[var(--line)] bg-[var(--paper)] overflow-hidden hover:border-[var(--forest)] transition focus-visible:outline-2 focus-visible:outline-[var(--forest)]"
+                >
+                  <div className="relative aspect-[16/10] bg-white overflow-hidden border-b border-[var(--line)]">
+                    <Image
+                      src={item.image}
+                      alt={item.alt}
+                      width={640}
+                      height={400}
+                      loading="lazy"
+                      className="w-full h-full object-cover object-top group-hover:scale-[1.02] transition-transform duration-300"
+                    />
+                  </div>
+                  <div className="p-3">
+                    <span className="font-mono text-[10px] font-semibold uppercase tracking-wider text-[var(--moss)] block">
+                      {item.moduleTag}
+                    </span>
+                    <p className="text-xs sm:text-sm font-semibold text-[var(--ink)] line-clamp-1 mt-0.5">
+                      {item.title}
+                    </p>
+                  </div>
+                </button>
+              ))}
+            </div>
           </div>
-        </div>
+        )}
       </div>
 
       <dialog

@@ -53,13 +53,45 @@ export interface AiAutomationPillar {
   highlights: string[];
 }
 
-export interface AdoptionKeyItem {
-  step: string;
-  title: string;
-  metric: string;
-  description: string;
-  detail: string;
+export interface LandingModuleItem {
+  id: "inicio" | "huevos" | "animales" | "alimento" | "sanidad" | "finanzas";
+  name: string;
+  summary: string;
 }
+
+/** Los 6 módulos esenciales. Cada resumen debe caber en una línea de máximo 10 palabras. */
+export const LANDING_MODULES: LandingModuleItem[] = [
+  {
+    id: "inicio",
+    name: "Inicio y tareas",
+    summary: "Alertas, cifras del día y tareas que se validan solas.",
+  },
+  {
+    id: "huevos",
+    name: "Huevos e incubación",
+    summary: "Clasificación NTC 1240, salida PEPS y control de nacedoras.",
+  },
+  {
+    id: "animales",
+    name: "Aves y mamíferos",
+    summary: "Ponedoras, engorde, codornices, patos, conejos y cuyes.",
+  },
+  {
+    id: "alimento",
+    name: "Alimento y bodega",
+    summary: "Bultos de 40 kg, días restantes e insumos.",
+  },
+  {
+    id: "sanidad",
+    name: "Sanidad y bioseguridad",
+    summary: "Vacunas, accesos y bloqueo por tiempo de retiro.",
+  },
+  {
+    id: "finanzas",
+    name: "Ventas y finanzas",
+    summary: "Ventas por especie, punto de equilibrio y reportes.",
+  },
+];
 
 export interface CyclePlanShowcase {
   id:
@@ -114,7 +146,7 @@ export const SHOWCASE_TABS: ShowcaseTabItem[] = [
     secondaryAlt:
       "Pantalla de Escáner QR mostrando acciones directas para Galpón Principal: recoger huevos, dar alimento, reportar baja y ver ficha",
     highlights: [
-      "Botones táctiles de ≥ 48 px para cubetas de 30 huevos o bultos de 40 kg bajo luz solar.",
+      "Botones grandes para sumar cubetas de 30 huevos o bultos de 40 kg bajo el sol.",
       "Entrega al instante el micro-reporte con Utilidad Neta Hoy (Ingreso − Alimento) para WhatsApp.",
       "Muestra cuánto alimento queda en bodega y marca la rutina del día.",
     ],
@@ -393,45 +425,6 @@ export const AI_AUTOMATION_PILLARS: AiAutomationPillar[] = [
   },
 ];
 
-export const ADOPTION_KEYS: AdoptionKeyItem[] = [
-  {
-    step: "01",
-    title: "Arranque Día 1 con plan sanitario precargado",
-    metric: "3 min · Sin deuda",
-    description:
-      "Crea tu granja, anota solo los animales vivos de hoy y recibe la curva y vacunas ICA según su edad actual.",
-    detail:
-      "Sin transcribir cuadernos viejos: ingresas tu lote actual y el sistema ajusta el calendario sanitario ICA y la curva genética desde la semana en que estás.",
-  },
-  {
-    step: "02",
-    title: "Crece a tu ritmo (Pequeño o Mediano)",
-    metric: "Escala gradual",
-    description:
-      "Empieza con los 4 botones esenciales y activa módulos avanzados cuando tu operación lo pida.",
-    detail:
-      "Desde una finca familiar de 1 lote hasta operación multi-galpón con cuadrillas QR, incubación y contabilidad analítica sin cambiar de app.",
-  },
-  {
-    step: "03",
-    title: "Hecha para el sol, las manos ocupadas y la vereda",
-    metric: "≥ 48 px · Offline",
-    description:
-      "Botones amplios de alto contraste, lectura QR y bóveda offline cifrada que sincroniza sola al volver la señal.",
-    detail:
-      "Registra postura, alimento, bajas, pesajes, sanidad y cierre diario en el celular incluso sin señal de internet en el galpón.",
-  },
-  {
-    step: "04",
-    title: "Utilidad neta al instante y pagos por ciclo",
-    metric: "Sin ataduras",
-    description:
-      "Al guardar huevos o alimento ves tu utilidad neta del día para WhatsApp, y renuevas por cosecha con Nequi, Daviplata o PSE.",
-    detail:
-      "Prueba gratis 30 días sin tarjeta y mantén 1 lote activo siempre libre. Si vence un ciclo, nunca bloqueamos tus datos ni la venta de tu lote en curso.",
-  },
-];
-
 export const CYCLE_PLANS_SHOWCASE: CyclePlanShowcase[] = [
   {
     id: "FREEMIUM_SEMILLA",
@@ -440,7 +433,7 @@ export const CYCLE_PLANS_SHOWCASE: CyclePlanShowcase[] = [
     priceLabel: "$0 COP",
     durationLabel: "30 días full + 1 lote libre",
     summary:
-      "Empieza en 3 minutos sin tarjeta. Al terminar la prueba, sigues operando 1 lote activo gratis y nunca bloqueamos tus datos.",
+      "Un lote activo gratis para siempre, con lectura y cierre de lote sin costo.",
     highlights: [
       "1 lote activo gratis permanente",
       "Lectura y cierre/venta de lotes siempre libres",

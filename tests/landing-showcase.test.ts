@@ -2,9 +2,9 @@ import fs from "node:fs";
 import path from "node:path";
 import { describe, expect, it } from "vitest";
 import {
-  ADOPTION_KEYS,
   AI_AUTOMATION_PILLARS,
   CYCLE_PLANS_SHOWCASE,
+  LANDING_MODULES,
   SECTOR_STANDARDS,
   SHOWCASE_GALLERY,
   SHOWCASE_TABS,
@@ -52,7 +52,7 @@ describe("página de presentación — pantallazos, estándares y adopción", ()
     }
   });
 
-  it("documenta estándares del sector, pilares IA/automatización y claves de adopción", () => {
+  it("documenta estándares del sector, pilares IA/automatización y los 6 módulos", () => {
     const codes = SECTOR_STANDARDS.map((s) => s.code).join(" ");
     expect(codes).toContain("NTC 1240");
     expect(codes).toContain("ICA 3650");
@@ -62,11 +62,29 @@ describe("página de presentación — pantallazos, estándares y adopción", ()
     expect(codes).toContain("DIAN");
 
     expect(AI_AUTOMATION_PILLARS.length).toBe(3);
-    expect(ADOPTION_KEYS.length).toBe(4);
-    for (const key of ADOPTION_KEYS) {
-      expect(key.title.trim().length).toBeGreaterThan(5);
-      expect(key.detail.trim().length).toBeGreaterThan(20);
+    expect(LANDING_MODULES.length).toBe(6);
+    for (const mod of LANDING_MODULES) {
+      expect(mod.name.trim().length).toBeGreaterThan(5);
+      expect(mod.summary.trim().split(/\s+/).length).toBeLessThanOrEqual(10);
     }
+  });
+
+  it("usa el visor dentro del hero y un único footer de tres columnas", () => {
+    const page = fs.readFileSync(path.join(process.cwd(), "src/app/page.tsx"), "utf8");
+    expect(page).toContain('<LandingShowcase variant="hero" />');
+    expect(page).toContain("<LandingFooter />");
+    expect(page).not.toContain("<LegalFooter />");
+    expect(page).not.toContain("ADOPTION_KEYS");
+    expect(page).not.toContain("≥ 48 px");
+    expect(page).not.toContain("multi-tenant");
+
+    const footer = fs.readFileSync(
+      path.join(process.cwd(), "src/components/LandingFooter.tsx"),
+      "utf8",
+    );
+    expect(footer).toContain("APP_DEVELOPER");
+    expect(footer).toContain("LEGAL_LINKS");
+    expect(footer).toContain("SIC_URL");
   });
 
   it("presenta los 4 planes por ciclo productivo y medios de pago locales", () => {

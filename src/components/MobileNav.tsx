@@ -4,11 +4,9 @@ import Link from "next/link";
 import { useState, useCallback } from "react";
 
 const LINKS = [
-  { href: "#vitrina", label: "Cómo se ve" },
-  { href: "#estandares", label: "Estándares" },
-  { href: "#modulos", label: "Qué incluye" },
+  { href: "#como-funciona", label: "Cómo funciona" },
+  { href: "#modulos", label: "Módulos y Normas" },
   { href: "#planes", label: "Planes" },
-  { href: "#acceso", label: "Empezar" },
 ];
 
 export default function MobileNav() {
@@ -46,14 +44,14 @@ export default function MobileNav() {
               onClick={close}
               className="rounded-full bg-[var(--forest)] px-4 py-2.5 text-center text-sm font-semibold text-white hover:bg-[var(--forest-deep)] transition"
             >
-              Crear granja gratis (3 min)
+              Crear granja gratis
             </Link>
             <Link
               href="/login"
               onClick={close}
               className="rounded-full border border-[var(--line)] bg-[var(--paper)] px-4 py-2 text-center text-sm font-medium text-[var(--ink)] hover:border-[var(--forest)] transition"
             >
-              Entrar a mi cuenta
+              Entrar
             </Link>
           </div>
         </nav>
