@@ -135,6 +135,7 @@ export const navigationGroups: MenuGroup[] = [
       { href: "/dashboard/analisis/kpis", label: "KPIs", icon: "target" },
       { href: "/dashboard/analisis/reportes", label: "Reportes", icon: "clipboard" },
       { href: "/dashboard/analisis/razas", label: "Curvas y desempeño", icon: "trend-up" },
+      { href: "/dashboard/configuracion", label: "Configuración del Gallinero", icon: "settings" },
       { href: "/dashboard/configuracion/catalogos", label: "Catálogos y Datos Maestros", icon: "folder" },
       { href: "/dashboard/configuracion/modulos", label: "Módulos y Escala", icon: "sparkles" },
     ],
@@ -195,7 +196,6 @@ const ITEM_KEYWORDS: Record<string, string[]> = {
 const FIXED_ENTRIES: SearchEntry[] = [
   { href: "/dashboard", label: "Inicio", icon: "bar-chart", group: "General", groupIcon: "home", keywords: ["inicio", "panel", "dashboard", "resumen", "home", "principal"] },
   { href: "/dashboard/escanear", label: "Escanear", icon: "qrcode", group: "General", groupIcon: "home", keywords: ["escanear", "qr", "codigo", "animal", "lote", "ubicacion", "equipo", "identificar", "camara"] },
-  { href: "/dashboard/configuracion", label: "Configuración del Gallinero", icon: "settings", group: "Análisis", groupIcon: "bar-chart", keywords: ["configuracion", "ajustes", "catalogos", "parametros", "granja", "contactos"] },
   { href: "/dashboard/configuracion/modulos", label: "Módulos Progresivos, Escala y Onboarding", icon: "sparkles", group: "Análisis", groupIcon: "bar-chart", keywords: ["onboarding", "escala", "pequeno", "mediano", "feature flags", "modulos", "desbloquear", "dia 1", "wizard", "auto trigger"] },
   { href: "/dashboard/operaciones/activos", label: "Activos y equipos", icon: "equipment", group: "Almacén", groupIcon: "warehouse", keywords: ["activo", "activos", "equipos", "herramientas", "infraestructura", "garantia", "numero de serie"] },
 
