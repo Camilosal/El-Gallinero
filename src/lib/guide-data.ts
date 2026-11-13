@@ -68,108 +68,108 @@ export const guideModules: GuideModule[] = [
     id: "primeros-pasos",
     label: "Primeros Pasos y Offline",
     icon: "rocket",
-    description: "Inicio diario, buscador global, copia offline y Asistente IA con voz",
+    description: "Inicio en grupos, Asistente Día 1, Escala Pequeño/Mediano, Ctrl+K, offline y Gina",
   },
   {
     id: "escanear-qr",
     label: "Escáner QR y Etiquetas",
     icon: "qr-code",
-    description: "Escaneo en campo de galpones, aves, lotes y equipos",
+    description: "Escaneo en campo de lugares, ejemplares, lotes y equipos",
   },
   {
     id: "animales",
-    label: "Animales y Genética",
+    label: "Animales y Reproducción",
     icon: "paw-print",
-    description: "Parvada multiespecie, entradas, biometría e incubación",
+    description: "6 especies (incluyendo cuyes), adquisiciones, biometría CV%/EPEF, incubación y reproducción",
   },
   {
     id: "ubicaciones",
     label: "Lugares de Manejo",
     icon: "map-pin",
-    description: "Galpones, potreros, ocupación, QR y desempeño espacial",
+    description: "Galpones, jaulas, potreros, ocupación, QR y desempeño espacial",
   },
   {
     id: "produccion",
     label: "Producción",
     icon: "egg",
-    description: "Postura de huevos, carne en canal y gestión de gallinaza",
+    description: "Postura NTC 1240 + T°/HR, carne multi-especie, gallinaza y microcápsulas",
   },
   {
     id: "inventarios",
     label: "Inventarios",
     icon: "package",
-    description: "Balance patrimonial y trazabilidad FIFO de huevos y carne",
+    description: "Balance patrimonial y trazabilidad PEPS/FIFO de huevos, carne y gallinaza",
   },
   {
     id: "almacen",
-    label: "Almacén y Equipos",
+    label: "Almacén, Compostaje y Cierre",
     icon: "package-open",
-    description: "Alimentos, insumos, activos, maquinaria y mantenimiento",
+    description: "Alimentos, dieta combinada, insumos, activos, mantenimiento, compostaje y cierre IoT",
   },
   {
     id: "planeacion",
-    label: "Planeación y Soberanía",
+    label: "Planeación y Calendario",
     icon: "calendar-days",
-    description: "Plan de parvada, metas semanales y autoconsumo del hogar",
+    description: "Calendario Maestro con rutinas, Plan de Parvada y Soberanía Alimentaria",
   },
   {
     id: "sanidad",
-    label: "Sanidad y Mortalidad",
+    label: "Sanidad y Bioseguridad",
     icon: "pill",
-    description: "Plan sanitario, vacunaciones, alertas y bajas",
+    description: "Plan sanitario, vacunaciones, retiros, bajas y POE GAB ICA (Res. 8452)",
   },
   {
     id: "finanzas",
-    label: "Finanzas y Cuentas",
+    label: "Finanzas, Ventas y Contactos",
     icon: "money",
-    description: "Ventas, egresos, cuentas por cobrar/pagar, P&L y presupuestos",
+    description: "5 líneas de venta, egresos con adjuntos/OCR, CxC/CxP, P&L y Clientes/Proveedores",
   },
   {
     id: "analisis",
     label: "Análisis y Curvas",
     icon: "bar-chart",
-    description: "KPIs productivos, curvas estándar por raza y reportes",
+    description: "KPIs (HAA, EPEF, CAPEX/ROI), curvas ajustadas por altitud y contabilidad analítica Excel/PDF",
   },
   {
     id: "configuracion",
     label: "Configuración",
     icon: "settings",
-    description: "Catálogos maestros, parámetros globales y vacunación",
+    description: "Panel general, módulos progresivos, catálogos en 8 pestañas, recuperación y licencia",
   },
 ];
 
 export const GUIDE_WORKFLOWS: GuideWorkflow[] = [
   {
     id: "operacion-diaria",
-    title: "Rutina operativa diaria",
-    description: "Arranca en el tablero, recoge huevos en modo rápido o desde el escáner QR y registra alimento.",
+    title: "Arranque, rutina diaria y cierre",
+    description: "Configura tu escala en Día 1, sigue las tareas en Inicio, registra recolección o ración y ejecuta el cierre diario auditado.",
     icon: "sun",
     badge: "Diario · 5 min",
-    slugs: ["primeros-pasos", "escanear-qr", "recoger-huevos", "alimentar-aves"],
+    slugs: ["primeros-pasos", "escala-y-modulos", "calendario-rutinas", "recoger-huevos", "alimentar-aves", "cierre-sensores"],
   },
   {
     id: "campo-sin-internet",
-    title: "Trabajo de campo sin señal",
-    description: "Descarga la copia completa al celular, dicta notas por voz y sincroniza automáticamente al volver.",
+    title: "Trabajo de campo sin señal con Gina y QR",
+    description: "Descarga la copia completa al celular, dicta notas por voz a Gina, escanea QR y sincroniza automáticamente al volver.",
     icon: "smartphone",
     badge: "Offline + Voz",
     slugs: ["modo-offline-voz", "asistente-operativo", "escanear-qr"],
   },
   {
     id: "trazabilidad-total",
-    title: "Trazabilidad de animal y lote",
-    description: "Registra linaje al ingreso, ubica en galpón/potrero, pesa muestras semanales y controla su salida.",
+    title: "Trazabilidad animal, reproducción y biometría",
+    description: "Registra linaje al ingreso, ubica en galpón/jaula, gestiona empadres y pesa muestras semanales con CV%.",
     icon: "dna",
     badge: "Ciclo completo",
-    slugs: ["trazabilidad-genetica", "lugares-manejo", "control-peso", "sacrificio-aves"],
+    slugs: ["trazabilidad-genetica", "lugares-manejo", "reproduccion-cunicola", "control-peso", "sacrificio-aves"],
   },
   {
     id: "salud-finanzas",
-    title: "Cierre semanal sanitario y contable",
-    description: "Revisa vacunas vencidas, cobra saldos pendientes en CxC/CxP y contrasta tu margen real.",
+    title: "Cierre semanal sanitario, comercial y contable",
+    description: "Valida bioseguridad ICA y retiros, factura en 5 líneas de venta, concilia CxC/CxP y exporta reportes por especie.",
     icon: "money",
     badge: "Semanal",
-    slugs: ["plan-sanitario", "registrar-venta", "cuentas-cobrar-pagar", "kpis-reportes"],
+    slugs: ["plan-sanitario", "bioseguridad-bienestar", "registrar-venta", "cuentas-cobrar-pagar", "kpis-reportes"],
   },
 ];
 
@@ -183,26 +183,27 @@ export const guides: Guide[] = [
     module: "primeros-pasos",
     icon: "rocket",
     summary:
-      "Conoce el tablero Inicio, la barra superior (estado offline, buscador Ctrl+K y botón Crear +) y los atajos rápidos en móvil y PC.",
+      "Recorre el tablero Inicio en grupos enmarcados, barra superior con Pequeño/Mediano y Crear + directo, buscador Ctrl+K y Gina.",
     estimatedMinutes: 4,
-    tags: ["inicio", "dashboard", "ctrl+k", "buscar", "crear", "móvil", "atajos"],
+    tags: ["inicio", "dashboard", "rutinas", "microcápsulas", "ctrl+k", "buscar", "crear", "móvil", "atajos", "gina"],
     relatedHrefs: [
       { href: "/dashboard", label: "Ir a Inicio" },
+      { href: "/dashboard/configuracion/modulos", label: "Escala y Módulos Progresivos" },
+      { href: "/dashboard/planeacion/calendario", label: "Calendario Maestro y Rutinas" },
       { href: "/dashboard/configuracion/catalogos", label: "Catálogos del sistema" },
-      { href: "/dashboard/animales", label: "Ver Animales" },
     ],
     sections: [
       {
         type: "intro",
-        text: "El tablero Inicio reúne los signos vitales de tu finca avícola y multi-especie en un vistazo: aves activas, postura del día, reservas de alimento, margen del mes y checklist pendiente de configuración o sanidad.",
+        text: "El tablero Inicio organiza la jornada de arriba hacia abajo en grupos visuales enmarcados y sin numeración confusa: Resumen del día (4 cifras clave), avisos urgentes en Requiere atención, Tareas de hoy (con verificación real de registros), Accesos directos y dos bloques inferiores con el mismo formato plegable estándar: Resumen del mes (o Tablero técnico en Mediano) y Completar configuración de finca.",
       },
       {
         type: "screenshot",
-        title: "Tablero principal Inicio y barra de herramientas",
+        title: "Tablero principal Inicio y barra de herramientas superior",
         image: "/images/guia/inicio-dashboard.webp",
-        alt: "Captura del tablero principal Inicio de El Gallinero con resumen de aves, huevos, alimento, finanzas y la barra superior",
+        alt: "Captura del tablero principal Inicio de El Gallinero con grupos enmarcados, selector de escala superior y botón Crear +",
         caption:
-          "En la parte superior derecha tienes siempre tres controles en línea: el indicador de conexión y copia offline, el buscador global Ctrl+K y el botón Crear + para abrir cualquier formulario sin navegar menús.",
+          "En la barra superior tienes estado En línea/Offline, buscador global Ctrl+K, selector de escala Pequeño / Mediano y el botón Crear +, que abre directamente el modal o formulario de cada registro sin pantallas intermedias. Abajo a la derecha te acompaña Gina, tu asistente de granja.",
         badge: "Pantalla principal",
         targetHref: "/dashboard",
         targetLabel: "Abrir Inicio",
@@ -211,10 +212,10 @@ export const guides: Guide[] = [
         type: "steps",
         title: "Orientarte en 4 pasos el primer día",
         items: [
-          "Revisa los catálogos base en Configuración → Catálogos y verifica tamaños de huevo, razas y precios de referencia.",
-          "Crea al menos un espacio en Animales → Lugares de manejo (por ejemplo Galpón Principal o Potrero Norte) antes de ingresar lotes nuevos.",
-          "En el botón Crear + de la barra superior o en el dock inferior móvil (+ Registrar) accede al formulario directo de huevos, alimentación, ventas, egresos, bajas o pesajes.",
-          "En cada página encontrarás un buscador alineado sobre el contenido o tabla para filtrar al instante sin perder contexto.",
+          "Usa «Abrir asistente inicial» en Inicio (o Configuración) para completar en 3 pasos el nombre de tu finca, lugares, animales vivos hoy y saldo de alimento —manual o importado por CSV.",
+          "Alterna en un toque entre Modo Pequeño (interfaz simple) y Modo Mediano (tableros técnicos) desde la barra superior sin perder historial.",
+          "Cada registro de huevos, alimento, ventas, egresos, pesos o reproducción entrega una Microcápsula inmediata con costo unitario, días de alimento o margen.",
+          "Pulsa Crear + arriba (o + Registrar en móvil) para abrir de inmediato el formulario exacto de adquisición, traslado, venta, pago, plan de parvada o cierre diario.",
         ],
       },
       {
@@ -259,7 +260,64 @@ export const guides: Guide[] = [
       {
         type: "tip",
         title: "Lista inicial recomendada en Inicio",
-        text: "Si ves tarjetas de configuración pendiente en Inicio, resuelve primero la revisión de precios, etapas y calendario sanitario; una vez marcadas como listas no vuelven a molestarte.",
+        text: "Si ves el panel plegable «Completar configuración de finca» en Inicio, resuelve primero ubicación, especies, precios y calendario sanitario; también puedes relanzar el Asistente inicial de 3 pasos desde su botón derecho.",
+      },
+    ],
+  },
+  {
+    slug: "escala-y-modulos",
+    title: "Asistente inicial (3 pasos), Escala Pequeño vs. Mediano y Módulos",
+    module: "primeros-pasos",
+    icon: "sparkles",
+    summary:
+      "Arranca en Día 1 sin historial atrasado, alterna entre Modo Pequeño y Mediano desde la barra superior y gestiona los 5 módulos progresivos.",
+    estimatedMinutes: 4,
+    tags: ["asistente inicial", "día 1", "csv", "pequeño", "mediano", "escala", "módulos progresivos", "feature flags", "onboarding"],
+    relatedHrefs: [
+      { href: "/dashboard/configuracion/modulos", label: "Escala y Módulos Progresivos" },
+      { href: "/dashboard?wizard=1", label: "Abrir Asistente inicial" },
+      { href: "/dashboard/configuracion", label: "Panel Configuración" },
+    ],
+    sections: [
+      {
+        type: "intro",
+        text: "El sistema se adapta a granjas familiares o comerciales sobre la misma base de datos y sin migraciones. En Modo Pequeño ves únicamente lo esencial del galpón para capturar rápido; al crecer o cambiar a Modo Mediano en la barra superior se habilitan las herramientas avanzadas.",
+      },
+      {
+        type: "screenshot",
+        title: "Panel de Escala Productiva, Progreso y Módulos Desbloqueables",
+        image: "/images/guia/configuracion-modulos.webp",
+        alt: "Pantalla de Onboarding Progresivo, Escala y Módulos mostrando Modo Pequeño vs Mediano, 4 módulos core y 5 progresivos",
+        caption:
+          "Los 4 módulos esenciales (Captura Diaria Offline, Inventario y Cobertura, Sanidad/Retiros/Compostaje y Resumen WhatsApp) están siempre activos; los 5 módulos avanzados se encienden manualmente o al superar umbrales reales de tu finca.",
+        badge: "Escala gradual",
+        targetHref: "/dashboard/configuracion/modulos",
+        targetLabel: "Abrir Escala y Módulos",
+      },
+      {
+        type: "steps",
+        title: "Arrancar en Día 1 y crecer sin cambiar de software",
+        items: [
+          "Abre «Asistente inicial» en Inicio o Configuración para seguir 3 pasos: (1) Escala y datos de la finca, (2) Lugares de manejo y animales vivos hoy (manual o creando lugar en un clic), y (3) Alimento disponible en bodega o plantilla CSV multi-especie.",
+          "Cambia entre Pequeño y Mediano cuando quieras usando el control de escala de la barra superior derecha.",
+          "Conoce los 5 módulos progresivos y sus activadores automáticos: Auditoría POE GAB/ICA (>200 aves), Contabilidad Analítica y Prorrateo (≥2 especies activas), Calibres NTC 1240 y Stock PEPS (≥150 ponedoras), Reportes Formales DIAN/Crédito/ROI y Genealogía 3 Gen + Cierre Auditable + IoT (≥30 mamíferos reproductores).",
+          "En Configuración → Módulos puedes revisar en cualquier momento qué módulo se activó por crecimiento real de tu inventario o activarlo/ocultarlo manualmente.",
+        ],
+      },
+      {
+        type: "diagram",
+        title: "Evolución progresiva de la granja en la plataforma",
+        nodes: [
+          { id: "wizard", label: "Asistente Día 1 (3 pasos)", icon: "sparkles", color: "green" },
+          { id: "core", label: "Modo Pequeño (4 esenciales)", icon: "home", color: "amber" },
+          { id: "triggers", label: "Crecimiento o Manual", icon: "trending-up", color: "blue" },
+          { id: "mediano", label: "Modo Mediano Tecnificado", icon: "bar-chart", color: "purple" },
+        ],
+        connections: [ 
+          { from: "wizard", to: "core", label: "Carga foto inicial o CSV" },
+          { from: "core", to: "triggers", label: "Supera umbral o switch" },
+          { from: "triggers", to: "mediano", label: "Desbloquea 5 avanzados" },
+        ],
       },
     ],
   },
@@ -299,7 +357,7 @@ export const guides: Guide[] = [
           "Con Wi-Fi o buena señal móvil, inicia sesión y toca la píldora «En línea» en la parte superior derecha.",
           "Verifica el bloque «Copia completa en el dispositivo» y presiona «Guardar copia» o «Actualizar copia» hasta llegar al 100 %.",
           "Mientras recorres los potreros sin señal puedes abrir módulos cacheados, escanear códigos QR y guardar huevos, alimentación, mortalidad, ventas o egresos en la cola local.",
-          "Si no tienes manos libres para escribir, abre el Asistente o el dock móvil de voz y graba una nota de audio; quedará guardada en tu teléfono hasta recuperar conexión.",
+          "Si no tienes manos libres para escribir, abre a Gina o el dock móvil de voz y graba una nota de audio; quedará guardada en tu teléfono hasta recuperar conexión.",
           "Al reconectar, el sistema envía automáticamente la cola pendiente con identificador único (sin duplicados) y transcribe tus notas de voz para confirmar los registros.",
         ],
       },
@@ -315,46 +373,46 @@ export const guides: Guide[] = [
   },
   {
     slug: "asistente-operativo",
-    title: "Asistente IA y registro por voz",
+    title: "Gina: asistente de la granja, voz, fotos y memoria",
     module: "primeros-pasos",
     icon: "sparkles",
     summary:
-      "Consulta datos de la finca en lenguaje natural, dicta capturas por voz o audio offline y confirma cada escritura antes de guardarla.",
+      "Conversa con Gina (la gallina con gafas) por texto, voz o foto de facturas para consultar datos en vivo, recordar reglas de tu finca y confirmar registros.",
     estimatedMinutes: 3,
-    tags: ["asistente", "ia", "chat", "voz", "dictado", "confirmación", "herramientas"],
+    tags: ["gina", "asistente", "ia", "chat", "voz", "dictado", "memoria", "fotos", "confirmación"],
     relatedHrefs: [
-      { href: "/dashboard", label: "Abrir Asistente en Inicio" },
-      { href: "/dashboard/escanear", label: "Complementar con QR" },
+      { href: "/dashboard", label: "Hablar con Gina en Inicio" },
+      { href: "/dashboard/escanear", label: "Complementar con Escanear QR" },
     ],
     sections: [
       {
         type: "intro",
-        text: "El botón flotante «Asistente» está disponible en la esquina inferior derecha del dashboard. Lee tus datos reales (aves, huevos, saldos, ubicaciones, activos, sanidad) y te ayuda a preparar registros escritos o por voz sin salir de la pantalla donde estás trabajando.",
+        text: "En la esquina inferior derecha te acompaña Gina (nuestra gallina con gafas). Su panel resume en lenguaje claro lo que puede hacer por ti sin términos técnicos: anotar movimientos diarios (siempre con tarjeta de confirmación), leer fotos de facturas o etiquetas, consultar tus lotes/rutinas/cuentas al instante y recordar reglas propias de tu granja.",
       },
       {
         type: "screenshot",
-        title: "Panel lateral del Asistente Operativo",
+        title: "Panel de chat con Gina · Asistente de tu granja",
         image: "/images/guia/asistente-ia.webp",
-        alt: "Drawer lateral del Asistente Operativo mostrando sugerencias de consulta, campo de mensaje y controles de voz",
+        alt: "Panel lateral de Gina con su avatar de gallina con gafas, resumen de capacidades, preguntas rápidas, cámara, micrófono y entrada de texto",
         caption:
-          "Incluye historial de conversaciones, botones de preguntas frecuentes («¿Cómo está la granja hoy?») y entrada de texto o micrófono para dictado en tiempo real y notas de voz offline.",
-        badge: "Asistente con confirmación",
+          "Incluye memoria persistente de la granja (ícono del cerebro), historial de conversaciones, preguntas sugeridas, cámara para facturas/etiquetas ICA, dictado por voz en tiempo real y notas de voz offline.",
+        badge: "Gina + confirmación",
         targetHref: "/dashboard",
         targetLabel: "Abrir el dashboard",
       },
       {
         type: "steps",
-        title: "Consultar o preparar un registro paso a paso",
+        title: "Qué puedes hacer con Gina paso a paso",
         items: [
-          "Haz clic en «Asistente» en la esquina inferior derecha.",
-          "Escribe o dicta con el micrófono tu petición concreta: por ejemplo «¿cuántos huevos recogimos esta semana?» o «registra 18 huevos grandes de hoy del Galpón Principal».",
-          "Si pediste crear o modificar un dato, el Asistente prepara un borrador seguro que no altera la base de datos por sí solo.",
-          "Revisa el resumen de la acción pendiente (cantidades, fecha, producto o lugar) y elige «Confirmar» para guardarla o «Cancelar» para descartarla.",
+          "Haz clic en «Gina» en la esquina inferior derecha y escribe, dicta con el micrófono o toca la cámara para adjuntar una factura, etiqueta de concentrado o comprobante.",
+          "Pregúntale datos vivos de las 6 especies («¿cómo está la granja hoy?», «¿cuántos días de alimento quedan y cuál es el FCR?», «¿qué vacunas están pendientes?»).",
+          "Guarda reglas permanentes de tu predio en el ícono de Memoria arriba (por ejemplo «Proveedor principal Concentrados del Valle» o «Precio cubeta AAA $18.000»).",
+          "Cuando pidas crear huevos, traslados, egresos o ventas, Gina arma una tarjeta segura; revisa las cifras y pulsa «Confirmar» para aplicarlo o «Cancelar».",
         ],
       },
       {
         type: "note",
-        text: "Toda acción de escritura pasa primero por confirmación humana. Las cifras y listas que responde el Asistente salen de las consultas internas del sistema en ese momento.",
+        text: "Toda acción que altera inventario, animales o finanzas exige confirmación humana en tarjeta. Si te quedas sin señal, el botón de micrófono graba audio localmente para procesarlo al reconectar.",
       },
     ],
   },
@@ -368,29 +426,29 @@ export const guides: Guide[] = [
     module: "escanear-qr",
     icon: "qr-code",
     summary:
-      "Escanea puertas de galpón, gallinas, lotes y equipos desde cámara o teclado, imprime etiquetas QR y comparte fichas de lote.",
+      "Escanea puertas de galpón, jaulas, ejemplares individuales, lotes y equipos desde cámara o teclado e imprime etiquetas QR.",
     estimatedMinutes: 4,
     tags: ["qr", "escanear", "cámara", "etiqueta", "imprimir", "lote", "trazabilidad pública"],
     relatedHrefs: [
-      { href: "/dashboard/escanear", label: "Abrir Escáner QR" },
+      { href: "/dashboard/escanear", label: "Abrir Escáner" },
       { href: "/dashboard/ubicaciones", label: "Etiquetas de lugares" },
       { href: "/dashboard/operaciones/activos", label: "Etiquetas de equipos" },
     ],
     sections: [
       {
         type: "intro",
-        text: "El escáner unificado reconoce cuatro tipos de entidad mediante cámara o búsqueda manual por código: lugares de manejo (LOC-...), aves individuales (G-...), lotes productivos y equipos/activos (ACT-...). Al detectar el código muestra métricas resumidas y botones directos para actuar al instante.",
+        text: "La sección «Escanear» del menú reconoce cuatro tipos de entidad multiespecie mediante cámara o búsqueda manual por código: lugares de manejo (LOC-...), ejemplares individuales (G-...), lotes productivos y equipos/activos (ACT-...). Al detectar el código muestra métricas resumidas y botones directos para actuar al instante.",
       },
       {
         type: "screenshot",
-        title: "Escáner QR con ficha detectada de galpón y accesos rápidos",
+        title: "Escáner QR con ficha detectada de lugar y accesos rápidos",
         image: "/images/guia/escanear-qr.webp",
-        alt: "Pantalla de Escáner QR mostrando la ficha del Galpón Principal tras escanear o buscar LOC-01",
+        alt: "Pantalla de Escanear QR mostrando la ficha de un lugar tras escanear o buscar LOC-01",
         caption:
-          "Una vez identificado un galpón, lote o gallina, aparecen métricas inmediatas (animales, huevos 30d, mantenimientos) y botones en un clic para recoger huevos, dar alimento, registrar mortalidad o ir a su ficha.",
+          "Una vez identificado un lugar, lote, ejemplar o activo, aparecen métricas inmediatas (animales, producción, mantenimientos) y botones en un clic para recoger huevos, dar alimento, trasladar, pesar o registrar sanidad.",
         badge: "Campo + QR",
         targetHref: "/dashboard/escanear",
-        targetLabel: "Abrir Escáner",
+        targetLabel: "Abrir Escanear",
       },
       {
         type: "screenshot",
@@ -426,7 +484,7 @@ export const guides: Guide[] = [
       {
         type: "tip",
         title: "Funciona también en dispositivos sin cámara o sin internet",
-        text: "El buscador manual del escáner acepta códigos parciales de gallinas, galpones o activos cargados en la copia offline y dispara la misma captura rápida.",
+        text: "El buscador manual del escáner acepta códigos parciales de animales, lotes, lugares o activos cargados en la copia offline y dispara la misma captura rápida.",
       },
     ],
   },
@@ -440,9 +498,9 @@ export const guides: Guide[] = [
     module: "animales",
     icon: "paw-print",
     summary:
-      "Administra gallinas, gallos y lotes de pollos, codornices, patos o conejos desde un resumen consolidado con asignación de lugares.",
+      "Administra gallinas, gallos y lotes de pollos, codornices, patos, conejos o cuyes desde un resumen consolidado con asignación de lugares.",
     estimatedMinutes: 4,
-    tags: ["animales", "gallinas", "gallos", "pollos", "codornices", "patos", "conejos", "especies"],
+    tags: ["animales", "gallinas", "gallos", "pollos", "codornices", "patos", "conejos", "cuyes", "especies"],
     relatedHrefs: [
       { href: "/dashboard/animales", label: "Resumen de Animales" },
       { href: "/dashboard/produccion?tab=animales", label: "Pestañas por especie" },
@@ -451,7 +509,7 @@ export const guides: Guide[] = [
     sections: [
       {
         type: "intro",
-        text: "El módulo Animales reúne en un solo inventario a las gallinas ponedoras, gallos reproductores y lotes de especies complementarias (pollos de engorde, codornices, patos y conejos), mostrando cantidad activa, peso total estimado, valoración y pendientes de asignar a un espacio.",
+        text: "El módulo Animales reúne en un solo inventario a las gallinas ponedoras, gallos reproductores y lotes de especies complementarias (pollos de engorde, codornices, patos, conejos y cuyes), mostrando cantidad activa, peso total estimado, valoración y pendientes de asignar a un espacio.",
       },
       {
         type: "screenshot",
@@ -530,13 +588,13 @@ export const guides: Guide[] = [
   },
   {
     slug: "control-peso",
-    title: "Control de peso y biometría vs estándar",
+    title: "Control de peso, biometría, CV% y EPEF",
     module: "animales",
     icon: "scale",
     summary:
-      "Registra pesajes por muestra de lotes o grupos de gallinas y compara su evolución semanal frente al rango mínimo-máximo de la raza.",
+      "Registra pesajes por muestra con peso promedio y desviación estándar para obtener CV%, uniformidad, ganancia diaria (GDP) y puntaje EPEF.",
     estimatedMinutes: 3,
-    tags: ["peso", "biometría", "curva", "desarrollo", "ganancia", "muestra", "estándar"],
+    tags: ["peso", "biometría", "curva", "cv%", "uniformidad", "epef", "ganancia", "muestra", "estándar"],
     relatedHrefs: [
       { href: "/dashboard/produccion/peso", label: "Control de Peso" },
       { href: "/dashboard/analisis/razas", label: "Curvas por Raza" },
@@ -545,7 +603,7 @@ export const guides: Guide[] = [
     sections: [
       {
         type: "intro",
-        text: "El seguimiento biométrico permite detectar a tiempo si una camada de pollos o pollonas en levante está creciendo por debajo o por encima de lo esperado, ajustando ración o revisando sanidad antes de afectar el punto de postura o peso de faena.",
+        text: "El seguimiento biométrico compara el peso real de cada especie (gallinas, pollos, codornices, patos, conejos y cuyes) frente a la banda estándar y calcula automáticamente Coeficiente de Variación (CV%), Uniformidad (±10%), Ganancia Diaria de Peso (GDP), FCR ajustada y Factor Europeo de Eficiencia Productiva (EPEF).",
       },
       {
         type: "screenshot",
@@ -553,25 +611,71 @@ export const guides: Guide[] = [
         image: "/images/guia/peso-biometria.webp",
         alt: "Módulo Control de Peso y Biometría mostrando curva comparativa con banda de peso objetivo y registros de pesaje",
         caption:
-          "La zona sombreada muestra el rango esperado (mínimo a máximo) para la raza y sexo seleccionados, mientras los puntos muestran tus muestreos promedio reales en gramos o kilogramos.",
-        badge: "Biometría",
+          "La zona sombreada muestra el rango esperado (mínimo a máximo) para la especie y raza seleccionadas, mientras los puntos revelan si la ganancia semanal está alineada.",
+        badge: "Biometría zootécnica",
         targetHref: "/dashboard/produccion/peso",
         targetLabel: "Registrar pesaje",
       },
       {
         type: "steps",
-        title: "Cómo registrar un muestreo de peso",
+        title: "Cómo registrar un muestreo de peso con uniformidad",
         items: [
           "Entra a Animales → Control de peso y haz clic en «+ Registrar Pesaje».",
-          "Selecciona el lote o indica el grupo de gallinas, raza, semana de edad y el lugar de manejo.",
-          "Ingresa el peso promedio calculado en kg y el tamaño de la muestra pesada (por ejemplo, 5 o 10 aves representativas).",
-          "Guarda y filtra la gráfica superior por raza/género para comprobar si el punto cae dentro de la banda verde objetivo.",
+          "Selecciona el lote (o grupo de aves, conejos o cuyes), especie, semana/edad y lugar de manejo.",
+          "Ingresa el peso promedio en kg, el tamaño de la muestra (mínimo 5–10 animales) y opcionalmente la desviación estándar o rango observado.",
+          "Al guardar, el sistema entrega una Microcápsula con CV% y uniformidad del lote y actualiza las alertas de ventana óptima de sacrificio en KPIs.",
         ],
       },
       {
         type: "tip",
         title: "Mantener estándares actualizados",
         text: "Puedes ajustar los pesos objetivo por semana y raza en Configuración → Catálogos dentro de la pestaña de Pesos de referencia.",
+      },
+    ],
+  },
+  {
+    slug: "reproduccion-cunicola",
+    title: "Reproducción de conejos y cuyes (empadre a destete)",
+    module: "animales",
+    icon: "rabbit",
+    summary:
+      "Controla eventos de empadre, palpación, nidal, parto, tamaño de camada y destete para conejos y cuyes con alerta automática de consanguinidad.",
+    estimatedMinutes: 4,
+    tags: ["reproducción", "conejos", "cuyes", "empadre", "palpación", "nidal", "parto", "destete", "consanguinidad"],
+    relatedHrefs: [
+      { href: "/dashboard/produccion?tab=reproduccion", label: "Abrir Reproducción" },
+      { href: "/dashboard/planeacion/calendario", label: "Ver fechas en Calendario Maestro" },
+      { href: "/dashboard/animales", label: "Ver lotes activos" },
+    ],
+    sections: [
+      {
+        type: "intro",
+        text: "Los conejos (31 días de gestación) y los cuyes (68 días de gestación) requieren fechas precisas de palpación, colocación de nidal, parto y destete. Este módulo registra cada evento por pareja/lote reproductor y calcula automáticamente los hitos futuros en el Calendario Maestro.",
+      },
+      {
+        type: "screenshot",
+        title: "Control del ciclo reproductivo multi-especie",
+        image: "/images/guia/animales-resumen.webp",
+        alt: "Vista de gestión de animales y lotes multi-especie con conejos y cuyes integrados",
+        caption:
+          "Administra hembras y machos reproductores desde Animales y sigue sus empadres, tasas de fertilidad, gazapos/crías nacidas vivas y destetadas.",
+        badge: "Conejos y cuyes",
+        targetHref: "/dashboard/produccion?tab=reproduccion",
+        targetLabel: "Ir a Reproducción",
+      },
+      {
+        type: "steps",
+        title: "Registrar un ciclo desde el empadre hasta el destete",
+        items: [
+          "Entra a Animales → Reproducción (o desde Crear + → Evento reproductivo).",
+          "Elige especie (conejo o cuy), tipo de evento (Empadre, Palpación, Colocación de Nidal, Parto, Destete o Descanso) y selecciona hembra y macho.",
+          "Si el cruce presenta parentesco cercano en el historial genético, el sistema mostrará una alerta de consanguinidad antes de confirmar.",
+          "En el evento Parto registra crías nacidas vivas, muertas y peso de camada; el sistema calcula automáticamente la fecha estimada de destete para tu rutina diaria.",
+        ],
+      },
+      {
+        type: "note",
+        text: "Cada registro reproductivo actualiza el Calendario Maestro para que nunca pases por alto una palpación (día 12–14 en conejos) ni la preparación del nidal previo al parto.",
       },
     ],
   },
@@ -683,22 +787,22 @@ export const guides: Guide[] = [
   // ═══════════════════════════════════════════
   {
     slug: "recoger-huevos",
-    title: "Recolección de huevos multiespecie",
+    title: "Recolección de huevos multiespecie (NTC 1240)",
     module: "produccion",
     icon: "egg",
     summary:
-      "Registra la postura diaria de gallinas, codornices o patos en modo rápido o detallado por talla y separa autoconsumo de excedente para venta.",
+      "Registra la postura diaria de gallinas, codornices o patos bajo clasificación NTC 1240 con T°/HR, separa autoconsumo y recibe microcápsulas al guardar.",
     estimatedMinutes: 3,
-    tags: ["huevos", "postura", "AA", "AAA", "Jumbo", "autoconsumo", "excedente", "diario"],
+    tags: ["huevos", "postura", "ntc 1240", "AA", "AAA", "Jumbo", "temperatura", "humedad", "autoconsumo", "microcápsulas"],
     relatedHrefs: [
       { href: "/dashboard/produccion?tab=huevos", label: "Producción de Huevos" },
-      { href: "/dashboard/inventarios/huevos", label: "Inventario de Huevos" },
+      { href: "/dashboard/inventarios/huevos", label: "Inventario PEPS de Huevos" },
       { href: "/dashboard/soberania", label: "Ver en Soberanía" },
     ],
     sections: [
       {
         type: "intro",
-        text: "El módulo de Huevos admite tanto el conteo ágil diario en galpón como la clasificación detallada por tamaño (Jumbo, AAA, AA, A, B, C) y especie. Además permite dividir en el mismo acto cuánto se destina al autoconsumo familiar y cuánto entra al stock comercial.",
+        text: "El módulo de Huevos admite captura ágil en galpón (4 interacciones o menos) y clasificación por peso bajo la norma colombiana NTC 1240 (Jumbo, AAA, AA, A, B, C) además de huevos de codorniz o pato. Puedes registrar temperatura y humedad ambiente, descontar autoconsumo del hogar y recibir una Microcápsula inmediata con tu tasa de postura del día.",
       },
       {
         type: "screenshot",
@@ -706,8 +810,8 @@ export const guides: Guide[] = [
         image: "/images/guia/produccion-huevos.webp",
         alt: "Módulo Producción de Huevos con tarjetas resumen, tendencia diaria y tabla de recolecciones",
         caption:
-          "Visualiza producción de hoy, acumulada de 7 días, promedio diario y partición entre consumo del hogar y stock vendible.",
-        badge: "Postura diaria",
+          "Visualiza producción de hoy, acumulada de 7 días, promedio diario y partición entre consumo del hogar y stock comercial PEPS.",
+        badge: "Postura diaria NTC 1240",
         targetHref: "/dashboard/produccion?tab=huevos",
         targetLabel: "Ir a Huevos",
       },
@@ -715,10 +819,10 @@ export const guides: Guide[] = [
         type: "steps",
         title: "Registrar huevos en modo rápido o detallado",
         items: [
-          "Entra a Producción → Huevos (o usa el botón Crear + → Recoger Huevos o la captura rápida del celular).",
-          "En el modal de recolección elige la fecha, especie (gallina, codorniz, pato) y opcionalmente el galpón/lote origen.",
-          "Usa el Modo Rápido para anotar el total en una sola cifra, o cambia a Detallado por tamaño para desglosar unidades por cada calibre.",
-          "Ajusta las unidades separadas para autoconsumo del hogar; el resto queda disponible automáticamente en Inventarios → Huevos para la venta.",
+          "Entra a Producción → Huevos (o usa la Rutina Diaria de Inicio, el botón Crear + → Recoger Huevos o Captura Rápida).",
+          "En el modal de recolección elige fecha, especie (gallina, codorniz, pato), galpón/lote origen y, si cuentas con lectura térmica, temperatura (°C) y humedad (% HR) del recinto.",
+          "Usa el Modo Rápido para anotar el total en una sola cifra, o cambia a Detallado por tamaño NTC 1240 para desglosar unidades por calibre.",
+          "Indica las unidades para autoconsumo del hogar; el excedente entra a Inventarios → Huevos con trazabilidad PEPS/FIFO, marca completada la tarea de tu rutina y muestra tu microcápsula de eficiencia.",
         ],
       },
       {
@@ -744,7 +848,7 @@ export const guides: Guide[] = [
     module: "produccion",
     icon: "meat",
     summary:
-      "Lleva historial de cosecha de carne por especie (pollos, gallinas de descarte, gallos, patos, conejos), rendimiento vivo vs canal y valorización.",
+      "Lleva historial de cosecha de carne por especie (pollos, gallinas de descarte, gallos, patos, conejos, cuyes), rendimiento vivo vs canal y valorización.",
     estimatedMinutes: 3,
     tags: ["carne", "canal", "rendimiento", "peso vivo", "lotes", "autoconsumo"],
     relatedHrefs: [
@@ -784,9 +888,9 @@ export const guides: Guide[] = [
     module: "produccion",
     icon: "scissors",
     summary:
-      "Registra la salida de pollos de engorde, aves recomendadas de sacrificio o conejos convirtiéndolos en lotes trazables de carne.",
+      "Registra la salida de pollos de engorde, aves recomendadas de sacrificio, conejos o cuyes convirtiéndolos en lotes trazables de carne.",
     estimatedMinutes: 3,
-    tags: ["sacrificio", "faena", "beneficio", "descarte", "pollo", "conejo"],
+    tags: ["sacrificio", "faena", "beneficio", "descarte", "pollo", "conejo", "cuy"],
     relatedHrefs: [
       { href: "/dashboard/produccion?tab=carne", label: "Registrar en Carne / Beneficio" },
       { href: "/dashboard/inventarios/carne", label: "Inventario de Carne" },
@@ -794,7 +898,7 @@ export const guides: Guide[] = [
     sections: [
       {
         type: "intro",
-        text: "El registro de sacrificio unifica en Producción → Carne la salida de aves individuales (gallinas de descarte o gallos) o la saca parcial/total de un lote de engorde o conejos, calculando automáticamente el rendimiento e integrando el inventario FIFO de carne.",
+        text: "El registro de sacrificio unifica en Producción → Carne la salida de aves individuales (gallinas de descarte o gallos) o la saca parcial/total de un lote de engorde, conejos o cuyes, calculando automáticamente el rendimiento e integrando el inventario FIFO de carne.",
       },
       {
         type: "screenshot",
@@ -812,7 +916,7 @@ export const guides: Guide[] = [
         title: "Registrar un sacrificio en 4 pasos",
         items: [
           "Abre Producción → Carne y haz clic en «+ Registrar Sacrificio / Beneficio».",
-          "Selecciona el origen: gallina individual (especialmente marcadas en descarte/recomendadas), gallo o lote activo de pollos/patos/conejos.",
+          "Selecciona el origen: gallina individual (especialmente marcadas en descarte/recomendadas), gallo o lote activo de pollos/patos/conejos/cuyes.",
           "Anota la cantidad de animales beneficiados, el peso vivo total y el peso neto en canal; indica cuántos kilos van a autoconsumo vs venta.",
           "Confirma: el sistema actualiza el conteo del animal o lote e ingresa los kilogramos excedentes al inventario FIFO de carne.",
         ],
@@ -1013,7 +1117,7 @@ export const guides: Guide[] = [
         image: "/images/guia/inventario-carne.webp",
         alt: "Pantalla Inventario de Carne con resumen por especie y antigüedad de lotes de beneficio",
         caption:
-          "Controla kilogramos disponibles por especie (pollo, gallina de descarte, pato, codorniz, conejo), valor estimado en cava y días desde el beneficio.",
+          "Controla kilogramos disponibles por especie (pollo, gallina de descarte, pato, codorniz, conejo, cuy), valor estimado en cava y días desde el beneficio.",
         badge: "Trazabilidad canal",
         targetHref: "/dashboard/inventarios/carne",
         targetLabel: "Abrir Inventario Carne",
@@ -1035,30 +1139,31 @@ export const guides: Guide[] = [
   // ═══════════════════════════════════════════
   {
     slug: "alimentar-aves",
-    title: "Gestión de alimentación, raciones y programas",
+    title: "Alimentación, dieta combinada y predicción",
     module: "almacen",
     icon: "wheat",
     summary:
-      "Registra entradas y consumos diarios de concentrado o forrajes, configura programas automáticos por etapa y proyecta necesidad de compra.",
+      "Registra consumos y programas por etapa, balancea dietas combinadas (%MS, %PC y Vitamina C), predice necesidad en bultos de 40 kg y recibe microcápsulas.",
     estimatedMinutes: 4,
-    tags: ["alimentación", "ración", "concentrado", "grano", "programa", "consumo"],
+    tags: ["alimentación", "ración", "concentrado", "forraje", "dieta combinada", "vitamina c", "bultos", "programa", "consumo"],
     relatedHrefs: [
       { href: "/dashboard/produccion?tab=alimentacion", label: "Gestión de Alimentación" },
       { href: "/dashboard/inventarios/alimentacion", label: "Inventario de Alimentos" },
+      { href: "/dashboard/configuracion/catalogos?tab=alimentacion", label: "Tabla Nutricional" },
       { href: "/dashboard/almacen", label: "Centro Almacén" },
     ],
     sections: [
       {
         type: "intro",
-        text: "Controlar exactamente qué alimento entra a bodega y cuánto consume cada grupo o etapa te permite reducir desperdicios y saber con semanas de anticipación cuándo debes reordenar bultos.",
+        text: "Controlar qué entra a bodega y cuánto consume cada especie permite balancear raciones entre concentrado comercial y forrajes locales (% Materia Seca, % Proteína Cruda y aporte de Vitamina C en cuyes), comparar consumo real vs esperado por curva y proyectar reposiciones en bultos de 40 kg con alertas de cobertura.",
       },
       {
         type: "screenshot",
-        title: "Gestión de movimientos y programas de alimentación",
+        title: "Gestión de movimientos, programas y balance nutricional",
         image: "/images/guia/alimentacion-gestion.webp",
         alt: "Módulo de Alimentación con tipos de alimento, movimientos de entrada/consumo y programas automáticos",
         caption:
-          "Administra fórmulas compradas o producidas en granja (maíz, morera, preparados), programa entregas automáticas por etapa de edad y controla mermas.",
+          "Administra concentrados y forrajes locales, programa entregas automáticas por etapa/especie y revisa días de cobertura y bultos requeridos.",
         badge: "Nutrición diaria",
         targetHref: "/dashboard/produccion?tab=alimentacion",
         targetLabel: "Abrir Alimentación",
@@ -1069,18 +1174,18 @@ export const guides: Guide[] = [
         image: "/images/guia/almacen-hub.webp",
         alt: "Hub de Almacén con alertas de stock bajo, resumen de alimentos, insumos y tareas de mantenimiento",
         caption:
-          "La entrada principal de Almacén unifica stock bajo de raciones e insumos con los mantenimientos pendientes en una sola lectura.",
+          "La entrada principal de Almacén unifica alimentos, insumos, activos, mantenimiento, compostaje y cierre diario en una sola vista.",
         badge: "Almacén",
         targetHref: "/dashboard/almacen",
         targetLabel: "Ir a Almacén",
       },
       {
         type: "steps",
-        title: "Configurar alimentos y registrar consumos",
+        title: "Configurar alimentos, dieta combinada y registrar consumos",
         items: [
-          "Entra a Almacén → Gestión de alimentación y crea o edita los tipos de alimento (con stock mínimo, unidad, costo por kg y origen granja/comprado).",
-          "Registra consumos diarios eligiendo alimento, cantidad, etapa o lugar de manejo; también puedes registrar compras de alimento desde Finanzas → Egresos.",
-          "Activa Programas de alimentación si deseas descontar raciones automáticas calculadas por número de aves en cada etapa.",
+          "Entra a Almacén → Gestión de alimentación y crea tipos de alimento indicando %MS, %PC, contenido de Vitamina C (clave en cuyes), costo por kg y origen.",
+          "Registra consumos diarios eligiendo alimento, cantidad en kg, especie/lote y lugar de manejo; también puedes registrar compras por bultos desde Finanzas → Egresos.",
+          "Consulta el comparativo Real vs Esperado, ajusta la dieta combinada para optimizar costo/kg y al guardar recibe una Microcápsula con tus días de cobertura restantes y bultos sugeridos a comprar.",
         ],
       },
     ],
@@ -1252,10 +1357,136 @@ export const guides: Guide[] = [
       },
     ],
   },
+  {
+    slug: "compostaje",
+    title: "Compostaje térmico y pilas sanitarias (AGROSAVIA)",
+    module: "almacen",
+    icon: "sprout",
+    summary:
+      "Gestiona pilas de compostaje 3:1:1 y 7:2:2 para gallinaza o mortalidad sanitaria, monitorea temperatura (55–70 °C), programa volteos y registra cosecha.",
+    estimatedMinutes: 3,
+    tags: ["compostaje", "agrosavia", "pila", "temperatura", "volteo", "gallinaza", "mortalidad", "abono"],
+    relatedHrefs: [
+      { href: "/dashboard/operaciones/compostaje", label: "Abrir Compostaje" },
+      { href: "/dashboard/inventarios/gallinaza", label: "Inventario de Gallinaza" },
+      { href: "/dashboard/planeacion/calendario", label: "Ver volteos en Calendario" },
+    ],
+    sections: [
+      {
+        type: "intro",
+        text: "El compostaje controlado bajo metodología AGROSAVIA convierte la gallinaza, pollinaza y mortalidad controlada en abono orgánico seguro. El sistema administra fórmulas 3:1:1 (gallinaza + material carbonado + agua/humedad) y 7:2:2 para mortalidad, alertando si la pila cae de 55 °C o excede 70 °C.",
+      },
+      {
+        type: "screenshot",
+        title: "Gestión de pilas, volteos y transformación de subproductos",
+        image: "/images/guia/produccion-gallinaza.webp",
+        alt: "Vista de producción y procesamiento de gallinaza y compostaje orgánico en pilas",
+        caption:
+          "Sigue el avance térmico de cada pila activa, registra volteos periódicos para aireación y cosecha el compost maduro listo para huerta o venta.",
+        badge: "Economía circular",
+        targetHref: "/dashboard/operaciones/compostaje",
+        targetLabel: "Ir a Compostaje",
+      },
+      {
+        type: "steps",
+        title: "Operar una pila de compostaje de inicio a cosecha",
+        items: [
+          "Entra a Almacén → Compostaje y crea una nueva pila indicando nombre/código, fórmula (3:1:1 o 7:2:2), kilos iniciales de estiércol/mortalidad y material seco estructurante.",
+          "Registra periódicamente lecturas de temperatura (°C), humedad y volteos; las pilas activas programan recordatorios de monitoreo en el Calendario Maestro.",
+          "Mantén la fase termofílica entre 55 °C y 68 °C para inactivar patógenos sin superar 70 °C.",
+          "Al estabilizarse la pila, presiona «Cosechar pila» para registrar los kilos de compost maduro obtenido y su destino.",
+        ],
+      },
+    ],
+  },
+  {
+    slug: "cierre-sensores",
+    title: "Cierre diario auditable y sensores IoT en galpón",
+    module: "almacen",
+    icon: "clipboard",
+    summary:
+      "Concilia la operación del día con hash anti-fraude, verificación de rutinas incumplidas y registro de lecturas ITH, amoníaco (NH3), T°/HR y báscula IoT.",
+    estimatedMinutes: 3,
+    tags: ["cierre diario", "antifraude", "auditoría", "sensores", "iot", "ith", "amoniaco", "nh3", "temperatura", "humedad", "báscula"],
+    relatedHrefs: [
+      { href: "/dashboard/operaciones/cierre", label: "Cierre Diario y Sensores" },
+      { href: "/dashboard/planeacion/calendario", label: "Calendario Maestro" },
+      { href: "/dashboard", label: "Panel Inicio" },
+    ],
+    sections: [
+      {
+        type: "intro",
+        text: "El Cierre Diario Auditable consolida la jornada de la granja (huevos recolectados, alimentación consumida, ventas, egresos, bajas y tareas completadas) con sello de auditoría anti-fraude, mientras la pestaña de Sensores IoT monitorea microclima (T°, %HR, ITH de estrés térmico, amoníaco NH3 ppm y peso por báscula) por lugar de manejo.",
+      },
+      {
+        type: "screenshot",
+        title: "Centro operativo de cierre diario y telemetría",
+        image: "/images/guia/almacen-hub.webp",
+        alt: "Centro de Almacén y Operaciones con monitoreo y control de cierre",
+        caption:
+          "Centraliza el cierre al final del turno, revisa alertas por estrés calórico (ITH) o NH3 alto y descarga evidencia auditable de cada jornada.",
+        badge: "Control diario",
+        targetHref: "/dashboard/operaciones/cierre",
+        targetLabel: "Abrir Cierre Diario",
+      },
+      {
+        type: "steps",
+        title: "Ejecutar el cierre del día y monitorear microclima",
+        items: [
+          "Entra a Almacén → Cierre Diario y Sensores al terminar la jornada operativa.",
+          "Verifica el resumen automático de huevos, alimento, ventas, gastos y tareas pendientes del día; agrega observaciones si hubo algún ajuste o novedad.",
+          "Registra el cierre para generar el registro auditable inalterable de la fecha.",
+          "En la sección de Sensores IoT consulta o registra lecturas de temperatura, humedad relativa, NH3 y peso en báscula por galpón para anticipar ventilación o cama nueva.",
+        ],
+      },
+    ],
+  },
 
   // ═══════════════════════════════════════════
   // PLANEACIÓN Y SOBERANÍA
   // ═══════════════════════════════════════════
+  {
+    slug: "calendario-rutinas",
+    title: "Calendario Maestro y rutinas auto-ajustables",
+    module: "planeacion",
+    icon: "calendar-days",
+    summary:
+      "Unifica todas las fechas de la granja a corto, mediano y largo plazo, configura tu rutina diaria y monitorea tareas cumplidas vs incumplidas.",
+    estimatedMinutes: 4,
+    tags: ["calendario maestro", "rutinas", "autoajustable", "inicio", "cumplimiento", "incumplidas", "horizonte", "agenda"],
+    relatedHrefs: [
+      { href: "/dashboard/planeacion/calendario", label: "Abrir Calendario Maestro" },
+      { href: "/dashboard", label: "Ver Rutina en Inicio" },
+      { href: "/dashboard/sanidad/calendario", label: "Calendario Sanitario" },
+    ],
+    sections: [
+      {
+        type: "intro",
+        text: "El Calendario Maestro resuelve la fragmentación entre módulos: reúne en una sola agenda las fechas de recolección diaria, ración, biometría semanal, vacunación ICA, fin de retiro farmacológico, incubaciones, partos/destetes de conejos y cuyes, volteo de compostaje, mantenimientos y vencimientos de CxC/CxP.",
+      },
+      {
+        type: "screenshot",
+        title: "Calendario Maestro con horizonte, rutinas y cumplimiento",
+        image: "/images/guia/plan-parvada.webp",
+        alt: "Vista de planeación y programación temporal de la granja",
+        caption:
+          "Alterna entre Hoy, Horizonte a mediano/largo plazo, Configurar Rutinas y Cumplimiento e Incumplimiento para no dejar tareas vencidas sin atender.",
+        badge: "Agenda unificada",
+        targetHref: "/dashboard/planeacion/calendario",
+        targetLabel: "Abrir Calendario Maestro",
+      },
+      {
+        type: "steps",
+        title: "Configurar tu rutina auto-ajustable en 4 pasos",
+        items: [
+          "Abre Planeación → Calendario Maestro (o haz clic en «Configurar rutina» desde Inicio).",
+          "Activa o personaliza los ítems de tu rutina diaria/semanal (huevos, alimentación, revisión sanitaria, pesaje, limpieza, cierre diario) indicando recurrencia y días hábiles.",
+          "Vuelve a Inicio: los botones de Rutina del Día aparecen automáticamente solo cuando esa labor aplica hoy, y se marcan como «Cumplida» apenas guardas el registro real en el módulo correspondiente.",
+          "Revisa la pestaña «Cumplimiento» en el Calendario Maestro para identificar rachas de disciplina y tareas incumplidas a tiempo.",
+        ],
+      },
+    ],
+  },
   {
     slug: "plan-parvada",
     title: "Plan de parvada y proyecciones",
@@ -1342,22 +1573,24 @@ export const guides: Guide[] = [
   // ═══════════════════════════════════════════
   {
     slug: "plan-sanitario",
-    title: "Plan Sanitario Integral",
+    title: "Plan Sanitario Integral y tiempos de retiro",
     module: "sanidad",
     icon: "pill",
     summary:
-      "Centro completo en 5 pestañas: diagnóstico actual de parvada, protocolos por etapa de edad, calendario, vacunas en bodega y bioseguridad.",
+      "Centro sanitario conectado con Control, Calendario, Alertas, Bioseguridad ICA y bloqueos automáticos por tiempo de retiro farmacológico.",
     estimatedMinutes: 4,
-    tags: ["sanidad", "plan sanitario", "bioseguridad", "protocolo", "vacunas", "etapas"],
+    tags: ["sanidad", "plan sanitario", "bioseguridad", "retiro", "carencia", "protocolo", "vacunas", "etapas"],
     relatedHrefs: [
       { href: "/dashboard/sanidad", label: "Plan Sanitario Integral" },
+      { href: "/dashboard/sanidad/bioseguridad", label: "Bioseguridad y Bienestar ICA" },
       { href: "/dashboard/sanidad/calendario", label: "Calendario de Vacunación" },
+      { href: "/dashboard/sanidad/control", label: "Control Sanitario" },
       { href: "/dashboard/inventarios/insumos", label: "Stock de Vacunas" },
     ],
     sections: [
       {
         type: "intro",
-        text: "El Plan Sanitario consolida la salud preventiva de tu granja en cinco pestañas conectadas entre sí: Estado de parvada, Protocolo por etapa, Calendario próximo, Stock sanitario de insumos e Historial/Bioseguridad.",
+        text: "El Plan Sanitario consolida la salud preventiva de tu granja en cinco pestañas conectadas entre sí (Plan de Acción, Protocolos por Etapa, Ejecutar, Historial y Recursos) y se enlaza directamente con Control Sanitario, Calendario, Alertas de retiro farmacológico y el módulo de Bioseguridad y Bienestar ICA.",
       },
       {
         type: "screenshot",
@@ -1513,37 +1746,81 @@ export const guides: Guide[] = [
       },
     ],
   },
+  {
+    slug: "bioseguridad-bienestar",
+    title: "Bioseguridad, POE GAB y Bienestar Animal (ICA / Res. 8452)",
+    module: "sanidad",
+    icon: "shield",
+    summary:
+      "Lleva registros auditables de ingreso de visitantes, desinfección POE, bienestar animal multiespecie y bloqueos preventivos por retiro farmacológico.",
+    estimatedMinutes: 4,
+    tags: ["bioseguridad", "poe", "gab", "ica", "res 8452", "bienestar", "visitantes", "desinfección", "capacitación", "retiro"],
+    relatedHrefs: [
+      { href: "/dashboard/sanidad/bioseguridad", label: "Abrir Bioseguridad" },
+      { href: "/dashboard/sanidad/control", label: "Control Sanitario y Retiros" },
+      { href: "/dashboard/sanidad/alertas", label: "Ver Alertas Sanitarias" },
+    ],
+    sections: [
+      {
+        type: "intro",
+        text: "Este módulo alinea la operación de la finca con normativas sanitarias del ICA (Res. 3650–3652/2014 y Res. 8452/2025 de Bienestar Animal): controla trazabilidad de visitantes y vehículos, rutinas POE de limpieza/desinfección con vacío sanitario, densidad por espacio, vigencia de capacitaciones (5 años) y alertas por retiro de medicamentos.",
+      },
+      {
+        type: "screenshot",
+        title: "Panel de Bioseguridad, Visitantes, Desinfección y Bienestar",
+        image: "/images/guia/sanidad-control.webp",
+        alt: "Vista de controles sanitarios y bioseguridad aplicada por galpón y lote",
+        caption:
+          "Documenta ingresos a granja, procedimientos POE GAB, protocolos de bienestar animal multi-especie y bloqueos activos mientras vence un período de retiro.",
+        badge: "Normativa ICA",
+        targetHref: "/dashboard/sanidad/bioseguridad",
+        targetLabel: "Abrir Bioseguridad",
+      },
+      {
+        type: "steps",
+        title: "Mantener el cumplimiento sanitario y de bienestar al día",
+        items: [
+          "Entra a Sanidad → Bioseguridad y Bienestar para revisar el índice de cumplimiento y las tarjetas POE vigentes.",
+          "Registra el ingreso de visitantes externos o proveedores con su origen y fecha para mantener cerco epidemiológico.",
+          "Anota las jornadas de desinfección, desratización o vacío sanitario por galpón y las certificaciones/capacitaciones del personal.",
+          "Cuando apliques medicamentos con retiro en Control Sanitario, verifica en Alertas e historial qué lotes permanecen bloqueados temporalmente para recolección o beneficio.",
+        ],
+      },
+    ],
+  },
 
   // ═══════════════════════════════════════════
   // FINANZAS Y CUENTAS
   // ═══════════════════════════════════════════
   {
     slug: "registrar-venta",
-    title: "Ventas multicanal (huevos, carne, aves y gallinaza)",
+    title: "Ventas en 5 líneas (huevos, carne, animales, gallinaza y otros)",
     module: "finanzas",
     icon: "money",
     summary:
-      "Vende productos por presentación de contado o a crédito (CxC), descontando inventarios FIFO y creando ingresos automáticamente.",
+      "Factura en 5 líneas comerciales (huevos, carne, animales en pie, gallinaza u otros subproductos) de contado o a crédito CxC con microcápsulas y descuento PEPS.",
     estimatedMinutes: 4,
-    tags: ["ventas", "ingresos", "contado", "crédito", "cxc", "clientes", "presentación"],
+    tags: ["ventas", "5 líneas", "huevos", "carne", "animales en pie", "gallinaza", "otros", "crédito", "cxc", "clientes", "microcápsulas"],
     relatedHrefs: [
-      { href: "/dashboard/finanzas/ventas", label: "Ir a Ventas" },
+      { href: "/dashboard/finanzas", label: "Centro de Finanzas" },
+      { href: "/dashboard/finanzas/ventas", label: "Ir a Ventas (5 líneas)" },
       { href: "/dashboard/finanzas/cuentas", label: "Ver CxC pendientes" },
+      { href: "/dashboard/contactos", label: "Directorio de Clientes" },
       { href: "/dashboard/inventarios/huevos", label: "Stock disponible" },
     ],
     sections: [
       {
         type: "intro",
-        text: "El módulo de Ventas centraliza cuatro líneas comerciales en pestañas dedicadas: Huevos, Aves vivas, Carne en canal y Gallinaza. Cada venta registrada actualiza existencias FIFO, alimenta los ingresos del Balance y puede quedar marcada a crédito para cobrarla luego en CxC.",
+        text: "El módulo de Ventas centraliza cinco líneas comerciales en pestañas dedicadas (y disponibles también desde Captura Rápida): Huevos, Carne, Animales en pie (gallinas, gallos, pollos, patos, codornices, conejos o cuyes), Gallinaza y Otros (subproductos o servicios). Cada venta actualiza inventarios PEPS, suma a Finanzas, crea CxC si es fiada y entrega una Microcápsula de margen/ingreso.",
       },
       {
         type: "screenshot",
-        title: "Gestión de ventas con pestañas por producto",
+        title: "Gestión de ventas con 5 líneas comerciales por producto",
         image: "/images/guia/finanzas-ventas.webp",
-        alt: "Módulo Ventas mostrando pestañas de huevos, carne, aves vivas y gallinaza junto con estadísticas y tabla comercial",
+        alt: "Módulo Ventas mostrando pestañas de huevos, carne, animales en pie, gallinaza y otros ingresos junto con tabla comercial",
         caption:
-          "Selecciona cliente desde catálogo o créalo al instante, define unidades o kilos por presentación (cubeta, media cubeta, kilo) y alterna entre Contado y Crédito.",
-        badge: "4 líneas de venta",
+          "Elige cliente del directorio para aplicar automáticamente su plazo de crédito, combina presentaciones/tallas o kilos y alterna entre Contado y Crédito CxC.",
+        badge: "5 líneas de venta",
         targetHref: "/dashboard/finanzas/ventas",
         targetLabel: "Registrar Venta",
       },
@@ -1551,23 +1828,23 @@ export const guides: Guide[] = [
         type: "steps",
         title: "Registrar una venta paso a paso",
         items: [
-          "Abre Finanzas → Ventas y escoge la pestaña del producto (Huevos, Carne, Aves o Gallinaza).",
-          "Pulsa «+ Nueva Venta» y selecciona el comprador (cliente frecuente del catálogo) o escríbelo en el momento.",
-          "En huevos puedes mezclar varias tallas/presentaciones en un mismo pedido; en carne o gallinaza se calculan kilos por precio unitario.",
-          "Marca la casilla «Venta a crédito» y fija una fecha de vencimiento cuando el cliente pague después: el sistema creará la cuenta por cobrar automáticamente.",
+          "Abre Finanzas → Ventas (o pulsa Crear + → Registrar Venta) y selecciona la línea: Huevos, Carne, Animales en pie, Gallinaza u Otros.",
+          "Selecciona un cliente del Directorio (para heredar su plazo de crédito y WhatsApp) o créalo al instante con «+ Cliente».",
+          "En huevos mezcla tallas NTC 1240; en carne o gallinaza registra kilos y presentación; en animales en pie vincula la ficha o lote vendido; en otros elige categoría e ítem libre.",
+          "Activa «Venta a crédito» para generar automáticamente la cuenta por cobrar CxC con fecha de vencimiento calculada.",
         ],
       },
     ],
   },
   {
     slug: "registrar-egreso",
-    title: "Egresos, compras detalladas y abono a proveedores",
+    title: "Egresos, adjuntos con OCR y abono a proveedores",
     module: "finanzas",
     icon: "outgoing",
     summary:
-      "Registra gastos operativos y compras de concentrado o insumos por bultos, con opción a crédito (CxP) y recálculo de bodega.",
+      "Registra gastos operativos y compras por bultos, adjunta fotos/PDF de facturas con lectura automática OCR y actualiza bodega o CxP en un paso.",
     estimatedMinutes: 4,
-    tags: ["egresos", "gastos", "compras", "bultos", "alimentación", "cxp"],
+    tags: ["egresos", "gastos", "compras", "adjuntos", "ocr", "factura", "bultos", "alimentación", "cxp"],
     relatedHrefs: [
       { href: "/dashboard/finanzas/egresos", label: "Abrir Egresos" },
       { href: "/dashboard/finanzas/cuentas", label: "Ver CxP por pagar" },
@@ -1576,27 +1853,27 @@ export const guides: Guide[] = [
     sections: [
       {
         type: "intro",
-        text: "Los egresos registran todo dinero que sale para operar la granja. Si categorizas el gasto como compra de alimento o insumos y vinculas el ítem del inventario, la entrada de existencias a tu almacén ocurre en un solo paso junto con la contabilización del costo promedio.",
+        text: "Los egresos registran todo dinero o compromiso que sale para operar la granja. Puedes adjuntar fotos o PDFs de facturas y recibos —con lectura automática OCR para prellenar monto, proveedor y fecha—, acreditar automáticamente bultos de alimento o insumos a bodega y asignar gastos compartidos a centros de costo o especies.",
       },
       {
         type: "screenshot",
-        title: "Control de egresos, gráfico diario y desglose por categoría",
+        title: "Control de egresos, adjuntos OCR y desglose por categoría",
         image: "/images/guia/finanzas-egresos.webp",
         alt: "Módulo Egresos mostrando total gastado, gráfico de barras de gastos, desglose por categoría y listado",
         caption:
-          "Incluye barra de búsqueda, filtro por horizonte de días y enlace rápido con el Catálogo de productos de compra frecuentes.",
-        badge: "Control de costos",
+          "Incluye adjuntos de comprobantes con OCR, centro de costos por especie o galpón, barra de búsqueda y enlace con Productos frecuentes.",
+        badge: "Costos y OCR",
         targetHref: "/dashboard/finanzas/egresos",
         targetLabel: "Abrir Egresos",
       },
       {
         type: "steps",
-        title: "Registrar una compra con actualización automática de stock",
+        title: "Registrar una compra con actualización automática de stock y soporte",
         items: [
-          "Entra a Finanzas → Egresos y pulsa «+ Nuevo Egreso».",
-          "Selecciona la categoría (por ejemplo «Compra de alimento» o «Compra de insumos»).",
-          "Si el producto ya existe en tu catálogo de compras, selecciónalo para autocompletar proveedor, unidad de presentación (bulto de 40 kg, caja) y último precio pagado.",
-          "Elige el alimento o insumo de bodega destino para acreditar automáticamente el stock y define si fue pago inmediato o crédito de proveedor.",
+          "Entra a Finanzas → Egresos y pulsa «+ Nuevo Egreso» (o «Subir factura OCR» desde Captura Rápida).",
+          "Adjunta la foto del recibo o PDF si la tienes para leer datos con OCR y conservar el soporte contable.",
+          "Selecciona categoría, especie o centro de costos (específico o compartido para prorrateo), y si es un producto frecuente autocompleta proveedor, presentación (bulto de 40 kg) y último precio.",
+          "Define si fue pago inmediato o crédito para acreditar inventario en bodega y generar la CxP en Finanzas → Cuentas.",
         ],
       },
     ],
@@ -1612,7 +1889,7 @@ export const guides: Guide[] = [
     tags: ["productos de compra", "proveedores", "presentaciones", "atajo", "precios"],
     relatedHrefs: [
       { href: "/dashboard/finanzas/egresos?nuevo=producto", label: "Nuevo Producto de Compra" },
-      { href: "/dashboard/finanzas/egresos?nuevo=proveedor", label: "Agregar Proveedor" },
+      { href: "/dashboard/contactos?nuevo=proveedor", label: "Agregar Proveedor" },
     ],
     sections: [
       {
@@ -1652,6 +1929,7 @@ export const guides: Guide[] = [
     tags: ["cuentas por cobrar", "cuentas por pagar", "cxc", "cxp", "cartera", "abonos", "crédito"],
     relatedHrefs: [
       { href: "/dashboard/finanzas/cuentas", label: "Cuentas por Cobrar y Pagar" },
+      { href: "/dashboard/contactos", label: "Clientes y Proveedores" },
       { href: "/dashboard/finanzas/ventas", label: "Ventas a crédito" },
       { href: "/dashboard/finanzas/egresos", label: "Compras a crédito" },
     ],
@@ -1679,6 +1957,48 @@ export const guides: Guide[] = [
           "Ubica la cuenta del cliente (CxC) o proveedor (CxP) y haz clic en «Registrar Pago / Abono».",
           "Ingresa el monto abonado (parcial o el total restante), medio de pago (efectivo, transferencia, Nequi, etc.) y referencia.",
           "Al guardar, el saldo pendiente se recalcula automáticamente hasta cambiar la cuenta a estado «Pagada».",
+        ],
+      },
+    ],
+  },
+  {
+    slug: "clientes-proveedores",
+    title: "Directorio de Clientes y Proveedores (crédito y WhatsApp)",
+    module: "finanzas",
+    icon: "handshake",
+    summary:
+      "Centraliza clientes, veterinarias y proveedores de alimento con teléfono, botón de WhatsApp, ubicación en mapa y plazos de crédito predeterminados.",
+    estimatedMinutes: 3,
+    tags: ["clientes", "proveedores", "contactos", "directorio", "whatsapp", "mapa", "plazo crédito"],
+    relatedHrefs: [
+      { href: "/dashboard/contactos", label: "Abrir Directorio" },
+      { href: "/dashboard/finanzas/ventas", label: "Usar clientes en Ventas" },
+      { href: "/dashboard/finanzas/egresos", label: "Usar proveedores en Egresos" },
+    ],
+    sections: [
+      {
+        type: "intro",
+        text: "El Directorio unificado de Clientes y Proveedores evita digitar datos repetidos al facturar o comprar. Cada ficha guarda nombre/razón social, rol (cliente, proveedor o ambos), teléfono, WhatsApp directo, vereda/ubicación GPS y días de crédito autorizados.",
+      },
+      {
+        type: "screenshot",
+        title: "Directorio comercial integrado con Ventas y Cuentas",
+        image: "/images/guia/finanzas-cuentas.webp",
+        alt: "Vista de cartera y directorio comercial vinculado con clientes y proveedores",
+        caption:
+          "Cuando seleccionas un contacto en Ventas, Egresos o Captura Rápida se precargan sus condiciones de pago y plazo para calcular vencimientos CxC/CxP.",
+        badge: "CRM de granja",
+        targetHref: "/dashboard/contactos",
+        targetLabel: "Abrir Contactos",
+      },
+      {
+        type: "steps",
+        title: "Crear y aprovechar fichas comerciales",
+        items: [
+          "Abre Finanzas → Clientes y Proveedores (o Configuración → Catálogos pestaña Contactos).",
+          "Crea un nuevo contacto eligiendo tipo (Cliente, Proveedor o Ambos), documento, teléfono/WhatsApp, ubicación y días de crédito (ej. 0 para contado o 15/30 días).",
+          "También puedes crear un contacto nuevo al vuelo sin salir de un formulario de venta o compra usando el selector integrado.",
+          "Usa el enlace directo a WhatsApp o ubicación para coordinar entregas de cubetas, animales o pedidos de concentrado.",
         ],
       },
     ],
@@ -1769,72 +2089,74 @@ export const guides: Guide[] = [
   // ═══════════════════════════════════════════
   {
     slug: "kpis-reportes",
-    title: "KPIs operativos y reportes P&L exportables",
+    title: "KPIs zootécnicos, punto de equilibrio y contabilidad analítica",
     module: "analisis",
     icon: "bar-chart",
     summary:
-      "Calcula tasa de postura real, pico productivo, costo por huevo y por kg de carne, y genera reportes de pérdidas y ganancias.",
+      "Mide postura HAA, CV%/EPEF, punto de equilibrio unitario, CAPEX/ROI y emite reportes P&L con prorrateo multi-especie exportables a Excel y PDF.",
     estimatedMinutes: 4,
-    tags: ["kpis", "reportes", "p&l", "costo por huevo", "rentabilidad", "tasa de postura"],
+    tags: ["kpis", "reportes", "p&l", "contabilidad analítica", "prorrateo", "haa", "epef", "capex", "roi", "punto de equilibrio", "excel", "pdf"],
     relatedHrefs: [
+      { href: "/dashboard/analisis", label: "Centro de Análisis" },
       { href: "/dashboard/analisis/kpis", label: "KPIs del Gallinero" },
-      { href: "/dashboard/analisis/reportes", label: "Reportes P&L y Rentabilidad" },
+      { href: "/dashboard/analisis/reportes", label: "Reportes y Contabilidad Analítica" },
     ],
     sections: [
       {
         type: "intro",
-        text: "El área de Análisis convierte los registros diarios en indicadores técnicos y financieros accionables: cuánto cuesta producir cada huevo o cada kilo de carne, qué tan lejos está tu parvada de su pico de postura y qué línea genera mayor margen.",
+        text: "El área de Análisis aplica contabilidad analítica anti-subsidio cruzado: calcula costo unitario real por huevo/cubeta y por kg de carne, alerta si vendes por debajo del punto de equilibrio, reporta EPEF, CV%, uniformidad, HAA (Gallina-Alojada), retorno CAPEX/ROI y prorroga costos indirectos compartidos entre especies en reportes exportables a Excel (.xlsx) y PDF.",
       },
       {
         type: "screenshot",
-        title: "Tablero de KPIs productivos y costos unitarios",
+        title: "Tablero de KPIs zootécnicos, equilibrio y CAPEX/ROI",
         image: "/images/guia/analisis-kpis.webp",
-        alt: "Módulo KPIs mostrando tasa de postura, pico productivo, tasa de mortalidad, costo por huevo y costo por kg de carne",
+        alt: "Módulo KPIs mostrando tasa de postura, pico productivo, costo por huevo, punto de equilibrio, EPEF y mortalidad",
         caption:
-          "Mide automáticamente costo unitario por huevo y por kilogramo de carne además de curvas de postura y causas de mortalidad.",
+          "Filtra por período y especie para auditar mortalidad, conversión FCR, CV%, uniformidad, costo por cubeta/kg y ventanas óptimas de sacrificio.",
         badge: "Indicadores clave",
         targetHref: "/dashboard/analisis/kpis",
         targetLabel: "Ver KPIs",
       },
       {
         type: "screenshot",
-        title: "Reportes de Pérdidas y Ganancias (P&L) y rentabilidad por línea",
+        title: "Reportes P&L, contabilidad analítica por especie y exportación",
         image: "/images/guia/analisis-reportes.webp",
-        alt: "Módulo Reportes mostrando Estado de Pérdidas y Ganancias (P&L) y rentabilidad comparativa por línea productiva",
+        alt: "Módulo Reportes mostrando Estado de Pérdidas y Ganancias (P&L) y rentabilidad comparativa por línea productiva y especie",
         caption:
-          "Alterna entre el estado de resultados P&L por rango de fechas personalizado y la rentabilidad por producto (huevos, carne, gallinaza, aves).",
-        badge: "Informes financieros",
+          "Evalúa márgenes reales por especie/producto aplicando reglas configurables de prorrateo para costos compartidos y descarga paquetes listos para DIAN o crédito agropecuario.",
+        badge: "Excel / PDF",
         targetHref: "/dashboard/analisis/reportes",
         targetLabel: "Abrir Reportes",
       },
       {
         type: "steps",
-        title: "Aprovechar KPIs y Reportes para fijar precios",
+        title: "Aprovechar KPIs y Contabilidad Analítica para decidir",
         items: [
-          "Entra a Análisis → KPIs para calcular cuánto te cuesta realmente cada huevo y kg de carne frente al precio al que vendes hoy.",
-          "Vigila el indicador «Pico de Producción» para saber si un lote está declinando su postura y evaluar su relevo en Plan de Parvada.",
-          "Abre Análisis → Reportes para emitir un estado P&L entre dos fechas exactas y revisar qué línea (huevo, carne o abono) aporta la mayor utilidad.",
+          "Entra a Análisis → KPIs para comparar tu costo unitario real (huevo, cubeta de 30 o kg de carne) frente al precio de venta promedio y vigilar alertas bajo costo.",
+          "Revisa EPEF, ganancia diaria, uniformidad y alertas de ventana de sacrificio antes de sostener lotes improductivos.",
+          "Abre Análisis → Reportes para emitir estados P&L, analizar rentabilidad por especie con prorrateo justo de costos indirectos y exportar en Excel o PDF.",
         ],
       },
     ],
   },
   {
     slug: "estandares-raza",
-    title: "Curvas de referencia y desempeño por raza",
+    title: "Curvas de referencia con ajuste climático y por altitud",
     module: "analisis",
     icon: "trending-up",
     summary:
-      "Contrasta la postura (%) y ganancia de peso semanal reales de tus galpones contra las curvas genéticas de referencia por especie y raza.",
+      "Contrasta postura y crecimiento real de tus 6 especies frente a curvas genéticas ajustadas automáticamente por altitud (m.s.n.m.) y tipo de piso.",
     estimatedMinutes: 3,
-    tags: ["razas", "curvas", "estándar", "isa brown", "cobb 500", "postura", "desempeño"],
+    tags: ["razas", "curvas", "estándar", "altitud", "clima", "isa brown", "cobb 500", "cuyes", "conejos", "postura", "desempeño"],
     relatedHrefs: [
       { href: "/dashboard/analisis/razas", label: "Curvas y Desempeño" },
       { href: "/dashboard/produccion/peso", label: "Registrar pesajes" },
+      { href: "/dashboard/ubicaciones", label: "Altitud por Lugar" },
     ],
     sections: [
       {
         type: "intro",
-        text: "Curvas y desempeño te permite responder si la producción actual de huevos o el crecimiento de engorde de tu granja se mantiene alineado con el potencial genético esperado de razas como Isa Brown, Hy-Line o Cobb 500.",
+        text: "Curvas y desempeño compara tus galpones, jaulas o corrales contra el potencial genético de cada especie (gallinas, pollos, codornices, patos, conejos y cuyes), incorporando ajustes ambientales según altitud (m.s.n.m.) y tipo de piso del lugar seleccionado.",
       },
       {
         type: "screenshot",
@@ -1842,18 +2164,18 @@ export const guides: Guide[] = [
         image: "/images/guia/analisis-razas.webp",
         alt: "Módulo Curvas y Desempeño por Raza con banda genética objetivo, puntos reales semanales y estado de alineación",
         caption:
-          "Selecciona especie (gallina, pollo, codorniz, pato, conejo) y curva para ver una etiqueta clara de estado: Alineado, Por debajo o Por encima del rango.",
-        badge: "Benchmark genético",
+          "Selecciona especie, raza y lugar de manejo para ver CV%, uniformidad, ganancia diaria y el estado de alineación frente a la curva ajustada.",
+        badge: "Benchmark multi-especie",
         targetHref: "/dashboard/analisis/razas",
         targetLabel: "Abrir Curvas por Raza",
       },
       {
         type: "steps",
-        title: "Interpretar las curvas",
+        title: "Interpretar las curvas ajustadas",
         items: [
           "Ve a Análisis → Curvas y desempeño.",
-          "Elige especie (por ejemplo Gallinas ponedoras o Pollos de engorde) y la curva específica de postura o peso.",
-          "Compara tus puntos reales frente a la franja esperada para detectar oportunidades de ajuste nutricional, espacio o sanidad.",
+          "Elige especie (gallina, pollo, codorniz, pato, conejo o cuy), raza y opcionalmente un Lugar de manejo para aplicar corrección ambiental por altitud.",
+          "Compara tus puntos reales frente a la franja esperada para detectar oportunidades de ajuste nutricional, térmico o sanitario.",
         ],
       },
     ],
@@ -1864,29 +2186,30 @@ export const guides: Guide[] = [
   // ═══════════════════════════════════════════
   {
     slug: "catalogos-sistema",
-    title: "Catálogos y configuración maestra (7 pestañas)",
+    title: "Catálogos y configuración maestra (8 pestañas)",
     module: "configuracion",
     icon: "settings",
     summary:
-      "Adapta listas desplegables, parámetros globales, especies, esquemas de vacunas, pesos objetivo, factores de gallinaza y raciones.",
+      "Adapta listas, clientes/proveedores, parámetros del predio, las 6 especies (incluyendo cuyes), vacunas, pesos objetivo, gallinaza y nutrición.",
     estimatedMinutes: 4,
-    tags: ["catálogos", "configuración", "parámetros", "razas", "especies", "precios"],
+    tags: ["catálogos", "configuración", "8 pestañas", "parámetros", "razas", "especies", "cuyes", "precios", "nutrición"],
     relatedHrefs: [
-      { href: "/dashboard/configuracion/catalogos", label: "Abrir Catálogos" },
+      { href: "/dashboard/configuracion/catalogos", label: "Abrir Catálogos (8 pestañas)" },
+      { href: "/dashboard/contactos", label: "Directorio Clientes y Proveedores" },
       { href: "/dashboard/configuracion", label: "Resumen Configuración" },
     ],
     sections: [
       {
         type: "intro",
-        text: "El corazón configurable de El Gallinero vive en Configuración → Catálogos. Organizado en 7 pestañas, controla las opciones de todos los formularios, precios de talla de huevo, etapas de edad, parámetros operativos globales y curvas de referencia sin tocar código.",
+        text: "El corazón configurable de El Gallinero vive en Configuración → Catálogos. Organizado en 8 pestañas (Listas, Clientes y Proveedores, Parámetros, Especies, Vacunas, Pesos, Gallinaza y Alimentación), gobierna razas de 6 especies (con cuyes incluidos), precios por calibre NTC 1240, etapas, reglas de prorrateo, vacunas y composición nutricional sin tocar código.",
       },
       {
         type: "screenshot",
-        title: "Administrador de catálogos y parámetros en 7 pestañas",
+        title: "Administrador de catálogos y parámetros en 8 pestañas",
         image: "/images/guia/configuracion-catalogos.webp",
-        alt: "Módulo Catálogos mostrando pestañas de Listas, Parámetros, Especies, Vacunas, Pesos, Gallinaza y Alimentación",
+        alt: "Módulo Catálogos mostrando pestañas maestras de configuración del sistema",
         caption:
-          "Incluye Listas desplegables (17 categorías), Parámetros generales, Especies habilitadas, Plantillas de vacunas, Pesos estándar, Factores de gallinaza y Reglas de alimentación.",
+          "Incluye Listas desplegables, Directorio de Clientes y Proveedores, Parámetros globales del predio, Especies habilitadas, Plantillas de vacunas, Pesos estándar, Factores de gallinaza y Tabla nutricional.",
         badge: "Configuración maestra",
         targetHref: "/dashboard/configuracion/catalogos",
         targetLabel: "Abrir Catálogos",
@@ -1896,14 +2219,56 @@ export const guides: Guide[] = [
         title: "Personalizar el sistema para tu finca",
         items: [
           "Entra a Configuración → Catálogos.",
-          "En «Listas» edita razas por especie, clientes, proveedores, tamaños/precios de huevo, presentaciones de venta/compra, categorías financieras, etapas de crecimiento y más.",
-          "En «Parámetros» ajusta días de alerta temprana, umbrales de caída de postura o precios base globales.",
-          "Configura tus plantillas en «Vacunas», curvas objetivo en «Pesos», gramos diarios en «Gallinaza» y consumo por etapa en «Alimentación».",
+          "En «Listas» y «Especies» habilita razas para gallinas, pollos, codornices, patos, conejos y cuyes, precios por tamaño NTC 1240, presentaciones y categorías.",
+          "En «Clientes y Proveedores» administra contactos comerciales (también accesible desde Finanzas → Clientes y Proveedores); en «Parámetros» ajusta ubicación, moneda, umbrales de alerta y reglas del predio.",
+          "Configura plantillas en «Vacunas», curvas en «Pesos», factores diarios en «Gallinaza» y %MS/%PC/Vitamina C en «Alimentación».",
         ],
       },
       {
         type: "warning",
         text: "Desactivar un ítem en cualquier catálogo no borra los registros históricos que ya lo utilizaban; simplemente deja de mostrarse como opción nueva para preservar la integridad contable.",
+      },
+    ],
+  },
+  {
+    slug: "configuracion-general",
+    title: "Configuración general, recuperación de acceso, respaldo y licencia",
+    module: "configuracion",
+    icon: "settings",
+    summary:
+      "Centraliza los accesos de configuración de la granja, protege o recupera la cuenta administradora y respalda tus datos sin bloqueo de proveedor.",
+    estimatedMinutes: 3,
+    tags: ["configuración", "recuperación", "contraseña", "respaldo", "backup", "código abierto", "soberanía", "licencia"],
+    relatedHrefs: [
+      { href: "/dashboard/configuracion", label: "Abrir Configuración" },
+      { href: "/dashboard/configuracion/modulos", label: "Escala y Módulos" },
+      { href: "/dashboard/configuracion/catalogos", label: "Catálogos Maestros" },
+      { href: "/dashboard/contactos", label: "Clientes y Proveedores" },
+    ],
+    sections: [
+      {
+        type: "intro",
+        text: "El menú Configuración agrupa en un solo tablero el Asistente inicial de 3 pasos, los Módulos Progresivos, los Catálogos maestros y el Directorio de Clientes y Proveedores. Además, la arquitectura Open-Core del sistema garantiza que tu finca conserve propiedad y portabilidad completa de su base de datos.",
+      },
+      {
+        type: "screenshot",
+        title: "Panel principal de Configuración y atribución del proyecto",
+        image: "/images/guia/configuracion-panel.webp",
+        alt: "Pantalla Configuración mostrando tarjetas de Asistente inicial, Módulos Progresivos, Catálogos y Directorio de Contactos",
+        caption:
+          "Desde aquí puedes buscar apartados de ajuste con el filtro superior o relanzar el Asistente inicial cuando quieras añadir nuevas instalaciones o especies.",
+        badge: "Centro de ajustes",
+        targetHref: "/dashboard/configuracion",
+        targetLabel: "Ir a Configuración",
+      },
+      {
+        type: "steps",
+        title: "Seguridad de acceso y portabilidad de la información",
+        items: [
+          "Usa contraseñas de al menos 12 caracteres para el usuario administrador; si alguna vez olvidas la clave, solicita o utiliza un código de recuperación de un solo uso desde la pantalla de acceso (/login/recuperar).",
+          "Exporta tus estados P&L, KPIs e inventarios en Excel o PDF desde Análisis → Reportes y mantén al día la copia offline en tu dispositivo móvil.",
+          "Si deseas autoalojar la aplicación o implementar soluciones institucionales multi-predio sobre su núcleo GNU AGPLv3, consulta la documentación del repositorio y el enlace oficial del desarrollador en la tarjeta inferior.",
+        ],
       },
     ],
   },

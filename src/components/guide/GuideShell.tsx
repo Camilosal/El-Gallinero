@@ -16,6 +16,7 @@ import {
 } from "lucide-react";
 import { AppIcon } from "@/components/AppIcon";
 import { GuideSearchModal } from "@/components/guide/GuideSearchModal";
+import { DeveloperCredit } from "@/components/DeveloperCredit";
 import { guideModules, guides } from "@/lib/guide-data";
 
 interface GuideShellProps {
@@ -290,6 +291,9 @@ export function GuideShell({ children, basePath, isStandalone }: GuideShellProps
 
         <main className="min-w-0 flex-1 px-4 py-6 sm:px-8 sm:py-8">
           {children}
+          <footer className="mt-10 border-t border-slate-200/80 pt-4">
+            <DeveloperCredit variant="inline" showAppName />
+          </footer>
         </main>
       </div>
 

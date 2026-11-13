@@ -64,6 +64,14 @@ describe("guía de uso actualizada y capturas verificadas", () => {
       "inventario-alimentos",
       "soberania-alimentaria",
       "cuentas-cobrar-pagar",
+      "calendario-rutinas",
+      "reproduccion-cunicola",
+      "bioseguridad-bienestar",
+      "compostaje",
+      "cierre-sensores",
+      "clientes-proveedores",
+      "escala-y-modulos",
+      "configuracion-general",
     ]) {
       expect(slugSet.has(newSlug), `Falta nueva guía ${newSlug}`).toBe(true);
     }
@@ -119,6 +127,20 @@ describe("guía de uso actualizada y capturas verificadas", () => {
     expect(searchGuides("qr").some((g) => g.slug === "escanear-qr")).toBe(true);
     expect(searchGuides("soberanía").some((g) => g.slug === "soberania-alimentaria")).toBe(true);
     expect(searchGuides("peso").some((g) => g.slug === "control-peso")).toBe(true);
+    expect(searchGuides("rutinas").some((g) => g.slug === "calendario-rutinas")).toBe(true);
+    expect(searchGuides("reproducción").some((g) => g.slug === "reproduccion-cunicola")).toBe(true);
+    expect(searchGuides("bioseguridad").some((g) => g.slug === "bioseguridad-bienestar")).toBe(true);
+    expect(searchGuides("compostaje").some((g) => g.slug === "compostaje")).toBe(true);
+    expect(searchGuides("cierre diario").some((g) => g.slug === "cierre-sensores")).toBe(true);
+    expect(searchGuides("proveedores").some((g) => g.slug === "clientes-proveedores")).toBe(true);
+    expect(searchGuides("gina").some((g) => g.slug === "asistente-operativo")).toBe(true);
+    expect(searchGuides("modulos").some((g) => g.slug === "escala-y-modulos")).toBe(true);
+    expect(searchGuides("recuperacion").some((g) => g.slug === "configuracion-general")).toBe(true);
+    const allHrefs = new Set(guides.flatMap((g) => g.relatedHrefs.map((r) => r.href.split("?")[0])));
+    expect(allHrefs.has("/dashboard/configuracion/modulos")).toBe(true);
+    expect(allHrefs.has("/dashboard/configuracion")).toBe(true);
+    expect(allHrefs.has("/dashboard/finanzas")).toBe(true);
+    expect(allHrefs.has("/dashboard/analisis")).toBe(true);
 
     const first = getAdjacentGuides(guides[0].slug);
     expect(first.prev).toBeNull();
@@ -126,6 +148,10 @@ describe("guía de uso actualizada y capturas verificadas", () => {
 
     expect(resolveHeroThemeByPath("/guia")).toBe("guia");
     expect(resolveHeroThemeByPath("/guia/escanear-qr")).toBe("guia");
+    expect(resolveHeroThemeByPath("/dashboard/planeacion/calendario")).toBe("aves");
+    expect(resolveHeroThemeByPath("/dashboard/sanidad/bioseguridad")).toBe("sanidad");
+    expect(resolveHeroThemeByPath("/dashboard/operaciones/compostaje")).toBe("gallinaza");
+    expect(resolveHeroThemeByPath("/dashboard/operaciones/cierre")).toBe("insumos");
     expect(getGuideHeroTheme("escanear-qr")).toBe("escanear");
   });
 });

@@ -318,21 +318,21 @@ export function GuideArticleView({ slug, basePath }: GuideArticleViewProps) {
           )}
 
           {/* Navegación anterior / siguiente */}
-          <div className="grid grid-cols-1 gap-3 border-t border-slate-200 pt-6 sm:grid-cols-2">
+          <div className="grid grid-cols-2 gap-2.5 sm:gap-3 border-t border-slate-200 pt-6">
             {prev ? (
               <Link
                 href={`${basePath}/${prev.slug}`}
-                className="group flex items-center gap-3 rounded-2xl border border-slate-200 bg-white p-4 shadow-2xs transition-all hover:border-green-300 hover:bg-green-50/40"
+                className="group flex items-center gap-2 sm:gap-3 min-w-0 rounded-2xl border border-slate-200 bg-white p-3 sm:p-4 shadow-2xs transition-all hover:border-green-300 hover:bg-green-50/40"
               >
                 <ArrowLeft
                   className="h-4 w-4 shrink-0 text-slate-400 transition-transform group-hover:-translate-x-0.5 group-hover:text-green-700"
                   aria-hidden="true"
                 />
                 <div className="min-w-0">
-                  <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-400">
-                    Guía anterior
+                  <p className="text-[10px] sm:text-[11px] font-semibold uppercase tracking-wide text-slate-400">
+                    Anterior
                   </p>
-                  <p className="truncate text-sm font-bold text-slate-800 group-hover:text-green-800">
+                  <p className="truncate text-xs sm:text-sm font-bold text-slate-800 group-hover:text-green-800">
                     {prev.title}
                   </p>
                 </div>
@@ -344,7 +344,7 @@ export function GuideArticleView({ slug, basePath }: GuideArticleViewProps) {
             {next && (
               <Link
                 href={`${basePath}/${next.slug}`}
-                className="group flex items-center justify-end gap-3 rounded-2xl border border-slate-200 bg-white p-4 text-right shadow-2xs transition-all hover:border-green-300 hover:bg-green-50/40"
+                className="group flex items-center justify-end gap-2 sm:gap-3 min-w-0 rounded-2xl border border-slate-200 bg-white p-3 sm:p-4 text-right shadow-2xs transition-all hover:border-green-300 hover:bg-green-50/40"
               >
                 <div className="min-w-0">
                   <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-400">

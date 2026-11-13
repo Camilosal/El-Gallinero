@@ -1,67 +1,174 @@
-# El Gallinero 🐔
+# El Gallinero — Core Abierto Multi-Especie
 
-Sistema de gestión para **gallineros pequeños y medianos**: control integral del ciclo avícola — gallinas, pollos y gallos; producción e inventario de huevos por tamaño (PEPS); incubación; alimentación con programas por etapa; gallinaza; ventas con presentaciones; egresos; sacrificio/carne; control sanitario y un panel de finanzas con KPIs y comportamiento en el tiempo.
+**Infraestructura Digital Offline-First para la Gestión Zootécnica, Sanitaria y Financiera de Granjas de Aves y Especies Menores en Latinoamérica.**
 
-Todas las operaciones comerciales y de mantenimiento **alimentan automáticamente las finanzas** (cada venta, sacrificio, compra de alimento, tarea de mantenimiento o evento sanitario genera su transacción, con trazabilidad a su fuente).
+[![Licencia: GNU AGPLv3](https://img.shields.io/badge/Licencia-GNU%20AGPLv3-emerald.svg)](LICENSE)
+[![Licencia Dual: Comercial / Institucional](https://img.shields.io/badge/Enterprise-Licencia%20Comercial-blue.svg)](COMMERCIAL-LICENSE.md)
+[![Ecosistema Open-Core](https://img.shields.io/badge/Arquitectura-Open--Core%203%20Capas-amber.svg)](docs/estrategia-open-core.md)
+[![PWA Offline-First](https://img.shields.io/badge/Campo-PWA%20Offline--First-green.svg)](#resiliencia-en-campo-y-arquitectura-técnica)
 
-## Requisitos
+---
 
-- **Node.js ≥ 20.9** (desarrollado con Node 22/24)
-- **PostgreSQL** (cualquier versión reciente; desarrollado con la 14)
+**El Gallinero** consolida en este repositorio el **Core Abierto Operativo (Community Edition)** de la plataforma desarrollada por **[Camilo Saldarriaga](https://camilosaldarriaga.com)**: una aplicación web progresiva (*offline-first*) diseñada para granjas familiares, productores medianos, asistentes técnicos y proyectos rurales multi-especie.
+
+Toda operación productiva, sanitaria o de mantenimiento alimenta automáticamente las finanzas e inventarios (FIFO/PEPS) con trazabilidad completa a su origen.
+
+---
+
+## ¿Eres productor, veterinario o diriges un proyecto en una ONG / Cooperativa?
+
+No necesitas instalar servidores ni saber programación para empezar en tu granja o formular un proyecto institucional:
+
+1. **Pequeños y Medianos Productores (en la nube o en campo):** Prueba la instancia en producción en **[gallinero.iwage.co](https://gallinero.iwage.co)** o conoce el proyecto en **[camilosaldarriaga.com](https://camilosaldarriaga.com)**. Arranca en menos de 5 minutos con el **Asistente inicial de 3 pasos** sin historial atrasado y opera incluso sin internet desde tu celular.
+2. **Granjas Comerciales (Implementación Llave en Mano):** Para operación multi-galpón o multi-especie con kits físicos de placas QR resistentes al lavado, ajuste zootécnico inicial y soporte técnico, solicita acompañamiento en **[camilosaldarriaga.com](https://camilosaldarriaga.com)**.
+3. **ONGs, Cooperativas, Fundaciones y Agencias de Cooperación:** Este repositorio es software libre certificado bajo **GNU AGPLv3** con madurez verificable (**TRL 8–9**), sin bloqueo de proveedor (*vendor lock-in*) y alineado con los principios de **Bienes Públicos Digitales (DPGA)**. Para cohortes de **50 a 500+ predios**, **Torre de Control Multi-Predio (M&E)**, WhatsApp Cloud API o despliegues soberanos Docker bajo contrato B2B2C, consulta [COMMERCIAL-LICENSE.md](COMMERCIAL-LICENSE.md) y [docs/estrategia-open-core.md](docs/estrategia-open-core.md).
+4. **Investigadores, Zootecnistas y Desarrolladores AgroTech:** Revisa [CONTRIBUTING.md](CONTRIBUTING.md) para aportar curvas genéticas, ajustes por altitud o adaptaciones normativas locales (ICA/NTC en Colombia, SENASA Perú, AGROCALIDAD Ecuador, SENASICA México, entre otros).
+
+---
+
+## Arquitectura Open-Core en Tres Capas y Licenciamiento Dual
+
+El proyecto opera bajo una estrategia **Open-Core + Licenciamiento Dual** pensada para maximizar el acceso público e impacto rural sin comprometer la sostenibilidad financiera del mantenimiento normativo, la infraestructura gestionada ni el soporte institucional:
+
+| Capa del ecosistema | Licencia legal | Alcance funcional y técnico | Rol en el ecosistema |
+| --- | --- | --- | --- |
+| **Capa 1 · Estándar Zootécnico y Normativo Abierto** | **CC-BY-SA 4.0** *(Atribución + Compartir Igual)* | Parámetros de las 6 especies (curvas por altitud y clima), tablas de calibres **NTC 1240**, reglas **POE GAB ICA (Res. 3651/3652)**, bienestar (**Res. 205/2022 y 8452/2025**) y compostaje **AGROSAVIA**. | Estándar técnico auditable en español para universidades, centros de investigación y extensión agropecuaria. |
+| **Capa 2 · Core Abierto Operativo (Este repositorio)** | **GNU AGPLv3** *(Copyleft estricto de red)* | Aplicación PWA *offline-first* monopredio completa (`Next.js` + `PostgreSQL`), modelo híbrido Lote/Individuo con consanguinidad de 3 generaciones, **Gina** (asistente operativa con voz y cámara), escáner QR, onboarding progresivo (**Pequeño / Mediano**) y guía interactiva. | Bien Público Digital ejecutable y autoalojable. Bajo **GNU AGPLv3 (Art. 13)**, cualquier servicio en red/SaaS basado en este código debe liberar su código fuente completo bajo AGPLv3 salvo licencia comercial expresa. |
+| **Capa 3 · Capa Institucional y Comercial (Enterprise)** | **Licencia Comercial Exenta** *(Contrato B2B2C / SaaS Gestionado)* | **Torre de Control Multi-Predio (M&E)** para 50–500+ granjas y pronóstico de acopio, mensajería omnicanal (WhatsApp Cloud API / SMS / IVR), paquetes llave en mano, **White-Label**, SLA y soporte dedicado. | Financia el desarrollo continuo, las actualizaciones normativas (ICA/INVIMA/ICONTEC/DIAN) y las cohortes rurales. Ver [COMMERCIAL-LICENSE.md](COMMERCIAL-LICENSE.md). |
+
+### Comparativa rápida: Núcleo Abierto vs. Implementaciones Comerciales / Cohorte
+
+| Capacidad | Core Abierto (`El-Gallinero`, GNU AGPLv3) | Implementación Granja Comercial | Cohorte ONG / Cooperativa (Enterprise) |
+| --- | --- | --- | --- |
+| PWA 100% Offline-First (`IndexedDB` + Outbox idempotente) | Incluido (monopredio) | Incluido + configuración y soporte | Incluido (50 a 500+ granjas) |
+| Modelo híbrido (Lote + Individuo) para 6 especies | Incluido | Incluido + calibración inicial | Incluido + trazabilidad de capital semilla |
+| Bloqueo por tiempo de retiro, POE GAB ICA y compostaje | Incluido | Incluido + acompañamiento en auditoría | Incluido + consolidado sanitario regional |
+| **Gina** (asistente con voz, lectura OCR de facturas y memoria) | Incluido *(requiere API key propia)* | Incluido y configurado llave en mano | Incluido + integraciones omnicanal avanzadas |
+| Contabilidad analítica, prorrateo de costos, PEPS NTC 1240 y P&L | Incluido | Incluido + paquetes listos para crédito/DIAN | Consolidado económico de impacto M&E |
+| Torre de Control Multi-Predio, marca blanca y SLA dedicado | No incluido *(solo núcleo monopredio)* | Soporte prioritario opcional | **Incluido (Nube gestionada o Docker soberano)** |
+
+---
+
+## Especies Soportadas (Modelo Polimórfico Lote + Individuo)
+
+- **Gallinas Ponedoras:** Ficha individual y por lote, curvas de postura (ej. Hy-Line Brown), porcentaje ave-día (HD%), huevo ave alojada (HAA), detección de fin de ciclo y clasificación comercial **NTC 1240** (Jumbo, AAA, AA, A, B, C) en stock **PEPS**.
+- **Pollos de Engorde y Gallos Reproductores:** Lotes de engorde (`L-###`) y reproductores (`GA-###`), pesaje muestral, coeficiente de variación (**CV%**), uniformidad, conversión alimenticia (**FCR**), índice **EPEF**, curvas **Ross 308 / Cobb 500** ajustadas por altitud (m.s.n.m.) y ventana óptima de sacrificio.
+- **Codornices:** Trazabilidad de postura temprana y ciclo corto de incubación (**16–18 días**).
+- **Patos (Pekín / Muscovy):** Incubación extendida (**28–30 días**), manejo por etapas y seguimiento de conversión alimenticia.
+- **Conejos:** Ficha individual de reproductores y camadas, empadre, gestación/palpación/nidal, destete hacia engorde y **bloqueo de consanguinidad en 3 generaciones**.
+- **Cuyes / Curíes:** Control de empadre por jaula/poza, lactancia, sexado al destete, dietas mixtas con forraje y vitamina C, y seguimiento hasta cosecha.
+
+---
+
+## Capacidades Destacadas del Núcleo Operativo
+
+- **Inicio Progresivo sin Fricción (Pequeño vs. Mediano):**
+  - **Asistente inicial (Día 1 · 3 pasos):** carga finca, lugares, inventario vivo actual y alimento en bultos/kg (manual o mediante **plantilla CSV**).
+  - **Selector de Escala en tiempo real:** alterna entre **Modo Pequeño (Operación Simple)** y **Modo Mediano (Tecnificado)** desde la barra superior sin perder historial; los 4 módulos esenciales están siempre activos y los 5 módulos avanzados se desbloquean manual o automáticamente según el crecimiento de la finca (`/dashboard/configuracion/modulos`).
+  - **Creación Directa (`+ Crear` y Captura Rápida):** cada acceso rápido abre directamente su modal o formulario sin rodeos, y cada registro muestra microcápsulas con costo unitario, días de autonomía o margen.
+- **Gina, tu asistente de la granja:** interfaz cercana con avatar propio que consulta datos reales en vivo, lee fotos de facturas o etiquetas con la cámara, graba dictado o notas de voz *offline*, guarda reglas en **Memoria de la granja** y exige confirmación explícita en tarjeta antes de ejecutar cualquier escritura.
+- **Escáner QR Unificado (`/dashboard/escanear`):** lee códigos QR o códigos manuales de lugares (`LOC-`), ejemplares (`G-`), lotes (`L-`) y equipos (`ACT-`) para ejecutar movimientos en campo y generar fichas públicas de trazabilidad (`/lote/[id]`).
+- **Guía de Usuario Integrada (45 artículos):** accesible dentro de la sesión (`/dashboard/guia`) y como manual público sin login (`/guia`) para capacitación en campo con buscador instantáneo, diagramas y capturas reales.
+
+---
+
+## Flujo de Información y Módulos del Sistema
+
+```mermaid
+flowchart LR
+    U[Lugares y Animales] --> P[Producción Diaria / QR / Gina]
+    P --> I[Inventarios FIFO / PEPS]
+    I --> F[Finanzas, CxC/CxP y Prorrateo]
+    F --> A[KPIs, Curvas por Altitud y P&L]
+```
+
+Las pantallas del tablero principal (`/dashboard`) se agrupan en **7 módulos** más **Inicio**, **Escanear** y **Guía de Usuario**:
+
+| Sección | Rutas principales | Qué cubre |
+| --- | --- | --- |
+| **Inicio y Escáner** | `/dashboard`, `/dashboard/escanear` | Tablero en grupos enmarcados (**Resumen del día**, **Tareas de hoy**, **Accesos directos**, **Resumen del mes / Tablero técnico** y **Completar configuración**), Asistente Día 1 y escáner QR multiespecie. |
+| **Animales y Lugares** | `/dashboard/animales`, `/dashboard/ubicaciones`, `/dashboard/ubicaciones/[id]` | Inventario multiespecie, fichas individuales/lote, capacidad por galpón/jaula/potrero, mapa de ocupación, traslados y etiquetas QR. |
+| **Producción** | `/dashboard/produccion`, `adquisiciones`, `peso`, `mortalidad`, `plan-parvada` | Postura NTC 1240, carne/sacrificio, reproducción conejos/cuyes, incubación, alimentación, gallinaza, entradas/linaje 3 gen, biometría CV%/EPEF y proyecciones. |
+| **Inventarios** | `/dashboard/inventarios/balance`, `huevos`, `carne`, `gallinaza`, `alimentacion`, `insumos` | Balance patrimonial, stock PEPS/FIFO, días de autonomía de alimento y alertas de reposición. |
+| **Almacén y Operaciones** | `/dashboard/almacen`, `/dashboard/operaciones/activos`, `mantenimiento`, `compostaje`, `cierre` | Activos/equipos con CAPEX/ROI y QR, mantenimientos periódicos, pilas térmicas AGROSAVIA, cierre diario auditable y telemetría IoT (ITH, NH3, báscula). |
+| **Planeación** | `/dashboard/planeacion`, `calendario`, `/dashboard/soberania` | Calendario Maestro unificado, rutinas auto-ajustables y balance de autoconsumo / soberanía alimentaria. |
+| **Sanidad** | `/dashboard/sanidad`, `control`, `calendario`, `alertas`, `bioseguridad` | Plan sanitario por etapa, tratamientos con candado de retiro farmacológico, vacunación automática, bajas y listas POE GAB / Bienestar ICA. |
+| **Finanzas y Contactos** | `/dashboard/finanzas`, `ventas`, `egresos`, `finanzas`, `presupuestos`, `cuentas`, `/dashboard/contactos` | 5 líneas de venta, compras con presentación y OCR, catálogo frecuente, CxC/CxP con abonos, presupuestos, flujo acumulado y directorio con crédito/WhatsApp. |
+| **Análisis y Configuración** | `/dashboard/analisis`, `kpis`, `razas`, `reportes`, `/dashboard/configuracion`, `modulos`, `catalogos` | KPIs, curvas por raza/altitud, contabilidad analítica Excel/PDF, escala Pequeño/Mediano, 5 flags progresivos y catálogos maestros en 8 pestañas. |
+
+Para una guía detallada de cada módulo, consulta **[docs/features.md](docs/features.md)**, **[docs/data-dictionary.md](docs/data-dictionary.md)** o entra directamente al manual web en `/guia`.
+
+---
+
+## Stack Tecnológico
+
+- **Framework Web:** Next.js 16 (App Router + Turbopack), React 19, TypeScript estricto.
+- **Estilos e Interfaz:** Tailwind CSS v4, Lucide Icons, Recharts, JSX limpio responsivo (campo móvil + escritorio).
+- **Base de Datos y ORM:** PostgreSQL ≥ 14 + Drizzle ORM (`src/db/schema.ts`).
+- **Campo y Resiliencia:** PWA Offline-First con `IndexedDB`, cola de sincronización idempotente, notas de voz y QR (`qrcode` + `html5-qrcode`).
+- **Calidad y Pruebas:** Vitest (unitarias e integración contra PostgreSQL), Playwright (E2E en Chromium headless), ESLint 9 y TypeScript `tsc --noEmit`.
+
+---
+
+## Instalación y Desarrollo Local
+
+### Requisitos
+
+- **Node.js ≥ 20.9** (probado con Node 22/24)
+- **PostgreSQL ≥ 14**
 - **npm**
 
-## Instalación
+### 1. Clonar e instalar dependencias
 
 ```bash
-git clone https://github.com/Camilosal/El-Gallinero
+git clone https://github.com/Camilosal/El-Gallinero.git
 cd El-Gallinero
 npm install
 ```
 
-### Configurar la base de datos
-
-1. Crea la base de datos en Postgres (ajusta usuario/contraseña a tu entorno):
+### 2. Configurar base de datos y entorno
 
 ```bash
 createdb app_db
-```
-
-2. Copia el archivo de entorno y edítalo con tu conexión:
-
-```bash
 cp .env.example .env.local
 ```
+
+Edita `.env.local` con tu conexión:
 
 ```env
 DATABASE_URL=postgresql://TU_USUARIO:TU_CONTRASENA@127.0.0.1:5432/app_db
 ```
 
-> `.env.local` está excluido del repo por seguridad; cada quien crea el suyo.
+> `.env.local` está ignorado en `.gitignore`. Nunca subas secretos o cadenas de conexión reales al repositorio.
 
-### Crear tablas y sembrar datos
+### 3. Aplicar esquema y sembrar datos sintéticos
 
 ```bash
-npm run db:push     # crea las tablas (drizzle-kit push)
+npm run db:push          # Crea tablas según src/db/schema.ts
+npm run db:seed-config   # Catálogos base (razas, vacunas, parámetros idempotentes)
+```
+
+Opcionalmente, solo en una base **local descartable de pruebas** (bloqueado en producción):
+
+```bash
 DEMO_ADMIN_PASSWORD='elige-una-clave-de-12-caracteres' npm run db:seed -- --allow-destructive
 ```
 
-El seed elimina y recrea datos; está bloqueado en `NODE_ENV=production`. Úsalo solo en una base local descartable.
-
-### Arrancar
+### 4. Ejecutar en desarrollo o producción local
 
 ```bash
-npm run dev         # modo desarrollo → http://localhost:3000
+npm run dev              # Desarrollo → http://localhost:3000
 ```
-
-Para producción:
 
 ```bash
 npm run build && npm start
 ```
 
-## Ejecución local con Docker Compose
+---
 
-Compose levanta la aplicación Next.js y PostgreSQL para desarrollo local. La primera vez, inicializa el esquema explícitamente y luego arranca la aplicación:
+## Despliegue en Contenedor (Docker Compose)
+
+Para levantar aplicación + PostgreSQL localmente o en un servidor propio:
 
 ```bash
 docker compose --profile migrate run --rm migrate
@@ -69,274 +176,46 @@ docker compose run --rm -e ADMIN_USERNAME='admin' -e ADMIN_PASSWORD='elige-una-c
 docker compose up -d
 ```
 
-La aplicación queda en `http://localhost:3000`; PostgreSQL solo se publica en `127.0.0.1:5432`. El perfil `migrate` usa una imagen de herramientas de desarrollo y solo corre cuando se invoca explícitamente. La imagen de la aplicación contiene dependencias de producción y `tsx` para sus tareas operativas; no incluye archivos `.env` ni altera el esquema al arrancar.
+- La aplicación queda expuesta en `http://localhost:3000` (y en despliegues con proxy inverso detrás de TLS en tu dominio).
+- Para operación en producción, actualización de esquema SQL idempotente y variables opcionales de **Gina** (modelo IA, voz y lectura de documentos), sigue paso a paso **[docs/deployment.md](docs/deployment.md)**.
 
-## Acceso inicial
+### Acceso inicial y recuperación de administrador
 
-En producción, crea el primer administrador después de aplicar el esquema con `npm run db:create-admin`, proporcionando `ADMIN_USERNAME` y `ADMIN_PASSWORD` como variables de entorno. La contraseña debe tener al menos 12 caracteres. El comando solo funciona si todavía no existen usuarios y no modifica cuentas existentes. Para datos de demostración local, el seed usa el usuario `Camilosal` y la contraseña indicada en `DEMO_ADMIN_PASSWORD`.
+- **Primer usuario en producción:** `ADMIN_USERNAME='admin' ADMIN_PASSWORD='...' npm run db:create-admin` (mínimo 12 caracteres; aborta si ya existen usuarios).
+- **Rotar contraseña:** `npm run db:rotate-admin-password` (revoca sesiones activas).
+- **Código de recuperación de un solo uso:** tras aplicar `scripts/add_admin_recovery_code.sql`, ejecuta `ADMIN_USERNAME='admin' npm run db:issue-admin-recovery-code` y utilízalo en `/login/recuperar`.
 
-Si una instalación ya usó el seed antiguo, cambia la contraseña con `npm run db:rotate-admin-password`; el comando invalida las sesiones abiertas de esa cuenta.
+---
 
-Para habilitar la recuperación desde la pantalla de acceso, aplica `scripts/add_admin_recovery_code.sql` y emite un código de un solo uso con `ADMIN_USERNAME='admin' npm run db:issue-admin-recovery-code`. Guarda el código cuando se muestre: solo se almacena su hash, vence a los 30 días y se invalida al cambiar la contraseña.
+## Verificación y Pruebas
 
-## Módulos
-
-La navegación está agrupada en **7 secciones** con páginas índice que muestran KPIs en tiempo real y accesos rápidos a sub-módulos:
-
-### 🐔 Producción (`/produccion`)
-Página índice con KPIs: huevos hoy, huevos semana, gallinas activas, mortalidad semana, consumo de alimento.
-
-| Sub-módulo | Ruta | Funcionalidades |
-| --- | --- | --- |
-| Gallinas | `/produccion/gallinas` | Registro individual (código, raza, nacimiento, peso, estado, notas); ciclo de vida automático: 8 estados y etapa por edad (pollito → postura); detección de gallinas recomendadas a sacrificio y aviso de motivos; filtros por estado y etapa; edición y eliminación |
-| Pollos y Gallos | `/produccion/pollos` | Gallos reproductores (código `GA-###` autogenerado) y lotes de engorde (código `L-###`); balance de parvada con alerta de gallos faltantes (1 por cada 10 gallinas); lotes pasan a "listo sacrificio" al alcanzar semanas o peso objetivo |
-| Adquisiciones | `/produccion/adquisiciones` | Entrada de aves al sistema |
-| Alimentación | `/produccion/alimentacion` | Inventario de alimentos (categoría, tipo, stock mín/máx, costo, proveedor) con alerta de stock bajo; movimientos de entrada/salida por etapa (bloquea stock negativo); programas de alimentación por etapa (% dieta y g/ave/día); proyección de stock con días restantes y actualización de mínimo sugerido; comparativo planificado vs real (7/14/21/30d) con gráfico; **predicción de stock** (14–365d): fecha de agotamiento, reposición sugerida, compra recomendada y gráfico de evolución por alimento |
-| Producción de Huevos | `/produccion/huevos` | Recolección diaria por **tamaño de huevo** (precios del catálogo), rotos y para incubación, con total en vivo; comparación contra producción esperada por etapa (rendimiento %); validación de sobreproducción (1.5× lo esperado) con confirmación; gráfico apilado por tamaño con proyección |
-| Incubación | `/produccion/incubacion` | Registro de incubaciones con eclosión a los 21 días y gallina clueca; **asignación automática de nacidos**: hembras → nuevas gallinas, machos → cubren déficit de gallos o lote de engorde; tasa de eclosión (%); historial y métricas |
-| Carne / Sacrificio | `/produccion/sacrificio` | Registro de sacrificio por tipo de ave (gallina descarte, pollo, gallo) con pre-selección de la recomendada; peso en canal, destino (consumo, venta, donación); si se vende crea ingreso; revierte estados de las aves |
-| Mortalidad | `/produccion/mortalidad` | Registro de bajas por lote |
-| Plan Parvada | `/produccion/plan-parvada` | Proyecciones y planificación de la parvada |
-
-### 📦 Inventarios (`/inventarios`)
-Página índice con KPIs de stock consolidado.
-
-| Sub-módulo | Ruta | Funcionalidades |
-| --- | --- | --- |
-| Inventario Huevos | `/inventarios/huevos` | Stock por tamaño (producidos − vendidos) con **PEPS** por talla; edad/envejecimiento con alerta de >21 días; valor estimado en dinero (disponible × precio catálogo); lotes con estado (disponible / vender pronto / por vencer / agotado) |
-| Balance de Inventario | `/inventarios/balance` | Balance consolidado de entradas y salidas |
-| Insumos | `/inventarios/insumos` | Inventario de insumos (alimento, medicamentos, empaques) |
-
-### 💊 Sanidad (`/sanidad`)
-Plan Sanitario proactivo con protocolos por etapa de crecimiento, ejecución con control de recursos y trazabilidad completa.
-
-| Sub-módulo | Ruta | Funcionalidades |
-| --- | --- | --- |
-| Plan Sanitario | `/sanidad` | **Sistema proactivo** con 5 pestañas: Plan de Acción (pendientes por urgencia), Protocolos por Etapa (Pollito, Juvenil, Pre-postura, Postura con acciones definidas), Ejecutar (confirma recursos y aplica), Historial (registro completo), Recursos (inventario de insumos sanitarios). Genera eventos automáticamente en el calendario según los protocolos de cada etapa. |
-| Control Sanitario | `/sanidad/control` | Eventos manuales (vacunación, desparasitación, tratamiento, inspección, fumigación, vitaminas) con producto, costo y próxima aplicación. Pre-llenado automático desde eventos pendientes del calendario. |
-| Calendario Sanitario | `/sanidad/calendario` | Calendario de eventos sanitarios programados (automáticos y manuales). Eventos vencidos en rojo, próximos en amarillo. |
-| Alertas | `/sanidad/alertas` | Monitoreo automático de transiciones de etapa, vacunación pendiente y niveles de producción. |
-
-### 🔧 Operaciones (`/operaciones`)
-Página índice con accesos rápidos a mantenimiento y gallinaza.
-
-| Sub-módulo | Ruta | Funcionalidades |
-| --- | --- | --- |
-| Mantenimiento | `/operaciones/mantenimiento` | Tareas del gallinero con estado (pendiente/en progreso/completado), costo y plantillas rápidas; al completar con costo genera egreso automático (sin duplicados al editar) |
-| Gallinaza | `/operaciones/gallinaza` | Factores de producción por grupo (etapas, gallos, lotes) para estimar kg/día; acumulación de stock con ajustes (± con motivo); ventas con presentación (bulto/costal/granel) que descuentan stock y generan ingreso |
-
-### 💰 Finanzas (`/finanzas`)
-Página índice con KPIs financieros.
-
-| Sub-módulo | Ruta | Funcionalidades |
-| --- | --- | --- |
-| Ventas | `/finanzas/ventas` | **Huevos**: ventas multi-ítem por tamaño y presentación (unidad, docena, media docena, bandeja/cubeta) con precios del catálogo y total en vivo; validación de disponibilidad por talla. **Aves**: gallinas/gallos/lotes con precio por ave o por kg. Cada venta crea su ingreso y actualiza inventario/estados |
-| Egresos | `/finanzas/egresos` | Registro de gastos en dos modos: **compra con presentación** (categorías de compra; para alimento vincula el inventario y convierte a unidad base) y **general** (cantidad × valor o monto manual); métricas, gráfico por fecha y desglose por categoría |
-| Finanzas | `/finanzas/finanzas` | Panel con KPIs (ingresos, egresos, utilidad, promedios diarios, flujo neto) e insights (mejor/peor día, margen, proyección mensual); gráficos de evolución temporal, utilidad acumulada y distribución por categoría (períodos 7/30/90/365); historial completo con nueva transacción manual |
-| Presupuestos | `/finanzas/presupuestos` | Planificación financiera y presupuestos |
-| Cuentas | `/finanzas/cuentas` | Cuentas por cobrar y cuentas por pagar |
-
-### 📊 Análisis (`/analisis`)
-Página índice con accesos rápidos a KPIs y reportes.
-
-| Sub-módulo | Ruta | Funcionalidades |
-| --- | --- | --- |
-| KPIs | `/analisis/kpis` | Indicadores clave de productividad, mortalidad, conversión alimenticia |
-| Reportes | `/analisis/reportes` | Reportes exportables del sistema |
-
-### 🗂️ Configuración (`/configuracion`)
-Página índice con accesos rápidos a catálogos.
-
-| Sub-módulo | Ruta | Funcionalidades |
-| --- | --- | --- |
-| Catálogos | `/configuracion/catalogos` | Datos maestros (16 categorías): tamaños de huevo con precio, presentaciones con unidades/factores, razas, compradores, proveedores, unidades de medida, categorías de ingreso/egreso, tipos de sanidad/mantenimiento… Con activar/desactivar y orden |
-
-## Reglas de negocio clave
-
-- **Ciclo de vida de la gallina**: etapa según edad (Pollito 0–6, Juvenil 6–18, Pre-postura 18–20, Postura 20+ semanas); estados terminales (vendida, faena, muerta) nunca se sobreescriben; a los ~80 semanas se recomienda sacrificio.
-- **Balance de parvada**: 1 gallo por cada 10 gallinas; los machos nacidos cubren primero el déficit y el resto pasa a lote de engorde.
-- **Lotes de engorde**: listos a sacrificio al cumplir semanas objetivo o ≥2.5 kg promedio; baja de cantidad validada (0 ≤ actual ≤ inicial).
-- **Inventario de huevos PEPS**: las ventas se descuentan del lote más antiguo de cada tamaño; huevos con más de 21 días generan alerta.
-- **Producción esperada**: huevos/día = Σ(gallinas por etapa × factor del catálogo); rendimiento % contra lo real y alerta si supera 1.5×.
-- **Alimentación**: bloqueo de stock negativo; consumo registrado por etapa con gramos/gallina/día; proyección de días de stock.
-- **Plan Sanitario**: protocolos por etapa (Pollito, Juvenil, Pre-postura, Postura) con acciones de vacunación, desparasitación y vitaminas. Genera eventos en el calendario, verifica recursos disponibles y registra períodos de carencia.
-- **Trazabilidad financiera**: cada venta, sacrificio, compra de alimento, mantenimiento completado y evento sanitario con costo crea su transacción automáticamente (`sourceType`/`sourceId`); al borrar el origen se revierte la transacción.
-
-## Guía de usuario integrada
-
-El sistema incluye una **guía de usuario completa** accesible desde el sidebar (botón 📖). Contiene guías paso a paso para cada módulo con:
-- Diagramas de flujo visuales (arquitectura del sistema, ciclo de vida, flujos de producción, integración financiera)
-- Instrucciones detalladas para cada tarea
-- Tips, advertencias y notas
-- Enlaces directos a la aplicación
-
-## Diagramas de arquitectura
-
-### Flujo de Producción de Huevos
-```mermaid
-flowchart TD
-    A[🐔 Gallina] -->|Pone huevo| B[🥚 Recolección]
-    B -->|Clasificar| C[📏 Tamaño: P, M, G, XL, XXL]
-    C -->|Almacena| D[📦 Inventario PEPS]
-    D -->|Venta| E[💰 Ingreso automático]
-    D -->|Incubación| F[🐣 21 días → Pollitos]
-    D -->|>21 días| G[⚠️ Alerta vencimiento]
-    E --> H[📈 Finanzas]
+```bash
+npm run typecheck   # Verificación estricta de TypeScript (tsc --noEmit)
+npm run lint        # Análisis estático ESLint
+npm test            # Suite completa Vitest (tests/*.test.ts)
+npm run e2e         # Pruebas E2E con Playwright
 ```
 
-### Ciclo de Vida de la Gallina
-```mermaid
-flowchart LR
-    A[🐤 Pollito\n0–6 sem] -->|6 sem| B[🐔 Juvenil\n6–18 sem]
-    B -->|18 sem| C[🥚 Pre-postura\n18–20 sem]
-    C -->|20 sem| D[🐔 Postura\n20+ sem]
-    D -->|≥80 sem Y ≥2.5kg| E[⚠️ Rec. Sacrificio]
-    D -->|Vendida| F[Terminal]
-    D -->|Muerta| G[Terminal]
-```
+---
 
-### Plan Sanitario Proactivo
-```mermaid
-flowchart TD
-    A[📋 Protocolos por Etapa] -->|Genera| B[📅 Eventos en Calendario]
-    B -->|Vencimiento próximo| C[🔔 Alerta de Acción]
-    C -->|Verifica recursos| D[✅ Ejecutar Acción]
-    D -->|Confirma insumos| E[📊 Historial Sanitario]
-    D -->|Deduce stock| F[📦 Inventario Insumos]
-    F -->|Stock bajo| G[⚠️ Alerta Reposición]
-```
+## Documentación Asociada del Core Abierto
 
-### Integración Automática de Finanzas
-```mermaid
-flowchart TD
-    A[💰 Venta] -->|Ingreso| T[📝 Transacción]
-    B[🛒 Compra Alimento] -->|Egreso| T
-    C[🔧 Mantenimiento] -->|Egreso| T
-    D[💊 Evento Sanitario] -->|Egreso| T
-    E[🌱 Venta Gallinaza] -->|Ingreso| T
-    T --> F[📈 KPIs y Gráficos]
-    T --> G[💵 Balance Financiero]
-    G --> H[📊 Análisis]
-```
+- [LICENSE](LICENSE) — Licencia completa **GNU Affero General Public License v3 (AGPLv3)**.
+- [COMMERCIAL-LICENSE.md](COMMERCIAL-LICENSE.md) — Alcance del **Licenciamiento Dual**, servicios comerciales e implementación Enterprise.
+- [docs/estrategia-open-core.md](docs/estrategia-open-core.md) — Estrategia formal Open-Core en 3 capas, alineación DPGA, madurez TRL 8–9 y protocolo de gobernanza de commits.
+- [CONTRIBUTING.md](CONTRIBUTING.md) — Cómo contribuir código, tablas zootécnicas, normativas LATAM y términos de aporte.
+- [SECURITY.md](SECURITY.md) — Política de divulgación responsable y reporte de vulnerabilidades.
+- [docs/features.md](docs/features.md) — Detalle funcional por módulo y arquitectura multi-especie.
+- [docs/data-dictionary.md](docs/data-dictionary.md) — Diccionario de datos y entidades PostgreSQL.
+- [docs/development.md](docs/development.md) — Guía de entorno de desarrollo y convenciones técnicas.
+- [docs/deployment.md](docs/deployment.md) — Guía de despliegue en producción y scripts SQL.
+- [CHANGELOG.md](CHANGELOG.md) — Historial de versiones.
 
-## Estructura del proyecto
+---
 
-```
-├── src/
-│   ├── app/
-│   │   ├── dashboard/                    # Páginas del sistema agrupadas por sección
-│   │   │   ├── page.tsx              # Dashboard principal (4 tarjetas/día, KPIs, gráficos)
-│   │   │   ├── produccion/           # 🐔 Producción
-│   │   │   │   ├── page.tsx          # Índice con tabs (Huevos, Gallinas, Pollos, Alimentación, Incubación, Carne, Gallinaza, Inventario)
-│   │   │   │   ├── gallinas/         # Gestión de gallinas + detalle individual
-│   │   │   │   ├── pollos/           # Pollos y gallos
-│   │   │   │   ├── adquisiciones/    # Entrada de aves
-│   │   │   │   ├── alimentacion/     # Programas y consumo (5 tabs)
-│   │   │   │   ├── huevos/           # Producción de huevos
-│   │   │   │   ├── incubacion/       # Incubación
-│   │   │   │   ├── sacrificio/       # Carne
-│   │   │   │   ├── mortalidad/       # Bajas
-│   │   │   │   ├── peso/             # Seguimiento de peso
-│   │   │   │   └── plan-parvada/     # Proyecciones
-│   │   │   ├── inventarios/          # 📦 Inventarios
-│   │   │   │   ├── page.tsx          # Índice con KPIs de stock
-│   │   │   │   ├── huevos/           # Inventario PEPS de huevos
-│   │   │   │   ├── carne/            # Inventario FIFO de carne
-│   │   │   │   ├── gallinaza/        # Inventario de gallinaza
-│   │   │   │   ├── balance/          # Balance consolidado
-│   │   │   │   └── insumos/          # Insumos (alimento, medicamentos, empaques)
-│   │   │   ├── sanidad/              # 💊 Sanidad
-│   │   │   │   ├── page.tsx          # Plan Sanitario proactivo (5 tabs)
-│   │   │   │   ├── _components/
-│   │   │   │   │   └── PlanSanitarioTab.tsx  # Plan de Acción, Protocolos, Ejecutar, Historial, Recursos
-│   │   │   │   ├── control/          # Control sanitario manual
-│   │   │   │   ├── calendario/       # Calendario sanitario
-│   │   │   │   └── alertas/          # Alertas automáticas
-│   │   │   ├── operaciones/          # 🔧 Operaciones
-│   │   │   │   ├── page.tsx          # Índice
-│   │   │   │   ├── mantenimiento/    # Tareas y equipos
-│   │   │   │   └── gallinaza/        # Factores y ajustes
-│   │   │   ├── finanzas/             # 💰 Finanzas
-│   │   │   │   ├── page.tsx          # Índice con KPIs financieros
-│   │   │   │   ├── ventas/           # Ventas (huevos, aves, carne, gallinaza)
-│   │   │   │   ├── egresos/          # Gastos (compra con presentación + general)
-│   │   │   │   ├── finanzas/         # Panel financiero (KPIs, gráficos, proyección)
-│   │   │   │   ├── presupuestos/     # Planificación
-│   │   │   │   └── cuentas/          # CxC yCxP
-│   │   │   ├── analisis/             # 📊 Análisis
-│   │   │   │   ├── page.tsx          # Índice
-│   │   │   │   ├── kpis/             # Indicadores clave
-│   │   │   │   ├── razas/            # Estándares de raza
-│   │   │   │   └── reportes/         # Reportes exportables
-│   │   │   ├── configuracion/        # ⚙️ Configuración
-│   │   │   │   ├── page.tsx          # Índice
-│   │   │   │   └── catalogos/        # Datos maestros (16 categorías)
-│   │   │   ├── escanear/             # 📷 Escáner QR de aves
-│   │   │   └── guia/                 # 📖 Guía de usuario integrada
-│   │   │       ├── page.tsx          # Índice de guías por módulo
-│   │   │       └── [slug]/           # Vista de guía individual con diagramas
-│   │   ├── api/                      # API Routes (Next.js)
-│   │   │   ├── auth/                 # login, logout, me
-│   │   │   ├── produccion/           # APIs de producción
-│   │   │   ├── inventarios/          # APIs de inventarios
-│   │   │   ├── sanidad/              # APIs de sanidad (calendario, plan, control, resumen)
-│   │   │   ├── operaciones/          # APIs de operaciones
-│   │   │   ├── finanzas/             # APIs de finanzas
-│   │   │   ├── analisis/             # APIs de análisis
-│   │   │   └── configuracion/        # APIs de configuración
-│   │   ├── login/                    # Página de acceso
-│   │   └── layout.tsx
-│   ├── components/                   # Sidebar, UI (Card, StatCard, Modal, Table, renderHelpText…)
-│   ├── db/
-│   │   ├── schema.ts                 # Modelo de datos (25+ tablas, Drizzle ORM)
-│   │   ├── seed.ts                   # Datos demo destructivos, protegidos por confirmación
-│   │   └── index.ts                  # Conexión a Postgres
-│   └── lib/                          # auth, inventory (PEPS), lifecycle, flock, guide-data, vaccination-schedules
-├── docs/                             # Especificaciones y planes de diseño
-├── tests/                            # Pruebas de flujo (vitest)
-└── drizzle.config.ts
-```
+## Autoría y Contacto
 
-## Modelo de datos (resumen)
+Desarrollado por **Camilo Saldarriaga** · **[https://camilosaldarriaga.com](https://camilosaldarriaga.com)**  
+Instancia de referencia: **[https://gallinero.iwage.co](https://gallinero.iwage.co)**
 
-- **Aves:** `hens`, `roosters`, `broiler_batches`
-- **Producción:** `egg_production` + `egg_production_details` (por tamaño), `incubation`
-- **Comercial:** `egg_sales`, `egg_sales_items`, `chicken_sales`, `manure_sales`
-- **Finanzas:** `transactions` (ingresos y egresos, enlazadas a su fuente)
-- **Sanidad:** `sanitary_calendar` (eventos programados), `health_control` (ejecuciones), `flock_plans` + `flock_plan_milestones` (planes proactivos)
-- **Apoyo:** `feed_inventory`, `feed_movements`, `feed_programs`, `supply_inventory`, `supply_movements`, `maintenance`, `manure_factors`, `manure_inventory`, `manure_adjustments`, `catalogos` (maestros), `users`, `sessions`
-
-El esquema completo está en [`src/db/schema.ts`](src/db/schema.ts).
-
-## Scripts
-
-| Script | Descripción |
-| --- | --- |
-| `npm run dev` | Servidor de desarrollo |
-| `npm run build` / `start` | Compilar y servir en producción |
-| `npm run db:push` | Aplicar el esquema a la BD |
-| `npm run db:seed -- --allow-destructive` | Reemplazar datos con una muestra local (no usar en producción) |
-| `npm run db:create-admin` | Crear el primer usuario administrador sin tocar los datos existentes |
-| `npm run db:rotate-admin-password` | Cambiar la clave de un administrador y revocar sus sesiones |
-| `npm run db:generate` | Generar migración SQL |
-| `npm run test` | Pruebas con vitest |
-| `npm run typecheck` / `lint` | Verificación de tipos y estilo |
-
-## Tecnologías
-
-- **Next.js 16** (App Router) + **React 19**
-- **Drizzle ORM** con **PostgreSQL** (`pg`)
-- **Recharts** (gráficos del panel financiero)
-- **Tailwind CSS 4** (estilos)
-- **Vitest** (pruebas)
-
-## Documentación para desarrolladores
-
-- **[CONTRIBUTING.md](CONTRIBUTING.md)** – Guía para contribuir al proyecto (estilo de código, pull requests, etc.).
-- **[CODE_OF_CONDUCT.md](CODE_OF_CONDUCT.md)** – Código de conducta esperado en la comunidad.
-- **[SECURITY.md](SECURITY.md)** – Política de reporte de vulnerabilidades y procedimientos de seguridad.
-- **[CHANGELOG.md](CHANGELOG.md)** – Historial de cambios y versiones del proyecto.
-- **[docs/development.md](docs/development.md)** – Instrucciones detalladas de entorno de desarrollo, herramientas y flujos de trabajo.
-- **[docs/features.md](docs/features.md)** – Descripción de funcionalidades planeadas y en desarrollo.
-- **[docs/data-dictionary.md](docs/data-dictionary.md)** – Diccionario de datos del esquema de base de datos y definiciones de campos.
-- **[docs/superpowers/](docs/superpowers/)** – Especificaciones y planes de características avanzadas (superpoderes) en desarrollo.
+El uso, bifurcación o despliegue autoalojado bajo **GNU AGPLv3** debe conservar visibles los créditos de autoría originaria y el enlace al repositorio fuente.

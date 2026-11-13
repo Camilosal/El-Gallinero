@@ -1,133 +1,54 @@
-# Contribuyendo a El Gallinero
+# Contribuyendo a El Gallinero (Core Abierto)
 
-¡Gracias por tu interés en contribuir a El Gallinero! Este documento proporciona directrices y pasos para contribuir al proyecto.
+¡Gracias por tu interés en mejorar **El Gallinero**! Este repositorio aloja el **Core Abierto Operativo (GNU AGPLv3)** dentro de una arquitectura [Open-Core de 3 capas](docs/estrategia-open-core.md). Damos la bienvenida tanto a contribuciones de software como a mejoras zootécnicas, curvas productivas y adaptaciones normativas para Latinoamérica.
 
-## Cómo Contribuir
+---
 
-### Reportando Issues
-Antes de crear un issue, por favor revisa si ya existe uno similar en la lista de [issues](https://github.com/Camilosal/El-Gallinero/issues).
+## Formas de Contribuir
 
-Al crear un issue, incluye:
-- Una descripción clara y concisa del problema o sugerencia
-- Pasos para reproducir el problema (si aplica)
-- Capturas de pantalla o videos (si es relevante)
-- Tu entorno (Node.js version, PostgreSQL version, navegador, sistema operativo)
-- Comportamiento esperado vs comportamiento actual
+### 1. Tablas Zootécnicas, Curvas y Normativas LATAM
+Valoramos especialmente Pull Requests de universidades, zootecnistas, médicos veterinarios y equipos técnicos que amplíen o calibren:
+- Curvas de crecimiento o postura y ajustes por altitud/clima para las 6 especies (gallina, pollo, codorniz, pato, conejo, cuy).
+- Parámetros nutricionales (%MS, %PC, energía, vitamina C) o factores sanitarios.
+- Adaptaciones regulatorias por país sobre bioseguridad, clasificación comercial de huevo o bienestar animal (p. ej. ICA/ICONTEC en Colombia, SENASA en Perú, AGROCALIDAD en Ecuador, SENASICA en México).
 
-### Sugiriendo Mejoras
-Las sugerencias de mejora son bienvenidas. Por favor, abre un issue etiquetado como `enhancement` y proporciona:
-- Una descripción detallada de la característica propuesta
-- Casos de uso y beneficios esperados
-- Posibles desafíos o consideraciones de implementación
-- Ejemplos o bocetos si aplica
+### 2. Reporte de Errores e Issues
+Antes de abrir un issue, revisa los [issues existentes](https://github.com/Camilosal/El-Gallinero/issues) e incluye:
+- Descripción clara y pasos exactos para reproducirlo.
+- Entorno (Node.js, PostgreSQL, navegador o dispositivo móvil si es PWA offline).
+- Capturas o logs relevantes (nunca incluyas datos reales de productores, credenciales ni tokens).
 
-### Enviando Pull Requests
-1. Haz un fork del repositorio
-2. Crea una rama nueva desde `main`: `git checkout -b feature/nombre-de-tu-feature`
-3. Realiza tus cambios
-4. Asegúrate de que tu código siga las guías de estilo (ver abajo)
-5. Escribe o actualiza pruebas según corresponda
-6. Ejecuta el suite de pruebas para asegurar que nada se rompa
-7. Haz commit de tus cambios con un mensaje descriptivo
-8. Sube tu rama: `git push origin feature/nombre-de-tu-feature`
-9. Abre un Pull Request contra la rama `main` del repositorio original
+### 3. Pull Requests de Código y Documentación
+1. Haz un fork del repositorio y crea una rama desde `main` (`git checkout -b feat/mi-mejora` o `fix/mi-correccion`).
+2. Respeta la separación de arquitectura **Open-Core**: este repositorio mantiene exclusivamente el núcleo operativo monopredio y utilidades base; no añadas dependencias propietarias cerradas que impidan ejecutar el núcleo bajo GNU AGPLv3.
+3. Sigue TypeScript estricto, Tailwind CSS v4 y mantén actualizada la guía de usuario (`src/lib/guide-data.ts`) o el diccionario de datos (`docs/data-dictionary.md`) si modificas rutas o esquema.
+4. Ejecuta las validaciones antes de enviar el PR:
+   ```bash
+   npm run typecheck
+   npm run lint
+   npm test
+   ```
+5. Usa mensajes de commit claros en formato convencional (`feat(scope): ...`, `fix(scope): ...`, `docs(scope): ...`).
 
-## Guía de Estilo de Código
+---
 
-### TypeScript y JavaScript
-- Usamos TypeScript estricto (`tsc --noEmit` debe pasar sin errores)
-- Sigue las convenciones de ESLint configuradas en `.eslintrc.mjs`
-- Prefiero usar interfaces sobre types cuando corresponde
-- Usa arrow functions para callbacks simples
-- Evita `any` tanto como sea posible
-- Usa descriptivos nombres de variables y funciones en inglés
+## Acuerdo de Licencia y Esquema de Licenciamiento Dual
 
-### CSS y Tailwind
-- Usamos Tailwind CSS 4
-- Prefiere clases utilitarias de Tailwind sobre CSS custom cuando es posible
-- Para estilos complejos, usa el archivo CSS global o módulos CSS
-- Mantén las clases organizadas y legibles
+El proyecto opera bajo **Licenciamiento Dual** ([LICENSE](LICENSE) · GNU AGPLv3 + [COMMERCIAL-LICENSE.md](COMMERCIAL-LICENSE.md)):
 
-### Commits
-- Usa mensajes de commit claros y concisos en inglés
-- Formato recomendado: `tipo(ámbito): descripción`
-  - Ejemplo: `feat(gallinas): agrega validación de peso máximo`
-  - Ejemplo: `fix(alimentacion): corrige cálculo de stock mínimo`
-- Tipos comunes: `feat`, `fix`, `docs`, `style`, `refactor`, `perf`, `test`, `build`, `ci`, `chore`, `revert`
-- Si tu cambio rompe compatibilidad hacia atrás, inicia con `BREAKING CHANGE:` en el cuerpo del commit
+- Todo código o mejora publicada en el repositorio público se distribuye bajo **GNU AGPLv3** (y documentación/datos técnicos de referencia compatibles bajo **CC-BY-SA 4.0**).
+- Al enviar un Pull Request y solicitar su integración en `main`, el autor declara que su aporte es original (o debidamente licenciado para su incorporación) y concede al mantenedor originario (**Camilo Saldarriaga · [camilosaldarriaga.com](https://camilosaldarriaga.com)**) autorización no exclusiva y perpetua para incluir y distribuir la contribución tanto en la edición pública **GNU AGPLv3** como en distribuciones comerciales licenciadas bajo [COMMERCIAL-LICENSE.md](COMMERCIAL-LICENSE.md).
+- Para aportes institucionales mayores o acuerdos específicos de **CLA**, coordina previamente a través del issue/PR o en **[camilosaldarriaga.com](https://camilosaldarriaga.com)**.
 
-## Pruebas
+---
 
-### Pruebas Unitarias y de Integración
-- Las pruebas se escriben con Vitest
-- Archivos de prueba están en el directorio `tests/` o junto al archivo que prueban (`*.test.ts`)
-- Para ejecutar pruebas: `npm run test`
-- Para modo watch: `npm run test:watch`
-- Para cobertura: `npm run test -- --coverage`
+## Reglas de Seguridad y Datos en Contribuciones
 
-### Buenas Prácticas
-- Escribe pruebas para nuevas funcionalidades
-- Actualiza pruebas existentes cuando modifiques funcionalidad
-- Enfócate en probar lógica de negocio, no solo cobertura
-- Usa mocks apropiadamente para dependencias externas
-- Prueba casos edge y condiciones de error
+- **Cero secretos:** nunca hagas commit de claves de API, tokens, contraseñas o archivos `.env*`.
+- **Solo datos sintéticos:** cualquier archivo de prueba o `seed` debe usar granjas, personas y códigos ficticios.
+- Si descubres una vulnerabilidad de seguridad, **no** abras un issue público; sigue el canal privado en [SECURITY.md](SECURITY.md).
 
-## Documentación
+## Trabajo con Base de Datos y Pruebas
 
-### Documentación de Código
-- Usa JSDoc para funciones y componentes públicos
-- Documenta parámetros, retornos y posibles errores
-- Mantén la documentación actualizada con los cambios de código
-
-### Documentación del Usuario
-- Los cambios significativos deben reflejarse en el `README.md`
-- Características nuevas pueden requerir actualización en la sección de Módulos
-- Cambios en la estructura del proyecto deben actualizarse en la sección Estructura del Proyecto
-- Actualiza el diccionario de datos (`docs/data-dictionary.md`) si cambias el esquema de base de datos
-
-## Proceso de Revisión de Pull Requests
-
-1. **Revisión Automática**: GitHub Actions ejecutará pruebas y linting
-2. **Revisión Manual**: Al menos un mantenedor revisará tu PR
-3. **Criterios de Aprobación**:
-   - El código debe compilar sin errores (`npm run typecheck`)
-   - Las pruebas deben pasar (`npm run test`)
-   - No deben introducir nuevas advertencias de ESLint
-   - Debe seguir las guías de estilo establecidas
-   - Debe incluir documentación adecuada cuando corresponda
-   - Los cambios deben estar bien probados
-4. **Merge**: Una vez aprobado, un mantenedor hará merge de tu PR
-
-## Preguntas Frecuentes
-
-### ¿Necesito firmar un CLA?
-No, actualmente no requerimos un Contributor License Agreement.
-
-### ¿Puedo contribuir con documentación?
-¡Absolutamente! La documentación es tan importante como el código.
-
-### ¿Qué hago si mi PR está en conflicto con main?
-Actualiza tu rama: `git fetch origin && git rebase origin/main`
-
-### ¿Cuánto tiempo tarda la revisión?
-Dependiendo de la complejidad, normalmente entre 1-3 días hábiles.
-
-### ¿Puedo trabajar en issues etiquetados como "good first issue"?
-Sí, esos están específicamente diseñados para nuevos contribuidores.
-
-## Comunidad
-
-- Sé respetuoso y constructivo en todas las interacciones
-- Enfócate en el código, no en la persona
-- Acepta críticas constructivas con gratitud
-- Ayuda a otros cuando puedas
-- Recuerda que somos una comunidad diversa
-
-## Preguntas
-
-Si tienes preguntas durante el proceso de contribución, no dudes en:
-- Comentar en tu Pull Request
-- Abrir un issue etiquetado como `question`
-- Contactar a los mantenedores directamente
-
-¡Gracias por contribuir a hacer El Gallinero mejor para todos!
+- **Migraciones / Esquema:** al cambiar `src/db/schema.ts`, valida el impacto con `npm run db:generate` / `npm run db:push` sobre una base de ensayo local y recuerda documentar scripts SQL idempotentes en `scripts/` y `docs/deployment.md` si aplica a producción.
+- **Pruebas:** usa Vitest (`tests/*.test.ts`) apuntando a una base de prueba aislada y verifica el correcto funcionamiento sin regresiones.

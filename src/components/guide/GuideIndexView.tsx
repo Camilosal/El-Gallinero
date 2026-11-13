@@ -187,32 +187,32 @@ export function GuideIndexView({ basePath }: GuideIndexViewProps) {
             </div>
           </div>
 
-          <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+          <div className="grid grid-cols-2 gap-2.5 sm:gap-4">
             {GUIDE_WORKFLOWS.map((flow) => (
               <div
                 key={flow.id}
-                className="flex flex-col justify-between rounded-2xl border border-slate-200 bg-white p-5 shadow-2xs transition-shadow hover:shadow-md"
+                className="flex flex-col justify-between min-w-0 rounded-2xl border border-slate-200 bg-white p-3 sm:p-5 shadow-2xs transition-shadow hover:shadow-md"
               >
                 <div>
-                  <div className="flex items-start justify-between gap-3">
-                    <div className="flex items-center gap-3">
-                      <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-green-50 text-green-800 border border-green-100">
-                        <AppIcon icon={flow.icon} className="h-5 w-5" />
+                  <div className="flex items-start justify-between gap-2 sm:gap-3">
+                    <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-3 min-w-0">
+                      <span className="flex h-8 w-8 sm:h-10 sm:w-10 shrink-0 items-center justify-center rounded-xl bg-green-50 text-green-800 border border-green-100">
+                        <AppIcon icon={flow.icon} className="h-4 w-4 sm:h-5 sm:w-5" />
                       </span>
-                      <div>
+                      <div className="min-w-0">
                         <span className="inline-flex rounded-full bg-amber-50 px-2 py-0.5 text-[10px] font-semibold text-amber-800 border border-amber-200">
                           {flow.badge}
                         </span>
-                        <h3 className="mt-1 text-base font-bold text-slate-900">{flow.title}</h3>
+                        <h3 className="mt-1 text-xs sm:text-base font-bold text-slate-900 leading-snug">{flow.title}</h3>
                       </div>
                     </div>
                   </div>
-                  <p className="mt-2.5 text-xs leading-relaxed text-slate-600 sm:text-sm">
+                  <p className="mt-2 text-[11px] sm:text-sm leading-relaxed text-slate-600 line-clamp-2 sm:line-clamp-none">
                     {flow.description}
                   </p>
                 </div>
 
-                <div className="mt-4 flex flex-wrap gap-1.5 border-t border-slate-100 pt-3">
+                <div className="mt-3 sm:mt-4 flex flex-wrap gap-1 sm:gap-1.5 border-t border-slate-100 pt-2.5 sm:pt-3">
                   {flow.slugs.map((slug, idx) => {
                     const target = getGuide(slug);
                     if (!target) return null;
@@ -220,10 +220,10 @@ export function GuideIndexView({ basePath }: GuideIndexViewProps) {
                       <Link
                         key={slug}
                         href={`${basePath}/${target.slug}`}
-                        className="inline-flex items-center gap-1 rounded-lg border border-slate-200 bg-slate-50 px-2.5 py-1 text-[11px] font-medium text-slate-700 transition-colors hover:border-green-300 hover:bg-green-50 hover:text-green-900"
+                        className="inline-flex items-center gap-1 rounded-lg border border-slate-200 bg-slate-50 px-2 py-0.5 sm:px-2.5 sm:py-1 text-[10px] sm:text-[11px] font-medium text-slate-700 transition-colors hover:border-green-300 hover:bg-green-50 hover:text-green-900"
                       >
                         <span className="font-bold text-green-700">{idx + 1}.</span>
-                        <span>{target.title}</span>
+                        <span className="truncate max-w-[115px] sm:max-w-none">{target.title}</span>
                       </Link>
                     );
                   })}
@@ -266,14 +266,14 @@ export function GuideIndexView({ basePath }: GuideIndexViewProps) {
                 </span>
               </div>
 
-              <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
+              <div className="grid grid-cols-2 gap-2.5 sm:gap-4 xl:grid-cols-3">
                 {mod.items.map((guide) => {
                   const preview = getGuidePreviewImage(guide);
                   return (
                     <Link
                       key={guide.slug}
                       href={`${basePath}/${guide.slug}`}
-                      className="group flex flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-2xs transition-all hover:-translate-y-0.5 hover:border-green-300 hover:shadow-md"
+                      className="group flex flex-col min-w-0 overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-2xs transition-all hover:-translate-y-0.5 hover:border-green-300 hover:shadow-md"
                     >
                       {preview && (
                         <div className="relative aspect-[16/10] w-full overflow-hidden border-b border-slate-100 bg-slate-100">
@@ -284,31 +284,31 @@ export function GuideIndexView({ basePath }: GuideIndexViewProps) {
                             loading="lazy"
                             className="h-full w-full object-cover object-top transition-transform duration-300 group-hover:scale-[1.02]"
                           />
-                          <span className="absolute right-2.5 top-2.5 inline-flex items-center gap-1 rounded-full bg-slate-900/75 px-2.5 py-0.5 text-[10px] font-semibold text-white backdrop-blur-xs">
+                          <span className="absolute right-1.5 sm:right-2.5 top-1.5 sm:top-2.5 inline-flex items-center gap-1 rounded-full bg-slate-900/75 px-2 py-0.5 text-[9px] sm:text-[10px] font-semibold text-white backdrop-blur-xs">
                             <Clock className="h-2.5 w-2.5" aria-hidden="true" />
                             {guide.estimatedMinutes} min
                           </span>
                         </div>
                       )}
 
-                      <div className="flex flex-1 flex-col justify-between p-4">
-                        <div>
-                          <div className="flex items-start gap-2.5">
-                            <span className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-green-50 text-green-800 border border-green-100 group-hover:bg-green-700 group-hover:text-white transition-colors">
-                              <AppIcon icon={guide.icon} className="h-4 w-4" />
+                      <div className="flex flex-1 flex-col justify-between p-2.5 sm:p-4 min-w-0">
+                        <div className="min-w-0">
+                          <div className="flex items-start gap-2 sm:gap-2.5">
+                            <span className="mt-0.5 flex h-7 w-7 sm:h-8 sm:w-8 shrink-0 items-center justify-center rounded-lg bg-green-50 text-green-800 border border-green-100 group-hover:bg-green-700 group-hover:text-white transition-colors">
+                              <AppIcon icon={guide.icon} className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
                             </span>
-                            <h3 className="text-sm font-bold leading-snug text-slate-900 group-hover:text-green-800 sm:text-base">
+                            <h3 className="text-xs sm:text-base font-bold leading-snug text-slate-900 group-hover:text-green-800 line-clamp-2">
                               {guide.title}
                             </h3>
                           </div>
 
-                          <p className="mt-2 line-clamp-2 text-xs leading-relaxed text-slate-600">
+                          <p className="mt-1.5 sm:mt-2 line-clamp-2 text-[11px] sm:text-xs leading-relaxed text-slate-600">
                             {guide.summary}
                           </p>
                         </div>
 
-                        <div className="mt-4 flex items-center justify-between gap-2 border-t border-slate-100 pt-3">
-                          <div className="flex flex-wrap gap-1">
+                        <div className="mt-2.5 sm:mt-4 flex items-center justify-between gap-1.5 sm:gap-2 border-t border-slate-100 pt-2 sm:pt-3">
+                          <div className="hidden sm:flex flex-wrap gap-1">
                             {guide.tags.slice(0, 3).map((tag) => (
                               <span
                                 key={tag}
@@ -318,9 +318,9 @@ export function GuideIndexView({ basePath }: GuideIndexViewProps) {
                               </span>
                             ))}
                           </div>
-                          <span className="inline-flex shrink-0 items-center gap-1 text-xs font-semibold text-green-700 group-hover:translate-x-0.5 transition-transform">
+                          <span className="inline-flex shrink-0 items-center gap-1 text-[11px] sm:text-xs font-semibold text-green-700 group-hover:translate-x-0.5 transition-transform ml-auto sm:ml-0">
                             <span>Leer</span>
-                            <ArrowRight className="h-3.5 w-3.5" aria-hidden="true" />
+                            <ArrowRight className="h-3 w-3 sm:h-3.5 sm:w-3.5" aria-hidden="true" />
                           </span>
                         </div>
                       </div>
