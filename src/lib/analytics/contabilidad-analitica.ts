@@ -449,3 +449,4 @@ export async function computeAnalyticalAccounting(opts: ComputeAnalyticsOptions)
     proratedRulesCount: allocationRows.length,
   };
 }
+

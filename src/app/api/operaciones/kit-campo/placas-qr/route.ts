@@ -194,3 +194,4 @@ export const GET = withApiHandler(async (req: NextRequest) => {
     plates,
   });
 });
+

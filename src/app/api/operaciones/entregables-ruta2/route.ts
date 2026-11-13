@@ -166,7 +166,7 @@ export const GET = withApiHandler(async (req: NextRequest) => {
   const farmRow = farmRows[0];
   const subRow = subRows[0];
   const farmName = onboardingState.farmProfile.name || farmRow?.name || "Granja Iwagé";
-  const municipality = onboardingState.farmProfile.city || farmRow?.municipality || "Sin municipio";
+  const municipality = onboardingState.farmProfile.city || "Sin municipio";
   const altitudeMeters = onboardingState.farmProfile.altitudeMeters || "";
   const planCode = subRow?.planCode || farmRow?.planCode || "FREEMIUM_SEMILLA";
 
@@ -445,3 +445,4 @@ export const GET = withApiHandler(async (req: NextRequest) => {
     },
   });
 });
+

@@ -153,3 +153,4 @@ describe("Ruta 2 — Plancha de Impresión QR en Lote (GET /api/operaciones/kit-
     expect(locA.id).not.toBe(betaBody.plates[0].entityId);
   });
 });
+

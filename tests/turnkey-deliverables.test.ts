@@ -211,7 +211,6 @@ describe("Ruta 2 — Motor PDF y 4 Entregables Formales (/api/operaciones/entreg
       id: farmId,
       slug: `ruta2-${farmId.slice(0, 8)}`,
       name: "Hacienda La Pradera",
-      municipality: "Duitama",
       planCode: "MEDIANO_MENSUAL",
     });
 
@@ -243,6 +242,11 @@ describe("Ruta 2 — Motor PDF y 4 Entregables Formales (/api/operaciones/entreg
     ]);
 
     await runWithFarmContext(farmId, async () => {
+      await db.insert(appSettings).values({
+        key: "farm.city",
+        value: "Duitama",
+      });
+
       const [locMix, locQuar] = await db
         .insert(farmLocations)
         .values([
