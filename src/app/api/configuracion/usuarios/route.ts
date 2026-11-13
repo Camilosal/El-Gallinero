@@ -11,7 +11,9 @@ import { PLAN_CATALOG } from "@/lib/subscription";
 
 export const dynamic = "force-dynamic";
 
-const ALLOWED_ROLES = new Set<AppRole>(["propietario", "gerente", "veterinario", "operario", "admin"]);
+// "admin" es un rol de plataforma reservado a la granja base y se crea por CLI.
+// La gestión de usuarios de una granja nunca debe poder emitirlo.
+const ALLOWED_ROLES = new Set<AppRole>(["propietario", "gerente", "veterinario", "operario"]);
 
 export function resolveMaxUsersFromPlan(planCode: string | null | undefined, explicitMax: number | null | undefined): number {
   if (explicitMax != null && explicitMax > 0) return explicitMax;

@@ -131,6 +131,24 @@ describe("Day 0 Registration (/registro) & Farm User/Role Management", () => {
     expect(listBody.maxUsers).toBe(2);
   });
 
+  it("rechaza emitir el rol admin desde la gestión de usuarios de una granja", async () => {
+    const req = new NextRequest("http://localhost:3000/api/configuracion/usuarios", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        name: "Intento Admin",
+        username: `intento_admin_${crypto.randomBytes(4).toString("hex")}`,
+        password: "ClaveSegura123",
+        role: "admin",
+      }),
+    });
+
+    const res = await createUser(req);
+    expect(res.status).toBe(400);
+    const body = await res.json();
+    expect(body.error).toMatch(/Rol inválido/);
+  });
+
   it("resuelve cupos de PLAN_CATALOG (MEDIANO_MENSUAL=15), permite >2 usuarios y actualiza nombre/rol/clave via PATCH", async () => {
     expect(resolveMaxUsersFromPlan("CICLO_60D", null)).toBe(3);
     expect(resolveMaxUsersFromPlan("SEMESTRAL_PONEDORA", null)).toBe(3);

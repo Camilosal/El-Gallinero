@@ -68,6 +68,10 @@ export function canManagePlatformTenants(
     | undefined,
 ): boolean {
   if (!user) return false;
+  // Solo la granja base de la plataforma puede alojar Super-Admins. Un rol
+  // "admin" creado dentro de la granja de un cliente no otorga acceso global.
+  const effectiveHomeFarmId = user.homeFarmId || user.farmId;
+  if (effectiveHomeFarmId !== DEFAULT_FARM_ID) return false;
   const rawRole = String(user.role || "")
     .trim()
     .toLowerCase();
@@ -79,11 +83,7 @@ export function canManagePlatformTenants(
   ) {
     return true;
   }
-  const effectiveHomeFarmId = user.homeFarmId || user.farmId;
-  if (effectiveHomeFarmId === DEFAULT_FARM_ID && normalizeRole(user.role) === "propietario") {
-    return true;
-  }
-  return false;
+  return normalizeRole(user.role) === "propietario";
 }
 
 function toFarmSlug(farmName: string): string {

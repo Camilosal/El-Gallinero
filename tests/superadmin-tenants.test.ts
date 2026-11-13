@@ -84,6 +84,23 @@ describe("Super-Admin Panel de Granjas (Tenants) API", () => {
     expect(res.status).toBe(403);
   });
 
+  it("niega el panel a un admin local de una granja secundaria (aislamiento multi-tenant)", async () => {
+    mockedSessionUser.current = {
+      id: "00000000-0000-0000-0000-000000000777",
+      username: "admin_finca_secundaria",
+      name: "Admin Local",
+      role: "admin",
+      farmId: "00000000-0000-0000-0000-000000000999",
+      homeFarmId: "00000000-0000-0000-0000-000000000999",
+    };
+
+    expect(canManagePlatformTenants(mockedSessionUser.current)).toBe(false);
+
+    const req = new NextRequest("http://localhost:3000/api/superadmin/granjas");
+    const res = await getSuperAdminFarms(req);
+    expect(res.status).toBe(403);
+  });
+
   it("permite al Super-Admin crear una nueva granja Llave en Mano, actualizar su plan/vencimiento y cambiar de contexto", async () => {
     mockedSessionUser.current = {
       id: "00000000-0000-0000-0000-000000000099",
