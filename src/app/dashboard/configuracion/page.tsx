@@ -14,6 +14,7 @@ const secciones = [
   { href: "/dashboard?wizard=1", label: "Asistente inicial (Día 1 · 3 pasos)", icon: "sparkles", desc: "Lanza el asistente guiado para cargar datos de la finca, lugares, animales actuales y alimento o plantilla CSV" },
   { href: "/dashboard/configuracion/kit-campo", label: "Kit de Campo y Entrega Llave en Mano", icon: "qrcode", desc: "Cronograma vivo de 4 semanas, plancha QR plastificable en lote, mapa ICA y Acta Semana 4 PDF" },
   { href: "/dashboard/configuracion/usuarios", label: "Usuarios y Roles de la Granja", icon: "users", desc: "Crea accesos para operario de galpón, veterinario o gerente sin usar consola técnica" },
+  { href: "/dashboard/configuracion/granjas", label: "Panel Super-Admin de Granjas (Tenants)", icon: "shield", desc: "Administra fincas registradas, planes, vencimientos, cupos de usuarios, altas Llave en Mano y soporte multi-granja" },
   { href: "/dashboard/configuracion/plan", label: "Plan por Ciclo y Pagos (Nequi / PSE)", icon: "credit-card", desc: "Renueva por cosecha de 60 días o plan semestral/anual mediante Nequi, Daviplata o PSE" },
   { href: "/dashboard/configuracion/modulos", label: "Onboarding Progresivo, Escala y Módulos", icon: "sparkles", desc: "Perfil Pequeño vs Mediano, auto-triggers de crecimiento, Feature Flags y Asistente Día 1 sin historial" },
   { href: "/dashboard/configuracion/catalogos", label: "Catálogos y datos de la granja", icon: "folder", desc: "8 pestañas maestras: listas, contactos, parámetros, 6 especies, vacunas, pesos, gallinaza y tabla nutricional" },

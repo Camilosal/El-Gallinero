@@ -64,7 +64,14 @@ export async function createSession(userId: string, farmId?: string | null): Pro
   return token;
 }
 
-export async function getSessionUser() {
+export async function getSessionUser(): Promise<{
+  id: string;
+  username: string;
+  name: string;
+  role: string;
+  farmId: string;
+  homeFarmId?: string;
+} | null> {
   const cookieStore = await cookies();
   const token = cookieStore.get(SESSION_COOKIE)?.value;
   if (!token) return null;
@@ -73,6 +80,7 @@ export async function getSessionUser() {
     .select({
       id: sessions.id,
       expiresAt: sessions.expiresAt,
+      sessionFarmId: sessions.farmId,
       user: {
         id: users.id,
         username: users.username,
@@ -87,7 +95,27 @@ export async function getSessionUser() {
     .limit(1);
 
   if (!session) return null;
-  return session.user;
+  return {
+    ...session.user,
+    farmId: session.sessionFarmId || session.user.farmId,
+    homeFarmId: session.user.farmId,
+  };
+}
+
+export async function switchUserSessionFarm(userId: string, targetFarmId: string): Promise<void> {
+  const cookieStore = await cookies();
+  const token = cookieStore.get(SESSION_COOKIE)?.value;
+  if (token) {
+    await db
+      .update(sessions)
+      .set({ farmId: targetFarmId })
+      .where(and(eq(sessions.userId, userId), eq(sessions.tokenHash, sha256(token))));
+    return;
+  }
+  await db
+    .update(sessions)
+    .set({ farmId: targetFarmId })
+    .where(eq(sessions.userId, userId));
 }
 
 export async function destroySession() {
