@@ -1,5 +1,5 @@
 import { db } from "@/db";
-import { farmAssets, farmLocations } from "@/db/schema";
+import { farmAssets, farmLocations, transactions } from "@/db/schema";
 import { isDateOnly } from "@/lib/date-validation";
 import { withApiHandler, safeParseJson } from "@/lib/api-handler";
 import { asc, eq, getTableColumns, sql } from "drizzle-orm";
@@ -9,6 +9,7 @@ export const dynamic = "force-dynamic";
 
 const CATEGORIES = new Set(["equipo", "herramienta", "estructura", "vehiculo", "otro"]);
 const STATUSES = new Set(["operativo", "requiere_mantenimiento", "fuera_servicio", "retirado"]);
+const DEPRECIATION_BASES = new Set(["meses", "ciclos"]);
 
 function cleanText(value: unknown, max: number, label: string): string | null {
   if (value == null || value === "") return null;
@@ -30,6 +31,34 @@ function validateAsset(body: Record<string, unknown>) {
   const cost = Number(body.acquisitionCost ?? 0);
   if (!Number.isFinite(cost) || cost < 0) throw new Error("El costo de adquisición no puede ser negativo");
 
+  const depreciationBasis = body.depreciationBasis ? String(body.depreciationBasis) : "meses";
+  if (!DEPRECIATION_BASES.has(depreciationBasis)) throw new Error("Base de depreciación inválida");
+
+  const rawMonths = body.usefulLifeMonths;
+  const usefulLifeMonths =
+    rawMonths === "" || rawMonths === null || rawMonths === undefined
+      ? depreciationBasis === "meses"
+        ? 36
+        : null
+      : Math.trunc(Number(rawMonths));
+  if (usefulLifeMonths !== null && (!Number.isFinite(usefulLifeMonths) || usefulLifeMonths <= 0 || usefulLifeMonths > 600)) {
+    throw new Error("La vida útil en meses debe estar entre 1 y 600");
+  }
+
+  const rawCycles = body.usefulLifeCycles;
+  const usefulLifeCycles =
+    rawCycles === "" || rawCycles === null || rawCycles === undefined
+      ? depreciationBasis === "ciclos"
+        ? 18
+        : null
+      : Math.trunc(Number(rawCycles));
+  if (usefulLifeCycles !== null && (!Number.isFinite(usefulLifeCycles) || usefulLifeCycles <= 0 || usefulLifeCycles > 500)) {
+    throw new Error("La vida útil en ciclos/lotes debe estar entre 1 y 500");
+  }
+
+  const residualValue = Number(body.residualValue ?? 0);
+  if (!Number.isFinite(residualValue) || residualValue < 0) throw new Error("El valor residual no puede ser negativo");
+
   return {
     name: body.name.trim(),
     category,
@@ -38,6 +67,10 @@ function validateAsset(body: Record<string, unknown>) {
     serialNumber: cleanText(body.serialNumber, 150, "Número de serie"),
     acquisitionDate: body.acquisitionDate ? String(body.acquisitionDate) : null,
     acquisitionCost: cost.toFixed(2),
+    usefulLifeMonths,
+    usefulLifeCycles,
+    residualValue: residualValue.toFixed(2),
+    depreciationBasis,
     warrantyUntil: body.warrantyUntil ? String(body.warrantyUntil) : null,
     locationId: body.locationId ? String(body.locationId) : null,
     status,
@@ -86,7 +119,22 @@ export const POST = withApiHandler(async (req: NextRequest) => {
   }
   const [created] = await db.transaction(async (tx) => {
     const code = await nextAssetCode(tx);
-    return tx.insert(farmAssets).values({ ...values, code }).returning();
+    const [inserted] = await tx.insert(farmAssets).values({ ...values, code }).returning();
+    if (body.recordCashPurchase === true && Number(values.acquisitionCost) > 0) {
+      const txDate = values.acquisitionDate || new Date().toISOString().slice(0, 10);
+      await tx.insert(transactions).values({
+        farmId: inserted.farmId,
+        type: "egreso",
+        category: "Equipamiento",
+        description: `Compra CapEx: ${inserted.name} (${inserted.code})`,
+        amount: values.acquisitionCost,
+        date: txDate,
+        sourceType: "farm_asset",
+        sourceId: inserted.id,
+        notes: "Compra de activo/infraestructura diferida por vida útil",
+      });
+    }
+    return [inserted];
   });
   return NextResponse.json(created, { status: 201 });
 });

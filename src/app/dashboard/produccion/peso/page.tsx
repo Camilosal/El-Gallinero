@@ -62,7 +62,13 @@ interface BatchOption {
   locationId: string | null;
 }
 
-const BREEDS = ["ISA Brown", "Hy-Line W-36", "Cobb 500", "Ross 308", "Cuy Mejorado"];
+const DEFAULT_BREEDS: Array<{ species: string; breed: string }> = [
+  { species: "gallina", breed: "ISA Brown" },
+  { species: "gallina", breed: "Hy-Line W-36" },
+  { species: "pollo", breed: "Cobb 500" },
+  { species: "pollo", breed: "Ross 308" },
+  { species: "cuy", breed: "Cuy Mejorado" },
+];
 const SPECIES = [
   { value: "gallina", label: "Gallina" },
   { value: "pollo", label: "Pollo" },
@@ -77,6 +83,8 @@ export default function PesoPage() {
   const [standards, setStandards] = useState<Standard[]>([]);
   const [logs, setLogs] = useState<WeightLog[]>([]);
   const [batches, setBatches] = useState<BatchOption[]>([]);
+  const [availableBreeds, setAvailableBreeds] = useState<Array<{ species: string; breed: string }>>(DEFAULT_BREEDS);
+  const [speciesFilter, setSpeciesFilter] = useState("todas");
   const [breed, setBreed] = useState("ISA Brown");
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
@@ -102,9 +110,31 @@ export default function PesoPage() {
     setLoading(true);
     apiFetch(`/api/produccion/peso?breed=${encodeURIComponent(breed)}`)
       .then((r) => r.json())
-      .then((data) => { setStandards(data.standards || []); setLogs(data.logs || []); setBatches(data.batches || []); })
+      .then((data) => {
+        setStandards(data.standards || []);
+        setLogs(data.logs || []);
+        setBatches(data.batches || []);
+        if (Array.isArray(data.availableBreeds) && data.availableBreeds.length > 0) {
+          setAvailableBreeds(data.availableBreeds);
+        }
+      })
       .finally(() => setLoading(false));
   }, [breed]);
+
+  const filteredBreeds = speciesFilter === "todas"
+    ? availableBreeds
+    : availableBreeds.filter((item) => item.species === speciesFilter);
+  const breedOptions = Array.from(new Set(filteredBreeds.map((item) => item.breed)));
+
+  const handleSpeciesFilterChange = (nextSpecies: string) => {
+    setSpeciesFilter(nextSpecies);
+    const matching = nextSpecies === "todas"
+      ? availableBreeds
+      : availableBreeds.filter((item) => item.species === nextSpecies);
+    if (matching.length > 0 && !matching.some((item) => item.breed === breed)) {
+      setBreed(matching[0].breed);
+    }
+  };
 
   useEffect(() => { void Promise.resolve().then(load); }, [load]);
   useActionQuery(searchParams.get("nuevo"), { "1": () => setModalOpen(true) });
@@ -199,9 +229,16 @@ export default function PesoPage() {
         help="Vincula cada pesaje a un lote de pollos, codornices, patos o conejos para que el informe use la edad real del lote. Las gallinas se registran por grupo y semana. Para ver todas las curvas de postura y crecimiento, usa Comparación de desempeño."
         actions={
           <div className="flex flex-wrap gap-2">
-            <Select value={breed} onChange={(e) => setBreed(e.target.value)}>
-              {BREEDS.map((b) => <option key={b} value={b}>{b}</option>)}
+            <Select value={speciesFilter} onChange={(e) => handleSpeciesFilterChange(e.target.value)} aria-label="Filtrar especie">
+              <option value="todas">Todas las especies</option>
+              {SPECIES.map((s) => <option key={s.value} value={s.value}>{s.label}</option>)}
             </Select>
+            <Select value={breed} onChange={(e) => setBreed(e.target.value)} aria-label="Seleccionar raza">
+              {breedOptions.map((b) => <option key={b} value={b}>{b}</option>)}
+            </Select>
+            <Link href="/dashboard/configuracion/catalogos?tab=pesos" className="inline-flex items-center rounded-lg border border-white/40 bg-white/95 px-3 py-2 text-sm font-semibold text-green-800 hover:bg-white transition-colors">
+              Gestionar curvas en Catálogos
+            </Link>
             <Link href="/dashboard/analisis/razas" className="inline-flex items-center rounded-lg border border-white/40 bg-white/95 px-3 py-2 text-sm font-semibold text-green-800 hover:bg-white transition-colors">Comparación de desempeño</Link>
           </div>
         }
@@ -260,7 +297,7 @@ export default function PesoPage() {
           />
         ) : (
           <div className="overflow-x-auto">
-            <Table headers={["Fecha", "Especie", "Lugar", "Raza", "Grupo / lote", "Semana", "Peso (kg)", "CV% / Unif.", "GDP", "Muestra", ""]}>
+            <Table headers={["Fecha", "Especie", "Lugar", "Raza", "Grupo / lote", "Semana", "Peso (kg)", "Parejo (Unif.)", "Aumento/día", "Muestra", ""]}>
               {filteredLogs.map((l) => (
                 <tr key={l.id} className="border-b border-slate-100">
                   <td className="py-2">{l.date}</td>
@@ -309,7 +346,7 @@ export default function PesoPage() {
           )}
           <FarmLocationSelect value={form.locationId} onChange={(locationId) => setForm({ ...form, locationId })} label="Lugar donde se realizó el pesaje *" help="Los pesos se comparan con los estándares dentro del lugar donde está el grupo." />
           <Input label="Peso promedio (kg)" type="number" step="0.001" value={form.avgWeightKg} onChange={(e) => setForm({ ...form, avgWeightKg: e.target.value })} help="Opcional si ingresas los pesos individuales abajo" />
-          <Input label="Pesos individuales (gramos, opcional)" value={form.individualWeightsRaw} onChange={(e) => setForm({ ...form, individualWeightsRaw: e.target.value })} placeholder="Ej: 1850, 1920, 1790, 1880" help="Calcula automáticamente promedio, CV%, uniformidad ±10% y tamaño de muestra" />
+          <Input label="Pesos individuales (gramos, opcional)" value={form.individualWeightsRaw} onChange={(e) => setForm({ ...form, individualWeightsRaw: e.target.value })} placeholder="Ej: 1850, 1920, 1790, 1880" help="Calcula automáticamente peso promedio, qué tan parejo está el lote (±10%) y tamaño de muestra" />
           <Input label="Tamaño muestra" type="number" value={form.sampleSize} onChange={(e) => setForm({ ...form, sampleSize: e.target.value })} help="Cuántos animales se pesaron si no detallaste pesos individuales" />
           <Input label="Notas" value={form.notes} onChange={(e) => setForm({ ...form, notes: e.target.value })} help="Observaciones del pesaje (condiciones, comentarios, etc.)" />
           <Button onClick={createLog} className="w-full">Guardar</Button>

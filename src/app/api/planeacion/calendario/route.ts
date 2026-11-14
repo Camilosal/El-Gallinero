@@ -27,6 +27,8 @@ import {
   weightLogs,
 } from "@/db/schema";
 import { withApiHandler } from "@/lib/api-handler";
+import { getHarvestDaysBySpecies } from "@/lib/settings";
+import { getColombianHolidaysInRange } from "@/lib/external-sources/wave3-tax-holidays-iot";
 import {
   DEFAULT_ROUTINE_TASKS,
   ROUTINE_COMPLETIONS_KEY,
@@ -747,14 +749,8 @@ export const GET = withApiHandler(async () => {
     }
   }
 
-  // 6. Active Batches: Optimal Biological Harvest Window (Pollo 42d, Pato 49d, Conejo 75d, Cuy 80d)
-  const OPTIMAL_HARVEST_DAYS: Record<string, number> = {
-    pollo: 42,
-    pato: 49,
-    conejo: 75,
-    cuy: 80,
-    codorniz: 42,
-  };
+  // 6. Active Batches: Optimal Biological Harvest Window (configurable por especie en Catálogos -> Parámetros)
+  const OPTIMAL_HARVEST_DAYS = await getHarvestDaysBySpecies();
   for (const batch of batchRows) {
     if (batch.purpose === "postura_huevo") continue;
     const cycleDays = OPTIMAL_HARVEST_DAYS[batch.species] || 45;
@@ -915,11 +911,35 @@ export const GET = withApiHandler(async () => {
     });
   }
 
+  // Festivos oficiales de Colombia (Ley 51/83 + Nager.Date) para planeación de turnos y despacho
+  for (const holiday of getColombianHolidaysInRange(fromDate, toDate)) {
+    allEvents.push({
+      id: `holiday:${holiday.date}`,
+      date: holiday.date,
+      title: `Festivo nacional: ${holiday.localName}`,
+      subtitle: `Calendario oficial Colombia (${holiday.type === "emiliani"
+        ? "Ley Emiliani"
+        : holiday.type === "pascua"
+          ? "Móvil Pascua"
+          : "Fecha fija"
+        }) — prever turnos y logística`,
+      module: "operaciones",
+      status: holiday.date < today ? "completed" : "upcoming",
+      isRoutine: false,
+      icon: "calendar",
+      priority: "normal",
+      actionHref: "/dashboard/analisis/fuentes-externas",
+      actionLabel: "Ver monitoreo y calendario",
+    });
+  }
+
   // Sort all events chronologically
   allEvents.sort((a, b) => a.date.localeCompare(b.date) || a.title.localeCompare(b.title));
 
-  // Today's tasks = today's routine tasks + non-routine events due today
-  const todayRoutineTasks = allEvents.filter((e) => e.date === today);
+  // Today's tasks = today's routine tasks + non-routine events due today (excluye festivos informativos)
+  const todayRoutineTasks = allEvents.filter(
+    (e) => e.date === today && !e.id.startsWith("holiday:"),
+  );
 
   // Overdue items (last 14 days for routine, any within range for non-routine)
   const overdueCutoff = addDaysIso(today, -7);
@@ -1010,8 +1030,8 @@ export const POST = withApiHandler(async (req: NextRequest) => {
   const verificationMode = routineTask
     ? getTaskVerificationMode(routineTask)
     : taskId.startsWith("sanitary:") ||
-        taskId.startsWith("inc-turn:") ||
-        taskId.startsWith("repro-nest:")
+      taskId.startsWith("inc-turn:") ||
+      taskId.startsWith("repro-nest:")
       ? "evidence_required"
       : taskId.startsWith("routine-")
         ? getTaskVerificationMode({ id: taskId })

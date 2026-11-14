@@ -5,7 +5,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { isAvailableForExit } from "@/lib/lifecycle";
 import { HEN_PRESENT_STATUSES } from "@/lib/animal-status";
 import { assignMales, requiredRoosters } from "@/lib/flock";
-import { getFlockRules, getIncubationDays } from "@/lib/settings";
+import { getFlockRules, getIncubationRulesForSpecies } from "@/lib/settings";
 import { withApiHandler, safeParseJson } from "@/lib/api-handler";
 import { addDaysIso } from "@/lib/date-validation";
 import { assertDateNotClosed, assertLocationEntryAllowed } from "@/lib/sanitary-locks";
@@ -94,10 +94,10 @@ export const POST = withApiHandler(async (req: NextRequest) => {
   }
 
   const spec = INCUBATION_SPECS[species];
-  const configuredGallinaDays = species === "gallina" ? await getIncubationDays() : spec.days;
-  const incubationDays = species === "gallina" ? configuredGallinaDays : spec.days;
+  const { days: incubationDays, turnStopDaysBefore } = await getIncubationRulesForSpecies(species);
   const expectedHatchDate = addDaysIso(String(body.startDate), incubationDays);
-  const turnStopDate = body.turnStopDate || addDaysIso(String(body.startDate), spec.turnStopDay);
+  const turnStopDays = Math.max(1, incubationDays - turnStopDaysBefore);
+  const turnStopDate = body.turnStopDate || addDaysIso(String(body.startDate), turnStopDays);
   const fertileEggs = body.fertileEggs != null && body.fertileEggs !== "" ? Number(body.fertileEggs) : null;
   const discardedEggs = body.discardedEggs != null && body.discardedEggs !== "" ? Number(body.discardedEggs) : 0;
   if (fertileEggs != null && (!Number.isInteger(fertileEggs) || fertileEggs < 0 || fertileEggs > eggsSet)) {

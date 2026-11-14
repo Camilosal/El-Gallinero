@@ -62,6 +62,20 @@ interface Kpis {
 interface FinanceData {
   transactions: Transaction[];
   summary: { income: string; expenses: string; profit: string };
+  operatingContext?: {
+    operatingIncomeCop: number;
+    accruedOperatingExpenseCop: number;
+    operatingNetProfitCop: number;
+    cashNetFlowCop: number;
+    periodDepreciationCop: number;
+    capexCashOutflowCop: number;
+    warehouseFeedAssetCop: number;
+    netEquipmentBookValueCop: number;
+    biologicalPortfolioValueCop: number;
+    totalProductiveWealthCop: number;
+    lifecycleMode: string;
+    lifecycleLabel: string;
+  };
   byCategory: ByCategory[];
   series: SeriesPoint[];
   kpis: Kpis;
@@ -264,6 +278,38 @@ export default function FinanzasPage() {
         <Card><p className="text-center py-8 text-slate-400">Cargando...</p></Card>
       ) : !data || !k || !cash ? null : (
         <>
+          {data.operatingContext && (
+            <div className="mb-6 grid grid-cols-1 md:grid-cols-3 gap-3">
+              <Card className="border-emerald-200 bg-emerald-50/60 !p-4">
+                <p className="text-xs font-semibold uppercase tracking-wide text-emerald-800">Ganancia Real de Operación</p>
+                <p className={`text-2xl font-bold mt-1 ${data.operatingContext.operatingNetProfitCop >= 0 ? "text-emerald-700" : "text-amber-700"}`}>
+                  {fmt(data.operatingContext.operatingNetProfitCop)}
+                </p>
+                <p className="text-xs text-slate-600 mt-1">
+                  Sin contar compra de equipos ({fmt(data.operatingContext.capexCashOutflowCop)}) ni bultos en bodega · Desgaste equipos {fmt(data.operatingContext.periodDepreciationCop)}
+                </p>
+              </Card>
+              <Card className="border-sky-200 bg-sky-50/60 !p-4">
+                <p className="text-xs font-semibold uppercase tracking-wide text-sky-800">Patrimonio en Granja ({data.operatingContext.lifecycleLabel})</p>
+                <p className="text-2xl font-bold text-sky-900 mt-1">
+                  {fmt(data.operatingContext.totalProductiveWealthCop)}
+                </p>
+                <p className="text-xs text-slate-600 mt-1">
+                  Valor de animales {fmt(data.operatingContext.biologicalPortfolioValueCop)} · Bodega {fmt(data.operatingContext.warehouseFeedAssetCop)} · Equipos {fmt(data.operatingContext.netEquipmentBookValueCop)}
+                </p>
+              </Card>
+              <Card className="border-slate-200 !p-4">
+                <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Dinero en Caja del Período</p>
+                <p className="text-2xl font-bold text-slate-900 mt-1">
+                  {fmt(data.operatingContext.cashNetFlowCop)}
+                </p>
+                <p className="text-xs text-slate-500 mt-1">
+                  Efectivo que entró menos efectivo que salió en estas fechas
+                </p>
+              </Card>
+            </div>
+          )}
+
           {/* KPI cards */}
           <div className="grid grid-cols-2 lg:grid-cols-3 gap-2.5 sm:gap-4 mb-6">
             <StatCard icon="incoming" label="Ingresos" value={fmt(k.totalIncome)} color="green" />

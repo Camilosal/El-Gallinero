@@ -14,12 +14,31 @@ import { useActionQuery } from "@/lib/useActionQuery";
 import FeatureGateBanner from "@/components/FeatureGateBanner";
 import { useOnboardingState } from "@/lib/useOnboardingState";
 
+interface OperatingContext {
+  operatingIncomeCop: number;
+  accruedOperatingExpenseCop: number;
+  operatingNetProfitCop: number;
+  cashNetFlowCop: number;
+  periodDepreciationCop: number;
+  capexCashOutflowCop?: number;
+  warehouseFeedAssetCop: number;
+  netEquipmentBookValueCop: number;
+  biologicalPortfolioValueCop: number;
+  totalProductiveWealthCop: number;
+  capexRecoveryPct?: number;
+  lifecycleMode?: string;
+  lifecycleLabel?: string;
+  lifecycleDescription?: string;
+  alertsCount?: number;
+}
+
 interface PLData {
   from: string;
   to: string;
   income: { categories: { category: string; total: number }[]; total: number };
   expenses: { categories: { category: string; total: number }[]; total: number };
   netProfit: number;
+  operatingContext?: OperatingContext;
   transactionCount: number;
 }
 
@@ -76,10 +95,40 @@ interface AnalyticalData {
     directRevenue: number;
     directCost: number;
     proratedCost: number;
+    depreciationCost?: number;
     totalCost: number;
     netProfit: number;
     unallocatedSharedCost: number;
+    cashNetFlow?: number;
+    capexExcluded?: number;
   };
+  lifecycleMode?: string;
+  lifecycleLabel?: string;
+  lifecycleDescription?: string;
+  biologicalPortfolio?: {
+    totalAliveAnimals: number;
+    totalBiologicalValueCop: number;
+    unrealizedBiologicalGainCop: number;
+    projectedHarvestValueCop: number;
+  };
+  warehouseFeed?: {
+    totalValueCop: number;
+    totalKg: number;
+    bultos40Kg: number;
+  };
+  assetsDepreciation?: {
+    netBookValueCop: number;
+    periodDepreciationCop: number;
+    capexRecoveryPct: number;
+  };
+  biologicalAlerts?: Array<{
+    id: string;
+    species: string;
+    severity: "info" | "warning" | "critical";
+    title: string;
+    detail: string;
+    recommendedAction: string;
+  }>;
   bySpecies: AnalyticalRow[];
   byLocation: AnalyticalRow[];
   unitEconomics: {
@@ -374,7 +423,7 @@ ${netText}`);
         <FeatureGateBanner
           flagKey="reportes_dian_roi_credito"
           mode="banner"
-          customHint="Tu Estado de Resultados, exportación CSV, impresión PDF y resumen WhatsApp están activos. La exportación Excel formal, presupuestos y análisis CAPEX/ROI se activan bajo demanda o en Modo Mediano."
+          customHint="Tu Estado de Ganancias y Pérdidas, exportación CSV, impresión PDF y resumen WhatsApp están activos. La exportación Excel formal, presupuestos y retorno de equipos se activan bajo demanda o en Modo Mediano."
         />
       )}
 
@@ -477,10 +526,44 @@ ${netText}`);
             )}
           </Card>
 
-          <Card className={plData.netProfit >= 0 ? "border-green-300 bg-green-50" : "border-red-300 bg-red-50"}>
+          {plData.operatingContext && (
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
+              <Card className="border-emerald-200 bg-emerald-50/50">
+                <p className="text-xs font-semibold uppercase tracking-wide text-emerald-800">1. Ganancia Real de Operación</p>
+                <p className={`text-2xl font-bold mt-1 ${plData.operatingContext.operatingNetProfitCop >= 0 ? "text-emerald-700" : "text-amber-700"}`}>
+                  {fmt(plData.operatingContext.operatingNetProfitCop)}
+                </p>
+                <p className="text-xs text-slate-600 mt-1">
+                  Sin contar compra de equipos ni alimento guardado en bodega · Incluye desgaste de equipos ({fmt(plData.operatingContext.periodDepreciationCop)})
+                </p>
+              </Card>
+              <Card className="border-sky-200 bg-sky-50/50">
+                <p className="text-xs font-semibold uppercase tracking-wide text-sky-800">2. Patrimonio Vivo de tu Granja</p>
+                <p className="text-2xl font-bold text-sky-900 mt-1">
+                  {fmt(plData.operatingContext.totalProductiveWealthCop)}
+                </p>
+                <p className="text-xs text-slate-600 mt-1">
+                  Animales hoy: {fmt(plData.operatingContext.biologicalPortfolioValueCop)} · Bodega: {fmt(plData.operatingContext.warehouseFeedAssetCop)} · Equipos: {fmt(plData.operatingContext.netEquipmentBookValueCop)}
+                </p>
+              </Card>
+              <Card className="border-slate-200">
+                <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">3. Dinero en Caja (Efectivo)</p>
+                <p className={`text-2xl font-bold mt-1 ${plData.netProfit >= 0 ? "text-slate-900" : "text-slate-700"}`}>
+                  {fmt(plData.netProfit)}
+                </p>
+                <p className="text-xs text-slate-500 mt-1">
+                  {plData.operatingContext.lifecycleLabel || "Movimiento de efectivo"} ({plData.transactionCount} movimientos)
+                </p>
+              </Card>
+            </div>
+          )}
+
+          <Card className={plData.netProfit >= 0 ? "border-green-300 bg-green-50" : "border-amber-200 bg-amber-50/40"}>
             <div className="text-center py-4">
-              <p className="text-sm text-slate-600">Utilidad Neta del Período</p>
-              <p className={`text-3xl font-bold ${plData.netProfit >= 0 ? "text-green-700" : "text-red-700"}`}>{fmt(plData.netProfit)}</p>
+              <p className="text-sm text-slate-600">
+                {plData.operatingContext ? "Flujo Neto de Caja del Período (criterio caja)" : "Utilidad Neta del Período"}
+              </p>
+              <p className={`text-3xl font-bold ${plData.netProfit >= 0 ? "text-green-700" : "text-amber-700"}`}>{fmt(plData.netProfit)}</p>
               <p className="text-sm text-slate-500 mt-2">{plData.transactionCount} transacciones registradas</p>
             </div>
           </Card>
@@ -584,6 +667,56 @@ ${netText}`);
             </Button>
           </div>
 
+          {analitica.biologicalPortfolio && (
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <Card className="border-emerald-200 bg-emerald-50/50">
+                <p className="text-xs uppercase font-semibold text-emerald-800">Ganancia Real de Operación</p>
+                <p className={`text-2xl font-bold ${analitica.totals.netProfit >= 0 ? "text-emerald-700" : "text-amber-700"}`}>
+                  {fmt(analitica.totals.netProfit)}
+                </p>
+                <p className="text-xs text-slate-600 mt-1">
+                  Cuenta solo alimento servido + desgaste de equipos ({fmt(analitica.totals.depreciationCost ?? 0)}). Compra de equipos apartada: {fmt(analitica.totals.capexExcluded ?? 0)}.
+                </p>
+              </Card>
+              <Card className="border-sky-200 bg-sky-50/50">
+                <p className="text-xs uppercase font-semibold text-sky-800">Valor de Animales y Bodega</p>
+                <p className="text-2xl font-bold text-sky-900">
+                  {fmt(analitica.biologicalPortfolio.totalBiologicalValueCop)}
+                </p>
+                <p className="text-xs text-slate-600 mt-1">
+                  {analitica.biologicalPortfolio.totalAliveAnimals} animales · Valor estimado al vender: {fmt(analitica.biologicalPortfolio.projectedHarvestValueCop)} · Bodega: {fmt(analitica.warehouseFeed?.totalValueCop ?? 0)} ({analitica.warehouseFeed?.bultos40Kg ?? 0} bultos)
+                </p>
+              </Card>
+              <Card className="border-slate-200">
+                <p className="text-xs uppercase font-semibold text-slate-500">Etapa y Dinero en Caja</p>
+                <p className="text-lg font-bold text-slate-800">{analitica.lifecycleLabel || "Operación"}</p>
+                <p className="text-xs text-slate-600 mt-1">
+                  Caja del período: {fmt(analitica.totals.cashNetFlow ?? analitica.totals.netProfit)} · Uso de equipos: {analitica.assetsDepreciation?.capexRecoveryPct ?? 0}%
+                </p>
+              </Card>
+            </div>
+          )}
+
+          {(analitica.biologicalAlerts || []).length > 0 && (
+            <div className="space-y-2">
+              {analitica.biologicalAlerts!.map((a) => (
+                <div
+                  key={a.id}
+                  className={`rounded-xl border p-3 text-sm ${
+                    a.severity === "critical"
+                      ? "border-rose-200 bg-rose-50 text-rose-900"
+                      : a.severity === "warning"
+                        ? "border-amber-200 bg-amber-50 text-amber-900"
+                        : "border-sky-200 bg-sky-50 text-sky-900"
+                  }`}
+                >
+                  <p className="font-semibold">[{a.species.toUpperCase()}] {a.title}</p>
+                  <p className="text-xs mt-0.5">{a.detail} <b>Acción:</b> {a.recommendedAction}</p>
+                </div>
+              ))}
+            </div>
+          )}
+
           {/* Real Unit Cost + Breakeven Alerts + CAPEX ROI */}
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <Card className={analitica.unitEconomics.eggs.breakevenAlert ? "border-red-300 bg-red-50/40" : ""}>
@@ -618,25 +751,25 @@ ${netText}`);
             <Card>
               <div className="flex items-start justify-between">
                 <div>
-                  <p className="text-xs uppercase font-semibold text-slate-500">CAPEX & Retorno (ROI)</p>
+                  <p className="text-xs uppercase font-semibold text-slate-500">Equipos y su Retorno</p>
                   <p className="text-2xl font-bold text-emerald-700">
-                    {analitica.capexRoi.roiPercent !== null ? `${analitica.capexRoi.roiPercent}% anual` : "Sin CAPEX"}
+                    {analitica.capexRoi.roiPercent !== null ? `${analitica.capexRoi.roiPercent}% anual` : "Sin equipos registrados"}
                   </p>
                   <p className="text-sm text-slate-600">
-                    Payback: <b>{analitica.capexRoi.paybackMonths !== null ? `${analitica.capexRoi.paybackMonths} meses` : "N/D"}</b>
+                    Se pagan solos en: <b>{analitica.capexRoi.paybackMonths !== null ? `${analitica.capexRoi.paybackMonths} meses` : "En cálculo"}</b>
                   </p>
                 </div>
                 <Scale className="w-5 h-5 text-emerald-600" />
               </div>
               <p className="text-xs text-slate-500 mt-2">
-                Activos ({analitica.capexRoi.activeAssetsCount}): {fmt(analitica.capexRoi.totalAssetCapex)}
+                Equipos ({analitica.capexRoi.activeAssetsCount}): {fmt(analitica.capexRoi.totalAssetCapex)}
               </p>
             </Card>
             ) : (
             <Card className="border-dashed border-amber-300 bg-amber-50/40">
-              <p className="text-xs uppercase font-semibold text-amber-800">CAPEX & Retorno (ROI)</p>
+              <p className="text-xs uppercase font-semibold text-amber-800">Equipos y su Retorno</p>
               <p className="text-xs text-amber-900/80 mt-2">
-                Activa “Reportes Formales DIAN, Crédito Banco Agrario y ROI CapEx” (o Modo Mediano) para calcular retorno sobre activos.
+                Activa el módulo de reportes formales (o Modo Mediano) para calcular en cuánto tiempo se pagan tus equipos.
               </p>
             </Card>
             )}
@@ -675,7 +808,7 @@ ${netText}`);
             <Card key={sec.title}>
               <h3 className="font-semibold text-slate-700 mb-3">{sec.title}</h3>
               {sec.rows.length === 0 ? <EmptyState icon="clipboard" message="Sin movimientos en el período" /> : (
-                <Table headers={["Nombre", "Ingresos", "Costo Directo", "Prorrateado", "Costo Total", "Alim. Devengado", "Utilidad", "Margen %"]}>
+                <Table headers={["Nombre", "Ingresos", "Costo Directo", "Gastos Compartidos", "Costo Total", "Alim. Consumido", "Ganancia", "Margen %"]}>
                   {sec.rows.map((r) => (
                     <tr key={r.key} className="hover:bg-slate-50">
                       <td className="px-3 py-2 text-sm font-medium capitalize">{r.label}</td>

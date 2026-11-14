@@ -1,11 +1,10 @@
-import { and, desc, eq, gte, lte, ne } from "drizzle-orm";
+import { and, desc, eq, gte, lte } from "drizzle-orm";
 import { db } from "@/db";
 import {
   costAllocations,
   eggProduction,
   eggSales,
   eggSalesItems,
-  farmAssets,
   farmLocations,
   feedInventory,
   feedMovements,
@@ -14,6 +13,18 @@ import {
   transactions,
 } from "@/db/schema";
 import { SPECIES_LABELS } from "@/lib/species";
+import {
+  classifyTransactionNature,
+  computeThreeLayerFinancials,
+} from "@/lib/analytics/biological-valuation";
+import {
+  computeAssetsDepreciationSummary,
+  computeFeedWarehouseValuation,
+  evaluateBiologicalPortfolio,
+  loadFarmBiologicalContext,
+} from "@/lib/analytics/biological-db";
+import { syncMarketPricesSnapshot } from "@/lib/external-sources/wave1-territory-weather-market";
+import { syncColombianTaxAndHolidaysSnapshot } from "@/lib/external-sources/wave3-tax-holidays-iot";
 
 const round2 = (n: number) => Number((Number.isFinite(n) ? n : 0).toFixed(2));
 const UNASSIGNED = "sin_asignar";
@@ -78,7 +89,7 @@ export async function computeAnalyticalAccounting(opts: ComputeAnalyticsOptions)
     eggSaleRows,
     slaughterRows,
     meatSaleRows,
-    activeAssets,
+    bioCtx,
   ] = await Promise.all([
     db.select().from(transactions).where(and(gte(transactions.date, from), lte(transactions.date, to))),
     db
@@ -116,8 +127,29 @@ export async function computeAnalyticalAccounting(opts: ComputeAnalyticsOptions)
       .where(and(gte(eggSales.date, from), lte(eggSales.date, to))),
     db.select().from(slaughter).where(and(gte(slaughter.date, from), lte(slaughter.date, to))),
     db.select().from(meatSales).where(and(gte(meatSales.date, from), lte(meatSales.date, to))),
-    db.select().from(farmAssets).where(ne(farmAssets.status, "retirado")),
+    loadFarmBiologicalContext({ speciesFilter, locationIdFilter, batchIdFilter, referenceDate: to }),
   ]);
+
+  const assetsSummary = computeAssetsDepreciationSummary(bioCtx.assets, { fromDate: from, toDate: to });
+  const warehouseSummary = computeFeedWarehouseValuation(bioCtx.feedRows);
+  const biologicalSummary = evaluateBiologicalPortfolio({
+    flocks: bioCtx.flocks,
+    broilerBatches: bioCtx.batches,
+    locations: bioCtx.locations,
+    marketPrices: bioCtx.marketOverrides,
+    referenceDate: to,
+  });
+
+  const filteredFeedConsumptions = feedConsumptions.filter((fc) => {
+    if (speciesFilter && fc.species !== speciesFilter) return false;
+    if (locationIdFilter && fc.locationId !== locationIdFilter) return false;
+    return true;
+  });
+  const totalAccruedFeedCost = filteredFeedConsumptions.reduce(
+    (s, fc) => s + Number(fc.quantity || 0) * Number(fc.unitCost ?? fc.fallbackCost ?? 0),
+    0,
+  );
+  const hasFeedConsumptionBasis = filteredFeedConsumptions.length > 0 && totalAccruedFeedCost > 0;
 
   const locNames = new Map(locations.map((l) => [l.id, l.name]));
   const allocatedTxIds = new Set(
@@ -148,6 +180,9 @@ export async function computeAnalyticalAccounting(opts: ComputeAnalyticsOptions)
 
   let totalDirectRevenue = 0;
   let totalDirectCost = 0;
+  let totalCashOutflow = 0;
+  let capexExcluded = 0;
+  let feedPurchasesExcluded = 0;
   let totalProratedCost = 0;
   let unallocatedSharedCost = 0;
 
@@ -157,6 +192,7 @@ export async function computeAnalyticalAccounting(opts: ComputeAnalyticsOptions)
     if (batchIdFilter && tx.batchId !== batchIdFilter) continue;
 
     const amt = Number(tx.amount || 0);
+    const nature = classifyTransactionNature(tx);
     const spKey = tx.species || UNASSIGNED;
     const locKey = tx.locationId || UNASSIGNED;
     const spBucket = ensureBucket(bySpeciesMap, spKey, speciesName(spKey));
@@ -171,6 +207,15 @@ export async function computeAnalyticalAccounting(opts: ComputeAnalyticsOptions)
       spBucket.directRevenue += amt;
       locBucket.directRevenue += amt;
     } else {
+      totalCashOutflow += amt;
+      if (nature === "capex") {
+        capexExcluded += amt;
+        continue;
+      }
+      if (nature === "feed_inventory_purchase" && hasFeedConsumptionBasis) {
+        feedPurchasesExcluded += amt;
+        continue;
+      }
       const alreadySplit = includeProrated && allocatedTxIds.has(tx.id);
       if (!alreadySplit) {
         totalDirectCost += amt;
@@ -205,19 +250,24 @@ export async function computeAnalyticalAccounting(opts: ComputeAnalyticsOptions)
     }
   }
 
-  for (const fc of feedConsumptions) {
-    if (speciesFilter && fc.species !== speciesFilter) continue;
-    if (locationIdFilter && fc.locationId !== locationIdFilter) continue;
+  for (const fc of filteredFeedConsumptions) {
     const cost = Number(fc.quantity || 0) * Number(fc.unitCost ?? fc.fallbackCost ?? 0);
     if (cost <= 0) continue;
     const spKey = fc.species || UNASSIGNED;
     const locKey = fc.locationId || UNASSIGNED;
-    ensureBucket(bySpeciesMap, spKey, speciesName(spKey)).feedCost += cost;
-    ensureBucket(
+    const spBucket = ensureBucket(bySpeciesMap, spKey, speciesName(spKey));
+    const locBucket = ensureBucket(
       byLocationMap,
       locKey,
       fc.locationId ? locNames.get(fc.locationId) || "Lugar" : "Sin asignar",
-    ).feedCost += cost;
+    );
+    spBucket.feedCost += cost;
+    locBucket.feedCost += cost;
+    if (hasFeedConsumptionBasis) {
+      totalDirectCost += cost;
+      spBucket.directCost += cost;
+      locBucket.directCost += cost;
+    }
   }
 
   const formatRows = (
@@ -262,15 +312,17 @@ export async function computeAnalyticalAccounting(opts: ComputeAnalyticsOptions)
     }
   }
   const layerDirectExpenses = txRows
-    .filter(
-      (t) =>
-        t.type === "egreso" &&
-        !(includeProrated && allocatedTxIds.has(t.id)) &&
-        (!speciesFilter || t.species === speciesFilter) &&
-        (!locationIdFilter || t.locationId === locationIdFilter) &&
-        (!batchIdFilter || t.batchId === batchIdFilter) &&
-        (isEggRelatedTx(t) || t.species === "gallina" || t.species === "codorniz"),
-    )
+    .filter((t) => {
+      if (t.type !== "egreso") return false;
+      if (includeProrated && allocatedTxIds.has(t.id)) return false;
+      if (speciesFilter && t.species !== speciesFilter) return false;
+      if (locationIdFilter && t.locationId !== locationIdFilter) return false;
+      if (batchIdFilter && t.batchId !== batchIdFilter) return false;
+      const nature = classifyTransactionNature(t);
+      if (nature === "capex") return false;
+      if (nature === "feed_inventory_purchase" && hasFeedConsumptionBasis) return false;
+      return isEggRelatedTx(t) || t.species === "gallina" || t.species === "codorniz";
+    })
     .reduce((s, t) => s + Number(t.amount || 0), 0);
   const layerProratedShare = includeProrated
     ? allocationRows.reduce(
@@ -284,7 +336,29 @@ export async function computeAnalyticalAccounting(opts: ComputeAnalyticsOptions)
       )
     : 0;
 
-  const eggProductionPoolCost = Math.max(layerDirectExpenses, layerAccruedFeedCost) + layerProratedShare;
+  const filteredSlaughter = slaughterRows.filter((r) => {
+    if (speciesFilter && r.species !== speciesFilter) return false;
+    if (locationIdFilter && r.locationId !== locationIdFilter) return false;
+    if (batchIdFilter && r.batchId !== batchIdFilter) return false;
+    return true;
+  });
+  const totalCarcassKg = filteredSlaughter.reduce((s, r) => s + Number(r.weightKg || 0), 0);
+  const totalLiveKg = filteredSlaughter.reduce(
+    (s, r) => s + Number(r.liveWeightKg || Number(r.weightKg || 0) / 0.72),
+    0,
+  );
+
+  const layerShareOfAssets =
+    biologicalSummary.totalBiologicalValueCop > 0
+      ? biologicalSummary.layerCapitalValueCop / biologicalSummary.totalBiologicalValueCop
+      : totalCarcassKg === 0
+        ? 1
+        : 0.5;
+  const eggProductionPoolCost =
+    layerDirectExpenses +
+    layerAccruedFeedCost +
+    layerProratedShare +
+    assetsSummary.periodDepreciationCop * layerShareOfAssets;
   const costDenominatorEggs = netSaleableEggs > 0 ? netSaleableEggs : totalEggsCollected;
   const realCostPerEgg = costDenominatorEggs > 0 ? round2(eggProductionPoolCost / costDenominatorEggs) : 0;
   const realCostPerTray30 = round2(realCostPerEgg * 30);
@@ -327,18 +401,6 @@ export async function computeAnalyticalAccounting(opts: ComputeAnalyticsOptions)
     })
     .sort((a, b) => b.revenue - a.revenue);
 
-  const filteredSlaughter = slaughterRows.filter((r) => {
-    if (speciesFilter && r.species !== speciesFilter) return false;
-    if (locationIdFilter && r.locationId !== locationIdFilter) return false;
-    if (batchIdFilter && r.batchId !== batchIdFilter) return false;
-    return true;
-  });
-  const totalCarcassKg = filteredSlaughter.reduce((s, r) => s + Number(r.weightKg || 0), 0);
-  const totalLiveKg = filteredSlaughter.reduce(
-    (s, r) => s + Number(r.liveWeightKg || Number(r.weightKg || 0) / 0.72),
-    0,
-  );
-
   let meatAccruedFeedCost = 0;
   for (const fc of feedConsumptions) {
     if (speciesFilter && fc.species !== speciesFilter) continue;
@@ -348,15 +410,17 @@ export async function computeAnalyticalAccounting(opts: ComputeAnalyticsOptions)
     }
   }
   const meatDirectExpenses = txRows
-    .filter(
-      (t) =>
-        t.type === "egreso" &&
-        !(includeProrated && allocatedTxIds.has(t.id)) &&
-        (!speciesFilter || t.species === speciesFilter) &&
-        (!locationIdFilter || t.locationId === locationIdFilter) &&
-        (!batchIdFilter || t.batchId === batchIdFilter) &&
-        (isMeatRelatedTx(t) || (t.species && ["pollo", "conejo", "cuy"].includes(t.species))),
-    )
+    .filter((t) => {
+      if (t.type !== "egreso") return false;
+      if (includeProrated && allocatedTxIds.has(t.id)) return false;
+      if (speciesFilter && t.species !== speciesFilter) return false;
+      if (locationIdFilter && t.locationId !== locationIdFilter) return false;
+      if (batchIdFilter && t.batchId !== batchIdFilter) return false;
+      const nature = classifyTransactionNature(t);
+      if (nature === "capex") return false;
+      if (nature === "feed_inventory_purchase" && hasFeedConsumptionBasis) return false;
+      return isMeatRelatedTx(t) || (t.species && ["pollo", "pato", "conejo", "cuy"].includes(t.species));
+    })
     .reduce((s, t) => s + Number(t.amount || 0), 0);
   const meatProratedShare = includeProrated
     ? allocationRows.reduce(
@@ -364,12 +428,22 @@ export async function computeAnalyticalAccounting(opts: ComputeAnalyticsOptions)
           s +
           (r.allocations || [])
             .filter((a) => !speciesFilter || a.species === speciesFilter)
-            .filter((a) => a.species && ["pollo", "conejo", "cuy"].includes(a.species))
+            .filter((a) => a.species && ["pollo", "pato", "conejo", "cuy"].includes(a.species))
             .reduce((acc, a) => acc + Number(a.amount || 0), 0),
         0,
       )
     : 0;
-  const meatPoolCost = Math.max(meatDirectExpenses, meatAccruedFeedCost) + meatProratedShare;
+  const meatShareOfAssets =
+    biologicalSummary.totalBiologicalValueCop > 0
+      ? biologicalSummary.meatBiologicalValueCop / biologicalSummary.totalBiologicalValueCop
+      : totalEggsCollected === 0
+        ? 1
+        : 0.5;
+  const meatPoolCost =
+    meatDirectExpenses +
+    meatAccruedFeedCost +
+    meatProratedShare +
+    assetsSummary.periodDepreciationCop * meatShareOfAssets;
   const realCostPerLiveKg = totalLiveKg > 0 ? round2(meatPoolCost / totalLiveKg) : 0;
   const realCostPerCarcassKg = totalCarcassKg > 0 ? round2(meatPoolCost / totalCarcassKg) : 0;
 
@@ -384,10 +458,9 @@ export async function computeAnalyticalAccounting(opts: ComputeAnalyticsOptions)
   const avgMeatSalePrice = soldMeatKg > 0 ? round2(soldMeatRev / soldMeatKg) : 0;
   const meatBreakevenAlert = soldMeatKg > 0 && realCostPerCarcassKg > 0 && avgMeatSalePrice < realCostPerCarcassKg;
 
-  const totalAssetCapex = activeAssets
-    .filter((a) => !locationIdFilter || a.locationId === locationIdFilter)
-    .reduce((s, a) => s + Number(a.acquisitionCost || 0), 0);
-  const netOperatingProfit = totalDirectRevenue - (totalDirectCost + totalProratedCost);
+  const totalAssetCapex = assetsSummary.totalAcquisitionCostCop;
+  const totalAccruedCostWithDepr = totalDirectCost + totalProratedCost + assetsSummary.periodDepreciationCop;
+  const netOperatingProfit = totalDirectRevenue - totalAccruedCostWithDepr;
   const days = Math.max(
     1,
     Math.round((new Date(`${to}T12:00:00`).getTime() - new Date(`${from}T12:00:00`).getTime()) / 86400000) + 1,
@@ -396,6 +469,75 @@ export async function computeAnalyticalAccounting(opts: ComputeAnalyticsOptions)
   const annualizedProfit = (netOperatingProfit / days) * 365;
   const roiPercent = totalAssetCapex > 0 ? round2((annualizedProfit / totalAssetCapex) * 100) : null;
   const paybackMonths = totalAssetCapex > 0 && monthlyProfit > 0 ? round2(totalAssetCapex / monthlyProfit) : null;
+
+  const threeLayer = computeThreeLayerFinancials({
+    transactions: txRows
+      .filter((t) => !speciesFilter || t.species === speciesFilter)
+      .filter((t) => !locationIdFilter || t.locationId === locationIdFilter)
+      .filter((t) => !batchIdFilter || t.batchId === batchIdFilter)
+      .map((t) => ({
+        type: t.type,
+        category: t.category,
+        description: t.description,
+        sourceType: t.sourceType,
+        amount: t.amount,
+        date: t.date,
+      })),
+    accruedFeedConsumedCostCop: totalAccruedFeedCost,
+    hasFeedConsumptionRecords: hasFeedConsumptionBasis,
+    assetsSummary,
+    warehouseSummary,
+    biologicalSummary,
+  });
+
+  const [marketSnap, taxSnap] = await Promise.all([
+    syncMarketPricesSnapshot().catch(() => null),
+    syncColombianTaxAndHolidaysSnapshot().catch(() => null),
+  ]);
+  const marketPayload = marketSnap?.payload;
+  const taxPayload = taxSnap?.payload;
+  const taxAndFinanceContext = taxPayload
+    ? {
+        uvtCop: taxPayload.uvtCop,
+        totalRevenueUvt: taxPayload.uvtCop > 0 ? round2(totalDirectRevenue / taxPayload.uvtCop) : null,
+        totalCostUvt:
+          taxPayload.uvtCop > 0
+            ? round2((totalDirectCost + totalProratedCost) / taxPayload.uvtCop)
+            : null,
+        agriculturalRetentionThresholdCop: taxPayload.retentionAgro92UvtCop,
+        purchasesRetentionThresholdCop: taxPayload.retentionPurchases27UvtCop,
+        finagroReferenceRateEaPct: taxPayload.finagroIbrEaPct,
+        roiAboveFinagroRate:
+          roiPercent !== null ? roiPercent >= taxPayload.finagroIbrEaPct : null,
+        finagroLines: taxPayload.finagroLines,
+        source: taxSnap.providerName,
+      }
+    : null;
+  const marketBenchmarks = marketPayload
+    ? {
+        providerName: marketSnap.providerName,
+        status: marketSnap.status,
+        fetchedAt: marketSnap.fetchedAt,
+        regionDepartment: marketPayload.regionDepartment,
+        trmCopPerUsd: marketPayload.trmCopPerUsd,
+        sipsaEggAaCop: marketPayload.eggs.aaUnitCop,
+        sipsaEggAaTray30Cop: marketPayload.eggs.aaTray30Cop,
+        sipsaChickenKgCop: marketPayload.meat.polloCanalKgCop,
+        sipsaConcentrate40KgCop: marketPayload.feed.concentrado40KgBagCop,
+        eggSaleVsSipsaPct:
+          avgSalePricePerEgg > 0 && marketPayload.eggs.aaUnitCop > 0
+            ? round2(((avgSalePricePerEgg - marketPayload.eggs.aaUnitCop) / marketPayload.eggs.aaUnitCop) * 100)
+            : null,
+        meatSaleVsSipsaPct:
+          avgMeatSalePrice > 0 && marketPayload.meat.polloCanalKgCop > 0
+            ? round2(((avgMeatSalePrice - marketPayload.meat.polloCanalKgCop) / marketPayload.meat.polloCanalKgCop) * 100)
+            : null,
+        sellingEggsBelowSipsa:
+          avgSalePricePerEgg > 0 && marketPayload.eggs.aaUnitCop > 0 && avgSalePricePerEgg < marketPayload.eggs.aaUnitCop * 0.9,
+        sellingMeatBelowSipsa:
+          avgMeatSalePrice > 0 && marketPayload.meat.polloCanalKgCop > 0 && avgMeatSalePrice < marketPayload.meat.polloCanalKgCop * 0.9,
+      }
+    : null;
 
   return {
     from,
@@ -406,10 +548,23 @@ export async function computeAnalyticalAccounting(opts: ComputeAnalyticsOptions)
       directRevenue: round2(totalDirectRevenue),
       directCost: round2(totalDirectCost),
       proratedCost: round2(totalProratedCost),
-      totalCost: round2(totalDirectCost + totalProratedCost),
+      depreciationCost: round2(assetsSummary.periodDepreciationCop),
+      totalCost: round2(totalAccruedCostWithDepr),
       netProfit: round2(netOperatingProfit),
       unallocatedSharedCost: round2(unallocatedSharedCost),
+      cashOutflows: round2(totalCashOutflow),
+      cashNetFlow: round2(totalDirectRevenue - totalCashOutflow),
+      capexExcluded: round2(capexExcluded),
+      feedPurchasesExcluded: round2(feedPurchasesExcluded),
     },
+    threeLayer,
+    biologicalPortfolio: biologicalSummary,
+    biologicalAlerts: biologicalSummary.alerts,
+    assetsDepreciation: assetsSummary,
+    warehouseFeed: warehouseSummary,
+    lifecycleMode: biologicalSummary.lifecycleMode,
+    lifecycleLabel: biologicalSummary.lifecycleLabel,
+    lifecycleDescription: biologicalSummary.lifecycleDescription,
     bySpecies: formatRows(bySpeciesMap),
     byLocation: formatRows(byLocationMap),
     unitEconomics: {
@@ -440,12 +595,17 @@ export async function computeAnalyticalAccounting(opts: ComputeAnalyticsOptions)
     },
     capexRoi: {
       totalAssetCapex: round2(totalAssetCapex),
-      activeAssetsCount: activeAssets.length,
+      activeAssetsCount: bioCtx.assets.length,
       monthlyProjectedProfit: round2(monthlyProfit),
       annualizedProfit: round2(annualizedProfit),
       roiPercent,
       paybackMonths,
+      capexRecoveryPct: assetsSummary.capexRecoveryPct,
+      periodDepreciationCop: assetsSummary.periodDepreciationCop,
+      netBookValueCop: assetsSummary.netBookValueCop,
     },
+    marketBenchmarks,
+    taxAndFinanceContext,
     proratedRulesCount: allocationRows.length,
   };
 }

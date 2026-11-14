@@ -7,6 +7,7 @@ import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip, Legend } from "recha
 import TableSearch from "@/components/TableSearch";
 import { matchesTextQuery } from "@/lib/text";
 import { useFarmLocations } from "@/lib/useFarmLocations";
+import { useCatalog } from "@/lib/useCatalog";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { useActionQuery } from "@/lib/useActionQuery";
@@ -95,6 +96,8 @@ export default function MortalidadPage() {
   const [mortalitySearch, setMortalitySearch] = useState("");
   const [lossSearch, setLossSearch] = useState("");
   const { locations } = useFarmLocations();
+  const { values: causeCatalogValues } = useCatalog("causa_mortalidad", Object.keys(CAUSE_LABELS));
+  const causeOptions = causeCatalogValues.length > 0 ? causeCatalogValues : Object.keys(CAUSE_LABELS);
 
   const load = useCallback(async () => {
     // 1. Cargar primero de caché local
@@ -495,7 +498,7 @@ export default function MortalidadPage() {
           {locations.length === 0 && <p className="text-sm text-amber-700"><Link className="font-semibold underline" href="/dashboard/ubicaciones">Crea primero un lugar de manejo</Link>.</p>}
 
           <Select label="Causa" value={form.cause} onChange={(e) => setForm({ ...form, cause: e.target.value })} help="Causa principal de la muerte (enfermedad, accidente, depredador, etc.)">
-            {Object.entries(CAUSE_LABELS).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
+            {causeOptions.map((k) => <option key={k} value={k}>{CAUSE_LABELS[k] || k}</option>)}
           </Select>
           <div>
             <span className="mb-1.5 block text-xs font-semibold text-slate-700">

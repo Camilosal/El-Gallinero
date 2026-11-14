@@ -49,23 +49,35 @@ export function generateEggLotCode(dateIso: string, species: string, uniqueHint?
   return `H-${compactDate}-${prefix}-${suffix}`;
 }
 
+export interface EggStorageThresholds {
+  minTempC?: number;
+  maxTempC?: number;
+  minHumidityPct?: number;
+  maxHumidityPct?: number;
+}
+
 export function checkEggStorageTelemetry(
   tempC: number | string | null | undefined,
   humidityPct: number | string | null | undefined,
+  thresholds: EggStorageThresholds = {},
 ): string[] {
+  const minTemp = thresholds.minTempC ?? 10;
+  const maxTemp = thresholds.maxTempC ?? 15;
+  const minHum = thresholds.minHumidityPct ?? 75;
+  const maxHum = thresholds.maxHumidityPct ?? 85;
   const warnings: string[] = [];
   if (tempC !== null && tempC !== undefined && tempC !== "") {
     const t = Number(tempC);
     if (Number.isFinite(t)) {
-      if (t < 10) warnings.push(`Temperatura bodega (${t}°C) por debajo del rango ideal (10–15°C)`);
-      else if (t > 15) warnings.push(`Temperatura bodega (${t}°C) sobre el máximo recomendado (10–15°C)`);
+      if (t < minTemp) warnings.push(`Temperatura bodega (${t}°C) por debajo del rango ideal (${minTemp}–${maxTemp}°C)`);
+      else if (t > maxTemp) warnings.push(`Temperatura bodega (${t}°C) sobre el máximo recomendado (${minTemp}–${maxTemp}°C)`);
     }
   }
   if (humidityPct !== null && humidityPct !== undefined && humidityPct !== "") {
     const h = Number(humidityPct);
     if (Number.isFinite(h)) {
-      if (h < 75) warnings.push(`Humedad relativa (${h}%) baja respecto al rango ideal (75–85%)`);
-      else if (h > 85) warnings.push(`Humedad relativa (${h}%) alta respecto al rango ideal (75–85%)`);
+      if (h < minHum) warnings.push(`Humedad relativa (${h}%) baja respecto al rango ideal (${minHum}–${maxHum}%)`);
+      else if (h > maxHum) warnings.push(`Humedad relativa (${h}%) alta respecto al rango ideal (${minHum}–${maxHum}%)`);
     }
   }
   return warnings;

@@ -19,6 +19,7 @@ import {
 } from "@/db/schema";
 import { withApiHandler } from "@/lib/api-handler";
 import { getSessionUser } from "@/lib/auth";
+import { getSanitaryEmptyDays } from "@/lib/settings";
 import {
   canPerformAction,
   forbiddenResponse,
@@ -261,6 +262,7 @@ export const GET = withApiHandler(async (req: NextRequest) => {
     })),
   };
 
+  const sanitaryEmptyDaysRequired = await getSanitaryEmptyDays();
   const compostingPoeData: CompostingPoePdfData = {
     farmName,
     municipality,
@@ -279,7 +281,7 @@ export const GET = withApiHandler(async (req: NextRequest) => {
       locationName: p.locationId ? locMap.get(p.locationId)?.name || null : null,
     })),
     recentBiosecurityCount30d: Number(bioLogCountRows[0]?.total || 0),
-    sanitaryEmptyDaysRequired: SANITARY_EMPTY_DAYS_REQUIRED,
+    sanitaryEmptyDaysRequired,
   };
 
   const feedCount = Number(feedCountRows[0]?.total || 0);

@@ -1219,12 +1219,12 @@ export default function AlimentacionPage() {
             <Card>
               <h3 className="font-semibold text-slate-700 mb-1 flex items-center gap-2">
                 <Sparkles className="w-4 h-4 text-emerald-600" aria-hidden="true" />
-                <span>Comparativo de Eficiencia de Dietas (FCR y Costo / kg Ganado)</span>
+                <span>Comparativo de Rendimiento del Alimento (Comida por Kilo Ganado)</span>
               </h3>
               <p className="text-xs text-slate-500 mb-3">
-                Evalúa qué mezcla y especie logra menor Índice de Conversión Alimenticia (ICA/FCR) y menor costo alimenticio por kilo de peso vivo ganado.
+                Evalúa qué mezcla y especie necesita menos alimento para producir 1 kilo de peso vivo (conversión) y cuánto cuesta cada kilo ganado.
               </p>
-              <Table headers={["Especie", "Animales activos", "Ración/día", "Costo dieta/kg", "Ganancia peso", "Alimento est.", "FCR (ICA)", "Costo / kg ganado"]}>
+              <Table headers={["Especie", "Animales activos", "Ración/día", "Costo dieta/kg", "Ganancia peso", "Alimento est.", "Comida/kg (FCR)", "Costo / kg ganado"]}>
                 {dietPerformance.map((row) => (
                   <tr key={row.species} className="hover:bg-slate-50">
                     <td className="px-4 py-2 font-semibold capitalize">{speciesPresentation[row.species as FeedingSpecies]?.plural || row.species}</td>

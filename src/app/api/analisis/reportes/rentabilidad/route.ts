@@ -1,10 +1,17 @@
 import { db } from "@/db";
-import { farmLocations, transactions } from "@/db/schema";
+import { farmLocations, feedInventory, feedMovements, transactions } from "@/db/schema";
 import { eq, gte, lte, and } from "drizzle-orm";
 import { NextRequest, NextResponse } from "next/server";
 import { withApiHandler } from "@/lib/api-handler";
 import { isDateOnly } from "@/lib/date-validation";
 import { normalizeFeedingSpecies } from "@/lib/species";
+import { computeThreeLayerFinancials } from "@/lib/analytics/biological-valuation";
+import {
+  computeAssetsDepreciationSummary,
+  computeFeedWarehouseValuation,
+  evaluateBiologicalPortfolio,
+  loadFarmBiologicalContext,
+} from "@/lib/analytics/biological-db";
 
 export const dynamic = "force-dynamic";
 
@@ -77,9 +84,25 @@ export const GET = withApiHandler(async (req: NextRequest) => {
   if (species) conditions.push(eq(transactions.species, species));
   if (locationId) conditions.push(eq(transactions.locationId, locationId));
 
-  const [txs, locations] = await Promise.all([
+  const [txs, locations, feedMovRows, bioCtx] = await Promise.all([
     db.select().from(transactions).where(and(...conditions)).orderBy(transactions.date),
     db.select({ id: farmLocations.id, name: farmLocations.name }).from(farmLocations),
+    db
+      .select({
+        species: feedMovements.species,
+        locationId: feedMovements.locationId,
+        quantity: feedMovements.quantity,
+        unitCost: feedMovements.unitCost,
+        fallbackCost: feedInventory.costPerUnit,
+      })
+      .from(feedMovements)
+      .innerJoin(feedInventory, eq(feedMovements.feedId, feedInventory.id))
+      .where(and(eq(feedMovements.isEntry, false), gte(feedMovements.date, from), lte(feedMovements.date, to))),
+    loadFarmBiologicalContext({
+      speciesFilter: species,
+      locationIdFilter: locationId || null,
+      referenceDate: to,
+    }),
   ]);
   const locationNames = new Map(locations.map((l) => [l.id, l.name]));
 
@@ -130,6 +153,40 @@ export const GET = withApiHandler(async (req: NextRequest) => {
   const totalRevenue = result.reduce((s, l) => s + l.revenue, 0);
   const totalCost = result.reduce((s, l) => s + l.cost, 0);
 
+  const filteredFeedMovs = feedMovRows.filter((fc) => {
+    if (species && fc.species !== species) return false;
+    if (locationId && fc.locationId !== locationId) return false;
+    return true;
+  });
+  const accruedFeedCost = filteredFeedMovs.reduce(
+    (s, fc) => s + Number(fc.quantity || 0) * Number(fc.unitCost ?? fc.fallbackCost ?? 0),
+    0,
+  );
+  const assetsSummary = computeAssetsDepreciationSummary(bioCtx.assets, { fromDate: from, toDate: to });
+  const warehouseSummary = computeFeedWarehouseValuation(bioCtx.feedRows);
+  const biologicalSummary = evaluateBiologicalPortfolio({
+    flocks: bioCtx.flocks,
+    broilerBatches: bioCtx.batches,
+    locations: bioCtx.locations,
+    marketPrices: bioCtx.marketOverrides,
+    referenceDate: to,
+  });
+  const threeLayer = computeThreeLayerFinancials({
+    transactions: txs.map((t) => ({
+      type: t.type,
+      category: t.category,
+      description: t.description,
+      sourceType: t.sourceType,
+      amount: t.amount,
+      date: t.date,
+    })),
+    accruedFeedConsumedCostCop: accruedFeedCost,
+    hasFeedConsumptionRecords: filteredFeedMovs.length > 0 && accruedFeedCost > 0,
+    assetsSummary,
+    warehouseSummary,
+    biologicalSummary,
+  });
+
   return NextResponse.json({
     from,
     to,
@@ -140,6 +197,13 @@ export const GET = withApiHandler(async (req: NextRequest) => {
     totalRevenue: money(totalRevenue),
     totalCost: money(totalCost),
     totalProfit: money(totalRevenue - totalCost),
+    operatingContext: {
+      ...threeLayer,
+      lifecycleMode: biologicalSummary.lifecycleMode,
+      lifecycleLabel: biologicalSummary.lifecycleLabel,
+      capexRecoveryPct: assetsSummary.capexRecoveryPct,
+      alertsCount: biologicalSummary.alerts.length,
+    },
   });
 });
 

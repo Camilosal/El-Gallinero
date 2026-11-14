@@ -5,6 +5,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { withApiHandler, safeParseJson } from "@/lib/api-handler";
 import { isDateOnly } from "@/lib/date-validation";
 import { computeDailyGainG, computeUniformityStats, parseIndividualWeightsInput } from "@/lib/zootechnics";
+import { aggregateStandardRowsByWeek, listAvailableWeightBreeds } from "@/lib/breed-standards-db";
+import { getAlertThresholds } from "@/lib/settings";
 
 export const dynamic = "force-dynamic";
 
@@ -18,29 +20,21 @@ export const GET = withApiHandler(async (req: NextRequest) => {
       .from(breedWeightStandards)
       .where(eq(breedWeightStandards.breed, breed))
       .orderBy(breedWeightStandards.weekNumber);
-    const neutralRows = rows.filter((row) => row.gender === "mixto");
-    const sourceRows = neutralRows.length > 0 ? neutralRows : rows;
-    const byWeek = new Map<number, typeof sourceRows>();
-    for (const row of sourceRows) {
-      const current = byWeek.get(row.weekNumber) || [];
-      current.push(row);
-      byWeek.set(row.weekNumber, current);
-    }
-    standards = [...byWeek.entries()].map(([weekNumber, group]) => ({
-      ...group[0],
+    const aggregated = aggregateStandardRowsByWeek(rows);
+    standards = aggregated.map((pt) => ({
+      id: `${breed}:${pt.week}`,
+      species: rows[0]?.species ?? null,
+      breed,
       gender: "mixto",
-      targetWeightG: String(group.reduce((sum, row) => sum + Number(row.targetWeightG), 0) / group.length),
-      minWeightG: group.some((row) => row.minWeightG != null)
-        ? String(Math.min(...group.map((row) => Number(row.minWeightG ?? row.targetWeightG))))
-        : null,
-      maxWeightG: group.some((row) => row.maxWeightG != null)
-        ? String(Math.max(...group.map((row) => Number(row.maxWeightG ?? row.targetWeightG))))
-        : null,
-      weekNumber,
+      weekNumber: pt.week,
+      targetWeightG: String(pt.target),
+      minWeightG: String(pt.min),
+      maxWeightG: String(pt.max),
+      createdAt: rows[0]?.createdAt ?? new Date(),
     }));
   }
 
-  const [rawLogs, batches] = await Promise.all([
+  const [rawLogs, batches, availableBreeds] = await Promise.all([
     db.select({
       id: weightLogs.id,
       date: weightLogs.date,
@@ -72,6 +66,7 @@ export const GET = withApiHandler(async (req: NextRequest) => {
       .from(broilerBatches)
       .where(and(inArray(broilerBatches.status, ["activo", "listo_sacrificio"]), gt(broilerBatches.currentQuantity, 0)))
       .orderBy(desc(broilerBatches.startDate)),
+    listAvailableWeightBreeds(),
   ]);
   const logs = rawLogs.map((log) => ({
     id: log.id,
@@ -94,15 +89,16 @@ export const GET = withApiHandler(async (req: NextRequest) => {
     locationId: log.locationId,
     locationName: log.locationName,
   }));
-  return NextResponse.json({ standards, logs, batches });
+  return NextResponse.json({ standards, logs, batches, availableBreeds });
 });
 
 export const POST = withApiHandler(async (req: NextRequest) => {
   const body = await safeParseJson(req);
   const { date, batchId, henGroup, breed, weekNumber, avgWeightKg, sampleSize, notes } = body;
 
+  const { uniformityTolerancePct } = await getAlertThresholds();
   const parsedWeightsG = parseIndividualWeightsInput(body.individualWeightsG);
-  const uniformity = parsedWeightsG.length > 0 ? computeUniformityStats(parsedWeightsG, 10) : null;
+  const uniformity = parsedWeightsG.length > 0 ? computeUniformityStats(parsedWeightsG, uniformityTolerancePct) : null;
   const resolvedWeightKg = avgWeightKg != null && avgWeightKg !== ""
     ? Number(avgWeightKg)
     : uniformity
@@ -182,7 +178,13 @@ export const POST = withApiHandler(async (req: NextRequest) => {
     })
     .returning();
 
-  return NextResponse.json(row, { status: 201 });
+  return NextResponse.json(
+    {
+      ...row,
+      ...(computedDailyGainG !== null ? { computedDailyGainG } : {}),
+    },
+    { status: 201 },
+  );
 });
 
 export const DELETE = withApiHandler(async (req: NextRequest) => {

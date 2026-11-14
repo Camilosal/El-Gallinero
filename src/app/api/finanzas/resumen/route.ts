@@ -1,8 +1,15 @@
 import { NextResponse } from "next/server";
 import { db } from "@/db";
-import { transactions } from "@/db/schema";
+import { feedInventory, feedMovements, transactions } from "@/db/schema";
 import { sql, eq, and, gte, lte } from "drizzle-orm";
 import { withApiHandler } from "@/lib/api-handler";
+import { computeThreeLayerFinancials } from "@/lib/analytics/biological-valuation";
+import {
+  computeAssetsDepreciationSummary,
+  computeFeedWarehouseValuation,
+  evaluateBiologicalPortfolio,
+  loadFarmBiologicalContext,
+} from "@/lib/analytics/biological-db";
 
 export const GET = withApiHandler(async () => {
   try {
@@ -12,45 +19,76 @@ export const GET = withApiHandler(async () => {
     const hace30DiasStr = hace30Dias.toISOString().split("T")[0];
     const hoyStr = hoy.toISOString().split("T")[0];
 
-    const [ingresosMes] = await db
-      .select({ total: sql<number>`sum(${transactions.amount})` })
-      .from(transactions)
-      .where(
-        and(
-          eq(transactions.type, "ingreso"),
-          gte(transactions.date, hace30DiasStr),
-          lte(transactions.date, hoyStr)
-        )
-      );
+    const [txRows, feedMovRows, bioCtx] = await Promise.all([
+      db
+        .select({
+          type: transactions.type,
+          category: transactions.category,
+          description: transactions.description,
+          sourceType: transactions.sourceType,
+          amount: transactions.amount,
+          date: transactions.date,
+        })
+        .from(transactions)
+        .where(and(gte(transactions.date, hace30DiasStr), lte(transactions.date, hoyStr))),
+      db
+        .select({
+          quantity: feedMovements.quantity,
+          unitCost: feedMovements.unitCost,
+          fallbackCost: feedInventory.costPerUnit,
+        })
+        .from(feedMovements)
+        .innerJoin(feedInventory, eq(feedMovements.feedId, feedInventory.id))
+        .where(and(eq(feedMovements.isEntry, false), gte(feedMovements.date, hace30DiasStr), lte(feedMovements.date, hoyStr))),
+      loadFarmBiologicalContext({ referenceDate: hoyStr }),
+    ]);
 
-    const [egresosMes] = await db
-      .select({ total: sql<number>`sum(${transactions.amount})` })
-      .from(transactions)
-      .where(
-        and(
-          eq(transactions.type, "egreso"),
-          gte(transactions.date, hace30DiasStr),
-          lte(transactions.date, hoyStr)
-        )
-      );
+    const ingresosMes = txRows
+      .filter((t) => t.type === "ingreso")
+      .reduce((s, t) => s + Number(t.amount || 0), 0);
+    const egresosMes = txRows
+      .filter((t) => t.type === "egreso")
+      .reduce((s, t) => s + Number(t.amount || 0), 0);
+    const balanceMes = ingresosMes - egresosMes;
 
-    const [balanceMes] = await db
-      .select({
-        total: sql<number>`sum(case when ${transactions.type} = 'ingreso' then ${transactions.amount} else -${transactions.amount} end)`
-      })
-      .from(transactions)
-      .where(and(gte(transactions.date, hace30DiasStr), lte(transactions.date, hoyStr)));
-
-    const [totalTransacciones] = await db
-      .select({ count: sql<number>`count(*)` })
-      .from(transactions)
-      .where(and(gte(transactions.date, hace30DiasStr), lte(transactions.date, hoyStr)));
+    const accruedFeedCost = feedMovRows.reduce(
+      (s, fc) => s + Number(fc.quantity || 0) * Number(fc.unitCost ?? fc.fallbackCost ?? 0),
+      0,
+    );
+    const assetsSummary = computeAssetsDepreciationSummary(bioCtx.assets, {
+      fromDate: hace30DiasStr,
+      toDate: hoyStr,
+    });
+    const warehouseSummary = computeFeedWarehouseValuation(bioCtx.feedRows);
+    const biologicalSummary = evaluateBiologicalPortfolio({
+      flocks: bioCtx.flocks,
+      broilerBatches: bioCtx.batches,
+      locations: bioCtx.locations,
+      marketPrices: bioCtx.marketOverrides,
+      referenceDate: hoyStr,
+    });
+    const threeLayer = computeThreeLayerFinancials({
+      transactions: txRows,
+      accruedFeedConsumedCostCop: accruedFeedCost,
+      hasFeedConsumptionRecords: feedMovRows.length > 0 && accruedFeedCost > 0,
+      assetsSummary,
+      warehouseSummary,
+      biologicalSummary,
+    });
 
     return NextResponse.json({
-      ingresosMes: Number(ingresosMes?.total || 0),
-      egresosMes: Number(egresosMes?.total || 0),
-      balanceMes: Number(balanceMes?.total || 0),
-      totalTransacciones: Number(totalTransacciones?.count || 0),
+      ingresosMes: Number(ingresosMes.toFixed(2)),
+      egresosMes: Number(egresosMes.toFixed(2)),
+      balanceMes: Number(balanceMes.toFixed(2)),
+      totalTransacciones: txRows.length,
+      operatingContext: {
+        ...threeLayer,
+        capexRecoveryPct: assetsSummary.capexRecoveryPct,
+        lifecycleMode: biologicalSummary.lifecycleMode,
+        lifecycleLabel: biologicalSummary.lifecycleLabel,
+        lifecycleDescription: biologicalSummary.lifecycleDescription,
+        alertsCount: biologicalSummary.alerts.length,
+      },
     });
   } catch (error) {
     console.error("Error en resumen finanzas:", error);

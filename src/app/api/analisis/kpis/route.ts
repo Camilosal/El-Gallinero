@@ -66,6 +66,24 @@ export const GET = withApiHandler(async (req: NextRequest) => {
     return NextResponse.json({ error: "Especie no válida" }, { status: 400 });
   }
   const locationIdFilter = searchParams.get("locationId") || null;
+  const batchIdFilter = searchParams.get("batchId")?.trim() || null;
+
+  const [
+    { buildKpiEnrichment, isValidUuid },
+    { getSessionUser },
+    { getCurrentFarmId },
+  ] = await Promise.all([
+    import("@/lib/kpi-dashboard-server"),
+    import("@/lib/auth"),
+    import("@/db/tenant-context"),
+  ]);
+
+  if (locationIdFilter && !isValidUuid(locationIdFilter)) {
+    return NextResponse.json({ error: "locationId no válido" }, { status: 400 });
+  }
+  if (batchIdFilter && !isValidUuid(batchIdFilter)) {
+    return NextResponse.json({ error: "batchId no válido" }, { status: 400 });
+  }
 
   const today = new Date();
   const cutoff = new Date(today);
@@ -434,66 +452,125 @@ export const GET = withApiHandler(async (req: NextRequest) => {
   const roiAnnualizedPct = totalCapex > 0 ? (((netPeriodProfit / days) * 365) / totalCapex) * 100 : null;
   const paybackMonths = totalCapex > 0 && monthlyProfit > 0 ? totalCapex / monthlyProfit : null;
 
+  const sessionUser = await getSessionUser().catch(() => null);
+  const farmId = sessionUser?.farmId || getCurrentFarmId();
+
+  const baseMortality = {
+    rate: Number(mortalityRate.toFixed(2)),
+    totalDeaths,
+    totalFlock: scopedFlockCount,
+    byCause,
+  };
+  const baseLaying = {
+    rate: Number(layingRate.toFixed(2)),
+    haaRate: Number(haaRate.toFixed(2)),
+    totalEggs: recordedEggs,
+    eligibleEggs,
+    eligibleAnimals,
+    avgDaily: Number(avgDaily.toFixed(1)),
+    series: layingSeries,
+  };
+  const baseCostPerUnit = {
+    perEgg: Number(perEgg.toFixed(2)),
+    perTray30: Number(perTray30.toFixed(2)),
+    avgSalePricePerEgg: Number(avgSalePricePerEgg.toFixed(2)),
+    breakevenAlertEggs,
+    perKgMeat: Number(perKgMeat.toFixed(2)),
+    perLiveKgMeat: Number(perLiveKgMeat.toFixed(2)),
+    totalExpenses,
+    proratedCostsInPeriod: Number(proratedSum.toFixed(2)),
+    eggFeedCost: Number(effectiveEggCostPool.toFixed(2)),
+    meatEstimatedCost: Number(meatEstimatedCost.toFixed(2)),
+    saleableMeatKg: Number(saleableMeatKg.toFixed(2)),
+    totalCarcassKg: Number(totalCarcassMeatKg.toFixed(2)),
+    totalLiveKg: Number(totalLiveMeatKg.toFixed(2)),
+  };
+  const baseZootechnical = {
+    cvPercent: avgCvPercent !== null ? Number(avgCvPercent.toFixed(2)) : null,
+    uniformityPct: avgUniformityPct !== null ? Number(avgUniformityPct.toFixed(1)) : null,
+    dailyGainG: avgDailyGainG !== null ? Number(avgDailyGainG.toFixed(1)) : null,
+    epef: epefScore !== null ? Number(epefScore.toFixed(1)) : null,
+    feedKgConsumed: Number(totalFeedKgPeriod.toFixed(2)),
+    slaughterWindowAlerts,
+  };
+  const baseFlock = {
+    avgAgeWeeks: Number(avgAgeWeeks.toFixed(1)),
+    totalBirds: scopedFlockCount,
+    productiveRatio: Number(productiveRatio.toFixed(2)),
+  };
+  const basePeakProduction = {
+    peakWeek: peakWeek?.weekStart || null,
+    peakDate: peakWeek?.weekStart || null,
+    peakRate: Number(peakRate.toFixed(2)),
+    currentRate: Number(currentRate.toFixed(2)),
+    declinePercent: Number(declinePercent.toFixed(2)),
+    avgDaily: Number((peakWeek?.avgDaily || 0).toFixed(1)),
+    totalEggs: peakWeek?.totalEggs || 0,
+  };
+
+  const enrichment = await buildKpiEnrichment({
+    farmId,
+    userId: sessionUser?.id || "anonymous",
+    days,
+    startDate: cutoffStr,
+    endDate: todayStr,
+    speciesFilter: (speciesFilter as any) || null,
+    locationIdFilter,
+    batchIdFilter,
+    currentSnapshot: {
+      mortalityRate: baseMortality.rate,
+      layingRate: baseLaying.rate,
+      layingHaaRate: baseLaying.haaRate,
+      costPerEgg: baseCostPerUnit.perEgg,
+      avgSalePricePerEgg: baseCostPerUnit.avgSalePricePerEgg,
+      costPerKgMeat: baseCostPerUnit.perKgMeat,
+      totalEggs: baseLaying.totalEggs,
+      saleableMeatKg: baseCostPerUnit.saleableMeatKg,
+      totalCarcassKg: baseCostPerUnit.totalCarcassKg,
+      epef: baseZootechnical.epef,
+      uniformityPct: baseZootechnical.uniformityPct,
+      totalFlock: baseFlock.totalBirds,
+      eligibleAnimals: baseLaying.eligibleAnimals,
+    },
+  });
+
+  if (enrichment.notFound) {
+    return NextResponse.json({ error: "Lote no encontrado" }, { status: 404 });
+  }
+
+  const resolvedBatch = enrichment.batchOverride;
+  const accruedNetProfit = enrichment.finance.netProfit;
+  const accruedMonthlyProfit = (accruedNetProfit / days) * 30.4375;
+  const effectiveRoiAnnualizedPct =
+    totalCapex > 0 ? (((accruedNetProfit / days) * 365) / totalCapex) * 100 : null;
+  const effectivePaybackMonths =
+    totalCapex > 0 && accruedMonthlyProfit > 0 ? totalCapex / accruedMonthlyProfit : null;
+
   return NextResponse.json({
-    filters: { species: speciesFilter, locationId: locationIdFilter },
-    mortality: {
-      rate: Number(mortalityRate.toFixed(2)),
-      totalDeaths,
-      totalFlock: scopedFlockCount,
-      byCause,
+    filters: {
+      species: resolvedBatch ? resolvedBatch.species : speciesFilter,
+      locationId: locationIdFilter,
+      batchId: batchIdFilter,
     },
-    laying: {
-      rate: Number(layingRate.toFixed(2)),
-      haaRate: Number(haaRate.toFixed(2)),
-      totalEggs: recordedEggs,
-      eligibleEggs,
-      eligibleAnimals,
-      avgDaily: Number(avgDaily.toFixed(1)),
-      series: layingSeries,
-    },
-    costPerUnit: {
-      perEgg: Number(perEgg.toFixed(2)),
-      perTray30: Number(perTray30.toFixed(2)),
-      avgSalePricePerEgg: Number(avgSalePricePerEgg.toFixed(2)),
-      breakevenAlertEggs,
-      perKgMeat: Number(perKgMeat.toFixed(2)),
-      perLiveKgMeat: Number(perLiveKgMeat.toFixed(2)),
-      totalExpenses,
-      proratedCostsInPeriod: Number(proratedSum.toFixed(2)),
-      eggFeedCost: Number(effectiveEggCostPool.toFixed(2)),
-      meatEstimatedCost: Number(meatEstimatedCost.toFixed(2)),
-      saleableMeatKg: Number(saleableMeatKg.toFixed(2)),
-      totalCarcassKg: Number(totalCarcassMeatKg.toFixed(2)),
-      totalLiveKg: Number(totalLiveMeatKg.toFixed(2)),
-    },
-    zootechnical: {
-      cvPercent: avgCvPercent !== null ? Number(avgCvPercent.toFixed(2)) : null,
-      uniformityPct: avgUniformityPct !== null ? Number(avgUniformityPct.toFixed(1)) : null,
-      dailyGainG: avgDailyGainG !== null ? Number(avgDailyGainG.toFixed(1)) : null,
-      epef: epefScore !== null ? Number(epefScore.toFixed(1)) : null,
-      feedKgConsumed: Number(totalFeedKgPeriod.toFixed(2)),
-      slaughterWindowAlerts,
-    },
+    mortality: resolvedBatch ? resolvedBatch.mortality : baseMortality,
+    laying: resolvedBatch ? resolvedBatch.laying : baseLaying,
+    costPerUnit: resolvedBatch ? resolvedBatch.costPerUnit : baseCostPerUnit,
+    zootechnical: resolvedBatch ? resolvedBatch.zootechnical : baseZootechnical,
     capexRoi: {
       totalCapex: Number(totalCapex.toFixed(2)),
-      roiAnnualizedPct: roiAnnualizedPct !== null ? Number(roiAnnualizedPct.toFixed(1)) : null,
-      paybackMonths: paybackMonths !== null ? Number(paybackMonths.toFixed(1)) : null,
+      roiAnnualizedPct: effectiveRoiAnnualizedPct !== null ? Number(effectiveRoiAnnualizedPct.toFixed(1)) : null,
+      paybackMonths: effectivePaybackMonths !== null ? Number(effectivePaybackMonths.toFixed(1)) : null,
     },
-    flock: {
-      avgAgeWeeks: Number(avgAgeWeeks.toFixed(1)),
-      totalBirds: scopedFlockCount,
-      productiveRatio: Number(productiveRatio.toFixed(2)),
-    },
-    expenseByCategory,
+    flock: resolvedBatch ? resolvedBatch.flock : baseFlock,
+    expenseByCategory: resolvedBatch ? resolvedBatch.expenseByCategory : expenseByCategory,
     periodDays: days,
-    peakProduction: {
-      peakWeek: peakWeek?.weekStart || null,
-      peakDate: peakWeek?.weekStart || null,
-      peakRate: Number(peakRate.toFixed(2)),
-      currentRate: Number(currentRate.toFixed(2)),
-      declinePercent: Number(declinePercent.toFixed(2)),
-      avgDaily: Number((peakWeek?.avgDaily || 0).toFixed(1)),
-      totalEggs: peakWeek?.totalEggs || 0,
-    },
+    peakProduction: resolvedBatch ? resolvedBatch.peakProduction : basePeakProduction,
+    previousPeriod: enrichment.previousPeriod,
+    finance: enrichment.finance,
+    feedAutonomy: enrichment.feedAutonomy,
+    benchmarks: enrichment.benchmarks,
+    farmContext: enrichment.farmContext,
+    customConfig: enrichment.customConfig,
+    biologicalContext: enrichment.biologicalContext,
   });
 });

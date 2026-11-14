@@ -19,6 +19,13 @@ import {
   deleteTransactionsAndUnpaidAccounts,
   syncCreditReceivable,
 } from "@/lib/financial-records";
+import { computeThreeLayerFinancials } from "@/lib/analytics/biological-valuation";
+import {
+  computeAssetsDepreciationSummary,
+  computeFeedWarehouseValuation,
+  evaluateBiologicalPortfolio,
+  loadFarmBiologicalContext,
+} from "@/lib/analytics/biological-db";
 
 export const dynamic = "force-dynamic";
 
@@ -38,7 +45,7 @@ export const GET = withApiHandler(async (req: NextRequest) => {
   const todayStr = new Date().toISOString().split("T")[0];
   const periodFilter = and(gte(transactions.date, dateStr), lte(transactions.date, todayStr));
 
-  const [data, summary, byCategory, paymentRows] = await Promise.all([
+  const [data, summary, byCategory, paymentRows, feedMovRows, bioCtx] = await Promise.all([
     db.select().from(transactions).where(periodFilter).orderBy(desc(transactions.date)),
     db.select({
       type: transactions.type,
@@ -51,6 +58,16 @@ export const GET = withApiHandler(async (req: NextRequest) => {
       total: sql<string>`coalesce(sum(${transactions.amount}), 0)::text`,
     }).from(transactions).where(periodFilter).groupBy(transactions.type, transactions.category).orderBy(sql`sum(${transactions.amount}) desc`),
     db.select().from(payments).where(and(gte(payments.date, dateStr), lte(payments.date, todayStr))),
+    db
+      .select({
+        quantity: feedMovements.quantity,
+        unitCost: feedMovements.unitCost,
+        fallbackCost: feedInventory.costPerUnit,
+      })
+      .from(feedMovements)
+      .innerJoin(feedInventory, eq(feedMovements.feedId, feedInventory.id))
+      .where(and(eq(feedMovements.isEntry, false), gte(feedMovements.date, dateStr), lte(feedMovements.date, todayStr))),
+    loadFarmBiologicalContext({ referenceDate: todayStr }),
   ]);
 
   // Enriquecer compras de alimento con el feedId del movimiento vinculado y fechas de vencimiento CxC/CxP
@@ -98,6 +115,42 @@ export const GET = withApiHandler(async (req: NextRequest) => {
     kpis: computeKpis(cashflowRows, periodDays),
   };
 
+  const accruedFeedCost = feedMovRows.reduce(
+    (s, fc) => s + Number(fc.quantity || 0) * Number(fc.unitCost ?? fc.fallbackCost ?? 0),
+    0,
+  );
+  const assetsSummary = computeAssetsDepreciationSummary(bioCtx.assets, { fromDate: dateStr, toDate: todayStr });
+  const warehouseSummary = computeFeedWarehouseValuation(bioCtx.feedRows);
+  const biologicalSummary = evaluateBiologicalPortfolio({
+    flocks: bioCtx.flocks,
+    broilerBatches: bioCtx.batches,
+    locations: bioCtx.locations,
+    marketPrices: bioCtx.marketOverrides,
+    referenceDate: todayStr,
+  });
+  const operatingContext = {
+    ...computeThreeLayerFinancials({
+      transactions: data.map((t) => ({
+        type: t.type,
+        category: t.category,
+        description: t.description,
+        sourceType: t.sourceType,
+        amount: t.amount,
+        date: t.date,
+      })),
+      accruedFeedConsumedCostCop: accruedFeedCost,
+      hasFeedConsumptionRecords: feedMovRows.length > 0 && accruedFeedCost > 0,
+      assetsSummary,
+      warehouseSummary,
+      biologicalSummary,
+    }),
+    capexRecoveryPct: assetsSummary.capexRecoveryPct,
+    lifecycleMode: biologicalSummary.lifecycleMode,
+    lifecycleLabel: biologicalSummary.lifecycleLabel,
+    lifecycleDescription: biologicalSummary.lifecycleDescription,
+    alertsCount: biologicalSummary.alerts.length,
+  };
+
   return NextResponse.json({
     transactions: enriched,
     summary: {
@@ -105,6 +158,7 @@ export const GET = withApiHandler(async (req: NextRequest) => {
       expenses,
       profit: (parseFloat(income) - parseFloat(expenses)).toFixed(2),
     },
+    operatingContext,
     byCategory,
     series,
     kpis,
@@ -375,6 +429,7 @@ export const POST = withApiHandler(async (req: NextRequest) => {
     }
     
     // Non-feed purchase with presentation — just save the transaction
+    const isCapexCategory = (body.type || "egreso") === "egreso" && /equipamiento|infraestructura|maquinaria/i.test(String(body.category || ""));
     const result = await db.transaction(async (tx) => {
       const [created] = await tx.insert(transactions).values({
         ...dims,
@@ -389,6 +444,7 @@ export const POST = withApiHandler(async (req: NextRequest) => {
         unit: body.unit || null,
         presentation: body.presentation || null,
         notes: body.notes || null,
+        ...(isCapexCategory ? { sourceType: "capex" } : {}),
       }).returning();
 
       if (body.isCredit) {
@@ -432,6 +488,7 @@ export const POST = withApiHandler(async (req: NextRequest) => {
   }
 
   // Legacy path: no presentation data
+  const isCapexCategory = (body.type || "egreso") === "egreso" && /equipamiento|infraestructura|maquinaria/i.test(String(body.category || ""));
   const result = await db.transaction(async (tx) => {
     const [created] = await tx.insert(transactions).values({
         ...dims,
@@ -446,6 +503,7 @@ export const POST = withApiHandler(async (req: NextRequest) => {
       unit: body.unit || null,
       presentation: body.presentation || null,
       notes: body.notes || null,
+      ...(isCapexCategory ? { sourceType: "capex" } : {}),
     }).returning();
 
     if (body.isCredit) {

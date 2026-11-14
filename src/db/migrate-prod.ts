@@ -20,7 +20,10 @@ export const ORDERED_MIGRATION_SCRIPTS = [
   "scripts/add_multi_tenancy_farms.sql",
   "scripts/add_saas_subscriptions.sql",
   "scripts/scope_agent_memory_by_farm.sql",
+  "scripts/add_species_to_breed_weight_standards.sql",
   "scripts/add_export_tokens.sql",
+  "scripts/add_external_data_sources.sql",
+  "scripts/add_asset_depreciation_and_lifecycle.sql",
 ] as const;
 
 const MIGRATION_LOCK_KEY = 74820913;

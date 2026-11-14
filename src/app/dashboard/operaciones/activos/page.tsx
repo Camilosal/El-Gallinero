@@ -23,6 +23,10 @@ interface FarmAsset {
   serialNumber: string | null;
   acquisitionDate: string | null;
   acquisitionCost: string;
+  usefulLifeMonths?: number | null;
+  usefulLifeCycles?: number | null;
+  residualValue?: string | null;
+  depreciationBasis?: string | null;
   warrantyUntil: string | null;
   locationId: string | null;
   locationName: string | null;
@@ -40,7 +44,9 @@ const statusLabels: Record<string, { label: string; color: string }> = {
 
 const emptyForm = {
   name: "", category: "equipo", brand: "", model: "", serialNumber: "", acquisitionDate: "",
-  acquisitionCost: "0", warrantyUntil: "", locationId: "", status: "operativo", description: "", notes: "",
+  acquisitionCost: "0", usefulLifeMonths: "36", usefulLifeCycles: "", residualValue: "0",
+  depreciationBasis: "meses", recordCashPurchase: false,
+  warrantyUntil: "", locationId: "", status: "operativo", description: "", notes: "",
 };
 
 function dateLabel(value: string | null) {
@@ -96,6 +102,11 @@ export default function ActivosPage() {
       serialNumber: asset.serialNumber || "",
       acquisitionDate: asset.acquisitionDate || "",
       acquisitionCost: asset.acquisitionCost || "0",
+      usefulLifeMonths: asset.usefulLifeMonths ? String(asset.usefulLifeMonths) : "36",
+      usefulLifeCycles: asset.usefulLifeCycles ? String(asset.usefulLifeCycles) : "",
+      residualValue: asset.residualValue || "0",
+      depreciationBasis: asset.depreciationBasis || "meses",
+      recordCashPurchase: false,
       warrantyUntil: asset.warrantyUntil || "",
       locationId: asset.locationId || "",
       status: asset.status,
@@ -178,8 +189,17 @@ export default function ActivosPage() {
             {!search && <div className="-mt-6 mb-6 text-center"><p className="mb-3 text-sm text-slate-500">Empieza por los equipos que revisas o reparas con frecuencia, como la bomba de agua o la incubadora.</p><Button onClick={openNew}>Registrar primer activo</Button></div>}
           </>
         ) : (
-          <Table headers={["Activo", "Tipo", "Lugar", "Estado", "Garantía hasta", "Costo registrado", "Acciones"]}>
-              {visibleAssets.map((asset) => (
+          <Table headers={["Activo", "Tipo", "Lugar", "Estado", "Garantía hasta", "Costo / Depreciación", "Acciones"]}>
+              {visibleAssets.map((asset) => {
+                const cost = Number(asset.acquisitionCost || 0);
+                const residual = Number(asset.residualValue || 0);
+                const depreciable = Math.max(0, cost - residual);
+                const basis = asset.depreciationBasis === "ciclos" ? "ciclos" : "meses";
+                const lifeCount = basis === "ciclos"
+                  ? Math.max(1, Number(asset.usefulLifeCycles || 18))
+                  : Math.max(1, Number(asset.usefulLifeMonths || 36));
+                const perUnitDepr = depreciable > 0 ? depreciable / lifeCount : 0;
+                return (
                 <tr key={asset.id} className="border-t border-slate-100">
                   <td className="px-4 py-3">
                     <div className="font-medium text-slate-800">{asset.name}</div>
@@ -190,7 +210,16 @@ export default function ActivosPage() {
                   <td className="px-4 py-3">{asset.locationName || "Finca / sin lugar"}</td>
                   <td className="px-4 py-3"><Badge color={statusLabels[asset.status]?.color || "gray"}>{statusLabels[asset.status]?.label || asset.status}</Badge></td>
                   <td className="px-4 py-3">{dateLabel(asset.warrantyUntil)}</td>
-                  <td className="px-4 py-3">{Number(asset.acquisitionCost) > 0 ? `$${Number(asset.acquisitionCost).toLocaleString("es-CO")}` : "—"}</td>
+                  <td className="px-4 py-3">
+                    <div>{cost > 0 ? `$${cost.toLocaleString("es-CO")}` : "—"}</div>
+                    {perUnitDepr > 0 && (
+                      <div className="text-xs text-emerald-700">
+                        {basis === "ciclos"
+                          ? `$${Math.round(perUnitDepr).toLocaleString("es-CO")}/lote (${lifeCount} lotes)`
+                          : `$${Math.round(perUnitDepr).toLocaleString("es-CO")}/mes (${lifeCount} m)`}
+                      </div>
+                    )}
+                  </td>
                   <td className="px-4 py-3"><div className="flex items-center gap-2 whitespace-nowrap">
                     <button onClick={() => setQrAsset(asset)} className="inline-flex items-center gap-1 text-xs font-medium text-emerald-700 hover:underline" title="Etiqueta QR del activo">
                       <QrCode className="h-3.5 w-3.5" aria-hidden="true" />
@@ -200,7 +229,7 @@ export default function ActivosPage() {
                     {asset.status !== "retirado" && <button onClick={() => void retire(asset)} className="text-xs text-slate-600 hover:underline">Retirar</button>}
                   </div></td>
                 </tr>
-              ))}
+              );})}
           </Table>
         )}
       </Card>
@@ -226,6 +255,32 @@ export default function ActivosPage() {
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
             <Input label="Fecha de adquisición" type="date" value={form.acquisitionDate} onChange={(event) => setForm({ ...form, acquisitionDate: event.target.value })} />
             <Input label="Costo de adquisición ($)" type="number" min="0" step="0.01" value={form.acquisitionCost} onChange={(event) => setForm({ ...form, acquisitionCost: event.target.value })} />
+          </div>
+          <div className="rounded-xl border border-emerald-200 bg-emerald-50/70 p-3 space-y-3">
+            <p className="text-xs font-semibold text-emerald-900">Duración del equipo (reparte el gasto para no mostrar pérdidas falsas al inicio)</p>
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+              <Select label="¿Cómo se desgasta?" value={form.depreciationBasis} onChange={(event) => setForm({ ...form, depreciationBasis: event.target.value })}>
+                <option value="meses">Por meses de uso</option>
+                <option value="ciclos">Por ciclos / lotes</option>
+              </Select>
+              {form.depreciationBasis === "ciclos" ? (
+                <Input label="¿Cuántos lotes servirá?" type="number" min="1" max="500" value={form.usefulLifeCycles} onChange={(event) => setForm({ ...form, usefulLifeCycles: event.target.value })} placeholder="Ej: 18" />
+              ) : (
+                <Input label="¿Cuántos meses servirá?" type="number" min="1" max="600" value={form.usefulLifeMonths} onChange={(event) => setForm({ ...form, usefulLifeMonths: event.target.value })} placeholder="Ej: 36" />
+              )}
+              <Input label="Valor si lo vendes al final ($)" type="number" min="0" step="0.01" value={form.residualValue} onChange={(event) => setForm({ ...form, residualValue: event.target.value })} />
+            </div>
+            {!editing && Number(form.acquisitionCost) > 0 && (
+              <label className="flex items-start gap-2 text-xs text-slate-700 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={form.recordCashPurchase}
+                  onChange={(event) => setForm({ ...form, recordCashPurchase: event.target.checked })}
+                  className="mt-0.5 rounded border-slate-300"
+                />
+                <span>Anotar esta salida de dinero en Caja (solo descuenta su desgaste mensual en tus ganancias reales).</span>
+              </label>
+            )}
           </div>
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
             <Input label="Garantía hasta" type="date" value={form.warrantyUntil} onChange={(event) => setForm({ ...form, warrantyUntil: event.target.value })} />

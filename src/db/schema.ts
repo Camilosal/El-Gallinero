@@ -292,6 +292,10 @@ export const farmAssets = pgTable("farm_assets", {
   serialNumber: varchar("serial_number", { length: 150 }),
   acquisitionDate: date("acquisition_date"),
   acquisitionCost: decimal("acquisition_cost", { precision: 12, scale: 2 }).default("0").notNull(),
+  usefulLifeMonths: integer("useful_life_months").default(36),
+  usefulLifeCycles: integer("useful_life_cycles"),
+  residualValue: decimal("residual_value", { precision: 12, scale: 2 }).default("0").notNull(),
+  depreciationBasis: varchar("depreciation_basis", { length: 20 }).default("meses").notNull(),
   warrantyUntil: date("warranty_until"),
   locationId: uuid("location_id").references(() => farmLocations.id, { onDelete: "set null" }),
   status: varchar("status", { length: 30 }).default("operativo").notNull(),
@@ -304,6 +308,8 @@ export const farmAssets = pgTable("farm_assets", {
   check("farm_assets_category_valid", sql`${t.category} IN ('equipo', 'herramienta', 'estructura', 'vehiculo', 'otro')`),
   check("farm_assets_status_valid", sql`${t.status} IN ('operativo', 'requiere_mantenimiento', 'fuera_servicio', 'retirado')`),
   check("farm_assets_acquisition_cost_nonnegative", sql`${t.acquisitionCost} >= 0`),
+  check("farm_assets_residual_value_nonnegative", sql`${t.residualValue} >= 0`),
+  check("farm_assets_depreciation_basis_valid", sql`${t.depreciationBasis} IN ('meses', 'ciclos')`),
 ]);
 
 // ─── Movimientos de alimento ───
@@ -1003,6 +1009,7 @@ export const flockPlanMilestones = pgTable("flock_plan_milestones", {
 // ─── Estándares de peso por raza (curvas de referencia) ───
 export const breedWeightStandards = pgTable("breed_weight_standards", {
   id: uuid("id").defaultRandom().primaryKey(),
+  species: varchar("species", { length: 20 }),
   breed: varchar("breed", { length: 100 }).notNull(),
   gender: varchar("gender", { length: 20 }).default("hembra").notNull(),
   weekNumber: integer("week_number").notNull(),
@@ -1347,4 +1354,25 @@ export const agentMemories = pgTable("agent_memories", {
 }, (t) => [
   index("agent_memories_user_active_idx").on(t.userId, t.isActive),
   uniqueIndex("agent_memories_farm_user_subject_idx").on(t.farmId, t.userId, t.category, t.subjectKey),
+]);
+
+// ─── Fuentes externas (Olas 1, 2 y 3): snapshots cacheados offline-first por granja ───
+export const externalDataSnapshots = pgTable("external_data_snapshots", {
+  farmId: farmIdCol(),
+  id: uuid("id").defaultRandom().primaryKey(),
+  sourceKey: varchar("source_key", { length: 60 }).notNull(),
+  wave: integer("wave").default(1).notNull(),
+  status: varchar("status", { length: 20 }).default("ok").notNull(), // ok | fallback | error | manual
+  syncMode: varchar("sync_mode", { length: 20 }).default("auto").notNull(), // auto | manual
+  providerName: varchar("provider_name", { length: 120 }).notNull(),
+  sourceUrl: varchar("source_url", { length: 500 }),
+  scopeKey: varchar("scope_key", { length: 120 }).default("global").notNull(),
+  payload: jsonb("payload").$type<Record<string, unknown>>().default({}).notNull(),
+  summary: text("summary"),
+  fetchedAt: timestamp("fetched_at").defaultNow().notNull(),
+  expiresAt: timestamp("expires_at"),
+  lastError: text("last_error"),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+}, (t) => [
+  uniqueIndex("external_data_snapshots_farm_source_scope_idx").on(t.farmId, t.sourceKey, t.scopeKey),
 ]);

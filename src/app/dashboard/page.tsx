@@ -16,6 +16,7 @@ import {
   Home,
   Layers,
   Package,
+  RefreshCw,
   Scale,
   Stethoscope,
   Wand2,
@@ -86,6 +87,19 @@ interface DashboardData {
   pendingMaintenance: number;
   recentEggs: { date: string; total: number }[];
   finance: { income: string; expenses: string; profit: string };
+  operatingContext?: {
+    operatingNetProfitCop: number;
+    accruedOperatingExpenseCop: number;
+    cashNetFlowCop: number;
+    warehouseFeedAssetCop: number;
+    netEquipmentBookValueCop: number;
+    biologicalPortfolioValueCop: number;
+    totalProductiveWealthCop: number;
+    capexRecoveryPct: number;
+    lifecycleMode: string;
+    lifecycleLabel: string;
+    lifecycleDescription: string;
+  };
   stages: StageData[];
   totalExpectedEggsPerDay: number;
   stockProjection: StockProjection[];
@@ -133,6 +147,9 @@ export default function Dashboard() {
   const [wizardOpen, setWizardOpen] = useState(false);
   const [tareas, setTareas] = useState<TareasPendientes | null>(null);
   const [loadedAtMs, setLoadedAtMs] = useState(() => Date.now());
+  const [syncingExternal, setSyncingExternal] = useState(false);
+  const [externalZoneLabel, setExternalZoneLabel] = useState<string | null>(null);
+  const [externalSyncNotice, setExternalSyncNotice] = useState<{ ok: boolean; text: string } | null>(null);
   const { state: onboardingState, flags: onboardingFlags, patchOnboarding, refresh: refreshOnboarding } = useOnboardingState();
 
   const loadHomeData = useCallback(() => {
@@ -147,12 +164,60 @@ export default function Dashboard() {
     apiFetch("/api/dashboard/tareas-pendientes")
       .then((r) => r.json())
       .then(setTareas)
-      .catch(() => {});
+      .catch(() => { });
     void refreshOnboarding();
   }, [refreshOnboarding]);
 
+  const handleManualExternalSync = useCallback(async () => {
+    setSyncingExternal(true);
+    setExternalSyncNotice(null);
+    try {
+      const res = await apiFetch("/api/configuracion/fuentes-externas", {
+        method: "POST",
+        body: JSON.stringify({ action: "sync_all" }),
+      });
+      if (res.status === 403) {
+        const refreshRes = await apiFetch("/api/configuracion/fuentes-externas");
+        const refreshJson = await refreshRes.json().catch(() => null);
+        if (refreshJson?.activeZone?.coverageLabel) {
+          setExternalZoneLabel(String(refreshJson.activeZone.coverageLabel));
+        }
+        setExternalSyncNotice({
+          ok: true,
+          text: "Datos externos verificados según calendario automático (solo administración fuerza recarga inmediata).",
+        });
+        return;
+      }
+      const json = await res.json();
+      if (!res.ok) throw new Error(json?.error || "No fue posible sincronizar las fuentes externas");
+      if (json?.activeZone?.coverageLabel) {
+        setExternalZoneLabel(String(json.activeZone.coverageLabel));
+      }
+      setExternalSyncNotice({
+        ok: true,
+        text: `Fuentes externas sincronizadas (${json?.activeZone?.coverageLabel || "zona activa"}).`,
+      });
+      loadHomeData();
+    } catch (err) {
+      setExternalSyncNotice({
+        ok: false,
+        text: err instanceof Error ? err.message : "Error al sincronizar fuentes externas",
+      });
+    } finally {
+      setSyncingExternal(false);
+    }
+  }, [loadHomeData]);
+
   useEffect(() => {
     loadHomeData();
+    apiFetch("/api/configuracion/fuentes-externas")
+      .then((r) => (r.ok ? r.json() : null))
+      .then((json) => {
+        if (json?.activeZone?.coverageLabel) {
+          setExternalZoneLabel(String(json.activeZone.coverageLabel));
+        }
+      })
+      .catch(() => { });
     const onSaved = () => loadHomeData();
     const onOpenWizard = () => setWizardOpen(true);
     window.addEventListener(QUICK_CAPTURE_SAVED_EVENT, onSaved);
@@ -203,15 +268,15 @@ export default function Dashboard() {
   // ─── Pasos de configuración inicial ───
   const setupSteps = tareas
     ? [
-        { done: tareas.setup.farmProfileConfigured, coreDay1: true, title: "Datos de la finca", description: "Nombre, municipio y altitud.", href: "/dashboard/configuracion/catalogos?tab=parametros", icon: "home" },
-        { done: tareas.setup.locationsConfigured, coreDay1: true, title: "Lugares de manejo", description: "Corrales, galpones o pozas.", href: "/dashboard/ubicaciones", icon: "map-pin" },
-        { done: tareas.setup.animalsRegistered, coreDay1: true, title: "Animales actuales", description: "Inventario vivo por especie.", href: "/dashboard/produccion/adquisiciones", icon: "paw-print" },
-        { done: tareas.setup.starterInventoryConfigured, coreDay1: true, title: "Alimento en bodega", description: "Saldo en bultos de 40 kg o kg.", href: "/dashboard/almacen", icon: "wheat" },
-        { done: tareas.setup.contactsConfigured, coreDay1: false, title: "Clientes y proveedores", description: "Contactos comerciales.", href: "/dashboard/contactos", icon: "handshake" },
-        { done: tareas.setup.budgetConfigured, coreDay1: false, title: "Presupuesto", description: "Metas de ingresos y gastos.", href: "/dashboard/finanzas/presupuestos?nuevo=base", icon: "money" },
-        { done: tareas.setup.sanitaryConfigured, coreDay1: false, title: "Calendario sanitario", description: "Vacunas y revisiones.", href: "/dashboard/sanidad/calendario", icon: "pill" },
-        { done: tareas.setup.assetsRegistered, coreDay1: false, title: "Equipos y activos", description: "Herramientas e infraestructura.", href: "/dashboard/operaciones/activos", icon: "equipment" },
-      ]
+      { done: tareas.setup.farmProfileConfigured, coreDay1: true, title: "Datos de la finca", description: "Nombre, municipio y altitud.", href: "/dashboard/configuracion/catalogos?tab=parametros", icon: "home" },
+      { done: tareas.setup.locationsConfigured, coreDay1: true, title: "Lugares de manejo", description: "Corrales, galpones o pozas.", href: "/dashboard/ubicaciones", icon: "map-pin" },
+      { done: tareas.setup.animalsRegistered, coreDay1: true, title: "Animales actuales", description: "Inventario vivo por especie.", href: "/dashboard/produccion/adquisiciones", icon: "paw-print" },
+      { done: tareas.setup.starterInventoryConfigured, coreDay1: true, title: "Alimento en bodega", description: "Saldo en bultos de 40 kg o kg.", href: "/dashboard/almacen", icon: "wheat" },
+      { done: tareas.setup.contactsConfigured, coreDay1: false, title: "Clientes y proveedores", description: "Contactos comerciales.", href: "/dashboard/contactos", icon: "handshake" },
+      { done: tareas.setup.budgetConfigured, coreDay1: false, title: "Presupuesto", description: "Metas de ingresos y gastos.", href: "/dashboard/finanzas/presupuestos?nuevo=base", icon: "money" },
+      { done: tareas.setup.sanitaryConfigured, coreDay1: false, title: "Calendario sanitario", description: "Vacunas y revisiones.", href: "/dashboard/sanidad/calendario", icon: "pill" },
+      { done: tareas.setup.assetsRegistered, coreDay1: false, title: "Equipos y activos", description: "Herramientas e infraestructura.", href: "/dashboard/operaciones/activos", icon: "equipment" },
+    ]
     : [];
 
   // ─── Métricas clave ───
@@ -319,31 +384,31 @@ export default function Dashboard() {
   // ─── Onboarding contextual (solo cuando aplica) ───
   const showWizardCta = Boolean(
     onboardingState &&
-      !onboardingState.config.onboardingCompleted &&
-      !onboardingState.config.wizardDismissed &&
-      !onboardingState.metrics.hasExistingOperation,
+    !onboardingState.config.onboardingCompleted &&
+    !onboardingState.config.wizardDismissed &&
+    !onboardingState.metrics.hasExistingOperation,
   );
   const recentAutoTriggers = onboardingState
     ? onboardingState.history
-        .filter(
-          (h) =>
-            h.origin === "AUTO_TRIGGER_CRECIMIENTO" &&
-            h.estadoNuevo &&
-            loadedAtMs - new Date(h.activatedAt).getTime() < 72 * 3600 * 1000,
-        )
-        .slice(0, 2)
+      .filter(
+        (h) =>
+          h.origin === "AUTO_TRIGGER_CRECIMIENTO" &&
+          h.estadoNuevo &&
+          loadedAtMs - new Date(h.activatedAt).getTime() < 72 * 3600 * 1000,
+      )
+      .slice(0, 2)
     : [];
   const isMediano = onboardingState?.config.scale === "MEDIANO";
   const selectedSpecies = onboardingState?.config.selectedSpecies ?? [];
   const hasMammals = Boolean(
     data.species?.some((sp) => (sp.species === "conejo" || sp.species === "cuy") && sp.count > 0) ||
-      selectedSpecies.some((sp) => sp === "conejo" || sp === "cuy"),
+    selectedSpecies.some((sp) => sp === "conejo" || sp === "cuy"),
   );
   const hasWeightSpecies = Boolean(
     isMediano ||
-      hasMammals ||
-      selectedSpecies.some((sp) => sp === "pollo") ||
-      data.species?.some((sp) => sp.species === "pollo" && sp.count > 0),
+    hasMammals ||
+    selectedSpecies.some((sp) => sp === "pollo") ||
+    data.species?.some((sp) => sp.species === "pollo" && sp.count > 0),
   );
   const unlockedCount = onboardingState
     ? PROGRESSIVE_UNLOCKABLE_KEYS.filter((k) => onboardingState.flags[k]).length
@@ -363,72 +428,72 @@ export default function Dashboard() {
     onClick?: () => void;
     visible: boolean;
   }> = [
-    {
-      id: "sale",
-      label: "Registrar venta",
-      subtitle: "Huevos, carne o animales",
-      href: "#",
-      icon: "sale",
-      onClick: () => openQuickCapture({ mode: "venta" }),
-      visible: true,
-    },
-    {
-      id: "eggs",
-      label: "Recoger huevos",
-      subtitle: "Postura de hoy",
-      href: "/dashboard/produccion?tab=huevos&nuevo=1",
-      icon: "egg",
-      visible: !tareas || tareas.eggApplicable,
-    },
-    {
-      id: "feed",
-      label: "Alimentación",
-      subtitle: "Consumo y bodega",
-      href: "/dashboard/produccion?tab=alimentacion&subtab=movimientos&nuevo=movimiento",
-      icon: "wheat",
-      visible: !tareas || tareas.feedApplicable,
-    },
-    {
-      id: "sanitary",
-      label: "Sanidad",
-      subtitle: "Vacunas y controles",
-      href: "/dashboard/sanidad",
-      icon: "sanitary",
-      visible: true,
-    },
-    {
-      id: "weight",
-      label: "Control de peso",
-      subtitle: "Seguimiento por lote",
-      href: "/dashboard/produccion/peso",
-      icon: "weight",
-      visible: hasWeightSpecies,
-    },
-    {
-      id: "repro",
-      label: "Reproducción",
-      subtitle: "Crías y nidos",
-      href: "/dashboard/produccion?tab=reproduccion",
-      icon: "repro",
-      visible: isMediano || hasMammals,
-    },
-    {
-      id: "cierre",
-      label: "Cierre del día",
-      subtitle: "Resumen de jornada",
-      href: "/dashboard/operaciones/cierre",
-      icon: "cierre",
-      visible: Boolean(onboardingFlags?.genealogia_3gen_qr_iot),
-    },
-    {
-      id: "calendar",
-      label: "Calendario",
-      subtitle: "Agenda semanal",
-      href: "/dashboard/planeacion/calendario",
-      icon: "calendar",
-      visible: true,
-    },
-  ];
+      {
+        id: "sale",
+        label: "Registrar venta",
+        subtitle: "Huevos, carne o animales",
+        href: "#",
+        icon: "sale",
+        onClick: () => openQuickCapture({ mode: "venta" }),
+        visible: true,
+      },
+      {
+        id: "eggs",
+        label: "Recoger huevos",
+        subtitle: "Postura de hoy",
+        href: "/dashboard/produccion?tab=huevos&nuevo=1",
+        icon: "egg",
+        visible: !tareas || tareas.eggApplicable,
+      },
+      {
+        id: "feed",
+        label: "Alimentación",
+        subtitle: "Consumo y bodega",
+        href: "/dashboard/produccion?tab=alimentacion&subtab=movimientos&nuevo=movimiento",
+        icon: "wheat",
+        visible: !tareas || tareas.feedApplicable,
+      },
+      {
+        id: "sanitary",
+        label: "Sanidad",
+        subtitle: "Vacunas y controles",
+        href: "/dashboard/sanidad",
+        icon: "sanitary",
+        visible: true,
+      },
+      {
+        id: "weight",
+        label: "Control de peso",
+        subtitle: "Seguimiento por lote",
+        href: "/dashboard/produccion/peso",
+        icon: "weight",
+        visible: hasWeightSpecies,
+      },
+      {
+        id: "repro",
+        label: "Reproducción",
+        subtitle: "Crías y nidos",
+        href: "/dashboard/produccion?tab=reproduccion",
+        icon: "repro",
+        visible: isMediano || hasMammals,
+      },
+      {
+        id: "cierre",
+        label: "Cierre del día",
+        subtitle: "Resumen de jornada",
+        href: "/dashboard/operaciones/cierre",
+        icon: "cierre",
+        visible: Boolean(onboardingFlags?.genealogia_3gen_qr_iot),
+      },
+      {
+        id: "calendar",
+        label: "Calendario",
+        subtitle: "Agenda semanal",
+        href: "/dashboard/planeacion/calendario",
+        icon: "calendar",
+        visible: true,
+      },
+    ];
   const visibleShortcuts = quickShortcuts.filter((s) => s.visible);
 
   const animalCount = data.totalAnimals ?? data.hens.active;
@@ -455,11 +520,10 @@ export default function Dashboard() {
         badge={
           onboardingState ? (
             <span
-              className={`inline-flex items-center gap-1 rounded-full border px-2.5 py-0.5 text-[11px] font-semibold ${
-                isMediano
-                  ? "border-sky-300/50 bg-sky-500/25 text-sky-100"
-                  : "border-amber-300/50 bg-amber-400/20 text-amber-100"
-              }`}
+              className={`inline-flex items-center gap-1 rounded-full border px-2.5 py-0.5 text-[11px] font-semibold ${isMediano
+                ? "border-sky-300/50 bg-sky-500/25 text-sky-100"
+                : "border-amber-300/50 bg-amber-400/20 text-amber-100"
+                }`}
             >
               <Layers className="w-3 h-3" aria-hidden="true" />
               <span>{isMediano ? `Mediano · ${unlockedCount}/5` : `Pequeño · ${unlockedCount}/5`}</span>
@@ -467,22 +531,50 @@ export default function Dashboard() {
           ) : undefined
         }
         actions={
-          <button
-            type="button"
-            onClick={() => setWizardOpen(true)}
-            className={`inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-lg border transition-colors cursor-pointer ${
-              showWizardCta
+          <div className="flex flex-wrap items-center gap-2">
+            <button
+              type="button"
+              onClick={handleManualExternalSync}
+              disabled={syncingExternal}
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-lg border transition-colors bg-white/15 backdrop-blur-sm border-white/25 text-white hover:bg-white/25 disabled:opacity-60 cursor-pointer"
+            >
+              <RefreshCw className={`w-3.5 h-3.5 ${syncingExternal ? "animate-spin" : ""}`} aria-hidden="true" />
+              <span>{syncingExternal ? "Sincronizando..." : "Sincronizar fuentes externas"}</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => setWizardOpen(true)}
+              className={`inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-lg border transition-colors cursor-pointer ${showWizardCta
                 ? "bg-amber-400 border-amber-300 text-slate-950 hover:bg-amber-300 shadow-sm"
                 : "bg-white/15 backdrop-blur-sm border-white/25 text-white hover:bg-white/25"
-            }`}
-          >
-            <Wand2 className="w-3.5 h-3.5" aria-hidden="true" />
-            <span>Asistente inicial</span>
-          </button>
+                }`}
+            >
+              <Wand2 className="w-3.5 h-3.5" aria-hidden="true" />
+              <span>Asistente inicial</span>
+            </button>
+          </div>
         }
         helpTitle="Cómo funciona este inicio"
         help={`• Arriba ves las 4 cifras clave del día y el botón Asistente inicial.\n• En «Tareas de hoy» ejecutas o confirmas las labores pendientes según tu rutina.\n• En «Accesos directos» entras directo a registrar o consultar cada área.`}
       />
+
+      {(externalSyncNotice || externalZoneLabel) && (
+        <div
+          className={`mb-4 flex flex-wrap items-center justify-between gap-2 rounded-xl border px-3.5 py-2 text-xs ${externalSyncNotice && !externalSyncNotice.ok
+            ? "border-red-200 bg-red-50 text-red-900"
+            : "border-emerald-200 bg-emerald-50/70 text-emerald-900"
+            }`}
+        >
+          <span>
+            {externalSyncNotice
+              ? externalSyncNotice.text
+              : `Entorno externo activo: ${externalZoneLabel} (renovación automática por periodo).`}
+          </span>
+          <Link href="/dashboard/analisis/fuentes-externas" className="font-semibold underline">
+            Ver monitoreo de clima, precios e ICA →
+          </Link>
+        </div>
+      )}
 
       {/* Tarjeta destacada de arranque Día 1 */}
       {showWizardCta ? (
@@ -562,10 +654,37 @@ export default function Dashboard() {
             tone={criticalFeeds.length > 0 ? "danger" : "neutral"}
           />
           <SummaryTile
-            label="Balance del mes"
-            value={`$${Math.round(profitVal).toLocaleString("es-CO")}`}
-            detail="Últimos 30 días"
-            tone={profitVal < 0 ? "danger" : "positive"}
+            label={
+              data.operatingContext &&
+              (data.operatingContext.lifecycleMode === "cria_levante" ||
+                data.operatingContext.lifecycleMode === "pausa_sanitaria" ||
+                (profitVal < 0 && data.operatingContext.totalProductiveWealthCop > 0))
+                ? "Patrimonio productivo"
+                : "Balance operativo"
+            }
+            value={`$${Math.round(
+              data.operatingContext &&
+                (data.operatingContext.lifecycleMode === "cria_levante" ||
+                  data.operatingContext.lifecycleMode === "pausa_sanitaria" ||
+                  (profitVal < 0 && data.operatingContext.totalProductiveWealthCop > 0))
+                ? data.operatingContext.totalProductiveWealthCop
+                : (data.operatingContext?.operatingNetProfitCop ?? profitVal)
+            ).toLocaleString("es-CO")}`}
+            detail={
+              data.operatingContext
+                ? `${data.operatingContext.lifecycleLabel} · Caja 30d $${Math.round(profitVal).toLocaleString("es-CO")}`
+                : "Últimos 30 días"
+            }
+            tone={
+              data.operatingContext &&
+              (data.operatingContext.lifecycleMode === "cria_levante" ||
+                data.operatingContext.lifecycleMode === "pausa_sanitaria" ||
+                data.operatingContext.totalProductiveWealthCop > 0)
+                ? "positive"
+                : profitVal < 0
+                  ? "danger"
+                  : "positive"
+            }
           />
         </div>
       </section>
@@ -793,11 +912,35 @@ export default function Dashboard() {
                     <span className="text-sm font-bold text-rose-700">${Number(data.finance.expenses).toLocaleString("es-CO")}</span>
                   </div>
                   <div className="flex justify-between items-center p-2.5 bg-slate-100 rounded-lg border border-slate-200">
-                    <span className="text-sm font-semibold text-slate-800">Balance neto</span>
-                    <span className={`text-sm font-bold ${profitVal >= 0 ? "text-emerald-800" : "text-rose-700"}`}>
-                      ${profitVal.toLocaleString("es-CO")}
+                    <span className="text-sm font-semibold text-slate-800">
+                      {data.operatingContext ? "Ganancia operativa real" : "Balance neto"}
+                    </span>
+                    <span
+                      className={`text-sm font-bold ${
+                        (data.operatingContext?.operatingNetProfitCop ?? profitVal) >= 0
+                          ? "text-emerald-800"
+                          : "text-amber-700"
+                      }`}
+                    >
+                      ${Math.round(data.operatingContext?.operatingNetProfitCop ?? profitVal).toLocaleString("es-CO")}
                     </span>
                   </div>
+                  {data.operatingContext && (
+                    <div className="grid grid-cols-2 gap-2 pt-1 text-xs">
+                      <div className="rounded-lg bg-emerald-50/80 border border-emerald-200 px-2.5 py-2">
+                        <span className="text-emerald-800 block">Animales + bodega + equipos</span>
+                        <span className="font-bold text-emerald-950">
+                          ${Math.round(data.operatingContext.totalProductiveWealthCop).toLocaleString("es-CO")}
+                        </span>
+                      </div>
+                      <div className="rounded-lg bg-slate-50 border border-slate-200 px-2.5 py-2">
+                        <span className="text-slate-600 block">Dinero en caja (30 días)</span>
+                        <span className="font-bold text-slate-900">
+                          ${Math.round(profitVal).toLocaleString("es-CO")}
+                        </span>
+                      </div>
+                    </div>
+                  )}
                 </div>
               </Card>
             </div>

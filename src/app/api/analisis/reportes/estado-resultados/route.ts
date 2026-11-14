@@ -1,9 +1,19 @@
 import { db } from "@/db";
-import { transactions } from "@/db/schema";
+import { feedInventory, feedMovements, transactions } from "@/db/schema";
 import { eq, gte, lte, and } from "drizzle-orm";
 import { NextRequest, NextResponse } from "next/server";
 import { withApiHandler } from "@/lib/api-handler";
 import { normalizeFeedingSpecies } from "@/lib/species";
+import {
+  classifyTransactionNature,
+  computeThreeLayerFinancials,
+} from "@/lib/analytics/biological-valuation";
+import {
+  computeAssetsDepreciationSummary,
+  computeFeedWarehouseValuation,
+  evaluateBiologicalPortfolio,
+  loadFarmBiologicalContext,
+} from "@/lib/analytics/biological-db";
 
 export const dynamic = "force-dynamic";
 
@@ -24,11 +34,26 @@ export const GET = withApiHandler(async (req: NextRequest) => {
   if (locationId) conditions.push(eq(transactions.locationId, locationId));
   if (batchId) conditions.push(eq(transactions.batchId, batchId));
 
-  const txs = await db
-    .select()
-    .from(transactions)
-    .where(and(...conditions))
-    .orderBy(transactions.date);
+  const [txs, feedMovRows, bioCtx] = await Promise.all([
+    db.select().from(transactions).where(and(...conditions)).orderBy(transactions.date),
+    db
+      .select({
+        species: feedMovements.species,
+        locationId: feedMovements.locationId,
+        quantity: feedMovements.quantity,
+        unitCost: feedMovements.unitCost,
+        fallbackCost: feedInventory.costPerUnit,
+      })
+      .from(feedMovements)
+      .innerJoin(feedInventory, eq(feedMovements.feedId, feedInventory.id))
+      .where(and(eq(feedMovements.isEntry, false), gte(feedMovements.date, from), lte(feedMovements.date, to))),
+    loadFarmBiologicalContext({
+      speciesFilter: species,
+      locationIdFilter: locationId || null,
+      batchIdFilter: batchId || null,
+      referenceDate: to,
+    }),
+  ]);
 
   const incomeMap = new Map<string, number>();
   const expenseMap = new Map<string, number>();
@@ -54,6 +79,43 @@ export const GET = withApiHandler(async (req: NextRequest) => {
   const totalExpenses = expenseCategories.reduce((s, c) => s + c.total, 0);
   const netProfit = parseFloat((totalIncome - totalExpenses).toFixed(2));
 
+  const filteredFeedMovs = feedMovRows.filter((fc) => {
+    if (species && fc.species !== species) return false;
+    if (locationId && fc.locationId !== locationId) return false;
+    return true;
+  });
+  const accruedFeedCost = filteredFeedMovs.reduce(
+    (s, fc) => s + Number(fc.quantity || 0) * Number(fc.unitCost ?? fc.fallbackCost ?? 0),
+    0,
+  );
+  const assetsSummary = computeAssetsDepreciationSummary(bioCtx.assets, { fromDate: from, toDate: to });
+  const warehouseSummary = computeFeedWarehouseValuation(bioCtx.feedRows);
+  const biologicalSummary = evaluateBiologicalPortfolio({
+    flocks: bioCtx.flocks,
+    broilerBatches: bioCtx.batches,
+    locations: bioCtx.locations,
+    marketPrices: bioCtx.marketOverrides,
+    referenceDate: to,
+  });
+  const threeLayer = computeThreeLayerFinancials({
+    transactions: txs.map((t) => ({
+      type: t.type,
+      category: t.category,
+      description: t.description,
+      sourceType: t.sourceType,
+      amount: t.amount,
+      date: t.date,
+    })),
+    accruedFeedConsumedCostCop: accruedFeedCost,
+    hasFeedConsumptionRecords: filteredFeedMovs.length > 0 && accruedFeedCost > 0,
+    assetsSummary,
+    warehouseSummary,
+    biologicalSummary,
+  });
+  const capexExcluded = txs
+    .filter((t) => t.type === "egreso" && classifyTransactionNature(t) === "capex")
+    .reduce((s, t) => s + Number(t.amount || 0), 0);
+
   return NextResponse.json({
     from,
     to,
@@ -67,6 +129,14 @@ export const GET = withApiHandler(async (req: NextRequest) => {
       total: parseFloat(totalExpenses.toFixed(2)),
     },
     netProfit,
+    operatingContext: {
+      ...threeLayer,
+      capexExcludedCop: parseFloat(capexExcluded.toFixed(2)),
+      lifecycleMode: biologicalSummary.lifecycleMode,
+      lifecycleLabel: biologicalSummary.lifecycleLabel,
+      capexRecoveryPct: assetsSummary.capexRecoveryPct,
+      alertsCount: biologicalSummary.alerts.length,
+    },
     transactionCount: txs.length,
   });
 });

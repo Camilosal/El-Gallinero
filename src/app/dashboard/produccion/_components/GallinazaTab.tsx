@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useEffect, useState, useCallback, useMemo } from "react";
 import { Banknote, Calculator, Ruler, Scale, Settings } from "lucide-react";
 import { PageHeader, Button, Card, Table, Modal, Input, Textarea, EmptyState, StatCard } from "@/components/ui";
@@ -50,7 +51,6 @@ export default function GallinazaPage() {
   const searchParams = useSearchParams();
   const [data, setData] = useState<ManureData | null>(null);
   const [loading, setLoading] = useState(true);
-  const [factorEdits, setFactorEdits] = useState<Record<string, string>>({});
   const [saleModal, setSaleModal] = useState(false);
   const [adjustModal, setAdjustModal] = useState(false);
   const [error, setError] = useState("");
@@ -60,33 +60,17 @@ export default function GallinazaPage() {
   const [adjustSearch, setAdjustSearch] = useState("");
 
   const load = useCallback(() => {
-    apiFetch("/api/operaciones/gallinaza").then((r) => r.json()).then((d) => {
-      setData(d);
-      // Inicializar los campos de edición con los factores actuales
-      const edits: Record<string, string> = {};
-      for (const g of d.estimation.groups) {
-        if (g.factorId) edits[g.factorId] = String(g.kgPerBirdPerDay);
-      }
-      setFactorEdits(edits);
-    }).finally(() => setLoading(false));
+    apiFetch("/api/operaciones/gallinaza")
+      .then((r) => r.json())
+      .then((d) => setData(d))
+      .finally(() => setLoading(false));
   }, []);
 
-  useEffect(() => { load(); }, [load]);
+  useEffect(() => { void Promise.resolve().then(load); }, [load]);
   useActionQuery(searchParams.get("nuevo"), {
     venta: () => { setError(""); setSaleModal(true); },
     ajuste: () => { setError(""); setAdjustModal(true); },
   });
-
-  const saveFactor = async (factorId: string) => {
-    const value = Number(factorEdits[factorId]);
-    if (isNaN(value) || value < 0) return;
-    const res = await apiFetch("/api/operaciones/gallinaza", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ action: "factor", id: factorId, kgPerBirdPerDay: value }),
-    });
-    if (res.ok) load();
-  };
 
   const saveSale = async () => {
     setError("");
@@ -189,7 +173,7 @@ export default function GallinazaPage() {
         theme="gallinaza"
         title="Producción de Gallinaza"
         description="Estimación según aves y etapa, inventario de abono y ventas integradas con finanzas"
-        help="Gestiona la producción y venta de gallinaza (abono).\n\n• La estimación se calcula automáticamente según las aves por etapa y los factores de producción (kg/ave/día).\n• Puedes ajustar los factores según tus mediciones reales.\n• Usa 'Ajustes' para corregir el stock cuando haces mediciones reales de la pila de compostaje.\n• Registra ventas de gallinaza y el ingreso se refleja automáticamente en finanzas."
+        help="Gestiona la producción y venta de gallinaza (abono).\n\n• La estimación se calcula automáticamente según las aves por etapa y los factores de producción (kg/ave/día) configurados en Catálogos.\n• Los factores se editan únicamente desde Configuración → Catálogos → Factores de gallinaza.\n• Usa 'Ajustes' para corregir el stock cuando haces mediciones reales de la pila de compostaje.\n• Registra ventas de gallinaza y el ingreso se refleja automáticamente en finanzas."
         actions={
           <div className="flex gap-2">
             <Button variant="secondary" onClick={() => { setError(""); setAdjustModal(true); }}>± Ajuste</Button>
@@ -220,41 +204,29 @@ export default function GallinazaPage() {
         </div>
       </Card>
 
-      {/* Factores de producción */}
+      {/* Factores de producción (solo lectura; se editan en Catálogos) */}
       <Card className="mb-6">
-        <h3 className="font-semibold text-slate-700 mb-1 flex items-center gap-2">
-          <Settings className="w-4 h-4 text-slate-500" aria-hidden="true" />
-          <span>Factores de Producción (kg/ave/día)</span>
-        </h3>
-        <p className="text-xs text-slate-500 mb-4">Variables de entrada de la estimación. Cambia el factor de cualquier grupo según tus mediciones.</p>
-        <Table headers={["Grupo", "Aves", "Factor kg/ave/día", "Aporte kg/día", ""]}>
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-4">
+          <div>
+            <h3 className="font-semibold text-slate-700 flex items-center gap-2">
+              <Settings className="w-4 h-4 text-slate-500" aria-hidden="true" />
+              <span>Factores de Producción (kg/ave/día)</span>
+            </h3>
+            <p className="text-xs text-slate-500 mt-0.5">
+              Variables vigentes usadas para estimar la producción diaria. Para modificarlos, hazlo desde Catálogos.
+            </p>
+          </div>
+          <Link href="/dashboard/configuracion/catalogos?tab=gallinaza">
+            <Button variant="secondary">Editar factores en Catálogos →</Button>
+          </Link>
+        </div>
+        <Table headers={["Grupo", "Aves", "Factor kg/ave/día", "Aporte kg/día"]}>
           {data.estimation.groups.map((g) => (
             <tr key={g.key} className="hover:bg-slate-50">
               <td className="px-4 py-3 text-sm font-medium">{g.label}</td>
               <td className="px-4 py-3 text-sm">{g.count}</td>
-              <td className="px-4 py-3">
-                <input
-                  type="number"
-                  step="0.001"
-                  min="0"
-                  value={factorEdits[g.factorId || ""] ?? ""}
-                  onChange={(e) => g.factorId && setFactorEdits({ ...factorEdits, [g.factorId]: e.target.value })}
-                  className="border border-slate-300 rounded-lg px-2 py-1 text-sm w-24"
-                  disabled={!g.factorId}
-                />
-              </td>
+              <td className="px-4 py-3 text-sm font-mono text-slate-700">{g.kgPerBirdPerDay}</td>
               <td className="px-4 py-3 text-sm font-semibold text-green-700">{g.kgPerDay}</td>
-              <td className="px-4 py-3">
-                {g.factorId && (
-                  <button
-                    onClick={() => saveFactor(g.factorId!)}
-                    disabled={Number(factorEdits[g.factorId]) === g.kgPerBirdPerDay}
-                    className="text-blue-600 hover:underline text-xs disabled:text-slate-300 disabled:no-underline"
-                  >
-                    Guardar
-                  </button>
-                )}
-              </td>
             </tr>
           ))}
         </Table>

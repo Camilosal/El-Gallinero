@@ -10,6 +10,13 @@ import { computeManureInventory, computeEggInventory } from "@/lib/inventory";
 import { computeAnimalInventory } from "@/lib/animal-inventory";
 import { getFlockRules } from "@/lib/settings";
 import { withApiHandler, safeParseJson } from "@/lib/api-handler";
+import { computeThreeLayerFinancials } from "@/lib/analytics/biological-valuation";
+import {
+  computeAssetsDepreciationSummary,
+  computeFeedWarehouseValuation,
+  evaluateBiologicalPortfolio,
+  loadFarmBiologicalContext,
+} from "@/lib/analytics/biological-db";
 
 export const dynamic = "force-dynamic";
 
@@ -339,6 +346,61 @@ export const GET = withApiHandler(async () => {
       .sort(([a], [b]) => a.localeCompare(b))
       .map(([, v]) => v);
 
+    const [txDetailRows, feedCostRows, bioCtx] = await Promise.all([
+      db
+        .select({
+          type: transactions.type,
+          category: transactions.category,
+          description: transactions.description,
+          sourceType: transactions.sourceType,
+          amount: transactions.amount,
+          date: transactions.date,
+        })
+        .from(transactions)
+        .where(and(gte(transactions.date, dateStr), lte(transactions.date, todayStr))),
+      db
+        .select({
+          quantity: feedMovements.quantity,
+          unitCost: feedMovements.unitCost,
+          fallbackCost: feedInventory.costPerUnit,
+        })
+        .from(feedMovements)
+        .innerJoin(feedInventory, eq(feedMovements.feedId, feedInventory.id))
+        .where(and(eq(feedMovements.isEntry, false), gte(feedMovements.date, dateStr), lte(feedMovements.date, todayStr))),
+      loadFarmBiologicalContext({ referenceDate: todayStr }),
+    ]);
+    const accruedFeedCost30d = feedCostRows.reduce(
+      (s, fc) => s + Number(fc.quantity || 0) * Number(fc.unitCost ?? fc.fallbackCost ?? 0),
+      0,
+    );
+    const assetsSummary = computeAssetsDepreciationSummary(bioCtx.assets, {
+      fromDate: dateStr,
+      toDate: todayStr,
+    });
+    const warehouseSummary = computeFeedWarehouseValuation(bioCtx.feedRows);
+    const biologicalSummary = evaluateBiologicalPortfolio({
+      flocks: bioCtx.flocks,
+      broilerBatches: bioCtx.batches,
+      locations: bioCtx.locations,
+      marketPrices: bioCtx.marketOverrides,
+      referenceDate: todayStr,
+    });
+    const operatingContext = {
+      ...computeThreeLayerFinancials({
+        transactions: txDetailRows,
+        accruedFeedConsumedCostCop: accruedFeedCost30d,
+        hasFeedConsumptionRecords: feedCostRows.length > 0 && accruedFeedCost30d > 0,
+        assetsSummary,
+        warehouseSummary,
+        biologicalSummary,
+      }),
+      capexRecoveryPct: assetsSummary.capexRecoveryPct,
+      lifecycleMode: biologicalSummary.lifecycleMode,
+      lifecycleLabel: biologicalSummary.lifecycleLabel,
+      lifecycleDescription: biologicalSummary.lifecycleDescription,
+      alerts: biologicalSummary.alerts.slice(0, 4),
+    };
+
     return NextResponse.json({
       hens: {
         total: henSummary.registered,
@@ -415,6 +477,7 @@ export const GET = withApiHandler(async () => {
       },
       sanitaryAlerts: sanitaryAlerts[0]?.count || 0,
       supplyAlerts: supplyAlerts[0]?.count || 0,
+      operatingContext,
     });
   } catch (error) {
     console.error("Dashboard error:", error);

@@ -54,11 +54,11 @@ const ESSENTIAL_DAILY_STEPS: {
   mode: "huevos" | "alimentacion" | "mortalidad" | "venta";
   label: string;
 }[] = [
-  { step: "huevos", mode: "huevos", label: "Registrar recolección de huevos" },
-  { step: "alimentacion", mode: "alimentacion", label: "Registrar ración de alimento" },
-  { step: "mortalidad", mode: "mortalidad", label: "Registrar estado / bajas del día" },
-  { step: "finanzas", mode: "venta", label: "Registrar ventas o gastos del día" },
-];
+    { step: "huevos", mode: "huevos", label: "Registrar recolección de huevos" },
+    { step: "alimentacion", mode: "alimentacion", label: "Registrar ración de alimento" },
+    { step: "mortalidad", mode: "mortalidad", label: "Registrar estado / bajas del día" },
+    { step: "finanzas", mode: "venta", label: "Registrar ventas o gastos del día" },
+  ];
 
 interface StoredHabitState {
   byDate: Record<string, DailyHabitStep[]>;
@@ -189,8 +189,8 @@ export function evaluateHarvestWindowWarning(batch: {
         species: sp,
         ageDays,
         severity: "critical",
-        title: `Límite FCR alcanzado en patos (${ageDays} días · sem ${Math.floor(ageDays / 7)})`,
-        message: `${label} llegó o superó las 8 semanas (día 56). A partir de aquí el FCR sube aceleradamente; programa cosecha o venta inmediata.`,
+        title: `Tope de consumo en patos (${ageDays} días · sem ${Math.floor(ageDays / 7)})`,
+        message: `${label} llegó o superó las 8 semanas (día 56). A partir de aquí gastan mucha comida por cada kilo ganado; programa cosecha o venta pronto.`,
       };
     }
     if (ageDays >= 49) {
@@ -199,7 +199,7 @@ export function evaluateHarvestWindowWarning(batch: {
         ageDays,
         severity: "warning",
         title: `Ventana óptima de cosecha Pato Pekín (sem 7–8 · ${ageDays}d)`,
-        message: `${label} entró en ventana comercial (49–56 días). Maximiza rendimiento antes de superar el día 56.`,
+        message: `${label} entró en ventana comercial (49–56 días). Aprovecha su mejor peso antes de superar el día 56.`,
       };
     }
   } else if (sp === "cuy") {
@@ -208,8 +208,8 @@ export function evaluateHarvestWindowWarning(batch: {
         species: sp,
         ageDays,
         severity: "critical",
-        title: `Inflexión FCR crítica en cuyes (${ageDays} días > 90d)`,
-        message: `${label} superó los 90 días recomendados de engorde; mantenerlo reduce margen por exceso de consumo.`,
+        title: `Tope de engorde en cuyes (${ageDays} días > 90d)`,
+        message: `${label} superó los 90 días recomendados de engorde; sostenerlo reduce tu ganancia porque come mucho más por kilo.`,
       };
     }
     if (ageDays >= 75) {
@@ -317,9 +317,9 @@ export function buildEggMicroInsight(input: {
   const hdPct =
     input.activeLayingBirds && input.activeLayingBirds > 0
       ? Math.min(
-          100,
-          Math.round((input.totalCollected / input.activeLayingBirds) * 1000) / 10,
-        )
+        100,
+        Math.round((input.totalCollected / input.activeLayingBirds) * 1000) / 10,
+      )
       : null;
 
   const deltaPrev =
@@ -345,23 +345,23 @@ export function buildEggMicroInsight(input: {
     },
     hdPct !== null
       ? {
-          label: "Postura Ave-Día (HD%)",
-          value: `${hdPct}%`,
-          helper:
-            deltaPrev !== null
-              ? `${deltaPrev >= 0 ? `+${deltaPrev}` : deltaPrev} vs. ayer`
-              : `${input.activeLayingBirds} aves activas`,
-          highlight: hdPct >= 75 ? "good" : hdPct >= 60 ? "neutral" : "warn",
-        }
+        label: "Postura Ave-Día (HD%)",
+        value: `${hdPct}%`,
+        helper:
+          deltaPrev !== null
+            ? `${deltaPrev >= 0 ? `+${deltaPrev}` : deltaPrev} vs. ayer`
+            : `${input.activeLayingBirds} aves activas`,
+        highlight: hdPct >= 75 ? "good" : hdPct >= 60 ? "neutral" : "warn",
+      }
       : {
-          label: "Merma (Rotos/Desc.)",
-          value: `${mermaPct}%`,
-          helper:
-            brokenAndDiscarded === 0
-              ? "¡0 rotos hoy!"
-              : `${brokenAndDiscarded} no comerciales`,
-          highlight: mermaPct <= 2 ? "good" : "warn",
-        },
+        label: "Merma (Rotos/Desc.)",
+        value: `${mermaPct}%`,
+        helper:
+          brokenAndDiscarded === 0
+            ? "¡0 rotos hoy!"
+            : `${brokenAndDiscarded} no comerciales`,
+        highlight: mermaPct <= 2 ? "good" : "warn",
+      },
   ];
 
   const feedCostToday =
@@ -427,9 +427,9 @@ export function buildEggMicroInsight(input: {
     habit,
     nextAction: habit.nextSuggestedMode
       ? {
-          label: habit.nextSuggestedLabel || "Continuar rutina del día",
-          mode: habit.nextSuggestedMode,
-        }
+        label: habit.nextSuggestedLabel || "Continuar rutina del día",
+        mode: habit.nextSuggestedMode,
+      }
       : undefined,
   };
 }
@@ -493,35 +493,35 @@ export function buildFeedMicroInsight(input: {
     },
     coverageDays !== null
       ? {
-          label: "Días de Cobertura",
-          value: `${coverageDays} días`,
-          helper:
-            coverageDays < 4
-              ? "🚨 Crítico (< 4 d): pedir hoy"
-              : coverageDays < 8
-                ? "⚠️ Programar pedido semanal"
-                : `Saldo: ${remainingKg?.toFixed(1)} kg`,
-          highlight: coverageDays < 4 ? "bad" : coverageDays < 8 ? "warn" : "good",
-        }
+        label: "Días de Cobertura",
+        value: `${coverageDays} días`,
+        helper:
+          coverageDays < 4
+            ? "🚨 Crítico (< 4 d): pedir hoy"
+            : coverageDays < 8
+              ? "⚠️ Programar pedido semanal"
+              : `Saldo: ${remainingKg?.toFixed(1)} kg`,
+        highlight: coverageDays < 4 ? "bad" : coverageDays < 8 ? "warn" : "good",
+      }
       : {
-          label: "Equivalencia Comercial",
-          value: `${bultos40Eq} bultos`,
-          helper: "Estándar 1 bulto = 40 kg",
-          highlight: "neutral",
-        },
+        label: "Equivalencia Comercial",
+        value: `${bultos40Eq} bultos`,
+        helper: "Estándar 1 bulto = 40 kg",
+        highlight: "neutral",
+      },
     gramsPerBird !== null
       ? {
-          label: "Dosis por Animal",
-          value: `${gramsPerBird} g/día`,
-          helper: `${input.activeAnimalsCount} animales en unidad`,
-          highlight: gramsPerBird >= 85 && gramsPerBird <= 145 ? "good" : "warn",
-        }
+        label: "Dosis por Animal",
+        value: `${gramsPerBird} g/día`,
+        helper: `${input.activeAnimalsCount} animales en unidad`,
+        highlight: gramsPerBird >= 85 && gramsPerBird <= 145 ? "good" : "warn",
+      }
       : {
-          label: "Costo de Ración",
-          value: rationCost ? `$${rationCost.toLocaleString("es-CO")}` : "Control PEPS",
-          helper: rationCost ? "Imputado al centro de costo" : "Inventario actualizado",
-          highlight: "neutral",
-        },
+        label: "Costo de Ración",
+        value: rationCost ? `$${rationCost.toLocaleString("es-CO")}` : "Control PEPS",
+        helper: rationCost ? "Imputado al centro de costo" : "Inventario actualizado",
+        highlight: "neutral",
+      },
   ];
 
   const harvestAlert = input.batch ? evaluateHarvestWindowWarning(input.batch) : null;
@@ -569,9 +569,9 @@ export function buildFeedMicroInsight(input: {
     habit,
     nextAction: habit.nextSuggestedMode
       ? {
-          label: habit.nextSuggestedLabel || "Continuar rutina del día",
-          mode: habit.nextSuggestedMode,
-        }
+        label: habit.nextSuggestedLabel || "Continuar rutina del día",
+        mode: habit.nextSuggestedMode,
+      }
       : undefined,
   };
 }
@@ -624,17 +624,17 @@ export function buildMortalityMicroInsight(input: {
     },
     viabilityPct !== null
       ? {
-          label: "Viabilidad del Lote",
-          value: `${viabilityPct}%`,
-          helper: `${input.remainingPopulation} vivos actuales`,
-          highlight: viabilityPct >= 96 ? "good" : viabilityPct >= 92 ? "warn" : "bad",
-        }
+        label: "Viabilidad del Lote",
+        value: `${viabilityPct}%`,
+        helper: `${input.remainingPopulation} vivos actuales`,
+        highlight: viabilityPct >= 96 ? "good" : viabilityPct >= 92 ? "warn" : "bad",
+      }
       : {
-          label: "Ajuste de Ración",
-          value: "Automático",
-          helper: "Recalcula consumo esperado",
-          highlight: "good",
-        },
+        label: "Ajuste de Ración",
+        value: "Automático",
+        helper: "Recalcula consumo esperado",
+        highlight: "good",
+      },
     {
       label: "Protocolo Sanitario",
       value: hasClinicalAlert ? "Vigilancia 48h" : "Normal (<0.5%)",
@@ -679,9 +679,9 @@ export function buildMortalityMicroInsight(input: {
     habit,
     nextAction: habit.nextSuggestedMode
       ? {
-          label: habit.nextSuggestedLabel || "Continuar rutina del día",
-          mode: habit.nextSuggestedMode,
-        }
+        label: habit.nextSuggestedLabel || "Continuar rutina del día",
+        mode: habit.nextSuggestedMode,
+      }
       : undefined,
   };
 }
@@ -878,19 +878,19 @@ export function buildExpenseMicroInsight(input: {
     },
     costPerKg !== null
       ? {
-          label: "Costo por Kg",
-          value: `$${costPerKg.toLocaleString("es-CO")}/kg`,
-          helper: `${totalKg} kg ingresados a bodega`,
-          highlight: "good",
-        }
+        label: "Costo por Kg",
+        value: `$${costPerKg.toLocaleString("es-CO")}/kg`,
+        helper: `${totalKg} kg ingresados a bodega`,
+        highlight: "good",
+      }
       : {
-          label: "Centro de Costo",
-          value: input.species
-            ? input.species.toUpperCase()
-            : input.locationName || "Prorrateo General",
-          helper: hasCostCenter ? "Imputación directa" : "Costo indirecto compartido",
-          highlight: hasCostCenter ? "good" : "neutral",
-        },
+        label: "Centro de Costo",
+        value: input.species
+          ? input.species.toUpperCase()
+          : input.locationName || "Prorrateo General",
+        helper: hasCostCenter ? "Imputación directa" : "Costo indirecto compartido",
+        highlight: hasCostCenter ? "good" : "neutral",
+      },
     {
       label: "Soporte DIAN / Crédito",
       value: input.counterparty ? "Tercero vinculado" : "Registrado",
@@ -899,13 +899,24 @@ export function buildExpenseMicroInsight(input: {
     },
   ];
 
-  const nudgeTitle = hasCostCenter
-    ? "Contabilidad anti-subsidio cruzado actualizada"
-    : "Gasto registrado y listo para prorrateo analítico";
+  const isCapex = /equipamiento|infraestructura|maquinaria|activo/i.test(input.category);
+  const isFeedBulk = /alimento|concentrado/i.test(input.category) && Boolean(costPerKg);
 
-  const nudgeBody = hasCostCenter
-    ? `Al asignar este gasto de $${Math.round(input.amount).toLocaleString("es-CO")} a su unidad/especie, actualizas el costo unitario real por huevo o kg de carne sin mezclar bolsillos entre lotes.`
-    : `Registrar incluso los gastos menores mantiene exacto tu flujo de caja real y construye el historial contable que exigen FINAGRO y el banco agrario para líneas de crédito.`;
+  const nudgeTitle = isCapex
+    ? "Compra de equipo protegida — no se muestra como pérdida del mes"
+    : isFeedBulk
+      ? "Alimento guardado en bodega — se cobra a tu mes solo al servirlo"
+      : hasCostCenter
+        ? "Contabilidad por especie actualizada (sin mezclar lotes)"
+        : "Gasto registrado y listo para repartir entre lotes";
+
+  const nudgeBody = isCapex
+    ? `Este equipamiento de $${Math.round(input.amount).toLocaleString("es-CO")} se anota en tus salidas de caja pero su gasto se reparte según los meses o lotes que dura para que el arranque no parezca pérdida.`
+    : isFeedBulk
+      ? `Los ${totalKg} kg quedan como alimento disponible en bodega ($${costPerKg?.toLocaleString("es-CO")}/kg). Tus indicadores solo contarán lo que realmente coman tus animales cada día.`
+      : hasCostCenter
+        ? `Al asignar este gasto de $${Math.round(input.amount).toLocaleString("es-CO")} a su especie o lugar, calculas cuánto cuesta producir cada huevo o kilo sin mezclar cuentas.`
+        : `Registrar incluso los gastos menores mantiene exacto tu efectivo y construye el historial ordenado que exigen bancos o crédito agropecuario.`;
 
   const whatsappText =
     `🧾 *Registro de Egreso (${input.date})*\n` +

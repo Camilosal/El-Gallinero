@@ -26,6 +26,16 @@ interface ResumenFinanzas {
   egresosMes: number;
   balanceMes: number;
   totalTransacciones: number;
+  operatingContext?: {
+    operatingNetProfitCop: number;
+    accruedOperatingExpenseCop: number;
+    warehouseFeedAssetCop: number;
+    netEquipmentBookValueCop: number;
+    biologicalPortfolioValueCop: number;
+    totalProductiveWealthCop: number;
+    lifecycleMode: string;
+    lifecycleLabel: string;
+  };
 }
 
 export default function FinanzasPage() {
@@ -84,25 +94,54 @@ export default function FinanzasPage() {
           ))}
         </div>
       ) : resumen ? (
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-2.5 sm:gap-4 mb-6 sm:mb-8">
-          <div className="bg-white rounded-lg shadow-md p-3.5 sm:p-6 min-w-0 border-l-4 border-green-500">
-            <p className="text-xs sm:text-sm text-gray-600 mb-1 flex items-center gap-1.5"><CircleDollarSign className="w-4 h-4 text-green-600 shrink-0" aria-hidden="true" /> <span className="truncate">Ingresos Mes</span></p>
-            <p className="text-xl sm:text-3xl font-bold text-gray-900 truncate">${resumen.ingresosMes.toLocaleString()}</p>
+        <div className="space-y-4 mb-6 sm:mb-8">
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-2.5 sm:gap-4">
+            <div className="bg-white rounded-lg shadow-md p-3.5 sm:p-6 min-w-0 border-l-4 border-green-500">
+              <p className="text-xs sm:text-sm text-gray-600 mb-1 flex items-center gap-1.5"><CircleDollarSign className="w-4 h-4 text-green-600 shrink-0" aria-hidden="true" /> <span className="truncate">Ingresos Mes</span></p>
+              <p className="text-xl sm:text-3xl font-bold text-gray-900 truncate">${resumen.ingresosMes.toLocaleString()}</p>
+            </div>
+            <div className="bg-white rounded-lg shadow-md p-3.5 sm:p-6 min-w-0 border-l-4 border-amber-500">
+              <p className="text-xs sm:text-sm text-gray-600 mb-1 flex items-center gap-1.5"><ArrowUpFromLine className="w-4 h-4 text-amber-600 shrink-0" aria-hidden="true" /> <span className="truncate">{resumen.operatingContext ? "Gasto Real Usado" : "Egresos Mes"}</span></p>
+              <p className="text-xl sm:text-3xl font-bold text-gray-900 truncate">${Math.round(resumen.operatingContext?.accruedOperatingExpenseCop ?? resumen.egresosMes).toLocaleString()}</p>
+              {resumen.operatingContext && (
+                <p className="text-[11px] text-slate-500 mt-1 truncate">Dinero salido de caja: ${resumen.egresosMes.toLocaleString()}</p>
+              )}
+            </div>
+            <div className="bg-white rounded-lg shadow-md p-3.5 sm:p-6 min-w-0 border-l-4 border-blue-500">
+              <p className="text-xs sm:text-sm text-gray-600 mb-1 flex items-center gap-1.5"><BarChart3 className="w-4 h-4 text-blue-600 shrink-0" aria-hidden="true" /> <span className="truncate">{resumen.operatingContext ? "Patrimonio Total" : "Balance Mes"}</span></p>
+              {resumen.operatingContext ? (
+                <>
+                  <p className="text-xl sm:text-3xl font-bold truncate text-emerald-700">
+                    ${Math.round(resumen.operatingContext.totalProductiveWealthCop).toLocaleString()}
+                  </p>
+                  <p className="text-[11px] text-slate-500 mt-1 truncate">
+                    Ganancia real: ${Math.round(resumen.operatingContext.operatingNetProfitCop).toLocaleString()} · Caja: ${resumen.balanceMes.toLocaleString()}
+                  </p>
+                </>
+              ) : (
+                <p className={`text-xl sm:text-3xl font-bold truncate ${resumen.balanceMes >= 0 ? "text-green-600" : "text-red-600"}`}>
+                  ${resumen.balanceMes.toLocaleString()}
+                </p>
+              )}
+            </div>
+            <div className="bg-white rounded-lg shadow-md p-3.5 sm:p-6 min-w-0 border-l-4 border-purple-500">
+              <p className="text-xs sm:text-sm text-gray-600 mb-1 flex items-center gap-1.5"><ClipboardList className="w-4 h-4 text-purple-600 shrink-0" aria-hidden="true" /> <span className="truncate">Transacciones</span></p>
+              <p className="text-xl sm:text-3xl font-bold text-gray-900 truncate">{resumen.totalTransacciones}</p>
+            </div>
           </div>
-          <div className="bg-white rounded-lg shadow-md p-3.5 sm:p-6 min-w-0 border-l-4 border-red-500">
-            <p className="text-xs sm:text-sm text-gray-600 mb-1 flex items-center gap-1.5"><ArrowUpFromLine className="w-4 h-4 text-red-600 shrink-0" aria-hidden="true" /> <span className="truncate">Egresos Mes</span></p>
-            <p className="text-xl sm:text-3xl font-bold text-gray-900 truncate">${resumen.egresosMes.toLocaleString()}</p>
-          </div>
-          <div className="bg-white rounded-lg shadow-md p-3.5 sm:p-6 min-w-0 border-l-4 border-blue-500">
-            <p className="text-xs sm:text-sm text-gray-600 mb-1 flex items-center gap-1.5"><BarChart3 className="w-4 h-4 text-blue-600 shrink-0" aria-hidden="true" /> <span className="truncate">Balance Mes</span></p>
-            <p className={`text-xl sm:text-3xl font-bold truncate ${resumen.balanceMes >= 0 ? "text-green-600" : "text-red-600"}`}>
-              ${resumen.balanceMes.toLocaleString()}
-            </p>
-          </div>
-          <div className="bg-white rounded-lg shadow-md p-3.5 sm:p-6 min-w-0 border-l-4 border-purple-500">
-            <p className="text-xs sm:text-sm text-gray-600 mb-1 flex items-center gap-1.5"><ClipboardList className="w-4 h-4 text-purple-600 shrink-0" aria-hidden="true" /> <span className="truncate">Transacciones</span></p>
-            <p className="text-xl sm:text-3xl font-bold text-gray-900 truncate">{resumen.totalTransacciones}</p>
-          </div>
+          {resumen.operatingContext && (
+            <div className="rounded-xl border border-emerald-200 bg-emerald-50/70 px-4 py-2.5 text-xs text-emerald-950 flex flex-wrap items-center justify-between gap-2">
+              <span>
+                <strong>{resumen.operatingContext.lifecycleLabel}:</strong> Valor de tus animales{" "}
+                <b>${Math.round(resumen.operatingContext.biologicalPortfolioValueCop).toLocaleString()}</b> · Alimento en bodega{" "}
+                <b>${Math.round(resumen.operatingContext.warehouseFeedAssetCop).toLocaleString()}</b> · Equipos restantes{" "}
+                <b>${Math.round(resumen.operatingContext.netEquipmentBookValueCop).toLocaleString()}</b>
+              </span>
+              <Link href="/dashboard/analisis/reportes" className="font-semibold underline text-emerald-800">
+                Ver análisis en 3 capas →
+              </Link>
+            </div>
+          )}
         </div>
       ) : null}
 

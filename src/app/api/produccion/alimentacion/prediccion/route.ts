@@ -4,6 +4,8 @@ import { eq, and, sql, gte } from "drizzle-orm";
 import { NextRequest, NextResponse } from "next/server";
 import { runFeedProgramCatchup, countAnimalsByStageForDate } from "@/lib/feeding/runProgram";
 import { withApiHandler, safeParseJson } from "@/lib/api-handler";
+import { getExternalSyncConfig, getFeedingHorizonDays } from "@/lib/settings";
+import { syncWeatherSnapshot } from "@/lib/external-sources/wave1-territory-weather-market";
 
 export const dynamic = "force-dynamic";
 
@@ -45,7 +47,16 @@ async function buildPrediction(horizonDays: number, updateMinimums: boolean) {
   await runFeedProgramCatchup();
 
   // 1. Consumo esperado por alimento (kg/día) según la especie y etapa del programa
-  const animalCounts = await countAnimalsByStageForDate(today);
+  const [animalCounts, syncCfg, weatherSnap] = await Promise.all([
+    countAnimalsByStageForDate(today),
+    getExternalSyncConfig(),
+    syncWeatherSnapshot().catch(() => null),
+  ]);
+
+  const weatherFactor =
+    syncCfg.autoAdjustFeedByWeather && weatherSnap?.payload?.feedIntakeFactor
+      ? Number(weatherSnap.payload.feedIntakeFactor) || 1
+      : 1;
 
   const programs = await db
     .select({
@@ -78,7 +89,7 @@ async function buildPrediction(horizonDays: number, updateMinimums: boolean) {
     if (p.currentStock === null) continue;
     const animalCount = animalCounts[p.stageCatalogoId] || 0;
     const gramsPerHen = Number(p.dailyAmountPerHen);
-    const dailyKg = (gramsPerHen * animalCount) / 1000;
+    const dailyKg = ((gramsPerHen * animalCount) / 1000) * weatherFactor;
 
     if (!needByFeed[p.feedId]) {
       needByFeed[p.feedId] = {
@@ -239,17 +250,32 @@ async function buildPrediction(horizonDays: number, updateMinimums: boolean) {
     },
     predictions,
     dailyProjection,
+    weatherContext: weatherSnap
+      ? {
+          status: weatherSnap.status,
+          locationLabel: weatherSnap.payload.locationLabel,
+          currentTempC: weatherSnap.payload.currentTempC,
+          currentIth: weatherSnap.payload.currentIth,
+          thermalStressLevel: weatherSnap.payload.thermalStressLevel,
+          feedIntakeFactor: weatherFactor,
+          autoAdjusted: syncCfg.autoAdjustFeedByWeather && weatherFactor !== 1,
+          summary: weatherSnap.payload.feedIntakeNote,
+        }
+      : null,
   };
 }
 
 export const GET = withApiHandler(async (req: NextRequest) => {
   const { searchParams } = new URL(req.url);
-  const requestedDays = Number.parseInt(searchParams.get("days") || "14", 10);
-  return NextResponse.json(await buildPrediction(Number.isFinite(requestedDays) ? requestedDays : 14, false));
+  const defaultDays = await getFeedingHorizonDays();
+  const rawDays = searchParams.get("days");
+  const requestedDays = rawDays ? Number.parseInt(rawDays, 10) : defaultDays;
+  return NextResponse.json(await buildPrediction(Number.isFinite(requestedDays) ? requestedDays : defaultDays, false));
 });
 
 export const POST = withApiHandler(async (req: NextRequest) => {
   const body = await safeParseJson(req);
-  const requestedDays = Number(body.days ?? 14);
-  return NextResponse.json(await buildPrediction(Number.isFinite(requestedDays) ? requestedDays : 14, true));
+  const defaultDays = await getFeedingHorizonDays();
+  const requestedDays = Number(body.days ?? defaultDays);
+  return NextResponse.json(await buildPrediction(Number.isFinite(requestedDays) ? requestedDays : defaultDays, true));
 });

@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useEffect, useState, useCallback, useMemo } from "react";
 import { ArrowUp, BarChart3, Calculator, Package, Pencil } from "lucide-react";
 import { PageHeader, Button, Card, Table, Badge, Modal, Input, Select, Textarea, EmptyState, StatCard } from "@/components/ui";
@@ -723,6 +724,15 @@ export default function EgresosPage() {
           )}
 
           <Textarea label="Descripción" value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} placeholder="¿En qué se gastó?" required />
+          {form.category === "Equipamiento" && (
+            <div className="rounded-lg border border-emerald-200 bg-emerald-50/70 px-3 py-2 text-xs text-emerald-900">
+              <strong>Compra de equipos para varios ciclos:</strong> Esta compra se registra en tus salidas de dinero pero no se carga como pérdida total del mes. Si aún no creas la ficha en{" "}
+              <Link href="/dashboard/operaciones/activos" className="underline font-semibold">
+                Almacén → Activos y equipos
+              </Link>
+              , hazlo allí para repartir su desgaste por meses o lotes.
+            </div>
+          )}
           <ContactField
             role="proveedor"
             label="Proveedor / Dónde se compró"

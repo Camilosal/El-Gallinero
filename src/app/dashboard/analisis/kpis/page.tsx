@@ -1,384 +1,567 @@
 "use client";
 
-import { useEffect, useState, useCallback } from "react";
-import { Banknote, Bird, Coins, Egg, HeartCrack, Skull, Trophy } from "lucide-react";
-import { PageHeader, Card, StatCard, Select, EmptyState, Badge } from "@/components/ui";
-import { ANIMAL_SPECIES, SPECIES_LABELS } from "@/lib/species";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import Link from "next/link";
+import {
+  AlertTriangle,
+  BarChart3,
+  Layers,
+  MapPin,
+  SlidersHorizontal,
+  Sparkles,
+  TrendingDown,
+} from "lucide-react";
+import { PageHeader, Select } from "@/components/ui";
 import TableSearch from "@/components/TableSearch";
-import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip, Legend, AreaChart, Area, XAxis, YAxis, CartesianGrid, BarChart, Bar } from "recharts";
-import { apiFetch } from "@/lib/fetch";
 import { matchesTextQuery } from "@/lib/text";
+import {
+  KPI_PRESETS,
+  KPI_SPECIES_OPTIONS,
+  KPI_WIDGET_CATALOG,
+  buildPresetConfig,
+  normalizeKpiDashboardConfig,
+  type KpiDashboardConfig,
+  type KpiDashboardData,
+  type KpiPresetId,
+  type KpiResolvedPresetId,
+  type KpiWidgetId,
+} from "@/lib/kpi-dashboard";
+import { KpiWidgetCard } from "./_components/KpiWidgetCard";
+import { KpiCustomizerDialog } from "./_components/KpiCustomizerDialog";
 
-interface KpiData {
-  mortality: {
-    rate: number;
-    totalDeaths: number;
-    totalFlock: number;
-    byCause: { cause: string; total: number }[];
-  };
-  laying: {
-    rate: number;
-    haaRate?: number;
-    totalEggs: number;
-    eligibleEggs: number;
-    eligibleAnimals: number;
-    avgDaily: number;
-    series: { date: string; total: number }[];
-  };
-  costPerUnit: {
-    perEgg: number;
-    perTray30?: number;
-    avgSalePricePerEgg?: number;
-    breakevenAlertEggs?: boolean;
-    perKgMeat: number;
-    perLiveKgMeat?: number;
-    totalExpenses: number;
-    saleableMeatKg: number;
-  };
-  zootechnical?: {
-    cvPercent: number | null;
-    uniformityPct: number | null;
-    dailyGainG: number | null;
-    epef: number | null;
-    feedKgConsumed: number;
-    slaughterWindowAlerts: Array<{ batchId: string; code: string; species: string; ageDays: number; targetDays: number; recommendation: string }>;
-  };
-  capexRoi?: {
-    totalCapex: number;
-    roiAnnualizedPct: number | null;
-    paybackMonths: number | null;
-  };
-  flock: {
-    avgAgeWeeks: number;
-    totalBirds: number;
-    productiveRatio: number;
-  };
-  expenseByCategory: { category: string; total: string }[];
-  periodDays: number;
-  peakProduction: {
-    peakWeek: string | null;
-    peakDate: string | null;
-    peakRate: number;
-    currentRate: number;
-    declinePercent: number;
-    avgDaily: number;
-    totalEggs: number;
-  };
+const LOCAL_STORAGE_KEY = "galli_kpi_dashboard_config_v1";
+const PRESET_TABS: KpiPresetId[] = ["auto", "postura", "engorde", "gerencial", "custom"];
+
+function readLocalCachedConfig(recommended: KpiResolvedPresetId): KpiDashboardConfig | null {
+  if (typeof window === "undefined") return null;
+  try {
+    const raw = window.localStorage.getItem(LOCAL_STORAGE_KEY);
+    if (!raw) return null;
+    return normalizeKpiDashboardConfig(JSON.parse(raw), recommended);
+  } catch {
+    return null;
+  }
 }
 
-const CAUSE_LABELS: Record<string, string> = {
-  enfermedad: "Enfermedad",
-  depredador: "Depredador",
-  accidente: "Accidente",
-  sacrificio_sanitario: "Sacrificio sanitario",
-  causa_natural: "Causa natural",
-  otro: "Otro",
-};
-
-const COLORS = ["#22c55e", "#eab308", "#3b82f6", "#ef4444", "#a855f7", "#f97316", "#06b6d4", "#ec4899", "#84cc16", "#64748b"];
-const fmt = (n: number) => `$${Math.round(n).toLocaleString()}`;
+function writeLocalCachedConfig(config: KpiDashboardConfig) {
+  if (typeof window === "undefined") return;
+  try {
+    window.localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(config));
+  } catch {
+    // Ignore storage quota errors
+  }
+}
 
 export default function KpisPage() {
-  const [data, setData] = useState<KpiData | null>(null);
-  const [loading, setLoading] = useState(true);
   const [period, setPeriod] = useState("30");
   const [species, setSpecies] = useState("");
+  const [locationId, setLocationId] = useState("");
+  const [batchId, setBatchId] = useState("");
   const [search, setSearch] = useState("");
 
-  const load = useCallback(() => {
-    setLoading(true);
-    const qs = `period=${period}${species ? `&species=${species}` : ""}`;
-    apiFetch(`/api/analisis/kpis?${qs}`)
-      .then((r) => r.json())
-      .then(setData)
-      .finally(() => setLoading(false));
-  }, [period, species]);
+  const [data, setData] = useState<KpiDashboardData | null>(null);
+  const [config, setConfig] = useState<KpiDashboardConfig>(() => buildPresetConfig("auto", "gerencial"));
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [savingConfig, setSavingConfig] = useState(false);
+  const [saveNotice, setSaveNotice] = useState<string | null>(null);
+  const [customizerOpen, setCustomizerOpen] = useState(false);
+  const [canSeedFarmDefault, setCanSeedFarmDefault] = useState(false);
 
-  useEffect(() => { void Promise.resolve().then(load); }, [load]);
+  const recommendedPreset: KpiResolvedPresetId =
+    data?.customConfig?.recommendedPreset || data?.farmContext?.recommendedPreset || "gerencial";
 
-  const mortalityPie = data?.mortality.byCause.map((b) => ({
-    name: CAUSE_LABELS[b.cause] || b.cause,
-    value: b.total,
-  })) || [];
+  const loadKpis = useCallback(async () => {
+    setError(null);
+    try {
+      const qs = new URLSearchParams({ period });
+      if (species) qs.set("species", species);
+      if (locationId) qs.set("locationId", locationId);
+      if (batchId) qs.set("batchId", batchId);
 
-  const layingSeries = data?.laying.series.map((s) => ({
-    date: new Date(s.date + "T12:00:00").toLocaleDateString("es", { day: "2-digit", month: "short" }),
-    huevos: s.total,
-  })) || [];
+      const res = await fetch(`/api/analisis/kpis?${qs.toString()}`, { cache: "no-store" });
+      if (!res.ok) {
+        const errBody = await res.json().catch(() => ({}));
+        throw new Error(errBody.error || "No se pudieron cargar los KPIs.");
+      }
+      const payload = (await res.json()) as KpiDashboardData;
+      setData(payload);
 
-  const costBreakdown = data?.expenseByCategory.map((c) => ({
-    name: c.category,
-    value: Number(c.total),
-  })) || [];
+      const rec = payload.customConfig?.recommendedPreset || payload.farmContext?.recommendedPreset || "gerencial";
+      if (payload.customConfig?.config) {
+        const normalized = normalizeKpiDashboardConfig(payload.customConfig.config, rec);
+        setConfig(normalized);
+        writeLocalCachedConfig(normalized);
+      } else {
+        const cached = readLocalCachedConfig(rec);
+        setConfig(cached ?? buildPresetConfig("auto", rec));
+      }
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : "Error cargando métricas";
+      setError(msg);
+      const cached = readLocalCachedConfig("gerencial");
+      if (cached) {
+        setConfig(cached);
+      }
+    } finally {
+      setLoading(false);
+    }
+  }, [period, species, locationId, batchId]);
 
-  const filteredMortalityPie = mortalityPie.filter((m) =>
-    matchesTextQuery(search, [m.name, "mortalidad", "causa"]),
+  useEffect(() => {
+    void Promise.resolve().then(loadKpis);
+  }, [loadKpis]);
+
+  useEffect(() => {
+    fetch("/api/auth/me")
+      .then((res) => (res.ok ? res.json() : null))
+      .then((user) => {
+        const role = user?.role;
+        if (role === "admin" || role === "propietario" || role === "superadmin") {
+          setCanSeedFarmDefault(true);
+        }
+      })
+      .catch(() => {});
+  }, []);
+
+  const persistConfig = useCallback(
+    async (nextConfig: KpiDashboardConfig, seedFarmDefault = false) => {
+      const normalized = normalizeKpiDashboardConfig(nextConfig, recommendedPreset);
+      setConfig(normalized);
+      writeLocalCachedConfig(normalized);
+      setSavingConfig(true);
+      setSaveNotice(null);
+
+      try {
+        const res = await fetch("/api/analisis/kpis/config", {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            preset: normalized.preset,
+            widgets: normalized.widgets,
+            seedFarmDefault,
+          }),
+        });
+        if (!res.ok) {
+          throw new Error("Guardado solo localmente (sin conexión al servidor)");
+        }
+        const saved = await res.json();
+        if (saved?.config) {
+          const synced = normalizeKpiDashboardConfig(saved.config, recommendedPreset);
+          setConfig(synced);
+          writeLocalCachedConfig(synced);
+        }
+        setSaveNotice(
+          seedFarmDefault
+            ? "Tablero guardado y aplicado como vista predeterminada de la granja."
+            : "Preferencias del tablero guardadas."
+        );
+      } catch {
+        setSaveNotice("Preferencias guardadas en este dispositivo (sincronización pendiente).");
+      } finally {
+        setSavingConfig(false);
+      }
+    },
+    [recommendedPreset]
   );
-  const filteredCostBreakdown = costBreakdown.filter((c) =>
-    matchesTextQuery(search, [c.name, "costos", "desglose", "egresos"]),
-  );
 
-  const showMortality = matchesTextQuery(search, [
-    "mortalidad",
-    "tasa mortalidad",
-    "muertes totales",
-    "animales inventario",
-    "causas registradas",
-    ...mortalityPie.map((m) => m.name),
-  ]);
-  const showLaying = matchesTextQuery(search, [
-    "postura",
-    "tasa de postura",
-    "huevos elegibles",
-    "huevos registrados",
-    "animales aptos",
-    "huevos diarios",
-  ]);
-  const showCosts = matchesTextQuery(search, [
-    "costos",
-    "alimento estimado",
-    "huevo",
-    "kg vendible",
-    "carne",
-    "total egresos",
-    "dias periodo",
-    "desglose costos",
-    ...costBreakdown.map((c) => c.name),
-  ]);
-  const showPeak = Boolean(data?.peakProduction.peakWeek) && matchesTextQuery(search, [
-    "pico produccion",
-    "semana pico",
-    "tasa pico",
-    "tasa actual",
-    "declive",
-  ]);
-  const showFlock = matchesTextQuery(search, [
-    "parvada",
-    "edad promedio",
-    "total animales",
-    "ratio productivo",
-    "estado",
-  ]);
-  const totalSections = (data?.peakProduction.peakWeek ? 5 : 4);
-  const matchingSections = [showMortality, showLaying, showCosts, showPeak, showFlock].filter(Boolean).length;
+  const handleSelectPreset = async (presetId: KpiPresetId) => {
+    if (presetId === "custom") {
+      setCustomizerOpen(true);
+      return;
+    }
+    const next = buildPresetConfig(presetId, recommendedPreset);
+    await persistConfig(next, false);
+  };
+
+  const handleToggleWidgetSize = async (id: KpiWidgetId) => {
+    const nextWidgets = config.widgets.map((w) =>
+      w.id === id ? { ...w, size: (w.size === "wide" ? "compact" : "wide") as "wide" | "compact" } : w
+    );
+    await persistConfig(
+      normalizeKpiDashboardConfig({ ...config, preset: "custom", widgets: nextWidgets }, recommendedPreset),
+      false
+    );
+  };
+
+  const visibleWidgets = useMemo(() => {
+    const active = config.widgets.filter((w) => w.visible).sort((a, b) => a.order - b.order);
+    if (!search.trim()) return active;
+    return active.filter((w) => {
+      const cat = KPI_WIDGET_CATALOG[w.id];
+      return matchesTextQuery(search, [cat.title, cat.shortTitle, cat.description, cat.category]);
+    });
+  }, [config.widgets, search]);
+
+  const filteredBatches = useMemo(() => {
+    const batches = data?.farmContext?.activeBatches || [];
+    return batches.filter((b) => {
+      if (species && b.species !== species) return false;
+      if (locationId && b.locationId !== locationId) return false;
+      return true;
+    });
+  }, [data?.farmContext?.activeBatches, species, locationId]);
+
+  const activeSpeciesMap = useMemo(() => {
+    const map = new Map<string, number>();
+    for (const item of data?.farmContext?.activeSpecies || []) {
+      map.set(item.species, item.count);
+    }
+    return map;
+  }, [data?.farmContext?.activeSpecies]);
+
+  const pinnedWidgets = useMemo(
+    () => config.widgets.filter((w) => w.pinnedToHome).sort((a, b) => a.order - b.order),
+    [config.widgets]
+  );
 
   return (
     <div className="space-y-6">
       <PageHeader
-        title="Indicadores Clave (KPIs)"
-        description="Métricas de productividad, mortalidad, postura y costos"
-        help="La tasa de postura cuenta huevos asociados a gallinas en edad y estado de postura, y a lotes maduros marcados para postura. El costo por huevo estima alimento de esa población. El costo por kg de carne estima adquisición y alimento para la carne destinada a venta; excluye autoconsumo. Los egresos se muestran aparte como total financiero del período."
+        theme="analisis"
+        icon={<BarChart3 className="w-6 h-6" />}
+        title="Tablero de KPIs conectado a tu granja"
+        description="Métricas con contexto, comparación vs. período anterior, metas por especie y vista personalizable por rol."
         actions={
-          <div className="flex flex-wrap gap-2">
-            <Select value={species} onChange={(e) => setSpecies(e.target.value)}>
-              <option value="">Todas las especies</option>
-              {ANIMAL_SPECIES.map((sp) => (
-                <option key={sp} value={sp}>{SPECIES_LABELS[sp]?.plural ?? sp}</option>
-              ))}
-            </Select>
-            <Select value={period} onChange={(e) => setPeriod(e.target.value)}>
-              <option value="7">Últimos 7 días</option>
-              <option value="30">Últimos 30 días</option>
-              <option value="90">Últimos 90 días</option>
-              <option value="365">Último año</option>
-            </Select>
-          </div>
+          <button
+            type="button"
+            onClick={() => setCustomizerOpen(true)}
+            className="inline-flex items-center gap-2 rounded-lg bg-white/95 hover:bg-white text-slate-900 px-3.5 py-2 text-sm font-semibold shadow-sm transition-colors"
+          >
+            <SlidersHorizontal className="w-4 h-4 text-green-700" />
+            Personalizar tablero
+          </button>
         }
       />
 
-      {loading ? (
-        <Card><p className="text-center py-8 text-slate-400">Cargando...</p></Card>
-      ) : !data ? (
-        <EmptyState icon="chart" message="No hay datos para el período seleccionado" />
-      ) : (
-        <>
+      {/* Farm-Connected Filter Strip + Preset Switcher */}
+      <section className="bg-white rounded-xl border border-slate-200 p-4 shadow-sm space-y-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3 items-end">
+          <Select
+            label="Período"
+            value={period}
+            onChange={(e) => setPeriod(e.target.value)}
+          >
+            <option value="7">Últimos 7 días</option>
+            <option value="15">Últimos 15 días</option>
+            <option value="30">Últimos 30 días</option>
+            <option value="60">Últimos 60 días</option>
+            <option value="90">Últimos 90 días</option>
+            <option value="180">Últimos 180 días</option>
+            <option value="365">Último año</option>
+          </Select>
+
+          <Select
+            label="Especie"
+            value={species}
+            onChange={(e) => {
+              setSpecies(e.target.value);
+              setBatchId("");
+            }}
+          >
+            <option value="">Todas las especies</option>
+            {KPI_SPECIES_OPTIONS.map((sp) => {
+              const count = activeSpeciesMap.get(sp.value) || 0;
+              return (
+                <option key={sp.value} value={sp.value}>
+                  {sp.label} {count > 0 ? `(${count} act.)` : ""}
+                </option>
+              );
+            })}
+          </Select>
+
+          <Select
+            label="Ubicación / Galpón"
+            value={locationId}
+            onChange={(e) => {
+              setLocationId(e.target.value);
+              setBatchId("");
+            }}
+          >
+            <option value="">Todas las ubicaciones</option>
+            {(data?.farmContext?.locations || []).map((loc) => (
+              <option key={loc.id} value={loc.id}>
+                {loc.name} ({loc.activeCount} anim.)
+              </option>
+            ))}
+          </Select>
+
+          <Select
+            label="Lote específico"
+            value={batchId}
+            onChange={(e) => setBatchId(e.target.value)}
+          >
+            <option value="">Todos los lotes</option>
+            {filteredBatches.map((b) => (
+              <option key={b.id} value={b.id}>
+                {b.code} · {b.speciesLabel} ({b.currentQuantity})
+              </option>
+            ))}
+          </Select>
+
           <TableSearch
             value={search}
             onChange={setSearch}
-            placeholder="Buscar indicador, sección o categoría de costo..."
-            resultCount={matchingSections}
-            totalCount={totalSections}
+            placeholder="Filtrar KPIs visibles..."
+            className="w-full"
           />
+        </div>
 
-          {matchingSections === 0 ? (
-            <EmptyState icon="chart" message="No hay indicadores que coincidan con la búsqueda" />
-          ) : (
-            <>
-          {/* Mortality KPIs */}
-          {showMortality && (
-            <>
-              <h2 className="text-lg font-bold text-slate-700 flex items-center gap-2">
-                <HeartCrack className="w-5 h-5 text-red-500" aria-hidden="true" />
-                Mortalidad
-              </h2>
-              <div className="grid grid-cols-2 lg:grid-cols-4 gap-2.5 sm:gap-4">
-                <StatCard icon="skull" label="Tasa mortalidad" value={`${data.mortality.rate}%`} color="red" />
-                <StatCard icon="mortality" label="Muertes totales" value={String(data.mortality.totalDeaths)} color="yellow" />
-                <StatCard icon="home" label="Animales en inventario" value={String(data.mortality.totalFlock)} color="green" />
-                <StatCard icon="chart" label="Causas registradas" value={String(data.mortality.byCause.length)} color="purple" />
-              </div>
-            </>
-          )}
-
-          {/* Laying KPIs */}
-          {showLaying && (
-            <>
-              <h2 className="text-lg font-bold text-slate-700 flex items-center gap-2">
-                <Egg className="w-5 h-5 text-amber-500" aria-hidden="true" />
-                Postura
-              </h2>
-              <div className="grid grid-cols-2 lg:grid-cols-4 gap-2.5 sm:gap-4">
-                <StatCard icon="trend-up" label="Tasa de postura" value={`${data.laying.rate}%`} color="green" />
-                <StatCard icon="egg" label="Huevos elegibles" value={String(data.laying.eligibleEggs)} color="yellow" />
-                <StatCard icon="chart" label="Huevos registrados" value={String(data.laying.totalEggs)} color="blue" />
-                <StatCard icon="hen" label="Animales aptos para postura" value={String(data.laying.eligibleAnimals)} color="earth" />
-              </div>
-              <p className="-mt-3 text-xs text-slate-500">Solo cuenta gallinas activas en edad de postura y lotes maduros de codornices o patos marcados para postura; registra en esos lotes únicamente las hembras ponedoras. Para el período se supone que la población apta actual estuvo presente todos los días.</p>
-            </>
-          )}
-
-          {/* Cost KPIs */}
-          {showCosts && (
-            <>
-              <h2 className="text-lg font-bold text-slate-700 flex items-center gap-2">
-                <Coins className="w-5 h-5 text-emerald-600" aria-hidden="true" />
-                Costos
-              </h2>
-              <div className="grid grid-cols-2 lg:grid-cols-4 gap-2.5 sm:gap-4">
-                <StatCard icon="egg" label="Costo real / huevo (cubeta 30)" value={data.laying.eligibleEggs > 0 ? `${fmt(data.costPerUnit.perEgg)} (${fmt(data.costPerUnit.perTray30 ?? data.costPerUnit.perEgg * 30)})` : "—"} color={data.costPerUnit.breakevenAlertEggs ? "red" : "green"} />
-                <StatCard icon="drumstick" label="Costo / kg canal (vivo)" value={data.costPerUnit.saleableMeatKg > 0 ? `${fmt(data.costPerUnit.perKgMeat)} (${fmt(data.costPerUnit.perLiveKgMeat ?? 0)})` : "—"} color="red" />
-                <StatCard icon="expense" label="Total egresos" value={fmt(data.costPerUnit.totalExpenses)} color="purple" />
-                <StatCard icon="chart" label="ROI CAPEX / Payback" value={data.capexRoi?.roiAnnualizedPct != null ? `${data.capexRoi.roiAnnualizedPct}% · ${data.capexRoi.paybackMonths ?? "—"} m` : "—"} color="blue" />
-              </div>
-              <p className="-mt-3 text-xs text-slate-500">Los costos unitarios son estimaciones con costos de adquisición registrados y parámetros estándar de alimento. Los egresos no se reparten entre huevos y carne.</p>
-            </>
-          )}
-
-          {/* Peak Production */}
-          {showPeak && data.peakProduction.peakWeek && (
-            <>
-              <h2 className="text-lg font-bold text-slate-700 flex items-center gap-2">
-                <Trophy className="w-5 h-5 text-amber-500" aria-hidden="true" />
-                Pico de Producción
-              </h2>
-              <div className="grid grid-cols-2 lg:grid-cols-4 gap-2.5 sm:gap-4">
-                <StatCard icon="calendar" label="Semana pico" value={new Date(data.peakProduction.peakWeek + "T12:00:00").toLocaleDateString("es", { day: "2-digit", month: "short" })} color="green" />
-                <StatCard icon="trend-up" label="Tasa pico" value={`${data.peakProduction.peakRate}%`} color="blue" />
-                <StatCard icon="trend-down" label="Tasa actual" value={`${data.peakProduction.currentRate}%`} color="yellow" />
-                <StatCard icon="chart" label="Declive" value={`${data.peakProduction.declinePercent}%`} color="red" />
-              </div>
-            </>
-          )}
-
-          {/* Zootechnical KPIs (CV%, GDP, EPEF, HAA vs HD%, Ventana Faena) */}
-          {data.zootechnical && (
-            <>
-              <h2 className="text-lg font-bold text-slate-700 flex items-center gap-2">
-                Zootecnia, Uniformidad y Eficiencia
-              </h2>
-              <div className="grid grid-cols-2 lg:grid-cols-4 gap-2.5 sm:gap-4">
-                <StatCard icon="scale" label="CV% Uniformidad (±10%)" value={data.zootechnical.cvPercent !== null ? `${data.zootechnical.cvPercent}% (${data.zootechnical.uniformityPct ?? "—"}%)` : "—"} color="blue" />
-                <StatCard icon="trend-up" label="GDP promedio" value={data.zootechnical.dailyGainG !== null ? `${data.zootechnical.dailyGainG} g/d` : "—"} color="green" />
-                <StatCard icon="award" label="Índice EPEF (Engorde)" value={data.zootechnical.epef !== null ? String(data.zootechnical.epef) : "—"} color="yellow" />
-                <StatCard icon="egg" label="Postura HAA vs HD%" value={`${data.laying.haaRate ?? data.laying.rate}% / ${data.laying.rate}%`} color="earth" />
-              </div>
-              {data.zootechnical.slaughterWindowAlerts.length > 0 && (
-                <div className="rounded-xl border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900 space-y-1">
-                  <p className="font-semibold">Alertas de ventana óptima de sacrificio:</p>
-                  {data.zootechnical.slaughterWindowAlerts.map((a) => (
-                    <div key={a.batchId} className="flex flex-wrap items-center gap-2">
-                      <Badge color="yellow">{a.code}</Badge>
-                      <span>{a.species} · {a.ageDays}/{a.targetDays} d — {a.recommendation}</span>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </>
-          )}
-
-          {/* Flock KPIs */}
-          {showFlock && (
-            <>
-              <h2 className="text-lg font-bold text-slate-700 flex items-center gap-2">
-                <Bird className="w-5 h-5 text-green-600" aria-hidden="true" />
-                Parvada
-              </h2>
-              <div className="grid grid-cols-2 lg:grid-cols-4 gap-2.5 sm:gap-4">
-                <StatCard icon="calendar" label="Edad promedio" value={`${data.flock.avgAgeWeeks} sem`} color="blue" />
-                <StatCard icon="paw" label="Total animales" value={String(data.flock.totalBirds)} color="green" />
-                <StatCard icon="trend-up" label="Ratio productivo" value={`${(data.flock.productiveRatio * 100).toFixed(0)}%`} color="yellow" />
-                <StatCard icon="home" label="Estado" value={data.flock.totalBirds > 0 ? "Activo" : "Vacío"} color="earth" />
-              </div>
-            </>
-          )}
-
-          {/* Charts */}
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            {showMortality && filteredMortalityPie.length > 0 && (
-              <Card>
-                <h3 className="font-semibold text-slate-700 mb-4 flex items-center gap-2">
-                  <Skull className="w-4 h-4 text-red-500" aria-hidden="true" />
-                  Mortalidad por Causa
-                </h3>
-                <ResponsiveContainer width="100%" height={280}>
-                  <PieChart>
-                    <Pie data={filteredMortalityPie} dataKey="value" nameKey="name" cx="50%" cy="50%" outerRadius={100} label={({ name, percent }) => `${name}: ${((percent ?? 0) * 100).toFixed(0)}%`} fontSize={11}>
-                      {filteredMortalityPie.map((_, i) => (
-                        <Cell key={i} fill={COLORS[i % COLORS.length]} />
-                      ))}
-                    </Pie>
-                    <Tooltip /><Legend />
-                  </PieChart>
-                </ResponsiveContainer>
-              </Card>
-            )}
-
-            {showLaying && layingSeries.length > 0 && (
-              <Card>
-                <h3 className="font-semibold text-slate-700 mb-4 flex items-center gap-2">
-                  <Egg className="w-4 h-4 text-amber-500" aria-hidden="true" />
-                  Huevos diarios de población apta
-                </h3>
-                <ResponsiveContainer width="100%" height={280}>
-                  <AreaChart data={layingSeries}>
-                    <defs>
-                      <linearGradient id="gEggs" x1="0" y1="0" x2="0" y2="1">
-                        <stop offset="5%" stopColor="#eab308" stopOpacity={0.6} />
-                        <stop offset="95%" stopColor="#eab308" stopOpacity={0} />
-                      </linearGradient>
-                    </defs>
-                    <CartesianGrid strokeDasharray="3 3" />
-                    <XAxis dataKey="date" fontSize={10} />
-                    <YAxis fontSize={11} />
-                    <Tooltip />
-                    <Area type="monotone" dataKey="huevos" name="Huevos" stroke="#eab308" fill="url(#gEggs)" />
-                  </AreaChart>
-                </ResponsiveContainer>
-              </Card>
-            )}
-
-            {showCosts && filteredCostBreakdown.length > 0 && (
-              <Card className="lg:col-span-2">
-                <h3 className="font-semibold text-slate-700 mb-4 flex items-center gap-2">
-                  <Banknote className="w-4 h-4 text-emerald-600" aria-hidden="true" />
-                  Desglose de Costos
-                </h3>
-                <ResponsiveContainer width="100%" height={300}>
-                  <BarChart data={filteredCostBreakdown} layout="vertical">
-                    <CartesianGrid strokeDasharray="3 3" />
-                    <XAxis type="number" fontSize={11} tickFormatter={(v) => `$${(v / 1000).toFixed(0)}k`} />
-                    <YAxis type="category" dataKey="name" fontSize={10} width={120} />
-                    <Tooltip formatter={(v) => fmt(Number(v))} />
-                    <Bar dataKey="value" name="Monto" fill="#ef4444" radius={[0, 4, 4, 0]} />
-                  </BarChart>
-                </ResponsiveContainer>
-              </Card>
-            )}
+        {/* Presets Bar + Quick Farm Context */}
+        <div className="pt-3 border-t border-slate-100 flex flex-col lg:flex-row lg:items-center justify-between gap-3">
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="text-xs font-semibold uppercase tracking-wider text-slate-400 mr-1">
+              Vista:
+            </span>
+            {PRESET_TABS.map((presetId) => {
+              const meta = KPI_PRESETS[presetId];
+              const isActive = config.preset === presetId;
+              return (
+                <button
+                  key={presetId}
+                  type="button"
+                  disabled={savingConfig}
+                  onClick={() => handleSelectPreset(presetId)}
+                  className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold border transition-colors ${
+                    isActive
+                      ? "bg-green-700 text-white border-green-700 shadow-xs"
+                      : "bg-slate-50 text-slate-700 border-slate-200 hover:bg-slate-100"
+                  }`}
+                >
+                  {presetId === "auto" && <Sparkles className="w-3.5 h-3.5" />}
+                  <span>{meta.label}</span>
+                  {presetId === "auto" && data && (
+                    <span
+                      className={`text-[10px] px-1.5 py-0.2 rounded ${
+                        isActive ? "bg-white/20 text-white" : "bg-emerald-100 text-emerald-800"
+                      }`}
+                    >
+                      {KPI_PRESETS[recommendedPreset].label}
+                    </span>
+                  )}
+                </button>
+              );
+            })}
           </div>
-            </>
+
+          {data && (
+            <div className="flex flex-wrap items-center gap-3 text-xs text-slate-600">
+              <span className="inline-flex items-center gap-1">
+                <Layers className="w-3.5 h-3.5 text-slate-400" />
+                <strong>{data.flock.totalBirds}</strong> animales en alcance
+              </span>
+              <span className="inline-flex items-center gap-1">
+                <MapPin className="w-3.5 h-3.5 text-slate-400" />
+                Ref. {data.benchmarks.breedLabel}
+              </span>
+              {pinnedWidgets.length > 0 && (
+                <span className="text-green-700 font-medium">
+                  {pinnedWidgets.length} fijado{pinnedWidgets.length > 1 ? "s" : ""}
+                </span>
+              )}
+            </div>
           )}
-        </>
+        </div>
+
+        {saveNotice && (
+          <div className="rounded-lg bg-emerald-50 border border-emerald-200 px-3 py-2 text-xs font-medium text-emerald-800 flex items-center justify-between gap-2">
+            <span>{saveNotice}</span>
+            <button
+              type="button"
+              onClick={() => setSaveNotice(null)}
+              className="text-emerald-700 hover:underline font-semibold"
+            >
+              Ocultar
+            </button>
+          </div>
+        )}
+      </section>
+
+      {error && (
+        <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+          {error}
+        </div>
       )}
+
+      {/* Alerts derived from live farm metrics */}
+      {data && (
+        <div className="space-y-3">
+          {data.biologicalContext && (data.biologicalContext.lifecycleMode === "cria_levante" || data.biologicalContext.lifecycleMode === "pausa_sanitaria") && (
+            <div className="rounded-xl border border-emerald-200 bg-emerald-50/90 px-4 py-3 flex flex-wrap items-center justify-between gap-2 text-sm text-emerald-950">
+              <div>
+                <p className="font-semibold">
+                  Modo adaptativo: {data.biologicalContext.lifecycleLabel}
+                </p>
+                <p className="text-xs text-emerald-800 mt-0.5">
+                  {data.biologicalContext.lifecycleDescription} Patrimonio vivo acumulado:{" "}
+                  <strong>${Math.round(data.biologicalContext.totalProductiveWealthCop).toLocaleString("es-CO")}</strong>
+                </p>
+              </div>
+              <Link
+                href="/dashboard/analisis/reportes"
+                className="text-xs font-semibold text-emerald-800 underline hover:text-emerald-950"
+              >
+                Ver balance en 3 capas
+              </Link>
+            </div>
+          )}
+
+          {(data.biologicalContext?.alerts || []).map((bioAlert) => (
+            <div
+              key={bioAlert.id}
+              className={`rounded-xl border px-4 py-3 flex flex-wrap items-center justify-between gap-2 text-sm ${
+                bioAlert.severity === "critical"
+                  ? "border-rose-200 bg-rose-50 text-rose-900"
+                  : bioAlert.severity === "warning"
+                    ? "border-amber-200 bg-amber-50 text-amber-900"
+                    : "border-sky-200 bg-sky-50 text-sky-900"
+              }`}
+            >
+              <div>
+                <p className="font-semibold">
+                  [{bioAlert.species.toUpperCase()}] {bioAlert.title}
+                </p>
+                <p className="text-xs opacity-90 mt-0.5">
+                  {bioAlert.detail} <strong>Acción:</strong> {bioAlert.recommendedAction}
+                </p>
+              </div>
+            </div>
+          ))}
+
+          {data.costPerUnit.breakevenAlertEggs && (
+            <div className="rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 flex flex-wrap items-center justify-between gap-2 text-sm text-rose-900">
+              <div className="flex items-center gap-2">
+                <AlertTriangle className="w-4 h-4 text-rose-600 shrink-0" />
+                <span>
+                  <strong>Precio bajo punto de equilibrio:</strong> Tu precio promedio de huevo ($
+                  {data.costPerUnit.avgSalePricePerEgg.toFixed(0)}) está por debajo de tu costo unitario ($
+                  {data.costPerUnit.perEgg.toFixed(0)}).
+                </span>
+              </div>
+              <Link
+                href="/dashboard/finanzas/ventas"
+                className="text-xs font-semibold text-rose-800 underline hover:text-rose-950"
+              >
+                Revisar precios y ventas
+              </Link>
+            </div>
+          )}
+
+          {data.peakProduction.declinePercent > 10 && (
+            <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 flex flex-wrap items-center justify-between gap-2 text-sm text-amber-900">
+              <div className="flex items-center gap-2">
+                <TrendingDown className="w-4 h-4 text-amber-600 shrink-0" />
+                <span>
+                  <strong>Caída frente al pico de postura:</strong> Bajó{" "}
+                  {data.peakProduction.declinePercent.toFixed(1)}% desde su semana pico (
+                  {data.peakProduction.peakRate}% → {data.peakProduction.currentRate}%).
+                </span>
+              </div>
+              <Link
+                href="/dashboard/produccion/huevos"
+                className="text-xs font-semibold text-amber-800 underline hover:text-amber-950"
+              >
+                Auditar lote en postura
+              </Link>
+            </div>
+          )}
+
+          {data.zootechnical.slaughterWindowAlerts.length > 0 && (
+            <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900 space-y-1.5">
+              <div className="flex items-center justify-between gap-2 flex-wrap">
+                <div className="flex items-center gap-2 font-semibold">
+                  <AlertTriangle className="w-4 h-4 text-amber-600 shrink-0" />
+                  <span>Lotes próximos o dentro de ventana óptima de sacrificio</span>
+                </div>
+                <Link
+                  href="/dashboard/produccion/sacrificio"
+                  className="text-xs font-semibold text-amber-800 underline"
+                >
+                  Programar sacrificio
+                </Link>
+              </div>
+              <div className="flex flex-wrap gap-2">
+                {data.zootechnical.slaughterWindowAlerts.map((alert) => (
+                  <span
+                    key={alert.id}
+                    className="inline-flex items-center gap-1 rounded-full bg-white border border-amber-200 px-2.5 py-0.5 text-xs font-medium text-amber-900"
+                  >
+                    <strong>{alert.code}</strong> · {alert.ageDays}/{alert.targetDays}d ·{" "}
+                    {alert.currentQuantity} anim.
+                  </span>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Main Customizable Grid */}
+      {loading ? (
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+          {Array.from({ length: 6 }).map((_, idx) => (
+            <div
+              key={idx}
+              className="h-44 rounded-xl bg-white border border-slate-200 p-4 animate-pulse space-y-3"
+            >
+              <div className="h-3 w-24 bg-slate-200 rounded" />
+              <div className="h-7 w-32 bg-slate-200 rounded" />
+              <div className="h-3 w-40 bg-slate-100 rounded" />
+            </div>
+          ))}
+        </div>
+      ) : data && visibleWidgets.length > 0 ? (
+        <section
+          aria-label="Indicadores del tablero personalizable"
+          className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4"
+        >
+          {visibleWidgets.map((pref) => (
+            <KpiWidgetCard
+              key={pref.id}
+              pref={pref}
+              data={data}
+              onToggleSize={handleToggleWidgetSize}
+              onOpenCustomizer={() => setCustomizerOpen(true)}
+            />
+          ))}
+        </section>
+      ) : (
+        <div className="rounded-xl border border-dashed border-slate-300 bg-white p-10 text-center space-y-3">
+          <p className="text-sm font-medium text-slate-700">
+            No hay widgets visibles para los filtros actuales.
+          </p>
+          <div className="flex items-center justify-center gap-2">
+            {search && (
+              <button
+                type="button"
+                onClick={() => setSearch("")}
+                className="px-3 py-1.5 text-xs font-semibold rounded-lg border border-slate-300 text-slate-700 hover:bg-slate-50"
+              >
+                Limpiar búsqueda
+              </button>
+            )}
+            <button
+              type="button"
+              onClick={() => setCustomizerOpen(true)}
+              className="px-3.5 py-1.5 text-xs font-semibold rounded-lg bg-green-600 text-white hover:bg-green-700"
+            >
+              Elegir indicadores en Personalizar
+            </button>
+          </div>
+        </div>
+      )}
+
+      <KpiCustomizerDialog
+        open={customizerOpen}
+        onClose={() => setCustomizerOpen(false)}
+        config={config}
+        recommendedPreset={recommendedPreset}
+        canSeedFarmDefault={canSeedFarmDefault}
+        saving={savingConfig}
+        onSave={async (nextConfig, seedDefault) => {
+          await persistConfig(nextConfig, seedDefault);
+        }}
+      />
     </div>
   );
 }

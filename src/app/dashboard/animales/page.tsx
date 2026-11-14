@@ -101,7 +101,7 @@ const quickLinks = [
   { href: "/dashboard/produccion?tab=animales", label: "Gestión de Animales", icon: "paw-print", desc: "Gallinas, gallos, conejos, cuyes y lotes por especie" },
   { href: "/dashboard/ubicaciones", label: "Lugares de manejo", icon: "map-pin", desc: "Corrales, galpones, jaulas y potreros" },
   { href: "/dashboard/produccion?tab=reproduccion", label: "Reproducción", icon: "rabbit", desc: "Empadre, palpación, parto, destete y consanguinidad" },
-  { href: "/dashboard/produccion/peso", label: "Control de peso", icon: "scale", desc: "Biometría, ganancia diaria, CV% y uniformidad" },
+  { href: "/dashboard/produccion/peso", label: "Control de peso", icon: "scale", desc: "Pesajes por edad, ganancia diaria y qué tan parejo va el lote" },
   { href: "/dashboard/produccion?tab=incubacion", label: "Incubación", icon: "incubator", desc: "Nacimientos, ovoscopía y fertilidad" },
   { href: "/dashboard/produccion/mortalidad", label: "Mortalidad", icon: "mortality", desc: "Bajas y causas por lote o ficha" },
 ];

@@ -4,7 +4,9 @@ import { and, desc, eq, gte, lte, sql } from "drizzle-orm";
 import { NextRequest, NextResponse } from "next/server";
 import { withApiHandler } from "@/lib/api-handler";
 import { getStandardCurve, interpolateStandard } from "@/lib/standard-curves";
+import { getDbWeightCurve } from "@/lib/breed-standards-db";
 import { calibrateTargetForEnvironment } from "@/lib/zootechnics";
+import { syncWeatherSnapshot } from "@/lib/external-sources/wave1-territory-weather-market";
 
 export const dynamic = "force-dynamic";
 
@@ -29,8 +31,34 @@ export const GET = withApiHandler(async (req: NextRequest) => {
   const species = searchParams.get("species") || "gallina";
   const breed = searchParams.get("breed");
   const locationId = searchParams.get("locationId") || null;
-  const baseCurve = getStandardCurve(species, breed);
-  if (!baseCurve) return NextResponse.json({ error: "No hay una curva de referencia para esta especie" }, { status: 404 });
+  const staticCurve = getStandardCurve(species, breed);
+  const dbWeightCurve = (!staticCurve || staticCurve.metric === "peso")
+    ? await getDbWeightCurve(species, breed)
+    : null;
+
+  if (!staticCurve && !dbWeightCurve) {
+    return NextResponse.json({ error: "No hay una curva de referencia para esta especie" }, { status: 404 });
+  }
+
+  const baseCurve = staticCurve
+    ? dbWeightCurve && staticCurve.metric === "peso"
+      ? {
+          ...staticCurve,
+          points: dbWeightCurve.points,
+          note: `${staticCurve.note} (Sincronizada con Catálogos → Estándares de peso.)`,
+        }
+      : staticCurve
+    : {
+        species: species as "gallina" | "pollo" | "codorniz" | "pato" | "conejo" | "cuy",
+        speciesLabel: species,
+        breed: dbWeightCurve!.breed,
+        metric: "peso" as const,
+        unit: "g de peso vivo",
+        sourceLabel: "Catálogos y Datos Maestros de la granja",
+        sourceUrl: "/dashboard/configuracion/catalogos?tab=pesos",
+        note: "Curva personalizada configurada desde Catálogos → Estándares de peso.",
+        points: dbWeightCurve!.points,
+      };
 
   const [selectedLoc] = locationId
     ? await db.select().from(farmLocations).where(eq(farmLocations.id, locationId)).limit(1)
@@ -209,7 +237,10 @@ export const GET = withApiHandler(async (req: NextRequest) => {
     }
   }
 
-  const latestMetrics = [...logs].reverse().find((l) => l.cvPercent != null || l.dailyGainG != null);
+  const [latestMetrics, weatherSnap] = [
+    [...logs].reverse().find((l) => l.cvPercent != null || l.dailyGainG != null),
+    await syncWeatherSnapshot().catch(() => null),
+  ];
   return NextResponse.json({
     curve,
     logs,
@@ -219,6 +250,20 @@ export const GET = withApiHandler(async (req: NextRequest) => {
       locationName: selectedLoc?.name || null,
       ...envCal,
     },
+    externalWeather: weatherSnap
+      ? {
+          status: weatherSnap.status,
+          providerName: weatherSnap.providerName,
+          fetchedAt: weatherSnap.fetchedAt,
+          locationLabel: weatherSnap.payload.locationLabel,
+          currentTempC: weatherSnap.payload.currentTempC,
+          currentHumidityPct: weatherSnap.payload.currentHumidityPct,
+          currentIth: weatherSnap.payload.currentIth,
+          thermalStressLevel: weatherSnap.payload.thermalStressLevel,
+          feedIntakeFactor: weatherSnap.payload.feedIntakeFactor,
+          recommendation: weatherSnap.payload.recommendation,
+        }
+      : null,
     zootechnics: latestMetrics
       ? {
           cvPercent: latestMetrics.cvPercent,

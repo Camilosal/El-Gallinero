@@ -3,7 +3,7 @@ import { db } from "@/db";
 import { eggProduction, eggProductionDetails, catalogos, hens, autoconsumoLogs, broilerBatches, farmLocations } from "@/db/schema";
 import { eq, desc, inArray, and, sql } from "drizzle-orm";
 import { NextRequest, NextResponse } from "next/server";
-import { getEggValidationThreshold } from "@/lib/settings";
+import { getEggStorageThresholds, getEggValidationThreshold } from "@/lib/settings";
 import { withApiHandler, safeParseJson } from "@/lib/api-handler";
 import { lockEggInventory } from "@/lib/inventory-locks";
 import { computeEggInventory, eggInventoryBookBalance } from "@/lib/inventory";
@@ -90,9 +90,12 @@ export const GET = withApiHandler(async (req: NextRequest) => {
     arr.push({ size: d.size, quantity: d.quantity });
     byProd.set(d.productionId, arr);
   }
-  const locations = await db.select({ id: farmLocations.id, name: farmLocations.name }).from(farmLocations);
+  const [locations, storageThresholds] = await Promise.all([
+    db.select({ id: farmLocations.id, name: farmLocations.name }).from(farmLocations),
+    getEggStorageThresholds(),
+  ]);
   const locationNames = new Map(locations.map((item) => [item.id, item.name]));
-  return NextResponse.json(records.map((r) => ({ ...r, locationName: r.locationId ? locationNames.get(r.locationId) || null : null, storageWarnings: checkEggStorageTelemetry(r.storageTempC, r.storageHumidityPct), details: byProd.get(r.id) || [] })));
+  return NextResponse.json(records.map((r) => ({ ...r, locationName: r.locationId ? locationNames.get(r.locationId) || null : null, storageWarnings: checkEggStorageTelemetry(r.storageTempC, r.storageHumidityPct, storageThresholds), details: byProd.get(r.id) || [] })));
 });
 
 
@@ -317,7 +320,7 @@ async function handleSave(req: NextRequest, isUpdate: boolean) {
 
       return NextResponse.json({
       ...updated,
-      storageWarnings: checkEggStorageTelemetry(updated.storageTempC, updated.storageHumidityPct),
+      storageWarnings: checkEggStorageTelemetry(updated.storageTempC, updated.storageHumidityPct, await getEggStorageThresholds()),
     });
   }
 
@@ -373,7 +376,7 @@ async function handleSave(req: NextRequest, isUpdate: boolean) {
 
   return NextResponse.json({
     ...created,
-    storageWarnings: checkEggStorageTelemetry(created.storageTempC, created.storageHumidityPct),
+    storageWarnings: checkEggStorageTelemetry(created.storageTempC, created.storageHumidityPct, await getEggStorageThresholds()),
   }, { status: 201 });
 }
 

@@ -65,10 +65,11 @@ export default function InventarioGallinazaPage() {
       <PageHeader
         title="Inventario de Gallinaza"
         description="Stock de abono disponible: producido + ajustes - vendido."
-        help="Controla el inventario de gallinaza (abono orgánico). La producción se estima automáticamente según el número de aves y factores de conversión. Se pueden hacer ajustes manuales (por limpieza, humedad, etc.) y registrar ventas. Muestra historial de producción y ventas, stock disponible y valor estimado. Desde aquí puedes ir a 'Factores y Ajustes' para configurar los parámetros de estimación."
+        help="Controla el inventario de gallinaza (abono orgánico). La producción se estima automáticamente según el número de aves y los factores configurados en Catálogos. Se pueden hacer ajustes manuales y registrar ventas desde Producción de Gallinaza."
         actions={
-          <div className="flex gap-2">
-            <Link href="/dashboard/operaciones/gallinaza"><Button>Factores y Ajustes</Button></Link>
+          <div className="flex flex-wrap gap-2">
+            <Link href="/dashboard/configuracion/catalogos?tab=gallinaza"><Button variant="secondary">Factores en Catálogos</Button></Link>
+            <Link href="/dashboard/produccion?tab=gallinaza"><Button>Producción y Ajustes</Button></Link>
           </div>
         }
       />

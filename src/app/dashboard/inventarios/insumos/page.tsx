@@ -43,6 +43,8 @@ const fmt = (n: number) => `$${Math.round(n).toLocaleString()}`;
 
 export default function InsumosPage() {
   const searchParams = useSearchParams();
+  const { values: catalogSupplyCategories } = useCatalog("categoria_insumo", supplyCategories);
+  const effectiveSupplyCategories = catalogSupplyCategories.length > 0 ? catalogSupplyCategories : supplyCategories;
   const [supplies, setSupplies] = useState<Supply[]>([]);
   const [movements, setMovements] = useState<Movement[]>([]);
   const [loading, setLoading] = useState(true);
@@ -308,7 +310,7 @@ export default function InsumosPage() {
           {error && <p className="text-sm text-red-600 bg-red-50 p-3 rounded-lg">{error}</p>}
           <Input label="Nombre" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} placeholder="Ej: Vacuna Newcastle" required help="Nombre descriptivo del insumo" />
           <Select label="Categoría" value={form.category} onChange={(e) => setForm({ ...form, category: e.target.value })} help="Clasificación del insumo (vacunas, limpieza, equipo, etc.)">
-            {supplyCategories.map((c) => <option key={c} value={c}>{c}</option>)}
+            {effectiveSupplyCategories.map((c) => <option key={c} value={c}>{c}</option>)}
           </Select>
           <Input label="Unidad de medida" value={form.unit} onChange={(e) => setForm({ ...form, unit: e.target.value })} placeholder="Ej: unidades, litros, kg" help="Unidad en que se mide el insumo (unidades, litros, kg, cajas...)" />
           <div className="grid grid-cols-2 gap-3">
