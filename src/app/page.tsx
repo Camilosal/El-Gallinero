@@ -139,7 +139,7 @@ export default function HomePage() {
             aria-hidden="true"
           />
 
-          <div className="land-wrap relative z-10 py-10 sm:py-14 lg:py-16">
+          <div className="land-wrap relative z-10 py-8 sm:py-10 lg:py-12">
             <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 lg:gap-10 items-center">
               <div className="lg:col-span-5 space-y-5">
                 <p className="font-mono text-[11px] uppercase tracking-[0.18em] text-[#e7cf9e]">
@@ -196,8 +196,6 @@ export default function HomePage() {
             </div>
           </div>
         </header>
-
-        <LandingShowcase />
 
         <section
           id="como-funciona"
@@ -428,6 +426,19 @@ export default function HomePage() {
                       </li>
                     ))}
                   </ul>
+                  <div className="mt-4">
+                    <Link
+                      href="/registro"
+                      className={`w-full inline-flex items-center justify-center gap-2 rounded-full px-4 py-2 text-xs font-semibold transition ${
+                        plan.featured
+                          ? "bg-[var(--forest)] text-white hover:bg-[var(--forest-deep)] shadow-sm"
+                          : "border border-[var(--line)] bg-[var(--paper)] text-[var(--ink)] hover:border-[var(--forest)] hover:bg-white/50"
+                      }`}
+                    >
+                      {plan.featured ? "Empezar ciclo" : "Unirme al plan"}
+                      <ArrowRight className="w-3 h-3" />
+                    </Link>
+                  </div>
                 </article>
               ))}
             </div>
