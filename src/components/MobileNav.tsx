@@ -38,6 +38,9 @@ export default function MobileNav() {
               {l.label}
             </a>
           ))}
+          <Link href="/bitacora" onClick={close}>
+            Bitácora
+          </Link>
           <div className="pt-3 mt-2 border-t border-[var(--line)] flex flex-col gap-2">
             <Link
               href="/registro"

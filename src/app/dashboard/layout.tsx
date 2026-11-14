@@ -1,5 +1,11 @@
+import type { Metadata } from "next";
 import { Suspense } from "react";
 import ClientAppLayout from "./_client-layout";
+
+export const metadata: Metadata = {
+  title: "Panel operativo · El Gallinero",
+  robots: { index: false, follow: false },
+};
 
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
   return (
