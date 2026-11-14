@@ -2388,6 +2388,12 @@ ORDER BY table_name, ordinal_position;
 6. Actualizar el mapa de dominios y, si aplica, los diagramas de relaciones.
 7. Ejecutar las pruebas y verificar que las páginas públicas y el panel sigan respondiendo.
 
+## P. Referencias cruzadas
+
+| Documento | Qué cubre | Enlace |
+|---|---|---|
+| **Fórmulas y cálculos** | Todas las fórmulas del sitio por dominio: inventarios, huevos, zootecnia, ciclo de vida, alimentación, gallinaza, sanidad, sensores, reproducción, finanzas, KPIs, reportes y exportaciones. Cada ficha indica variable, definición, fórmula, cálculo, origen y destino, trazable al código real. | [`docs/formulas-y-calculos.md`](formulas-y-calculos.md) |
+
 ---
 
 *Documento mantenido por el equipo de El Gallinero. Última verificación del esquema: 14 de noviembre de 2026 (66 tablas, 893 columnas).*
