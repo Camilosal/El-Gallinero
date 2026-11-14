@@ -197,6 +197,8 @@ export default function HomePage() {
           </div>
         </header>
 
+        <LandingShowcase />
+
         <section
           id="como-funciona"
           className="land-quick land-section py-14 sm:py-16"
