@@ -51,10 +51,39 @@ export const CUY_SANIDAD_SCHEDULE: VaccinationEvent[] = [
   { weekNumber: 8, name: "Control ectoparásitos y Salmonella", description: "Inspección de ácaros/piojos y bioseguridad de pozas", type: "vacunacion", frequencyDays: 60 },
 ];
 
+export const CODORNIZ_SANIDAD_SCHEDULE: VaccinationEvent[] = [
+  { weekNumber: 2, name: "Complejo vitamínico + Newcastle ocular", description: "Protección temprana ND gota ocular/spray y electrolitos", type: "vacunacion", frequencyDays: null },
+  { weekNumber: 5, name: "Refuerzo pre-postura codorniz", description: "Desparasitación preventiva y revisión de jaulas antes de postura", type: "vacunacion", frequencyDays: 90 },
+];
+
+export const PATO_SANIDAD_SCHEDULE: VaccinationEvent[] = [
+  { weekNumber: 1, name: "Hepatitis viral / Pasteurella preventiva", description: "Control sanitario inicial en cría y desinfección de bebederos", type: "vacunacion", frequencyDays: null },
+  { weekNumber: 4, name: "Refuerzo cólera aviar / desparasitación", description: "Mantenimiento sanitario previo a etapa de engorde final", type: "vacunacion", frequencyDays: 90 },
+];
+
+export const CONEJO_SANIDAD_SCHEDULE: VaccinationEvent[] = [
+  { weekNumber: 4, name: "Desparasitación destete + coccidiosis", description: "Preventivo coccidiostato y limpieza térmica de jaulas/nidales", type: "vacunacion", frequencyDays: 60 },
+  { weekNumber: 8, name: "Control sarna auricular y pasteurelosis", description: "Inspección de oídos, vías respiratorias y desinfección", type: "vacunacion", frequencyDays: 90 },
+];
+
+export const VACCINATION_SCHEDULE_SPECIES: Record<string, string> = {
+  "ISA Brown": "gallina",
+  "Hy-Line W-36": "gallina",
+  "Cobb 500": "pollo",
+  "Ross 308": "pollo",
+  "Cuy Mejorado": "cuy",
+  "Codorniz Japónica": "codorniz",
+  "Pato Pekín": "pato",
+  "Nueva Zelanda / California": "conejo",
+};
+
 export const VACCINATION_SCHEDULES: Record<string, VaccinationEvent[]> = {
   "ISA Brown": ISA_BROWN_VACCINATIONS,
   "Hy-Line W-36": HY_LINE_W36_VACCINATIONS,
   "Cobb 500": COBB_500_VACCINATIONS,
   "Ross 308": ROSS_308_VACCINATIONS,
   "Cuy Mejorado": CUY_SANIDAD_SCHEDULE,
+  "Codorniz Japónica": CODORNIZ_SANIDAD_SCHEDULE,
+  "Pato Pekín": PATO_SANIDAD_SCHEDULE,
+  "Nueva Zelanda / California": CONEJO_SANIDAD_SCHEDULE,
 };

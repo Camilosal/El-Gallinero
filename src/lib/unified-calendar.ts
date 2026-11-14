@@ -19,7 +19,8 @@ export type CalendarModuleType =
   | "mantenimiento"
   | "compostaje"
   | "finanzas"
-  | "cierre";
+  | "cierre"
+  | "operaciones";
 
 export type CalendarItemStatus =
   | "completed"
@@ -197,6 +198,12 @@ export const MODULE_META: Record<
     colorClass: "border-slate-300 bg-slate-100 text-slate-900",
     badgeClass: "bg-slate-200 text-slate-800 border-slate-300",
     dotClass: "bg-slate-700",
+  },
+  operaciones: {
+    label: "Festivos / Oficial",
+    colorClass: "border-indigo-200 bg-indigo-50 text-indigo-900",
+    badgeClass: "bg-indigo-100 text-indigo-900 border-indigo-300",
+    dotClass: "bg-indigo-600",
   },
 };
 

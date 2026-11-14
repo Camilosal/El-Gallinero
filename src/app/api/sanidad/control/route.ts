@@ -8,6 +8,7 @@ import { deleteTransactionsAndUnpaidAccounts, upsertExpenseTransaction } from "@
 import { HEN_TERMINAL_STATUSES } from "@/lib/animal-status";
 import { applyBatchExit, validateBatchForExit, validateRoosterForExit } from "@/lib/birdExit";
 import { resolveDimensions } from "@/lib/analytics-dimensions";
+import { findIcaDrugByProduct } from "@/lib/external-sources/wave2-standards-sanitary-ica";
 
 export const dynamic = "force-dynamic";
 
@@ -99,7 +100,19 @@ export const POST = withApiHandler(async (req: NextRequest) => {
   const [controlLocation] = await db.select().from(farmLocations).where(eq(farmLocations.id, body.locationId));
   if (!controlLocation || controlLocation.status !== "activa") return NextResponse.json({ error: "El lugar del control debe estar activo" }, { status: 400 });
 
-  const withdrawalDays = Math.max(0, Math.round(Number(body.withdrawalDays ?? 0) || 0));
+  const icaDrugMatch = typeof body.product === "string" ? findIcaDrugByProduct(body.product, body.species) : null;
+  const icaWithdrawalDays = icaDrugMatch ? Math.max(icaDrugMatch.withdrawalDaysMeat, icaDrugMatch.withdrawalDaysEggs) : 0;
+  const rawWithdrawalDays = Math.max(0, Math.round(Number(body.withdrawalDays ?? 0) || 0));
+  const withdrawalDays = rawWithdrawalDays > 0 ? rawWithdrawalDays : icaWithdrawalDays;
+  const resolvedLab =
+    typeof body.vaccineLab === "string" && body.vaccineLab.trim()
+      ? body.vaccineLab.trim()
+      : icaDrugMatch?.laboratory || null;
+  const resolvedRoute =
+    typeof body.administrationRoute === "string" && body.administrationRoute.trim()
+      ? body.administrationRoute.trim()
+      : icaDrugMatch?.route || null;
+
   const computeWithdrawalDate = (baseDate: string, days: number): string | null => {
     if (!days || days <= 0) return null;
     const d = new Date(`${baseDate}T12:00:00.000Z`);
@@ -134,7 +147,7 @@ export const POST = withApiHandler(async (req: NextRequest) => {
       withdrawalDays,
       withdrawalUntilDate,
       vaccineLot: typeof body.vaccineLot === "string" && body.vaccineLot.trim() ? body.vaccineLot.trim() : null,
-      vaccineLab: typeof body.vaccineLab === "string" && body.vaccineLab.trim() ? body.vaccineLab.trim() : null,
+      vaccineLab: resolvedLab,
       vaccineExpiryDate:
         typeof body.vaccineExpiryDate === "string" && /^\d{4}-\d{2}-\d{2}$/.test(body.vaccineExpiryDate)
           ? body.vaccineExpiryDate
@@ -143,10 +156,7 @@ export const POST = withApiHandler(async (req: NextRequest) => {
         body.coldChainTempC !== undefined && body.coldChainTempC !== null && String(body.coldChainTempC).trim() !== "" && Number.isFinite(Number(String(body.coldChainTempC).replace(/[^0-9.-]/g, "")))
           ? String(Number(String(body.coldChainTempC).replace(/[^0-9.-]/g, "")))
           : null,
-      administrationRoute:
-        typeof body.administrationRoute === "string" && body.administrationRoute.trim()
-          ? body.administrationRoute.trim()
-          : null,
+      administrationRoute: resolvedRoute,
       cost: body.cost || "0",
       nextScheduled: body.nextScheduled || null,
       notes: body.notes || null,
@@ -322,10 +332,14 @@ export const PUT = withApiHandler(async (req: NextRequest) => {
       existing.previousAnimalStates,
     );
 
-    const nextWithdrawalDays =
+    const nextProduct = body.product !== undefined ? body.product : existing.product;
+    const icaMatch = typeof nextProduct === "string" ? findIcaDrugByProduct(nextProduct, body.species !== undefined ? body.species : existing.species) : null;
+    const icaDays = icaMatch ? Math.max(icaMatch.withdrawalDaysMeat, icaMatch.withdrawalDaysEggs) : 0;
+    const rawNextWithdrawalDays =
       body.withdrawalDays !== undefined
         ? Math.max(0, Math.round(Number(body.withdrawalDays) || 0))
         : (existing.withdrawalDays ?? 0);
+    const nextWithdrawalDays = rawNextWithdrawalDays > 0 ? rawNextWithdrawalDays : icaDays;
     const computedWithdrawalUntil = (() => {
       if (typeof body.withdrawalUntilDate === "string" && /^\d{4}-\d{2}-\d{2}$/.test(body.withdrawalUntilDate)) {
         return body.withdrawalUntilDate;
@@ -357,7 +371,7 @@ export const PUT = withApiHandler(async (req: NextRequest) => {
       type: nextType,
       description: nextDescription,
       affectedHens: nextAffectedHens || null,
-      product: body.product !== undefined ? body.product : existing.product,
+      product: nextProduct,
       withdrawalDays: nextWithdrawalDays,
       withdrawalUntilDate: computedWithdrawalUntil,
       vaccineLot:

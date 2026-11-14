@@ -26,6 +26,7 @@ export interface SettingDef {
   inputType?: "text" | "date" | "email" | "tel";
   multiline?: boolean;
   setupRequired?: boolean;
+  hidden?: boolean;
 }
 
 export const SETTING_DEFS: SettingDef[] = [
@@ -277,16 +278,303 @@ export const SETTING_DEFS: SettingDef[] = [
     step: 0.1,
   },
   {
-    key: "incubation.days",
-    label: "Días de incubación",
-    description: "Días que tarda la eclosión para calcular la fecha esperada de nacimiento.",
+    key: "eggs.storage_temp_min_c",
+    label: "Temperatura mínima bodega de huevo",
+    description: "Límite inferior recomendado (NTC 1240) para almacenar huevos antes de emitir alerta térmica.",
     group: "Producción y validaciones",
+    type: "number",
+    default: "10",
+    unit: "°C",
+    min: -5,
+    max: 35,
+    step: 0.5,
+  },
+  {
+    key: "eggs.storage_temp_max_c",
+    label: "Temperatura máxima bodega de huevo",
+    description: "Límite superior recomendado (NTC 1240) para almacenar huevos antes de emitir alerta térmica.",
+    group: "Producción y validaciones",
+    type: "number",
+    default: "15",
+    unit: "°C",
+    min: 0,
+    max: 45,
+    step: 0.5,
+  },
+  {
+    key: "eggs.storage_humidity_min_pct",
+    label: "Humedad relativa mínima bodega",
+    description: "Humedad mínima recomendada para almacenamiento de huevo comercial.",
+    group: "Producción y validaciones",
+    type: "integer",
+    default: "75",
+    unit: "%",
+    min: 20,
+    max: 100,
+    step: 1,
+  },
+  {
+    key: "eggs.storage_humidity_max_pct",
+    label: "Humedad relativa máxima bodega",
+    description: "Humedad máxima recomendada para almacenamiento de huevo comercial.",
+    group: "Producción y validaciones",
+    type: "integer",
+    default: "85",
+    unit: "%",
+    min: 20,
+    max: 100,
+    step: 1,
+  },
+  {
+    key: "feeding.prediction_horizon_days",
+    label: "Horizonte de proyección de alimento",
+    description: "Días por defecto para proyectar cobertura de inventario de concentrado/forraje y stock mínimo recomendado.",
+    group: "Producción y validaciones",
+    type: "integer",
+    default: "14",
+    unit: "días",
+    min: 1,
+    max: 180,
+    step: 1,
+  },
+  {
+    key: "incubation.days",
+    label: "Días de incubación (gallina)",
+    description: "Días que tarda la eclosión de gallina para calcular la fecha esperada de nacimiento.",
+    group: "Incubación y eclosión",
     type: "integer",
     default: "21",
     unit: "días",
     min: 1,
     max: 60,
     step: 1,
+  },
+  {
+    key: "incubation.quail_days",
+    label: "Días de incubación (codorniz)",
+    description: "Días de incubación para huevos de codorniz.",
+    group: "Incubación y eclosión",
+    type: "integer",
+    default: "17",
+    unit: "días",
+    min: 10,
+    max: 35,
+    step: 1,
+  },
+  {
+    key: "incubation.duck_days",
+    label: "Días de incubación (pato)",
+    description: "Días de incubación para huevos de pato.",
+    group: "Incubación y eclosión",
+    type: "integer",
+    default: "28",
+    unit: "días",
+    min: 15,
+    max: 45,
+    step: 1,
+  },
+  {
+    key: "incubation.turn_stop_days_before",
+    label: "Días antes para suspender volteo",
+    description: "Días previos a la fecha esperada de eclosión en que se detiene el volteo (nacedora).",
+    group: "Incubación y eclosión",
+    type: "integer",
+    default: "3",
+    unit: "días",
+    min: 1,
+    max: 10,
+    step: 1,
+  },
+  {
+    key: "sanitary.empty_days",
+    label: "Días de vacío sanitario entre lotes",
+    description: "Días de descanso sanitario obligatorio (protocolo ICA) al activar el bloqueo de ingreso en un galpón o corral.",
+    group: "Sanidad y alertas",
+    type: "integer",
+    default: "21",
+    unit: "días",
+    min: 1,
+    max: 90,
+    step: 1,
+  },
+  {
+    key: "alerts.production_drop_pct",
+    label: "Umbral alerta caída de postura",
+    description: "Porcentaje mínimo de caída semanal en postura para emitir alerta operativa.",
+    group: "Sanidad y alertas",
+    type: "integer",
+    default: "20",
+    unit: "%",
+    min: 5,
+    max: 80,
+    step: 1,
+  },
+  {
+    key: "alerts.weight_deviation_pct",
+    label: "Umbral alerta desviación de peso",
+    description: "Porcentaje de desviación respecto a la curva de peso estándar para generar alerta biológica.",
+    group: "Sanidad y alertas",
+    type: "integer",
+    default: "15",
+    unit: "%",
+    min: 5,
+    max: 80,
+    step: 1,
+  },
+  {
+    key: "alerts.uniformity_tolerance_pct",
+    label: "Banda de tolerancia de uniformidad",
+    description: "Porcentaje ± sobre la media en muestreos individuales para calcular % de uniformidad del lote.",
+    group: "Sanidad y alertas",
+    type: "integer",
+    default: "10",
+    unit: "%",
+    min: 5,
+    max: 25,
+    step: 1,
+  },
+  {
+    key: "harvest.days_pollo",
+    label: "Edad óptima cosecha pollo (días)",
+    description: "Edad objetivo para programar beneficio/venta en pollos de engorde antes del deterioro de FCR.",
+    group: "Ventanas de cosecha por especie",
+    type: "integer",
+    default: "42",
+    unit: "días",
+    min: 21,
+    max: 180,
+    step: 1,
+  },
+  {
+    key: "harvest.days_pato",
+    label: "Edad óptima cosecha pato (días)",
+    description: "Edad objetivo para cosecha de patos de engorde.",
+    group: "Ventanas de cosecha por especie",
+    type: "integer",
+    default: "49",
+    unit: "días",
+    min: 28,
+    max: 180,
+    step: 1,
+  },
+  {
+    key: "harvest.days_codorniz",
+    label: "Edad óptima cosecha codorniz (días)",
+    description: "Edad objetivo para cosecha o inicio productivo en lotes de codorniz.",
+    group: "Ventanas de cosecha por especie",
+    type: "integer",
+    default: "42",
+    unit: "días",
+    min: 21,
+    max: 120,
+    step: 1,
+  },
+  {
+    key: "harvest.days_conejo",
+    label: "Edad óptima cosecha conejo (días)",
+    description: "Edad objetivo de beneficio para conejos de engorde.",
+    group: "Ventanas de cosecha por especie",
+    type: "integer",
+    default: "75",
+    unit: "días",
+    min: 40,
+    max: 180,
+    step: 1,
+  },
+  {
+    key: "harvest.days_cuy",
+    label: "Edad óptima cosecha cuy (días)",
+    description: "Edad objetivo para cosecha de cuyes de engorde antes de la inflexión FCR.",
+    group: "Ventanas de cosecha por especie",
+    type: "integer",
+    default: "80",
+    unit: "días",
+    min: 45,
+    max: 180,
+    step: 1,
+  },
+  {
+    key: "farm.dane_municipality_code",
+    label: "Código DANE del municipio (DIVIPOLA)",
+    description: "Código DANE de 5 dígitos para cruzar automáticamente clima, precios regionales SIPSA y alertas sanitarias.",
+    group: "Fuentes externas y contexto oficial",
+    type: "string",
+    default: "25286",
+    optional: true,
+  },
+  {
+    key: "external.sync_enabled",
+    label: "Sincronización externa activa",
+    description: "Habilita el refresco en segundo plano de clima (Open-Meteo), DANE DIVIPOLA/SIPSA, TRM, estándares y festivos manteniendo fallback offline.",
+    group: "Fuentes externas y contexto oficial",
+    type: "boolean",
+    default: "true",
+  },
+  {
+    key: "external.weather_ttl_hours",
+    label: "Vigencia caché clima / ITH",
+    description: "Horas antes de renovar automáticamente la lectura meteorológica de Open-Meteo.",
+    group: "Fuentes externas y contexto oficial",
+    type: "integer",
+    default: "3",
+    unit: "horas",
+    min: 1,
+    max: 72,
+    step: 1,
+  },
+  {
+    key: "external.market_ttl_hours",
+    label: "Vigencia caché precios SIPSA / TRM",
+    description: "Horas antes de refrescar precios mayoristas DANE SIPSA y tasa representativa del mercado.",
+    group: "Fuentes externas y contexto oficial",
+    type: "integer",
+    default: "12",
+    unit: "horas",
+    min: 1,
+    max: 168,
+    step: 1,
+  },
+  {
+    key: "external.auto_adjust_feed_by_weather",
+    label: "Ajustar predicción de alimento por clima/ITH",
+    description: "Aplica el factor térmico ambiental (frío o estrés calórico) sobre la proyección de consumo diario de alimento.",
+    group: "Fuentes externas y contexto oficial",
+    type: "boolean",
+    default: "true",
+  },
+  {
+    key: "external.tax_uvt_cop",
+    label: "Valor UVT DIAN vigente",
+    description: "Unidad de Valor Tributario usada para calcular topes de retención y métricas tributarias en contabilidad analítica.",
+    group: "Fuentes externas y contexto oficial",
+    type: "integer",
+    default: "49799",
+    unit: "COP",
+    min: 30000,
+    max: 200000,
+    step: 1,
+  },
+  {
+    key: "external.finagro_ibr_ea_pct",
+    label: "Tasa de referencia agropecuaria IBR / Finagro",
+    description: "Tasa anual efectiva de referencia para comparar el ROI de activos CAPEX frente al costo financiero agropecuario.",
+    group: "Fuentes externas y contexto oficial",
+    type: "number",
+    default: "9.5",
+    unit: "% E.A.",
+    min: 1,
+    max: 45,
+    step: 0.1,
+  },
+  {
+    key: "normative.custom_items_json",
+    label: "Normas y guías personalizadas",
+    description: "Catálogo JSON de normas, estándares o guías locales registradas por la granja.",
+    group: "Sistema interno",
+    type: "string",
+    default: "[]",
+    optional: true,
+    hidden: true,
   },
 ];
 
@@ -377,7 +665,7 @@ export function invalidateSettingsCache(): void {
 /** Lista para la UI: definición + valor efectivo. */
 export async function getSettingsForApi() {
   const values = await getSettings();
-  return SETTING_DEFS.map((def) => ({
+  return SETTING_DEFS.filter((def) => !def.hidden).map((def) => ({
     ...def,
     value: values[def.key] ?? def.default,
   }));
@@ -401,15 +689,21 @@ export async function updateSettings(
     normalized.push({ key: def.key, value: coerceValue(def, update.value) });
   }
 
+  const validUserId =
+    typeof userId === "string" &&
+    /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(userId)
+      ? userId
+      : null;
+
   for (const item of normalized) {
     await db
       .insert(appSettings)
-      .values({ farmId: getCurrentFarmId(), key: item.key, value: item.value, updatedBy: userId ?? null })
+      .values({ farmId: getCurrentFarmId(), key: item.key, value: item.value, updatedBy: validUserId })
       .onConflictDoUpdate({
         target: [appSettings.farmId, appSettings.key],
         set: {
           value: item.value,
-          updatedBy: userId ?? null,
+          updatedBy: validUserId,
           updatedAt: new Date(),
         },
       });
@@ -447,6 +741,80 @@ export async function getEggValidationThreshold(): Promise<number> {
 
 export async function getIncubationDays(): Promise<number> {
   return getNumberSetting("incubation.days");
+}
+
+export async function getIncubationRulesForSpecies(species: string): Promise<{ days: number; turnStopDaysBefore: number }> {
+  const sp = (species || "gallina").trim().toLowerCase();
+  const key = sp === "codorniz" ? "incubation.quail_days" : sp === "pato" ? "incubation.duck_days" : "incubation.days";
+  const [days, turnStopDaysBefore] = await Promise.all([
+    getNumberSetting(key),
+    getNumberSetting("incubation.turn_stop_days_before"),
+  ]);
+  return { days, turnStopDaysBefore };
+}
+
+export async function getEggStorageThresholds() {
+  const [minTempC, maxTempC, minHumidityPct, maxHumidityPct] = await Promise.all([
+    getNumberSetting("eggs.storage_temp_min_c"),
+    getNumberSetting("eggs.storage_temp_max_c"),
+    getNumberSetting("eggs.storage_humidity_min_pct"),
+    getNumberSetting("eggs.storage_humidity_max_pct"),
+  ]);
+  return { minTempC, maxTempC, minHumidityPct, maxHumidityPct };
+}
+
+export async function getSanitaryEmptyDays(): Promise<number> {
+  return getNumberSetting("sanitary.empty_days");
+}
+
+export async function getFeedingHorizonDays(): Promise<number> {
+  return getNumberSetting("feeding.prediction_horizon_days");
+}
+
+export async function getAlertThresholds() {
+  const [productionDropPct, weightDeviationPct, uniformityTolerancePct] = await Promise.all([
+    getNumberSetting("alerts.production_drop_pct"),
+    getNumberSetting("alerts.weight_deviation_pct"),
+    getNumberSetting("alerts.uniformity_tolerance_pct"),
+  ]);
+  return { productionDropPct, weightDeviationPct, uniformityTolerancePct };
+}
+
+export async function getHarvestDaysBySpecies(): Promise<Record<string, number>> {
+  const [pollo, pato, codorniz, conejo, cuy] = await Promise.all([
+    getNumberSetting("harvest.days_pollo"),
+    getNumberSetting("harvest.days_pato"),
+    getNumberSetting("harvest.days_codorniz"),
+    getNumberSetting("harvest.days_conejo"),
+    getNumberSetting("harvest.days_cuy"),
+  ]);
+  return { pollo, pato, codorniz, conejo, cuy };
+}
+
+export async function getExternalSyncConfig() {
+  const [syncEnabled, weatherTtlHours, marketTtlHours, autoAdjustFeedByWeather, daneMunicipalityCode] =
+    await Promise.all([
+      getBooleanSetting("external.sync_enabled"),
+      getNumberSetting("external.weather_ttl_hours"),
+      getNumberSetting("external.market_ttl_hours"),
+      getBooleanSetting("external.auto_adjust_feed_by_weather"),
+      getSetting("farm.dane_municipality_code"),
+    ]);
+  return {
+    syncEnabled,
+    weatherTtlHours,
+    marketTtlHours,
+    autoAdjustFeedByWeather,
+    daneMunicipalityCode,
+  };
+}
+
+export async function getTaxAndFinanceDefaults() {
+  const [uvtCop, finagroIbrEaPct] = await Promise.all([
+    getNumberSetting("external.tax_uvt_cop"),
+    getNumberSetting("external.finagro_ibr_ea_pct"),
+  ]);
+  return { uvtCop, finagroIbrEaPct };
 }
 
 /** Helper para pruebas: permite inyectar valores sin tocar la DB. */

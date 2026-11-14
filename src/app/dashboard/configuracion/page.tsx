@@ -17,7 +17,9 @@ const secciones = [
   { href: "/dashboard/configuracion/granjas", label: "Panel Super-Admin de Granjas (Tenants)", icon: "shield", desc: "Administra fincas registradas, planes, vencimientos, cupos de usuarios, altas Llave en Mano y soporte multi-granja" },
   { href: "/dashboard/configuracion/plan", label: "Plan por Ciclo y Pagos (Nequi / PSE)", icon: "credit-card", desc: "Renueva por cosecha de 60 días o plan semestral/anual mediante Nequi, Daviplata o PSE" },
   { href: "/dashboard/configuracion/modulos", label: "Onboarding Progresivo, Escala y Módulos", icon: "sparkles", desc: "Perfil Pequeño vs Mediano, auto-triggers de crecimiento, Feature Flags y Asistente Día 1 sin historial" },
-  { href: "/dashboard/configuracion/catalogos", label: "Catálogos y datos de la granja", icon: "folder", desc: "8 pestañas maestras: listas, contactos, parámetros, 6 especies, vacunas, pesos, gallinaza y tabla nutricional" },
+  { href: "/dashboard/configuracion/catalogos", label: "Catálogos y datos de la granja", icon: "folder", desc: "Parámetros, especies, listas maestras, vacunas, pesos, gallinaza, nutrición, contactos y tablas maestras externas (DIVIPOLA, SIPSA, ICA, festivos)" },
+  { href: "/dashboard/configuracion/catalogos?tab=normas", label: "Normas, Estándares y Guías Aplicables", icon: "book-open", desc: "Resoluciones ICA, NTC 1240, guías técnicas y protocolos propios con consulta directa a Gina y adjuntos PDF o fotográficos" },
+  { href: "/dashboard/configuracion/fallas", label: "Reportes de fallas y diagnóstico", icon: "alert", desc: "Presenta fallas etiquetadas automáticamente con origen, módulo, red y seguimiento de solución" },
   { href: "/dashboard/contactos", label: "Clientes y Proveedores", icon: "handshake", desc: "Directorio comercial con teléfonos, WhatsApp, ubicación GPS y plazos de crédito" },
 ];
 

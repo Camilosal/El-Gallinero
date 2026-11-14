@@ -2,6 +2,14 @@ import { NextRequest, NextResponse } from "next/server";
 import { withApiHandler, safeParseJson } from "@/lib/api-handler";
 import { requirePermission } from "@/lib/rbac-server";
 import { getSessionUser } from "@/lib/auth";
+import { resolveZoneWithFallback } from "@/lib/divipola-catalog";
+import { updateSettings } from "@/lib/settings";
+import {
+  syncDivipolaSnapshot,
+  syncMarketPricesSnapshot,
+  syncWeatherSnapshot,
+} from "@/lib/external-sources/wave1-territory-weather-market";
+import { syncIcaVademecumAndAlertsSnapshot } from "@/lib/external-sources/wave2-standards-sanitary-ica";
 import {
   executeDay1Setup,
   getProgressiveOnboardingState,
@@ -112,6 +120,44 @@ export const POST = withApiHandler(async (req: NextRequest) => {
 
   try {
     const result = await executeDay1Setup(setupPayload, user?.id ?? null);
+
+    try {
+      const zone = resolveZoneWithFallback({
+        daneCode: body.daneCode ? String(body.daneCode) : undefined,
+        city: setupPayload.ciudad,
+        department: body.departamento ? String(body.departamento) : undefined,
+      });
+      if (zone.coverageScope === "local") {
+        await updateSettings(
+          [
+            { key: "farm.country", value: "Colombia" },
+            { key: "farm.department", value: zone.municipality.department },
+            { key: "farm.city", value: zone.municipality.municipality },
+            { key: "farm.dane_municipality_code", value: zone.municipality.daneCode },
+            { key: "farm.latitude", value: String(zone.municipality.latitude) },
+            { key: "farm.longitude", value: String(zone.municipality.longitude) },
+            ...(setupPayload.altitudMsnm == null
+              ? [{ key: "farm.altitude_meters", value: String(zone.municipality.altitudeMeters) }]
+              : []),
+          ],
+          user?.id ?? null,
+        );
+      } else if (body.departamento) {
+        await updateSettings(
+          [{ key: "farm.department", value: String(body.departamento) }],
+          user?.id ?? null,
+        );
+      }
+      await Promise.allSettled([
+        syncDivipolaSnapshot({ forceRefresh: true }),
+        syncWeatherSnapshot({ forceRefresh: true }),
+        syncMarketPricesSnapshot({ forceRefresh: true }),
+        syncIcaVademecumAndAlertsSnapshot({ forceRefresh: true }),
+      ]);
+    } catch {
+      // No bloquear arranque Día 1 si la sincronización externa falla
+    }
+
     return NextResponse.json(result, { status: 201 });
   } catch (err) {
     const message = err instanceof Error ? err.message : "Error al completar arranque Día 1";

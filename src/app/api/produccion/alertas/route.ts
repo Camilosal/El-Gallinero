@@ -5,11 +5,14 @@ import { NextResponse } from "next/server";
 import { ageInWeeks } from "@/lib/lifecycle";
 import { withApiHandler, safeParseJson } from "@/lib/api-handler";
 import { evaluateHarvestWindowWarning } from "@/lib/micro-insights";
+import { getAlertThresholds } from "@/lib/settings";
+import { syncWeatherSnapshot } from "@/lib/external-sources/wave1-territory-weather-market";
+import { syncIcaVademecumAndAlertsSnapshot } from "@/lib/external-sources/wave2-standards-sanitary-ica";
 
 export const dynamic = "force-dynamic";
 
 interface Alert {
-  type: "feed_change" | "point_of_lay" | "overdue_vaccination" | "production_drop" | "weight_deviation" | "harvest_window";
+  type: "feed_change" | "point_of_lay" | "overdue_vaccination" | "production_drop" | "weight_deviation" | "harvest_window" | "weather_ith" | "epidemiology_ica";
   severity: "info" | "warning" | "critical";
   title: string;
   message: string;
@@ -106,14 +109,15 @@ export const GET = withApiHandler(async () => {
     .from(eggProduction)
     .where(and(gte(eggProduction.date, fourteenStr), lt(eggProduction.date, sevenStr)));
 
+  const { productionDropPct, weightDeviationPct } = await getAlertThresholds();
   const recentTotal = recentRow?.total || 0;
   const prevTotal = prevRow?.total || 0;
   if (prevTotal > 0) {
     const dropPercent = ((prevTotal - recentTotal) / prevTotal) * 100;
-    if (dropPercent > 20) {
+    if (dropPercent > productionDropPct) {
       alerts.push({
         type: "production_drop",
-        severity: dropPercent > 40 ? "critical" : "warning",
+        severity: dropPercent > Math.max(40, productionDropPct * 2) ? "critical" : "warning",
         title: `Caída de producción: ${dropPercent.toFixed(0)}%`,
         message: `${prevTotal} → ${recentTotal} huevos (últimos 7 días vs anteriores)`,
         date: todayStr,
@@ -128,6 +132,7 @@ export const GET = withApiHandler(async () => {
     .orderBy(desc(weightLogs.date))
     .limit(10);
 
+  const weightDevThreshold = weightDeviationPct / 100;
   for (const w of latestWeights) {
     if (!w.breed || w.weekNumber == null) continue;
     const standards = await db
@@ -136,20 +141,22 @@ export const GET = withApiHandler(async () => {
       .where(and(
         eq(breedWeightStandards.breed, w.breed),
         eq(breedWeightStandards.weekNumber, w.weekNumber)
-      ))
-      .limit(1);
+      ));
 
     if (standards.length === 0) continue;
     if (!w.avgWeightKg) continue;
-    const std = standards[0];
+    const neutral = standards.find((s) => s.gender === "mixto");
+    const targetG = neutral
+      ? parseFloat(neutral.targetWeightG)
+      : standards.reduce((sum, s) => sum + parseFloat(s.targetWeightG), 0) / standards.length;
+    if (!Number.isFinite(targetG) || targetG <= 0) continue;
     const actualG = parseFloat(w.avgWeightKg) * 1000;
-    const targetG = parseFloat(std.targetWeightG);
     const deviation = Math.abs(actualG - targetG) / targetG;
 
-    if (deviation > 0.15) {
+    if (deviation > weightDevThreshold) {
       alerts.push({
         type: "weight_deviation",
-        severity: deviation > 0.25 ? "critical" : "warning",
+        severity: deviation > Math.max(0.25, weightDevThreshold + 0.1) ? "critical" : "warning",
         title: `Desviación de peso: ${(deviation * 100).toFixed(0)}%`,
         message: `${w.breed} semana ${w.weekNumber}: ${actualG.toFixed(0)}g vs objetivo ${targetG.toFixed(0)}g`,
         date: w.date,
@@ -181,6 +188,58 @@ export const GET = withApiHandler(async () => {
         message: hw.message,
         date: todayStr,
         birdGroup: b.code,
+      });
+    }
+  }
+
+  // 7. Clima externo / ITH y bodega NTC 1240 (Open-Meteo + caché offline-first)
+  const weatherSnap = await syncWeatherSnapshot().catch(() => null);
+  const wPayload = weatherSnap?.payload;
+  if (wPayload) {
+    if (wPayload.currentIth >= 72 || wPayload.thermalStressLevel === "estres_severo" || wPayload.thermalStressLevel === "riesgo_frio") {
+      alerts.push({
+        type: "weather_ith",
+        severity: wPayload.currentIth >= 78 || wPayload.thermalStressLevel === "estres_severo" ? "critical" : "warning",
+        title:
+          wPayload.thermalStressLevel === "riesgo_frio"
+            ? `Alerta climática: baja temperatura (${wPayload.currentTempC}°C)`
+            : `Alerta estrés térmico en ${wPayload.locationLabel} (ITH ${wPayload.currentIth})`,
+        message: `${wPayload.recommendation} ${wPayload.feedIntakeNote}.`,
+        date: todayStr,
+      });
+    }
+    const maxForecast = wPayload.forecast?.find((d) => d.maxIth >= 75 || d.minTempC < 10);
+    if (maxForecast) {
+      alerts.push({
+        type: "weather_ith",
+        severity: maxForecast.maxIth >= 78 ? "critical" : "warning",
+        title: `Pronóstico climático crítico (${maxForecast.date})`,
+        message: `Se proyecta mín ${maxForecast.minTempC}°C / máx ${maxForecast.maxTempC}°C (ITH máx ${maxForecast.maxIth}). Anticipar ventilación o cortinas.`,
+        date: maxForecast.date,
+      });
+    }
+    if (wPayload.ntc1240StorageRisk?.outOfRange && wPayload.ntc1240StorageRisk.reason) {
+      alerts.push({
+        type: "weather_ith",
+        severity: "info",
+        title: "Riesgo ambiental para bodega de huevo (NTC 1240)",
+        message: wPayload.ntc1240StorageRisk.reason,
+        date: todayStr,
+      });
+    }
+  }
+
+  // 8. Vigilancia epidemiológica regional ICA / OMSA (Ola 2)
+  const epiSnap = await syncIcaVademecumAndAlertsSnapshot().catch(() => null);
+  const epiAlerts = epiSnap?.payload?.alerts || [];
+  for (const item of epiAlerts) {
+    if (item.riskLevel === "alto" || item.riskLevel === "medio") {
+      alerts.push({
+        type: "epidemiology_ica",
+        severity: item.riskLevel === "alto" ? "critical" : "warning",
+        title: `Vigilancia ICA (${item.department}): ${item.disease}`,
+        message: `${item.recommendation} Ref.: ${item.resolutionRef}.`,
+        date: todayStr,
       });
     }
   }

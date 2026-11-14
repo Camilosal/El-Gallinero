@@ -15,6 +15,7 @@ import { requirePermission } from "@/lib/rbac-server";
 import { getSessionUser } from "@/lib/auth";
 import { assertDateNotClosed } from "@/lib/sanitary-locks";
 import { buildXlsxBytes, rowsToCsv, type CellValue } from "@/lib/export/xlsx";
+import { syncIcaVademecumAndAlertsSnapshot } from "@/lib/external-sources/wave2-standards-sanitary-ica";
 
 export const dynamic = "force-dynamic";
 
@@ -254,6 +255,9 @@ export const GET = withApiHandler(async (req: NextRequest) => {
     });
   }
 
+  const icaAlertSnap = await syncIcaVademecumAndAlertsSnapshot().catch(() => null);
+  const epidemiologicalAlerts = icaAlertSnap?.payload?.alerts || [];
+
   return NextResponse.json({
     logs: enriched,
     summary: {
@@ -263,7 +267,9 @@ export const GET = withApiHandler(async (req: NextRequest) => {
       mixedFarmBiosecurityScore: mixedFarmScore,
       isolationPct,
       certificateAlerts: certAlerts,
+      epidemiologicalAlertsCount: epidemiologicalAlerts.length,
     },
+    epidemiologicalAlerts,
   });
 });
 

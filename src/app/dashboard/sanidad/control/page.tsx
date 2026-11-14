@@ -54,6 +54,20 @@ interface CalendarEvent {
   daysUntilDue: number;
 }
 
+interface IcaDrugOption {
+  id: string;
+  commercialName: string;
+  activeIngredient: string;
+  icaRegistration: string;
+  laboratory: string;
+  category: string;
+  route: string;
+  withdrawalDaysMeat: number;
+  withdrawalDaysEggs: number;
+  contraindicatedInLayingHens: boolean;
+  notes: string;
+}
+
 const eventTypes = [
   { value: "vacunacion", label: "Vacunación" },
   { value: "desparasitacion", label: "Desparasitación" },
@@ -94,6 +108,8 @@ function SanidadPageInner() {
   const [lastInsight, setLastInsight] = useState<MicroInsightPayload | null>(null);
   const [error, setError] = useState("");
   const [calendarEvents, setCalendarEvents] = useState<CalendarEvent[]>([]);
+  const [icaCatalog, setIcaCatalog] = useState<IcaDrugOption[]>([]);
+  const [selectedIcaDrugId, setSelectedIcaDrugId] = useState("");
   const [search, setSearch] = useState("");
   const [form, setForm] = useState({
     date: new Date().toISOString().split("T")[0],
@@ -119,9 +135,13 @@ function SanidadPageInner() {
     Promise.all([
       apiFetch("/api/sanidad/control").then((r) => r.json()),
       apiFetch("/api/sanidad/calendario").then((r) => r.json()),
-    ]).then(([control, calendar]) => {
+      apiFetch("/api/configuracion/fuentes-externas?section=vademecum").then((r) => r.ok ? r.json() : { vademecum: [] }).catch(() => ({ vademecum: [] })),
+    ]).then(([control, calendar, extVademecum]) => {
       setRecords(control);
       setCalendarEvents(calendar);
+      if (Array.isArray(extVademecum?.vademecum)) {
+        setIcaCatalog(extVademecum.vademecum);
+      }
     }).finally(() => setLoading(false));
   }, []);
 
@@ -134,6 +154,7 @@ function SanidadPageInner() {
 
   const openNew = () => {
     setEditing(null);
+    setSelectedIcaDrugId("");
     setDraftEntityId(createDraftEntityId("health"));
     setError("");
     setForm({
@@ -159,6 +180,7 @@ function SanidadPageInner() {
 
   const openNewWithEvent = useCallback((event: CalendarEvent) => {
     setEditing(null);
+    setSelectedIcaDrugId("");
     setDraftEntityId(createDraftEntityId("health"));
     setError("");
     // Calculate next scheduled date based on frequency
@@ -219,6 +241,7 @@ function SanidadPageInner() {
 
   const openEdit = (r: HealthRecord) => {
     setEditing(r);
+    setSelectedIcaDrugId("");
     setError("");
     setForm({
       date: r.date,
@@ -493,6 +516,52 @@ function SanidadPageInner() {
           {locations.length === 0 && <p className="text-sm text-amber-700"><Link className="font-semibold underline" href="/dashboard/ubicaciones">Crea primero un lugar de manejo</Link>.</p>}
           <Textarea label="Descripción" value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} placeholder="Detalle del evento sanitario..." required />
           <Input label="Gallinas Afectadas" value={form.affectedHens} onChange={(e) => setForm({ ...form, affectedHens: e.target.value })} placeholder="'todas' o códigos: G-001, G-002" />
+          {icaCatalog.length > 0 && (
+            <div className="rounded-xl border border-emerald-200 bg-emerald-50/50 p-3 space-y-2">
+              <Select
+                label="Vademécum ICA (precarga principio activo y retiro)"
+                value={selectedIcaDrugId}
+                onChange={(e) => {
+                  const id = e.target.value;
+                  setSelectedIcaDrugId(id);
+                  const chosen = icaCatalog.find((d) => d.id === id);
+                  if (!chosen) return;
+                  const maxDays = Math.max(chosen.withdrawalDaysMeat, chosen.withdrawalDaysEggs);
+                  setForm((prev) => ({
+                    ...prev,
+                    product: `${chosen.commercialName} (${chosen.icaRegistration})`,
+                    withdrawalDays: String(maxDays),
+                    vaccineLab: chosen.laboratory || prev.vaccineLab,
+                    administrationRoute: chosen.route || prev.administrationRoute,
+                  }));
+                }}
+                help="Selecciona un medicamento o biológico ICA para autocompletar laboratorio, vía y días de retiro oficial."
+              >
+                <option value="">Seleccionar producto del Vademécum ICA (opcional)…</option>
+                {icaCatalog.map((d) => (
+                  <option key={d.id} value={d.id}>
+                    {d.commercialName} — Retiro: {Math.max(d.withdrawalDaysMeat, d.withdrawalDaysEggs)}d ({d.icaRegistration})
+                  </option>
+                ))}
+              </Select>
+              {(() => {
+                const chosen = icaCatalog.find((d) => d.id === selectedIcaDrugId);
+                if (!chosen) return null;
+                return (
+                  <div className="text-[11px] text-emerald-950 space-y-0.5">
+                    <p>
+                      <strong>Principio activo:</strong> {chosen.activeIngredient} · <strong>Carne:</strong> {chosen.withdrawalDaysMeat}d · <strong>Huevo:</strong> {chosen.withdrawalDaysEggs}d
+                    </p>
+                    {chosen.contraindicatedInLayingHens && (
+                      <p className="font-semibold text-amber-800">
+                        Advertencia ICA: contraindicado en ponedoras cuyos huevos se destinen a consumo humano.
+                      </p>
+                    )}
+                  </div>
+                );
+              })()}
+            </div>
+          )}
           <Input label="Producto Utilizado" value={form.product} onChange={(e) => setForm({ ...form, product: e.target.value })} placeholder="Ej: Newcastle B1, Ivermectina..." />
 
           {/* Trazabilidad ICA y Tiempo de Retiro Farmacológico (Res. ICA 3651/2014) */}

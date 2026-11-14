@@ -6,6 +6,7 @@ import { hens, feedInventory, feedMovements, feedPrograms, eggProduction, eggPro
 import { eq, sql } from "drizzle-orm";
 import { hashPassword } from "@/lib/auth";
 import { DEFAULT_BREEDS_BY_SPECIES } from "@/lib/animal-breeds";
+import { ALL_BREED_STANDARD_DEFS } from "@/lib/breed-standards";
 
 async function main() {
   if (process.env.NODE_ENV === "production") {
@@ -126,8 +127,8 @@ async function main() {
     },
     {
       category: "presentacion_compra",
-      values: ["Kg", "Bulto 25kg", "Bulto 50kg", "Arpilla 5kg", "Litro", "Galón", "Unidad"],
-      units: [1, 25, 50, 5, 1, 4, 1],
+      values: ["Kg", "Bulto 25kg", "Bulto 40kg", "Bulto 50kg", "Arpilla 5kg", "Litro", "Galón", "Unidad"],
+      units: [1, 25, 40, 50, 5, 1, 4, 1],
     },
     {
       category: "estado_gallina",
@@ -135,24 +136,36 @@ async function main() {
     },
     {
       category: "categoria_alimento",
-      values: ["granja_fresco", "granja_procesado", "suplementario"],
+      values: ["Concentrado", "En Fresco", "Preparados"],
     },
     {
       category: "tipo_alimento",
       values: [
-        "pastos_gramineas",
-        "bore_raices",
-        "mosca_soldado",
-        "maiz_germinado",
-        "purinas",
-        "maiz_comprado",
-        "concentrado_comercial",
-        "otro",
+        "Concentrado Aves",
+        "Concentrado Codorniz",
+        "Concentrado Conejos",
+        "Purinas",
+        "Maiz en Grano",
+        "Maíz Germinado",
+        "Mosca Soldado",
+        "Forraje Verde",
+        "Pastos y gramíneas",
+        "Bore o Raices",
+        "Otro",
       ],
     },
     {
       category: "tipo_ave",
-      values: ["gallina_descarte", "pollo", "gallo", "pollito", "codorniz", "pato", "conejo", "cuy"],
+      values: ["Gallina", "Pollo", "Gallo", "Pollito", "Codorniz", "Pato", "Conejo", "Cuy"],
+      types: ["ave", "ave", "ave", "ave", "ave", "ave", "mamifero", "mamifero"],
+    },
+    {
+      category: "categoria_insumo",
+      values: ["medicamento", "vacuna", "desinfectante", "limpieza", "equipo", "otro"],
+    },
+    {
+      category: "causa_mortalidad",
+      values: ["enfermedad", "depredador", "accidente", "sacrificio_sanitario", "causa_natural", "otro"],
     },
   ];
   const catalogRows = catalogDefaults.flatMap((c) =>
@@ -729,6 +742,22 @@ async function main() {
     { planId, weekNumber: 30, expectedHens: 29, expectedEggsPerWeek: 150, expectedFeedKgPerWeek: "43.5" },
     { planId, weekNumber: 40, expectedHens: 28, expectedEggsPerWeek: 145, expectedFeedKgPerWeek: "42" },
   ]);
+
+  // ——— Estándares de peso por especie y raza ———
+  const standardRows = ALL_BREED_STANDARD_DEFS.flatMap((def) =>
+    def.points.map((p) => ({
+      species: def.species,
+      breed: def.breed,
+      gender: def.gender,
+      weekNumber: p.week,
+      targetWeightG: String(p.targetG),
+      minWeightG: p.minG != null ? String(p.minG) : null,
+      maxWeightG: p.maxG != null ? String(p.maxG) : null,
+    })),
+  );
+  if (standardRows.length > 0) {
+    await db.insert(breedWeightStandards).values(standardRows).onConflictDoNothing();
+  }
 
   console.log("Datos de ejemplo insertados correctamente.");
   console.log("   30 gallinas: 5 pollitos, 7 juveniles, 3 pre-postura, 15 postura");

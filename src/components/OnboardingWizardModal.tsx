@@ -17,6 +17,7 @@ import {
 } from "lucide-react";
 import { apiFetch } from "@/lib/fetch";
 import { todayColombiaIso } from "@/lib/date-validation";
+import { COLOMBIA_DIVIPOLA_CATALOG, resolveZoneWithFallback } from "@/lib/divipola-catalog";
 import {
   FEATURE_FLAG_BY_KEY,
   buildScaleDefaultFlags,
@@ -423,6 +424,14 @@ function WizardBody({
         body: JSON.stringify({
           nombrePredio: nombrePredio.trim(),
           ciudad: ciudad.trim(),
+          daneCode: (() => {
+            const z = resolveZoneWithFallback({ city: ciudad.trim() });
+            return z.coverageScope === "local" ? z.municipality.daneCode : undefined;
+          })(),
+          departamento: (() => {
+            const z = resolveZoneWithFallback({ city: ciudad.trim() });
+            return z.coverageScope !== "nacional" ? z.matchedDepartment : undefined;
+          })(),
           altitudMsnm: altitudMsnm.trim() === "" ? null : Number(altitudMsnm),
           administrador: administrador.trim(),
           escala,
@@ -460,7 +469,7 @@ function WizardBody({
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ type: "onboarding", durationSec }),
-      }).catch(() => {});
+      }).catch(() => { });
 
       const validBagCost = Math.max(0, Number(costoPorBulto40kg) || 0);
       setCompletedSummary({
@@ -596,86 +605,84 @@ function WizardBody({
       ) : (
         <>
 
-      {/* Stepper semantic nav */}
-      <nav aria-label="Progreso de arranque" className="border-b border-slate-200 bg-slate-50 px-5 py-3">
-        <ol className="grid grid-cols-3 gap-2 text-xs">
-          {[
-            { num: 1 as const, label: "1. Predio y Escala" },
-            { num: 2 as const, label: "2. Animales Hoy" },
-            { num: 3 as const, label: "3. Bodega y Listo" },
-          ].map((item) => {
-            const active = step === item.num;
-            const done = step > item.num;
-            return (
-              <li
-                key={item.num}
-                aria-current={active ? "step" : undefined}
-                className={`flex items-center gap-2 rounded-lg px-2.5 py-2 font-semibold border ${
-                  active
-                    ? "bg-green-50 border-green-500 text-green-900"
-                    : done
-                      ? "bg-emerald-50/70 border-emerald-200 text-emerald-800"
-                      : "bg-white border-slate-200 text-slate-500"
-                }`}
-              >
-                <span
-                  className={`flex h-5 w-5 items-center justify-center rounded-full text-[11px] font-bold shrink-0 ${
-                    active
-                      ? "bg-green-700 text-white"
-                      : done
-                        ? "bg-emerald-600 text-white"
-                        : "bg-slate-200 text-slate-600"
-                  }`}
-                >
-                  {done ? "✓" : item.num}
-                </span>
-                <span className="truncate">{item.label}</span>
-              </li>
-            );
-          })}
-        </ol>
-      </nav>
+          {/* Stepper semantic nav */}
+          <nav aria-label="Progreso de arranque" className="border-b border-slate-200 bg-slate-50 px-5 py-3">
+            <ol className="grid grid-cols-3 gap-2 text-xs">
+              {[
+                { num: 1 as const, label: "1. Predio y Escala" },
+                { num: 2 as const, label: "2. Animales Hoy" },
+                { num: 3 as const, label: "3. Bodega y Listo" },
+              ].map((item) => {
+                const active = step === item.num;
+                const done = step > item.num;
+                return (
+                  <li
+                    key={item.num}
+                    aria-current={active ? "step" : undefined}
+                    className={`flex items-center gap-2 rounded-lg px-2.5 py-2 font-semibold border ${active
+                        ? "bg-green-50 border-green-500 text-green-900"
+                        : done
+                          ? "bg-emerald-50/70 border-emerald-200 text-emerald-800"
+                          : "bg-white border-slate-200 text-slate-500"
+                      }`}
+                  >
+                    <span
+                      className={`flex h-5 w-5 items-center justify-center rounded-full text-[11px] font-bold shrink-0 ${active
+                          ? "bg-green-700 text-white"
+                          : done
+                            ? "bg-emerald-600 text-white"
+                            : "bg-slate-200 text-slate-600"
+                        }`}
+                    >
+                      {done ? "✓" : item.num}
+                    </span>
+                    <span className="truncate">{item.label}</span>
+                  </li>
+                );
+              })}
+            </ol>
+          </nav>
 
-      {/* Form body */}
-      <form onSubmit={handleSubmit} noValidate className="flex-1 overflow-y-auto px-5 py-4 space-y-4">
-        {error && (
-          <div role="status" aria-live="polite" className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800 flex items-start gap-2">
-            <AlertTriangle className="w-4 h-4 shrink-0 mt-0.5 text-red-600" aria-hidden="true" />
-            <span>{error}</span>
-          </div>
-        )}
-
-        {/* PASO 1 */}
-        <section hidden={step !== 1} className="space-y-4">
-          <h3 ref={step === 1 ? stepHeadingRef : undefined} tabIndex={-1} className="text-base font-bold text-slate-900 outline-none">
-            Paso 1 · Tu finca, animales y forma de trabajo
-          </h3>
-          <p className="text-xs text-slate-600">
-            No necesitas cargar facturas pasadas ni bajas anteriores. Empezamos desde la fotografía viva de hoy.
-          </p>
-
-          {canCompactPredio ? (
-            <div className="rounded-xl border border-emerald-200 bg-emerald-50/50 px-4 py-3 flex flex-wrap items-center justify-between gap-2">
-              <div className="text-xs sm:text-sm">
-                <p className="font-bold text-slate-900">
-                  {nombrePredio}
-                  {administrador ? <span className="font-normal text-slate-600"> · {administrador}</span> : null}
-                </p>
-                <p className="text-[11px] text-slate-600 mt-0.5">
-                  {ciudad || altitudMsnm
-                    ? `${ciudad || "Municipio por definir"}${altitudMsnm ? ` · ${altitudMsnm} msnm` : ""}`
-                    : "Datos base tomados de tu registro inicial"}
-                </p>
+          {/* Form body */}
+          <form onSubmit={handleSubmit} noValidate className="flex-1 overflow-y-auto px-5 py-4 space-y-4">
+            {error && (
+              <div role="status" aria-live="polite" className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800 flex items-start gap-2">
+                <AlertTriangle className="w-4 h-4 shrink-0 mt-0.5 text-red-600" aria-hidden="true" />
+                <span>{error}</span>
               </div>
-              <button
-                type="button"
-                onClick={() => setShowPredioDetails(true)}
-                className="rounded-lg border border-emerald-300 bg-white px-3 py-1.5 text-xs font-semibold text-emerald-800 hover:bg-emerald-50"
-              >
-                Editar ubicación / altitud (opcional)
-              </button>
-            </div>
-          ) : (
+            )}
+
+            {/* PASO 1 */}
+            <section hidden={step !== 1} className="space-y-4">
+              <h3 ref={step === 1 ? stepHeadingRef : undefined} tabIndex={-1} className="text-base font-bold text-slate-900 outline-none">
+                Paso 1 · Tu finca, animales y forma de trabajo
+              </h3>
+              <p className="text-xs text-slate-600">
+                No necesitas cargar facturas pasadas ni bajas anteriores. Empezamos desde la fotografía viva de hoy.
+              </p>
+
+              {canCompactPredio ? (
+                <div className="rounded-xl border border-emerald-200 bg-emerald-50/50 px-4 py-3 flex flex-wrap items-center justify-between gap-2">
+                  <div className="text-xs sm:text-sm">
+                    <p className="font-bold text-slate-900">
+                      {nombrePredio}
+                      {administrador ? <span className="font-normal text-slate-600"> · {administrador}</span> : null}
+                    </p>
+                    <p className="text-[11px] text-slate-600 mt-0.5">
+                      {ciudad || altitudMsnm
+                        ? `${ciudad || "Municipio por definir"}${altitudMsnm ? ` · ${altitudMsnm} msnm` : ""}`
+                        : "Datos base tomados de tu registro inicial"}
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setShowPredioDetails(true)}
+                    className="rounded-lg border border-emerald-300 bg-white px-3 py-1.5 text-xs font-semibold text-emerald-800 hover:bg-emerald-50"
+                  >
+                    Editar ubicación / altitud (opcional)
+                  </button>
+                </div>
+              ) : (
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div>
                 <label htmlFor="ob-farm-name" className="block text-sm font-semibold text-slate-800 mb-1">
@@ -697,18 +704,34 @@ function WizardBody({
 
               <div>
                 <label htmlFor="ob-city" className="block text-sm font-semibold text-slate-800 mb-1">
-                  Municipio / ciudad (opcional)
+                  Municipio DIVIPOLA (Colombia)
                 </label>
-                <input
+                <select
                   id="ob-city"
                   name="ciudad"
-                  type="text"
-                  enterKeyHint="next"
                   value={ciudad}
-                  onChange={(e) => setCiudadOverride(e.target.value)}
-                  placeholder="Ej: Rionegro, Antioquia"
-                  className="w-full min-h-[48px] rounded-lg border border-slate-400 px-3 py-2 text-base text-slate-900 focus:outline-none focus:ring-2 focus:ring-green-600"
-                />
+                  onChange={(e) => {
+                    const chosen = e.target.value;
+                    setCiudadOverride(chosen);
+                    const match = COLOMBIA_DIVIPOLA_CATALOG.find(
+                      (m) => m.municipality === chosen,
+                    );
+                    if (match) {
+                      setAltitudOverride(String(match.altitudeMeters));
+                    }
+                  }}
+                  className="w-full min-h-[48px] rounded-lg border border-slate-400 bg-white px-3 py-2 text-base text-slate-900 focus:outline-none focus:ring-2 focus:ring-green-600"
+                >
+                  <option value="">Selecciona tu municipio (opcional)...</option>
+                  {ciudad && !COLOMBIA_DIVIPOLA_CATALOG.some((m) => m.municipality === ciudad) && (
+                    <option value={ciudad}>{ciudad} (actual)</option>
+                  )}
+                  {COLOMBIA_DIVIPOLA_CATALOG.map((m) => (
+                    <option key={m.daneCode} value={m.municipality}>
+                      {m.municipality} — {m.department} ({m.altitudeMeters} msnm)
+                    </option>
+                  ))}
+                </select>
               </div>
 
               <div>
@@ -750,216 +773,214 @@ function WizardBody({
             </div>
           )}
 
-          <fieldset className="space-y-2 rounded-xl border border-slate-200 p-3.5 bg-slate-50/70">
-            <legend className="px-1 text-sm font-bold text-slate-800">
-              ¿Cómo prefieres empezar? (puedes cambiarlo después sin perder datos)
-            </legend>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
-              {[
-                {
-                  value: "PEQUENO" as const,
-                  title: "Pequeño Productor (Simple y rápido)",
-                  desc: "Ideal para empezar: recoger huevos, dar alimento, anotar bajas, vacunas y ver tu ganancia del día.",
-                },
-                {
-                  value: "MEDIANO" as const,
-                  title: "Mediano / Comercial (Varios galpones)",
-                  desc: "Activa clasificación de huevo por peso, costos separados por lote, cuadrillas con QR y reportes contables.",
-                },
-              ].map((opt) => (
-                <label
-                  key={opt.value}
-                  className={`flex items-start gap-3 rounded-xl border p-3 cursor-pointer min-h-[48px] transition-colors ${
-                    escala === opt.value
-                      ? "bg-green-50 border-green-600 ring-1 ring-green-600"
-                      : "bg-white border-slate-200 hover:bg-slate-50"
-                  }`}
-                >
-                  <input
-                    type="radio"
-                    name="escala"
-                    value={opt.value}
-                    checked={escala === opt.value}
-                    onChange={() => setEscala(opt.value)}
-                    className="mt-1 h-4 w-4 accent-green-700 shrink-0"
-                  />
-                  <span>
-                    <span className="block text-sm font-bold text-slate-900">{opt.title}</span>
-                    <span className="block text-xs text-slate-600 mt-0.5">{opt.desc}</span>
-                  </span>
-                </label>
-              ))}
-            </div>
-          </fieldset>
-
-          <fieldset className="space-y-2 rounded-xl border border-slate-200 p-3.5">
-            <legend className="px-1 text-sm font-bold text-slate-800">
-              Especies presentes hoy en la finca
-            </legend>
-            <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
-              {SPECIES_CHOICES.map((sp) => {
-                const checked = selectedSpecies.includes(sp.key);
-                return (
+            <fieldset className="space-y-2 rounded-xl border border-slate-200 p-3.5 bg-slate-50/70">
+              <legend className="px-1 text-sm font-bold text-slate-800">
+                ¿Cómo prefieres empezar? (puedes cambiarlo después sin perder datos)
+              </legend>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                {[
+                  {
+                    value: "PEQUENO" as const,
+                    title: "Pequeño Productor (Simple y rápido)",
+                    desc: "Ideal para empezar: recoger huevos, dar alimento, anotar bajas, vacunas y ver tu ganancia del día.",
+                  },
+                  {
+                    value: "MEDIANO" as const,
+                    title: "Mediano / Comercial (Varios galpones)",
+                    desc: "Activa clasificación de huevo por peso, costos separados por lote, cuadrillas con QR y reportes contables.",
+                  },
+                ].map((opt) => (
                   <label
-                    key={sp.key}
-                    className={`flex items-center gap-2 rounded-lg border px-3 py-2.5 min-h-[48px] text-sm font-medium cursor-pointer ${
-                      checked ? "bg-emerald-50 border-emerald-500 text-emerald-950" : "bg-white border-slate-200 text-slate-700"
-                    }`}
+                    key={opt.value}
+                    className={`flex items-start gap-3 rounded-xl border p-3 cursor-pointer min-h-[48px] transition-colors ${escala === opt.value
+                        ? "bg-green-50 border-green-600 ring-1 ring-green-600"
+                        : "bg-white border-slate-200 hover:bg-slate-50"
+                      }`}
                   >
                     <input
-                      type="checkbox"
-                      checked={checked}
-                      onChange={() => toggleSpecies(sp.key)}
-                      className="h-4 w-4 accent-green-700"
+                      type="radio"
+                      name="escala"
+                      value={opt.value}
+                      checked={escala === opt.value}
+                      onChange={() => setEscala(opt.value)}
+                      className="mt-1 h-4 w-4 accent-green-700 shrink-0"
                     />
-                    <span>{sp.label}</span>
+                    <span>
+                      <span className="block text-sm font-bold text-slate-900">{opt.title}</span>
+                      <span className="block text-xs text-slate-600 mt-0.5">{opt.desc}</span>
+                    </span>
                   </label>
-                );
-              })}
-            </div>
-          </fieldset>
+                ))}
+              </div>
+            </fieldset>
 
-          <label className="flex items-start gap-2.5 rounded-xl border border-slate-200 p-3 cursor-pointer hover:bg-slate-50 min-h-[48px]">
-            <input
-              type="checkbox"
-              checked={solicitaReporteFormal}
-              onChange={(e) => setSolicitaReporteFormal(e.target.checked)}
-              className="mt-0.5 h-4 w-4 accent-green-700"
-            />
-            <span className="text-xs sm:text-sm text-slate-700">
-              <strong className="text-slate-900">Necesito soportes para contabilidad (DIAN) o solicitud de crédito agropecuario</strong>
-              <span className="block text-slate-500 mt-0.5">Habilita presupuestos y reportes financieros listos para descargar.</span>
-            </span>
-          </label>
-        </section>
+            <fieldset className="space-y-2 rounded-xl border border-slate-200 p-3.5">
+              <legend className="px-1 text-sm font-bold text-slate-800">
+                Especies presentes hoy en la finca
+              </legend>
+              <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                {SPECIES_CHOICES.map((sp) => {
+                  const checked = selectedSpecies.includes(sp.key);
+                  return (
+                    <label
+                      key={sp.key}
+                      className={`flex items-center gap-2 rounded-lg border px-3 py-2.5 min-h-[48px] text-sm font-medium cursor-pointer ${checked ? "bg-emerald-50 border-emerald-500 text-emerald-950" : "bg-white border-slate-200 text-slate-700"
+                        }`}
+                    >
+                      <input
+                        type="checkbox"
+                        checked={checked}
+                        onChange={() => toggleSpecies(sp.key)}
+                        className="h-4 w-4 accent-green-700"
+                      />
+                      <span>{sp.label}</span>
+                    </label>
+                  );
+                })}
+              </div>
+            </fieldset>
 
-        {/* PASO 2 */}
-        <section hidden={step !== 2} className="space-y-4">
-          <div className="flex flex-wrap items-center justify-between gap-2">
-            <div>
-              <h3 ref={step === 2 ? stepHeadingRef : undefined} tabIndex={-1} className="text-base font-bold text-slate-900 outline-none">
-                Paso 2 · Inventario vivo actual por unidad
-              </h3>
-              <p className="text-xs text-slate-600">Registra solo los animales vivos al día de hoy o carga la plantilla CSV Día 1.</p>
-            </div>
-            <div className="flex items-center gap-2">
-              <button
-                type="button"
-                onClick={() => setInputMode("manual")}
-                className={`px-3 py-1.5 rounded-lg text-xs font-semibold border ${inputMode === "manual" ? "bg-green-700 text-white border-green-700" : "bg-white text-slate-700 border-slate-300"}`}
-              >
-                Captura rápida
-              </button>
-              <button
-                type="button"
-                onClick={() => setInputMode("csv")}
-                className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold border ${inputMode === "csv" ? "bg-green-700 text-white border-green-700" : "bg-white text-slate-700 border-slate-300"}`}
-              >
-                <FileSpreadsheet className="w-3.5 h-3.5" aria-hidden="true" />
-                <span>Importar CSV</span>
-              </button>
-            </div>
-          </div>
+            <label className="flex items-start gap-2.5 rounded-xl border border-slate-200 p-3 cursor-pointer hover:bg-slate-50 min-h-[48px]">
+              <input
+                type="checkbox"
+                checked={solicitaReporteFormal}
+                onChange={(e) => setSolicitaReporteFormal(e.target.checked)}
+                className="mt-0.5 h-4 w-4 accent-green-700"
+              />
+              <span className="text-xs sm:text-sm text-slate-700">
+                <strong className="text-slate-900">Necesito soportes para contabilidad (DIAN) o solicitud de crédito agropecuario</strong>
+                <span className="block text-slate-500 mt-0.5">Habilita presupuestos y reportes financieros listos para descargar.</span>
+              </span>
+            </label>
+          </section>
 
-          {inputMode === "csv" ? (
-            <div className="rounded-xl border border-slate-200 bg-slate-50 p-4 space-y-3">
-              <div className="flex flex-wrap items-center justify-between gap-2">
-                <p className="text-xs font-semibold text-slate-700">
-                  Usa la plantilla estándar sin histórico (`plantilla_arranque_dia1.csv`)
-                </p>
+          {/* PASO 2 */}
+          <section hidden={step !== 2} className="space-y-4">
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <div>
+                <h3 ref={step === 2 ? stepHeadingRef : undefined} tabIndex={-1} className="text-base font-bold text-slate-900 outline-none">
+                  Paso 2 · Inventario vivo actual por unidad
+                </h3>
+                <p className="text-xs text-slate-600">Registra solo los animales vivos al día de hoy o carga la plantilla CSV Día 1.</p>
+              </div>
+              <div className="flex items-center gap-2">
                 <button
                   type="button"
-                  onClick={downloadTemplate}
-                  className="inline-flex items-center gap-1.5 rounded-lg border border-green-700 bg-white px-3 py-1.5 text-xs font-semibold text-green-800 hover:bg-green-50"
+                  onClick={() => setInputMode("manual")}
+                  className={`px-3 py-1.5 rounded-lg text-xs font-semibold border ${inputMode === "manual" ? "bg-green-700 text-white border-green-700" : "bg-white text-slate-700 border-slate-300"}`}
                 >
-                  <Download className="w-3.5 h-3.5" aria-hidden="true" />
-                  <span>Descargar plantilla CSV</span>
+                  Captura rápida
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setInputMode("csv")}
+                  className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold border ${inputMode === "csv" ? "bg-green-700 text-white border-green-700" : "bg-white text-slate-700 border-slate-300"}`}
+                >
+                  <FileSpreadsheet className="w-3.5 h-3.5" aria-hidden="true" />
+                  <span>Importar CSV</span>
                 </button>
               </div>
-              <div>
-                <label htmlFor="ob-csv-file" className="inline-flex items-center gap-2 rounded-lg border border-slate-300 bg-white px-3 py-2 text-xs font-semibold text-slate-800 cursor-pointer hover:bg-slate-100">
-                  <Upload className="w-3.5 h-3.5" aria-hidden="true" />
-                  <span>Seleccionar archivo .csv</span>
-                </label>
-                <input
-                  id="ob-csv-file"
-                  type="file"
-                  accept=".csv,text/csv"
-                  onChange={(e) => handleCsvFileUpload(e.target.files?.[0])}
-                  className="sr-only"
-                />
-              </div>
-              <div>
-                <label htmlFor="ob-csv-text" className="block text-xs font-medium text-slate-700 mb-1">
-                  O pega aquí las filas del CSV:
-                </label>
-                <textarea
-                  id="ob-csv-text"
-                  rows={5}
-                  value={csvText}
-                  onChange={(e) => handleImportCsvText(e.target.value)}
-                  placeholder="nombre_instalacion,tipo_instalacion,especie,codigo_lote,linea_genetica,edad_actual_dias,cantidad_viva_hoy,saldo_concentrado_bultos_40kg"
-                  className="w-full rounded-lg border border-slate-300 bg-white p-2.5 text-xs font-mono text-slate-800"
-                />
-              </div>
-              {csvNotice && (
-                <p className="text-xs font-semibold text-emerald-800 bg-emerald-50 border border-emerald-200 rounded-lg px-3 py-2">
-                  {csvNotice}
-                </p>
-              )}
             </div>
-          ) : null}
 
-          <div className="space-y-3">
-            {unidades.map((u, idx) => (
-              <div key={u.id} className="rounded-xl border border-slate-200 bg-white p-3.5 space-y-2.5">
-                <div className="flex items-center justify-between gap-2">
-                  <span className="text-xs font-bold uppercase tracking-wide text-slate-500">
-                    Unidad activa #{idx + 1}
-                  </span>
-                  {unidades.length > 1 && (
-                    <button
-                      type="button"
-                      onClick={() => setUnidades((prev) => prev.filter((item) => item.id !== u.id))}
-                      className="inline-flex items-center gap-1 text-xs font-semibold text-red-700 hover:underline"
-                    >
-                      <Trash2 className="w-3.5 h-3.5" aria-hidden="true" />
-                      <span>Quitar</span>
-                    </button>
-                  )}
+            {inputMode === "csv" ? (
+              <div className="rounded-xl border border-slate-200 bg-slate-50 p-4 space-y-3">
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <p className="text-xs font-semibold text-slate-700">
+                    Usa la plantilla estándar sin histórico (`plantilla_arranque_dia1.csv`)
+                  </p>
+                  <button
+                    type="button"
+                    onClick={downloadTemplate}
+                    className="inline-flex items-center gap-1.5 rounded-lg border border-green-700 bg-white px-3 py-1.5 text-xs font-semibold text-green-800 hover:bg-green-50"
+                  >
+                    <Download className="w-3.5 h-3.5" aria-hidden="true" />
+                    <span>Descargar plantilla CSV</span>
+                  </button>
                 </div>
+                <div>
+                  <label htmlFor="ob-csv-file" className="inline-flex items-center gap-2 rounded-lg border border-slate-300 bg-white px-3 py-2 text-xs font-semibold text-slate-800 cursor-pointer hover:bg-slate-100">
+                    <Upload className="w-3.5 h-3.5" aria-hidden="true" />
+                    <span>Seleccionar archivo .csv</span>
+                  </label>
+                  <input
+                    id="ob-csv-file"
+                    type="file"
+                    accept=".csv,text/csv"
+                    onChange={(e) => handleCsvFileUpload(e.target.files?.[0])}
+                    className="sr-only"
+                  />
+                </div>
+                <div>
+                  <label htmlFor="ob-csv-text" className="block text-xs font-medium text-slate-700 mb-1">
+                    O pega aquí las filas del CSV:
+                  </label>
+                  <textarea
+                    id="ob-csv-text"
+                    rows={5}
+                    value={csvText}
+                    onChange={(e) => handleImportCsvText(e.target.value)}
+                    placeholder="nombre_instalacion,tipo_instalacion,especie,codigo_lote,linea_genetica,edad_actual_dias,cantidad_viva_hoy,saldo_concentrado_bultos_40kg"
+                    className="w-full rounded-lg border border-slate-300 bg-white p-2.5 text-xs font-mono text-slate-800"
+                  />
+                </div>
+                {csvNotice && (
+                  <p className="text-xs font-semibold text-emerald-800 bg-emerald-50 border border-emerald-200 rounded-lg px-3 py-2">
+                    {csvNotice}
+                  </p>
+                )}
+              </div>
+            ) : null}
 
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
-                  <div>
-                    <label htmlFor={`unit-loc-${u.id}`} className="block text-xs font-semibold text-slate-700 mb-1">
-                      Galpón / Corral / Poza
-                    </label>
-                    <input
-                      id={`unit-loc-${u.id}`}
-                      type="text"
-                      value={u.nombreInstalacion}
-                      onChange={(e) =>
-                        setUnidades((prev) =>
-                          prev.map((row) => (row.id === u.id ? { ...row, nombreInstalacion: e.target.value } : row)),
-                        )
-                      }
-                      className="w-full min-h-[44px] rounded-lg border border-slate-300 px-2.5 py-1.5 text-sm"
-                    />
+            <div className="space-y-3">
+              {unidades.map((u, idx) => (
+                <div key={u.id} className="rounded-xl border border-slate-200 bg-white p-3.5 space-y-2.5">
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="text-xs font-bold uppercase tracking-wide text-slate-500">
+                      Unidad activa #{idx + 1}
+                    </span>
+                    {unidades.length > 1 && (
+                      <button
+                        type="button"
+                        onClick={() => setUnidades((prev) => prev.filter((item) => item.id !== u.id))}
+                        className="inline-flex items-center gap-1 text-xs font-semibold text-red-700 hover:underline"
+                      >
+                        <Trash2 className="w-3.5 h-3.5" aria-hidden="true" />
+                        <span>Quitar</span>
+                      </button>
+                    )}
                   </div>
-                  <div>
-                    <label htmlFor={`unit-sp-${u.id}`} className="block text-xs font-semibold text-slate-700 mb-1">
-                      Especie
-                    </label>
-                    <select
-                      id={`unit-sp-${u.id}`}
-                      value={u.especie}
-                      onChange={(e) => {
-                        const nextSp = e.target.value;
-                        const info = SPECIES_CHOICES.find((s) => s.key === nextSp);
-                        setUnidades((prev) =>
-                          prev.map((row) =>
-                            row.id === u.id
-                              ? {
+
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
+                    <div>
+                      <label htmlFor={`unit-loc-${u.id}`} className="block text-xs font-semibold text-slate-700 mb-1">
+                        Galpón / Corral / Poza
+                      </label>
+                      <input
+                        id={`unit-loc-${u.id}`}
+                        type="text"
+                        value={u.nombreInstalacion}
+                        onChange={(e) =>
+                          setUnidades((prev) =>
+                            prev.map((row) => (row.id === u.id ? { ...row, nombreInstalacion: e.target.value } : row)),
+                          )
+                        }
+                        className="w-full min-h-[44px] rounded-lg border border-slate-300 px-2.5 py-1.5 text-sm"
+                      />
+                    </div>
+                    <div>
+                      <label htmlFor={`unit-sp-${u.id}`} className="block text-xs font-semibold text-slate-700 mb-1">
+                        Especie
+                      </label>
+                      <select
+                        id={`unit-sp-${u.id}`}
+                        value={u.especie}
+                        onChange={(e) => {
+                          const nextSp = e.target.value;
+                          const info = SPECIES_CHOICES.find((s) => s.key === nextSp);
+                          setUnidades((prev) =>
+                            prev.map((row) =>
+                              row.id === u.id
+                                ? {
                                   ...row,
                                   especie: nextSp,
                                   nombreInstalacion: info?.defaultUnitName ?? row.nombreInstalacion,
@@ -972,347 +993,347 @@ function WizardBody({
                                     : row.edadActualDias,
                                   proposito: info?.defaultPurpose ?? row.proposito,
                                 }
-                              : row,
-                          ),
-                        );
-                      }}
-                      className="w-full min-h-[44px] rounded-lg border border-slate-300 px-2.5 py-1.5 text-sm bg-white"
-                    >
-                      {SPECIES_CHOICES.map((sp) => (
-                        <option key={sp.key} value={sp.key}>{sp.label}</option>
-                      ))}
-                    </select>
-                  </div>
-                  <div>
-                    <label htmlFor={`unit-type-${u.id}`} className="block text-xs font-semibold text-slate-700 mb-1">
-                      Tipo instalación
-                    </label>
-                    <select
-                      id={`unit-type-${u.id}`}
-                      value={u.tipoInstalacion}
-                      onChange={(e) =>
-                        setUnidades((prev) =>
-                          prev.map((row) => (row.id === u.id ? { ...row, tipoInstalacion: e.target.value } : row)),
-                        )
-                      }
-                      className="w-full min-h-[44px] rounded-lg border border-slate-300 px-2.5 py-1.5 text-sm bg-white"
-                    >
-                      <option value="galpon">Galpón en piso</option>
-                      <option value="jaula">Jaulas elevadas</option>
-                      <option value="corral">Corral / Poza</option>
-                      <option value="potrero">Potrero / Pastoreo</option>
-                    </select>
-                  </div>
-                </div>
-
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
-                  <div>
-                    <label htmlFor={`unit-qty-${u.id}`} className="block text-xs font-semibold text-slate-700 mb-1">
-                      Vivos hoy
-                    </label>
-                    <input
-                      id={`unit-qty-${u.id}`}
-                      type="number"
-                      min={1}
-                      step={1}
-                      value={u.cantidadVivaHoy}
-                      onChange={(e) =>
-                        setUnidades((prev) =>
-                          prev.map((row) => (row.id === u.id ? { ...row, cantidadVivaHoy: e.target.value } : row)),
-                        )
-                      }
-                      className="w-full min-h-[44px] rounded-lg border border-slate-300 px-2.5 py-1.5 text-sm font-semibold"
-                    />
-                  </div>
-                  <div>
-                    <label htmlFor={`unit-age-${u.id}`} className="block text-xs font-semibold text-slate-700 mb-1">
-                      Edad aprox. ({u.edadActualDias} días)
-                    </label>
-                    <div className="flex gap-1.5">
-                      <input
-                        id={`unit-age-${u.id}`}
-                        type="number"
-                        min={0}
-                        max={3650}
-                        value={u.edadValor}
-                        onChange={(e) => {
-                          const val = e.target.value;
+                                : row,
+                            ),
+                          );
+                        }}
+                        className="w-full min-h-[44px] rounded-lg border border-slate-300 px-2.5 py-1.5 text-sm bg-white"
+                      >
+                        {SPECIES_CHOICES.map((sp) => (
+                          <option key={sp.key} value={sp.key}>{sp.label}</option>
+                        ))}
+                      </select>
+                    </div>
+                    <div>
+                      <label htmlFor={`unit-type-${u.id}`} className="block text-xs font-semibold text-slate-700 mb-1">
+                        Tipo instalación
+                      </label>
+                      <select
+                        id={`unit-type-${u.id}`}
+                        value={u.tipoInstalacion}
+                        onChange={(e) =>
                           setUnidades((prev) =>
-                            prev.map((row) =>
-                              row.id === u.id
-                                ? {
+                            prev.map((row) => (row.id === u.id ? { ...row, tipoInstalacion: e.target.value } : row)),
+                          )
+                        }
+                        className="w-full min-h-[44px] rounded-lg border border-slate-300 px-2.5 py-1.5 text-sm bg-white"
+                      >
+                        <option value="galpon">Galpón en piso</option>
+                        <option value="jaula">Jaulas elevadas</option>
+                        <option value="corral">Corral / Poza</option>
+                        <option value="potrero">Potrero / Pastoreo</option>
+                      </select>
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
+                    <div>
+                      <label htmlFor={`unit-qty-${u.id}`} className="block text-xs font-semibold text-slate-700 mb-1">
+                        Vivos hoy
+                      </label>
+                      <input
+                        id={`unit-qty-${u.id}`}
+                        type="number"
+                        min={1}
+                        step={1}
+                        value={u.cantidadVivaHoy}
+                        onChange={(e) =>
+                          setUnidades((prev) =>
+                            prev.map((row) => (row.id === u.id ? { ...row, cantidadVivaHoy: e.target.value } : row)),
+                          )
+                        }
+                        className="w-full min-h-[44px] rounded-lg border border-slate-300 px-2.5 py-1.5 text-sm font-semibold"
+                      />
+                    </div>
+                    <div>
+                      <label htmlFor={`unit-age-${u.id}`} className="block text-xs font-semibold text-slate-700 mb-1">
+                        Edad aprox. ({u.edadActualDias} días)
+                      </label>
+                      <div className="flex gap-1.5">
+                        <input
+                          id={`unit-age-${u.id}`}
+                          type="number"
+                          min={0}
+                          max={3650}
+                          value={u.edadValor}
+                          onChange={(e) => {
+                            const val = e.target.value;
+                            setUnidades((prev) =>
+                              prev.map((row) =>
+                                row.id === u.id
+                                  ? {
                                     ...row,
                                     edadValor: val,
                                     edadActualDias: computeAgeDays(val, row.edadUnidad),
                                   }
-                                : row,
-                            ),
-                          );
-                        }}
-                        className="w-20 min-h-[44px] rounded-lg border border-slate-300 px-2.5 py-1.5 text-sm"
-                      />
-                      <select
-                        aria-label={`Unidad de edad para ${u.nombreInstalacion}`}
-                        value={u.edadUnidad}
-                        onChange={(e) => {
-                          const unit = e.target.value as AgeUnit;
-                          setUnidades((prev) =>
-                            prev.map((row) =>
-                              row.id === u.id
-                                ? {
+                                  : row,
+                              ),
+                            );
+                          }}
+                          className="w-20 min-h-[44px] rounded-lg border border-slate-300 px-2.5 py-1.5 text-sm"
+                        />
+                        <select
+                          aria-label={`Unidad de edad para ${u.nombreInstalacion}`}
+                          value={u.edadUnidad}
+                          onChange={(e) => {
+                            const unit = e.target.value as AgeUnit;
+                            setUnidades((prev) =>
+                              prev.map((row) =>
+                                row.id === u.id
+                                  ? {
                                     ...row,
                                     edadUnidad: unit,
                                     edadActualDias: computeAgeDays(row.edadValor, unit),
                                   }
-                                : row,
-                            ),
-                          );
-                        }}
-                        className="flex-1 min-h-[44px] rounded-lg border border-slate-300 px-2 py-1.5 text-xs bg-white font-medium"
-                      >
-                        <option value="semanas">semanas</option>
-                        <option value="dias">días</option>
-                        <option value="meses">meses</option>
-                      </select>
+                                  : row,
+                              ),
+                            );
+                          }}
+                          className="flex-1 min-h-[44px] rounded-lg border border-slate-300 px-2 py-1.5 text-xs bg-white font-medium"
+                        >
+                          <option value="semanas">semanas</option>
+                          <option value="dias">días</option>
+                          <option value="meses">meses</option>
+                        </select>
+                      </div>
                     </div>
-                  </div>
-                  <div>
-                    <label htmlFor={`unit-breed-${u.id}`} className="block text-xs font-semibold text-slate-700 mb-1">
-                      Línea / raza
-                    </label>
-                    <input
-                      id={`unit-breed-${u.id}`}
-                      type="text"
-                      value={u.lineaGenetica}
-                      onChange={(e) =>
-                        setUnidades((prev) =>
-                          prev.map((row) => (row.id === u.id ? { ...row, lineaGenetica: e.target.value } : row)),
-                        )
-                      }
-                      placeholder="Ej: Hy-Line Brown"
-                      className="w-full min-h-[44px] rounded-lg border border-slate-300 px-2.5 py-1.5 text-sm"
-                    />
-                  </div>
-                </div>
-
-                {(BREED_SUGGESTIONS_BY_SPECIES[u.especie] ?? []).length > 0 && (
-                  <div className="flex flex-wrap items-center gap-1.5 pt-0.5">
-                    <span className="text-[11px] text-slate-500">Sugeridas:</span>
-                    {(BREED_SUGGESTIONS_BY_SPECIES[u.especie] ?? []).map((breedOption) => (
-                      <button
-                        key={breedOption}
-                        type="button"
-                        onClick={() =>
+                    <div>
+                      <label htmlFor={`unit-breed-${u.id}`} className="block text-xs font-semibold text-slate-700 mb-1">
+                        Línea / raza
+                      </label>
+                      <input
+                        id={`unit-breed-${u.id}`}
+                        type="text"
+                        value={u.lineaGenetica}
+                        onChange={(e) =>
                           setUnidades((prev) =>
-                            prev.map((row) =>
-                              row.id === u.id ? { ...row, lineaGenetica: breedOption } : row,
-                            ),
+                            prev.map((row) => (row.id === u.id ? { ...row, lineaGenetica: e.target.value } : row)),
                           )
                         }
-                        className={`rounded-full border px-2.5 py-0.5 text-[11px] font-medium transition ${
-                          u.lineaGenetica === breedOption
-                            ? "border-emerald-600 bg-emerald-50 text-emerald-900"
-                            : "border-slate-200 bg-slate-50 text-slate-700 hover:border-slate-300"
-                        }`}
-                      >
-                        {breedOption}
-                      </button>
-                    ))}
+                        placeholder="Ej: Hy-Line Brown"
+                        className="w-full min-h-[44px] rounded-lg border border-slate-300 px-2.5 py-1.5 text-sm"
+                      />
+                    </div>
                   </div>
-                )}
-              </div>
-            ))}
 
-            <button
-              type="button"
-              onClick={() =>
-                setUnidades((prev) => [
-                  ...prev,
-                  makeUnitDraftForSpecies(selectedSpecies[0] || "gallina", prev.length + 1),
-                ])
-              }
-              className="inline-flex items-center gap-1.5 rounded-lg border border-dashed border-green-600 px-3 py-2 text-xs font-semibold text-green-800 hover:bg-green-50"
-            >
-              <Plus className="w-3.5 h-3.5" aria-hidden="true" />
-              <span>Agregar otra instalación o lote vivo</span>
-            </button>
-          </div>
-        </section>
+                  {(BREED_SUGGESTIONS_BY_SPECIES[u.especie] ?? []).length > 0 && (
+                    <div className="flex flex-wrap items-center gap-1.5 pt-0.5">
+                      <span className="text-[11px] text-slate-500">Sugeridas:</span>
+                      {(BREED_SUGGESTIONS_BY_SPECIES[u.especie] ?? []).map((breedOption) => (
+                        <button
+                          key={breedOption}
+                          type="button"
+                          onClick={() =>
+                            setUnidades((prev) =>
+                              prev.map((row) =>
+                                row.id === u.id ? { ...row, lineaGenetica: breedOption } : row,
+                              ),
+                            )
+                          }
+                          className={`rounded-full border px-2.5 py-0.5 text-[11px] font-medium transition ${u.lineaGenetica === breedOption
+                              ? "border-emerald-600 bg-emerald-50 text-emerald-900"
+                              : "border-slate-200 bg-slate-50 text-slate-700 hover:border-slate-300"
+                            }`}
+                        >
+                          {breedOption}
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              ))}
 
-        {/* PASO 3 */}
-        <section hidden={step !== 3} className="space-y-4">
-          <h3 ref={step === 3 ? stepHeadingRef : undefined} tabIndex={-1} className="text-base font-bold text-slate-900 outline-none">
-            Paso 3 · Bodega actual de alimento y despegue inmediato
-          </h3>
-          <p className="text-xs text-slate-600">
-            Indica cuántos bultos o kilogramos tienes hoy en bodega para calcular de inmediato tus días de cobertura y activar el tablero.
-          </p>
+              <button
+                type="button"
+                onClick={() =>
+                  setUnidades((prev) => [
+                    ...prev,
+                    makeUnitDraftForSpecies(selectedSpecies[0] || "gallina", prev.length + 1),
+                  ])
+                }
+                className="inline-flex items-center gap-1.5 rounded-lg border border-dashed border-green-600 px-3 py-2 text-xs font-semibold text-green-800 hover:bg-green-50"
+              >
+                <Plus className="w-3.5 h-3.5" aria-hidden="true" />
+                <span>Agregar otra instalación o lote vivo</span>
+              </button>
+            </div>
+          </section>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 rounded-xl border border-amber-200 bg-amber-50/60 p-4">
-            <div className="sm:col-span-2 lg:col-span-1">
-              <label htmlFor="ob-feed-name" className="block text-xs font-semibold text-slate-800 mb-1">
-                Alimento en bodega
-              </label>
-              <input
-                id="ob-feed-name"
-                type="text"
-                value={nombreAlimento}
-                onChange={(e) => setNombreAlimento(e.target.value)}
-                className="w-full min-h-[48px] rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm"
-              />
-            </div>
-            <div>
-              <label htmlFor="ob-feed-bags" className="block text-xs font-semibold text-slate-800 mb-1">
-                Bultos de 40 kg hoy
-              </label>
-              <input
-                id="ob-feed-bags"
-                type="number"
-                min={0}
-                step="any"
-                value={bultos40kg}
-                onChange={(e) => setBultos40kg(e.target.value)}
-                className="w-full min-h-[48px] rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm font-semibold"
-              />
-            </div>
-            <div>
-              <label htmlFor="ob-feed-kg" className="block text-xs font-semibold text-slate-800 mb-1">
-                Kg sueltos adicionales
-              </label>
-              <input
-                id="ob-feed-kg"
-                type="number"
-                min={0}
-                step="any"
-                value={kgAdicional}
-                onChange={(e) => setKgAdicional(e.target.value)}
-                className="w-full min-h-[48px] rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm"
-              />
-            </div>
-            <div>
-              <label htmlFor="ob-feed-bag-cost" className="block text-xs font-semibold text-slate-800 mb-1">
-                Valor aprox. bulto 40 kg ($ COP)
-              </label>
-              <input
-                id="ob-feed-bag-cost"
-                type="number"
-                min={0}
-                step={500}
-                value={costoPorBulto40kg}
-                onChange={(e) => setCostoPorBulto40kg(e.target.value)}
-                placeholder="Ej: 78000"
-                className="w-full min-h-[48px] rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm font-semibold"
-              />
-            </div>
-            <div className="sm:col-span-2 lg:col-span-4 flex flex-wrap items-center justify-between gap-2 text-xs text-amber-950">
-              <span className="inline-flex items-center gap-2 font-semibold">
-                <Wheat className="w-4 h-4 text-amber-700 shrink-0" aria-hidden="true" />
-                <span>Saldo inicial: {totalFeedKg.toLocaleString("es-CO")} kg</span>
-              </span>
-              <span className="text-[11px] text-amber-900">
-                Costo para Utilidad Neta diaria: ${estimatedCostPerKg.toLocaleString("es-CO")}/kg
-              </span>
-            </div>
-          </div>
-
-          <div className="rounded-xl border border-slate-200 bg-slate-50 p-4 space-y-2.5">
-            <p className="text-xs font-bold uppercase tracking-wide text-slate-600">
-              Resumen Día 1 · Todo listo sin deuda histórica
+          {/* PASO 3 */}
+          <section hidden={step !== 3} className="space-y-4">
+            <h3 ref={step === 3 ? stepHeadingRef : undefined} tabIndex={-1} className="text-base font-bold text-slate-900 outline-none">
+              Paso 3 · Bodega actual de alimento y despegue inmediato
+            </h3>
+            <p className="text-xs text-slate-600">
+              Indica cuántos bultos o kilogramos tienes hoy en bodega para calcular de inmediato tus días de cobertura y activar el tablero.
             </p>
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-xs">
-              <div className="rounded-lg bg-white border border-slate-200 p-2.5">
-                <span className="text-slate-500 block">Predio</span>
-                <strong className="text-slate-900 truncate block">{nombrePredio || "—"}</strong>
-              </div>
-              <div className="rounded-lg bg-white border border-slate-200 p-2.5">
-                <span className="text-slate-500 block">Animales vivos</span>
-                <strong className="text-slate-900">{totalLiveAnimals}</strong>
-              </div>
-              <div className="rounded-lg bg-white border border-slate-200 p-2.5">
-                <span className="text-slate-500 block">Unidades</span>
-                <strong className="text-slate-900">{unidades.length}</strong>
-              </div>
-              <div className="rounded-lg bg-white border border-slate-200 p-2.5">
-                <span className="text-slate-500 block">Fecha corte</span>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 rounded-xl border border-amber-200 bg-amber-50/60 p-4">
+              <div className="sm:col-span-2 lg:col-span-1">
+                <label htmlFor="ob-feed-name" className="block text-xs font-semibold text-slate-800 mb-1">
+                  Alimento en bodega
+                </label>
                 <input
-                  type="date"
-                  value={fechaInicio}
-                  onChange={(e) => setFechaInicio(e.target.value)}
-                  className="text-xs font-bold text-slate-900 bg-transparent border-0 p-0 focus:outline-none"
-                  aria-label="Fecha de inicio de operación"
+                  id="ob-feed-name"
+                  type="text"
+                  value={nombreAlimento}
+                  onChange={(e) => setNombreAlimento(e.target.value)}
+                  className="w-full min-h-[48px] rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm"
                 />
               </div>
+              <div>
+                <label htmlFor="ob-feed-bags" className="block text-xs font-semibold text-slate-800 mb-1">
+                  Bultos de 40 kg hoy
+                </label>
+                <input
+                  id="ob-feed-bags"
+                  type="number"
+                  min={0}
+                  step="any"
+                  value={bultos40kg}
+                  onChange={(e) => setBultos40kg(e.target.value)}
+                  className="w-full min-h-[48px] rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm font-semibold"
+                />
+              </div>
+              <div>
+                <label htmlFor="ob-feed-kg" className="block text-xs font-semibold text-slate-800 mb-1">
+                  Kg sueltos adicionales
+                </label>
+                <input
+                  id="ob-feed-kg"
+                  type="number"
+                  min={0}
+                  step="any"
+                  value={kgAdicional}
+                  onChange={(e) => setKgAdicional(e.target.value)}
+                  className="w-full min-h-[48px] rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm"
+                />
+              </div>
+              <div>
+                <label htmlFor="ob-feed-bag-cost" className="block text-xs font-semibold text-slate-800 mb-1">
+                  Valor aprox. bulto 40 kg ($ COP)
+                </label>
+                <input
+                  id="ob-feed-bag-cost"
+                  type="number"
+                  min={0}
+                  step={500}
+                  value={costoPorBulto40kg}
+                  onChange={(e) => setCostoPorBulto40kg(e.target.value)}
+                  placeholder="Ej: 78000"
+                  className="w-full min-h-[48px] rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm font-semibold"
+                />
+              </div>
+              <div className="sm:col-span-2 lg:col-span-4 flex flex-wrap items-center justify-between gap-2 text-xs text-amber-950">
+                <span className="inline-flex items-center gap-2 font-semibold">
+                  <Wheat className="w-4 h-4 text-amber-700 shrink-0" aria-hidden="true" />
+                  <span>Saldo inicial: {totalFeedKg.toLocaleString("es-CO")} kg</span>
+                </span>
+                <span className="text-[11px] text-amber-900">
+                  Costo para Utilidad Neta diaria: ${estimatedCostPerKg.toLocaleString("es-CO")}/kg
+                </span>
+              </div>
             </div>
 
-            {previewEvaluation.triggeredFlags.length > 0 && (
-              <div className="rounded-lg border border-emerald-200 bg-emerald-50 p-3 text-xs text-emerald-950 space-y-1">
-                <p className="font-bold flex items-center gap-1.5">
-                  <Sparkles className="w-3.5 h-3.5 text-emerald-700" aria-hidden="true" />
-                  <span>Disparadores inteligentes que se activarán automáticamente:</span>
-                </p>
-                <ul className="list-disc pl-5 space-y-0.5">
-                  {previewEvaluation.triggeredFlags.map((flagKey) => (
-                    <li key={flagKey}>{FEATURE_FLAG_BY_KEY[flagKey]?.name ?? flagKey}</li>
-                  ))}
-                </ul>
+            <div className="rounded-xl border border-slate-200 bg-slate-50 p-4 space-y-2.5">
+              <p className="text-xs font-bold uppercase tracking-wide text-slate-600">
+                Resumen Día 1 · Todo listo sin deuda histórica
+              </p>
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-xs">
+                <div className="rounded-lg bg-white border border-slate-200 p-2.5">
+                  <span className="text-slate-500 block">Predio</span>
+                  <strong className="text-slate-900 truncate block">{nombrePredio || "—"}</strong>
+                </div>
+                <div className="rounded-lg bg-white border border-slate-200 p-2.5">
+                  <span className="text-slate-500 block">Animales vivos</span>
+                  <strong className="text-slate-900">{totalLiveAnimals}</strong>
+                </div>
+                <div className="rounded-lg bg-white border border-slate-200 p-2.5">
+                  <span className="text-slate-500 block">Unidades</span>
+                  <strong className="text-slate-900">{unidades.length}</strong>
+                </div>
+                <div className="rounded-lg bg-white border border-slate-200 p-2.5">
+                  <span className="text-slate-500 block">Fecha corte</span>
+                  <input
+                    type="date"
+                    value={fechaInicio}
+                    onChange={(e) => setFechaInicio(e.target.value)}
+                    className="text-xs font-bold text-slate-900 bg-transparent border-0 p-0 focus:outline-none"
+                    aria-label="Fecha de inicio de operación"
+                  />
+                </div>
               </div>
+
+              {previewEvaluation.triggeredFlags.length > 0 && (
+                <div className="rounded-lg border border-emerald-200 bg-emerald-50 p-3 text-xs text-emerald-950 space-y-1">
+                  <p className="font-bold flex items-center gap-1.5">
+                    <Sparkles className="w-3.5 h-3.5 text-emerald-700" aria-hidden="true" />
+                    <span>Disparadores inteligentes que se activarán automáticamente:</span>
+                  </p>
+                  <ul className="list-disc pl-5 space-y-0.5">
+                    {previewEvaluation.triggeredFlags.map((flagKey) => (
+                      <li key={flagKey}>{FEATURE_FLAG_BY_KEY[flagKey]?.name ?? flagKey}</li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+            </div>
+          </section>
+
+          {/* Footer actions */}
+          <div className="flex flex-wrap items-center justify-between gap-2 border-t border-slate-200 pt-3">
+            {step > 1 ? (
+              <button
+                key="wizard-prev"
+                type="button"
+                onClick={() => moveToStep(step === 3 ? 2 : 1)}
+                className="inline-flex items-center gap-1.5 rounded-lg border border-slate-300 bg-white px-4 py-2.5 min-h-[48px] text-sm font-semibold text-slate-700 hover:bg-slate-50"
+              >
+                <ArrowLeft className="w-4 h-4" aria-hidden="true" />
+                <span>Anterior</span>
+              </button>
+            ) : (
+              <button
+                key="wizard-later"
+                type="button"
+                onClick={onClose}
+                className="rounded-lg px-4 py-2.5 min-h-[48px] text-sm font-semibold text-slate-600 hover:bg-slate-100"
+              >
+                Hacerlo después
+              </button>
+            )}
+
+            {step < 3 ? (
+              <button
+                key="wizard-next"
+                type="button"
+                onClick={(e) => {
+                  e.preventDefault();
+                  if (step === 1 && validateStep1()) moveToStep(2);
+                  else if (step === 2 && validateStep2()) moveToStep(3);
+                }}
+                className="inline-flex items-center gap-1.5 rounded-lg bg-green-700 px-5 py-2.5 min-h-[48px] text-sm font-semibold text-white hover:bg-green-800"
+              >
+                <span>Continuar</span>
+                <ArrowRight className="w-4 h-4" aria-hidden="true" />
+              </button>
+            ) : (
+              <button
+                key="wizard-submit"
+                type="submit"
+                disabled={submitting}
+                className="inline-flex items-center gap-1.5 rounded-lg bg-green-700 px-5 py-2.5 min-h-[48px] text-sm font-semibold text-white hover:bg-green-800 disabled:opacity-50"
+              >
+                <CheckCircle2 className="w-4 h-4" aria-hidden="true" />
+                <span>{submitting ? "Configurando granja..." : "Iniciar operación hoy"}</span>
+              </button>
             )}
           </div>
-        </section>
-
-        {/* Footer actions */}
-        <div className="flex flex-wrap items-center justify-between gap-2 border-t border-slate-200 pt-3">
-          {step > 1 ? (
-            <button
-              key="wizard-prev"
-              type="button"
-              onClick={() => moveToStep(step === 3 ? 2 : 1)}
-              className="inline-flex items-center gap-1.5 rounded-lg border border-slate-300 bg-white px-4 py-2.5 min-h-[48px] text-sm font-semibold text-slate-700 hover:bg-slate-50"
-            >
-              <ArrowLeft className="w-4 h-4" aria-hidden="true" />
-              <span>Anterior</span>
-            </button>
-          ) : (
-            <button
-              key="wizard-later"
-              type="button"
-              onClick={onClose}
-              className="rounded-lg px-4 py-2.5 min-h-[48px] text-sm font-semibold text-slate-600 hover:bg-slate-100"
-            >
-              Hacerlo después
-            </button>
-          )}
-
-          {step < 3 ? (
-            <button
-              key="wizard-next"
-              type="button"
-              onClick={(e) => {
-                e.preventDefault();
-                if (step === 1 && validateStep1()) moveToStep(2);
-                else if (step === 2 && validateStep2()) moveToStep(3);
-              }}
-              className="inline-flex items-center gap-1.5 rounded-lg bg-green-700 px-5 py-2.5 min-h-[48px] text-sm font-semibold text-white hover:bg-green-800"
-            >
-              <span>Continuar</span>
-              <ArrowRight className="w-4 h-4" aria-hidden="true" />
-            </button>
-          ) : (
-            <button
-              key="wizard-submit"
-              type="submit"
-              disabled={submitting}
-              className="inline-flex items-center gap-1.5 rounded-lg bg-green-700 px-5 py-2.5 min-h-[48px] text-sm font-semibold text-white hover:bg-green-800 disabled:opacity-50"
-            >
-              <CheckCircle2 className="w-4 h-4" aria-hidden="true" />
-              <span>{submitting ? "Configurando granja..." : "Iniciar operación hoy"}</span>
-            </button>
-          )}
-        </div>
-      </form>
-        </>
-      )}
-    </div>
+        </form>
+    </>
+  )
+}
+    </div >
   );
 }
 

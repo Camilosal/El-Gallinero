@@ -12,6 +12,7 @@ export const ATTACHMENT_ENTITY_TYPES = [
   "composting",
   "biosecurity",
   "daily_closure",
+  "normative_doc",
   "other",
 ] as const;
 
@@ -24,6 +25,7 @@ export const ATTACHMENT_CATEGORIES = [
   { value: "rut_documento", label: "RUT / Documento de identidad" },
   { value: "gsmi_movilizacion", label: "Guía Sanitaria ICA (GSMI)" },
   { value: "certificado_genetico", label: "Certificado genético / sanitario" },
+  { value: "norma_guia", label: "Norma / Estándar / Guía (PDF o imagen)" },
   { value: "signo_clinico", label: "Evidencia clínica / necropsia" },
   { value: "placa_serie", label: "Placa de serie / equipo" },
   { value: "garantia", label: "Garantía / manual técnico" },

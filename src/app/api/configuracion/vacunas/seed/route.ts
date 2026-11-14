@@ -1,17 +1,11 @@
 import { db } from "@/db";
 import { vaccinationTemplates } from "@/db/schema";
-import { VACCINATION_SCHEDULES } from "@/lib/vaccination-schedules";
+import { VACCINATION_SCHEDULES, VACCINATION_SCHEDULE_SPECIES } from "@/lib/vaccination-schedules";
 import { NextResponse } from "next/server";
 import { requirePermission } from "@/lib/rbac-server";
 import { withApiHandler } from "@/lib/api-handler";
 
 export const dynamic = "force-dynamic";
-
-const BREED_SPECIES: Record<string, string> = {
-  "ISA Brown": "gallina",
-  "Hy-Line W-36": "gallina",
-  "Cobb 500": "pollo",
-};
 
 /** POST /api/configuracion/vacunas/seed — carga idempotente de planes de referencia. */
 export const POST = withApiHandler(async () => {
@@ -19,7 +13,7 @@ export const POST = withApiHandler(async () => {
   if (denied) return denied;
   const rows = Object.entries(VACCINATION_SCHEDULES).flatMap(([breed, events]) =>
     events.map((event) => ({
-      species: BREED_SPECIES[breed] || "gallina",
+      species: VACCINATION_SCHEDULE_SPECIES[breed] || "gallina",
       breed,
       weekNumber: event.weekNumber,
       name: event.name,

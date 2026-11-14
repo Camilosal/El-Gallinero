@@ -69,12 +69,34 @@ export default function RazasPage() {
   const [data, setData] = useState<CurveResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [pointSearch, setPointSearch] = useState("");
-  const breedOptions = getStandardCurves(species);
-  const selectedBreed = breedOptions.some((option) => option.breed === breed) ? breed : breedOptions[0]?.breed || "";
+  const [dbBreeds, setDbBreeds] = useState<string[]>([]);
+  const breedOptions = useMemo(() => {
+    const base = getStandardCurves(species).map((option) => option.breed);
+    if (species === "gallina") return base;
+    const merged = [...base];
+    for (const item of dbBreeds) {
+      if (!merged.includes(item)) merged.push(item);
+    }
+    return merged;
+  }, [species, dbBreeds]);
+  const selectedBreed = breedOptions.includes(breed) ? breed : breedOptions[0] || "";
 
   useEffect(() => {
     apiFetch("/api/ubicaciones").then((r) => r.json()).then((d) => setLocations(Array.isArray(d) ? d : [])).catch(() => {});
   }, []);
+
+  useEffect(() => {
+    if (species === "gallina") return;
+    apiFetch(`/api/configuracion/estandares-peso?species=${encodeURIComponent(species)}`)
+      .then((r) => r.json())
+      .then((rows) => {
+        if (Array.isArray(rows)) {
+          const unique = Array.from(new Set(rows.map((row: { breed?: string }) => String(row.breed || "").trim()).filter(Boolean)));
+          setDbBreeds(unique);
+        }
+      })
+      .catch(() => setDbBreeds([]));
+  }, [species]);
 
   const load = useCallback(async () => {
     if (!selectedBreed) return;
@@ -128,7 +150,7 @@ export default function RazasPage() {
               {SPECIES_OPTIONS.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
             </Select>
             <Select label="Curva" value={selectedBreed} onChange={(event) => setBreed(event.target.value)}>
-              {breedOptions.map((option) => <option key={option.breed} value={option.breed}>{option.breed}</option>)}
+              {breedOptions.map((optionBreed) => <option key={optionBreed} value={optionBreed}>{optionBreed}</option>)}
             </Select>
             <Select label="Lugar (Altitud/Piso)" value={locationId} onChange={(event) => setLocationId(event.target.value)}>
               <option value="">General (sin ajuste)</option>
@@ -156,9 +178,14 @@ export default function RazasPage() {
                   {isLayer ? "Postura por edad del lote" : "Crecimiento por edad"} · {selectedCurve.unit}
                 </p>
               </div>
-              <Link href={actualLink} className="rounded-lg bg-green-700 px-3 py-2 text-sm font-semibold text-white hover:bg-green-800">
-                {actualAction}
-              </Link>
+              <div className="flex flex-wrap gap-2">
+                <Link href="/dashboard/configuracion/catalogos?tab=pesos" className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50">
+                  Ajustar curva en Catálogos →
+                </Link>
+                <Link href={actualLink} className="rounded-lg bg-green-700 px-3 py-2 text-sm font-semibold text-white hover:bg-green-800">
+                  {actualAction}
+                </Link>
+              </div>
             </div>
 
             <ResponsiveContainer width="100%" height={390}>

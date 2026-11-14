@@ -1,13 +1,14 @@
 import { db, pool } from "@/db";
 import path from "node:path";
-import { appSettings, catalogos, vaccinationTemplates } from "@/db/schema";
+import { appSettings, breedWeightStandards, catalogos, vaccinationTemplates } from "@/db/schema";
 import { DEFAULT_FARM_ID } from "@/db/tenant-context";
 import { DEFAULT_SETTINGS } from "@/lib/settings";
-import { VACCINATION_SCHEDULES } from "@/lib/vaccination-schedules";
+import { VACCINATION_SCHEDULES, VACCINATION_SCHEDULE_SPECIES } from "@/lib/vaccination-schedules";
+import { ALL_BREED_STANDARD_DEFS, inferSpeciesForBreed } from "@/lib/breed-standards";
 import { canonicalBreedType, DEFAULT_BREEDS_BY_SPECIES } from "@/lib/animal-breeds";
 import { syncLegacyCatalogContacts } from "@/lib/contacts";
 import { SPECIES_PARAMS } from "@/lib/species-params";
-import { and, eq, gte, sql } from "drizzle-orm";
+import { and, eq, gte, isNull, sql } from "drizzle-orm";
 
 export const NORMATIVE_PACK_VERSION = "2026.11-ICA-NTC1240";
 
@@ -172,6 +173,91 @@ async function ensureSpeciesParams(): Promise<number> {
   return added;
 }
 
+const MISSING_MASTER_CATALOGS: {
+  category: string;
+  value: string;
+  tipo?: string;
+  units?: number;
+  minWeeks?: number;
+  maxWeeks?: number;
+  expectedEggsPerHen?: string;
+  sortOrder: number;
+}[] = [
+  { category: "presentacion_compra", value: "Bulto 40kg", units: 40, sortOrder: 2 },
+  { category: "tipo_ave", value: "Cuy", tipo: "mamifero", sortOrder: 7 },
+  { category: "categoria_insumo", value: "medicamento", sortOrder: 0 },
+  { category: "categoria_insumo", value: "vacuna", sortOrder: 1 },
+  { category: "categoria_insumo", value: "desinfectante", sortOrder: 2 },
+  { category: "categoria_insumo", value: "limpieza", sortOrder: 3 },
+  { category: "categoria_insumo", value: "equipo", sortOrder: 4 },
+  { category: "categoria_insumo", value: "otro", sortOrder: 5 },
+  { category: "causa_mortalidad", value: "enfermedad", sortOrder: 0 },
+  { category: "causa_mortalidad", value: "depredador", sortOrder: 1 },
+  { category: "causa_mortalidad", value: "accidente", sortOrder: 2 },
+  { category: "causa_mortalidad", value: "sacrificio_sanitario", sortOrder: 3 },
+  { category: "causa_mortalidad", value: "causa_natural", sortOrder: 4 },
+  { category: "causa_mortalidad", value: "otro", sortOrder: 5 },
+  { category: "etapa_crecimiento", value: "Cuy Crecimiento (4-8 sem)", tipo: "cuy", minWeeks: 4, maxWeeks: 8, expectedEggsPerHen: "0", sortOrder: 12 },
+  { category: "etapa_crecimiento", value: "Cuy Engorde (8-16 sem)", tipo: "cuy", minWeeks: 8, maxWeeks: 16, expectedEggsPerHen: "0", sortOrder: 13 },
+];
+
+async function ensureMasterCatalogs(): Promise<number> {
+  let added = 0;
+  for (const item of MISSING_MASTER_CATALOGS) {
+    const [inserted] = await db
+      .insert(catalogos)
+      .values({
+        category: item.category,
+        value: item.value,
+        tipo: item.tipo ?? null,
+        units: item.units ?? null,
+        minWeeks: item.minWeeks ?? null,
+        maxWeeks: item.maxWeeks ?? null,
+        expectedEggsPerHen: item.expectedEggsPerHen ?? null,
+        sortOrder: item.sortOrder,
+        isActive: true,
+      })
+      .onConflictDoNothing()
+      .returning({ id: catalogos.id });
+    if (inserted) added += 1;
+  }
+  return added;
+}
+
+async function ensureBreedWeightStandards(): Promise<number> {
+  const existingMissingSpecies = await db
+    .select({ id: breedWeightStandards.id, breed: breedWeightStandards.breed })
+    .from(breedWeightStandards)
+    .where(isNull(breedWeightStandards.species));
+
+  for (const row of existingMissingSpecies) {
+    await db
+      .update(breedWeightStandards)
+      .set({ species: inferSpeciesForBreed(row.breed) })
+      .where(eq(breedWeightStandards.id, row.id));
+  }
+
+  let added = 0;
+  for (const def of ALL_BREED_STANDARD_DEFS) {
+    const rows = def.points.map((p) => ({
+      species: def.species,
+      breed: def.breed,
+      gender: def.gender,
+      weekNumber: p.week,
+      targetWeightG: String(p.targetG),
+      minWeightG: p.minG != null ? String(p.minG) : null,
+      maxWeightG: p.maxG != null ? String(p.maxG) : null,
+    }));
+    const inserted = await db
+      .insert(breedWeightStandards)
+      .values(rows)
+      .onConflictDoNothing()
+      .returning({ id: breedWeightStandards.id });
+    added += inserted.length;
+  }
+  return added;
+}
+
 async function main() {
   const settingsRows = Object.entries(DEFAULT_SETTINGS).map(([key, value]) => ({
     key,
@@ -184,7 +270,7 @@ async function main() {
 
   const templateRows = Object.entries(VACCINATION_SCHEDULES).flatMap(([breed, events]) =>
     events.map((event) => ({
-      species: BREED_SPECIES[breed] || "gallina",
+      species: VACCINATION_SCHEDULE_SPECIES[breed] || BREED_SPECIES[breed] || "gallina",
       breed,
       weekNumber: event.weekNumber,
       name: event.name,
@@ -206,6 +292,8 @@ async function main() {
   const addedStatuses = await ensureHenStatuses();
   const animalBreeds = await ensureAnimalBreeds();
   const addedSpeciesParams = await ensureSpeciesParams();
+  const addedMasterCatalogs = await ensureMasterCatalogs();
+  const addedWeightStandards = await ensureBreedWeightStandards();
   const syncedContacts = await syncLegacyCatalogContacts();
 
   const normativePayload = JSON.stringify({
@@ -240,6 +328,8 @@ async function main() {
   console.log(`Plantillas de vacunación: ${insertedTemplates.length} creadas de ${templateRows.length}.`);
   console.log(`Estados de gallina: ${addedStatuses} agregados de ${HEN_STATUSES.length}.`);
   console.log(`Razas de animales: ${animalBreeds.added} agregadas, ${animalBreeds.associated} asociadas a su especie.`);
+  console.log(`Catálogos maestros agregados: ${addedMasterCatalogs}.`);
+  console.log(`Estándares de peso agregados: ${addedWeightStandards}.`);
   console.log(`Contactos migrados desde catálogos: ${syncedContacts}.`);
   console.log(`Paquete normativo ICA/NTC: ${NORMATIVE_PACK_VERSION}.`);
 }

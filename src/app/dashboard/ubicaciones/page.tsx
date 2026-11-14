@@ -12,6 +12,7 @@ import TableSearch from "@/components/TableSearch";
 import { apiFetch } from "@/lib/fetch";
 import { matchesTextQuery } from "@/lib/text";
 import { addDaysIso, todayColombiaIso } from "@/lib/date-validation";
+import { COLOMBIA_DIVIPOLA_CATALOG, resolveDivipolaMunicipality } from "@/lib/divipola-catalog";
 import {
   FarmLocation, FLOOR_TYPE_LABELS, LOCATION_TYPE_LABELS, OPERATIONAL_STATUS_LABELS, SANITARY_STATUS_LABELS, ZONE_TYPE_LABELS,
 } from "@/lib/useFarmLocations";
@@ -73,6 +74,7 @@ function UbicacionesInner() {
   const [search, setSearch] = useState("");
   const [qrLocation, setQrLocation] = useState<FarmLocation | null>(null);
   const [batchQrOpen, setBatchQrOpen] = useState(false);
+  const [sanitaryEmptyDays, setSanitaryEmptyDays] = useState(21);
 
   const visibleLocations = locations.filter((location) =>
     matchesTextQuery(search, [
@@ -91,8 +93,17 @@ function UbicacionesInner() {
   );
 
   const load = useCallback(async () => {
-    const response = await apiFetch("/api/ubicaciones");
+    const [response, paramsRes] = await Promise.all([
+      apiFetch("/api/ubicaciones"),
+      apiFetch("/api/configuracion/parametros"),
+    ]);
     if (response.ok) setLocations(await response.json());
+    if (paramsRes.ok) {
+      const defs = (await paramsRes.json()) as Array<{ key: string; value: string }>;
+      const emptyDaysSetting = defs.find((d) => d.key === "sanitary.empty_days");
+      const parsed = emptyDaysSetting ? Number(emptyDaysSetting.value) : NaN;
+      if (Number.isFinite(parsed) && parsed >= 1) setSanitaryEmptyDays(Math.round(parsed));
+    }
     setLoading(false);
   }, []);
 
@@ -358,6 +369,29 @@ function UbicacionesInner() {
             <Input label="Capacidad de animales (opcional)" type="number" min="0" step="1" value={form.capacity} onChange={(e) => setForm({ ...form, capacity: e.target.value })} help="Se usa para avisar si un traslado excede el máximo." />
           </div>
           <Textarea label="Descripción" value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} placeholder="Uso, distribución o características del lugar" />
+          <Select
+            label="Municipio oficial DIVIPOLA (Colombia — autocompleta coordenadas, altitud y temperatura)"
+            value=""
+            onChange={(e) => {
+              if (!e.target.value) return;
+              const muni = resolveDivipolaMunicipality(e.target.value);
+              setForm((prev) => ({
+                ...prev,
+                localReference: `${muni.municipality}, ${muni.department} (DANE ${muni.daneCode})`,
+                latitude: String(muni.latitude),
+                longitude: String(muni.longitude),
+                altitudeMeters: String(muni.altitudeMeters),
+                environmentalTempC: String(muni.avgTempC),
+              }));
+            }}
+          >
+            <option value="">Seleccionar municipio oficial DIVIPOLA para precargar zona...</option>
+            {COLOMBIA_DIVIPOLA_CATALOG.map((m) => (
+              <option key={m.daneCode} value={m.daneCode}>
+                {m.municipality} — {m.department} ({m.altitudeMeters} m · {m.avgTempC} °C)
+              </option>
+            ))}
+          </Select>
           <Input label="Referencia para encontrarlo" value={form.localReference} onChange={(e) => setForm({ ...form, localReference: e.target.value })} placeholder="Ej. 20 m al sur de la casa, junto al tanque" />
           <div className="grid gap-3 sm:grid-cols-3">
             <Input label="Latitud" type="number" step="any" min="-90" max="90" value={form.latitude} onChange={(e) => setForm({ ...form, latitude: e.target.value })} placeholder="4.1234567" />
@@ -376,17 +410,17 @@ function UbicacionesInner() {
           </div>
           <div className="rounded-xl border border-emerald-200 bg-emerald-50/50 p-4 space-y-3">
             <div className="flex flex-wrap items-center justify-between gap-2">
-              <h3 className="font-semibold text-slate-800">Bioseguridad, vacío sanitario (21 d) y calibración</h3>
+              <h3 className="font-semibold text-slate-800">Bioseguridad, vacío sanitario ({sanitaryEmptyDays} d) y calibración</h3>
               <Button
                 variant="secondary"
                 type="button"
                 onClick={() => setForm((prev) => ({
                   ...prev,
-                  sanitaryEmptyUntil: addDaysIso(todayColombiaIso(), 21),
+                  sanitaryEmptyUntil: addDaysIso(todayColombiaIso(), sanitaryEmptyDays),
                   operationalStatus: "restringida",
                 }))}
               >
-                + Activar 21 días vacío sanitario
+                + Activar {sanitaryEmptyDays} días vacío sanitario
               </Button>
             </div>
             <div className="grid gap-3 sm:grid-cols-2">

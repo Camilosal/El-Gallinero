@@ -159,19 +159,32 @@ export const CUY_CRIOLLO: BreedStandardPoint[] = [
   { week: 16, targetG: 870, minG: 780, maxG: 960 },
 ];
 
-export const ALL_BREED_STANDARDS: Record<string, BreedStandardPoint[]> = {
-  "ISA Brown_hembra": ISA_BROWN_HEN,
-  "Hy-Line W-36_hembra": HY_LINE_W36_HEN,
-  "Cobb 500_macho": COBB_500_MALE,
-  "Cobb 500_hembra": COBB_500_FEMALE,
-  "Ross 308_macho": ROSS_308_MALE,
-  "Ross 308_hembra": ROSS_308_FEMALE,
-  "Ross 308_mixto": ROSS_308_MIXED,
-  "Cuy Mejorado_mixto": CUY_MEJORADO,
-};
+export const POLLO_CRIOLLO: BreedStandardPoint[] = [
+  { week: 0, targetG: 38, minG: 34, maxG: 42 },
+  { week: 2, targetG: 140, minG: 125, maxG: 155 },
+  { week: 4, targetG: 340, minG: 305, maxG: 375 },
+  { week: 6, targetG: 650, minG: 585, maxG: 715 },
+  { week: 8, targetG: 1050, minG: 945, maxG: 1155 },
+  { week: 10, targetG: 1520, minG: 1370, maxG: 1670 },
+  { week: 12, targetG: 2000, minG: 1800, maxG: 2200 },
+];
 
+export const CONEJO_NZ_WEEKLY: BreedStandardPoint[] = [
+  { week: 0, targetG: 50, minG: 45, maxG: 55 },
+  { week: 1, targetG: 130, minG: 117, maxG: 143 },
+  { week: 2, targetG: 270, minG: 243, maxG: 297 },
+  { week: 3, targetG: 450, minG: 405, maxG: 495 },
+  { week: 4, targetG: 680, minG: 612, maxG: 748 },
+  { week: 5, targetG: 950, minG: 855, maxG: 1045 },
+  { week: 6, targetG: 1250, minG: 1125, maxG: 1375 },
+  { week: 7, targetG: 1550, minG: 1395, maxG: 1705 },
+  { week: 8, targetG: 1850, minG: 1588, maxG: 2495 },
+  { week: 9, targetG: 2150, minG: 1588, maxG: 2495 },
+  { week: 10, targetG: 2300, minG: 1588, maxG: 2495 },
+  { week: 11, targetG: 2450, minG: 2205, maxG: 2695 },
+  { week: 12, targetG: 2550, minG: 2295, maxG: 2805 },
+];
 
-// ─── Codorniz Japónica (Coturnix coturnix japonica) ───
 export const COTURNIX_JAPONICA: BreedStandardPoint[] = [
   { week: 0, targetG: 7, minG: 6, maxG: 8 },
   { week: 1, targetG: 25, minG: 22, maxG: 28 },
@@ -208,6 +221,55 @@ export const PATO_MUSCOVY: BreedStandardPoint[] = [
   { week: 12, targetG: 3200, minG: 2880, maxG: 3520 },
   { week: 14, targetG: 3500, minG: 3150, maxG: 3850 },
 ];
+
+export type StandardWeightSpecies = "gallina" | "pollo" | "codorniz" | "pato" | "conejo" | "cuy";
+
+export interface BreedStandardDef {
+  key: string;
+  species: StandardWeightSpecies;
+  breed: string;
+  gender: "hembra" | "macho" | "mixto";
+  points: BreedStandardPoint[];
+}
+
+export const ALL_BREED_STANDARD_DEFS: BreedStandardDef[] = [
+  { key: "ISA Brown_hembra", species: "gallina", breed: "ISA Brown", gender: "hembra", points: ISA_BROWN_HEN },
+  { key: "Hy-Line W-36_hembra", species: "gallina", breed: "Hy-Line W-36", gender: "hembra", points: HY_LINE_W36_HEN },
+  { key: "Hy-Line Brown_hembra", species: "gallina", breed: "Hy-Line Brown", gender: "hembra", points: HY_LINE_BROWN_HEN },
+  { key: "Cobb 500_macho", species: "pollo", breed: "Cobb 500", gender: "macho", points: COBB_500_MALE },
+  { key: "Cobb 500_hembra", species: "pollo", breed: "Cobb 500", gender: "hembra", points: COBB_500_FEMALE },
+  { key: "Ross 308_macho", species: "pollo", breed: "Ross 308", gender: "macho", points: ROSS_308_MALE },
+  { key: "Ross 308_hembra", species: "pollo", breed: "Ross 308", gender: "hembra", points: ROSS_308_FEMALE },
+  { key: "Ross 308_mixto", species: "pollo", breed: "Ross 308", gender: "mixto", points: ROSS_308_MIXED },
+  { key: "Criollo / Campero_mixto", species: "pollo", breed: "Criollo / Campero", gender: "mixto", points: POLLO_CRIOLLO },
+  {
+    key: "Codorniz Japónica_mixto",
+    species: "codorniz",
+    breed: "Codorniz Japónica",
+    gender: "mixto",
+    points: COTURNIX_JAPONICA.map((p) => (p.week === 5 ? { ...p, targetG: 180, minG: 170, maxG: 190 } : p)),
+  },
+  { key: "Pato Pekín_mixto", species: "pato", breed: "Pato Pekín", gender: "mixto", points: PATO_PEKIN },
+  { key: "Pato Muscovy_mixto", species: "pato", breed: "Pato Muscovy", gender: "mixto", points: PATO_MUSCOVY },
+  { key: "Nueva Zelanda / California_mixto", species: "conejo", breed: "Nueva Zelanda / California", gender: "mixto", points: CONEJO_NZ_WEEKLY },
+  { key: "Cuy Mejorado_mixto", species: "cuy", breed: "Cuy Mejorado", gender: "mixto", points: CUY_MEJORADO },
+  { key: "Cuy Criollo_mixto", species: "cuy", breed: "Cuy Criollo", gender: "mixto", points: CUY_CRIOLLO },
+];
+
+export const ALL_BREED_STANDARDS: Record<string, BreedStandardPoint[]> = Object.fromEntries(
+  ALL_BREED_STANDARD_DEFS.map((def) => [def.key, def.points]),
+);
+
+export function inferSpeciesForBreed(breed: string): StandardWeightSpecies {
+  const b = (breed || "").trim().toLowerCase();
+  if (!b) return "gallina";
+  if (b.includes("cuy") || b.includes("cobayo")) return "cuy";
+  if (b.includes("conejo") || b.includes("zelanda") || b.includes("california") || b.includes("rex")) return "conejo";
+  if (b.includes("pato") || b.includes("pekin") || b.includes("pekín") || b.includes("muscovy")) return "pato";
+  if (b.includes("codorniz") || b.includes("coturnix")) return "codorniz";
+  if (b.includes("cobb") || b.includes("ross") || b.includes("campero") || b.includes("broiler") || b.includes("pollo")) return "pollo";
+  return "gallina";
+}
 
 // ─── Conejo Nueva Zelanda / California (Oryctolagus cuniculus) ───
 export interface WeightCurvePoint {
