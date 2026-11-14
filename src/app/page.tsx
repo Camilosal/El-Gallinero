@@ -1,3 +1,5 @@
+import type { Metadata } from "next";
+import type { CSSProperties } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import {
@@ -6,6 +8,7 @@ import {
   Check,
   CheckCircle2,
   ChevronDown,
+  Clock,
   CreditCard,
   Egg,
   LayoutDashboard,
@@ -13,35 +16,112 @@ import {
   Mic,
   QrCode,
   ShieldCheck,
+  Sparkles,
+  TrendingUp,
   Wallet,
   Wheat,
+  WifiOff,
   Bird,
 } from "lucide-react";
 import MobileNav from "@/components/MobileNav";
 import ScrollReveal from "@/components/ScrollReveal";
 import { LandingShowcase } from "@/components/LandingShowcase";
 import { LandingFooter } from "@/components/LandingFooter";
+import { ModulesAccordionShowcase } from "@/components/ModulesAccordionShowcase";
+import { SectorStandardsCarousel } from "@/components/SectorStandardsCarousel";
+import { JsonLd } from "@/components/JsonLd";
 import {
+  buildFaqNode,
+  buildJsonLd,
+  buildPageMetadata,
+  buildSoftwareNode,
+  SITE_URL,
+} from "@/lib/seo";
+import {
+  ADOPTION_HIGHLIGHTS,
   AI_AUTOMATION_PILLARS,
   CYCLE_PLANS_SHOWCASE,
+  EXTRA_LANDING_MODULES,
   LANDING_MODULES,
   SECTOR_STANDARDS,
+  type AdoptionHighlightItem,
 } from "@/lib/landing-showcase";
 import { APP_DEVELOPER } from "@/lib/branding";
 import { PLAN_PROMISES, priceNote } from "@/lib/legal";
+import { FAQS } from "@/lib/legal-content";
 
 export const dynamic = "force-dynamic";
 
-const HERO_CHIPS = [
-  "Funciona sin señal",
-  "Aves, conejos y cuyes",
-  "Arranca en 3 min",
-];
+const HOME_TITLE = "El Gallinero · Software libre para granjas avícolas";
+const HOME_DESCRIPTION =
+  "Gestión de granja sin señal: huevos, alimento, sanidad, trazabilidad QR y finanzas por especie. Código abierto, en producción en Ibagué, Colombia.";
+
+export const metadata: Metadata = {
+  ...buildPageMetadata({
+    title: HOME_TITLE,
+    description: HOME_DESCRIPTION,
+    path: "/",
+    ogImage: "/images/guia/inicio-dashboard.webp",
+    ogImageAlt: "Pantalla principal de El Gallinero con tareas de hoy, alertas y trazabilidad",
+  }),
+  authors: [{ name: APP_DEVELOPER.name, url: APP_DEVELOPER.url }],
+};
+
+const HERO_DOCK_CARDS = [
+  {
+    id: "arranque",
+    icon: Clock,
+    title: "Arranca en 3 minutos",
+    summary: "Solo aves o animales vivos de hoy y guía precargada.",
+  },
+  {
+    id: "offline",
+    icon: WifiOff,
+    title: "Funciona sin señal",
+    summary: "Registra en el galpón y sincroniza al volver a casa.",
+  },
+  {
+    id: "productores",
+    icon: Bird,
+    title: "Aves, conejos, cuyes y cuentas",
+    summary: "Separa cada especie y entrega tu utilidad diaria.",
+  },
+] as const;
+
+const HERO_FRAGMENTS = [
+  {
+    id: "campo",
+    label: "Captura en galpón",
+    detail: "Huevos NTC 1240, alimento, mortalidad y ventas.",
+  },
+  {
+    id: "informativa",
+    label: "Herramienta informativa",
+    detail: "Curvas de crecimiento, FCR y alertas biológicas.",
+  },
+  {
+    id: "sanidad",
+    label: "Normativa y retiros",
+    detail: "Calendario ICA, tiempos de retiro y compostaje.",
+  },
+  {
+    id: "utilidad",
+    label: "Cierre diario",
+    detail: "Resumen de caja por especie listo para WhatsApp.",
+  },
+] as const;
 
 const PILLAR_ICONS: Record<string, typeof Mic> = {
   "ai-assistant": Mic,
   "ocr-qr-automation": QrCode,
   "micro-insights-routines": CheckCircle2,
+};
+
+const ADOPTION_ICONS: Record<AdoptionHighlightItem["id"], typeof Sparkles> = {
+  "arranque-rapido": Sparkles,
+  "escala-gradual": TrendingUp,
+  "campo-sin-senal": WifiOff,
+  "utilidad-ciclos": Wallet,
 };
 
 const MODULE_ICONS: Record<string, typeof LayoutDashboard> = {
@@ -53,40 +133,22 @@ const MODULE_ICONS: Record<string, typeof LayoutDashboard> = {
   finanzas: Wallet,
 };
 
+const iconDelayStyle = (delaySeconds: number): CSSProperties =>
+  ({ ["--icon-delay" as string]: `${delaySeconds}s` }) as CSSProperties;
+
 export default function HomePage() {
-  const jsonLd = {
-    "@context": "https://schema.org",
-    "@type": "SoftwareApplication",
-    name: "El Gallinero — Iwagé Granja",
-    applicationCategory: "BusinessApplication",
-    operatingSystem: "Web, PWA",
-    url: "https://gallinero.iwage.co",
-    inLanguage: "es",
-    description:
-      "Aplicación web y móvil offline-first para granjas mixtas: postura, engorde, alimento, sanidad, trazabilidad QR, finanzas por especie y asistente por voz.",
-    offers: {
-      "@type": "Offer",
-      price: "0",
-      priceCurrency: "COP",
-    },
-    author: {
-      "@type": "Person",
-      name: APP_DEVELOPER.name,
-      url: APP_DEVELOPER.url,
-    },
-    maintainer: {
-      "@type": "Person",
-      name: APP_DEVELOPER.name,
-      url: APP_DEVELOPER.url,
-    },
-  };
+  const jsonLd = buildJsonLd({
+    path: "/",
+    title: HOME_TITLE,
+    description: HOME_DESCRIPTION,
+    pageType: "WebPage",
+    ogImage: "/images/guia/inicio-dashboard.webp",
+    extraNodes: [buildSoftwareNode(), buildFaqNode(SITE_URL, FAQS.slice(0, 6))],
+  });
 
   return (
     <div id="top" className="land-body">
-      <script
-        type="application/ld+json"
-        dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
-      />
+      <JsonLd data={jsonLd} />
 
       <ScrollReveal>
         <nav className="land-nav" aria-label="Navegación principal">
@@ -112,6 +174,9 @@ export default function HomePage() {
               <a href="#planes" className="hover:text-[var(--ink)] transition">
                 Planes
               </a>
+              <Link href="/bitacora" className="hover:text-[var(--ink)] transition">
+                Bitácora
+              </Link>
             </div>
 
             <div className="flex items-center gap-2">
@@ -134,28 +199,36 @@ export default function HomePage() {
         </nav>
 
         <header className="land-hero relative overflow-hidden bg-[var(--forest-deep)] text-[#f5efe2]">
+          <Image
+            src="/hero-illustration.png"
+            alt="Ilustración rural de El Gallinero en Ibagué, Tolima"
+            fill
+            priority
+            sizes="100vw"
+            className="object-cover object-center opacity-20 pointer-events-none select-none"
+          />
           <div
-            className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_at_top_right,rgba(233,196,106,0.18),transparent_55%),radial-gradient(ellipse_at_bottom_left,rgba(92,122,94,0.28),transparent_50%)]"
+            className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_at_top_right,rgba(233,196,106,0.18),transparent_55%),radial-gradient(ellipse_at_bottom_left,rgba(19,42,30,0.85),rgba(19,42,30,0.72))]"
             aria-hidden="true"
           />
 
-          <div className="land-wrap relative z-10 py-8 sm:py-10 lg:py-12">
+          <div className="land-wrap relative z-10 pt-14 sm:pt-16 lg:pt-20 pb-0">
             <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 lg:gap-10 items-center">
-              <div className="lg:col-span-5 space-y-5">
-                <p className="font-mono text-[11px] uppercase tracking-[0.18em] text-[#e7cf9e]">
-                  Gestión para granjas mixtas · Iwagé
+              <div className="lg:col-span-6 space-y-5">
+                <p className="inline-flex items-center rounded-full border border-white/15 bg-white/10 px-3 py-1 font-mono text-[11px] uppercase tracking-[0.14em] text-[#e7cf9e]">
+                  Plataforma digital y herramienta informativa
                 </p>
 
-                <h1 className="font-display text-3xl sm:text-4xl lg:text-5xl font-bold tracking-tight text-white leading-[1.08]">
+                <h1 className="font-display text-3xl sm:text-4xl lg:text-[46px] font-bold tracking-tight text-white leading-[1.08]">
                   Tu granja al día,{" "}
                   <span className="text-[#e9c46a]">
                     desde el galpón hasta las cuentas.
                   </span>
                 </h1>
 
-                <p className="text-base sm:text-lg text-[#e8e2d4] leading-relaxed max-w-xl">
-                  Anota huevos, alimento, sanidad y ventas desde el celular.
-                  La app ordena el resto y te muestra la utilidad del día.
+                <p className="text-base sm:text-[17px] text-[#e8e2d4] leading-relaxed max-w-lg">
+                  Pensada para pequeños y medianos productores de granjas mixtas: anota en
+                  campo sin señal y consulta guías técnicas y tu utilidad real cada día.
                 </p>
 
                 <div className="flex flex-wrap items-center gap-3 pt-1">
@@ -173,24 +246,9 @@ export default function HomePage() {
                     Ver cómo funciona ↓
                   </a>
                 </div>
-
-                <ul className="flex flex-wrap gap-2 pt-1 text-xs text-[#e8e2d4]">
-                  {HERO_CHIPS.map((chip) => (
-                    <li
-                      key={chip}
-                      className="inline-flex items-center gap-1.5 rounded-full border border-white/15 bg-white/5 px-3 py-1.5 font-medium"
-                    >
-                      <Check
-                        className="w-3.5 h-3.5 text-[#e9c46a] shrink-0"
-                        aria-hidden="true"
-                      />
-                      {chip}
-                    </li>
-                  ))}
-                </ul>
               </div>
 
-              <div className="lg:col-span-7">
+              <div className="lg:col-span-6">
                 <a
                   href="#vitrina"
                   aria-label="Explorar capturas reales de El Gallinero"
@@ -221,44 +279,106 @@ export default function HomePage() {
                     />
                   </div>
                 </a>
-                <p className="mt-2.5 text-center text-xs text-[#d6dfd8]">
-                  Pantalla principal organizada en 3 pasos para revisar el día sin enredos.
-                </p>
               </div>
+            </div>
+
+            <div className="land-hero-dock mt-10 sm:mt-12 lg:mt-14 grid grid-cols-1 md:grid-cols-3 divide-y md:divide-y-0 md:divide-x divide-white/15">
+              {HERO_DOCK_CARDS.map((card, idx) => {
+                const Icon = card.icon;
+                return (
+                  <article
+                    key={card.id}
+                    className="flex items-center gap-3.5 px-5 py-3.5 sm:px-6 sm:py-4"
+                  >
+                    <span
+                      className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-[#e9c46a]/30 bg-[#e9c46a]/15 text-[#e9c46a]"
+                      aria-hidden="true"
+                    >
+                      <Icon className="w-4 h-4" />
+                    </span>
+                    <div className="min-w-0">
+                      <h2 className="font-display text-sm sm:text-base font-bold text-white leading-snug">
+                        <span className="mr-1.5 font-mono text-[11px] font-semibold text-[#e7cf9e]">
+                          {String(idx + 1).padStart(2, "0")}
+                        </span>
+                        {card.title}
+                      </h2>
+                      <p className="mt-0.5 text-xs text-[#d6dfd8] leading-snug">
+                        {card.summary}
+                      </p>
+                    </div>
+                  </article>
+                );
+              })}
             </div>
           </div>
         </header>
+
+        <section
+          aria-label="Qué puedes consultar y registrar cada día"
+          className="border-b border-[var(--line)] bg-[var(--paper)] py-5 sm:py-6"
+        >
+          <div className="land-wrap grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3.5">
+            {HERO_FRAGMENTS.map((frag) => (
+              <div
+                key={frag.id}
+                className="rounded-xl border border-[var(--line)] bg-[var(--cream)]/60 px-4 py-3"
+              >
+                <p className="font-mono text-[11px] font-semibold uppercase tracking-wider text-[var(--forest)]">
+                  {frag.label}
+                </p>
+                <p className="mt-1 text-xs sm:text-sm text-[var(--ink)] leading-snug">
+                  {frag.detail}
+                </p>
+              </div>
+            ))}
+          </div>
+        </section>
 
         <LandingShowcase />
 
         <section
           id="como-funciona"
-          className="land-quick land-section py-14 sm:py-16"
+          className="land-quick land-section"
           aria-labelledby="como-funciona-heading"
         >
           <div className="land-wrap">
             <div className="max-w-2xl mb-7">
-              <p className="land-eyebrow">1 · Anota en menos de 2 minutos</p>
+              <p className="land-eyebrow">2 · Fácil de adoptar</p>
               <h2 id="como-funciona-heading" className="land-h2">
-                Tres formas de registrar sin llenar planillas
+                Pensada para anotar en menos de 2 minutos
               </h2>
               <p className="land-section-sub" style={{ marginBottom: 0 }}>
-                Habla, escanea o confirma la rutina. La app ordena los datos y
-                actualiza inventarios y cuentas.
+                Pequeños y medianos productores registran por voz, código QR o toque rápido
+                mientras consultan reglas y resultados claros al instante.{" "}
+                <Link
+                  href="/realidad-campo"
+                  className="font-semibold text-[var(--forest)] underline underline-offset-4 hover:text-[var(--forest-deep)]"
+                >
+                  Ver problemas reales del campo que resolvemos →
+                </Link>
               </p>
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              {AI_AUTOMATION_PILLARS.map((pillar) => {
+              {AI_AUTOMATION_PILLARS.map((pillar, idx) => {
                 const Icon = PILLAR_ICONS[pillar.id] ?? CheckCircle2;
                 return (
                   <article
                     key={pillar.id}
-                    className="land-reveal flex flex-col gap-3 rounded-xl border border-[var(--line)] bg-[var(--paper)] p-5"
+                    className="land-reveal land-animated-card flex flex-col gap-3 rounded-xl border border-[var(--line)] bg-[var(--paper)] p-5"
                   >
-                    <div className="flex items-center gap-2 text-xs font-semibold text-[var(--forest)]">
-                      <Icon className="w-4 h-4 shrink-0" aria-hidden="true" />
-                      <span>{pillar.eyebrow}</span>
+                    <div className="flex items-center gap-3">
+                      <span
+                        className="land-card-icon-badge"
+                        style={iconDelayStyle(idx * 0.45)}
+                        aria-hidden="true"
+                      >
+                        <Icon className="w-4 h-4" />
+                      </span>
+                      <span className="text-xs font-semibold uppercase tracking-wider font-mono text-[var(--forest)]">
+                        {pillar.eyebrow}
+                      </span>
                     </div>
                     <div>
                       <h3 className="font-display text-lg font-bold text-[var(--ink)]">
@@ -280,135 +400,138 @@ export default function HomePage() {
                 );
               })}
             </div>
+
+            <div className="mt-4 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3.5">
+              {ADOPTION_HIGHLIGHTS.map((item, idx) => {
+                const Icon = ADOPTION_ICONS[item.id] ?? Sparkles;
+                return (
+                  <article
+                    key={item.id}
+                    className="land-reveal land-animated-card rounded-xl border border-[var(--line)] bg-[var(--cream)] p-4 flex flex-col gap-2.5"
+                  >
+                    <div className="flex items-center justify-between gap-2">
+                      <span
+                        className="land-card-icon-badge"
+                        style={iconDelayStyle(idx * 0.35 + 0.2)}
+                        aria-hidden="true"
+                      >
+                        <Icon className="w-4 h-4" />
+                      </span>
+                      <div className="text-right">
+                        <span className="font-mono text-[10px] font-bold uppercase tracking-wider text-[var(--forest)] block">
+                          {item.step}
+                        </span>
+                        <span className="font-mono text-[10px] text-[var(--moss)] block">
+                          {item.badge}
+                        </span>
+                      </div>
+                    </div>
+                    <div>
+                      <h3 className="font-display text-base font-bold text-[var(--ink)] leading-snug">
+                        {item.title}
+                      </h3>
+                      <p className="mt-1 text-xs sm:text-sm text-[var(--moss)] leading-relaxed">
+                        {item.description}
+                      </p>
+                    </div>
+                  </article>
+                );
+              })}
+            </div>
           </div>
         </section>
 
         <section
           id="modulos"
-          className="land-section border-t border-[var(--line)] bg-[var(--cream)] py-14 sm:py-18"
+          className="land-section border-t border-[var(--line)] bg-[var(--cream)]"
           aria-labelledby="modulos-heading"
         >
           <div className="land-wrap">
-            <div className="max-w-2xl mb-6">
-              <p className="land-eyebrow">2 · Módulos y Normas</p>
+            <div className="max-w-2xl mb-7">
+              <p className="land-eyebrow">3 · Qué incluye el sistema</p>
               <h2 id="modulos-heading" className="land-h2">
-                6 módulos que crecen contigo
+                14 módulos que crecen contigo
               </h2>
               <p className="land-section-sub" style={{ marginBottom: 0 }}>
-                Empiezas con lo esencial y activas más áreas cuando tu granja lo
-                pida. La trazabilidad conecta todo de punta a punta.
+                Empiezas con los 6 módulos esenciales desde el Día 1 y puedes activar los
+                otros 8 módulos avanzados cuando tu operación lo pida.
               </p>
             </div>
 
-            <figure className="land-trace-frame overflow-hidden rounded-2xl border border-[var(--line)] bg-white p-2 shadow-sm">
-              <Image
-                src="/traceability-flow.png"
-                alt="Flujo conectado entre nacimientos, galpones, postura, sanidad, alimento y trazabilidad comercial"
-                width={1200}
-                height={620}
-                loading="lazy"
-                className="w-full h-auto rounded-xl block"
-              />
-            </figure>
+            <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 lg:gap-8 items-start">
+              <div className="lg:col-span-5 space-y-4">
+                <figure className="land-trace-frame overflow-hidden rounded-2xl border border-[var(--line)] bg-[var(--paper)] p-3 shadow-sm">
+                  <div className="overflow-hidden rounded-xl border border-[var(--line)] bg-white">
+                    <Image
+                      src="/traceability-flow.png"
+                      alt="Flujo conectado entre nacimientos, galpones, postura, sanidad, alimento y trazabilidad comercial"
+                      width={1200}
+                      height={620}
+                      loading="lazy"
+                      className="w-full h-auto block"
+                    />
+                  </div>
+                  <figcaption className="mt-3 text-xs text-[var(--moss)]">
+                    <span className="font-medium text-[var(--ink)]">
+                      Trazabilidad de punta a punta entre lotes, bodega y ventas.
+                    </span>
+                  </figcaption>
+                </figure>
+              </div>
 
-            <div className="mt-6 grid grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4">
-              {LANDING_MODULES.map((mod) => {
-                const Icon = MODULE_ICONS[mod.id] ?? LayoutDashboard;
-                return (
-                  <article
-                    key={mod.id}
-                    className="land-reveal rounded-xl border border-[var(--line)] bg-[var(--paper)] p-4 sm:p-5"
-                  >
-                    <div className="flex items-center gap-2 text-[var(--forest)]">
-                      <Icon className="w-4 h-4 shrink-0" aria-hidden="true" />
-                      <h3 className="font-display text-base sm:text-lg font-bold text-[var(--ink)]">
-                        {mod.name}
-                      </h3>
-                    </div>
-                    <p className="mt-1.5 text-xs sm:text-sm text-[var(--moss)] leading-relaxed">
-                      {mod.summary}
-                    </p>
-                  </article>
-                );
-              })}
+              <div className="lg:col-span-7">
+                <ModulesAccordionShowcase
+                  coreModules={LANDING_MODULES}
+                  extraModules={EXTRA_LANDING_MODULES}
+                />
+              </div>
             </div>
 
-            <div className="mt-5 flex justify-end">
-              <Link
-                href="/guia"
-                className="inline-flex items-center gap-1.5 text-sm font-semibold text-[var(--forest)] hover:underline"
-              >
-                <BookOpen className="w-4 h-4" aria-hidden="true" />
-                Ver guía completa (14 módulos)
-              </Link>
-            </div>
+            <SectorStandardsCarousel standards={SECTOR_STANDARDS} />
+          </div>
+        </section>
 
-            <div className="mt-10 overflow-hidden rounded-2xl border border-[var(--line)] bg-[var(--paper)]">
-              <div className="border-b border-[var(--line)] p-5 sm:p-6">
-                <p className="land-eyebrow">Normas del sector</p>
-                <h3 className="font-display text-xl sm:text-2xl font-bold text-[var(--ink)] mt-2">
-                  Las reglas que la app aplica por ti
-                </h3>
-                <p className="mt-1.5 text-sm text-[var(--moss)]">
-                  Toca una norma para ver el detalle. No necesitas memorizarlas:
-                  el sistema las usa al registrar y al vender.
+        {/* Banner dedicado de lado a lado para acceso directo a la Guía de uso */}
+        <section
+          aria-label="Acceso directo a la guía de uso"
+          className="w-full bg-[var(--forest-deep)] text-[#f5efe2] border-y border-[var(--line)] py-6"
+        >
+          <div className="land-wrap flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+            <div className="flex items-start sm:items-center gap-3.5">
+              <span className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-[#e9c46a] text-[#132a1e]">
+                <BookOpen className="w-5 h-5" aria-hidden="true" />
+              </span>
+              <div>
+                <p className="font-mono text-[10px] font-bold uppercase tracking-[0.16em] text-[#e7cf9e]">
+                  Manual práctico · 14 módulos
+                </p>
+                <h2 className="font-display text-lg sm:text-xl font-bold text-white leading-snug">
+                  ¿Quieres ver cada pantalla y flujo antes de registrarte?
+                </h2>
+                <p className="text-xs sm:text-sm text-[#d6dfd8] mt-0.5">
+                  Recorre la guía completa paso a paso con capturas reales, modo offline y ejemplos de campo.
                 </p>
               </div>
-
-              <div className="grid grid-cols-1 lg:grid-cols-2 gap-2 p-3 sm:p-4">
-                {SECTOR_STANDARDS.map((item, index) => (
-                  <details
-                    key={item.code}
-                    className="land-norm rounded-xl border border-[var(--line)] bg-[var(--cream)]"
-                    open={index === 0}
-                  >
-                    <summary className="flex cursor-pointer list-none items-center justify-between gap-3 px-4 py-3">
-                      <span className="min-w-0">
-                        <span className="font-mono text-[10px] font-bold uppercase tracking-wider text-[var(--forest)] block">
-                          {item.code} · {item.authority}
-                        </span>
-                        <span className="mt-0.5 block font-display text-sm font-bold text-[var(--ink)] leading-snug">
-                          {item.title}
-                        </span>
-                      </span>
-                      <ChevronDown
-                        className="land-norm-chevron w-4 h-4 shrink-0 text-[var(--forest)]"
-                        aria-hidden="true"
-                      />
-                    </summary>
-                    <div className="space-y-2 border-t border-[var(--line)] px-4 py-3 text-xs">
-                      <p className="text-[var(--moss)] leading-relaxed">
-                        {item.summary}
-                      </p>
-                      <p className="font-medium text-[var(--ink)] leading-relaxed">
-                        {item.enforcement}
-                      </p>
-                      <div className="flex flex-wrap gap-1.5 pt-0.5">
-                        {item.tags.map((tag) => (
-                          <span
-                            key={tag}
-                            className="rounded-full border border-[var(--line)] bg-[var(--paper)] px-2 py-0.5 font-mono text-[10px] text-[var(--moss)]"
-                          >
-                            {tag}
-                          </span>
-                        ))}
-                      </div>
-                    </div>
-                  </details>
-                ))}
-              </div>
             </div>
+
+            <Link
+              href="/guia"
+              className="inline-flex items-center justify-center gap-2 rounded-full bg-[#e9c46a] px-5 py-2.5 text-sm font-bold text-[#132a1e] hover:bg-[#f2d385] transition shrink-0"
+            >
+              Abrir guía de uso
+              <ArrowRight className="w-4 h-4" aria-hidden="true" />
+            </Link>
           </div>
         </section>
 
         <section
           id="planes"
-          className="land-section border-t border-[var(--line)] bg-[var(--paper)] py-14 sm:py-18"
+          className="land-section border-t border-[var(--line)] bg-[var(--paper)]"
           aria-labelledby="planes-heading"
         >
           <div className="land-wrap">
             <div className="max-w-2xl mb-8">
-              <p className="land-eyebrow">3 · Planes por ciclo productivo</p>
+              <p className="land-eyebrow">4 · Planes por ciclo productivo</p>
               <h2 id="planes-heading" className="land-h2">
                 Paga por cosecha o usa 1 lote gratis
               </h2>
@@ -460,7 +583,7 @@ export default function HomePage() {
                       </li>
                     ))}
                   </ul>
-                  <div className="mt-4">
+                  <div className="mt-4 space-y-2">
                     <Link
                       href="/registro"
                       className={`w-full inline-flex items-center justify-center gap-2 rounded-full px-4 py-2 text-xs font-semibold transition ${
@@ -471,6 +594,12 @@ export default function HomePage() {
                     >
                       {plan.featured ? "Empezar ciclo" : "Unirme al plan"}
                       <ArrowRight className="w-3 h-3" />
+                    </Link>
+                    <Link
+                      href={`/planes/${plan.slug}`}
+                      className="w-full inline-flex items-center justify-center text-xs font-semibold text-[var(--forest)] underline underline-offset-4 hover:text-[var(--forest-deep)] py-1"
+                    >
+                      Ver detalle del plan →
                     </Link>
                   </div>
                 </article>
@@ -522,14 +651,58 @@ export default function HomePage() {
         </section>
 
         <section
+          id="preguntas-frecuentes"
+          className="land-section border-t border-[var(--line)] bg-[var(--cream)]"
+          aria-labelledby="faq-heading"
+        >
+          <div className="land-wrap">
+            <div className="flex flex-col md:flex-row md:items-end justify-between gap-4 mb-6">
+              <div className="max-w-2xl">
+                <p className="land-eyebrow">Preguntas frecuentes</p>
+                <h2 id="faq-heading" className="land-h2">
+                  Dudas comunes antes de empezar
+                </h2>
+                <p className="land-section-sub" style={{ marginBottom: 0 }}>
+                  Respuestas rápidas sobre uso sin señal, especies, precios y respaldo de tus datos.
+                </p>
+              </div>
+              <Link
+                href="/ayuda"
+                className="text-sm font-semibold text-[var(--forest)] underline underline-offset-4 hover:text-[var(--forest-deep)] shrink-0"
+              >
+                Ver todas las preguntas e imágenes →
+              </Link>
+            </div>
+
+            <div className="grid gap-3 md:grid-cols-2">
+              {FAQS.slice(0, 6).map((faq, idx) => (
+                <details
+                  key={faq.q}
+                  className="land-accordion rounded-xl border border-[var(--line)] bg-[var(--paper)]"
+                  open={idx < 2}
+                >
+                  <summary className="flex cursor-pointer list-none items-center justify-between gap-3 px-4 py-3.5 text-sm font-semibold text-[var(--ink)] hover:bg-[#f4ede0] rounded-xl transition-colors">
+                    <span>{faq.q}</span>
+                    <ChevronDown className="w-4 h-4 shrink-0 text-[var(--forest)]" aria-hidden="true" />
+                  </summary>
+                  <div className="border-t border-[var(--line)] px-4 py-3 text-sm text-[var(--ink-soft)] leading-relaxed">
+                    {faq.a}
+                  </div>
+                </details>
+              ))}
+            </div>
+          </div>
+        </section>
+
+        <section
           id="acceso"
-          className="land-close-section py-10 sm:py-14"
+          className="land-section land-close-section"
           aria-labelledby="acceso-heading"
         >
           <div className="land-wrap">
             <div className="land-close-banner overflow-hidden rounded-3xl bg-[var(--forest-deep)] px-6 py-8 text-center text-[#f5efe2] sm:px-10 sm:py-10">
               <p className="font-mono text-[11px] uppercase tracking-[0.18em] text-[#e7cf9e]">
-                4 · Comienza hoy
+                5 · Comienza hoy
               </p>
               <h2
                 id="acceso-heading"
@@ -563,6 +736,12 @@ export default function HomePage() {
                 >
                   Crear mi granja gratis
                   <ArrowRight className="w-4 h-4" />
+                </Link>
+                <Link
+                  href="/open-source"
+                  className="inline-flex items-center gap-2 rounded-full border border-white/25 px-5 py-3 text-sm font-semibold text-white hover:bg-white/10 transition"
+                >
+                  Cómo funciona Open Source
                 </Link>
                 <a
                   href="https://github.com/Camilosal/El-Gallinero"

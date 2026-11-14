@@ -17,8 +17,12 @@ export default function RecoverAccessPage() {
   const submit = async (event: React.FormEvent) => {
     event.preventDefault();
     setError("");
-    if (newPassword.length < 12) return setError("La nueva contraseña debe tener al menos 12 caracteres.");
-    if (newPassword !== confirmation) return setError("Las contraseñas no coinciden.");
+    if (newPassword.length < 8) {
+      return setError("La nueva contraseña debe tener al menos 8 caracteres.");
+    }
+    if (newPassword !== confirmation) {
+      return setError("Las contraseñas no coinciden.");
+    }
     setLoading(true);
     try {
       const response = await fetch("/api/auth/recover", {
@@ -47,27 +51,104 @@ export default function RecoverAccessPage() {
           compact
           eyebrow="Seguridad de cuenta"
           title="Recuperar acceso"
-          description="Restablece tu contraseña con un código de un solo uso"
+          description="Restablece tu contraseña con un código de recuperación de un solo uso"
         />
         <section className="w-full rounded-2xl border border-earth-100 bg-white p-8 shadow-xl">
-          <Link href="/login" className="text-sm font-medium text-earth-700 hover:underline">← Volver al inicio de sesión</Link>
+          <Link href="/login" className="text-sm font-medium text-earth-700 hover:underline">
+            ← Volver al inicio de sesión
+          </Link>
           {complete ? (
             <div className="mt-5 space-y-4">
-              <p role="status" className="rounded-xl border border-green-200 bg-green-50 p-4 text-sm text-green-800">La contraseña se actualizó. El código quedó usado y se cerraron las sesiones anteriores.</p>
-              <Link href="/login" className="inline-flex rounded-lg bg-earth-700 px-4 py-2 font-semibold text-white">Iniciar sesión</Link>
+              <p
+                role="status"
+                className="rounded-xl border border-green-200 bg-green-50 p-4 text-sm text-green-800"
+              >
+                La contraseña se actualizó. El código quedó usado y se cerraron las sesiones anteriores.
+              </p>
+              <Link
+                href="/login"
+                className="inline-flex min-h-[44px] items-center rounded-lg bg-earth-700 px-4 py-2 font-semibold text-white"
+              >
+                Iniciar sesión
+              </Link>
             </div>
           ) : (
             <>
-              <p className="mt-4 text-sm text-slate-600">Ingresa el código de un solo uso emitido para tu cuenta y define una contraseña nueva.</p>
+              <p className="mt-4 text-sm text-slate-600">
+                Ingresa el código de recuperación de un solo uso entregado al crear tu granja o emitido por soporte.
+              </p>
               <form onSubmit={submit} className="mt-6 space-y-4">
-                <label className="block text-sm font-semibold text-slate-700">Usuario<input required autoComplete="username" value={username} onChange={(event) => setUsername(event.target.value)} className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 font-normal" /></label>
-                <label className="block text-sm font-semibold text-slate-700">Código de recuperación<input required autoComplete="one-time-code" value={recoveryCode} onChange={(event) => setRecoveryCode(event.target.value)} className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 font-mono font-normal" /></label>
-                <label className="block text-sm font-semibold text-slate-700">Nueva contraseña<input required minLength={12} type="password" autoComplete="new-password" value={newPassword} onChange={(event) => setNewPassword(event.target.value)} className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 font-normal" /></label>
-                <label className="block text-sm font-semibold text-slate-700">Confirma la contraseña<input required minLength={12} type="password" autoComplete="new-password" value={confirmation} onChange={(event) => setConfirmation(event.target.value)} className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 font-normal" /></label>
-                {error && <p role="alert" className="rounded-lg bg-red-50 p-3 text-sm text-red-700">{error}</p>}
-                <button type="submit" disabled={loading} className="w-full rounded-lg bg-earth-700 px-4 py-3 font-semibold text-white hover:bg-earth-800 disabled:opacity-50">{loading ? "Actualizando…" : "Cambiar contraseña"}</button>
+                <label className="block text-sm font-semibold text-slate-700">
+                  Usuario, celular o correo
+                  <input
+                    required
+                    autoComplete="username"
+                    autoCorrect="off"
+                    autoCapitalize="none"
+                    spellCheck={false}
+                    value={username}
+                    onChange={(event) => setUsername(event.target.value)}
+                    className="mt-1 min-h-[44px] w-full rounded-lg border border-slate-300 px-3 py-2 font-normal"
+                  />
+                </label>
+                <label className="block text-sm font-semibold text-slate-700">
+                  Código de recuperación
+                  <input
+                    required
+                    placeholder="Ej: IWG-..."
+                    autoComplete="one-time-code"
+                    autoCorrect="off"
+                    autoCapitalize="none"
+                    spellCheck={false}
+                    value={recoveryCode}
+                    onChange={(event) => setRecoveryCode(event.target.value)}
+                    className="mt-1 min-h-[44px] w-full rounded-lg border border-slate-300 px-3 py-2 font-mono font-normal"
+                  />
+                </label>
+                <label className="block text-sm font-semibold text-slate-700">
+                  Nueva contraseña (mínimo 8 caracteres)
+                  <input
+                    required
+                    minLength={8}
+                    type="password"
+                    autoComplete="new-password"
+                    value={newPassword}
+                    onChange={(event) => setNewPassword(event.target.value)}
+                    className="mt-1 min-h-[44px] w-full rounded-lg border border-slate-300 px-3 py-2 font-normal"
+                  />
+                </label>
+                <label className="block text-sm font-semibold text-slate-700">
+                  Confirma la contraseña
+                  <input
+                    required
+                    minLength={8}
+                    type="password"
+                    autoComplete="new-password"
+                    value={confirmation}
+                    onChange={(event) => setConfirmation(event.target.value)}
+                    className="mt-1 min-h-[44px] w-full rounded-lg border border-slate-300 px-3 py-2 font-normal"
+                  />
+                </label>
+                {error && (
+                  <p role="alert" className="rounded-lg bg-red-50 p-3 text-sm text-red-700">
+                    {error}
+                  </p>
+                )}
+                <button
+                  type="submit"
+                  disabled={loading}
+                  className="min-h-[48px] w-full rounded-lg bg-earth-700 px-4 py-3 font-semibold text-white hover:bg-earth-800 disabled:opacity-50"
+                >
+                  {loading ? "Actualizando…" : "Cambiar contraseña"}
+                </button>
               </form>
-              <p className="mt-5 text-xs leading-relaxed text-slate-500">¿No tienes un código? El administrador de la instalación debe emitir uno desde el servidor. Se muestra una vez, vence en 30 días y queda invalidado al usarse.</p>
+              <p className="mt-5 text-xs leading-relaxed text-slate-600">
+                ¿Perdiste tu código de recuperación? Solicita uno nuevo al propietario de tu granja o escríbenos en{" "}
+                <Link href="/contacto" className="font-semibold text-earth-800 underline">
+                  /contacto
+                </Link>
+                .
+              </p>
             </>
           )}
         </section>

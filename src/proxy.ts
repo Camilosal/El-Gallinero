@@ -12,10 +12,45 @@ const PUBLIC_PREFIXES = [
   "/lote/",
   "/guia/",
   "/dashboard/guia/",
+  "/bitacora/",
+  "/planes/",
 ];
 
 /** Routes that are public without allowing prefix-sharing paths through. */
-const PUBLIC_EXACT = ["/", "/terminos", "/retracto", "/privacidad", "/contacto", "/ayuda", "/nosotros", "/login", "/login/recuperar", "/registro", "/api/health", "/api/billing/webhook", "/api/export", "/guia", "/dashboard/guia"];
+const PUBLIC_EXACT = [
+  "/",
+  "/terminos",
+  "/retracto",
+  "/privacidad",
+  "/contacto",
+  "/ayuda",
+  "/open-source",
+  "/realidad-campo",
+  "/planes",
+  "/nosotros",
+  "/bitacora",
+  "/login",
+  "/login/recuperar",
+  "/registro",
+  "/api/health",
+  "/api/contacto",
+  "/api/billing/webhook",
+  // Exportación: valida cookie de sesión o token de solo lectura dentro de la ruta.
+  "/api/export",
+  "/guia",
+  "/dashboard/guia",
+  "/sitemap.xml",
+  "/robots.txt",
+  "/llms.txt",
+];
+
+const PROTECTED_PREFIXES = ["/dashboard", "/api", "/admin"];
+
+function isProtectedRoute(pathname: string): boolean {
+  return PROTECTED_PREFIXES.some(
+    (prefix) => pathname === prefix || pathname.startsWith(`${prefix}/`),
+  );
+}
 
 export async function proxy(req: NextRequest) {
   const { pathname } = req.nextUrl;
@@ -25,6 +60,12 @@ export async function proxy(req: NextRequest) {
     PUBLIC_EXACT.includes(pathname) ||
     PUBLIC_PREFIXES.some((p) => pathname.startsWith(p))
   ) {
+    return NextResponse.next();
+  }
+
+  // Only enforce session auth on private app/API prefixes so unknown URLs
+  // render not-found.tsx with HTTP 404 instead of 401 or a /login soft-404.
+  if (!isProtectedRoute(pathname)) {
     return NextResponse.next();
   }
 

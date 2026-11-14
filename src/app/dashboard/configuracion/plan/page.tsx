@@ -22,6 +22,7 @@ export default function PlanSuscripcionPage() {
   const [plans, setPlans] = useState<BillingPlanDefinition[]>([]);
   const [loading, setLoading] = useState(true);
   const [modalOpen, setModalOpen] = useState(false);
+  const [paymentReturnInfo, setPaymentReturnInfo] = useState<{ txId: string | null } | null>(null);
 
   const refreshBilling = useCallback(async () => {
     const res = await apiFetch("/api/billing/checkout");
@@ -38,6 +39,12 @@ export default function PlanSuscripcionPage() {
     void apiFetch("/api/billing/checkout")
       .then(async (res) => {
         if (!active) return;
+        if (typeof window !== "undefined") {
+          const params = new URLSearchParams(window.location.search);
+          if (params.get("payment") === "return" || params.get("id")) {
+            setPaymentReturnInfo({ txId: params.get("id") });
+          }
+        }
         if (res.ok) {
           const json = await res.json();
           if (!active) return;
@@ -73,6 +80,26 @@ export default function PlanSuscripcionPage() {
         title="Plan por Ciclo Productivo y Pagos"
         description="Renueva por cosecha o semestre mediante Nequi, Daviplata o PSE. Nunca secuestramos tu histórico ni bloqueamos el cierre del lote actual."
       />
+
+      {paymentReturnInfo && (
+        <div
+          role="status"
+          className="rounded-xl border border-emerald-300 bg-emerald-50 p-4 text-sm text-emerald-950 flex flex-wrap items-center justify-between gap-3"
+        >
+          <div className="space-y-0.5">
+            <p className="font-bold">Regresaste desde el portal de pagos Wompi</p>
+            <p className="text-xs text-emerald-900">
+              {paymentReturnInfo.txId
+                ? `Transacción reportada (${paymentReturnInfo.txId}). `
+                : ""}
+              Apenas Wompi confirme el pago vía webhook, tu ciclo quedará activo automáticamente en esta pantalla.
+            </p>
+          </div>
+          <Button touchSize="field" variant="secondary" onClick={() => void refreshBilling()}>
+            Actualizar estado del plan
+          </Button>
+        </div>
+      )}
 
       {loading ? (
         <Card className="p-6 text-sm text-slate-500">Cargando estado de suscripción...</Card>

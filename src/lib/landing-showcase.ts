@@ -34,6 +34,14 @@ export interface ShowcaseGalleryItem {
   alt: string;
 }
 
+export type StandardDiagramType =
+  | "egg-peps"
+  | "biosecurity"
+  | "welfare"
+  | "withdrawal"
+  | "compost"
+  | "finance";
+
 export interface SectorStandardItem {
   code: string;
   authority: string;
@@ -41,6 +49,10 @@ export interface SectorStandardItem {
   summary: string;
   enforcement: string;
   tags: string[];
+  sourceLabel: string;
+  sourceUrl: string;
+  diagramType: StandardDiagramType;
+  diagramSteps: [string, string, string];
 }
 
 export interface AiAutomationPillar {
@@ -93,12 +105,72 @@ export const LANDING_MODULES: LandingModuleItem[] = [
   },
 ];
 
+export interface ExtraLandingModuleItem {
+  id: string;
+  name: string;
+  summary: string;
+  guideHash: string;
+}
+
+/** Los 8 módulos adicionales que completan los 14 módulos de la plataforma. */
+export const EXTRA_LANDING_MODULES: ExtraLandingModuleItem[] = [
+  {
+    id: "qr",
+    name: "Escáner QR y etiquetas",
+    summary: "Escaneo en campo de galpones, jaulas, lotes y equipos.",
+    guideHash: "/guia#escanear-qr",
+  },
+  {
+    id: "lugares",
+    name: "Lugares de manejo",
+    summary: "Galpones, jaulas, potreros, ocupación y vacío sanitario.",
+    guideHash: "/guia#ubicaciones",
+  },
+  {
+    id: "carne",
+    name: "Producción de carne",
+    summary: "Peso en pie, rendimiento en canal, sacrificio y lotes.",
+    guideHash: "/guia#produccion",
+  },
+  {
+    id: "subproductos",
+    name: "Compostaje y gallinaza",
+    summary: "Control de pilas de 8 semanas, volteos y liberación.",
+    guideHash: "/guia#almacen",
+  },
+  {
+    id: "planeacion",
+    name: "Planeación y calendario",
+    summary: "Rutinas automáticas, Plan de Parvada y reemplazos.",
+    guideHash: "/guia#planeacion",
+  },
+  {
+    id: "analisis",
+    name: "Análisis y curvas",
+    summary: "KPIs (HAA, EPEF, ROI) y curvas ajustadas por altitud.",
+    guideHash: "/guia#analisis",
+  },
+  {
+    id: "cierre",
+    name: "Cierre diario y sensores",
+    summary: "Acta auditable de fin de jornada y lectura ambiental.",
+    guideHash: "/guia#almacen",
+  },
+  {
+    id: "configuracion",
+    name: "Configuración y escala",
+    summary: "Activación progresiva, catálogos y copia de respaldo.",
+    guideHash: "/guia#configuracion",
+  },
+];
+
 export interface CyclePlanShowcase {
   id:
     | "FREEMIUM_SEMILLA"
     | "CICLO_60D"
     | "SEMESTRAL_PONEDORA"
     | "MEDIANO_MENSUAL";
+  slug: string;
   badge: string;
   name: string;
   priceLabel: string;
@@ -106,6 +178,16 @@ export interface CyclePlanShowcase {
   summary: string;
   highlights: string[];
   featured?: boolean;
+  detailSummary: string;
+  idealFor: string[];
+  includedFeatures: string[];
+  limits: {
+    lotes: string;
+    usuarios: string;
+    especies: string;
+    almacenamiento: string;
+  };
+  billingNote: string;
 }
 
 export const SHOWCASE_TABS: ShowcaseTabItem[] = [
@@ -335,6 +417,10 @@ export const SECTOR_STANDARDS: SectorStandardItem[] = [
       "Clasifica de Jumbo a C, descarta rotos antes de entrar a bodega y vende primero los lotes más antiguos.",
     enforcement: "Convierte automáticamente cubetas de 30 huevos con inventario PEPS.",
     tags: ["Jumbo a C", "PEPS"],
+    sourceLabel: "ICONTEC · Norma NTC 1240",
+    sourceUrl: "https://www.icontec.org/",
+    diagramType: "egg-peps",
+    diagramSteps: ["Recolección y descarte", "Clasifica Jumbo → C (30u)", "Salida PEPS obligatoria"],
   },
   {
     code: "ICA 3650–3652 · 12486",
@@ -344,6 +430,10 @@ export const SECTOR_STANDARDS: SectorStandardItem[] = [
       "Organiza registros de visitantes, limpieza periódica, vacío sanitario entre lotes y temperatura de vacunas.",
     enforcement: "Recuerda descansos sanitarios y separa aves de mamíferos menores.",
     tags: ["Bioseguridad", "Vacío sanitario"],
+    sourceLabel: "ICA · Resoluciones Avícolas",
+    sourceUrl: "https://www.ica.gov.co/normatividad/normas-ica/resoluciones",
+    diagramType: "biosecurity",
+    diagramSteps: ["Ingreso + arco sanitario", "Separación aves / mamíferos", "Vacío sanitario antes de repoblar"],
   },
   {
     code: "Res. MADR 205 · ICA 8452",
@@ -353,6 +443,10 @@ export const SECTOR_STANDARDS: SectorStandardItem[] = [
       "Verifica agua, espacio, ventilación y cuidado animal por especie con alertas claras cuando algún punto baja del nivel esperado.",
     enforcement: "Identifica brechas por especie antes de que afecten la certificación.",
     tags: ["Granjas mixtas", "Bienestar"],
+    sourceLabel: "MinAgricultura · Res. 205",
+    sourceUrl: "https://www.minagricultura.gov.co/Normatividad/Paginas/Resoluciones.aspx",
+    diagramType: "welfare",
+    diagramSteps: ["Agua, espacio y ventilación", "Puntaje POE por especie", "Alerta preventiva de brecha"],
   },
   {
     code: "PRAMSAC · INVIMA · GSMI",
@@ -362,6 +456,10 @@ export const SECTOR_STANDARDS: SectorStandardItem[] = [
       "Cada tratamiento veterinario calcula la fecha de liberación e impide vender huevos o carne mientras el medicamento esté activo.",
     enforcement: "Evita mezclar lotes en retiro con mercancía disponible para venta.",
     tags: ["Cero residuos", "Retiros"],
+    sourceLabel: "INVIMA · Inocuidad Veterinaria",
+    sourceUrl: "https://www.invima.gov.co/",
+    diagramType: "withdrawal",
+    diagramSteps: ["Registro de tratamiento", "Bloqueo de venta por días", "Liberación automática segura"],
   },
   {
     code: "ICA 30292 · AGROSAVIA",
@@ -371,6 +469,10 @@ export const SECTOR_STANDARDS: SectorStandardItem[] = [
       "Guía las mezclas, avisa cuándo voltear la pila y valida temperatura y maduración antes de liberar el abono.",
     enforcement: "Controla tiempos de proceso de 8 semanas hasta obtener abono listo.",
     tags: ["Compostaje", "Abono"],
+    sourceLabel: "AGROSAVIA · Compostaje",
+    sourceUrl: "https://www.agrosavia.co/",
+    diagramType: "compost",
+    diagramSteps: ["Mezcla C/N controlada", "Volteo y T° (8 semanas)", "Abono estabilizado y trazable"],
   },
   {
     code: "DIAN · Crédito agro",
@@ -380,6 +482,10 @@ export const SECTOR_STANDARDS: SectorStandardItem[] = [
       "Separa gastos directos y compartidos para ver el costo real por huevo o kilo y avisa si vendes por debajo de tu punto de equilibrio.",
     enforcement: "Exporta balances en Excel y PDF listos para contador o banco.",
     tags: ["Punto de equilibrio", "Excel y PDF"],
+    sourceLabel: "DIAN · Normativa Contable",
+    sourceUrl: "https://www.dian.gov.co/",
+    diagramType: "finance",
+    diagramSteps: ["Gasto directo + prorrateo", "Costo unitario por especie", "Alerta de margen + Excel/PDF"],
   },
 ];
 
@@ -425,9 +531,53 @@ export const AI_AUTOMATION_PILLARS: AiAutomationPillar[] = [
   },
 ];
 
+export interface AdoptionHighlightItem {
+  id: "arranque-rapido" | "escala-gradual" | "campo-sin-senal" | "utilidad-ciclos";
+  step: string;
+  badge: string;
+  title: string;
+  description: string;
+}
+
+export const ADOPTION_HIGHLIGHTS: AdoptionHighlightItem[] = [
+  {
+    id: "arranque-rapido",
+    step: "Paso 01",
+    badge: "En 3 minutos",
+    title: "Arranca hoy solo con tus animales vivos",
+    description:
+      "Sin cargar historiales viejos: indicas cuántos animales tienes hoy y la plataforma precarga el plan sanitario y la curva de tu raza.",
+  },
+  {
+    id: "escala-gradual",
+    step: "Paso 02",
+    badge: "Pequeño o mediano",
+    title: "Crece al ritmo de tu unidad productiva",
+    description:
+      "Inicias con los 4 registros diarios esenciales y desbloqueas incubación, cuadrillas con QR o costos por especie cuando tu granja lo pida.",
+  },
+  {
+    id: "campo-sin-senal",
+    step: "Paso 03",
+    badge: "Modo sin señal",
+    title: "Hecha para el sol, el galpón y la vereda",
+    description:
+      "Botones amplios de alto contraste y copia local cifrada en el teléfono que sincroniza sola al regresar la cobertura.",
+  },
+  {
+    id: "utilidad-ciclos",
+    step: "Paso 04",
+    badge: "Cuentas al día",
+    title: "Utilidad diaria y pagos solo por cosecha",
+    description:
+      "Recibes al instante el balance del día listo para WhatsApp y renuevas por ciclo productivo sin cobros automáticos.",
+  },
+];
+
 export const CYCLE_PLANS_SHOWCASE: CyclePlanShowcase[] = [
   {
     id: "FREEMIUM_SEMILLA",
+    slug: "semilla",
     badge: "Gratis siempre",
     name: "Semilla (1 lote)",
     priceLabel: "$0 COP",
@@ -439,9 +589,31 @@ export const CYCLE_PLANS_SHOWCASE: CyclePlanShowcase[] = [
       "Lectura y cierre/venta de lotes siempre libres",
       "Modo sin señal cifrado en el celular",
     ],
+    detailSummary:
+      "Arrancas con 30 días completos para probar toda la plataforma sin tarjeta y luego conservas 1 lote activo gratis de forma permanente.",
+    idealFor: [
+      "Productores familiares que están ordenando su primer galpón o corral.",
+      "Granjas que quieren validar el registro offline antes de escalar.",
+      "Proyectos escolares, huertas o unidades productivas de autoconsumo.",
+    ],
+    includedFeatures: [
+      "Los 6 módulos esenciales desde el Día 1 (Inicio, Huevos, Animales, Alimento, Sanidad, Ventas).",
+      "Registro rápido en menos de 2 minutos con modo offline en IndexedDB.",
+      "Lectura histórica, exportación de reportes y cierre o venta de lotes siempre libres.",
+      "Soporte para las 6 especies (ponedoras, engorde, codornices, patos, conejos y cuyes).",
+    ],
+    limits: {
+      lotes: "1 lote activo gratis permanente (30 días iniciales ilimitados)",
+      usuarios: "1 usuario administrador",
+      especies: "6 especies disponibles",
+      almacenamiento: "Copia local cifrada + respaldo en la nube",
+    },
+    billingNote:
+      "Sin tarjeta de crédito ni cobros automáticos. Si decides abrir más lotes al terminar los 30 días, eliges el plan de tu preferencia.",
   },
   {
     id: "CICLO_60D",
+    slug: "ciclo-60d",
     badge: "Por cosecha",
     name: "Ciclo Engorde 60d",
     priceLabel: "$45.000 COP",
@@ -454,9 +626,31 @@ export const CYCLE_PLANS_SHOWCASE: CyclePlanShowcase[] = [
       "Pago único con Nequi, Daviplata o PSE",
     ],
     featured: true,
+    detailSummary:
+      "Licencia pensada para ciclos cortos de carne o cría: pagas un único valor por 60 días de cosecha, sin suscripciones que cobren mientras el galpón está en vacío sanitario.",
+    idealFor: [
+      "Productores de pollo de engorde (Cobb 500 / Ross 308) por tandas de 42 a 55 días.",
+      "Criadero de patos, conejos o cuyes con rotación bimestral.",
+      "Equipos pequeños de hasta 3 personas en campo y administración.",
+    ],
+    includedFeatures: [
+      "Todo lo de Semilla más hasta 3 lotes activos simultáneos y 3 operarios.",
+      "Curvas de crecimiento ajustadas por altitud, pesajes semanales con CV% y EPEF.",
+      "Control de bultos de 40 kg con alerta de días de cobertura restantes.",
+      "Bloqueo automático por tiempo de retiro farmacológico antes de sacrificio o venta.",
+    ],
+    limits: {
+      lotes: "Hasta 3 lotes activos simultáneos",
+      usuarios: "Hasta 3 usuarios / operarios",
+      especies: "Todas las especies de carne y postura",
+      almacenamiento: "Historial completo conservado al finalizar el ciclo",
+    },
+    billingNote:
+      "Pago único de $45.000 COP por Nequi, Daviplata o PSE. Al terminar los 60 días no hay débito automático; tus datos siguen visibles y listos para cerrar venta.",
   },
   {
     id: "SEMESTRAL_PONEDORA",
+    slug: "semestral-ponedora",
     badge: "Postura y mixtas",
     name: "Semestral 180d",
     priceLabel: "$120.000 COP",
@@ -468,9 +662,31 @@ export const CYCLE_PLANS_SHOWCASE: CyclePlanShowcase[] = [
       "Clasificación NTC 1240 e inventario PEPS",
       "Plan sanitario ICA precargado desde Día 1",
     ],
+    detailSummary:
+      "Cobertura continua de 6 meses (180 días) diseñada para lotes de postura de ciclo largo o granjas familiares mixtas que producen todos los días.",
+    idealFor: [
+      "Granjas de gallina ponedora comercial o semi-pastoreo.",
+      "Productores de huevo de codorniz con despachos frecuentes.",
+      "Granjas mixtas que combinan postura con un lote adicional de carne o abono.",
+    ],
+    includedFeatures: [
+      "Clasificación automática de huevo NTC 1240 (Jumbo a C) en cubetas de 30 unidades.",
+      "Inventario PEPS (Primeras en Entrar, Primeras en Salir) para evitar mermas.",
+      "Calendario sanitario ICA precargado según edad de la parvada y altitud.",
+      "Punto de equilibrio diario por huevo/cubeta y compostaje de gallinaza (8 semanas).",
+    ],
+    limits: {
+      lotes: "Hasta 6 lotes activos (ideal para reemplazos escalonados)",
+      usuarios: "Hasta 3 usuarios",
+      especies: "Postura + granjas mixtas (6 especies)",
+      almacenamiento: "Exportación Excel y PDF ilimitada",
+    },
+    billingNote:
+      "Pago único semestral de $120.000 COP (también disponible anual por $210.000 COP). Sin permanencia ni renovaciones sorpresa.",
   },
   {
     id: "MEDIANO_MENSUAL",
+    slug: "mediano-mensual",
     badge: "Multi-galpón",
     name: "Escala Mediano · cobro mensual",
     priceLabel: "$149.000 COP",
@@ -482,8 +698,33 @@ export const CYCLE_PLANS_SHOWCASE: CyclePlanShowcase[] = [
       "Prorrateo anti-subsidio cruzado y DIAN",
       "Auditoría de cierres diarios y roles",
     ],
+    detailSummary:
+      "Plan completo para granjas medianas y multi-galpón con cuadrillas en campo, incubación simultánea, roles diferenciados y contabilidad analítica sin subsidio cruzado.",
+    idealFor: [
+      "Granjas comerciales con 2 o más galpones, jaulas o estaciones con código QR.",
+      "Operaciones con operarios de campo, supervisor veterinario y contador.",
+      "Unidades con planta de incubación, compostaje y múltiples líneas de venta.",
+    ],
+    includedFeatures: [
+      "Los 14 módulos habilitados (incluye Incubación, Escáner QR, Análisis de curvas y Auditoría).",
+      "Contabilidad analítica con prorrateo configurable de costos indirectos compartidos.",
+      "Control de roles, trazabilidad pública QR por lote y cierre diario auditable anti-fraude.",
+      "Reportes exportables en Excel/PDF listos para contador, DIAN y crédito agropecuario.",
+    ],
+    limits: {
+      lotes: "Lotes activos ilimitados",
+      usuarios: "Hasta 15 usuarios con roles por estación",
+      especies: "Multi-especie completo sin restricciones",
+      almacenamiento: "Auditoría completa y respaldos automáticos",
+    },
+    billingNote:
+      "Pago por período de 30 días ($149.000 COP) mediante Nequi, Daviplata o PSE. Puedes pausar o cambiar de escala sin perder ningún registro histórico.",
   },
 ];
+
+export function getCyclePlanBySlug(slug: string): CyclePlanShowcase | undefined {
+  return CYCLE_PLANS_SHOWCASE.find((plan) => plan.slug === slug);
+}
 
 export function getAllLandingShowcaseAssetUrls(): string[] {
   const urls = new Set<string>();

@@ -554,9 +554,18 @@ export function LandingShowcase({
   const [inView, setInView] = useState(false);
   const [lightboxIndex, setLightboxIndex] = useState<number | null>(null);
 
+  const [galleryIndex, setGalleryIndex] = useState(0);
+  const [galleryPaused, setGalleryPaused] = useState(false);
+  const [galleryAnnouncement, setGalleryAnnouncement] = useState("");
+
   const sectionRef = useRef<HTMLElement>(null);
   const dialogRef = useRef<HTMLDialogElement>(null);
   const tabRefs = useRef<(HTMLButtonElement | null)[]>([]);
+  const galleryTrackRef = useRef<HTMLDivElement>(null);
+  const gallerySlideRefs = useRef<(HTMLDivElement | null)[]>([]);
+  const pendingGalleryTargetRef = useRef<number | null>(null);
+  const gallerySettleTimeoutRef = useRef<number | null>(null);
+  const galleryRafRef = useRef<number | null>(null);
   const tabBaseId = useId();
 
   const activeTab = SHOWCASE_TABS[activeIndex];
@@ -628,6 +637,117 @@ export function LandingShowcase({
       dialog.close();
     }
   }, [lightboxIndex]);
+
+  const scrollToGallerySlide = useCallback(
+    (targetIndex: number, announce = false) => {
+      const total = SHOWCASE_GALLERY.length;
+      const bounded = (targetIndex + total) % total;
+
+      pendingGalleryTargetRef.current = bounded;
+      if (gallerySettleTimeoutRef.current !== null) {
+        window.clearTimeout(gallerySettleTimeoutRef.current);
+      }
+      gallerySettleTimeoutRef.current = window.setTimeout(
+        () => {
+          pendingGalleryTargetRef.current = null;
+        },
+        prefersReducedMotion ? 60 : 700,
+      );
+
+      setGalleryIndex(bounded);
+      if (announce) {
+        const slide = SHOWCASE_GALLERY[bounded];
+        setGalleryAnnouncement(`Pantalla ${bounded + 1} de ${total}: ${slide.title}`);
+      }
+
+      const track = galleryTrackRef.current;
+      const slideEl = gallerySlideRefs.current[bounded];
+      if (track && slideEl) {
+        const targetLeft = Math.max(0, slideEl.offsetLeft - track.offsetLeft);
+        track.scrollTo({
+          left: targetLeft,
+          behavior: prefersReducedMotion ? "auto" : "smooth",
+        });
+      }
+    },
+    [prefersReducedMotion],
+  );
+
+  useEffect(() => {
+    if (
+      isHero ||
+      galleryPaused ||
+      prefersReducedMotion ||
+      !inView ||
+      lightboxIndex !== null
+    ) {
+      return;
+    }
+    const timer = window.setInterval(() => {
+      scrollToGallerySlide(galleryIndex + 1, false);
+    }, 4200);
+    return () => window.clearInterval(timer);
+  }, [
+    isHero,
+    galleryPaused,
+    prefersReducedMotion,
+    inView,
+    lightboxIndex,
+    galleryIndex,
+    scrollToGallerySlide,
+  ]);
+
+  useEffect(() => {
+    return () => {
+      if (gallerySettleTimeoutRef.current !== null) {
+        window.clearTimeout(gallerySettleTimeoutRef.current);
+      }
+      if (galleryRafRef.current !== null) {
+        window.cancelAnimationFrame(galleryRafRef.current);
+      }
+    };
+  }, []);
+
+  const handleGalleryScroll = useCallback(() => {
+    if (pendingGalleryTargetRef.current !== null) return;
+    if (galleryRafRef.current !== null) return;
+
+    galleryRafRef.current = window.requestAnimationFrame(() => {
+      galleryRafRef.current = null;
+      const track = galleryTrackRef.current;
+      if (!track || pendingGalleryTargetRef.current !== null) return;
+
+      let nearest = 0;
+      let minDist = Number.POSITIVE_INFINITY;
+      for (let i = 0; i < SHOWCASE_GALLERY.length; i += 1) {
+        const slideEl = gallerySlideRefs.current[i];
+        if (!slideEl) continue;
+        const dist = Math.abs(slideEl.offsetLeft - track.offsetLeft - track.scrollLeft);
+        if (dist < minDist) {
+          minDist = dist;
+          nearest = i;
+        }
+      }
+      setGalleryIndex((prev) => (prev === nearest ? prev : nearest));
+    });
+  }, []);
+
+  const handleGalleryScrollEnd = useCallback(() => {
+    if (gallerySettleTimeoutRef.current !== null) {
+      window.clearTimeout(gallerySettleTimeoutRef.current);
+      gallerySettleTimeoutRef.current = null;
+    }
+    pendingGalleryTargetRef.current = null;
+  }, []);
+
+  useEffect(() => {
+    const track = galleryTrackRef.current;
+    if (!track || typeof window === "undefined" || !("onscrollend" in window)) {
+      return;
+    }
+    track.addEventListener("scrollend", handleGalleryScrollEnd);
+    return () => track.removeEventListener("scrollend", handleGalleryScrollEnd);
+  }, [handleGalleryScrollEnd]);
 
   const selectTab = useCallback((index: number, focus = false) => {
     const bounded = (index + SHOWCASE_TABS.length) % SHOWCASE_TABS.length;
@@ -767,7 +887,6 @@ export function LandingShowcase({
             <button
               type="button"
               onClick={() => setPaused((p) => !p)}
-              aria-pressed={paused}
               className="self-start md:self-auto inline-flex items-center gap-2 rounded-full border border-[var(--line)] bg-[var(--paper)] px-3.5 py-1.5 text-xs font-semibold text-[var(--ink)] hover:border-[var(--forest)] transition"
             >
               {paused || prefersReducedMotion ? (
@@ -802,7 +921,6 @@ export function LandingShowcase({
                 role="tab"
                 type="button"
                 aria-selected={isSelected}
-                aria-controls={`${tabBaseId}-panel-${tab.id}`}
                 tabIndex={isSelected ? 0 : -1}
                 onClick={() => selectTab(idx)}
                 onKeyDown={(e) => handleTabKeyDown(e, idx)}
@@ -819,7 +937,7 @@ export function LandingShowcase({
           id={`${tabBaseId}-panel-${activeTab.id}`}
           role="tabpanel"
           aria-labelledby={`${tabBaseId}-tab-${activeTab.id}`}
-          className={isHero ? "land-hero-panel" : "grid grid-cols-1 lg:grid-cols-12 gap-6 items-start"}
+          className={isHero ? "land-hero-panel" : "grid grid-cols-1 lg:grid-cols-12 gap-5 items-start"}
         >
           {isHero ? (
             <>
@@ -858,33 +976,58 @@ export function LandingShowcase({
             </>
           ) : (
             <>
+              <div
+                key={`header-${activeTab.id}`}
+                className="lg:col-span-12 rounded-2xl border border-[var(--line)] bg-[var(--paper)] px-5 py-4 sm:px-6 sm:py-5 shadow-xs land-panel-enter"
+              >
+                <div className="flex flex-wrap items-center justify-between gap-2 mb-2">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <span className="inline-flex items-center rounded-full bg-[var(--forest)] px-2.5 py-0.5 font-mono text-[10px] font-bold uppercase tracking-widest text-white">
+                      {activeTab.eyebrow}
+                    </span>
+                    <span className="font-mono text-[11px] text-[var(--moss)]">
+                      {activeTab.routeLabel}
+                    </span>
+                  </div>
+                  <div className="flex flex-wrap gap-1.5">
+                    {activeTab.tags.map((tag) => (
+                      <span
+                        key={tag}
+                        className="rounded-full border border-[var(--line)] bg-[var(--cream)] px-2.5 py-0.5 font-mono text-[10px] font-medium text-[var(--moss)]"
+                      >
+                        {tag}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+                <h3 className="font-display text-xl sm:text-2xl lg:text-[26px] font-bold text-[var(--ink)] leading-snug">
+                  {activeTab.title}
+                </h3>
+                <p className="mt-1.5 text-sm sm:text-base text-[var(--moss)] leading-relaxed max-w-4xl">
+                  {activeTab.description}
+                </p>
+              </div>
+
               <div className="lg:col-span-7">{browserFrame}</div>
 
               <div className="lg:col-span-5">
                 <div
-                  key={activeTab.id}
+                  key={`body-${activeTab.id}`}
                   className="rounded-2xl border border-[var(--line)] bg-[var(--paper)] p-5 sm:p-6 space-y-4 shadow-sm land-panel-enter"
                 >
                   <div>
-                    <p className="font-mono text-[11px] font-bold uppercase tracking-widest text-[var(--forest)] mb-1">
-                      {activeTab.eyebrow}
+                    <p className="font-mono text-[10px] font-bold uppercase tracking-widest text-[var(--forest)]">
+                      Qué resuelve en campo
                     </p>
-                    <h3 className="font-display text-xl sm:text-2xl font-bold text-[var(--ink)] leading-snug">
-                      {activeTab.title}
-                    </h3>
-                    <p className="mt-2 text-sm text-[var(--moss)] leading-relaxed">
-                      {activeTab.description}
-                    </p>
+                    <ul className="mt-2.5 space-y-2 text-xs sm:text-sm text-[var(--ink)]">
+                      {activeTab.highlights.map((hl) => (
+                        <li key={hl} className="flex items-start gap-2">
+                          <CheckCircle2 className="w-4 h-4 text-[var(--forest)] shrink-0 mt-0.5" />
+                          <span>{hl}</span>
+                        </li>
+                      ))}
+                    </ul>
                   </div>
-
-                  <ul className="space-y-1.5 text-xs sm:text-sm text-[var(--ink)]">
-                    {activeTab.highlights.map((hl) => (
-                      <li key={hl} className="flex items-start gap-2">
-                        <CheckCircle2 className="w-4 h-4 text-[var(--forest)] shrink-0 mt-0.5" />
-                        <span>{hl}</span>
-                      </li>
-                    ))}
-                  </ul>
 
                   <ShowcaseSimulation kind={activeTab.simulationKind} />
                 </div>
@@ -894,53 +1037,151 @@ export function LandingShowcase({
         </div>
 
         {!isHero && (
-          <div className="mt-10 pt-8 border-t border-[var(--line)]">
-            <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-2 mb-4">
+          <div
+            role="region"
+            aria-roledescription="carousel"
+            aria-label="Más pantallas del sistema"
+            className="mt-10 pt-8 border-t border-[var(--line)]"
+          >
+            <div className="flex flex-col md:flex-row md:items-end justify-between gap-3 mb-4">
               <div>
                 <h3 className="font-display text-lg sm:text-xl font-bold text-[var(--ink)]">
                   Más pantallas del sistema
                 </h3>
                 <p className="text-xs sm:text-sm text-[var(--moss)]">
-                  Toca cualquier vista para abrirla en tamaño completo.
+                  Galería rotativa: explora las vistas clave o toca cualquiera para ampliarla.
                 </p>
               </div>
-              <Link
-                href="/login"
-                className="text-xs font-semibold text-[var(--forest)] hover:underline shrink-0"
-              >
-                Probar en vivo →
-              </Link>
+
+              <div className="flex flex-wrap items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setGalleryPaused(true);
+                    scrollToGallerySlide(galleryIndex - 1, true);
+                  }}
+                  aria-label="Pantalla anterior en la galería"
+                  className="land-carousel-ctrl inline-flex h-8 w-8 items-center justify-center rounded-full border border-[var(--line)] bg-[var(--paper)] text-[var(--ink)] hover:border-[var(--forest)] transition"
+                >
+                  <ChevronLeft className="w-4 h-4" />
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setGalleryPaused((p) => !p)}
+                  className="land-carousel-ctrl inline-flex items-center gap-1.5 rounded-full border border-[var(--line)] bg-[var(--paper)] px-3 py-1.5 text-xs font-semibold text-[var(--ink)] hover:border-[var(--forest)] transition"
+                >
+                  {galleryPaused || prefersReducedMotion ? (
+                    <>
+                      <Play className="w-3 h-3 text-[var(--forest)]" />
+                      Reanudar galería
+                    </>
+                  ) : (
+                    <>
+                      <Pause className="w-3 h-3 text-[var(--forest)]" />
+                      Pausar galería
+                    </>
+                  )}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setGalleryPaused(true);
+                    scrollToGallerySlide(galleryIndex + 1, true);
+                  }}
+                  aria-label="Siguiente pantalla en la galería"
+                  className="land-carousel-ctrl inline-flex h-8 w-8 items-center justify-center rounded-full border border-[var(--line)] bg-[var(--paper)] text-[var(--ink)] hover:border-[var(--forest)] transition"
+                >
+                  <ChevronRight className="w-4 h-4" />
+                </button>
+                <Link
+                  href="/login"
+                  className="ml-1 text-xs font-semibold text-[var(--forest)] hover:underline shrink-0"
+                >
+                  Probar en vivo →
+                </Link>
+              </div>
             </div>
 
-            <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
+            <div
+              ref={galleryTrackRef}
+              tabIndex={0}
+              role="group"
+              aria-label="Vistas del sistema"
+              onScroll={handleGalleryScroll}
+              className="land-carousel-track"
+            >
+              {SHOWCASE_GALLERY.map((item, idx) => {
+                const isActiveSlide = idx === galleryIndex;
+                return (
+                  <div
+                    key={item.id}
+                    ref={(el) => {
+                      gallerySlideRefs.current[idx] = el;
+                    }}
+                    role="group"
+                    aria-roledescription="slide"
+                    aria-label={`${idx + 1} de ${SHOWCASE_GALLERY.length}: ${item.title}`}
+                    className={`land-carousel-slide ${isActiveSlide ? "is-active" : ""}`}
+                  >
+                    <button
+                      type="button"
+                      onClick={() => setLightboxIndex(SHOWCASE_TABS.length + idx)}
+                      className="land-carousel-card group w-full h-full text-left rounded-2xl border border-[var(--line)] bg-[var(--paper)] overflow-hidden hover:border-[var(--forest)] focus-visible:outline-2 focus-visible:outline-[var(--forest)] flex flex-col"
+                    >
+                      <div className="relative aspect-[16/10] w-full bg-white overflow-hidden border-b border-[var(--line)]">
+                        <Image
+                          src={item.image}
+                          alt={item.alt}
+                          width={640}
+                          height={400}
+                          loading="lazy"
+                          className="w-full h-full object-cover object-top group-hover:scale-[1.02] transition-transform duration-300"
+                        />
+                        <span className="absolute top-2.5 left-2.5 rounded-full bg-[#132a1e]/85 px-2.5 py-0.5 font-mono text-[10px] font-semibold uppercase tracking-wider text-[#f5efe2]">
+                          {item.moduleTag}
+                        </span>
+                      </div>
+                      <div className="p-3.5 flex-1 flex flex-col justify-between gap-1.5">
+                        <div>
+                          <p className="text-sm font-bold text-[var(--ink)] line-clamp-1">
+                            {item.title}
+                          </p>
+                          <p className="mt-1 text-xs text-[var(--moss)] line-clamp-2 leading-relaxed">
+                            {item.summary}
+                          </p>
+                        </div>
+                        <p className="pt-1 font-mono text-[10px] text-[var(--forest)] truncate">
+                          {item.routeLabel}
+                        </p>
+                      </div>
+                    </button>
+                  </div>
+                );
+              })}
+            </div>
+
+            <p className="sr-only" role="status" aria-live="polite">
+              {galleryAnnouncement}
+            </p>
+
+            <nav
+              aria-label="Elegir pantalla de la galería"
+              className="mt-3 flex flex-wrap items-center justify-center gap-2"
+            >
               {SHOWCASE_GALLERY.map((item, idx) => (
                 <button
                   key={item.id}
                   type="button"
-                  onClick={() => setLightboxIndex(SHOWCASE_TABS.length + idx)}
-                  className="group text-left rounded-xl border border-[var(--line)] bg-[var(--paper)] overflow-hidden hover:border-[var(--forest)] transition focus-visible:outline-2 focus-visible:outline-[var(--forest)]"
-                >
-                  <div className="relative aspect-[16/10] bg-white overflow-hidden border-b border-[var(--line)]">
-                    <Image
-                      src={item.image}
-                      alt={item.alt}
-                      width={640}
-                      height={400}
-                      loading="lazy"
-                      className="w-full h-full object-cover object-top group-hover:scale-[1.02] transition-transform duration-300"
-                    />
-                  </div>
-                  <div className="p-3">
-                    <span className="font-mono text-[10px] font-semibold uppercase tracking-wider text-[var(--moss)] block">
-                      {item.moduleTag}
-                    </span>
-                    <p className="text-xs sm:text-sm font-semibold text-[var(--ink)] line-clamp-1 mt-0.5">
-                      {item.title}
-                    </p>
-                  </div>
-                </button>
+                  aria-label={`Ir a pantalla ${idx + 1}: ${item.title}`}
+                  aria-current={idx === galleryIndex ? "true" : undefined}
+                  onClick={() => {
+                    setGalleryPaused(true);
+                    scrollToGallerySlide(idx, true);
+                  }}
+                  className="land-carousel-marker"
+                />
               ))}
-            </div>
+            </nav>
           </div>
         )}
       </div>

@@ -35,6 +35,10 @@ export function HeroFrame({
 }: HeroFrameProps) {
   const config = HERO_THEMES[theme] ?? HERO_THEMES.inicio;
   const resolvedEyebrow = eyebrow ?? config.eyebrow;
+  const resolvedImageAlt =
+    typeof title === "string" && title.trim()
+      ? `Ilustración de encabezado para ${title}`
+      : `Ilustración de encabezado para ${config.eyebrow}`;
 
   const renderedIcon = (() => {
     if (!icon) return null;
@@ -57,8 +61,7 @@ export function HeroFrame({
         />
         <img
           src={config.fallbackJpg}
-          alt=""
-          aria-hidden="true"
+          alt={resolvedImageAlt}
           width={1600}
           height={560}
           decoding="async"

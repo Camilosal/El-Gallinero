@@ -8,9 +8,19 @@ import { safeParseJson, withApiHandler } from "@/lib/api-handler";
 import { createSession, hashPassword, sessionCookieName } from "@/lib/auth";
 import { createDefaultProgressiveConfig, PROGRESSIVE_CONFIG_SETTING_KEY } from "@/lib/onboarding";
 import { LEGAL_CONSENT_SETTING_KEY, LEGAL_DOCS_VERSION } from "@/lib/legal";
+import { notifyNewFarmRegistration } from "@/lib/notifications";
+import { isRequestRateLimited } from "@/lib/rate-limit";
 import { invalidateSettingsCache } from "@/lib/settings";
 
 export const dynamic = "force-dynamic";
+
+function generateRecoveryCode(): string {
+  return `IWG-${crypto.randomBytes(6).toString("hex").toUpperCase()}`;
+}
+
+function sha256(value: string): string {
+  return crypto.createHash("sha256").update(value).digest("hex");
+}
 
 function toFarmSlug(farmName: string): string {
   const base = farmName
@@ -25,6 +35,19 @@ function toFarmSlug(farmName: string): string {
 }
 
 export const POST = withApiHandler(async (req: NextRequest) => {
+  if (
+    isRequestRateLimited(req, {
+      namespace: "register",
+      windowMs: 15 * 60 * 1000,
+      maxAttempts: 12,
+    })
+  ) {
+    return NextResponse.json(
+      { error: "Demasiados registros recientes desde esta conexión. Espera 15 minutos antes de crear otra granja." },
+      { status: 429 },
+    );
+  }
+
   const body = await safeParseJson(req);
   if (!body || typeof body !== "object") {
     return NextResponse.json({ error: "Solicitud inválida" }, { status: 400 });
@@ -82,6 +105,8 @@ export const POST = withApiHandler(async (req: NextRequest) => {
   const now = new Date();
   const trialEndsAt = new Date(now.getTime() + 30 * 86400000);
   const passwordHash = await hashPassword(password);
+  const recoveryCode = generateRecoveryCode();
+  const recoveryCodeHash = sha256(recoveryCode);
   const slug = toFarmSlug(farmName);
 
   const created = await db.transaction(async (tx) => {
@@ -104,6 +129,8 @@ export const POST = withApiHandler(async (req: NextRequest) => {
         farmId: farm.id,
         username,
         passwordHash,
+        recoveryCodeHash,
+        recoveryCodeIssuedAt: now,
         name: ownerName,
         role: "propietario",
       })
@@ -182,6 +209,13 @@ export const POST = withApiHandler(async (req: NextRequest) => {
     createSession(created.owner.id, created.farm.id),
   );
 
+  void notifyNewFarmRegistration({
+    farmName: created.farm.name,
+    ownerName: created.owner.name,
+    username: created.owner.username,
+    recoveryCode,
+  });
+
   const response = NextResponse.json(
     {
       ok: true,
@@ -194,6 +228,7 @@ export const POST = withApiHandler(async (req: NextRequest) => {
         trialEndsAt: created.farm.trialEndsAt,
       },
       user: created.owner,
+      recoveryCode,
       redirectTo: "/dashboard?wizard=1",
     },
     { status: 201 },

@@ -3,6 +3,7 @@ import { and, desc, eq, gt, inArray, or, sql } from "drizzle-orm";
 import { db } from "@/db";
 import { billingPayments, broilerBatches, farmSubscriptions, farms } from "@/db/schema";
 import { DEFAULT_FARM_ID, getCurrentFarmId, runWithFarmContext } from "@/db/tenant-context";
+import { notifyPaymentApproved } from "@/lib/notifications";
 
 export type BillingPlanCode =
   | "FREEMIUM_SEMILLA"
@@ -109,6 +110,9 @@ function getWompiSecrets() {
     integritySecret: process.env.WOMPI_INTEGRITY_SECRET || "test_integrity_iwage_default_secret",
     eventsSecret: process.env.WOMPI_EVENTS_SECRET || "test_events_iwage_default_secret",
     checkoutBaseUrl: process.env.WOMPI_CHECKOUT_URL || "https://checkout.wompi.co/p/",
+    redirectUrl:
+      process.env.WOMPI_REDIRECT_URL ||
+      "https://gallinero.iwage.co/dashboard/configuracion/plan?payment=return",
     sandbox: !process.env.WOMPI_PUBLIC_KEY || process.env.WOMPI_PUBLIC_KEY.startsWith("pub_test_"),
   };
 }
@@ -269,6 +273,7 @@ export async function createWompiCheckoutSession(input: {
   farmId?: string;
   planCode: string;
   method: string;
+  redirectUrl?: string;
 }) {
   const farmId = input.farmId || getCurrentFarmId();
   const plan = PLAN_CATALOG[input.planCode as keyof typeof PLAN_CATALOG];
@@ -281,6 +286,7 @@ export async function createWompiCheckoutSession(input: {
   }
 
   const secrets = getWompiSecrets();
+  const redirectUrl = input.redirectUrl || secrets.redirectUrl;
   const externalReference = `IWG-${farmId.slice(0, 8)}-${Date.now()}-${crypto.randomBytes(3).toString("hex")}`.toUpperCase();
   const amountInCents = plan.amountCop * 100;
   const integritySignature = computeWompiIntegritySignature({
@@ -304,6 +310,7 @@ export async function createWompiCheckoutSession(input: {
         sandbox: secrets.sandbox,
         requestedMethod: method,
         planDurationDays: plan.durationDays,
+        redirectUrl,
       },
     })
     .returning();
@@ -312,7 +319,8 @@ export async function createWompiCheckoutSession(input: {
     `${secrets.checkoutBaseUrl}?public-key=${encodeURIComponent(secrets.publicKey)}` +
     `&currency=COP&amount-in-cents=${amountInCents}` +
     `&reference=${encodeURIComponent(externalReference)}` +
-    `&signature%3Aintegrity=${encodeURIComponent(integritySignature)}`;
+    `&signature%3Aintegrity=${encodeURIComponent(integritySignature)}` +
+    `&redirect-url=${encodeURIComponent(redirectUrl)}`;
 
   return {
     paymentId: payment.id,
@@ -324,6 +332,7 @@ export async function createWompiCheckoutSession(input: {
     currency: "COP",
     publicKey: secrets.publicKey,
     integritySignature,
+    redirectUrl,
     sandbox: secrets.sandbox,
     checkoutUrl,
   };
@@ -476,6 +485,18 @@ export async function processWompiWebhookEvent(
   const subscription = await runWithFarmContext(payment.farmId, () =>
     getFarmSubscriptionStatus(payment.farmId),
   );
+
+  if (mappedStatus === "approved") {
+    const resolvedPlan = PLAN_CATALOG[payment.planCode as keyof typeof PLAN_CATALOG] || PLAN_CATALOG.CICLO_60D;
+    void notifyPaymentApproved({
+      farmId: payment.farmId,
+      farmName: subscription.farmName,
+      planName: resolvedPlan.name,
+      amountCop: payment.amountCop,
+      externalReference: payment.externalReference,
+      periodEnd: subscription.currentPeriodEnd,
+    });
+  }
 
   return {
     ok: true as const,

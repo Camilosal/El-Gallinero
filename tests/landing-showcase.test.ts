@@ -2,8 +2,10 @@ import fs from "node:fs";
 import path from "node:path";
 import { describe, expect, it } from "vitest";
 import {
+  ADOPTION_HIGHLIGHTS,
   AI_AUTOMATION_PILLARS,
   CYCLE_PLANS_SHOWCASE,
+  EXTRA_LANDING_MODULES,
   LANDING_MODULES,
   SECTOR_STANDARDS,
   SHOWCASE_GALLERY,
@@ -62,15 +64,31 @@ describe("página de presentación — pantallazos, estándares y adopción", ()
     expect(codes).toContain("DIAN");
 
     expect(AI_AUTOMATION_PILLARS.length).toBe(3);
+    expect(ADOPTION_HIGHLIGHTS.length).toBe(4);
+    for (const item of ADOPTION_HIGHLIGHTS) {
+      expect(item.title.trim().length).toBeGreaterThan(5);
+      expect(item.description.trim().length).toBeGreaterThan(20);
+    }
     expect(LANDING_MODULES.length).toBe(6);
+    expect(EXTRA_LANDING_MODULES.length).toBe(8);
+    expect(LANDING_MODULES.length + EXTRA_LANDING_MODULES.length).toBe(14);
     for (const mod of LANDING_MODULES) {
       expect(mod.name.trim().length).toBeGreaterThan(5);
       expect(mod.summary.trim().split(/\s+/).length).toBeLessThanOrEqual(10);
     }
+    for (const std of SECTOR_STANDARDS) {
+      expect(std.sourceUrl.startsWith("https://")).toBe(true);
+      expect(std.diagramSteps.length).toBe(3);
+    }
   });
 
-  it("usa el visor en sección aparte y un único footer de tres columnas", () => {
+  it("usa el visor en sección aparte, numeración correlativa 1-5, carrusel rotativo y footer único", () => {
     const page = fs.readFileSync(path.join(process.cwd(), "src/app/page.tsx"), "utf8");
+    const showcase = fs.readFileSync(
+      path.join(process.cwd(), "src/components/LandingShowcase.tsx"),
+      "utf8",
+    );
+
     expect(page).toContain("<LandingShowcase />");
     expect(page).toContain("<LandingFooter />");
     expect(page).not.toContain("<LegalFooter />");
@@ -78,13 +96,53 @@ describe("página de presentación — pantallazos, estándares y adopción", ()
     expect(page).not.toContain("≥ 48 px");
     expect(page).not.toContain("multi-tenant");
 
+    // Claridad de plataforma + herramienta informativa + pequeños y medianos productores
+    expect(page.toLowerCase()).toContain("herramienta informativa");
+    expect(page.toLowerCase()).toContain("plataforma");
+    expect(page.toLowerCase()).toContain("pequeños y medianos productores");
+
+    // Tarjetas acopladas en la base del hero e imagen de módulos lado a lado
+    expect(page).toContain("land-hero-dock");
+    expect(page).toContain("land-animated-card");
+    expect(page).toContain("land-card-icon-badge");
+
+    // Numeración única correlativa 1..5 sin repetir el 1
+    expect(showcase).toContain("1 · Así se ve por dentro");
+    expect(page).not.toContain("1 · ");
+    expect(page).toContain("2 · Fácil de adoptar");
+    expect(page).toContain("3 · Qué incluye el sistema");
+    expect(page).toContain("4 · Planes por ciclo productivo");
+    expect(page).toContain("5 · Comienza hoy");
+
+    // Galería rotativa accesible y encabezado horizontal completo en vitrina
+    expect(showcase).toContain('aria-roledescription="carousel"');
+    expect(showcase).toContain("land-carousel-track");
+    expect(showcase).toContain("lg:col-span-12");
+
+    expect(page).toContain("<ModulesAccordionShowcase");
+    expect(page).toContain("<SectorStandardsCarousel");
+    expect(page).toContain('href="/guia"');
+    expect(page).toContain('href="/open-source"');
+    expect(
+      fs.existsSync(path.join(process.cwd(), "src/app/open-source/page.tsx")),
+    ).toBe(true);
+
     const footer = fs.readFileSync(
       path.join(process.cwd(), "src/components/LandingFooter.tsx"),
       "utf8",
     );
     expect(footer).toContain("APP_DEVELOPER");
     expect(footer).toContain("LEGAL_LINKS");
-    expect(footer).toContain("SIC_URL");
+    expect(footer).not.toContain("SIC_URL");
+    expect(page).toContain('id="preguntas-frecuentes"');
+    expect(page).toContain('href="/realidad-campo"');
+    expect(page).toContain("hero-illustration.png");
+    expect(
+      fs.existsSync(path.join(process.cwd(), "src/app/realidad-campo/page.tsx")),
+    ).toBe(true);
+    expect(
+      fs.existsSync(path.join(process.cwd(), "src/app/planes/[slug]/page.tsx")),
+    ).toBe(true);
   });
 
   it("presenta los 4 planes por ciclo productivo y medios de pago locales", () => {

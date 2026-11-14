@@ -38,4 +38,25 @@ describe("public access routes", () => {
     expect(response.status).toBe(307);
     expect(response.headers.get("location")).toBe("https://gallinero.test/login");
   });
+
+  it("blocks protected API routes with 401 without a session", async () => {
+    const request = new NextRequest("https://gallinero.test/api/dashboard");
+
+    const response = await proxy(request);
+
+    expect(response.status).toBe(401);
+  });
+
+  it("allows unknown root paths through to render Next.js 404 instead of 401 or /login redirect", async () => {
+    const htmlReq = new NextRequest("https://gallinero.test/pagina-inexistente-404", {
+      headers: { accept: "text/html" },
+    });
+    const botReq = new NextRequest("https://gallinero.test/pagina-inexistente-404");
+
+    const htmlRes = await proxy(htmlReq);
+    const botRes = await proxy(botReq);
+
+    expect(htmlRes.headers.get("x-middleware-next")).toBe("1");
+    expect(botRes.headers.get("x-middleware-next")).toBe("1");
+  });
 });

@@ -22,6 +22,7 @@ import { HeroBanner } from "@/components/HeroBanner";
 import TableSearch from "@/components/TableSearch";
 import { Input, Modal, Select } from "@/components/ui";
 import { matchesTextQuery } from "@/lib/text";
+import { COLOMBIA_DIVIPOLA_CATALOG } from "@/lib/divipola-catalog";
 
 function FormField({
   label,
@@ -198,6 +199,7 @@ export default function SuperAdminGranjasPage() {
     ownerName: string;
     username: string;
     password: string;
+    recoveryCode?: string | null;
     planName: string;
   } | null>(null);
   const [copiedWelcome, setCopiedWelcome] = useState(false);
@@ -220,6 +222,13 @@ export default function SuperAdminGranjasPage() {
   const [editRegisterPayment, setEditRegisterPayment] = useState(false);
   const [editPaymentAmount, setEditPaymentAmount] = useState<number>(0);
   const [editPaymentMethod, setEditPaymentMethod] = useState("transferencia");
+  const [editOwnerNewPassword, setEditOwnerNewPassword] = useState("");
+  const [editIssueRecoveryCode, setEditIssueRecoveryCode] = useState(false);
+  const [securityNotice, setSecurityNotice] = useState<{
+    farmName: string;
+    username: string;
+    recoveryCode: string;
+  } | null>(null);
 
   const loadTenants = useCallback(
     async (showSpinner = true) => {
@@ -236,7 +245,7 @@ export default function SuperAdminGranjasPage() {
           if (res.status === 403 || res.status === 401) {
             setForbiddenMessage(
               json.error ||
-                "Acceso exclusivo para Super-Administración de la plataforma.",
+              "Acceso exclusivo para Super-Administración de la plataforma.",
             );
           } else {
             toast(json.error || "Error cargando granjas", "error");
@@ -263,7 +272,7 @@ export default function SuperAdminGranjasPage() {
           if (res.status === 403 || res.status === 401) {
             setForbiddenMessage(
               json.error ||
-                "Acceso exclusivo para Super-Administración de la plataforma.",
+              "Acceso exclusivo para Super-Administración de la plataforma.",
             );
           } else {
             toast(json.error || "Error cargando granjas", "error");
@@ -374,6 +383,8 @@ export default function SuperAdminGranjasPage() {
     );
     setEditExtendDays(0);
     setEditRegisterPayment(false);
+    setEditOwnerNewPassword("");
+    setEditIssueRecoveryCode(false);
     const meta = plansByCode.get(farm.subscription.planCode);
     setEditPaymentAmount(meta?.amountCop || 0);
     setEditPaymentMethod("transferencia");
@@ -433,6 +444,7 @@ export default function SuperAdminGranjasPage() {
         ownerName: newOwnerName.trim(),
         username: newOwnerUsername.trim().toLowerCase(),
         password: newOwnerPassword,
+        recoveryCode: json.recoveryCode || null,
         planName: planMeta?.name || newPlanCode,
       });
       toast(`Granja "${newFarmName}" creada exitosamente`, "success");
@@ -475,6 +487,8 @@ export default function SuperAdminGranjasPage() {
         registerManualPayment: editRegisterPayment,
         amountCop: Number(editPaymentAmount),
         paymentMethod: editPaymentMethod,
+        ownerNewPassword: editOwnerNewPassword.trim() || undefined,
+        issueRecoveryCode: editIssueRecoveryCode,
       };
 
       if (editExtendDays !== 0) {
@@ -494,7 +508,19 @@ export default function SuperAdminGranjasPage() {
         return;
       }
 
-      toast(`Granja "${editName}" actualizada correctamente`, "success");
+      if (json.issuedRecoveryCode) {
+        setSecurityNotice({
+          farmName: editName.trim() || editingFarm.name,
+          username: editingFarm.owner?.username || "",
+          recoveryCode: json.issuedRecoveryCode,
+        });
+      }
+      toast(
+        json.ownerPasswordUpdated
+          ? `Granja "${editName}" actualizada y clave del propietario restablecida`
+          : `Granja "${editName}" actualizada correctamente`,
+        "success",
+      );
       setEditingFarm(null);
       await loadTenants();
     } catch {
@@ -539,9 +565,14 @@ export default function SuperAdminGranjasPage() {
       `Ingresa desde tu celular o computador en: ${origin}/login`,
       `Usuario: *${createdCredentials.username}*`,
       `Contraseña inicial: *${createdCredentials.password}*`,
+      createdCredentials.recoveryCode
+        ? `Código de recuperación de emergencia: *${createdCredentials.recoveryCode}*`
+        : null,
       ``,
       `Al entrar verás el Asistente Día 1 de 3 pasos para registrar tus corrales y lotes actuales.`,
-    ].join("\n");
+    ]
+      .filter((line) => line !== null)
+      .join("\n");
     try {
       await navigator.clipboard.writeText(text);
       setCopiedWelcome(true);
@@ -618,24 +649,61 @@ export default function SuperAdminGranjasPage() {
 
       {feedback && (
         <div
-          className={`rounded-xl border px-4 py-3 text-sm font-semibold ${
-            feedback.type === "error"
-              ? "bg-red-50 border-red-300 text-red-900"
-              : "bg-emerald-50 border-emerald-300 text-emerald-900"
-          }`}
+          className={`rounded-xl border px-4 py-3 text-sm font-semibold ${feedback.type === "error"
+            ? "bg-red-50 border-red-300 text-red-900"
+            : "bg-emerald-50 border-emerald-300 text-emerald-900"
+            }`}
         >
           {feedback.message}
+        </div>
+      )}
+
+      {securityNotice && (
+        <div className="rounded-2xl border-2 border-amber-300 bg-amber-50 p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-amber-950">
+          <div className="space-y-1 text-xs sm:text-sm">
+            <p className="font-bold">
+              Código de recuperación emitido para {securityNotice.farmName} ({securityNotice.username})
+            </p>
+            <p className="font-mono font-bold text-base tracking-wider bg-white inline-block px-3 py-1 rounded-lg border border-amber-300">
+              {securityNotice.recoveryCode}
+            </p>
+            <p className="text-xs text-amber-900">
+              Compártelo al productor por WhatsApp para que restablezca su acceso en /login/recuperar.
+            </p>
+          </div>
+          <div className="flex items-center gap-2 shrink-0">
+            <button
+              type="button"
+              onClick={async () => {
+                await navigator.clipboard
+                  .writeText(
+                    `Usuario: ${securityNotice.username}\nCódigo de recuperación: ${securityNotice.recoveryCode}\nEnlace: ${window.location.origin}/login/recuperar`,
+                  )
+                  .catch(() => undefined);
+                toast("Código copiado al portapapeles", "success");
+              }}
+              className="min-h-[44px] px-3.5 py-2 rounded-xl bg-amber-900 text-white text-xs font-bold hover:bg-amber-950"
+            >
+              Copiar código
+            </button>
+            <button
+              type="button"
+              onClick={() => setSecurityNotice(null)}
+              className="min-h-[44px] px-3 py-2 rounded-xl border border-amber-400 text-xs font-semibold hover:bg-amber-100"
+            >
+              Cerrar
+            </button>
+          </div>
         </div>
       )}
 
       {/* Banner de Contexto Activo / Modo Soporte */}
       {data && (
         <div
-          className={`rounded-2xl border-2 p-4 sm:p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-4 ${
-            isInspectingOtherFarm
-              ? "bg-amber-50 border-amber-300 text-amber-950"
-              : "bg-slate-900 border-slate-800 text-white"
-          }`}
+          className={`rounded-2xl border-2 p-4 sm:p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-4 ${isInspectingOtherFarm
+            ? "bg-amber-50 border-amber-300 text-amber-950"
+            : "bg-slate-900 border-slate-800 text-white"
+            }`}
         >
           <div className="space-y-1">
             <div className="flex items-center gap-2 text-xs font-bold uppercase tracking-wider">
@@ -656,9 +724,8 @@ export default function SuperAdminGranjasPage() {
                 : ""}
             </p>
             <p
-              className={`text-xs sm:text-sm ${
-                isInspectingOtherFarm ? "text-amber-800" : "text-slate-300"
-              }`}
+              className={`text-xs sm:text-sm ${isInspectingOtherFarm ? "text-amber-800" : "text-slate-300"
+                }`}
             >
               {isInspectingOtherFarm
                 ? "Todas las pantallas del Dashboard (Ubicaciones, Kit de Campo, Lotes, Finanzas) muestran ahora los datos aislados por RLS de esta finca."
@@ -773,11 +840,10 @@ export default function SuperAdminGranjasPage() {
               key={tab.id}
               type="button"
               onClick={() => setStatusFilter(tab.id)}
-              className={`min-h-[44px] px-3.5 py-2 rounded-xl text-xs sm:text-sm font-semibold whitespace-nowrap border transition-colors ${
-                statusFilter === tab.id
-                  ? "bg-slate-900 text-white border-slate-900"
-                  : "bg-slate-50 text-slate-700 border-slate-200 hover:bg-slate-100"
-              }`}
+              className={`min-h-[44px] px-3.5 py-2 rounded-xl text-xs sm:text-sm font-semibold whitespace-nowrap border transition-colors ${statusFilter === tab.id
+                ? "bg-slate-900 text-white border-slate-900"
+                : "bg-slate-50 text-slate-700 border-slate-200 hover:bg-slate-100"
+                }`}
             >
               {tab.label}
             </button>
@@ -806,11 +872,10 @@ export default function SuperAdminGranjasPage() {
             return (
               <div
                 key={farm.id}
-                className={`bg-white rounded-2xl border-2 p-4 sm:p-6 shadow-sm transition-all ${
-                  isCurrentActive
-                    ? "border-emerald-600 ring-2 ring-emerald-100"
-                    : "border-slate-200 hover:border-slate-300"
-                }`}
+                className={`bg-white rounded-2xl border-2 p-4 sm:p-6 shadow-sm transition-all ${isCurrentActive
+                  ? "border-emerald-600 ring-2 ring-emerald-100"
+                  : "border-slate-200 hover:border-slate-300"
+                  }`}
               >
                 <div className="flex flex-col lg:flex-row lg:items-start justify-between gap-4">
                   {/* Columna 1: Identidad de la Finca y Propietario */}
@@ -831,11 +896,10 @@ export default function SuperAdminGranjasPage() {
                         </span>
                       )}
                       <span
-                        className={`px-2.5 py-0.5 rounded-full text-xs font-bold border ${
-                          farm.scale === "MEDIANO"
-                            ? "bg-indigo-50 text-indigo-900 border-indigo-200"
-                            : "bg-slate-100 text-slate-700 border-slate-300"
-                        }`}
+                        className={`px-2.5 py-0.5 rounded-full text-xs font-bold border ${farm.scale === "MEDIANO"
+                          ? "bg-indigo-50 text-indigo-900 border-indigo-200"
+                          : "bg-slate-100 text-slate-700 border-slate-300"
+                          }`}
                       >
                         {farm.scale === "MEDIANO"
                           ? "Mediano Productor"
@@ -936,11 +1000,10 @@ export default function SuperAdminGranjasPage() {
                         </span>
                         {farm.subscription.daysRemaining !== null && (
                           <span
-                            className={`text-xs font-bold ${
-                              farm.subscription.daysRemaining <= 7
-                                ? "text-red-700"
-                                : "text-slate-700"
-                            }`}
+                            className={`text-xs font-bold ${farm.subscription.daysRemaining <= 7
+                              ? "text-red-700"
+                              : "text-slate-700"
+                              }`}
                           >
                             {farm.subscription.daysRemaining > 0
                               ? `Quedan ${farm.subscription.daysRemaining} días`
@@ -983,11 +1046,10 @@ export default function SuperAdminGranjasPage() {
                         type="button"
                         disabled={isCurrentActive || switchingFarmId === farm.id}
                         onClick={() => handleSwitchContext(farm.id, farm.name)}
-                        className={`w-full inline-flex items-center justify-center gap-2 min-h-[48px] px-4 py-2.5 rounded-xl text-xs sm:text-sm font-bold border transition-colors ${
-                          isCurrentActive
-                            ? "bg-emerald-50 text-emerald-800 border-emerald-200 cursor-default"
-                            : "bg-white text-slate-800 border-slate-300 hover:bg-slate-100"
-                        }`}
+                        className={`w-full inline-flex items-center justify-center gap-2 min-h-[48px] px-4 py-2.5 rounded-xl text-xs sm:text-sm font-bold border transition-colors ${isCurrentActive
+                          ? "bg-emerald-50 text-emerald-800 border-emerald-200 cursor-default"
+                          : "bg-white text-slate-800 border-slate-300 hover:bg-slate-100"
+                          }`}
                       >
                         <ArrowRightLeft className="w-4 h-4" />
                         {isCurrentActive
@@ -1039,6 +1101,11 @@ export default function SuperAdminGranjasPage() {
                 <p>
                   <strong>Clave inicial:</strong> {createdCredentials.password}
                 </p>
+                {createdCredentials.recoveryCode && (
+                  <p>
+                    <strong>Código recuperación:</strong> {createdCredentials.recoveryCode}
+                  </p>
+                )}
               </div>
             </div>
 
@@ -1084,12 +1151,21 @@ export default function SuperAdminGranjasPage() {
                 />
               </FormField>
 
-              <FormField label="Municipio / Vereda">
-                <Input
+              <FormField label="Municipio DIVIPOLA (Colombia)">
+                <Select
                   value={newMunicipality}
                   onChange={(e) => setNewMunicipality(e.target.value)}
-                  placeholder="Ej. Fómeque, Cundinamarca"
-                />
+                >
+                  <option value="">Selecciona el municipio de la lista DIVIPOLA...</option>
+                  {COLOMBIA_DIVIPOLA_CATALOG.map((m) => {
+                    const labelVal = `${m.municipality}, ${m.department}`;
+                    return (
+                      <option key={m.daneCode} value={labelVal}>
+                        {labelVal} (DANE {m.daneCode} · {m.altitudeMeters} msnm)
+                      </option>
+                    );
+                  })}
+                </Select>
               </FormField>
             </div>
 
@@ -1277,12 +1353,27 @@ export default function SuperAdminGranjasPage() {
                 />
               </FormField>
 
-              <FormField label="Municipio / Vereda">
-                <Input
+              <FormField label="Municipio DIVIPOLA (Colombia)">
+                <Select
                   value={editMunicipality}
                   onChange={(e) => setEditMunicipality(e.target.value)}
-                  placeholder="Ej. Fusagasugá, Cundinamarca"
-                />
+                >
+                  <option value="">Selecciona el municipio de la lista DIVIPOLA...</option>
+                  {editMunicipality &&
+                    !COLOMBIA_DIVIPOLA_CATALOG.some(
+                      (m) =>
+                        `${m.municipality}, ${m.department}` === editMunicipality ||
+                        m.municipality === editMunicipality,
+                    ) && <option value={editMunicipality}>{editMunicipality} (actual)</option>}
+                  {COLOMBIA_DIVIPOLA_CATALOG.map((m) => {
+                    const labelVal = `${m.municipality}, ${m.department}`;
+                    return (
+                      <option key={m.daneCode} value={labelVal}>
+                        {labelVal} (DANE {m.daneCode} · {m.altitudeMeters} msnm)
+                      </option>
+                    );
+                  })}
+                </Select>
               </FormField>
             </div>
 
@@ -1380,11 +1471,10 @@ export default function SuperAdminGranjasPage() {
                         editExtendDays === btn.days ? 0 : btn.days,
                       )
                     }
-                    className={`min-h-[42px] px-3 py-1.5 rounded-xl text-xs font-bold border transition-colors ${
-                      editExtendDays === btn.days
-                        ? "bg-emerald-700 text-white border-emerald-700"
-                        : "bg-white text-slate-800 border-slate-300 hover:bg-slate-100"
-                    }`}
+                    className={`min-h-[42px] px-3 py-1.5 rounded-xl text-xs font-bold border transition-colors ${editExtendDays === btn.days
+                      ? "bg-emerald-700 text-white border-emerald-700"
+                      : "bg-white text-slate-800 border-slate-300 hover:bg-slate-100"
+                      }`}
                   >
                     {btn.label}
                   </button>
@@ -1482,6 +1572,34 @@ export default function SuperAdminGranjasPage() {
                   </FormField>
                 </div>
               )}
+            </div>
+
+            {/* Seguridad del Titular */}
+            <div className="bg-amber-50/70 rounded-2xl p-3.5 border border-amber-200 space-y-3">
+              <p className="text-xs font-bold uppercase text-amber-900">
+                Seguridad del Titular (Restablecer Clave / Emitir Código)
+              </p>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 items-center">
+                <FormField label="Nueva contraseña del titular (mín. 8, opcional)">
+                  <Input
+                    type="text"
+                    minLength={8}
+                    value={editOwnerNewPassword}
+                    onChange={(e) => setEditOwnerNewPassword(e.target.value)}
+                    placeholder="Dejar vacío para no cambiar"
+                  />
+                </FormField>
+
+                <label className="flex items-center gap-2.5 text-xs sm:text-sm font-semibold text-amber-950 cursor-pointer pt-4 sm:pt-5">
+                  <input
+                    type="checkbox"
+                    checked={editIssueRecoveryCode}
+                    onChange={(e) => setEditIssueRecoveryCode(e.target.checked)}
+                    className="w-4 h-4 rounded text-amber-700"
+                  />
+                  <span>Emitir nuevo código de recuperación de un solo uso</span>
+                </label>
+              </div>
             </div>
 
             <div className="flex justify-end gap-2.5 pt-2">

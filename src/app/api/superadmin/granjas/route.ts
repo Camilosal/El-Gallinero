@@ -11,6 +11,7 @@ import {
   farms,
   hens,
   roosters,
+  sessions,
   users,
 } from "@/db/schema";
 import { DEFAULT_FARM_ID, runWithFarmContext } from "@/db/tenant-context";
@@ -468,6 +469,8 @@ export const POST = withApiHandler(async (req: NextRequest) => {
   const now = new Date();
   const periodEnd = new Date(now.getTime() + durationDays * 86400000);
   const passwordHash = await hashPassword(ownerPassword);
+  const recoveryCode = `IWG-${crypto.randomBytes(6).toString("hex").toUpperCase()}`;
+  const recoveryCodeHash = crypto.createHash("sha256").update(recoveryCode).digest("hex");
   const slug = toFarmSlug(farmName);
 
   const created = await db.transaction(async (tx) => {
@@ -490,6 +493,8 @@ export const POST = withApiHandler(async (req: NextRequest) => {
         farmId: farm.id,
         username: ownerUsername,
         passwordHash,
+        recoveryCodeHash,
+        recoveryCodeIssuedAt: now,
         name: ownerName,
         role: "propietario",
       })
@@ -600,6 +605,7 @@ export const POST = withApiHandler(async (req: NextRequest) => {
         municipality,
       },
       owner: created.owner,
+      recoveryCode,
       subscription: computeEffectiveSubscription(
         created.farm,
         created.subscription,
@@ -674,6 +680,16 @@ export const PATCH = withApiHandler(async (req: NextRequest) => {
     return NextResponse.json(
       { error: "Granja no encontrada" },
       { status: 404 },
+    );
+  }
+
+  const ownerNewPassword =
+    typeof body.ownerNewPassword === "string" ? body.ownerNewPassword : "";
+  const issueRecoveryCode = Boolean(body.issueRecoveryCode);
+  if (ownerNewPassword && ownerNewPassword.length < 8) {
+    return NextResponse.json(
+      { error: "La nueva contraseña del propietario debe tener al menos 8 caracteres" },
+      { status: 400 },
     );
   }
 
@@ -888,11 +904,54 @@ export const PATCH = withApiHandler(async (req: NextRequest) => {
     invalidateSettingsCache();
   }
 
+  let issuedRecoveryCode: string | null = null;
+  let ownerPasswordUpdated = false;
+
+  if (ownerNewPassword || issueRecoveryCode) {
+    await runWithFarmContext(farmId, async () => {
+      const farmUsers = await db
+        .select({ id: users.id, role: users.role })
+        .from(users)
+        .where(eq(users.farmId, farmId));
+
+      const targetOwner =
+        farmUsers.find((u) => u.id === existingFarm.ownerUserId) ||
+        farmUsers.find((u) => normalizeRole(u.role) === "propietario") ||
+        farmUsers[0] ||
+        null;
+
+      if (!targetOwner) return;
+
+      const updateFields: Partial<typeof users.$inferInsert> = {};
+      if (ownerNewPassword) {
+        updateFields.passwordHash = await hashPassword(ownerNewPassword);
+        ownerPasswordUpdated = true;
+      }
+      if (issueRecoveryCode) {
+        issuedRecoveryCode = `IWG-${crypto.randomBytes(6).toString("hex").toUpperCase()}`;
+        updateFields.recoveryCodeHash = crypto
+          .createHash("sha256")
+          .update(issuedRecoveryCode)
+          .digest("hex");
+        updateFields.recoveryCodeIssuedAt = now;
+      }
+
+      if (Object.keys(updateFields).length > 0) {
+        await db.update(users).set(updateFields).where(eq(users.id, targetOwner.id));
+        if (ownerPasswordUpdated) {
+          await db.delete(sessions).where(eq(sessions.userId, targetOwner.id));
+        }
+      }
+    });
+  }
+
   return NextResponse.json({
     ok: true,
     farmId,
     farm: updatedFarm,
     subscription: computeEffectiveSubscription(updatedFarm, updatedSub),
+    ownerPasswordUpdated,
+    issuedRecoveryCode,
   });
 });
 

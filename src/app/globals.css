@@ -221,7 +221,17 @@
 }
 
 /* ---------- HERO ---------- */
-.land-hero { padding: 88px 0 64px; position: relative; overflow: hidden; }
+.land-hero { padding: 0; position: relative; overflow: hidden; }
+.land-hero-dock {
+  background: linear-gradient(180deg, rgba(16, 38, 27, 0.86) 0%, rgba(12, 30, 21, 0.96) 100%);
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  border-bottom: 0;
+  border-radius: 18px 18px 0 0;
+  box-shadow:
+    inset 0 1px 0 rgba(233, 196, 106, 0.28),
+    0 -10px 30px -14px rgba(0, 0, 0, 0.45);
+  backdrop-filter: blur(10px);
+}
 .land-hero-grid { display: grid; grid-template-columns: 1.15fr 0.85fr; gap: 56px; align-items: center; }
 @media (max-width: 880px) { .land-hero-grid { grid-template-columns: 1fr; } }
 .land-hero h1 { font-size: clamp(38px, 5.4vw, 58px); line-height: 1.04; margin-top: 16px; }
@@ -278,7 +288,8 @@
 .land-microstrip .sep { color: var(--amber); opacity: 0.6; }
 
 /* ---------- SECTION: historia ---------- */
-.land-section { padding: 88px 0; }
+.land-section { padding: 48px 0; }
+@media (max-width: 768px) { .land-section { padding: 36px 0; } }
 .land-historia { background: var(--forest); color: var(--cream-2); }
 .land-historia .land-eyebrow { color: #d9b877; }
 .land-historia .land-eyebrow::before { background: #d9b877; }
@@ -387,7 +398,7 @@
 .land-cierre-card .row span:last-child { color: var(--moss); }
 
 /* ---------- FOOTER ---------- */
-.land-footer { padding: 56px 0 60px; }
+.land-footer { padding: 36px 0 32px; }
 .land-foot-grid { display: flex; justify-content: space-between; align-items: flex-end; flex-wrap: wrap; gap: 24px; }
 .land-footer .eco { font-family: var(--font-mono, 'IBM Plex Mono'), monospace; font-size: 12px; color: var(--moss); max-width: 40ch; }
 .land-footer .foot-links { display: flex; gap: 22px; font-size: 13px; }
@@ -454,48 +465,73 @@
 }
 
 .land-tablist {
-  display: flex;
-  flex-wrap: nowrap;
-  overflow-x: auto;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 6px;
-  border-bottom: 1px solid var(--line);
-  padding-bottom: 2px;
-  scroll-snap-type: inline proximity;
-  scrollbar-width: none;
+  width: 100%;
+  overflow: hidden;
+  padding: 6px;
+  border-radius: 16px;
+  border: 1px solid var(--line);
+  background: var(--cream);
 }
-.land-tablist::-webkit-scrollbar {
-  display: none;
+@media (min-width: 640px) {
+  .land-tablist {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+@media (min-width: 1024px) {
+  .land-tablist {
+    grid-template-columns: repeat(6, minmax(0, 1fr));
+  }
 }
 
 .land-tab {
   position: relative;
-  flex: none;
-  scroll-snap-align: start;
+  min-width: 0;
+  width: 100%;
   display: inline-flex;
   align-items: center;
-  gap: 8px;
-  padding: 12px 16px;
+  justify-content: center;
+  text-align: center;
+  gap: 6px;
+  padding: 10px 10px 12px;
+  border-radius: 11px;
   font-family: var(--font-mono, 'IBM Plex Mono'), monospace;
-  font-size: 12.5px;
-  letter-spacing: 0.02em;
+  font-size: 12px;
+  line-height: 1.25;
+  letter-spacing: 0.01em;
   color: var(--moss);
   background: transparent;
   border: 0;
   cursor: pointer;
-  white-space: nowrap;
-  transition: color 0.18s ease, background-color 0.18s ease;
+  white-space: normal;
+  overflow-wrap: anywhere;
+  transition: color 0.2s ease, background-color 0.2s ease, box-shadow 0.2s ease;
 }
 .land-tab:hover {
   color: var(--forest-deep);
+  background: rgba(31, 61, 44, 0.08);
+}
+.land-tab:focus-visible {
+  outline: 2px solid var(--forest);
+  outline-offset: 2px;
 }
 .land-tab[aria-selected="true"] {
-  color: var(--forest-deep);
+  color: #ffffff;
+  background: var(--forest);
+  box-shadow: 0 6px 14px -6px rgba(19, 42, 30, 0.55);
+}
+.land-tab[aria-selected="true"]:hover {
+  color: #ffffff;
+  background: var(--forest-deep);
 }
 .land-tab[aria-selected="true"]::after {
   content: "";
   position: absolute;
-  inset: auto 8px -1px;
-  border-block-end: 3px solid var(--amber);
+  inset: auto 14px 3px;
+  border-block-end: 3px solid #e9c46a;
+  border-radius: 999px;
 }
 
 .land-browser-frame {
@@ -676,6 +712,133 @@
   }
 }
 
+/* ---------- ROTATING GALLERY CAROUSEL & ANIMATED CARDS ---------- */
+.land-carousel-track {
+  display: flex;
+  gap: 1rem;
+  overflow-x: auto;
+  scroll-snap-type: x mandatory;
+  scrollbar-width: none;
+  touch-action: manipulation;
+  padding: 6px 2px 12px;
+}
+.land-carousel-track::-webkit-scrollbar {
+  display: none;
+}
+.land-carousel-track:focus-visible,
+.land-carousel-ctrl:focus-visible,
+.land-carousel-marker:focus-visible {
+  outline: 2px solid var(--forest);
+  outline-offset: 2px;
+}
+.land-carousel-ctrl {
+  touch-action: manipulation;
+}
+.land-carousel-slide {
+  flex: 0 0 86%;
+  scroll-snap-align: center;
+}
+@media (min-width: 640px) {
+  .land-carousel-slide {
+    flex: 0 0 calc(50% - 0.5rem);
+    scroll-snap-align: start;
+  }
+}
+@media (min-width: 1024px) {
+  .land-carousel-slide {
+    flex: 0 0 calc(33.333% - 0.67rem);
+    scroll-snap-align: start;
+  }
+}
+.land-carousel-card {
+  transition: border-color 0.24s ease, box-shadow 0.24s ease, transform 0.24s ease;
+}
+.land-carousel-slide.is-active .land-carousel-card {
+  border-color: var(--forest);
+  box-shadow: 0 14px 28px -16px rgba(19, 42, 30, 0.35);
+}
+.land-carousel-marker {
+  width: 8px;
+  height: 8px;
+  padding: 0;
+  border: 0;
+  border-radius: 999px;
+  background: rgba(31, 61, 44, 0.22);
+  cursor: pointer;
+  touch-action: manipulation;
+  transition: width 0.22s ease, background-color 0.22s ease;
+}
+.land-carousel-marker:hover {
+  background: rgba(31, 61, 44, 0.48);
+}
+.land-carousel-marker[aria-current="true"] {
+  width: 24px;
+  background: var(--forest);
+}
+
+.land-animated-card {
+  position: relative;
+  overflow: hidden;
+  transition: border-color 0.25s ease, box-shadow 0.25s ease, transform 0.25s ease;
+}
+.land-animated-card::after {
+  content: "";
+  position: absolute;
+  inset: auto 0 0;
+  height: 3px;
+  background: linear-gradient(90deg, var(--forest), var(--amber));
+  transform: scaleX(0);
+  transform-origin: left center;
+  transition: transform 0.28s ease;
+}
+.land-card-icon-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 38px;
+  height: 38px;
+  border-radius: 10px;
+  background: rgba(31, 61, 44, 0.08);
+  border: 1px solid rgba(31, 61, 44, 0.14);
+  color: var(--forest);
+  flex-shrink: 0;
+  transition: transform 0.25s ease, background-color 0.25s ease, color 0.25s ease;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .land-carousel-track {
+    scroll-behavior: smooth;
+  }
+  .land-animated-card:hover,
+  .land-animated-card:focus-within {
+    transform: translateY(-3px);
+    border-color: rgba(31, 61, 44, 0.35);
+    box-shadow: 0 12px 24px -14px rgba(19, 42, 30, 0.22);
+  }
+  .land-animated-card:hover::after,
+  .land-animated-card:focus-within::after {
+    transform: scaleX(1);
+  }
+  .land-card-icon-badge {
+    animation: landIconFloat 4.4s ease-in-out infinite;
+    animation-delay: var(--icon-delay, 0s);
+  }
+  .land-animated-card:hover .land-card-icon-badge {
+    transform: translateY(-2px) scale(1.07);
+    background: var(--forest);
+    color: #ffffff;
+  }
+}
+
+@keyframes landIconFloat {
+  0%, 100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-3px);
+  }
+}
+
 /* ---------- GUIDE READER & DIALOG SCROLL CONTAINMENT ---------- */
 dialog:modal {
   overscroll-behavior: contain;
@@ -686,7 +849,80 @@ dialog::backdrop {
   overscroll-behavior: contain;
 }
 
+.kpi-customizer-dialog {
+  margin: auto;
+  padding: 0;
+  border: 1px solid #e2e8f0;
+  border-radius: 1rem;
+  background: #ffffff;
+  color: #0f172a;
+  width: min(94vw, 48rem);
+  max-height: min(90vh, 52rem);
+  box-shadow: 0 25px 50px -12px rgba(15, 23, 42, 0.28);
+}
+
+.kpi-customizer-dialog::backdrop {
+  background: rgba(15, 23, 42, 0.52);
+  backdrop-filter: blur(2px);
+}
+
 .guide-scroll-pane {
   scrollbar-gutter: stable;
   overscroll-behavior: contain;
+}
+
+.visually-hidden {
+  position: absolute;
+  clip-path: inset(50%);
+  overflow: hidden;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  border: 0;
+  white-space: nowrap;
+}
+
+.public-form-input:user-invalid {
+  border-color: #b91c1c;
+}
+
+/* ---------- SECTOR STANDARDS CAROUSEL & MODULES ACCORDION ---------- */
+.land-standards-track {
+  display: flex;
+  overflow-x: auto;
+  scroll-snap-type: x mandatory;
+  gap: 16px;
+  scrollbar-width: none;
+}
+.land-standards-track::-webkit-scrollbar {
+  display: none;
+}
+.land-standards-slide {
+  flex: 0 0 100%;
+  scroll-snap-align: start;
+  scroll-snap-stop: always;
+}
+@media (prefers-reduced-motion: no-preference) {
+  .land-standards-track {
+    scroll-behavior: smooth;
+  }
+}
+
+.land-accordion {
+  interpolate-size: allow-keywords;
+}
+.land-accordion::details-content {
+  block-size: 0;
+  overflow: clip;
+}
+.land-accordion[open]::details-content {
+  block-size: auto;
+}
+@media (prefers-reduced-motion: no-preference) {
+  .land-accordion::details-content {
+    transition:
+      block-size 0.3s ease,
+      content-visibility 0.3s ease allow-discrete;
+  }
 }

@@ -1,10 +1,20 @@
 import type { Metadata } from "next";
 import { LegalDocPage } from "@/components/LegalPage";
 import { getTerminos } from "@/lib/legal-content";
+import { buildPageMetadata } from "@/lib/seo";
 
 export const dynamic = "force-dynamic";
-export const metadata: Metadata = { title: "Términos y condiciones · El Gallinero" };
+
+const TITLE = "Términos y condiciones de uso · El Gallinero";
+const DESCRIPTION =
+  "Condiciones del servicio de El Gallinero en Colombia: planes en COP con IVA, renovación voluntaria sin cobros automáticos y propiedad de datos.";
+
+export const metadata: Metadata = buildPageMetadata({
+  title: TITLE,
+  description: DESCRIPTION,
+  path: "/terminos",
+});
 
 export default function TerminosPage() {
-  return <LegalDocPage doc={getTerminos()} />;
+  return <LegalDocPage doc={getTerminos()} path="/terminos" description={DESCRIPTION} />;
 }

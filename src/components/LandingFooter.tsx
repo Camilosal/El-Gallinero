@@ -1,12 +1,15 @@
 import Link from "next/link";
 import { APP_DEVELOPER } from "@/lib/branding";
-import { LEGAL, LEGAL_LINKS, SIC_LABEL, SIC_URL } from "@/lib/legal";
+import { LEGAL, LEGAL_LINKS } from "@/lib/legal";
 
 const EXPLORE_LINKS = [
   { href: "#como-funciona", label: "Cómo funciona" },
   { href: "#modulos", label: "Módulos y Normas" },
-  { href: "#planes", label: "Planes" },
+  { href: "/planes", label: "Planes" },
+  { href: "/realidad-campo", label: "Realidad del campo" },
+  { href: "/bitacora", label: "Bitácora" },
   { href: "/guia", label: "Guía de uso" },
+  { href: "/open-source", label: "Open Source" },
   { href: "/nosotros", label: "Nosotros" },
 ] as const;
 
@@ -14,6 +17,9 @@ const HELP_LINKS = [
   { href: "/ayuda", label: "Ayuda" },
   { href: "/contacto", label: "Contacto" },
 ] as const;
+
+const FOOTER_LINK_CLASS =
+  "inline-block py-0.5 text-[var(--ink-soft)] hover:text-[var(--forest-deep)] underline underline-offset-4 decoration-[var(--line)] hover:decoration-current transition-colors";
 
 /**
  * Pie único de la landing: marca y crédito, navegación y documentos legales.
@@ -57,13 +63,10 @@ export function LandingFooter() {
             <h2 className="font-mono text-[11px] font-bold uppercase tracking-[0.14em] text-[var(--forest)]">
               Explorar
             </h2>
-            <ul className="mt-3 space-y-2 text-sm text-[var(--moss)]">
+            <ul className="mt-2 space-y-1 text-sm text-[var(--moss)]">
               {EXPLORE_LINKS.map((item) => (
                 <li key={item.href}>
-                  <Link
-                    href={item.href}
-                    className="inline-flex min-h-[32px] items-center hover:text-[var(--ink)]"
-                  >
+                  <Link href={item.href} className={FOOTER_LINK_CLASS}>
                     {item.label}
                   </Link>
                 </li>
@@ -75,42 +78,26 @@ export function LandingFooter() {
             <h2 className="font-mono text-[11px] font-bold uppercase tracking-[0.14em] text-[var(--forest)]">
               Legal y ayuda
             </h2>
-            <ul className="mt-3 space-y-2 text-sm text-[var(--moss)]">
+            <ul className="mt-2 space-y-1 text-sm text-[var(--moss)]">
               {LEGAL_LINKS.map((item) => (
                 <li key={item.href}>
-                  <Link
-                    href={item.href}
-                    className="inline-flex min-h-[32px] items-center hover:text-[var(--ink)]"
-                  >
+                  <Link href={item.href} className={FOOTER_LINK_CLASS}>
                     {item.label}
                   </Link>
                 </li>
               ))}
               {HELP_LINKS.map((item) => (
                 <li key={item.href}>
-                  <Link
-                    href={item.href}
-                    className="inline-flex min-h-[32px] items-center hover:text-[var(--ink)]"
-                  >
+                  <Link href={item.href} className={FOOTER_LINK_CLASS}>
                     {item.label}
                   </Link>
                 </li>
               ))}
-              <li>
-                <a
-                  href={SIC_URL}
-                  target="_blank"
-                  rel="noreferrer"
-                  className="inline-flex min-h-[32px] items-center underline underline-offset-2 hover:text-[var(--ink)]"
-                >
-                  {SIC_LABEL}
-                </a>
-              </li>
             </ul>
           </div>
         </div>
 
-        <div className="mt-8 flex flex-col gap-1 border-t border-[var(--line)] pt-4 text-xs text-[var(--moss)] sm:flex-row sm:items-center sm:justify-between">
+        <div className="mt-6 flex flex-col gap-1 border-t border-[var(--line)] pt-3 text-xs text-[var(--moss)] sm:flex-row sm:items-center sm:justify-between">
           <span>
             © {new Date().getFullYear()} {LEGAL.marca}
           </span>

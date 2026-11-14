@@ -15,16 +15,16 @@ function env(name: string, fallback: string): string {
 
 export const LEGAL = {
   /** Nombre completo (persona natural) o razón social (sociedad). */
-  razonSocial: env("LEGAL_RAZON_SOCIAL", PENDING),
+  razonSocial: env("LEGAL_RAZON_SOCIAL", "M. Camilo Saldarriaga"),
   /** NIT o RUT. */
-  nit: env("LEGAL_NIT", PENDING),
+  nit: env("LEGAL_NIT", "5819914-1"),
   /** "persona natural" | "sociedad": define si aplica el registro RNBD. */
-  tipoPersona: env("LEGAL_TIPO_PERSONA", PENDING),
+  tipoPersona: env("LEGAL_TIPO_PERSONA", "Persona natural"),
   ciudad: env("LEGAL_CIUDAD", "Ibagué, Tolima, Colombia"),
-  email: env("LEGAL_EMAIL", PENDING),
-  whatsapp: env("LEGAL_WHATSAPP", PENDING),
+  email: env("LEGAL_EMAIL", "gallinero@iwage.co"),
+  whatsapp: env("LEGAL_WHATSAPP", "3026693366"),
   /** Texto exacto sobre IVA mostrado junto a los precios. */
-  ivaNote: env("LEGAL_IVA_NOTE", IVA_PENDING),
+  ivaNote: env("LEGAL_IVA_NOTE", "Precio incluye IVA"),
   sitio: "gallinero.iwage.co",
   marca: "El Gallinero · Iwagé Granja",
 } as const;
@@ -32,7 +32,7 @@ export const LEGAL = {
 export const SIC_URL = "https://www.sic.gov.co";
 export const SIC_LABEL = "Superintendencia de Industria y Comercio (SIC)";
 export const RESPONSE_TIME = "1 día hábil";
-export const LEGAL_DOCS_VERSION = "2026-11-borrador-1";
+export const LEGAL_DOCS_VERSION = "2026-11-v1";
 /** Clave en app_settings donde se guarda la aceptación registrada al crear la granja. */
 export const LEGAL_CONSENT_SETTING_KEY = "legal.consent.v1";
 
@@ -60,8 +60,11 @@ export function legalIsDraft(): boolean {
 }
 
 export function whatsappLink(message?: string): string | null {
-  const digits = LEGAL.whatsapp.replace(/\D/g, "");
+  let digits = LEGAL.whatsapp.replace(/\D/g, "");
   if (!digits) return null;
+  if (digits.length === 10 && digits.startsWith("3")) {
+    digits = `57${digits}`;
+  }
   const text = message ? `?text=${encodeURIComponent(message)}` : "";
   return `https://wa.me/${digits}${text}`;
 }

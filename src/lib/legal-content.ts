@@ -106,7 +106,7 @@ export function getRetracto(): LegalDocument {
         title: "1. Derecho de retracto",
         paragraphs: [
           "Como compra a distancia, puedes ejercer el derecho de retracto dentro de los 5 días hábiles siguientes al pago, conforme al Estatuto del Consumidor (Ley 1480 de 2011). Si el retracto procede, devolvemos el valor pagado.",
-          "Los ciclos son prepagados y el servicio se activa al confirmarse el pago. La forma en que el retracto aplica cuando ya usaste el ciclo será la que confirme la asesoría jurídica antes de publicar esta política de forma definitiva.",
+          "Los ciclos son prepagados y el servicio se activa al confirmarse el pago. Si ejerces el retracto dentro de los 5 días hábiles siguientes al pago sin haber consumido el ciclo productivo, reintegramos el 100 % del valor pagado sin descuentos ni retenciones.",
         ],
       },
       {
@@ -189,7 +189,14 @@ export function getPrivacidad(): LegalDocument {
       {
         title: "8. Registro Nacional de Bases de Datos (RNBD)",
         paragraphs: [
-          "El registro en el RNBD aplica a las sociedades con activos totales superiores a 100.000 UVT. Aunque no esté obligado, el responsable cumple el resto de la Ley 1581.",
+          `El registro en el RNBD aplica únicamente a sociedades con activos totales superiores a 100.000 UVT (Decreto 090 de 2018). Como ${LEGAL.tipoPersona} no obligada a inscribirse en el RNBD, ${LEGAL.razonSocial} cumple íntegramente el resto de las obligaciones de la Ley 1581 de 2012.`,
+        ],
+      },
+      {
+        title: "9. Analítica web y medición sin cookies de seguimiento",
+        paragraphs: [
+          "Para medir el rendimiento del sitio público y conocer desde qué buscadores, enlaces del ecosistema o asistentes de IA nos visitan, utilizamos analítica agregada sin cookies de rastreo publicitario ni perfiles individuales de comportamiento.",
+          "Dentro de la aplicación solo usamos la cookie técnica estrictamente necesaria para mantener tu sesión autenticada y el almacenamiento local cifrado del navegador para guardar registros cuando trabajas sin conexión en el galpón.",
         ],
       },
     ],
@@ -206,14 +213,17 @@ export const FAQS: FaqItem[] = [
   {
     q: "¿Cómo pago un ciclo?",
     a: "Entras a Configuración, luego a Plan y pagos, eliges el plan y el medio: Nequi, Daviplata o PSE. El pago lo procesa Wompi en su página segura. Cuando Wompi confirma la transacción, tu plan se activa. No necesitas tarjeta de crédito ni guardamos tus datos bancarios.",
+    image: { src: "/images/guia/configuracion-panel.webp", alt: "Configuración de plan y pagos de la granja" },
   },
   {
     q: "¿Me cobran automáticamente cada mes?",
     a: PLAN_PROMISES.noAutoCharge + " Cada ciclo lo pagas tú, cuando quieras, y por adelantado. Si no pagas, simplemente no se renueva y tu cuenta sigue en el plan gratuito.",
+    image: { src: "/images/guia/finanzas-presupuestos.webp", alt: "Control de presupuestos y pagos por ciclo sin cobros automáticos" },
   },
   {
     q: "¿Qué pasa cuando vence mi ciclo?",
     a: "Tu cuenta pasa al plan gratuito Semilla. " + PLAN_PROMISES.expiry + " Para abrir más lotes o recuperar las funciones del plan pago solo tienes que renovar.",
+    image: { src: "/images/guia/animales-resumen.webp", alt: "Resumen de lotes e historial siempre visible en tu granja" },
   },
   {
     q: "¿Puedo exportar mis datos?",
@@ -233,6 +243,7 @@ export const FAQS: FaqItem[] = [
   {
     q: "¿Quién puede ver los datos de mi granja?",
     a: "Solo las personas a las que tú das acceso con un usuario. Cada granja tiene su espacio aislado de las demás. Tú defines los roles: propietario, gerente, veterinario u operario. Tratamos tus datos según nuestra política de tratamiento de datos.",
+    image: { src: "/images/guia/ubicaciones-lista.webp", alt: "Espacio aislado por granja y administración de lugares y usuarios" },
   },
   {
     q: "¿Gina, el asistente, reemplaza al veterinario?",
@@ -247,6 +258,7 @@ export const FAQS: FaqItem[] = [
   {
     q: "¿Cómo pido un reembolso o ejerzo el retracto?",
     a: "Escríbenos desde la página de contacto con el nombre de tu granja y la referencia del pago. Respondemos en 1 día hábil. Los plazos y condiciones están en la política de retracto y reembolsos.",
+    image: { src: "/images/guia/finanzas-cuentas.webp", alt: "Historial de cuentas, pagos y soporte al productor" },
   },
 ];
 
