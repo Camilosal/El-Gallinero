@@ -155,6 +155,21 @@ export const billingPayments = pgTable("billing_payments", {
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
+// ─── Tokens de exportación (solo lectura, resuelven la granja antes del contexto RLS) ───
+export const exportTokens = pgTable("export_tokens", {
+  id: uuid("id").defaultRandom().primaryKey(),
+  farmId: uuid("farm_id").references(() => farms.id, { onDelete: "cascade" }).notNull(),
+  name: varchar("name", { length: 120 }).default("Dashboard externo").notNull(),
+  tokenHash: varchar("token_hash", { length: 64 }).notNull().unique(),
+  tokenPrefix: varchar("token_prefix", { length: 24 }).notNull(),
+  createdBy: uuid("created_by").references(() => users.id, { onDelete: "set null" }),
+  lastUsedAt: timestamp("last_used_at"),
+  revokedAt: timestamp("revoked_at"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+}, (t) => [
+  index("export_tokens_farm_idx").on(t.farmId),
+]);
+
 export const maintenanceStatusEnum = pgEnum("maintenance_status", [
   "pendiente",
   "en_progreso",
