@@ -191,11 +191,45 @@ export default function HomePage() {
               </div>
 
               <div className="lg:col-span-7">
-                <LandingShowcase variant="hero" />
+                <a
+                  href="#vitrina"
+                  aria-label="Explorar capturas reales de El Gallinero"
+                  className="block land-browser-frame overflow-hidden rounded-2xl border border-white/15 bg-[var(--paper)] shadow-2xl group"
+                >
+                  <div className="flex items-center justify-between gap-2 px-3.5 py-2.5 border-b border-[var(--line)] bg-[#f4ede0]">
+                    <div className="flex items-center gap-1.5" aria-hidden="true">
+                      <span className="w-2.5 h-2.5 rounded-full bg-[#d4a373]" />
+                      <span className="w-2.5 h-2.5 rounded-full bg-[#e9c46a]" />
+                      <span className="w-2.5 h-2.5 rounded-full bg-[#4f775d]" />
+                    </div>
+                    <span className="font-mono text-[11px] text-[var(--moss)] truncate">
+                      gallinero.iwage.co/dashboard
+                    </span>
+                    <span className="font-mono text-[10px] font-semibold uppercase tracking-wider text-[var(--forest)]">
+                      Vista real
+                    </span>
+                  </div>
+
+                  <div className="relative bg-white overflow-hidden">
+                    <Image
+                      src="/images/guia/inicio-dashboard.webp"
+                      alt="Pantalla principal real de El Gallinero con tareas de hoy, alertas y accesos rápidos"
+                      width={1280}
+                      height={800}
+                      priority
+                      className="w-full h-auto block group-hover:scale-[1.01] transition-transform duration-300"
+                    />
+                  </div>
+                </a>
+                <p className="mt-2.5 text-center text-xs text-[#d6dfd8]">
+                  Pantalla principal organizada en 3 pasos para revisar el día sin enredos.
+                </p>
               </div>
             </div>
           </div>
         </header>
+
+        <LandingShowcase />
 
         <section
           id="como-funciona"

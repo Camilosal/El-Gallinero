@@ -69,9 +69,9 @@ describe("página de presentación — pantallazos, estándares y adopción", ()
     }
   });
 
-  it("usa el visor dentro del hero y un único footer de tres columnas", () => {
+  it("usa el visor en sección aparte y un único footer de tres columnas", () => {
     const page = fs.readFileSync(path.join(process.cwd(), "src/app/page.tsx"), "utf8");
-    expect(page).toContain('<LandingShowcase variant="hero" />');
+    expect(page).toContain("<LandingShowcase />");
     expect(page).toContain("<LandingFooter />");
     expect(page).not.toContain("<LegalFooter />");
     expect(page).not.toContain("ADOPTION_KEYS");
