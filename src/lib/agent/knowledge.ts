@@ -1,4 +1,5 @@
 import { guideModules, guides, type Guide, type GuideSection } from "@/lib/guide-data";
+import { NORMATIVE_CATALOG } from "@/lib/normative-catalog";
 
 export interface KnowledgeDocument {
   id: string;
@@ -154,22 +155,23 @@ const TECHNICAL_STANDARDS: TechnicalStandardSeed[] = [
   },
   {
     id: "std-zootecnia-kpis-finanzas",
-    title: "KPIs zootécnicos (EPEF, FCR, CV%, HAA), prorrateo analítico y cierre diario auditable",
+    title: "Indicadores sencillos, valor de animales, desgaste de equipos y contabilidad en 3 capas",
     module: "finanzas",
-    summary: "Interpretación de EPEF, conversión alimenticia, uniformidad, prorrateos multi-especie y bloqueo de cierre diario.",
-    tags: ["epef", "fcr", "conversion", "uniformidad", "prorrateo", "cierre diario", "roi", "presupuesto"],
+    summary: "Cómo distinguir caja vs. ganancia operativa real vs. patrimonio en bodega, equipos y animales vivos, además de conversión de alimento, uniformidad y reparto de gastos.",
+    tags: ["epef", "fcr", "conversion", "uniformidad", "prorrateo", "gastos compartidos", "cierre diario", "roi", "presupuesto", "capex", "patrimonio", "desgaste", "vida util", "valor animales"],
     relatedHrefs: [
       { href: "/finanzas", label: "Finanzas y Presupuestos" },
       { href: "/operaciones", label: "Cierre Diario" },
+      { href: "/dashboard/analisis/kpis", label: "Indicadores de Granja" },
     ],
     steps: [
-      "Monitorear FCR (kg alimento / unidad producida), HAA (Huevos por Ave Alojada), uniformidad de lote (meta ≥ 80 %, CV% ≤ 10 %) y EPEF en engorde.",
-      "Prorratear costos indirectos (energía, mano de obra compartida, mantenimiento) entre especies o galpones por cabezas, biomasa, kg de alimento, m² o porcentaje manual.",
-      "Ejecutar el cierre diario al finalizar la jornada para consolidar la foto auditable e impedir ediciones retroactivas accidentales.",
+      "Separar las 3 capas financieras: el dinero en caja refleja entradas y salidas de efectivo; la ganancia operativa real solo resta lo consumido en el período y el desgaste mensual o por ciclo de los equipos; y el patrimonio productivo suma alimento en bodega, valor restante de equipos y valor vivo de tus animales.",
+      "Vigilar la conversión de alimento (cuántos kilos de comida necesita el lote para ganar 1 kg de carne o producir huevos — sigla FCR), el porcentaje de postura sobre aves alojadas (HAA), qué tan parejo va el peso del lote (uniformidad >= 80 %, variación <= 10 %) y la eficiencia de engorde (EPEF).",
+      "Repartir gastos compartidos (luz, agua, mano de obra o mantenimiento — llamado prorrateo en contabilidad) entre especies o galpones por cantidad de animales, peso vivo, alimento o área, y ejecutar el cierre diario al terminar la jornada.",
     ],
-    warnings: ["No cerrar el día hasta revisar registros de mortalidad, postura, alimentación y ventas de la fecha."],
+    warnings: ["No confundas la compra inicial de equipos o bultos en bodega ni la etapa de cría/levante con una pérdida operativa del negocio."],
     tips: ["Comparar ejecución real vs presupuesto y revisar cartera vencida semanalmente mejora el flujo de caja."],
-    body: "EPEF FCR conversion alimenticia uniformidad CV HAA prorrateo costos indirectos cierre diario auditable presupuesto cuentas por cobrar pagar",
+    body: "EPEF FCR conversion alimenticia uniformidad CV HAA prorrateo costos indirectos gastos compartidos cierre diario presupuesto capex depreciacion desgaste vida util patrimonio bodega valor animales",
   },
 ];
 
@@ -195,7 +197,8 @@ const DOMAIN_SYNONYMS: Array<[RegExp, string[]]> = [
   [/\b(rutina|tarea|pendiente|turno|jornada|cerrar|cierre)\b/, ["calendario", "rutina", "cierre", "diario"]],
   [/\b(mover|traslado|cambio|corral|galpon|cuarentena|vacio)\b/, ["ubicaciones", "movimiento", "traslado", "bioseguridad"]],
   [/\b(sacrificio|faena|beneficio|canal|carne|despiece)\b/, ["sacrificio", "carne", "autoconsumo", "retiro"]],
-  [/\b(fcr|conversion|epef|uniformidad|rentabilidad|margen|prorrateo|presupuesto)\b/, ["kpis", "analitica", "finanzas", "prorrateo", "presupuesto"]],
+  [/\b(fcr|conversion|epef|uniformidad|rentabilidad|margen|prorrateo|presupuesto|patrimonio|desgaste|depreciacion|capex|perdida|inversion|equipos)\b/, ["kpis", "analitica", "finanzas", "prorrateo", "presupuesto", "patrimonio", "desgaste", "equipos", "bodega"]],
+  [/\b(norma|normas|estandar|estandares|resolucion|protocolo|falla|fallas|error|soporte|bug|incidencia)\b/, ["normas", "ica", "ntc", "1240", "fallas", "soporte", "guia"]],
 ];
 
 function stemSpanishToken(token: string): string {
@@ -287,7 +290,31 @@ export function getKnowledgeCorpus(): KnowledgeDocument[] {
     warnings: std.warnings,
     tips: std.tips,
   }));
-  cachedCorpus = [...stdDocs, ...guideDocs];
+  const catalogDocs: KnowledgeDocument[] = NORMATIVE_CATALOG.map((item) => ({
+    id: `catalogo:${item.id}`,
+    title: `${item.code} · ${item.title}`,
+    module: item.module,
+    moduleLabel: item.moduleLabel,
+    source: "norma_tecnica",
+    summary: `${item.authority} (${item.version}): ${item.summary}`,
+    tags: [
+      item.code.toLowerCase(),
+      item.kind,
+      item.authority.toLowerCase(),
+      ...item.species,
+    ],
+    relatedHrefs: [
+      { href: item.appRoute, label: item.appRouteLabel },
+      { href: item.sourceUrl, label: item.sourceLabel },
+    ],
+    body: cleanSpaces(
+      `${item.code} ${item.title} ${item.authority} ${item.version} ${item.summary} ${item.keyReferences.join(" · ")} ${item.complianceChecklist.join(" · ")}`,
+    ),
+    steps: item.keyReferences,
+    warnings: [],
+    tips: item.complianceChecklist,
+  }));
+  cachedCorpus = [...stdDocs, ...catalogDocs, ...guideDocs];
   return cachedCorpus;
 }
 
@@ -295,10 +322,10 @@ export function getKnowledgeDigest(): string {
   return [
     "NTC 1240 huevo: Jumbo (>78g), AAA (67-77.9g), AA (60-66.9g), A (53-59.9g), B (46-52.9g), C (<46g); cubeta=30, docena=12; conservar 13-18°C.",
     "Sanidad ICA y Retiro: cadena de frío vacunas 2-8°C; retiro de medicamento bloquea faena, venta y traslado; GSMI requerida para movilización externa.",
-    "Bioseguridad POE GAB (Res. ICA 3651/3652) y Bienestar (Res. 8452/2025): zonas limpia/producción/sucia/cuarentena y respeto de vacío sanitario.",
+    "Bioseguridad POE GAB (Res. ICA 3651/3652, 12486/2023) y Bienestar (Res. MADR 205/2022, ICA 8452/2025): zonas limpia/producción/sucia/cuarentena y respeto de vacío sanitario.",
     "Ambiente y Compostaje: ITH >=72 alerta moderada, >=78 estrés calórico severo; NH3 >=20 ppm crítico; compost AGROSAVIA 3:1:1 o 7:2:2 a 55-65°C y 50-60% humedad.",
     "Ciclos fisiológicos: coneja 31d (palpación d12-14, nidal d27, destete 30-35d); cuy 67d (destete 14-21d); incubación gallina 21d, codorniz 17d, pato 28d.",
-    `Manual operativo sincronizado: ${guides.length} guías reales de pantallas/flujos + ${TECHNICAL_STANDARDS.length} estándares técnicos (consultar con consultar_conocimiento cuando el usuario pregunte cómo hacer algo en la app o pida un protocolo detallado).`,
+    `Manual operativo y catálogo normativo sincronizado: ${guides.length} guías de pantallas + ${NORMATIVE_CATALOG.length} normas, estándares y guías técnicas (consultar con consultar_conocimiento cuando pregunten por normativa, parámetros técnicos o flujos de la app).`,
   ].join("\n- ");
 }
 
@@ -354,7 +381,8 @@ export async function searchFarmKnowledge(
       if (bodyNorm.includes(token)) score += 1.5;
     }
 
-    if (doc.source === "norma_tecnica" && score > 0) score += 2;
+    if (doc.id.startsWith("std-") && score > 0) score += 2.5;
+    else if (doc.source === "norma_tecnica" && score > 0) score += 1.5;
     if (score > 0) scored.push({ doc, score });
   }
 

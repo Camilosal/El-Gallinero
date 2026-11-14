@@ -119,7 +119,7 @@ export function GuideShell({ children, basePath, isStandalone }: GuideShellProps
 
       <div className="space-y-1.5">
         <p className="px-3 text-[11px] font-bold uppercase tracking-wider text-slate-400">
-          Módulos ({guideModules.length})
+          8 módulos + {guideModules.filter((m) => m.kind === "complementario").length} complementarios
         </p>
 
         {GUIDES_BY_MODULE.map((mod) => {

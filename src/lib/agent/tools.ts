@@ -284,13 +284,13 @@ const consultarResumenGranja: AgentTool = {
       },
       gallinas: data.hens
         ? {
-            total: data.hens.total,
-            activas: data.hens.active,
-            enPostura: data.hens.laying ?? 0,
-            empollando: data.hens.broody,
-            enfermas: data.hens.sick,
-            recomendadasSacrificio: data.hens.recommendedForSlaughter,
-          }
+          total: data.hens.total,
+          activas: data.hens.active,
+          enPostura: data.hens.laying ?? 0,
+          empollando: data.hens.broody,
+          enfermas: data.hens.sick,
+          recomendadasSacrificio: data.hens.recommendedForSlaughter,
+        }
         : null,
       gallos: data.roosters ?? null,
       huevos: data.eggs ?? null,
@@ -700,9 +700,12 @@ const consultarActivos: AgentTool = {
         fechaAdquisicion: asset.acquisitionDate || null,
         garantiaHasta: asset.warrantyUntil || null,
         costoRegistradoCOP: Number(asset.acquisitionCost || 0),
+        vidaUtilMeses: asset.usefulLifeMonths ?? null,
+        vidaUtilCiclos: asset.usefulLifeCycles ?? null,
+        baseDesgaste: asset.depreciationBasis || "meses",
         descripcion: asset.description || null,
       })),
-      nota: "El costo corresponde al valor registrado por la finca; no representa depreciación ni avalúo contable.",
+      nota: "El costo corresponde al valor registrado por la finca; no representa depreciación fiscal ante terceros ni avalúo oficial.",
     };
   },
 };
@@ -816,6 +819,7 @@ const consultarFinanzas: AgentTool = {
     return {
       periodoDias: period,
       resumen: data.summary,
+      contextoOperativo: data.operatingContext || null,
       indicadores: data.kpis,
       porCategoria: data.byCategory,
       ultimosMovimientos: (data.transactions || []).slice(0, 20).map((t: any) => ({
@@ -1046,8 +1050,8 @@ const registrarProduccionHuevos: AgentTool = {
     const location = await resolveFarmLocation(ctx, args.lugar, batch?.locationId);
     const sizes = Array.isArray(args.tamanos)
       ? args.tamanos
-          .map((item: any) => ({ size: String(item.tamano || item.size || "").trim(), quantity: Number(item.cantidad || item.quantity || 0) }))
-          .filter((item: any) => item.size && item.quantity > 0)
+        .map((item: any) => ({ size: String(item.tamano || item.size || "").trim(), quantity: Number(item.cantidad || item.quantity || 0) }))
+        .filter((item: any) => item.size && item.quantity > 0)
       : [];
     const total = sizes.length > 0
       ? sizes.reduce((sum: number, item: any) => sum + item.quantity, 0)
@@ -2123,6 +2127,8 @@ const consultarContabilidadAnalitica: AgentTool = {
     return {
       periodo: { desde: data.from, hasta: data.to, incluyeProrrateo: data.includeProrated },
       totales: data.totals || null,
+      contextoOperativo: data.operatingContext || null,
+      capitalBiologico: data.biologicalCapital || null,
       porEspecie: data.bySpecies || [],
       porLugar: data.byLocation || [],
       economiaUnitaria: data.unitEconomics || null,
@@ -2171,6 +2177,8 @@ const consultarKpisYAlimentacion: AgentTool = {
         costoUnitario: kpis.costPerUnit ?? null,
         zootecnia: kpis.zootechnical ?? null,
         roiCapex: kpis.capexRoi ?? null,
+        contextoBiologico: kpis.biologicalContext ?? null,
+        patrimonioProductivo: kpis.productiveWealth ?? null,
       },
       alimentacionYConversion: {
         desempenoPorEspecie: comp?.dietPerformance || [],
@@ -2205,10 +2213,10 @@ const consultarContactos: AgentTool = {
     const needle = normalizeLookup(args.buscar);
     const filtered = needle
       ? rows.filter((c) =>
-          [c.name, c.contactName, c.city, c.zone, c.documentNumber, c.categoryTag, c.phone].some((v) =>
-            normalizeLookup(v).includes(needle),
-          ),
-        )
+        [c.name, c.contactName, c.city, c.zone, c.documentNumber, c.categoryTag, c.phone].some((v) =>
+          normalizeLookup(v).includes(needle),
+        ),
+      )
       : rows;
     return {
       total: filtered.length,
@@ -2286,10 +2294,10 @@ const registrarLecturaSensor: AgentTool = {
     } else {
       const hum = hasHum
         ? (() => {
-            const h = asNumber(args.humedad_pct, "humedad_pct", { min: 0 });
-            if (h > 100) throw new Error("La humedad debe estar entre 0 y 100%");
-            return h;
-          })()
+          const h = asNumber(args.humedad_pct, "humedad_pct", { min: 0 });
+          if (h > 100) throw new Error("La humedad debe estar entre 0 y 100%");
+          return h;
+        })()
         : null;
       payload = {
         ...base,

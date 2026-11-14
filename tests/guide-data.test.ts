@@ -13,6 +13,7 @@ import {
   searchGuides,
 } from "@/lib/guide-data";
 import { getGuideHeroTheme, resolveHeroThemeByPath } from "@/lib/hero-themes";
+import { navigationGroups } from "@/lib/navigation";
 
 const REQUIRED_LEGACY_SLUGS = [
   "primeros-pasos",
@@ -72,12 +73,21 @@ describe("guía de uso actualizada y capturas verificadas", () => {
       "clientes-proveedores",
       "escala-y-modulos",
       "configuracion-general",
+      "normas-estandares",
+      "fuentes-externas",
+      "reportar-fallas",
     ]) {
       expect(slugSet.has(newSlug), `Falta nueva guía ${newSlug}`).toBe(true);
     }
   });
 
-  it("asigna cada guía a un módulo válido con capturas existentes en public/", () => {
+  it("asigna cada guía a un módulo válido (8 módulos reales + máx 2 complementarios) con capturas existentes en public/", () => {
+    const coreModules = guideModules.filter((m) => m.kind === "modulo");
+    const complementaryModules = guideModules.filter((m) => m.kind === "complementario");
+    expect(coreModules.map((m) => m.id)).toEqual(navigationGroups.map((g) => g.id));
+    expect(complementaryModules.length).toBeLessThanOrEqual(2);
+    expect(getGuide("lugares-manejo")?.module).toBe("animales");
+
     const modIds = new Set(guideModules.map((m) => m.id));
     const grouped = getGuidesByModule();
 
@@ -136,11 +146,19 @@ describe("guía de uso actualizada y capturas verificadas", () => {
     expect(searchGuides("gina").some((g) => g.slug === "asistente-operativo")).toBe(true);
     expect(searchGuides("modulos").some((g) => g.slug === "escala-y-modulos")).toBe(true);
     expect(searchGuides("recuperacion").some((g) => g.slug === "configuracion-general")).toBe(true);
+    expect(searchGuides("normas").some((g) => g.slug === "normas-estandares")).toBe(true);
+    expect(searchGuides("clima").some((g) => g.slug === "fuentes-externas")).toBe(true);
+    expect(searchGuides("fallas").some((g) => g.slug === "reportar-fallas")).toBe(true);
+    expect(searchGuides("vida util").some((g) => g.slug === "infraestructura-equipos")).toBe(true);
+    expect(searchGuides("ganancia real").some((g) => g.slug === "balance-financiero")).toBe(true);
     const allHrefs = new Set(guides.flatMap((g) => g.relatedHrefs.map((r) => r.href.split("?")[0])));
     expect(allHrefs.has("/dashboard/configuracion/modulos")).toBe(true);
     expect(allHrefs.has("/dashboard/configuracion")).toBe(true);
+    expect(allHrefs.has("/dashboard/configuracion/fallas")).toBe(true);
     expect(allHrefs.has("/dashboard/finanzas")).toBe(true);
     expect(allHrefs.has("/dashboard/analisis")).toBe(true);
+    expect(allHrefs.has("/dashboard/analisis/normas")).toBe(true);
+    expect(allHrefs.has("/dashboard/analisis/fuentes-externas")).toBe(true);
 
     const first = getAdjacentGuides(guides[0].slug);
     expect(first.prev).toBeNull();

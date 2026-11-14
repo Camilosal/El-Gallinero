@@ -217,7 +217,7 @@ export default function QuickCreateMenu() {
                   autoFocus
                   value={query}
                   onChange={(event) => setQuery(event.target.value)}
-                  placeholder="Buscar: huevo, cuy, reproducción, sensor, prorrateo, vacuna, rutina…"
+                  placeholder="Buscar: huevo, cuy, equipo, alimento, vacuna, norma, falla…"
                   className="w-full rounded-xl border border-slate-300 bg-slate-50 py-3 pl-10 pr-4 text-sm text-slate-800 outline-none transition focus:border-green-500 focus:bg-white focus:ring-2 focus:ring-green-100"
                 />
               </div>

@@ -1,11 +1,14 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
+import Link from "next/link";
 import {
+  BookOpen,
   Brain,
   Camera,
   CheckCircle2,
   CloudOff,
+  ExternalLink,
   FileText,
   History,
   Loader2,
@@ -20,6 +23,11 @@ import {
 import { compressImageToDataUrl, type OcrExtractionMode } from "@/lib/attachments-shared";
 import { apiFetch } from "@/lib/fetch";
 import ChatMarkdown from "@/components/ChatMarkdown";
+import {
+  OPEN_ASSISTANT_PROMPT_EVENT,
+  type AssistantNormativeContext,
+  type OpenAssistantPromptDetail,
+} from "@/lib/assistant-events";
 import type { VoiceNoteEntry } from "@/lib/offline/db";
 import {
   OPEN_ASSISTANT_VOICE_EVENT,
@@ -59,12 +67,12 @@ interface ConversationSummary {
 const STORAGE_KEY = "gallinero-assistant-conversation";
 
 const SUGGESTIONS = [
-  "¿Cómo está la granja hoy?",
+  "¿Cómo está la granja hoy en ganancia real, animales y bodega?",
   "¿Qué tareas tengo en la rutina diaria hoy?",
-  "¿Cómo va la rentabilidad por especie y lugar este mes?",
-  "¿Cuántos días de alimento quedan y cuál es el FCR?",
+  "¿Cómo va la ganancia por cada especie y galpón este mes?",
+  "¿Cuántos días de alimento quedan y cuánto rinde por kilo ganado?",
   "¿Cómo van la reproducción de cuyes/conejos y la incubación?",
-  "¿Hay alertas de sensores ITH/NH3, bioseguridad o compostaje?",
+  "¿Hay alertas de calor, amoníaco, bioseguridad o compostaje?",
   "¿Qué vacunas, mantenimientos o vencimientos están pendientes?",
 ];
 
@@ -134,6 +142,28 @@ function readNowMs(): number {
   return Date.now();
 }
 
+function buildLocalNormativeReply(
+  ctx: AssistantNormativeContext,
+  reasonLabel: string,
+): string {
+  const refs = ctx.keyReferences.map((item) => `- ${item}`).join("\n");
+  const checks = ctx.complianceChecklist.map((item) => `- ${item}`).join("\n");
+  return [
+    `**${ctx.code}** · *${ctx.title}*`,
+    `(${ctx.authority} · ${ctx.version} · ${reasonLabel})`,
+    "",
+    ctx.summary,
+    "",
+    "**Referencias clave de la norma:**",
+    refs,
+    "",
+    "**Lista rápida en campo:**",
+    checks,
+    "",
+    `Fuente oficial: [${ctx.sourceLabel}](${ctx.sourceUrl})${ctx.appRoute ? ` · Módulo relacionado: [${ctx.appRouteLabel || "Abrir en la app"}](${ctx.appRoute})` : ""}`,
+  ].join("\n");
+}
+
 export default function AssistantWidget() {
   const [open, setOpen] = useState(false);
   const [isOnline, setIsOnline] = useState(true);
@@ -146,6 +176,8 @@ export default function AssistantWidget() {
   const [sending, setSending] = useState(false);
   const [busyAction, setBusyAction] = useState<string | null>(null);
   const [error, setError] = useState("");
+  const [activeNormRef, setActiveNormRef] = useState<AssistantNormativeContext | null>(null);
+  const [pendingNormRequest, setPendingNormRequest] = useState<OpenAssistantPromptDetail | null>(null);
   const [historyOpen, setHistoryOpen] = useState(false);
   const [conversations, setConversations] = useState<ConversationSummary[]>([]);
   const [historyLoading, setHistoryLoading] = useState(false);
@@ -415,19 +447,36 @@ export default function AssistantWidget() {
   };
 
   const sendMessage = useCallback(
-    async (text?: string): Promise<boolean> => {
+    async (text?: string, normOverride?: AssistantNormativeContext): Promise<boolean> => {
       const typed = (text ?? input).trim();
       const ocrAttached = text === undefined ? pendingOcr : null;
+      const effectiveNorm = normOverride ?? activeNormRef;
+      const normSuffix = effectiveNorm
+        ? `\n\n[Contexto normativo activo · ${effectiveNorm.code} (${effectiveNorm.version}): ${effectiveNorm.title}. Referencias: ${effectiveNorm.keyReferences.join(" | ")}. Fuente: ${effectiveNorm.sourceUrl}]`
+        : "";
       const content = ocrAttached
         ? [
             typed || "Analiza este documento escaneado y prepara el registro correspondiente si hace falta.",
             `[Documento OCR (${ocrAttached.mode}) · ${ocrAttached.fileName}]: ${ocrAttached.summary}`,
             `Datos extraídos: ${JSON.stringify(ocrAttached.extracted)}`,
           ].join("\n")
-        : typed;
+        : `${typed}${normSuffix}`;
 
-      if (!content || sending) return false;
+      if (!typed && !ocrAttached) return false;
+      if (sending) return false;
       if (!isOnline) {
+        if (effectiveNorm) {
+          setMessages((prev) => [
+            ...prev,
+            { id: uid("user"), role: "user", content: typed },
+            {
+              id: uid("assistant"),
+              role: "assistant",
+              content: buildLocalNormativeReply(effectiveNorm, "Consulta local sin señal"),
+            },
+          ]);
+          return true;
+        }
         setError("Sin conexión. Graba una nota de voz o usa + Crear para guardar en el teléfono.");
         return false;
       }
@@ -453,6 +502,17 @@ export default function AssistantWidget() {
         const data = await res.json().catch(() => ({}));
 
         if (!res.ok) {
+          if (effectiveNorm) {
+            setMessages((prev) => [
+              ...prev,
+              {
+                id: uid("assistant"),
+                role: "assistant",
+                content: buildLocalNormativeReply(effectiveNorm, "Ficha sincronizada de la norma"),
+              },
+            ]);
+            return true;
+          }
           setError(data.error || "No se pudo obtener respuesta del asistente");
           return false;
         }
@@ -472,6 +532,17 @@ export default function AssistantWidget() {
         setPendingActions(data.pendingActions || []);
         return true;
       } catch (err) {
+        if (effectiveNorm) {
+          setMessages((prev) => [
+            ...prev,
+            {
+              id: uid("assistant"),
+              role: "assistant",
+              content: buildLocalNormativeReply(effectiveNorm, "Respaldo normativo offline"),
+            },
+          ]);
+          return true;
+        }
         setError(err instanceof Error ? err.message : "Error de conexión con el asistente");
         return false;
       } finally {
@@ -479,8 +550,59 @@ export default function AssistantWidget() {
         setTimeout(() => inputRef.current?.focus(), 50);
       }
     },
-    [conversationId, input, isOnline, pendingOcr, sending],
+    [activeNormRef, conversationId, input, isOnline, pendingOcr, sending],
   );
+
+  useEffect(() => {
+    const onOpenPrompt = (event: Event) => {
+      const detail = (event as CustomEvent<OpenAssistantPromptDetail>).detail;
+      if (!detail?.prompt) return;
+      setOpen(true);
+      setHistoryOpen(false);
+      setMemoryOpen(false);
+      setError("");
+      if (detail.referenceContext) {
+        setActiveNormRef(detail.referenceContext);
+      }
+      setPendingNormRequest(detail);
+    };
+
+    window.addEventListener(OPEN_ASSISTANT_PROMPT_EVENT, onOpenPrompt as EventListener);
+    return () => {
+      window.removeEventListener(OPEN_ASSISTANT_PROMPT_EVENT, onOpenPrompt as EventListener);
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!pendingNormRequest) return;
+    if (isOnline && configured === null) return;
+
+    const request = pendingNormRequest;
+    void Promise.resolve().then(() => {
+      setPendingNormRequest(null);
+      if (isOnline && configured) {
+        void sendMessage(request.prompt, request.referenceContext);
+        return;
+      }
+      if (request.referenceContext) {
+        setMessages((prev) => [
+          ...prev,
+          { id: uid("user"), role: "user", content: request.prompt },
+          {
+            id: uid("assistant"),
+            role: "assistant",
+            content: buildLocalNormativeReply(
+              request.referenceContext!,
+              isOnline ? "Guía local del catálogo normativo" : "Consulta offline del catálogo",
+            ),
+          },
+        ]);
+      } else {
+        setInput(request.prompt);
+        setTimeout(() => inputRef.current?.focus(), 60);
+      }
+    });
+  }, [pendingNormRequest, configured, isOnline, sendMessage]);
 
   useEffect(() => {
     if (!isOnline || !configured || !sttConfigured) return;
@@ -915,8 +1037,50 @@ export default function AssistantWidget() {
               <p className="font-semibold">Gina aún no está activada</p>
               <p className="mt-1">
                 Falta <code className="rounded bg-amber-100 px-1">ASSISTANT_AI_API_KEY</code> en el servidor.
-                Mientras tanto puedes usar todas las pantallas de la aplicación con normalidad.
+                Mientras tanto puedes consultar fichas del catálogo normativo y usar todas las pantallas de la aplicación con normalidad.
               </p>
+            </div>
+          )}
+
+          {activeNormRef && (
+            <div className="border-b border-emerald-200 bg-emerald-50/90 px-3.5 py-2.5 text-xs text-emerald-950 flex items-start justify-between gap-2">
+              <div className="min-w-0 space-y-1">
+                <div className="flex flex-wrap items-center gap-1.5">
+                  <BookOpen className="w-3.5 h-3.5 text-emerald-700 shrink-0" aria-hidden="true" />
+                  <span className="font-bold text-emerald-900">{activeNormRef.code}</span>
+                  <span className="rounded bg-white/80 border border-emerald-200 px-1.5 py-0.5 text-[10px] font-medium text-emerald-800">
+                    {activeNormRef.version}
+                  </span>
+                </div>
+                <p className="truncate text-[11px] text-emerald-800">{activeNormRef.title}</p>
+                <div className="flex flex-wrap items-center gap-3 text-[11px] font-semibold">
+                  <a
+                    href={activeNormRef.sourceUrl}
+                    target="_blank"
+                    rel="noreferrer noopener"
+                    className="inline-flex items-center gap-1 text-emerald-700 hover:underline"
+                  >
+                    <span>Fuente oficial</span>
+                    <ExternalLink className="w-3 h-3" aria-hidden="true" />
+                  </a>
+                  {activeNormRef.appRoute && (
+                    <Link
+                      href={activeNormRef.appRoute}
+                      className="text-slate-700 hover:text-emerald-800 hover:underline"
+                    >
+                      {activeNormRef.appRouteLabel || "Ir al módulo"}
+                    </Link>
+                  )}
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setActiveNormRef(null)}
+                className="rounded p-0.5 text-emerald-700 hover:bg-emerald-100 shrink-0"
+                aria-label="Cerrar referencia normativa"
+              >
+                <X className="w-3.5 h-3.5" />
+              </button>
             </div>
           )}
 

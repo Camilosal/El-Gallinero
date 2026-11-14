@@ -15,4 +15,3 @@ export default function StandaloneGuiaLayout({ children }: { children: ReactNode
     </GuideShell>
   );
 }
-

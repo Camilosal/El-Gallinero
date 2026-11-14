@@ -52,6 +52,7 @@ export interface GuideModule {
   label: string;
   icon: string;
   description: string;
+  kind: "modulo" | "complementario";
 }
 
 export interface GuideWorkflow {
@@ -65,76 +66,74 @@ export interface GuideWorkflow {
 
 export const guideModules: GuideModule[] = [
   {
-    id: "primeros-pasos",
-    label: "Primeros Pasos y Offline",
-    icon: "rocket",
-    description: "Inicio en grupos, Asistente Día 1, Escala Pequeño/Mediano, Ctrl+K, offline y Gina",
-  },
-  {
-    id: "escanear-qr",
-    label: "Escáner QR y Etiquetas",
-    icon: "qr-code",
-    description: "Escaneo en campo de lugares, ejemplares, lotes y equipos",
-  },
-  {
     id: "animales",
-    label: "Animales y Reproducción",
+    label: "Animales",
     icon: "paw-print",
-    description: "6 especies (incluyendo cuyes), adquisiciones, biometría CV%/EPEF, incubación y reproducción",
-  },
-  {
-    id: "ubicaciones",
-    label: "Lugares de Manejo",
-    icon: "map-pin",
-    description: "Galpones, jaulas, potreros, ocupación, QR y desempeño espacial",
+    kind: "modulo",
+    description: "6 especies (incluyendo cuyes), adquisiciones y origen, lugares de manejo, control de peso, incubación y reproducción",
   },
   {
     id: "produccion",
     label: "Producción",
     icon: "egg",
-    description: "Postura NTC 1240 + T°/HR, carne multi-especie, gallinaza y microcápsulas",
+    kind: "modulo",
+    description: "Postura NTC 1240 + T°/HR, carne y beneficio multi-especie, gallinaza y factores de ajuste",
   },
   {
     id: "inventarios",
     label: "Inventarios",
     icon: "package",
-    description: "Balance patrimonial y trazabilidad PEPS/FIFO de huevos, carne y gallinaza",
+    kind: "modulo",
+    description: "Valorización total del patrimonio en inventarios y salida PEPS/FIFO de huevos y carne",
   },
   {
     id: "almacen",
-    label: "Almacén, Compostaje y Cierre",
-    icon: "package-open",
-    description: "Alimentos, dieta combinada, insumos, activos, mantenimiento, compostaje y cierre IoT",
+    label: "Almacén",
+    icon: "warehouse",
+    kind: "modulo",
+    description: "Alimentación y raciones, inventario de alimentos, insumos, equipos con desgaste gradual, mantenimiento, compostaje y cierre diario",
   },
   {
     id: "planeacion",
-    label: "Planeación y Calendario",
+    label: "Planeación",
     icon: "calendar-days",
-    description: "Calendario Maestro con rutinas, Plan de Parvada y Soberanía Alimentaria",
+    kind: "modulo",
+    description: "Calendario Maestro con rutinas, Plan de Parvada y Soberanía Alimentaria del hogar",
   },
   {
     id: "sanidad",
-    label: "Sanidad y Bioseguridad",
+    label: "Sanidad",
     icon: "pill",
-    description: "Plan sanitario, vacunaciones, retiros, bajas y POE GAB ICA (Res. 8452)",
+    kind: "modulo",
+    description: "Plan sanitario, control y retiros, calendario de vacunas, alertas/mortalidad y bioseguridad + bienestar",
   },
   {
     id: "finanzas",
-    label: "Finanzas, Ventas y Contactos",
+    label: "Finanzas",
     icon: "money",
-    description: "5 líneas de venta, egresos con adjuntos/OCR, CxC/CxP, P&L y Clientes/Proveedores",
+    kind: "modulo",
+    description: "5 líneas de venta, egresos separados de equipos y bodega, cuentas por cobrar/pagar, balance real y contactos",
   },
   {
     id: "analisis",
-    label: "Análisis y Curvas",
+    label: "Análisis",
     icon: "bar-chart",
-    description: "KPIs (HAA, EPEF, CAPEX/ROI), curvas ajustadas por altitud y contabilidad analítica Excel/PDF",
+    kind: "modulo",
+    description: "Indicadores sencillos, valor de animales, curvas por clima/altura, clima/mercado, normas con adjuntos y reportes Excel/PDF",
+  },
+  {
+    id: "primeros-pasos",
+    label: "Inicio, Escáner QR, Offline y Gina",
+    icon: "rocket",
+    kind: "complementario",
+    description: "Sección transversal: pantalla de Inicio, buscador Ctrl+K, escáner QR de campo, trabajo sin internet y asistente Gina por voz",
   },
   {
     id: "configuracion",
-    label: "Configuración",
+    label: "Configuración y Soporte",
     icon: "settings",
-    description: "Panel general, módulos progresivos, catálogos en 8 pestañas, recuperación y licencia",
+    kind: "complementario",
+    description: "Ajustes fuera de módulos operativos: Asistente Día 1, Escala Pequeño/Mediano, catálogos en 10 pestañas, reporte de fallas y respaldo",
   },
 ];
 
@@ -165,11 +164,11 @@ export const GUIDE_WORKFLOWS: GuideWorkflow[] = [
   },
   {
     id: "salud-finanzas",
-    title: "Cierre semanal sanitario, comercial y contable",
-    description: "Valida bioseguridad ICA y retiros, factura en 5 líneas de venta, concilia CxC/CxP y exporta reportes por especie.",
+    title: "Cierre semanal sanitario, normativo y contable",
+    description: "Valida normas ICA y retiros, factura en 5 líneas de venta, revisa ganancia real vs. caja y exporta reportes por especie.",
     icon: "money",
     badge: "Semanal",
-    slugs: ["plan-sanitario", "bioseguridad-bienestar", "registrar-venta", "cuentas-cobrar-pagar", "kpis-reportes"],
+    slugs: ["plan-sanitario", "bioseguridad-bienestar", "normas-estandares", "registrar-venta", "cuentas-cobrar-pagar", "kpis-reportes"],
   },
 ];
 
@@ -267,7 +266,7 @@ export const guides: Guide[] = [
   {
     slug: "escala-y-modulos",
     title: "Asistente inicial (3 pasos), Escala Pequeño vs. Mediano y Módulos",
-    module: "primeros-pasos",
+    module: "configuracion",
     icon: "sparkles",
     summary:
       "Arranca en Día 1 sin historial atrasado, alterna entre Modo Pequeño y Mediano desde la barra superior y gestiona los 5 módulos progresivos.",
@@ -418,12 +417,12 @@ export const guides: Guide[] = [
   },
 
   // ═══════════════════════════════════════════
-  // ESCÁNER QR Y ETIQUETAS
+  // ESCÁNER QR Y ETIQUETAS (Complementario: Inicio, QR, Offline y Gina)
   // ═══════════════════════════════════════════
   {
     slug: "escanear-qr",
     title: "Escáner QR, etiquetas e historial público de lote",
-    module: "escanear-qr",
+    module: "primeros-pasos",
     icon: "qr-code",
     summary:
       "Escanea puertas de galpón, jaulas, ejemplares individuales, lotes y equipos desde cámara o teclado e imprime etiquetas QR.",
@@ -722,12 +721,12 @@ export const guides: Guide[] = [
   },
 
   // ═══════════════════════════════════════════
-  // LUGARES DE MANEJO
+  // LUGARES DE MANEJO (Submódulo de Animales)
   // ═══════════════════════════════════════════
   {
     slug: "lugares-manejo",
     title: "Lugares de manejo y resultados por espacio",
-    module: "ubicaciones",
+    module: "animales",
     icon: "map-pin",
     summary:
       "Organiza galpones, corrales y potreros, controla capacidad, estado sanitario/operativo, QR de puerta y analiza métricas por espacio.",
@@ -1272,13 +1271,13 @@ export const guides: Guide[] = [
   },
   {
     slug: "infraestructura-equipos",
-    title: "Activos y equipos con ficha e historial",
+    title: "Activos y equipos con desgaste gradual (vida útil)",
     module: "almacen",
     icon: "wrench",
     summary:
-      "Registra incubadoras, básculas, bebederos, comederos y herramientas con código, serial, garantía, ubicación, QR y costo.",
+      "Registra incubadoras, básculas, comederos y bebederos con su vida útil en meses o ciclos para que su compra no muestre pérdidas falsas al inicio.",
     estimatedMinutes: 3,
-    tags: ["activos", "equipos", "herramientas", "serial", "garantía", "qr"],
+    tags: ["activos", "equipos", "herramientas", "serial", "garantía", "qr", "vida útil", "depreciación", "desgaste"],
     relatedHrefs: [
       { href: "/dashboard/operaciones/activos", label: "Activos y Equipos" },
       { href: "/dashboard/operaciones/mantenimiento", label: "Mantenimiento" },
@@ -1287,32 +1286,32 @@ export const guides: Guide[] = [
     sections: [
       {
         type: "intro",
-        text: "El inventario de activos documenta tus bienes físicos durables (equipos, herramientas, estructuras y vehículos internos), asignándoles código único, ubicación dentro de la granja y etiqueta QR para asociarles mantenimientos y revisar estado operativo.",
+        text: "El inventario de activos documenta tus bienes físicos durables (equipos, herramientas y estructuras) y reparte automáticamente su desgaste según los meses o ciclos productivos que duren. Así, invertir en un equipo bueno se refleja en tu patrimonio y no castiga como pérdida todo el primer mes.",
       },
       {
         type: "screenshot",
-        title: "Registro de activos, códigos seriales y garantías",
+        title: "Registro de activos, códigos seriales, garantías y vida útil",
         image: "/images/guia/activos-equipos.webp",
-        alt: "Pantalla de Activos y Equipos mostrando incubadora, báscula y línea de bebederos con su estado y costo",
+        alt: "Pantalla de Activos y Equipos mostrando incubadora, báscula y línea de bebederos con su estado, costo y vida útil",
         caption:
-          "Visualiza de un vistazo qué equipos están operativos, cuáles requieren mantenimiento y cuáles siguen en garantía vigente.",
-        badge: "Activos físicos",
+          "Visualiza de un vistazo qué equipos están operativos, su valor actual restante después del desgaste y cuáles están en garantía.",
+        badge: "Patrimonio en equipos",
         targetHref: "/dashboard/operaciones/activos",
         targetLabel: "Ver Activos",
       },
       {
         type: "steps",
-        title: "Dar de alta equipos y enlazarlos con lugares",
+        title: "Dar de alta equipos y repartir su desgaste sin dañar tus reportes",
         items: [
           "Ve a Almacén → Activos y equipos y haz clic en «+ Nuevo Activo».",
-          "Registra código (por ejemplo ACT-001), nombre, categoría, marca, modelo, número de serie, fecha y costo de adquisición y garantía.",
-          "Asocia el equipo al Lugar de manejo donde opera y cambia su estado a «Requiere mantenimiento» o «Fuera de servicio» cuando presente fallas.",
-          "Imprime su código QR para reportar o revisar mantenimientos rápidamente desde el Escáner QR.",
+          "Registra código, nombre, categoría, serial, fecha, costo de compra y elige su vida útil (por ejemplo 36 meses o 18 ciclos de engorde).",
+          "Si marcas la opción de registrar el pago en Caja, el dinero sale del efectivo del día pero el reporte mensual solo descuenta el desgaste proporcional de ese mes.",
+          "Asocia el equipo al Lugar de manejo e imprime su código QR para reportar o revisar mantenimientos desde el Escáner QR.",
         ],
       },
       {
         type: "note",
-        text: "La ficha conserva todos los datos técnicos, costo original de adquisición y tareas vinculadas; no calcula depreciación contable fiscal.",
+        text: "Cada mes que pasa solo se carga a tus costos reales el desgaste proporcional del equipo (vida útil lineal), mientras el valor restante sigue sumando al patrimonio productivo de la granja.",
       },
     ],
   },
@@ -1868,12 +1867,12 @@ export const guides: Guide[] = [
       },
       {
         type: "steps",
-        title: "Registrar una compra con actualización automática de stock y soporte",
+        title: "Registrar una compra separando gasto diario, bodega y equipos",
         items: [
           "Entra a Finanzas → Egresos y pulsa «+ Nuevo Egreso» (o «Subir factura OCR» desde Captura Rápida).",
-          "Adjunta la foto del recibo o PDF si la tienes para leer datos con OCR y conservar el soporte contable.",
-          "Selecciona categoría, especie o centro de costos (específico o compartido para prorrateo), y si es un producto frecuente autocompleta proveedor, presentación (bulto de 40 kg) y último precio.",
-          "Define si fue pago inmediato o crédito para acreditar inventario en bodega y generar la CxP en Finanzas → Cuentas.",
+          "Adjunta la foto del recibo o PDF si la tienes para leer datos automáticamente y conservar el soporte.",
+          "Si compras bultos de alimento, entran directo a tu bodega sin mostrar pérdida falsa hasta que los sirves al galpón. Si compras equipos o infraestructura, se separan como inversión de la finca y solo cargan su desgaste mensual.",
+          "Elige si va directo a una especie o lugar, o a gastos compartidos, y define si fue de contado o a crédito para actualizar Cuentas por Pagar.",
         ],
       },
     ],
@@ -2005,40 +2004,40 @@ export const guides: Guide[] = [
   },
   {
     slug: "balance-financiero",
-    title: "Balance financiero y flujo acumulado",
+    title: "Balance financiero en 3 capas: caja, ganancia real y patrimonio",
     module: "finanzas",
     icon: "wallet",
     summary:
-      "Consulta utilidad neta, margen operativo, gráfica de tendencia acumulada y libro de movimientos unificados de ingresos y egresos.",
+      "Distingue cuánto dinero entró o salió de caja, cuál es la ganancia real de operación del mes y cuánto vale lo que tienes en animales, bodega y equipos.",
     estimatedMinutes: 3,
-    tags: ["balance", "utilidad", "flujo", "margen", "ingresos", "egresos"],
+    tags: ["balance", "utilidad", "ganancia real", "flujo", "caja", "patrimonio", "margen", "ingresos", "egresos"],
     relatedHrefs: [
       { href: "/dashboard/finanzas/finanzas", label: "Balance Financiero" },
-      { href: "/dashboard/analisis/reportes", label: "Estado P&L Exportable" },
+      { href: "/dashboard/analisis/reportes", label: "Reportes de Ganancia" },
     ],
     sections: [
       {
         type: "intro",
-        text: "El Balance Financiero sintetiza cuánto ingresó, cuánto costó mantener el galpón durante el período seleccionado y si el flujo diario acumulado cerró en utilidad o pérdida.",
+        text: "Cuando compras equipos o varios bultos de alimento al comienzo de un lote, tu bolsillo baja aunque la granja esté ganando valor. Por eso el Balance muestra tres vistas claras: Dinero en caja (efectivo que entró y salió), Ganancia real de operación (ventas menos lo realmente gastado y desgastado este mes) y Patrimonio en granja (bultos en bodega + equipos + valor actual de tus animales).",
       },
       {
         type: "screenshot",
-        title: "Flujo financiero, curva de utilidad y desglose de rubros",
+        title: "Caja, ganancia real del mes y patrimonio acumulado",
         image: "/images/guia/finanzas-balance.webp",
-        alt: "Módulo Balance Financiero con tarjetas de ingresos, gastos, ganancia neta y área de evolución temporal",
+        alt: "Módulo Balance Financiero con tarjetas de ingresos, gasto real usado, ganancia operativa y patrimonio en bodega, equipos y animales",
         caption:
-          "Visualiza ingresos vs gastos promedio al día, margen de ganancia (%) y el gráfico comparativo temporal para detectar semanas de mayor gasto.",
-        badge: "Salud financiera",
+          "Visualiza ventas, gasto real usado, margen de ganancia y el valor vivo de tus animales para nunca confundir una inversión con una pérdida.",
+        badge: "Salud financiera clara",
         targetHref: "/dashboard/finanzas/finanzas",
         targetLabel: "Abrir Balance",
       },
       {
         type: "steps",
-        title: "Analizar la rentabilidad de un período",
+        title: "Leer el balance sin asustarse en los primeros meses",
         items: [
           "Abre Finanzas → Balance financiero y ajusta la ventana temporal (7, 30, 90 o 365 días).",
-          "Compara las tarjetas de Ingresos, Egresos, Utilidad Neta y Margen.",
-          "Revisa el libro inferior usando el buscador rápido para verificar cualquier movimiento puntual originado desde Ventas, Egresos o Mantenimiento.",
+          "Mira primero «Ganancia operativa real» y «Valor actual de animales + bodega + equipos» si estás arrancando o en etapa de cría y levante.",
+          "Revisa el detalle inferior usando el buscador rápido para verificar compras puntuales de Ventas, Egresos o Mantenimiento.",
         ],
       },
     ],
@@ -2089,52 +2088,52 @@ export const guides: Guide[] = [
   // ═══════════════════════════════════════════
   {
     slug: "kpis-reportes",
-    title: "KPIs zootécnicos, punto de equilibrio y contabilidad analítica",
+    title: "Indicadores sencillos, valor de animales y reportes",
     module: "analisis",
     icon: "bar-chart",
     summary:
-      "Mide postura HAA, CV%/EPEF, punto de equilibrio unitario, CAPEX/ROI y emite reportes P&L con prorrateo multi-especie exportables a Excel y PDF.",
+      "Mide eficiencia de postura y engorde, costo real por huevo o kilo, valor vivo de tus lotes, reparto justo de gastos compartidos y exporta a Excel o PDF.",
     estimatedMinutes: 4,
-    tags: ["kpis", "reportes", "p&l", "contabilidad analítica", "prorrateo", "haa", "epef", "capex", "roi", "punto de equilibrio", "excel", "pdf"],
+    tags: ["kpis", "indicadores", "reportes", "p&l", "contabilidad analítica", "prorrateo", "gastos compartidos", "haa", "epef", "capex", "roi", "punto de equilibrio", "excel", "pdf", "valor animales"],
     relatedHrefs: [
       { href: "/dashboard/analisis", label: "Centro de Análisis" },
-      { href: "/dashboard/analisis/kpis", label: "KPIs del Gallinero" },
-      { href: "/dashboard/analisis/reportes", label: "Reportes y Contabilidad Analítica" },
+      { href: "/dashboard/analisis/kpis", label: "Indicadores de la Granja" },
+      { href: "/dashboard/analisis/reportes", label: "Reportes y Ganancia por Especie" },
     ],
     sections: [
       {
         type: "intro",
-        text: "El área de Análisis aplica contabilidad analítica anti-subsidio cruzado: calcula costo unitario real por huevo/cubeta y por kg de carne, alerta si vendes por debajo del punto de equilibrio, reporta EPEF, CV%, uniformidad, HAA (Gallina-Alojada), retorno CAPEX/ROI y prorroga costos indirectos compartidos entre especies en reportes exportables a Excel (.xlsx) y PDF.",
+        text: "El área de Análisis adapta los indicadores al momento real de tus animales (cría y levante, postura o cosecha, o pausa de limpieza entre lotes). Además separa la compra de equipos y los bultos guardados en bodega de tus gastos del mes, calcula cuánto cuesta producir cada huevo o kilo de carne y reparte de forma justa los gastos compartidos como luz, agua o mano de obra entre cada especie.",
       },
       {
         type: "screenshot",
-        title: "Tablero de KPIs zootécnicos, equilibrio y CAPEX/ROI",
+        title: "Tablero de indicadores en lenguaje claro y valor de animales",
         image: "/images/guia/analisis-kpis.webp",
-        alt: "Módulo KPIs mostrando tasa de postura, pico productivo, costo por huevo, punto de equilibrio, EPEF y mortalidad",
+        alt: "Módulo KPIs mostrando tasa de postura, costo por huevo, punto de equilibrio, eficiencia de engorde y patrimonio en animales",
         caption:
-          "Filtra por período y especie para auditar mortalidad, conversión FCR, CV%, uniformidad, costo por cubeta/kg y ventanas óptimas de sacrificio.",
+          "Filtra por período y especie para vigilar mortalidad, cuánto alimento gasta por kilo ganado, qué tan parejos crecen tus lotes y la ventana ideal de cosecha.",
         badge: "Indicadores clave",
         targetHref: "/dashboard/analisis/kpis",
         targetLabel: "Ver KPIs",
       },
       {
         type: "screenshot",
-        title: "Reportes P&L, contabilidad analítica por especie y exportación",
+        title: "Reportes de ganancias, costos por especie y descarga Excel/PDF",
         image: "/images/guia/analisis-reportes.webp",
-        alt: "Módulo Reportes mostrando Estado de Pérdidas y Ganancias (P&L) y rentabilidad comparativa por línea productiva y especie",
+        alt: "Módulo Reportes mostrando Estado de Ganancias y Pérdidas, rentabilidad por especie y separación de equipos y bodega",
         caption:
-          "Evalúa márgenes reales por especie/producto aplicando reglas configurables de prorrateo para costos compartidos y descarga paquetes listos para DIAN o crédito agropecuario.",
+          "Consulta cuánto gana cada especie repartiendo los gastos compartidos de forma transparente y descarga soportes listos para contador o crédito agropecuario.",
         badge: "Excel / PDF",
         targetHref: "/dashboard/analisis/reportes",
         targetLabel: "Abrir Reportes",
       },
       {
         type: "steps",
-        title: "Aprovechar KPIs y Contabilidad Analítica para decidir",
+        title: "Usar KPIs y Reportes para tomar decisiones cada semana",
         items: [
-          "Entra a Análisis → KPIs para comparar tu costo unitario real (huevo, cubeta de 30 o kg de carne) frente al precio de venta promedio y vigilar alertas bajo costo.",
-          "Revisa EPEF, ganancia diaria, uniformidad y alertas de ventana de sacrificio antes de sostener lotes improductivos.",
-          "Abre Análisis → Reportes para emitir estados P&L, analizar rentabilidad por especie con prorrateo justo de costos indirectos y exportar en Excel o PDF.",
+          "Entra a Análisis → KPIs para comparar lo que te cuesta producir un huevo, una cubeta de 30 o un kilo de carne frente a su precio de venta.",
+          "Revisa qué tan parejo va el peso de tus animales y los avisos de cosecha antes de sostener lotes que ya gastan más comida de la que ganan.",
+          "Abre Análisis → Reportes para ver el estado de ganancias y pérdidas (separando caja, gasto real usado y valor de animales/bodega/equipos) y exportar en Excel o PDF.",
         ],
       },
     ],
@@ -2186,30 +2185,31 @@ export const guides: Guide[] = [
   // ═══════════════════════════════════════════
   {
     slug: "catalogos-sistema",
-    title: "Catálogos y configuración maestra (8 pestañas)",
+    title: "Catálogos y configuración maestra (10 pestañas)",
     module: "configuracion",
     icon: "settings",
     summary:
-      "Adapta listas, clientes/proveedores, parámetros del predio, las 6 especies (incluyendo cuyes), vacunas, pesos objetivo, gallinaza y nutrición.",
+      "Adapta listas, clientes/proveedores, parámetros del predio, 6 especies, vacunas, pesos, gallinaza, nutrición, clima/mercado y normas con adjuntos.",
     estimatedMinutes: 4,
-    tags: ["catálogos", "configuración", "8 pestañas", "parámetros", "razas", "especies", "cuyes", "precios", "nutrición"],
+    tags: ["catálogos", "configuración", "10 pestañas", "parámetros", "razas", "especies", "cuyes", "precios", "nutrición", "fuentes externas", "normas"],
     relatedHrefs: [
-      { href: "/dashboard/configuracion/catalogos", label: "Abrir Catálogos (8 pestañas)" },
+      { href: "/dashboard/configuracion/catalogos", label: "Abrir Catálogos (10 pestañas)" },
       { href: "/dashboard/contactos", label: "Directorio Clientes y Proveedores" },
+      { href: "/dashboard/analisis/normas", label: "Normas y Guías en Análisis" },
       { href: "/dashboard/configuracion", label: "Resumen Configuración" },
     ],
     sections: [
       {
         type: "intro",
-        text: "El corazón configurable de El Gallinero vive en Configuración → Catálogos. Organizado en 8 pestañas (Listas, Clientes y Proveedores, Parámetros, Especies, Vacunas, Pesos, Gallinaza y Alimentación), gobierna razas de 6 especies (con cuyes incluidos), precios por calibre NTC 1240, etapas, reglas de prorrateo, vacunas y composición nutricional sin tocar código.",
+        text: "El corazón configurable de El Gallinero vive en Configuración → Catálogos. Organizado en 10 pestañas (Listas, Clientes y Proveedores, Parámetros, Especies, Vacunas, Pesos, Gallinaza, Alimentación, Fuentes Externas y Normas y Guías), gobierna razas de las 6 especies (incluyendo cuyes), tamaños de huevo, reglas de reparto de gastos, vacunas, clima/precios de referencia y biblioteca de normas con adjuntos.",
       },
       {
         type: "screenshot",
-        title: "Administrador de catálogos y parámetros en 8 pestañas",
+        title: "Administrador de catálogos y parámetros en 10 pestañas",
         image: "/images/guia/configuracion-catalogos.webp",
         alt: "Módulo Catálogos mostrando pestañas maestras de configuración del sistema",
         caption:
-          "Incluye Listas desplegables, Directorio de Clientes y Proveedores, Parámetros globales del predio, Especies habilitadas, Plantillas de vacunas, Pesos estándar, Factores de gallinaza y Tabla nutricional.",
+          "Incluye Listas, Contactos, Parámetros, Especies, Vacunas, Pesos estándar, Gallinaza, Nutrición, Fuentes Externas y Normas/Guías propias.",
         badge: "Configuración maestra",
         targetHref: "/dashboard/configuracion/catalogos",
         targetLabel: "Abrir Catálogos",
@@ -2219,9 +2219,9 @@ export const guides: Guide[] = [
         title: "Personalizar el sistema para tu finca",
         items: [
           "Entra a Configuración → Catálogos.",
-          "En «Listas» y «Especies» habilita razas para gallinas, pollos, codornices, patos, conejos y cuyes, precios por tamaño NTC 1240, presentaciones y categorías.",
-          "En «Clientes y Proveedores» administra contactos comerciales (también accesible desde Finanzas → Clientes y Proveedores); en «Parámetros» ajusta ubicación, moneda, umbrales de alerta y reglas del predio.",
-          "Configura plantillas en «Vacunas», curvas en «Pesos», factores diarios en «Gallinaza» y %MS/%PC/Vitamina C en «Alimentación».",
+          "En «Listas» y «Especies» habilita razas para gallinas, pollos, codornices, patos, conejos y cuyes, precios por tamaño de huevo, presentaciones y categorías.",
+          "En «Clientes y Proveedores» administra contactos comerciales; en «Parámetros» ajusta ubicación, altitud, moneda y reglas del predio.",
+          "Configura plantillas en «Vacunas», curvas en «Pesos», factores en «Gallinaza», nutrición en «Alimentación», sincroniza clima/mercado en «Fuentes Externas» y sube protocolos propios en «Normas y Guías».",
         ],
       },
       {
@@ -2266,8 +2266,132 @@ export const guides: Guide[] = [
         title: "Seguridad de acceso y portabilidad de la información",
         items: [
           "Usa contraseñas de al menos 12 caracteres para el usuario administrador; si alguna vez olvidas la clave, solicita o utiliza un código de recuperación de un solo uso desde la pantalla de acceso (/login/recuperar).",
-          "Exporta tus estados P&L, KPIs e inventarios en Excel o PDF desde Análisis → Reportes y mantén al día la copia offline en tu dispositivo móvil.",
+          "Exporta tus reportes de ganancia, indicadores e inventarios en Excel o PDF desde Análisis → Reportes y mantén al día la copia offline en tu dispositivo móvil.",
           "Si deseas autoalojar la aplicación o implementar soluciones institucionales multi-predio sobre su núcleo GNU AGPLv3, consulta la documentación del repositorio y el enlace oficial del desarrollador en la tarjeta inferior.",
+        ],
+      },
+    ],
+  },
+  {
+    slug: "normas-estandares",
+    title: "Normas, estándares y guías aplicables con adjuntos",
+    module: "analisis",
+    icon: "book-open",
+    summary:
+      "Consulta resoluciones sanitarias, clasificación de huevo NTC 1240, bienestar animal y guías propias de tu granja con PDFs, fotos y ayuda directa de Gina.",
+    estimatedMinutes: 3,
+    tags: ["normas", "estándares", "guías", "ica", "ntc 1240", "bienestar", "adjuntos", "pdf", "protocolos"],
+    relatedHrefs: [
+      { href: "/dashboard/analisis/normas", label: "Ver Normas y Guías en Análisis" },
+      { href: "/dashboard/configuracion/catalogos?tab=normas", label: "Administrar en Catálogos" },
+      { href: "/dashboard/sanidad/bioseguridad", label: "Bioseguridad y Bienestar" },
+    ],
+    sections: [
+      {
+        type: "intro",
+        text: "El menú Análisis → Normas y guías aplicables reúne en un solo sitio las reglas obligatorias del ICA, los tamaños de huevo NTC 1240, pautas de bienestar animal y los manuales o protocolos propios que subas para tu finca.",
+      },
+      {
+        type: "screenshot",
+        title: "Biblioteca normativa con filtros por especie, listas de chequeo y adjuntos",
+        image: "/images/guia/configuracion-catalogos.webp",
+        alt: "Catálogo de normas, estándares técnicos y guías de manejo con filtros por tipo y especie",
+        caption:
+          "Filtra por tipo (Norma, Estándar o Guía) o especie, adjunta tus PDFs o fotos de respaldo y pregúntale a Gina cómo verificar cada punto en el galpón.",
+        badge: "Cumplimiento y Guías",
+        targetHref: "/dashboard/analisis/normas",
+        targetLabel: "Abrir Normas y Guías",
+      },
+      {
+        type: "steps",
+        title: "Consultar normas o agregar un protocolo propio",
+        items: [
+          "Entra a Análisis → Normas y guías aplicables en la barra lateral.",
+          "Usa el buscador o los filtros por tipo y especie para abrir la ficha resumida y revisar su lista de verificación práctica.",
+          "Si deseas agregar una norma interna, certificación o manual propio, haz clic en «Agregar norma o guía» (también desde el botón Crear +), adjunta el PDF o foto de soporte y guárdala.",
+          "Pulsa «Preguntar a Gina» dentro de cualquier ficha para recibir una explicación paso a paso adaptada a tu granja.",
+        ],
+      },
+    ],
+  },
+  {
+    slug: "fuentes-externas",
+    title: "Clima, precios de mercado y entorno de granja",
+    module: "analisis",
+    icon: "globe",
+    summary:
+      "Conecta automáticamente el pronóstico del clima en tu municipio, precios de referencia SIPSA/TRM, festivos y parámetros de tu entorno productivo.",
+    estimatedMinutes: 3,
+    tags: ["clima", "calor", "lluvia", "ith", "mercado", "precios", "sipsa", "trm", "festivos", "fuentes externas"],
+    relatedHrefs: [
+      { href: "/dashboard/analisis/fuentes-externas", label: "Clima, Mercado y Entorno" },
+      { href: "/dashboard/configuracion/catalogos?tab=fuentes", label: "Tablas Externas en Catálogos" },
+      { href: "/dashboard/analisis/razas", label: "Curvas Ajustadas por Altura" },
+    ],
+    sections: [
+      {
+        type: "intro",
+        text: "El comportamiento de las aves, conejos y cuyes cambia con el calor, la humedad y la altura sobre el nivel del mar, igual que la rentabilidad cambia con los precios del mercado. Desde Análisis → Clima, mercado y entorno mantienes esa información viva sin digitarla a mano.",
+      },
+      {
+        type: "screenshot",
+        title: "Monitor de clima local, alertas de calor y referencias de mercado",
+        image: "/images/guia/analisis-razas.webp",
+        alt: "Pantalla de análisis ambiental, curvas ajustadas por altitud y referencias de mercado",
+        caption:
+          "Cuando cambias el municipio o la altitud de la finca, la app ajusta las alertas de calor y los ritmos esperados de crecimiento.",
+        badge: "Entorno vivo",
+        targetHref: "/dashboard/analisis/fuentes-externas",
+        targetLabel: "Ver Clima y Mercado",
+      },
+      {
+        type: "steps",
+        title: "Mantener el clima y referencias al día",
+        items: [
+          "Abre Análisis → Clima, mercado y entorno para revisar el pronóstico de los próximos días y avisos de calor o humedad en galpón.",
+          "Pulsa «Actualizar ahora» cuando estés con señal para traer las últimas temperaturas, precios mayoristas y festivos del calendario.",
+          "Si operas varios días sin internet, la app conserva los últimos datos sincronizados de respaldo para no bloquear tus registros.",
+        ],
+      },
+    ],
+  },
+  {
+    slug: "reportar-fallas",
+    title: "Presentar fallas o sugerencias con diagnóstico automático",
+    module: "configuracion",
+    icon: "alert",
+    summary:
+      "Envía un reporte desde cualquier pantalla usando el botón inferior o superior; llega etiquetado automáticamente con el lugar exacto donde ocurrió.",
+    estimatedMinutes: 2,
+    tags: ["fallas", "reporte", "soporte", "bug", "error", "etiquetas", "incidencia", "ayuda"],
+    relatedHrefs: [
+      { href: "/dashboard/configuracion/fallas", label: "Ver Reportes de Fallas" },
+      { href: "/dashboard/configuracion", label: "Panel Configuración" },
+    ],
+    sections: [
+      {
+        type: "intro",
+        text: "Si alguna pantalla falla, un cálculo no coincide o quieres proponer una mejora, no necesitas explicar con términos técnicos en qué parte estabas. El botón «Reportar falla» adjunta automáticamente etiquetas con la pantalla exacta, el módulo, tu dispositivo y si estabas con o sin internet.",
+      },
+      {
+        type: "screenshot",
+        title: "Bandeja de seguimiento y diagnóstico etiquetado de fallas",
+        image: "/images/guia/configuracion-panel.webp",
+        alt: "Panel de configuración y soporte para revisar reportes de fallas etiquetados por módulo y severidad",
+        caption:
+          "Cada incidencia recibe un código único (como FAIL-2026...) y etiquetas de origen para atenderla rápido sin perder contexto.",
+        badge: "Soporte con contexto",
+        targetHref: "/dashboard/configuracion/fallas",
+        targetLabel: "Ir a Reportes de Fallas",
+      },
+      {
+        type: "steps",
+        title: "Enviar una falla desde cualquier módulo",
+        items: [
+          "Haz clic en «Reportar falla» en la barra superior o al pie del menú lateral (o usa «Presentar falla o incidencia» en Crear +).",
+          "Escribe un título breve y cuenta qué estabas intentando hacer y qué pasó.",
+          "Verifica la vista previa de etiquetas automáticas (pantalla, red, errores recientes capturados) y envía el reporte.",
+          "Consulta el estado (Abierto, En revisión o Resuelto) en Configuración → Reportes de fallas.",
         ],
       },
     ],

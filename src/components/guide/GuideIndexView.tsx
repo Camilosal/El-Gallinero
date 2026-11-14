@@ -62,7 +62,7 @@ export function GuideIndexView({ basePath }: GuideIndexViewProps) {
         badge={
           <span className="inline-flex items-center gap-1.5 rounded-full bg-white/15 px-3 py-1 text-xs font-medium text-white backdrop-blur-xs">
             <Layers className="h-3.5 w-3.5 text-amber-200" aria-hidden="true" />
-            {guideModules.length} módulos · {guides.length} guías ilustradas
+            {guideModules.filter((m) => m.kind === "modulo").length} módulos de la app + {guideModules.filter((m) => m.kind === "complementario").length} complementarios · {guides.length} guías ilustradas
           </span>
         }
       />
@@ -255,9 +255,16 @@ export function GuideIndexView({ basePath }: GuideIndexViewProps) {
                     <AppIcon icon={mod.icon} className="h-5 w-5" />
                   </span>
                   <div>
-                    <h2 id={`mod-${mod.id}`} className="text-lg font-bold text-slate-900 sm:text-xl">
-                      {mod.label}
-                    </h2>
+                    <div className="flex flex-wrap items-center gap-2">
+                      <h2 id={`mod-${mod.id}`} className="text-lg font-bold text-slate-900 sm:text-xl">
+                        {mod.label}
+                      </h2>
+                      {mod.kind === "complementario" && (
+                        <span className="rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-amber-900">
+                          Complementario
+                        </span>
+                      )}
+                    </div>
                     <p className="text-xs text-slate-500 sm:text-sm">{mod.description}</p>
                   </div>
                 </div>
