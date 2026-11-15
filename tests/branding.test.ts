@@ -5,7 +5,7 @@ import { APP_BRAND, APP_DEVELOPER } from "@/lib/branding";
 
 describe("marca y atribución de desarrollo en producción", () => {
   it("expone constantes exactas de autoría y contacto", () => {
-    expect(APP_BRAND.name).toBe("El Gallinero");
+    expect(APP_BRAND.name).toBe("El Corral");
     expect(APP_DEVELOPER.name).toBe("Camilo Saldarriaga");
     expect(APP_DEVELOPER.url).toBe("https://camilosaldarriaga.com");
     expect(APP_DEVELOPER.domain).toBe("camilosaldarriaga.com");

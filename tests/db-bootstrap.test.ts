@@ -31,9 +31,10 @@ describe("Cadena unificada de migración, semilla base y bootstrap", () => {
       expect(fs.existsSync(path.join(process.cwd(), relPath))).toBe(true);
     }
 
-    const legacySql = fs
-      .readdirSync(path.join(process.cwd(), "scripts"))
-      .filter((name) => name.endsWith(".sql"));
+    const scriptsDir = path.join(process.cwd(), "scripts");
+    const legacySql = fs.existsSync(scriptsDir)
+      ? fs.readdirSync(scriptsDir).filter((name) => name.endsWith(".sql"))
+      : [];
     expect(legacySql).toEqual([]);
     expect(fs.existsSync(path.join(process.cwd(), "src/db/seed-complemento.sql"))).toBe(false);
     expect(fs.existsSync(path.join(process.cwd(), "src/db/seed-premium.sql"))).toBe(false);
