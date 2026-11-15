@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { BrandLogo } from "@/components/BrandLogo";
 import { APP_DEVELOPER } from "@/lib/branding";
 import { LEGAL, LEGAL_LINKS } from "@/lib/legal";
 
@@ -33,13 +34,15 @@ export function LandingFooter() {
           <div>
             <Link
               href="#top"
-              className="inline-flex items-center gap-2 font-display text-lg font-bold tracking-tight text-[var(--ink)]"
+              className="inline-flex items-center gap-3 font-display text-lg font-bold tracking-tight text-[var(--ink)]"
             >
-              <span
-                className="w-2.5 h-2.5 rounded-full bg-[var(--forest)]"
-                aria-hidden="true"
+              <BrandLogo
+                variant="full"
+                size={68}
+                decorative
+                className="rounded-2xl border border-[var(--line)] shadow-xs"
               />
-              El Corral
+              <span>El Corral</span>
             </Link>
             <p className="mt-2 text-sm text-[var(--moss)]">
               Iwagé Granja · Gestión para granjas mixtas en Colombia.

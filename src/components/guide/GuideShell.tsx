@@ -5,7 +5,6 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
   ArrowLeft,
-  BookOpen,
   ChevronDown,
   ChevronRight,
   ExternalLink,
@@ -15,6 +14,7 @@ import {
   X,
 } from "lucide-react";
 import { AppIcon } from "@/components/AppIcon";
+import { BrandLogo } from "@/components/BrandLogo";
 import { GuideSearchModal } from "@/components/guide/GuideSearchModal";
 import { DeveloperCredit } from "@/components/DeveloperCredit";
 import { guideModules, guides } from "@/lib/guide-data";
@@ -208,9 +208,12 @@ export function GuideShell({ children, basePath, isStandalone }: GuideShellProps
             </button>
 
             <Link href={basePath} className="flex min-w-0 items-center gap-2.5">
-              <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-green-800 text-amber-200 shadow-xs">
-                <BookOpen className="h-4 w-4" aria-hidden="true" />
-              </span>
+              <BrandLogo
+                variant="mark"
+                size={36}
+                decorative
+                className="rounded-xl border border-slate-200 shadow-xs"
+              />
               <span className="min-w-0">
                 <span className="flex items-center gap-2">
                   <span className="truncate text-sm font-bold text-slate-900 sm:text-base">

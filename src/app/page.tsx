@@ -25,6 +25,7 @@ import {
 } from "lucide-react";
 import MobileNav from "@/components/MobileNav";
 import ScrollReveal from "@/components/ScrollReveal";
+import { BrandLogo } from "@/components/BrandLogo";
 import { LandingShowcase } from "@/components/LandingShowcase";
 import { LandingFooter } from "@/components/LandingFooter";
 import { ModulesAccordionShowcase } from "@/components/ModulesAccordionShowcase";
@@ -155,13 +156,15 @@ export default function HomePage() {
           <div className="land-wrap flex items-center justify-between gap-4 py-3.5">
             <Link
               href="#top"
-              className="font-display text-lg font-bold tracking-tight text-[var(--ink)] flex items-center gap-2 shrink-0"
+              className="font-display text-lg font-bold tracking-tight text-[var(--ink)] flex items-center gap-2.5 shrink-0"
             >
-              <span
-                className="w-2.5 h-2.5 rounded-full bg-[var(--forest)]"
-                aria-hidden="true"
+              <BrandLogo
+                variant="mark"
+                size={34}
+                decorative
+                className="rounded-xl border border-[var(--line)] shadow-xs"
               />
-              El Corral
+              <span>El Corral</span>
             </Link>
 
             <div className="hidden md:flex items-center gap-6 text-sm font-medium text-[var(--moss)]">
@@ -215,9 +218,17 @@ export default function HomePage() {
           <div className="land-wrap relative z-10 pt-14 sm:pt-16 lg:pt-20 pb-0">
             <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 lg:gap-10 items-center">
               <div className="lg:col-span-6 space-y-5">
-                <p className="inline-flex items-center rounded-full border border-white/15 bg-white/10 px-3 py-1 font-mono text-[11px] uppercase tracking-[0.14em] text-[#e7cf9e]">
-                  Plataforma digital y herramienta informativa
-                </p>
+                <div className="flex flex-wrap items-center gap-2.5">
+                  <BrandLogo
+                    variant="mark"
+                    size={28}
+                    decorative
+                    className="rounded-lg border border-white/25 shadow-sm"
+                  />
+                  <p className="inline-flex items-center rounded-full border border-white/15 bg-white/10 px-3 py-1 font-mono text-[11px] uppercase tracking-[0.14em] text-[#e7cf9e]">
+                    Plataforma digital y herramienta informativa
+                  </p>
+                </div>
 
                 <h1 className="font-display text-3xl sm:text-4xl lg:text-[46px] font-bold tracking-tight text-white leading-[1.08]">
                   Tu granja al día,{" "}

@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useState, useCallback } from "react";
+import { BrandLogo } from "@/components/BrandLogo";
 
 const LINKS = [
   { href: "#como-funciona", label: "Cómo funciona" },
@@ -32,6 +33,17 @@ export default function MobileNav() {
 
       {/* Mobile overlay menu */}
       <div className={`land-mobile-menu ${open ? "open" : ""}`}>
+        <div className="flex items-center gap-2.5 pb-3 mb-2 border-b border-[var(--line)]">
+          <BrandLogo
+            variant="mark"
+            size={30}
+            decorative
+            className="rounded-lg border border-[var(--line)]"
+          />
+          <span className="font-display text-base font-bold text-[var(--ink)]">
+            El Corral
+          </span>
+        </div>
         <nav className="land-mobile-nav">
           {LINKS.map((l) => (
             <a key={l.href} href={l.href} onClick={close}>

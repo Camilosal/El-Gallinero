@@ -9,11 +9,11 @@ import {
   Check,
   CheckCircle2,
   Copy,
-  Egg,
   KeyRound,
   Leaf,
   ShieldCheck,
 } from "lucide-react";
+import { BrandLogo } from "@/components/BrandLogo";
 import { DeveloperCredit } from "@/components/DeveloperCredit";
 import { LegalLinksBar } from "@/components/LegalLinksBar";
 import { trackAnalyticsEvent } from "@/components/AnalyticsTracker";
@@ -170,9 +170,11 @@ export default function RegistroPage() {
     <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-earth-100 via-earth-50 to-amber-50 p-4">
       <div className="w-full max-w-md bg-white rounded-2xl shadow-xl border border-earth-200 p-6 sm:p-8">
         <div className="text-center mb-6">
-          <div className="inline-flex items-center justify-center w-14 h-14 rounded-2xl bg-gradient-to-br from-emerald-700 to-amber-600 shadow-md mb-3">
-            <Egg className="w-7 h-7 text-white" />
-          </div>
+          <BrandLogo
+            variant="full"
+            size={84}
+            className="mx-auto mb-3 rounded-2xl border border-earth-200 shadow-sm"
+          />
           <p className="text-xs font-bold uppercase tracking-wider text-emerald-700">
             Iwagé Granja · Plan Semilla
           </p>

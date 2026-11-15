@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import Link from "next/link";
+import { BrandLogo } from "@/components/BrandLogo";
 import { HeroFrame } from "@/components/HeroFrame";
 import { DeveloperCredit } from "@/components/DeveloperCredit";
 
@@ -49,6 +50,7 @@ export default function RecoverAccessPage() {
         <HeroFrame
           theme="guia"
           compact
+          icon={<BrandLogo variant="mark" size={18} decorative className="rounded-sm" />}
           eyebrow="Seguridad de cuenta"
           title="Recuperar acceso"
           description="Restablece tu contraseña con un código de recuperación de un solo uso"

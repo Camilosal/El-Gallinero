@@ -3,7 +3,8 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { ArrowLeft, Bird, Leaf } from "lucide-react";
+import { ArrowLeft, Leaf } from "lucide-react";
+import { BrandLogo } from "@/components/BrandLogo";
 import { HeroFrame } from "@/components/HeroFrame";
 import { DeveloperCredit } from "@/components/DeveloperCredit";
 import { LegalLinksBar } from "@/components/LegalLinksBar";
@@ -59,7 +60,7 @@ export default function LoginPage() {
           <HeroFrame
             theme="inicio"
             compact
-            icon={<Bird className="w-4 h-4 text-amber-200" aria-hidden="true" />}
+            icon={<BrandLogo variant="mark" size={18} decorative className="rounded-sm" />}
             eyebrow="Acceso al sistema"
             title="El Corral"
             description="Sistema de Gestión Avícola"
@@ -68,6 +69,13 @@ export default function LoginPage() {
 
           {/* Login Form */}
           <div className="bg-white rounded-2xl shadow-xl p-8 border border-earth-100">
+            <div className="flex justify-center mb-5">
+              <BrandLogo
+                variant="full"
+                size={84}
+                className="rounded-2xl border border-earth-100 shadow-xs"
+              />
+            </div>
             <form onSubmit={submit} className="space-y-5">
               <div>
                 <label className="block text-sm font-semibold text-earth-800 mb-2">

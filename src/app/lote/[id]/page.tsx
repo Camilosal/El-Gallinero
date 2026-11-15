@@ -1,3 +1,4 @@
+import { BrandLogo } from "@/components/BrandLogo";
 import { DeveloperCredit } from "@/components/DeveloperCredit";
 import { db } from "@/db";
 import { broilerBatches, mortalityRecords } from "@/db/schema";
@@ -64,11 +65,7 @@ export default async function LoteTraceabilityPage({ params }: Props) {
           title="Trazabilidad - El Corral"
           description="Información de producción avícola y ciclo del lote"
           className="mb-8"
-          icon={
-            <svg className="w-4 h-4 text-amber-200" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-            </svg>
-          }
+          icon={<BrandLogo variant="mark" size={18} decorative className="rounded-sm" />}
         />
 
         {/* Batch Info Card */}
@@ -138,6 +135,9 @@ export default async function LoteTraceabilityPage({ params }: Props) {
 
         {/* Footer */}
         <div className="text-center mt-8 pt-6 border-t border-gray-200">
+          <div className="flex justify-center mb-3">
+            <BrandLogo variant="full" size={64} className="rounded-2xl border border-gray-200 shadow-xs" />
+          </div>
           <p className="text-sm text-gray-500">
             Producto de <span className="font-semibold text-green-700">El Corral</span> - Granja Autosustentable
           </p>

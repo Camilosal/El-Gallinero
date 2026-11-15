@@ -11,11 +11,11 @@ import {
   type MenuGroup,
 } from "@/lib/navigation";
 import { useOnboardingState } from "@/lib/useOnboardingState";
+import { BrandLogo } from "@/components/BrandLogo";
 import { DeveloperCredit } from "@/components/DeveloperCredit";
 import { clearOfflineCryptoKey } from "@/lib/offline/crypto";
 import {
   BarChart3,
-  Bird,
   BookOpen,
   Bug,
   Check,
@@ -278,10 +278,10 @@ export default function Sidebar() {
           {collapsed ? (
             <div className="flex flex-col items-center gap-1.5">
               <div
-                className="flex h-9 w-9 items-center justify-center rounded-xl bg-green-800 text-farm-300 border border-green-700"
+                className="flex h-9 w-9 items-center justify-center rounded-xl border border-green-700/70 overflow-hidden shadow-sm"
                 title={farmMeta?.farmId ? `${farmMeta.farmName || "El Corral"} · FarmID: ${farmMeta.farmId}` : "El Corral"}
               >
-                <Bird className="w-5 h-5" />
+                <BrandLogo variant="mark" size={36} decorative className="rounded-xl" />
               </div>
               {farmMeta?.farmId && (
                 <button
@@ -298,8 +298,8 @@ export default function Sidebar() {
           ) : (
             <>
               <h1 className="text-xl font-bold flex items-center gap-2.5">
-                <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-green-800 text-farm-300 border border-green-700 shrink-0">
-                  <Bird className="w-5 h-5" />
+                <span className="flex h-10 w-10 items-center justify-center rounded-xl border border-green-700/70 overflow-hidden shadow-sm shrink-0">
+                  <BrandLogo variant="mark" size={40} decorative className="rounded-xl" />
                 </span>
                 <span>El Corral</span>
               </h1>
