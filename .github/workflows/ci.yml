@@ -65,8 +65,8 @@ jobs:
       - name: Lint
         run: npm run lint
 
-      - name: Sincronizar esquema en el_gallinero_test
-        run: npx drizzle-kit push --force
+      - name: Inicializar esquema y semilla base en el_gallinero_test
+        run: npm run db:bootstrap
 
       - name: Ejecutar pruebas (Vitest)
         run: npm run test

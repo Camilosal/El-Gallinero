@@ -25,6 +25,9 @@ services:
         condition: service_healthy
     environment:
       DATABASE_URL: postgres://${POSTGRES_USER:-app}:${POSTGRES_PASSWORD:-app}@db:5432/${POSTGRES_DB:-app_db}
+      AUTO_MIGRATE_ON_BOOT: ${AUTO_MIGRATE_ON_BOOT:-true}
+      ADMIN_USERNAME: ${ADMIN_USERNAME:-}
+      ADMIN_PASSWORD: ${ADMIN_PASSWORD:-}
       # Add other env variables as needed, e.g., NEXTAUTH_SECRET, etc.
     ports:
       - "3000:3000"
@@ -38,6 +41,8 @@ services:
         condition: service_healthy
     environment:
       DATABASE_URL: postgres://${POSTGRES_USER:-app}:${POSTGRES_PASSWORD:-app}@db:5432/${POSTGRES_DB:-app_db}
-    command: ["npm", "run", "db:push"]
+      ADMIN_USERNAME: ${ADMIN_USERNAME:-}
+      ADMIN_PASSWORD: ${ADMIN_PASSWORD:-}
+    command: ["npm", "run", "db:bootstrap"]
 volumes:
   pgdata:
