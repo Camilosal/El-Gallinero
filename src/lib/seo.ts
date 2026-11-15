@@ -38,11 +38,11 @@ export function resolveOgImageDimensions(pathOrUrl?: string): { width: number; h
 }
 
 export const ENTITY_IDS = {
-  person: "https://camilosaldarriaga.com/#person",
+  person: "https://iwage.co/#founder",
   organization: "https://iwage.co/#organization",
   website: `${SITE_URL}/#website`,
   software: `${SITE_URL}/#software`,
-  project: "https://iwage.co/granja#project",
+  project: "https://iwage.co/granja/#organization",
 } as const;
 
 export function canonicalUrlFor(path: string): string {
@@ -198,13 +198,19 @@ export function buildBaseEntities(): Record<string, unknown>[] {
         addressRegion: "Tolima",
         addressCountry: "CO",
       },
-      sameAs: ["https://github.com/Camilosal", "https://iwage.co"],
+      sameAs: [
+        "https://camilosaldarriaga.com",
+        "https://www.linkedin.com/in/camilosaldarriaga",
+        "https://github.com/Camilosal",
+        "https://iwage.co",
+        "https://espaciosplus.com",
+      ],
     },
     {
       "@type": "Organization",
       "@id": ENTITY_IDS.organization,
       name: "Iwagé",
-      url: "https://iwage.co",
+      url: "https://iwage.co/",
       logo: `${SITE_URL}/icon-512.png`,
       description:
         "Ecosistema Iwagé en Ibagué, Tolima: Iwagé Granja, meliponicultura, café, tierras y software agropecuario abierto.",
@@ -231,6 +237,7 @@ export function buildBaseEntities(): Record<string, unknown>[] {
       ],
       sameAs: [
         "https://iwage.co",
+        "https://iwage.co/granja",
         "https://camilosaldarriaga.com",
         "https://espaciosplus.com",
         "https://github.com/Camilosal/El-Gallinero",
