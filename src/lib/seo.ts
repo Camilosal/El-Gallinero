@@ -17,8 +17,10 @@ export const OG_IMAGE_DIMENSIONS: Record<string, { width: number; height: number
   "/traceability-flow.png": { width: 1792, height: 1024 },
   "/hero-illustration.png": { width: 1024, height: 768 },
   "/modules-diagram.png": { width: 1024, height: 1024 },
-  "/icon-192.png": { width: 1024, height: 1024 },
-  "/icon-512.png": { width: 1024, height: 1024 },
+  "/logo-el-corral.webp": { width: 512, height: 512 },
+  "/logo-el-corral-mark.webp": { width: 256, height: 256 },
+  "/icon-192.png": { width: 192, height: 192 },
+  "/icon-512.png": { width: 512, height: 512 },
 };
 
 export function resolveOgImageDimensions(pathOrUrl?: string): { width: number; height: number } {
@@ -266,6 +268,7 @@ export function buildSoftwareNode(): Record<string, unknown> {
     operatingSystem: "Web, PWA",
     inLanguage: "es-CO",
     url: SITE_URL,
+    image: `${SITE_URL}/logo-el-corral.webp`,
     codeRepository: "https://github.com/Camilosal/El-Gallinero",
     license: "https://github.com/Camilosal/El-Gallinero/blob/main/LICENSE",
     programmingLanguage: ["TypeScript"],

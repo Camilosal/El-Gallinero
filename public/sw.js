@@ -1,4 +1,4 @@
-const CACHE_VERSION = 'v9';
+const CACHE_VERSION = 'v10';
 const APP_CACHE = `gallinero-app-${CACHE_VERSION}`;
 const PRECACHE = [
   '/',
@@ -10,8 +10,8 @@ const PRECACHE = [
   '/operaciones/cierre',
   '/manual',
   '/manifest.json',
-  '/icon-192.svg',
-  '/icon-512.svg',
+  '/logo-el-corral.webp',
+  '/logo-el-corral-mark.webp',
   '/icon-192.png',
   '/icon-512.png',
 ];
