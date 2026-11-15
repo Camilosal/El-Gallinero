@@ -198,4 +198,16 @@ describe("SEO + GEO skill compliance", () => {
       titles.some((title) => title.includes("Analítica web") && title.includes("sin cookies")),
     ).toBe(true);
   });
+
+  it("alinea los @id canónicos de Schema.org con Iwagé (founder, organization y granja)", () => {
+    expect(ENTITY_IDS.person).toBe("https://iwage.co/#founder");
+    expect(ENTITY_IDS.organization).toBe("https://iwage.co/#organization");
+    expect(ENTITY_IDS.project).toBe("https://iwage.co/granja/#organization");
+
+    const sw = buildSoftwareNode();
+    expect(sw.creator).toEqual({ "@id": ENTITY_IDS.organization });
+    expect(sw.author).toEqual({ "@id": ENTITY_IDS.person });
+    expect(sw.maintainer).toEqual({ "@id": ENTITY_IDS.person });
+    expect(sw.isPartOf).toEqual({ "@id": ENTITY_IDS.project });
+  });
 });

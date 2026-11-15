@@ -25,11 +25,19 @@ function readImageDimensions(relPublicPath: string): { width: number; height: nu
 }
 
 describe("SEO-01 y SEO-02 — Sitemap granular y dimensiones OG reales", () => {
-  it("sitemap cubre las rutas públicas con fechas válidas y no uniformes", () => {
+  it("sitemap cubre las 70 rutas públicas sin duplicados ni rutas privadas", () => {
     const entries = sitemap();
     const expectedCount =
       13 + CYCLE_PLANS_SHOWCASE.length + BITACORA_ARTICLES.length + guides.length;
+    expect(expectedCount).toBe(70);
     expect(entries.length).toBe(expectedCount);
+
+    const urls = entries.map((e) => e.url);
+    expect(new Set(urls).size).toBe(expectedCount);
+    for (const url of urls) {
+      expect(url.startsWith("https://gallinero.iwage.co")).toBe(true);
+      expect(url).not.toMatch(/\/(dashboard|api|login)(\/|$)/);
+    }
 
     const uniqueDates = new Set(
       entries.map((e) =>
@@ -41,15 +49,20 @@ describe("SEO-01 y SEO-02 — Sitemap granular y dimensiones OG reales", () => {
     expect(uniqueDates.size).toBeGreaterThanOrEqual(2);
   });
 
-  it("resolveOgImageDimensions y buildPublicMetadata declaran el tamaño real en disco de cada activo OG", () => {
+  it("resolveOgImageDimensions y buildPageMetadata declaran el tamaño real en disco de todos los activos", () => {
+    const guiaWebps = fs
+      .readdirSync(path.join(process.cwd(), "public/images/guia"))
+      .filter((name) => name.endsWith(".webp"))
+      .map((name) => `/images/guia/${name}`);
+
     const pathsToVerify = new Set<string>([
-      "/images/guia/inicio-dashboard.webp",
-      "/images/guia/asistente-ia.webp",
-      "/images/guia/configuracion-panel.webp",
-      "/images/guia/captura-rapida-modal.webp",
-      "/images/guia/finanzas-balance.webp",
-      "/images/guia/finanzas-presupuestos.webp",
+      ...guiaWebps,
       "/images/heroes/inicio-2x.webp",
+      "/traceability-flow.png",
+      "/hero-illustration.png",
+      "/modules-diagram.png",
+      "/icon-192.png",
+      "/icon-512.png",
       ...BITACORA_ARTICLES.map((a) => a.image.src),
     ]);
 
