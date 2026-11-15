@@ -2,7 +2,7 @@
 
 ## Versiones Soportadas
 
-Las siguientes ramas/versiones de **El Gallinero (Core Abierto)** reciben actualizaciones de seguridad:
+Las siguientes ramas/versiones de **El Corral (Core Abierto)** reciben actualizaciones de seguridad:
 
 | Versión | Estado |
 | --- | --- |
@@ -16,7 +16,7 @@ La seguridad de los datos productivos, sanitarios y financieros de las granjas e
 ### Canales privados de reporte
 
 1. **GitHub Security Advisories (preferido):** reporta de forma privada en **[https://github.com/Camilosal/El-Gallinero/security/advisories/new](https://github.com/Camilosal/El-Gallinero/security/advisories/new)**.
-2. **Canal web del mantenedor:** si no puedes usar GitHub Advisories, contáctanos a través de **[https://camilosaldarriaga.com](https://camilosaldarriaga.com)** indicando en el asunto `[Seguridad · El Gallinero]`.
+2. **Canal web del mantenedor:** si no puedes usar GitHub Advisories, contáctanos a través de **[https://camilosaldarriaga.com](https://camilosaldarriaga.com)** indicando en el asunto `[Seguridad · El Corral]`.
 
 Incluye en tu reporte:
 - Descripción técnica de la vulnerabilidad y componente/archivo afectado.

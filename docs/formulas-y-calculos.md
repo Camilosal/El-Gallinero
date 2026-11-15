@@ -1,6 +1,6 @@
-# Fórmulas y cálculos — El Gallinero
+# Fórmulas y cálculos — El Corral
 
-> Motor de cálculo del sistema de gestión avícola multi-especie **El Gallinero**.
+> Motor de cálculo del sistema de gestión avícola multi-especie **El Corral**.
 > Documento trazable al código de `src/lib/` y de `src/app/api/` el **14 de noviembre de 2026**.
 
 **Alcance.** Este documento describe cada dato calculado del sistema: qué variable es, cómo se define, cuál es su fórmula, cómo la implementa el código, de qué tablas y campos sale y en qué pantalla, reporte o cálculo posterior termina. No inventa fórmulas: cada ficha cita el archivo y la función que la ejecuta. El modelo de datos subyacente está en el [diccionario de datos](data-dictionary.md).
@@ -1095,4 +1095,4 @@ Cuando se agregue, modifique o elimine un cálculo en el código:
 
 ---
 
-*Documento mantenido por el equipo de El Gallinero. Última verificación: 14 de noviembre de 2026. Código base: `src/lib/` y `src/app/api/`.*
+*Documento mantenido por el equipo de El Corral. Última verificación: 14 de noviembre de 2026. Código base: `src/lib/` y `src/app/api/`.*

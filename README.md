@@ -1,4 +1,4 @@
-# El Gallinero — Core Abierto Multi-Especie
+# El Corral — Core Abierto Multi-Especie
 
 **Infraestructura Digital Offline-First para la Gestión Zootécnica, Sanitaria y Financiera de Granjas de Aves y Especies Menores en Latinoamérica.**
 
@@ -9,7 +9,7 @@
 
 ---
 
-**El Gallinero** consolida en este repositorio el **Core Abierto Operativo (Community Edition)** de la plataforma desarrollada por **[Camilo Saldarriaga](https://camilosaldarriaga.com)**: una aplicación web progresiva (*offline-first*) diseñada para granjas familiares, productores medianos, asistentes técnicos y proyectos rurales multi-especie.
+**El Corral** consolida en este repositorio el **Core Abierto Operativo (Community Edition)** de la plataforma desarrollada por **[Camilo Saldarriaga](https://camilosaldarriaga.com)**: una aplicación web progresiva (*offline-first*) diseñada para granjas familiares, productores medianos, asistentes técnicos y proyectos rurales multi-especie.
 
 Toda operación productiva, sanitaria o de mantenimiento alimenta automáticamente las finanzas e inventarios (FIFO/PEPS) con trazabilidad completa a su origen.
 

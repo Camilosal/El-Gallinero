@@ -1,6 +1,6 @@
-# AGENTS_GALLINERO.md — El Gallinero
+# AGENTS_GALLINERO.md — El Corral
 
-Guía técnica de referencia para colaboradores y agentes de código que trabajan en **este repositorio (`El Gallinero`)**: aplicación PWA *offline-first* para gestión integral multi-especie (gallinas ponedoras, pollos de engorde, gallos, codornices, patos, conejos y cuyes/curíes), inventarios PEPS, alimentación, sanidad, operaciones, finanzas, análisis y conectores ERP.
+Guía técnica de referencia para colaboradores y agentes de código que trabajan en **este repositorio (`El Corral`)**: aplicación PWA *offline-first* para gestión integral multi-especie (gallinas ponedoras, pollos de engorde, gallos, codornices, patos, conejos y cuyes/curíes), inventarios PEPS, alimentación, sanidad, operaciones, finanzas, análisis y conectores ERP.
 
 ## 🏛️ Principios de Trabajo y Seguridad
 

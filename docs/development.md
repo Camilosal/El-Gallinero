@@ -1,6 +1,6 @@
-# Guía de Desarrollo de El Gallinero
+# Guía de Desarrollo de El Corral
 
-Este documento proporciona instrucciones detalladas para configurar el entorno de desarrollo, ejecutar pruebas, y contribuir efectivamente al proyecto El Gallinero.
+Este documento proporciona instrucciones detalladas para configurar el entorno de desarrollo, ejecutar pruebas, y contribuir efectivamente al proyecto El Corral.
 
 ## Prerrequisitos
 

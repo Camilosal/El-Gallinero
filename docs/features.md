@@ -1,10 +1,10 @@
 # Funcionalidades, Módulos y Arquitectura Multi-Especie
 
-Este documento resume la cobertura funcional del **Core Abierto Operativo (`El Gallinero`)**, complementando el [README principal](../README.md) y la **Guía de Usuario interactiva** disponible en `/guia` (pública) y `/manual` (dentro de sesión).
+Este documento resume la cobertura funcional del **Core Abierto Operativo (`El Corral`)**, complementando el [README principal](../README.md) y la **Guía de Usuario interactiva** disponible en `/guia` (pública) y `/manual` (dentro de sesión).
 
 ## Visión General
 
-**El Gallinero** es una plataforma *PWA Offline-First* diseñada para la gestión técnica, sanitaria y financiera de granjas multi-especie (**gallinas ponedoras, pollos de engorde, codornices, patos, conejos y cuyes/curíes**). Toda operación comercial, de almacén o mantenimiento alimenta automáticamente el libro financiero e inventarios (FIFO/PEPS) con trazabilidad completa a su origen.
+**El Corral** es una plataforma *PWA Offline-First* diseñada para la gestión técnica, sanitaria y financiera de granjas multi-especie (**gallinas ponedoras, pollos de engorde, codornices, patos, conejos y cuyes/curíes**). Toda operación comercial, de almacén o mantenimiento alimenta automáticamente el libro financiero e inventarios (FIFO/PEPS) con trazabilidad completa a su origen.
 
 ### Pilares del Core Abierto
 

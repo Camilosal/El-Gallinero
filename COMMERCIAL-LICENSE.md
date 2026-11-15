@@ -1,6 +1,6 @@
 # Licencia Comercial y Esquema de Licenciamiento Dual
 
-**El Gallinero — Plataforma AgroTech Multi-Especie** opera bajo un esquema de **Licenciamiento Dual** administrado por su titular originario, **[Camilo Saldarriaga](https://camilosaldarriaga.com)**.
+**El Corral — Plataforma AgroTech Multi-Especie** opera bajo un esquema de **Licenciamiento Dual** administrado por su titular originario, **[Camilo Saldarriaga](https://camilosaldarriaga.com)**.
 
 ## 1. Dos vías legales de uso y distribución
 
