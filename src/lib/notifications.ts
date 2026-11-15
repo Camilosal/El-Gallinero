@@ -312,6 +312,16 @@ function getAdminRecipients(): string[] {
 /** Notifica al administrador y acusa recibo al solicitante cuando radican /contacto. */
 export async function notifyContactTicket(ticket: ContactTicketPayload): Promise<void> {
   const adminRecipients = getAdminRecipients();
+  const jevRouting = (
+    ticket as ContactTicketPayload & {
+      jevRouting?: {
+        intentLabel: string;
+        estimatedScale: string;
+        needsUrgentFollowup: boolean;
+      };
+    }
+  ).jevRouting;
+
   const replyToUser = isValidEmail(ticket.contactInfo) ? ticket.contactInfo : undefined;
   const adminBody = [
     `Nueva solicitud radicada en ${LEGAL.sitio}/contacto`,
@@ -319,6 +329,11 @@ export async function notifyContactTicket(ticket: ContactTicketPayload): Promise
     `Radicado: ${ticket.ticketCode}`,
     `Fecha: ${ticket.createdAt}`,
     `Motivo: ${ticket.reasonLabel}`,
+    ...(jevRouting
+      ? [
+          `Clasificación automática: ${jevRouting.intentLabel} · Escala estimada: ${jevRouting.estimatedScale}${jevRouting.needsUrgentFollowup ? " · PRIORIDAD URGENTE" : ""}`,
+        ]
+      : []),
     `Nombre: ${ticket.name}`,
     `Granja: ${ticket.farm || "No especificada"}`,
     `Contacto del solicitante: ${ticket.contactInfo}`,
@@ -333,7 +348,7 @@ export async function notifyContactTicket(ticket: ContactTicketPayload): Promise
     await sendTransactionalEmail({
       to: recipient,
       replyTo: replyToUser,
-      subject: `[${ticket.ticketCode}] ${ticket.reasonLabel} · ${ticket.farm || ticket.name}`,
+      subject: `${jevRouting?.needsUrgentFollowup ? "[Urgente] " : ""}[${ticket.ticketCode}] ${ticket.reasonLabel} · ${ticket.farm || ticket.name}`,
       text: adminBody,
     });
   }

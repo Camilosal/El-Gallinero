@@ -131,7 +131,24 @@ export default function AttachmentPanel({
         const data = await res.json().catch(() => null);
         if (data?.extracted) {
           const extracted = data.extracted as OcrExtractedPayload;
-          setOcrSummary(extracted.summary || "Datos extraídos y aplicados al formulario.");
+          const hints: string[] = [];
+          if (data.jevSuggestions?.modeAutoDetected && data.mode) {
+            hints.push(`tipo detectado: ${data.mode}`);
+          }
+          if (data.jevSuggestions?.suggestedExpenseCategory) {
+            hints.push(`categoría sugerida: ${data.jevSuggestions.suggestedExpenseCategory}`);
+          }
+          if (data.jevSuggestions?.matchedIcaItem?.commercialName) {
+            const retiro = Math.max(
+              Number(data.jevSuggestions.matchedIcaItem.withdrawalDaysEggs || 0),
+              Number(data.jevSuggestions.matchedIcaItem.withdrawalDaysMeat || 0),
+            );
+            hints.push(
+              `vademécum ICA: ${data.jevSuggestions.matchedIcaItem.commercialName}${retiro > 0 ? ` (retiro ${retiro}d)` : ""}`,
+            );
+          }
+          const baseSummary = extracted.summary || "Datos extraídos y aplicados al formulario.";
+          setOcrSummary(hints.length > 0 ? `${baseSummary} · ${hints.join(" · ")}` : baseSummary);
           onOcrExtracted?.(extracted);
           return extracted;
         }

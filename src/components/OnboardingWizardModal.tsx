@@ -215,6 +215,9 @@ function WizardBody({
   const [selectedSpecies, setSelectedSpecies] = useState<string[]>(initialSpecies);
   const [solicitaReporteFormal, setSolicitaReporteFormal] = useState(initialFormalReport);
   const [fechaInicio, setFechaInicio] = useState(todayColombiaIso());
+  const [quickDescribeText, setQuickDescribeText] = useState("");
+  const [quickDescribeLoading, setQuickDescribeLoading] = useState(false);
+  const [quickDescribeNote, setQuickDescribeNote] = useState<string | null>(null);
 
   // Paso 2
   const [inputMode, setInputMode] = useState<"manual" | "csv">("manual");
@@ -241,6 +244,61 @@ function WizardBody({
     window.requestAnimationFrame(() => {
       stepHeadingRef.current?.focus();
     });
+  };
+
+  const handleQuickDescribe = async () => {
+    const clean = quickDescribeText.trim();
+    if (clean.length < 3) {
+      setQuickDescribeNote("Escribe al menos una frase corta (ej: 300 ponedoras y 100 pollos).");
+      return;
+    }
+    setQuickDescribeLoading(true);
+    setQuickDescribeNote(null);
+    setError("");
+    try {
+      const res = await fetch("/api/onboarding/sugerir", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ description: clean }),
+      });
+      const json = (await res.json()) as {
+        ok?: boolean;
+        error?: string;
+        suggestion?: {
+          escala: ProducerScale;
+          species: string[];
+          wantsFormalReports: boolean;
+          unitCountHints?: Record<string, number>;
+          summary?: string;
+        };
+      };
+      if (!res.ok || !json.suggestion) {
+        setQuickDescribeNote(json.error || "No pudimos interpretar la frase; selecciona manualmente abajo.");
+        return;
+      }
+      const s = json.suggestion;
+      setEscala(s.escala);
+      if (s.species.length > 0) {
+        setSelectedSpecies(s.species);
+        setUnidades(
+          s.species.map((sp, idx) => {
+            const draft = makeUnitDraftForSpecies(sp, idx);
+            const hintedQty = s.unitCountHints?.[sp];
+            return hintedQty && hintedQty > 0
+              ? { ...draft, cantidadVivaHoy: String(hintedQty) }
+              : draft;
+          }),
+        );
+      }
+      setSolicitaReporteFormal(Boolean(s.wantsFormalReports));
+      setQuickDescribeNote(
+        `Preconfiguración aplicada (${s.summary || s.species.join(", ")}). Revisa los campos abajo antes de continuar.`,
+      );
+    } catch {
+      setQuickDescribeNote("Sin conexión para interpretar texto; selecciona manualmente las opciones abajo.");
+    } finally {
+      setQuickDescribeLoading(false);
+    }
   };
 
   const toggleSpecies = (key: string) => {
@@ -661,6 +719,39 @@ function WizardBody({
               <p className="text-xs text-slate-600">
                 No necesitas cargar facturas pasadas ni bajas anteriores. Empezamos desde la fotografía viva de hoy.
               </p>
+
+              <div className="rounded-xl border border-emerald-200 bg-emerald-50/40 p-3.5 space-y-2">
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <label htmlFor="ob-quick-describe" className="text-xs font-bold text-emerald-950">
+                    ¿Prefieres describir tu granja en una frase? (opcional)
+                  </label>
+                  <span className="text-[11px] font-medium text-emerald-800">
+                    Autocompleta escala, especies y cantidades
+                  </span>
+                </div>
+                <div className="flex flex-col sm:flex-row gap-2">
+                  <input
+                    id="ob-quick-describe"
+                    type="text"
+                    value={quickDescribeText}
+                    onChange={(e) => setQuickDescribeText(e.target.value)}
+                    placeholder="Ej: Tengo 350 gallinas ponedoras, 120 pollos y necesito reportes para banco"
+                    className="flex-1 min-h-[42px] rounded-lg border border-emerald-300 bg-white px-3 py-1.5 text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-green-600"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => void handleQuickDescribe()}
+                    disabled={quickDescribeLoading || quickDescribeText.trim().length < 3}
+                    className="inline-flex items-center justify-center gap-1.5 rounded-lg bg-emerald-700 px-3.5 py-2 text-xs font-semibold text-white hover:bg-emerald-800 disabled:opacity-50 min-h-[42px] shrink-0"
+                  >
+                    <Sparkles className="w-3.5 h-3.5" aria-hidden="true" />
+                    <span>{quickDescribeLoading ? "Analizando..." : "Preconfigurar"}</span>
+                  </button>
+                </div>
+                {quickDescribeNote ? (
+                  <p className="text-xs text-emerald-900 font-medium">{quickDescribeNote}</p>
+                ) : null}
+              </div>
 
               {canCompactPredio ? (
                 <div className="rounded-xl border border-emerald-200 bg-emerald-50/50 px-4 py-3 flex flex-wrap items-center justify-between gap-2">

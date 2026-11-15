@@ -319,21 +319,47 @@ export const POST = withApiHandler(async (req: NextRequest) => {
     updatedAt: now.toISOString(),
   };
 
+  const { triageBugReportWithJev } = await import("@/lib/agent/jev-capabilities");
+  const triage = await triageBugReportWithJev({
+    title: record.title,
+    description: record.description,
+    stepsToReproduce: record.stepsToReproduce,
+    expectedBehavior: record.expectedBehavior,
+    originModule: record.originModule,
+    userCategory: record.category,
+    userSeverity: record.severity,
+  });
+
+  if (triage.suggestedTags.length > 0) {
+    record.tags = Array.from(new Set([...record.tags, ...triage.suggestedTags]));
+  }
+  const persistedRecord = {
+    ...record,
+    jevTriage: {
+      suggestedCategory: triage.suggestedCategory,
+      suggestedSeverity: triage.suggestedSeverity,
+      suggestedTags: triage.suggestedTags,
+      guidance: triage.guidance,
+      usedJev: triage.usedJev,
+    },
+  };
+
   const settingKey = `support.bug.${now.getTime()}_${crypto.randomBytes(3).toString("hex")}`;
   const updatedBy = await resolveSafeUserFk(sessionUser?.id);
   await db.insert(appSettings).values({
     farmId,
     key: settingKey,
-    value: JSON.stringify(record),
+    value: JSON.stringify(persistedRecord),
     updatedBy,
   });
 
-  await notifyBugReport(record);
+  await notifyBugReport(persistedRecord);
 
   return NextResponse.json(
     {
       ok: true,
-      report: record,
+      report: persistedRecord,
+      guidance: triage.guidance ?? null,
     },
     { status: 201 },
   );

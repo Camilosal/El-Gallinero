@@ -185,8 +185,9 @@ export const guides: Guide[] = [
     module: "primeros-pasos",
     icon: "rocket",
     summary:
-      "Recorre el tablero Inicio en grupos enmarcados, barra superior con Pequeño/Mediano y Crear + directo, buscador Ctrl+K y Gina.",
+      "Recorre el tablero Inicio en grupos enmarcados, barra superior con Pequeño/Mediano y Crear + directo, buscador inteligente Ctrl+K y Gina.",
     estimatedMinutes: 4,
+    updatedAt: "2026-11-15",
     tags: ["inicio", "dashboard", "rutinas", "microcápsulas", "ctrl+k", "buscar", "crear", "móvil", "atajos", "gina"],
     relatedHrefs: [
       { href: "/dashboard", label: "Ir a Inicio" },
@@ -214,7 +215,7 @@ export const guides: Guide[] = [
         type: "steps",
         title: "Orientarte en 4 pasos el primer día",
         items: [
-          "Usa «Abrir asistente inicial» en Inicio (o Configuración) para completar en 3 pasos el nombre de tu finca, lugares, animales vivos hoy y saldo de alimento —manual o importado por CSV.",
+          "Usa «Abrir asistente inicial» en Inicio (o Configuración) para completar en 3 pasos el nombre de tu finca, lugares, animales vivos hoy y saldo de alimento —escribiendo una frase corta sobre tu finca para preconfigurarla rápido, o llenando/importando por CSV.",
           "Alterna en un toque entre Modo Pequeño (interfaz simple) y Modo Mediano (tableros técnicos) desde la barra superior sin perder historial.",
           "Cada registro de huevos, alimento, ventas, egresos, pesos o reproducción entrega una Microcápsula inmediata con costo unitario, días de alimento o margen.",
           "Pulsa Crear + arriba (o + Registrar en móvil) para abrir de inmediato el formulario exacto de adquisición, traslado, venta, pago, plan de parvada o cierre diario.",
@@ -226,7 +227,7 @@ export const guides: Guide[] = [
         image: "/images/guia/buscar-global-modal.webp",
         alt: "Modal del buscador global Ctrl+K filtrando resultados para el término huev",
         caption:
-          "Pulsa Ctrl+K (o Cmd+K en Mac) o haz clic en «Buscar» para saltar a cualquier módulo o formulario buscando incluso por sinónimos cotidianos como «potrero», «gastos», «equipos» o «linaje».",
+          "Pulsa Ctrl+K (o Cmd+K en Mac) o haz clic en «Buscar» para saltar a cualquier módulo o formulario. Si escribes palabras cotidianas sin coincidencia exacta (como «donde pongo las vacunas» o «precio del bulto»), el sistema sugiere los accesos más cercanos en «Quizás buscas».",
         badge: "Navegación rápida",
         targetHref: "/dashboard",
         targetLabel: "Probar Ctrl+K",
@@ -379,8 +380,9 @@ export const guides: Guide[] = [
     module: "primeros-pasos",
     icon: "sparkles",
     summary:
-      "Conversa con Gina (la gallina con gafas) por texto, voz o foto de facturas para consultar datos en vivo, recordar reglas de tu finca y confirmar registros.",
+      "Conversa con Gina (la gallina con gafas) por texto, voz o foto de documentos para consultar datos en vivo, clasificar adjuntos y confirmar registros.",
     estimatedMinutes: 3,
+    updatedAt: "2026-11-15",
     tags: ["gina", "asistente", "ia", "chat", "voz", "dictado", "memoria", "fotos", "confirmación"],
     relatedHrefs: [
       { href: "/dashboard", label: "Hablar con Gina en Inicio" },
@@ -414,7 +416,7 @@ export const guides: Guide[] = [
       },
       {
         type: "note",
-        text: "Toda acción que altera inventario, animales o finanzas exige confirmación humana en tarjeta. Si te quedas sin señal, el botón de micrófono graba audio localmente para procesarlo al reconectar.",
+        text: "Toda acción que altera inventario, animales o finanzas exige confirmación humana en tarjeta. Además, la lectura automática identifica si tu adjunto es factura, etiqueta veterinaria ICA, comprobante de pago o RUT. Si te quedas sin señal, el micrófono graba audio localmente para procesarlo al reconectar.",
       },
     ],
   },
@@ -1625,6 +1627,7 @@ export const guides: Guide[] = [
     summary:
       "Registra vacunaciones aplicadas, desparasitaciones o tratamientos curativos, asociando costo, lugar de manejo y días de carencia.",
     estimatedMinutes: 3,
+    updatedAt: "2026-11-15",
     tags: ["control sanitario", "tratamiento", "carencia", "medicamento", "enfermedad"],
     relatedHrefs: [
       { href: "/dashboard/sanidad/control", label: "Control Sanitario" },
@@ -1652,8 +1655,13 @@ export const guides: Guide[] = [
         items: [
           "Abre Sanidad → Control sanitario y haz clic en «+ Nuevo Evento».",
           "Elige tipo (vacunación, desparasitación, tratamiento, inspección o limpieza), describe el cuadro clínico o procedimiento y selecciona las aves o lugar afectados.",
-          "Indica producto usado y costo; si aplica un medicamento con retiro, anota los días de carencia o próxima revisión para seguimiento.",
+          "Indica producto usado y costo; si adjuntas foto o texto de la etiqueta veterinaria, el sistema la compara con el vademécum ICA para sugerirte registro sanitario y días de carencia automáticamente antes de confirmar.",
         ],
+      },
+      {
+        type: "tip",
+        title: "Bloqueo automático por tiempo de retiro",
+        text: "Si un tratamiento tiene días de carencia vigentes, la app bloquea temporalmente la salida comercial de huevos o carne de ese lote hasta que cumpla el plazo sanitario.",
       },
     ],
   },
@@ -1846,6 +1854,7 @@ export const guides: Guide[] = [
     summary:
       "Registra gastos operativos y compras por bultos, adjunta fotos/PDF de facturas con lectura automática OCR y actualiza bodega o CxP en un paso.",
     estimatedMinutes: 4,
+    updatedAt: "2026-11-15",
     tags: ["egresos", "gastos", "compras", "adjuntos", "ocr", "factura", "bultos", "alimentación", "cxp"],
     relatedHrefs: [
       { href: "/dashboard/finanzas/egresos", label: "Abrir Egresos" },
@@ -1873,7 +1882,7 @@ export const guides: Guide[] = [
         title: "Registrar una compra separando gasto diario, bodega y equipos",
         items: [
           "Entra a Finanzas → Egresos y pulsa «+ Nuevo Egreso» (o «Subir factura OCR» desde Captura Rápida).",
-          "Adjunta la foto del recibo o PDF si la tienes para leer datos automáticamente y conservar el soporte.",
+          "Adjunta la foto del recibo o PDF si la tienes para leer datos automáticamente (monto, proveedor, fecha y categoría sugerida de gasto o especie) y conservar el soporte.",
           "Si compras bultos de alimento, entran directo a tu bodega sin mostrar pérdida falsa hasta que los sirves al galpón. Si compras equipos o infraestructura, se separan como inversión de la finca y solo cargan su desgaste mensual.",
           "Elige si va directo a una especie o lugar, o a gastos compartidos, y define si fue de contado o a crédito para actualizar Cuentas por Pagar.",
         ],
@@ -2364,8 +2373,9 @@ export const guides: Guide[] = [
     module: "configuracion",
     icon: "alert",
     summary:
-      "Envía un reporte desde cualquier pantalla usando el botón inferior o superior; llega etiquetado automáticamente con el lugar exacto donde ocurrió.",
+      "Envía un reporte desde cualquier pantalla usando el botón inferior o superior; llega etiquetado automáticamente y te orienta al instante si corresponde a una regla sanitaria o de inventario.",
     estimatedMinutes: 2,
+    updatedAt: "2026-11-15",
     tags: ["fallas", "reporte", "soporte", "bug", "error", "etiquetas", "incidencia", "ayuda"],
     relatedHrefs: [
       { href: "/dashboard/configuracion/fallas", label: "Ver Reportes de Fallas" },
@@ -2393,7 +2403,7 @@ export const guides: Guide[] = [
         items: [
           "Haz clic en «Reportar falla» en la barra superior o al pie del menú lateral (o usa «Presentar falla o incidencia» en Crear +).",
           "Escribe un título breve y cuenta qué estabas intentando hacer y qué pasó.",
-          "Verifica la vista previa de etiquetas automáticas (pantalla, red, errores recientes capturados) y envía el reporte.",
+          "Verifica la vista previa de etiquetas automáticas (pantalla, red, errores recientes capturados) y envía el reporte; si el caso obedece a un bloqueo sanitario (carencia) o de inventario PEPS, verás de una vez el enlace a la guía correspondiente.",
           "Consulta el estado (Abierto, En revisión o Resuelto) en Configuración → Reportes de fallas.",
         ],
       },

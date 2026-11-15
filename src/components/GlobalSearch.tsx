@@ -25,7 +25,58 @@ export default function GlobalSearch({
   const inputRef = useRef<HTMLInputElement>(null);
   const { flags } = useOnboardingState();
 
+  const [smartSuggestions, setSmartSuggestions] = useState<
+    Array<{ id: string; title: string; summary: string; href: string; group?: string }>
+  >([]);
+  const [smartLoading, setSmartLoading] = useState(false);
+
   const results = useMemo(() => searchNavigation(query, 12, flags), [query, flags]);
+
+  useEffect(() => {
+    const trimmed = query.trim();
+    if (
+      !open ||
+      results.length > 0 ||
+      trimmed.length < 4 ||
+      (typeof navigator !== "undefined" && !navigator.onLine)
+    ) {
+      return;
+    }
+
+    let cancelled = false;
+    const controller = new AbortController();
+    const timer = window.setTimeout(async () => {
+      setSmartLoading(true);
+      try {
+        const res = await fetch("/api/busqueda/sugerir", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ scope: "navigation", query: trimmed, flags }),
+          signal: controller.signal,
+        });
+        if (res.ok && !cancelled) {
+          const data = (await res.json()) as {
+            suggestions?: Array<{ id: string; title: string; summary: string; href: string; group?: string }>;
+          };
+          setSmartSuggestions(Array.isArray(data.suggestions) ? data.suggestions : []);
+        }
+      } catch {
+        // Ignorar si se cancela o no hay conexión
+      } finally {
+        if (!cancelled) setSmartLoading(false);
+      }
+    }, 380);
+
+    return () => {
+      cancelled = true;
+      window.clearTimeout(timer);
+      controller.abort();
+      setSmartLoading(false);
+    };
+  }, [open, query, results.length, flags]);
+
+  const visibleSmartSuggestions =
+    open && results.length === 0 && query.trim().length >= 4 ? smartSuggestions : [];
   const openSearch = useCallback(() => {
     setQuery("");
     setActiveIndex(0);
@@ -172,6 +223,28 @@ export default function GlobalSearch({
                   <p className="mt-3 text-sm font-medium text-slate-700">
                     Sin resultados para “{query}”
                   </p>
+                  {smartLoading ? (
+                    <p className="mt-2 text-xs text-slate-500">Buscando coincidencias relacionadas...</p>
+                  ) : visibleSmartSuggestions.length > 0 ? (
+                    <div className="mt-4 max-w-md mx-auto text-left space-y-1.5">
+                      <p className="text-[11px] font-bold uppercase tracking-wide text-green-700 px-1">
+                        Quizás buscas
+                      </p>
+                      {visibleSmartSuggestions.map((s) => (
+                        <button
+                          key={s.id}
+                          type="button"
+                          onClick={() => navigate(s.href)}
+                          className="w-full rounded-lg border border-slate-200 bg-slate-50/70 px-3 py-2 text-left hover:border-green-400 hover:bg-green-50/60 transition-colors"
+                        >
+                          <span className="block text-sm font-semibold text-slate-900">{s.title}</span>
+                          {s.group ? (
+                            <span className="block text-xs text-slate-500">{s.group}</span>
+                          ) : null}
+                        </button>
+                      ))}
+                    </div>
+                  ) : null}
                   <p className="mt-1 text-xs text-slate-500">
                     Prueba con “huevos”, “cuyes”, “rutinas”, “sensores”, “prorrateo” o “vacunas”.
                   </p>

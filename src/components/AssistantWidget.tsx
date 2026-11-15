@@ -411,10 +411,19 @@ export default function AssistantWidget() {
         setError(data.error || "No se pudo leer la imagen con OCR.");
         return;
       }
+      const resolvedMode = (typeof data.mode === "string" && data.mode ? data.mode : ocrMode) as typeof ocrMode;
       const extracted = (data.extracted || {}) as Record<string, unknown>;
-      const summary = String(extracted.summary || data.extractedText || file.name);
+      const jevHints: string[] = [];
+      if (data.jevSuggestions?.suggestedExpenseCategory) {
+        jevHints.push(`categoría: ${String(data.jevSuggestions.suggestedExpenseCategory)}`);
+      }
+      if (data.jevSuggestions?.matchedIcaItem?.commercialName) {
+        jevHints.push(`ICA: ${String(data.jevSuggestions.matchedIcaItem.commercialName)}`);
+      }
+      const baseSummary = String(extracted.summary || data.extractedText || file.name);
+      const summary = jevHints.length > 0 ? `${baseSummary} (${jevHints.join(" · ")})` : baseSummary;
       setPendingOcr({
-        mode: ocrMode,
+        mode: resolvedMode,
         fileName: file.name,
         summary,
         extracted,

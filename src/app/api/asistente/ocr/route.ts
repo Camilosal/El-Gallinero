@@ -97,13 +97,15 @@ export const POST = withApiHandler(async (req: NextRequest) => {
     return NextResponse.json({ error: "Cuerpo JSON inválido." }, { status: 400 });
   }
 
-  const mode = (typeof body.mode === "string" ? body.mode.trim() : "") as OcrExtractionMode;
-  if (!(OCR_MODES as readonly string[]).includes(mode)) {
+  const rawMode = typeof body.mode === "string" ? body.mode.trim() : "";
+  const wantsAutoMode = !rawMode || rawMode === "auto";
+  if (!wantsAutoMode && !(OCR_MODES as readonly string[]).includes(rawMode)) {
     return NextResponse.json(
-      { error: "Modo OCR inválido. Usa factura_compra, etiqueta_ica, comprobante_pago o rut_contacto." },
+      { error: "Modo OCR inválido. Usa auto, factura_compra, etiqueta_ica, comprobante_pago o rut_contacto." },
       { status: 400 },
     );
   }
+  let mode = (wantsAutoMode ? "factura_compra" : rawMode) as OcrExtractionMode;
 
   const dataUrl = typeof body.dataUrl === "string" ? body.dataUrl.trim() : "";
   const textHint = typeof body.textHint === "string" ? body.textHint.trim() : "";
@@ -116,10 +118,54 @@ export const POST = withApiHandler(async (req: NextRequest) => {
     );
   }
 
+  const [{ classifyOcrDocumentWithJev }, { ICA_VETERINARY_VADEMECUM }] = await Promise.all([
+    import("@/lib/agent/jev-capabilities"),
+    import("@/lib/external-sources/wave2-standards-sanitary-ica"),
+  ]);
+
+  if (wantsAutoMode) {
+    const preDetect = await classifyOcrDocumentWithJev({
+      requestedMode: "auto",
+      text: textHint,
+      fileName,
+    });
+    mode = preDetect.detectedMode;
+  }
+
   const visionResult = dataUrl ? await callMultimodalVision(mode, dataUrl, textHint) : null;
   const combinedText = [textHint, visionResult?.rawText || ""].filter(Boolean).join("\n");
+  const jevSuggestions = await classifyOcrDocumentWithJev({
+    requestedMode: wantsAutoMode ? "auto" : mode,
+    text: combinedText,
+    fileName,
+    vademecumItems: ICA_VETERINARY_VADEMECUM,
+  });
+  if (wantsAutoMode) {
+    mode = jevSuggestions.detectedMode;
+  }
+
   const deterministic = parseColombianAgroDocument(mode, combinedText, fileName);
   const extracted = mergeVisionWithDeterministic(deterministic, visionResult?.parsedJson);
+
+  if (mode === "factura_compra" && extracted && typeof extracted === "object") {
+    const rec = extracted as unknown as Record<string, unknown>;
+    if (!rec.suggestedCategory && jevSuggestions.suggestedExpenseCategory) {
+      rec.suggestedCategory = jevSuggestions.suggestedExpenseCategory;
+    }
+    if (!rec.suggestedSpecies && jevSuggestions.suggestedSpecies) {
+      rec.suggestedSpecies = jevSuggestions.suggestedSpecies;
+    }
+  } else if (mode === "etiqueta_ica" && jevSuggestions.matchedIcaItem && extracted && typeof extracted === "object") {
+    const rec = extracted as unknown as Record<string, unknown>;
+    if (!rec.productName) rec.productName = jevSuggestions.matchedIcaItem.commercialName;
+    if (!rec.icaRegistration) rec.icaRegistration = jevSuggestions.matchedIcaItem.icaRegistration;
+    if (rec.withdrawalDays === undefined || rec.withdrawalDays === null) {
+      rec.withdrawalDays = Math.max(
+        jevSuggestions.matchedIcaItem.withdrawalDaysEggs,
+        jevSuggestions.matchedIcaItem.withdrawalDaysMeat,
+      );
+    }
+  }
 
   return NextResponse.json({
     ok: true,
@@ -127,6 +173,7 @@ export const POST = withApiHandler(async (req: NextRequest) => {
     provider: visionResult ? "vision+deterministic" : "deterministic",
     extractedText: combinedText || fileName || null,
     extracted,
+    jevSuggestions,
   });
 });
 

@@ -34,6 +34,7 @@ const PUBLIC_EXACT = [
   "/registro",
   "/api/health",
   "/api/contacto",
+  "/api/busqueda/sugerir",
   "/api/billing/webhook",
   // Exportación: valida cookie de sesión o token de solo lectura dentro de la ruta.
   "/api/export",
