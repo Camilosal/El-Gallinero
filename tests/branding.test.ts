@@ -6,6 +6,8 @@ import { APP_BRAND, APP_DEVELOPER } from "@/lib/branding";
 describe("marca y atribución de desarrollo en producción", () => {
   it("expone constantes exactas de autoría y contacto", () => {
     expect(APP_BRAND.name).toBe("El Corral");
+    expect(APP_BRAND.logoSrc).toBe("/logo-el-corral.webp");
+    expect(APP_BRAND.markSrc).toBe("/logo-el-corral-mark.webp");
     expect(APP_DEVELOPER.name).toBe("Camilo Saldarriaga");
     expect(APP_DEVELOPER.url).toBe("https://camilosaldarriaga.com");
     expect(APP_DEVELOPER.domain).toBe("camilosaldarriaga.com");
@@ -32,5 +34,31 @@ describe("marca y atribución de desarrollo en producción", () => {
     expect(read("src/app/(app)/configuracion/page.tsx")).toContain("DeveloperCredit");
     expect(read("src/app/lote/[id]/page.tsx")).toContain("DeveloperCredit");
     expect(read("src/components/guide/GuideShell.tsx")).toContain("DeveloperCredit");
+  });
+
+  it("sirve el logotipo ligero en WebP y lo integra en landing y toda la aplicación", () => {
+    const read = (rel: string) => fs.readFileSync(path.join(process.cwd(), rel), "utf8");
+    const sizeOf = (rel: string) => fs.statSync(path.join(process.cwd(), rel)).size;
+
+    expect(sizeOf("public/logo-el-corral.webp")).toBeLessThan(80_000);
+    expect(sizeOf("public/logo-el-corral-mark.webp")).toBeLessThan(40_000);
+    expect(sizeOf("public/icon-192.png")).toBeLessThan(40_000);
+
+    for (const surface of [
+      "src/app/page.tsx",
+      "src/components/LandingFooter.tsx",
+      "src/components/MobileNav.tsx",
+      "src/components/LegalPage.tsx",
+      "src/components/LegalFooter.tsx",
+      "src/components/Sidebar.tsx",
+      "src/components/DeveloperCredit.tsx",
+      "src/components/guide/GuideShell.tsx",
+      "src/app/login/page.tsx",
+      "src/app/login/recuperar/page.tsx",
+      "src/app/registro/page.tsx",
+      "src/app/lote/[id]/page.tsx",
+    ]) {
+      expect(read(surface)).toContain("BrandLogo");
+    }
   });
 });

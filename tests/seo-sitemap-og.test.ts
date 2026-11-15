@@ -61,6 +61,8 @@ describe("SEO-01 y SEO-02 — Sitemap granular y dimensiones OG reales", () => {
       "/traceability-flow.png",
       "/hero-illustration.png",
       "/modules-diagram.png",
+      "/logo-el-corral.webp",
+      "/logo-el-corral-mark.webp",
       "/icon-192.png",
       "/icon-512.png",
       ...BITACORA_ARTICLES.map((a) => a.image.src),
