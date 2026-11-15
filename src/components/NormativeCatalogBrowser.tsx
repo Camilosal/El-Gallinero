@@ -62,9 +62,9 @@ interface NormativeCatalogBrowserProps {
 
 const KIND_FILTER_OPTIONS: Array<{ key: "" | NormativeDocumentKind; label: string }> = [
   { key: "", label: "Todas" },
-  { key: "norma", label: "Normas obligatorias" },
-  { key: "estandar", label: "Estándares técnicos" },
-  { key: "guia", label: "Guías de manejo" },
+  { key: "norma", label: "Requisitos legales" },
+  { key: "estandar", label: "Estándares y NTC" },
+  { key: "guia", label: "Guías técnicas" },
 ];
 
 const SPECIES_FILTER_OPTIONS: Array<{ value: string; label: string }> = [
@@ -110,8 +110,8 @@ function getKindIcon(kind: NormativeDocumentKind) {
   return <BookOpen className="w-3.5 h-3.5 text-emerald-600 shrink-0" />;
 }
 
-function formatVerifiedDate(iso?: string): string {
-  if (!iso) return "Reciente";
+function formatVerifiedDate(iso?: string | null): string {
+  if (!iso) return "Pendiente";
   try {
     return new Date(iso).toLocaleDateString("es-CO", {
       year: "numeric",
@@ -121,6 +121,22 @@ function formatVerifiedDate(iso?: string): string {
   } catch {
     return iso.slice(0, 10);
   }
+}
+
+function getVerificationBadge(
+  status?: NormativeCatalogItem["verificationStatus"],
+  lastVerifiedAt?: string | null,
+): { label: string; color: "green" | "yellow" | "gray" } {
+  if (status === "verificado" && lastVerifiedAt) {
+    return { label: `Verificada ${formatVerifiedDate(lastVerifiedAt)}`, color: "green" };
+  }
+  if (status === "reemplazado" || status === "derogado") {
+    return {
+      label: status === "reemplazado" ? "Antecedente reemplazado" : "Derogada",
+      color: "gray",
+    };
+  }
+  return { label: "Pendiente de verificación", color: "yellow" };
 }
 
 export default function NormativeCatalogBrowser({
@@ -331,8 +347,10 @@ export default function NormativeCatalogBrowser({
   };
 
   const versionLabel = meta?.version || "Vigente";
-  const lastCheckedLabel = formatVerifiedDate(meta?.lastCheckedAt);
-  const frequencyLabel = meta?.updateFrequencyLabel || "Revisión semanal automática (7 días)";
+  const lastSyncLabel = formatVerifiedDate(meta?.lastSyncAt || meta?.lastCheckedAt);
+  const frequencyLabel = meta?.updateFrequencyLabel || "Sincronización semanal (7 días) · Revisión documental independiente";
+  const verifiedCount = meta?.verifiedCount ?? catalog.filter((i) => i.verificationStatus === "verificado").length;
+  const pendingCount = meta?.pendingCount ?? catalog.filter((i) => i.verificationStatus === "pendiente").length;
 
   return (
     <div className="space-y-4">
@@ -353,10 +371,10 @@ export default function NormativeCatalogBrowser({
               Consulta umbrales sanitarios, bienestar animal, clasificación de huevo, curvas zootécnicas y guías de manejo, adjunta PDFs oficiales o actas de respaldo en cada norma y pregúntale a <strong>Gina</strong> sobre cualquiera de estas referencias.
             </p>
             <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-slate-500 pt-0.5">
-              <span>Última verificación: <strong className="text-slate-700">{lastCheckedLabel}</strong></span>
+              <span>Última sincronización técnica: <strong className="text-slate-700">{lastSyncLabel}</strong></span>
               <span>Cadencia: <strong className="text-slate-700">{frequencyLabel}</strong></span>
               <span>
-                {countsByKind.norma} normas · {countsByKind.estandar} estándares · {countsByKind.guia} guías
+                {verifiedCount} verificadas · {pendingCount} pendientes · {countsByKind.norma} obligatorias · {countsByKind.estandar} estándares · {countsByKind.guia} guías
               </span>
             </div>
           </div>
@@ -503,7 +521,10 @@ export default function NormativeCatalogBrowser({
                       {item.isCustom && <Badge color="orange">Propia / Local</Badge>}
                     </div>
                     <div className="flex items-center gap-2 text-[11px] text-slate-500 font-mono">
-                      <span>{item.version} · Verif. {formatVerifiedDate(item.lastVerifiedAt)}</span>
+                      <span>{item.version}</span>
+                      <Badge color={getVerificationBadge(item.verificationStatus, item.lastVerifiedAt).color}>
+                        {getVerificationBadge(item.verificationStatus, item.lastVerifiedAt).label}
+                      </Badge>
                       {item.isCustom && onDeleteCustomItem && (
                         <button
                           type="button"
@@ -525,6 +546,16 @@ export default function NormativeCatalogBrowser({
                     <p className="mt-1 text-xs text-slate-600 leading-relaxed">
                       {item.summary}
                     </p>
+                    {item.applicableScope && (
+                      <p className="mt-1.5 text-[11px] text-slate-500">
+                        <strong className="text-slate-700">Alcance ({item.jurisdiction}):</strong> {item.applicableScope}
+                      </p>
+                    )}
+                    {item.verificationNote && (
+                      <p className="mt-1 text-[11px] text-amber-800 bg-amber-50/70 border border-amber-200/70 rounded-md px-2 py-1">
+                        {item.verificationNote}
+                      </p>
+                    )}
                   </div>
 
                   <div className="flex flex-wrap items-center gap-1.5">

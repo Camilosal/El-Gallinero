@@ -15,6 +15,9 @@ import {
   NORMATIVE_CATALOG_VERSION,
   type NormativeCatalogItem,
   type NormativeDocumentKind,
+  type NormativeLegalBinding,
+  type NormativeSourceKind,
+  type NormativeVerificationStatus,
 } from "@/lib/normative-catalog";
 import {
   isSnapshotExpired,
@@ -75,18 +78,68 @@ function parseCustomNormativeItems(raw?: string): NormativeCatalogItem[] {
       if (!id || !code || !title) continue;
       const kind: NormativeDocumentKind =
         obj.kind === "norma" || obj.kind === "estandar" || obj.kind === "guia" ? obj.kind : "guia";
+      const defaultLegalBinding: NormativeLegalBinding =
+        kind === "norma"
+          ? "obligatoria_legal"
+          : kind === "estandar"
+            ? "norma_tecnica_voluntaria"
+            : "guia_tecnica";
+      const legalBinding: NormativeLegalBinding =
+        obj.legalBinding === "obligatoria_legal" ||
+        obj.legalBinding === "norma_tecnica_voluntaria" ||
+        obj.legalBinding === "estandar_referencia" ||
+        obj.legalBinding === "guia_tecnica"
+          ? obj.legalBinding
+          : defaultLegalBinding;
+      const verificationStatus: NormativeVerificationStatus =
+        obj.verificationStatus === "verificado" ||
+        obj.verificationStatus === "pendiente" ||
+        obj.verificationStatus === "reemplazado" ||
+        obj.verificationStatus === "derogado"
+          ? obj.verificationStatus
+          : typeof obj.lastVerifiedAt === "string" && obj.lastVerifiedAt.trim()
+            ? "verificado"
+            : "pendiente";
+      const sourceKind: NormativeSourceKind =
+        obj.sourceKind === "documento_especifico" ||
+        obj.sourceKind === "portal_oficial" ||
+        obj.sourceKind === "norma_paga_referencia"
+          ? obj.sourceKind
+          : typeof obj.sourceUrl === "string" && obj.sourceUrl.trim()
+            ? "documento_especifico"
+            : "portal_oficial";
       items.push({
         id,
         code,
         kind,
         kindLabel: typeof obj.kindLabel === "string" && obj.kindLabel.trim() ? obj.kindLabel : KIND_LABELS[kind],
+        legalBinding,
         authority: typeof obj.authority === "string" && obj.authority.trim() ? obj.authority : "Registro propio de granja",
+        jurisdiction:
+          typeof obj.jurisdiction === "string" && obj.jurisdiction.trim()
+            ? obj.jurisdiction
+            : "Registro propio de granja",
+        applicableScope:
+          typeof obj.applicableScope === "string" && obj.applicableScope.trim()
+            ? obj.applicableScope
+            : "Uso interno de granja según registro documental",
         title,
         version: typeof obj.version === "string" && obj.version.trim() ? obj.version : "Vigente",
+        publishedAt: typeof obj.publishedAt === "string" && obj.publishedAt.trim() ? obj.publishedAt : undefined,
+        effectiveFrom: typeof obj.effectiveFrom === "string" && obj.effectiveFrom.trim() ? obj.effectiveFrom : undefined,
         lastVerifiedAt:
           typeof obj.lastVerifiedAt === "string" && obj.lastVerifiedAt.trim()
             ? obj.lastVerifiedAt
-            : new Date().toISOString().slice(0, 10),
+            : null,
+        verifiedBy:
+          typeof obj.verifiedBy === "string" && obj.verifiedBy.trim()
+            ? obj.verifiedBy
+            : null,
+        verificationStatus,
+        verificationNote:
+          typeof obj.verificationNote === "string" && obj.verificationNote.trim()
+            ? obj.verificationNote
+            : undefined,
         updateFrequencyLabel:
           typeof obj.updateFrequencyLabel === "string" && obj.updateFrequencyLabel.trim()
             ? obj.updateFrequencyLabel
@@ -110,6 +163,7 @@ function parseCustomNormativeItems(raw?: string): NormativeCatalogItem[] {
           typeof obj.sourceLabel === "string" && obj.sourceLabel.trim()
             ? obj.sourceLabel
             : "Fuente externa / documental",
+        sourceKind,
         summary: typeof obj.summary === "string" ? obj.summary : "",
         keyReferences: Array.isArray(obj.keyReferences) ? obj.keyReferences.map(String).filter(Boolean) : [],
         complianceChecklist: Array.isArray(obj.complianceChecklist)
@@ -368,8 +422,9 @@ async function buildStateResponse(options?: {
   const standardsSnap = byKey.get("standards_normative_feed") as StoredExternalSnapshot<StandardsFeedSnapshotPayload> | undefined;
   const customNormativeItems = parseCustomNormativeItems(settings["normative.custom_items_json"]);
   const normativeMeta = getNormativeCatalogWithSyncMeta(
-    standardsSnap?.fetchedAt ? new Date(standardsSnap.fetchedAt).toISOString().slice(0, 10) : undefined,
+    standardsSnap?.fetchedAt ? new Date(standardsSnap.fetchedAt).toISOString().slice(0, 10) : null,
     customNormativeItems,
+    standardsSnap?.fetchedAt ? new Date(standardsSnap.fetchedAt).toISOString().slice(0, 10) : null,
   );
 
   const activeZoneResolution = resolveZoneWithFallback({
@@ -439,10 +494,16 @@ async function buildStateResponse(options?: {
     normativeCatalog: normativeMeta.items,
     normativeCatalogMeta: {
       version: standardsSnap?.payload?.normativeCatalogVersion || normativeMeta.version,
+      lastSyncAt:
+        standardsSnap?.payload?.normativeLastCheckedAt || standardsSnap?.fetchedAt || normativeMeta.lastSyncAt,
+      lastSourceCheckedAt:
+        standardsSnap?.payload?.normativeLastCheckedAt || standardsSnap?.fetchedAt || normativeMeta.lastSourceCheckedAt,
       lastCheckedAt:
         standardsSnap?.payload?.normativeLastCheckedAt || standardsSnap?.fetchedAt || normativeMeta.lastCheckedAt,
-      updateFrequencyLabel: "Semanal (cada 7 días)",
+      updateFrequencyLabel: normativeMeta.updateFrequencyLabel,
       totalItems: normativeMeta.totalItems,
+      verifiedCount: normativeMeta.verifiedCount,
+      pendingCount: normativeMeta.pendingCount,
       countsByKind: normativeMeta.countsByKind,
     },
     divipolaCatalog: COLOMBIA_DIVIPOLA_CATALOG,
@@ -484,11 +545,11 @@ export const GET = withApiHandler(async (req: NextRequest) => {
     ]);
     const standardsSnap = existing.find((s) => s.sourceKey === "standards_normative_feed");
     const customNormativeItems = parseCustomNormativeItems(settings["normative.custom_items_json"]);
+    const syncDate = standardsSnap?.fetchedAt
+      ? new Date(standardsSnap.fetchedAt).toISOString().slice(0, 10)
+      : null;
     return NextResponse.json(
-      getNormativeCatalogWithSyncMeta(
-        standardsSnap?.fetchedAt ? new Date(standardsSnap.fetchedAt).toISOString().slice(0, 10) : undefined,
-        customNormativeItems,
-      ),
+      getNormativeCatalogWithSyncMeta(syncDate, customNormativeItems, syncDate),
     );
   }
 
@@ -657,15 +718,27 @@ export const POST = withApiHandler(async (req: NextRequest) => {
     const keyReferences = toStringArray(body.keyReferences);
     const complianceChecklist = toStringArray(body.complianceChecklist);
 
+    const todayIso = new Date().toISOString().slice(0, 10);
     const newItem: NormativeCatalogItem = {
       id: `custom-norm-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
       code,
       kind,
       kindLabel: KIND_LABELS[kind],
+      legalBinding:
+        kind === "norma"
+          ? "obligatoria_legal"
+          : kind === "estandar"
+            ? "estandar_referencia"
+            : "guia_tecnica",
       authority,
+      jurisdiction: "Colombia",
       title,
       version,
-      lastVerifiedAt: new Date().toISOString().slice(0, 10),
+      applicableScope: "Referencia registrada manualmente por la granja.",
+      lastVerifiedAt: todayIso,
+      verifiedBy: "Registro propio de granja",
+      verificationStatus: "verificado",
+      sourceKind: "documento_especifico",
       updateFrequencyLabel: "Manual / con soportes adjuntos",
       species: species.length > 0 ? species : ["todas"],
       module: "personalizado",
