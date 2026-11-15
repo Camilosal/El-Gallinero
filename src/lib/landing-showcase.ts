@@ -203,7 +203,7 @@ export const SHOWCASE_TABS: ShowcaseTabItem[] = [
     routeLabel: "gallinero.iwage.co/inicio",
     screenshot: "/images/guia/inicio-dashboard.webp",
     screenshotAlt:
-      "Pantalla principal del tablero de El Gallinero con alertas del día, preparación de granja y estado de copia offline",
+      "Pantalla principal del tablero de El Corral con alertas del día, preparación de granja y estado de copia offline",
     highlights: [
       "Las tareas productivas se completan automáticamente al guardar huevos, alimento o pesajes.",
       "Los recorridos sin novedad piden confirmación breve en campo para evitar cierres falsos.",

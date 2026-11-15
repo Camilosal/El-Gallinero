@@ -17,7 +17,7 @@ export function getTerminos(): LegalDocument {
     slug: "terminos",
     title: "Términos y condiciones de uso",
     intro:
-      "Estos términos regulan el uso de la plataforma El Gallinero · Iwagé Granja. Al crear tu granja o pagar un ciclo declaras que los leíste y aceptas.",
+      "Estos términos regulan el uso de la plataforma El Corral · Iwagé Granja. Al crear tu granja o pagar un ciclo declaras que los leíste y aceptas.",
     sections: [
       {
         title: "1. Quién opera el sitio",
@@ -263,4 +263,4 @@ export const FAQS: FaqItem[] = [
 ];
 
 export const NOSOTROS_TEXT =
-  "El Gallinero es una herramienta para granjas mixtas de Colombia, desarrollada en Ibagué por Camilo Saldarriaga bajo la marca Iwagé. Se probó primero en un gallinero real en Ambalá, y por eso está pensada para el galpón: se usa desde el celular, funciona sin señal y registra huevos, alimento, sanidad, trazabilidad y cuentas en un solo lugar. Es de código abierto, para que nadie quede atado a tus datos. Puedes conocer la historia completa en iwage.co y escribirnos cuando quieras desde la página de contacto.";
+  "El Corral es una herramienta para granjas mixtas de Colombia, desarrollada en Ibagué por Camilo Saldarriaga bajo la marca Iwagé. Se probó primero en un gallinero real en Ambalá, y por eso está pensada para el galpón: se usa desde el celular, funciona sin señal y registra huevos, alimento, sanidad, trazabilidad y cuentas en un solo lugar. Es de código abierto, para que nadie quede atado a tus datos. Puedes conocer la historia completa en iwage.co y escribirnos cuando quieras desde la página de contacto.";

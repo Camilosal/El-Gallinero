@@ -8,7 +8,7 @@ import { isUuid } from "@/lib/ids";
 import { HeroFrame } from "@/components/HeroFrame";
 
 export const metadata = {
-  title: "Trazabilidad de lote | El Gallinero",
+  title: "Trazabilidad de lote | El Corral",
   robots: { index: false, follow: false },
 };
 
@@ -61,7 +61,7 @@ export default async function LoteTraceabilityPage({ params }: Props) {
         <HeroFrame
           theme="aves"
           eyebrow="Trazabilidad pública"
-          title="Trazabilidad - Sistema Gallinero"
+          title="Trazabilidad - El Corral"
           description="Información de producción avícola y ciclo del lote"
           className="mb-8"
           icon={
@@ -139,7 +139,7 @@ export default async function LoteTraceabilityPage({ params }: Props) {
         {/* Footer */}
         <div className="text-center mt-8 pt-6 border-t border-gray-200">
           <p className="text-sm text-gray-500">
-            Producto de <span className="font-semibold text-green-700">El Gallinero</span> - Granja Autosustentable
+            Producto de <span className="font-semibold text-green-700">El Corral</span> - Granja Autosustentable
           </p>
           <p className="text-xs text-gray-400 mt-1">
             Sistema integral de gestion avicola

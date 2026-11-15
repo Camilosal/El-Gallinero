@@ -5,7 +5,7 @@ import { buildPageMetadata } from "@/lib/seo";
 
 export const dynamic = "force-dynamic";
 
-const TITLE = "Tratamiento de datos (Ley 1581) · El Gallinero";
+const TITLE = "Tratamiento de datos (Ley 1581) · El Corral";
 const DESCRIPTION =
   "Política de tratamiento de datos personales conforme a la Ley 1581 y Decreto 090 en Colombia: derechos del titular, seguridad y analítica.";
 

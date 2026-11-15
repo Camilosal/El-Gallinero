@@ -10,7 +10,7 @@ import {
 } from "@/lib/bitacora-content";
 import { buildPageMetadata } from "@/lib/seo";
 
-const TITLE = "Bitácora de campo · El Gallinero · Iwagé Granja";
+const TITLE = "Bitácora de campo · El Corral · Iwagé Granja";
 const DESCRIPTION =
   "Guías prácticas de avicultura y granjas mixtas: costo por huevo, tiempos de retiro, NTC 1240, operación sin señal y compostaje de gallinaza.";
 
@@ -19,7 +19,7 @@ export const metadata: Metadata = buildPageMetadata({
   description: DESCRIPTION,
   path: "/bitacora",
   ogImage: "/images/guia/finanzas-balance.webp",
-  ogImageAlt: "Bitácora técnica de campo de El Gallinero",
+  ogImageAlt: "Bitácora técnica de campo de El Corral",
 });
 
 export default function BitacoraPage() {

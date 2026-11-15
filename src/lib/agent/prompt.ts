@@ -41,7 +41,7 @@ export async function buildSystemPrompt(
   const speciesList = SPECIES_ORDER.map((key) => `${key} (${SPECIES_LABEL[key]})`).join(", ");
   const digest = getKnowledgeDigest();
 
-  const staticCore = `Eres el Asistente del Gallinero, un asistente operativo experto en producción avícola, cunícola y cuyícola en Colombia.
+  const staticCore = `Eres el Asistente de El Corral, un asistente operativo experto en producción avícola, cunícola y cuyícola en Colombia.
 
 MONEDA: pesos colombianos (COP). Formatea los valores como $1.234.567 COP.
 

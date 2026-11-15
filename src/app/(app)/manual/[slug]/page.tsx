@@ -17,7 +17,7 @@ export async function generateMetadata({
   const guide = getGuide(slug);
   if (!guide) {
     return {
-      title: "Guía no encontrada · El Gallinero",
+      title: "Guía no encontrada · El Corral",
       robots: { index: false, follow: false },
     };
   }

@@ -3,16 +3,16 @@ import Link from "next/link";
 import { PublicPageShell } from "@/components/LegalPage";
 import { buildPageMetadata, buildSoftwareNode } from "@/lib/seo";
 
-const TITLE = "Código abierto y soberanía de datos · El Gallinero";
+const TITLE = "Código abierto y soberanía de datos · El Corral";
 const DESCRIPTION =
-  "Modelo Open Source de El Gallinero: fórmulas zootécnicas auditables, despliegue propio con Docker y PostgreSQL y aportes desde campo o código.";
+  "Modelo Open Source de El Corral: fórmulas zootécnicas auditables, despliegue propio con Docker y PostgreSQL y aportes desde campo o código.";
 
 export const metadata: Metadata = buildPageMetadata({
   title: TITLE,
   description: DESCRIPTION,
   path: "/open-source",
   ogImage: "/images/guia/inicio-dashboard.webp",
-  ogImageAlt: "Plataforma abierta El Gallinero para granjas mixtas",
+  ogImageAlt: "Plataforma abierta El Corral para granjas mixtas",
 });
 
 const PILLARS = [
@@ -26,7 +26,7 @@ const PILLARS = [
     code: "02 · SOBERANÍA",
     title: "Tus datos son tuyos, siempre",
     detail:
-      "Puedes desplegar El Gallinero en tu propio servidor con Docker y PostgreSQL o usar la nube gestionada en gallinero.iwage.co, sin quedar amarrado a un proveedor ni perder tus registros.",
+      "Puedes desplegar El Corral en tu propio servidor con Docker y PostgreSQL o usar la nube gestionada en gallinero.iwage.co, sin quedar amarrado a un proveedor ni perder tus registros.",
   },
   {
     code: "03 · EVOLUCIÓN EN CAMPO",
@@ -68,7 +68,7 @@ export default function OpenSourcePage() {
   return (
     <PublicPageShell
       title="Open Source y participación"
-      intro="El Gallinero es software abierto pensado para que las granjas pequeñas y medianas tengan control total sobre su operación y sus datos."
+      intro="El Corral es software abierto pensado para que las granjas pequeñas y medianas tengan control total sobre su operación y sus datos."
       path="/open-source"
       description={DESCRIPTION}
       extraJsonLdNodes={[buildSoftwareNode()]}
@@ -107,7 +107,7 @@ export default function OpenSourcePage() {
             Cómo puedes participar (con o sin código)
           </h2>
           <p className="mt-2 text-sm text-slate-700">
-            No necesitas saber programar para aportar. Gran parte del valor de El Gallinero viene de quienes trabajan
+            No necesitas saber programar para aportar. Gran parte del valor de El Corral viene de quienes trabajan
             todos los días con aves, conejos, cuyes y compostaje.
           </p>
           <div className="mt-5 grid gap-4 md:grid-cols-3">

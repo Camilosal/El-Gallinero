@@ -2933,7 +2933,7 @@ const registrarCierreDiario: AgentTool = {
 const consultarConocimiento: AgentTool = {
   name: "consultar_conocimiento",
   description:
-    "Busca en el manual operativo completo de El Gallinero (43 guías reales de pantallas/flujos) y normas técnicas " +
+    "Busca en el manual operativo completo de El Corral (43 guías reales de pantallas/flujos) y normas técnicas " +
     "colombianas (NTC 1240, Res. ICA 3651/8452, retiro vacunal, ITH/NH3, compostaje AGROSAVIA 3:1:1/7:2:2, ciclos cuy/conejo).",
   parameters: {
     type: "object",

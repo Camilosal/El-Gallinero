@@ -295,7 +295,7 @@ export function formatBugReportPreviewText(input: {
   capturedErrors?: BugCapturedError[];
 }): string {
   const lines: string[] = [
-    `=== REPORTE DE FALLA · EL GALLINERO ===`,
+    `=== REPORTE DE FALLA · EL CORRAL ===`,
     ...(input.reportCode ? [`Radicado: ${input.reportCode}`] : ["Estado: Borrador listo para envío"]),
     `Severidad: ${BUG_SEVERITY_LABELS[input.severity]} (${input.severity})`,
     `Categoría: ${BUG_CATEGORY_LABELS[input.category]}`,

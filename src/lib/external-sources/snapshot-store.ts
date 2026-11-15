@@ -39,7 +39,7 @@ export async function fetchJsonWithTimeout<T>(
   try {
     const res = await fetch(url, {
       method: "GET",
-      headers: { Accept: "application/json", "User-Agent": "ElGallineroOpenSource/1.0" },
+      headers: { Accept: "application/json", "User-Agent": "ElCorralOpenSource/1.0" },
       signal: controller.signal,
       cache: "no-store",
     });

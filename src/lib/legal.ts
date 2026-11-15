@@ -26,7 +26,7 @@ export const LEGAL = {
   /** Texto exacto sobre IVA mostrado junto a los precios. */
   ivaNote: env("LEGAL_IVA_NOTE", "Precio incluye IVA"),
   sitio: "gallinero.iwage.co",
-  marca: "El Gallinero · Iwagé Granja",
+  marca: "El Corral · Iwagé Granja",
 } as const;
 
 export const SIC_URL = "https://www.sic.gov.co";

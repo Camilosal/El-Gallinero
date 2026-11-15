@@ -80,7 +80,7 @@ function QrGeneratorContent({ hens }: { hens: Hen[] }) {
       <!DOCTYPE html>
       <html>
       <head>
-        <title>Etiquetas QR — El Gallinero</title>
+        <title>Etiquetas QR — El Corral</title>
         <style>
           * { margin: 0; padding: 0; box-sizing: border-box; }
           body { font-family: sans-serif; padding: 10mm; }

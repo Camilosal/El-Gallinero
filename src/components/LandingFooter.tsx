@@ -39,7 +39,7 @@ export function LandingFooter() {
                 className="w-2.5 h-2.5 rounded-full bg-[var(--forest)]"
                 aria-hidden="true"
               />
-              El Gallinero
+              El Corral
             </Link>
             <p className="mt-2 text-sm text-[var(--moss)]">
               Iwagé Granja · Gestión para granjas mixtas en Colombia.

@@ -17,7 +17,7 @@ export function GET() {
   );
 
   const content = [
-    "# El Gallinero — Iwagé Granja",
+    "# El Corral — Iwagé Granja",
     "",
     "> Software web y PWA offline-first de código abierto para gestionar granjas avícolas y multiespecie (gallinas ponedoras, pollos de engorde, codornices, patos, conejos y cuyes) en Colombia.",
     "",

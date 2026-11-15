@@ -61,7 +61,7 @@ export default function LoginPage() {
             compact
             icon={<Bird className="w-4 h-4 text-amber-200" aria-hidden="true" />}
             eyebrow="Acceso al sistema"
-            title="El Gallinero"
+            title="El Corral"
             description="Sistema de Gestión Avícola"
             className="mb-6"
           />

@@ -3,7 +3,7 @@ import { APP_DEVELOPER } from "@/lib/branding";
 import { LEGAL } from "@/lib/legal";
 
 export const SITE_URL = "https://gallinero.iwage.co";
-export const SITE_NAME = "El Gallinero · Iwagé Granja";
+export const SITE_NAME = "El Corral · Iwagé Granja";
 export const DEFAULT_OG_IMAGE = `${SITE_URL}/images/guia/inicio-dashboard.webp`;
 
 /** Dimensiones reales medidas en disco para los activos OG y diagramas en public/. */
@@ -67,7 +67,7 @@ export function toAbsoluteUrl(pathOrUrl?: string): string {
   return `${SITE_URL}${normalized}`;
 }
 
-export function fitSeoTitle(rawTitle: string, suffix = " · El Gallinero", maxLen = 62): string {
+export function fitSeoTitle(rawTitle: string, suffix = " · El Corral", maxLen = 62): string {
   const clean = rawTitle.trim().replace(/\s+/g, " ");
   if (clean.length + suffix.length <= maxLen) {
     return `${clean}${suffix}`;
@@ -258,7 +258,7 @@ export function buildSoftwareNode(): Record<string, unknown> {
   return {
     "@type": "SoftwareApplication",
     "@id": ENTITY_IDS.software,
-    name: "El Gallinero",
+    name: "El Corral",
     description:
       "Gestión avícola y multiespecie de código abierto: identidad individual por ave, trazabilidad financiera automática, sanidad ICA, clasificación NTC 1240, inventarios y modo simple/avanzado. Funciona sin conexión. En producción en Iwagé Granja, Ibagué, Colombia.",
     applicationCategory: "BusinessApplication",

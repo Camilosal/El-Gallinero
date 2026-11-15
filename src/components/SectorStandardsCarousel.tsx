@@ -14,7 +14,7 @@ function StandardDiagram({
     <div className="rounded-xl border border-[var(--line)] bg-[#fbf7ee] p-4 flex flex-col justify-between gap-3">
       <div className="flex items-center justify-between gap-2">
         <span className="font-mono text-[10px] font-bold uppercase tracking-wider text-[var(--forest)]">
-          Flujo en El Gallinero
+          Flujo en El Corral
         </span>
         <span className="rounded-full bg-emerald-100 px-2 py-0.5 font-mono text-[10px] font-semibold text-emerald-900">
           Regla automática

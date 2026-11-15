@@ -279,7 +279,7 @@ export default function Sidebar() {
             <div className="flex flex-col items-center gap-1.5">
               <div
                 className="flex h-9 w-9 items-center justify-center rounded-xl bg-green-800 text-farm-300 border border-green-700"
-                title={farmMeta?.farmId ? `${farmMeta.farmName || "El Gallinero"} · FarmID: ${farmMeta.farmId}` : "El Gallinero"}
+                title={farmMeta?.farmId ? `${farmMeta.farmName || "El Corral"} · FarmID: ${farmMeta.farmId}` : "El Corral"}
               >
                 <Bird className="w-5 h-5" />
               </div>
@@ -301,7 +301,7 @@ export default function Sidebar() {
                 <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-green-800 text-farm-300 border border-green-700 shrink-0">
                   <Bird className="w-5 h-5" />
                 </span>
-                <span>El Gallinero</span>
+                <span>El Corral</span>
               </h1>
               <p className="text-green-300 text-xs mt-1.5">Granja Autosustentable</p>
               {farmMeta?.farmId && (

@@ -1,6 +1,6 @@
 {
-  "name": "Sistema Gallinero",
-  "short_name": "Gallinero",
+  "name": "El Corral",
+  "short_name": "El Corral",
   "description": "Gestión de animales, producción, sanidad, inventarios y finanzas de la granja",
   "start_url": "/",
   "display": "standalone",

@@ -7,7 +7,7 @@ import { buildPageMetadata, ENTITY_IDS } from "@/lib/seo";
 
 export const dynamic = "force-dynamic";
 
-const TITLE = "Contacto, soporte e implementación · El Gallinero";
+const TITLE = "Contacto, soporte e implementación · El Corral";
 const DESCRIPTION =
   "Escríbenos para soporte técnico, implementación Llave en Mano o consultas de datos personales y retracto. Respondemos en 1 día hábil.";
 
@@ -16,7 +16,7 @@ export const metadata: Metadata = buildPageMetadata({
   description: DESCRIPTION,
   path: "/contacto",
   ogImage: "/images/guia/asistente-ia.webp",
-  ogImageAlt: "Canales de contacto y soporte técnico de El Gallinero",
+  ogImageAlt: "Canales de contacto y soporte técnico de El Corral",
 });
 
 export default function ContactoPage() {
@@ -44,7 +44,7 @@ export default function ContactoPage() {
   return (
     <PublicPageShell
       title="Contacto"
-      intro={`Escríbenos por soporte, para implementar El Gallinero en tu finca o por temas de datos personales. Respondemos en ${RESPONSE_TIME}.`}
+      intro={`Escríbenos por soporte, para implementar El Corral en tu finca o por temas de datos personales. Respondemos en ${RESPONSE_TIME}.`}
       path="/contacto"
       description={DESCRIPTION}
       pageType="ContactPage"

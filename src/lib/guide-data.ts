@@ -1,5 +1,5 @@
 // ─── Guide content data & search helpers ───
-// Cada guía refleja la estructura real de navegación y pantallas de El Gallinero.
+// Cada guía refleja la estructura real de navegación y pantallas de El Corral.
 // Todas las capturas en `type: "screenshot"` apuntan a archivos verificados en `public/images/guia/`.
 
 export type SectionType = "intro" | "steps" | "tip" | "warning" | "note" | "diagram" | "screenshot";
@@ -204,7 +204,7 @@ export const guides: Guide[] = [
         type: "screenshot",
         title: "Tablero principal Inicio y barra de herramientas superior",
         image: "/images/guia/inicio-dashboard.webp",
-        alt: "Captura del tablero principal Inicio de El Gallinero con grupos enmarcados, selector de escala superior y botón Crear +",
+        alt: "Captura del tablero principal Inicio de El Corral con grupos enmarcados, selector de escala superior y botón Crear +",
         caption:
           "En la barra superior tienes estado En línea/Offline, buscador global Ctrl+K, selector de escala Pequeño / Mediano y el botón Crear +, que abre directamente el modal o formulario de cada registro sin pantallas intermedias. Abajo a la derecha te acompaña Gina, tu asistente de granja.",
         badge: "Pantalla principal",
@@ -340,7 +340,7 @@ export const guides: Guide[] = [
     sections: [
       {
         type: "intro",
-        text: "El Gallinero incluye un motor PWA + IndexedDB diseñado para fincas con señal intermitente. Guarda pantallas, activos visuales y datos en el dispositivo para que puedas abrir módulos, escanear QR y capturar registros sin recibir «Error cargando datos» cuando estás fuera de cobertura.",
+        text: "El Corral incluye un motor PWA + IndexedDB diseñado para fincas con señal intermitente. Guarda pantallas, activos visuales y datos en el dispositivo para que puedas abrir módulos, escanear QR y capturar registros sin recibir «Error cargando datos» cuando estás fuera de cobertura.",
       },
       {
         type: "screenshot",
@@ -2213,7 +2213,7 @@ export const guides: Guide[] = [
     sections: [
       {
         type: "intro",
-        text: "El corazón configurable de El Gallinero vive en Configuración → Catálogos. Organizado en 10 pestañas (Listas, Clientes y Proveedores, Parámetros, Especies, Vacunas, Pesos, Gallinaza, Alimentación, Fuentes Externas y Normas y Guías), gobierna razas de las 6 especies (incluyendo cuyes), tamaños de huevo, reglas de reparto de gastos, vacunas, clima/precios de referencia y biblioteca de normas con adjuntos.",
+        text: "El corazón configurable de El Corral vive en Configuración → Catálogos. Organizado en 10 pestañas (Listas, Clientes y Proveedores, Parámetros, Especies, Vacunas, Pesos, Gallinaza, Alimentación, Fuentes Externas y Normas y Guías), gobierna razas de las 6 especies (incluyendo cuyes), tamaños de huevo, reglas de reparto de gastos, vacunas, clima/precios de referencia y biblioteca de normas con adjuntos.",
       },
       {
         type: "screenshot",

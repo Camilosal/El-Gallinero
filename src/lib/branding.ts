@@ -1,5 +1,5 @@
 export const APP_BRAND = {
-  name: "El Gallinero",
+  name: "El Corral",
   subtitle: "Iwagé Granja · Sistema de Gestión Agropecuaria",
 } as const;
 

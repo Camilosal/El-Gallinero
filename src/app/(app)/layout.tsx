@@ -3,7 +3,7 @@ import { Suspense } from "react";
 import ClientAppLayout from "./_client-layout";
 
 export const metadata: Metadata = {
-  title: "Panel operativo · El Gallinero",
+  title: "Panel operativo · El Corral",
   robots: { index: false, follow: false },
 };
 

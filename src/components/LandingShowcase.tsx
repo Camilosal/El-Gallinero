@@ -869,7 +869,7 @@ export function LandingShowcase({
       ref={sectionRef}
       className={isHero ? "land-hero-showcase" : "land-section land-showcase"}
       aria-labelledby={isHero ? undefined : "vitrina-heading"}
-      aria-label={isHero ? "Vista interactiva de El Gallinero" : undefined}
+      aria-label={isHero ? "Vista interactiva de El Corral" : undefined}
     >
       <div className={isHero ? "" : "land-wrap"}>
         {!isHero && (
@@ -906,7 +906,7 @@ export function LandingShowcase({
 
         <div
           role="tablist"
-          aria-label="Módulos de El Gallinero"
+          aria-label="Módulos de El Corral"
           className={`land-tablist ${isHero ? "land-tablist-hero mb-3" : "mb-6"}`}
         >
           {SHOWCASE_TABS.map((tab, idx) => {

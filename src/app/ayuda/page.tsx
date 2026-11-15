@@ -5,7 +5,7 @@ import { PublicPageShell } from "@/components/LegalPage";
 import { FAQS } from "@/lib/legal-content";
 import { buildFaqNode, buildPageMetadata, canonicalUrlFor } from "@/lib/seo";
 
-const TITLE = "Centro de ayuda y preguntas frecuentes · El Gallinero";
+const TITLE = "Centro de ayuda y preguntas frecuentes · El Corral";
 const DESCRIPTION =
   "Respuestas directas sobre pagos por ciclo con Nequi o PSE, modo sin señal, exportación en Excel, cierre de ciclo y el rol de Gina.";
 
@@ -14,7 +14,7 @@ export const metadata: Metadata = buildPageMetadata({
   description: DESCRIPTION,
   path: "/ayuda",
   ogImage: "/images/guia/configuracion-panel.webp",
-  ogImageAlt: "Panel de configuración, planes y soporte en El Gallinero",
+  ogImageAlt: "Panel de configuración, planes y soporte en El Corral",
 });
 
 export default function AyudaPage() {

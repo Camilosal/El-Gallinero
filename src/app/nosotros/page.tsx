@@ -5,9 +5,9 @@ import { PublicPageShell } from "@/components/LegalPage";
 import { NOSOTROS_TEXT } from "@/lib/legal-content";
 import { buildPageMetadata } from "@/lib/seo";
 
-const TITLE = "Quiénes somos: historia en Ibagué · El Gallinero";
+const TITLE = "Quiénes somos: historia en Ibagué · El Corral";
 const DESCRIPTION =
-  "Historia de El Gallinero en Ibagué, Tolima: herramienta abierta de Iwagé Granja probada en Ambalá para granjas avícolas y multiespecie.";
+  "Historia de El Corral en Ibagué, Tolima: herramienta abierta de Iwagé Granja probada en Ambalá para granjas avícolas y multiespecie.";
 
 export const metadata: Metadata = buildPageMetadata({
   title: TITLE,

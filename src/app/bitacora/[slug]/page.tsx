@@ -57,7 +57,7 @@ export async function generateMetadata({
   const article = getBitacoraArticleBySlug(slug);
   if (!article) {
     return {
-      title: "Artículo no encontrado · El Gallinero",
+      title: "Artículo no encontrado · El Corral",
     };
   }
   const publishedIso = `${article.publishedAt}T09:00:00-05:00`;
@@ -92,7 +92,7 @@ export default async function BitacoraArticlePage({
   const otherArticles = getRelatedBitacoraArticles(article, 3);
   const relatedGuide = RELATED_GUIDE_MAP[article.slug] ?? {
     href: `/guia/${article.relatedGuideSlug}`,
-    label: "Explorar la guía práctica relacionada en El Gallinero",
+    label: "Explorar la guía práctica relacionada en El Corral",
   };
   const relatedNorms = article.relatedNormIds
     .map((normId) => NORMATIVE_CATALOG.find((item) => item.id === normId))
@@ -231,7 +231,7 @@ export default async function BitacoraArticlePage({
           className="rounded-xl border border-slate-200 bg-slate-50 p-5 space-y-3"
         >
           <h2 id="lecturas-relacionadas" className="text-base font-bold text-slate-900">
-            Guías y lecturas relacionadas en El Gallinero
+            Guías y lecturas relacionadas en El Corral
           </h2>
           <ul className="space-y-2 text-sm">
             <li>

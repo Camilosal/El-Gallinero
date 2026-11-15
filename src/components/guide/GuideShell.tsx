@@ -214,7 +214,7 @@ export function GuideShell({ children, basePath, isStandalone }: GuideShellProps
               <span className="min-w-0">
                 <span className="flex items-center gap-2">
                   <span className="truncate text-sm font-bold text-slate-900 sm:text-base">
-                    Manual de Uso · El Gallinero
+                    Manual de Uso · El Corral
                   </span>
                   <span className="hidden sm:inline-flex items-center rounded-full border border-green-200 bg-green-50 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-green-800">
                     {guides.length} guías

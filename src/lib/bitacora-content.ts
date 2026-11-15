@@ -97,7 +97,7 @@ export const BITACORA_ARTICLES: BitacoraArticle[] = [
     },
     image: {
       src: "/images/guia/finanzas-balance.webp",
-      alt: "Panel de balance, utilidad y costo unitario por huevo en El Gallinero",
+      alt: "Panel de balance, utilidad y costo unitario por huevo en El Corral",
     },
     sections: [
       {
@@ -165,7 +165,7 @@ export const BITACORA_ARTICLES: BitacoraArticle[] = [
     },
     image: {
       src: "/images/guia/sanidad-control.webp",
-      alt: "Control sanitario con cálculo automático de fecha de retiro en El Gallinero",
+      alt: "Control sanitario con cálculo automático de fecha de retiro en El Corral",
     },
     sections: [
       {
@@ -186,7 +186,7 @@ export const BITACORA_ARTICLES: BitacoraArticle[] = [
         heading: "3. Cómo llevar el control sin depender de la memoria",
         paragraphs: [
           "Escribir con marcador en la pared del galpón funciona el primer día, pero se borra o se olvida cuando hay rotación entre operarios o cuando el propietario viaja al pueblo. Cada evento sanitario registrado debe quedar amarrado a cuatro datos concretos: producto comercial aplicado, lote afectado o galpón específico, días de retiro de la etiqueta y fecha calculada de liberación.",
-          "En El Gallinero, cuando anotas un tratamiento con tiempo de retiro mayor a cero, el sistema calcula automáticamente la fecha límite (`retiro hasta`) y levanta un bloqueo preventivo al intentar vender huevo o carne de ese lote mientras el reloj siga corriendo. Si una ponedora debe tratarse de urgencia, el operario ve el aviso claro en pantalla antes de empacar la cubeta.",
+          "En El Corral, cuando anotas un tratamiento con tiempo de retiro mayor a cero, el sistema calcula automáticamente la fecha límite (`retiro hasta`) y levanta un bloqueo preventivo al intentar vender huevo o carne de ese lote mientras el reloj siga corriendo. Si una ponedora debe tratarse de urgencia, el operario ve el aviso claro en pantalla antes de empacar la cubeta.",
           "También conviene dejar un registro separado del destino real de los huevos producidos durante esos días de carencia: nunca deben mezclarse con la producción comercial ni usarse para consumo humano familiar si la ficha técnica del fármaco lo prohíbe expresamente. Descartarlos hacia la pila de compostaje térmico o seguir las instrucciones del médico veterinario mantiene limpia la trazabilidad de punta a punta.",
         ],
       },
@@ -304,7 +304,7 @@ export const BITACORA_ARTICLES: BitacoraArticle[] = [
     },
     image: {
       src: "/images/guia/captura-rapida-modal.webp",
-      alt: "Modal de captura rápida offline-first de El Gallinero para usar sin señal",
+      alt: "Modal de captura rápida offline-first de El Corral para usar sin señal",
     },
     sections: [
       {
@@ -317,7 +317,7 @@ export const BITACORA_ARTICLES: BitacoraArticle[] = [
       {
         heading: "2. Qué significa realmente offline-first y por qué importa",
         paragraphs: [
-          "Una herramienta offline-first está pensada desde cero para trabajar sin conexión en el teléfono y sincronizar en segundo plano cuando aparece una red estable. En El Gallinero, basta con abrir la aplicación una vez con internet para que las pantallas principales y catálogos queden guardados localmente.",
+          "Una herramienta offline-first está pensada desde cero para trabajar sin conexión en el teléfono y sincronizar en segundo plano cuando aparece una red estable. En El Corral, basta con abrir la aplicación una vez con internet para que las pantallas principales y catálogos queden guardados localmente.",
           "Cuando entras al galpón sin señal y registras huevos, un consumo de bulto, una baja por mortalidad o un gasto menor, cada registro se guarda cifrado en el almacenamiento del navegador del celular y recibe un identificador único irrepetible de mutación.",
           "Esta arquitectura evita pantallas congeladas o formularios perdidos mientras caminas entre jaulas o corrales alejados de la antena, dando al operario la tranquilidad de que su trabajo quedó guardado al instante.",
         ],
@@ -374,7 +374,7 @@ export const BITACORA_ARTICLES: BitacoraArticle[] = [
     },
     image: {
       src: "/images/guia/produccion-gallinaza.webp",
-      alt: "Gestión de pilas de compostaje de gallinaza y registros térmicos en El Gallinero",
+      alt: "Gestión de pilas de compostaje de gallinaza y registros térmicos en El Corral",
     },
     sections: [
       {
