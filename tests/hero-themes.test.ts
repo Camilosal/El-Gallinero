@@ -10,17 +10,17 @@ import {
 
 describe("hero-themes", () => {
   it("resuelve temas exactos para rutas y pestañas de producción", () => {
-    expect(resolveHeroThemeByPath("/dashboard")).toBe("inicio");
-    expect(resolveHeroThemeByPath("/dashboard/escanear")).toBe("escanear");
-    expect(resolveHeroThemeByPath("/dashboard/almacen")).toBe("insumos");
-    expect(resolveHeroThemeByPath("/dashboard/produccion", "huevos")).toBe("huevos");
-    expect(resolveHeroThemeByPath("/dashboard/produccion", "incubacion")).toBe("incubacion");
-    expect(resolveHeroThemeByPath("/dashboard/produccion", "gallinaza")).toBe("gallinaza");
-    expect(resolveHeroThemeByPath("/dashboard/finanzas/ventas")).toBe("finanzas");
-    expect(resolveHeroThemeByPath("/dashboard/contactos")).toBe("finanzas");
-    expect(resolveHeroThemeByPath("/dashboard/analisis/kpis")).toBe("analisis");
+    expect(resolveHeroThemeByPath("/inicio")).toBe("inicio");
+    expect(resolveHeroThemeByPath("/escanear")).toBe("escanear");
+    expect(resolveHeroThemeByPath("/almacen")).toBe("insumos");
+    expect(resolveHeroThemeByPath("/produccion", "huevos")).toBe("huevos");
+    expect(resolveHeroThemeByPath("/produccion", "incubacion")).toBe("incubacion");
+    expect(resolveHeroThemeByPath("/produccion", "gallinaza")).toBe("gallinaza");
+    expect(resolveHeroThemeByPath("/finanzas/ventas")).toBe("finanzas");
+    expect(resolveHeroThemeByPath("/contactos")).toBe("finanzas");
+    expect(resolveHeroThemeByPath("/analisis/kpis")).toBe("analisis");
     expect(resolveHeroThemeByPath("/lote/123")).toBe("aves");
-    expect(resolveHeroThemeByPath("/dashboard/ubicaciones/456")).toBe("ubicaciones");
+    expect(resolveHeroThemeByPath("/ubicaciones/456")).toBe("ubicaciones");
   });
 
   it("resuelve temas para todos los módulos de la guía", () => {

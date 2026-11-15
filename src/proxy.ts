@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { APP_ROUTE_PREFIXES } from "@/lib/app-routes";
 
 export const config = {
   matcher: ["/((?!_next/static|_next/image|favicon.ico|manifest.json|sw.js|icon-192.png|icon-512.png|.*\\.(?:png|jpg|jpeg|gif|svg|webp|ico|css|js|woff|woff2|ttf|eot)$).*)"],
@@ -11,7 +12,7 @@ const PUBLIC_PREFIXES = [
   "/api/auth/",
   "/lote/",
   "/guia/",
-  "/dashboard/guia/",
+  "/manual/",
   "/bitacora/",
   "/planes/",
 ];
@@ -39,13 +40,13 @@ const PUBLIC_EXACT = [
   // Exportación: valida cookie de sesión o token de solo lectura dentro de la ruta.
   "/api/export",
   "/guia",
-  "/dashboard/guia",
+  "/manual",
   "/sitemap.xml",
   "/robots.txt",
   "/llms.txt",
 ];
 
-const PROTECTED_PREFIXES = ["/dashboard", "/api", "/admin"];
+const PROTECTED_PREFIXES = [...APP_ROUTE_PREFIXES, "/dashboard", "/api", "/admin"];
 
 function isProtectedRoute(pathname: string): boolean {
   return PROTECTED_PREFIXES.some(
@@ -54,7 +55,13 @@ function isProtectedRoute(pathname: string): boolean {
 }
 
 export async function proxy(req: NextRequest) {
-  const { pathname } = req.nextUrl;
+  const { pathname, search } = req.nextUrl;
+
+  // Legacy public manual path redirect
+  if (pathname === "/dashboard/guia" || pathname.startsWith("/dashboard/guia/")) {
+    const suffix = pathname.slice("/dashboard/guia".length);
+    return NextResponse.redirect(new URL(`/manual${suffix}${search}`, req.url), 308);
+  }
 
   // Let public and static routes through
   if (
@@ -79,6 +86,15 @@ export async function proxy(req: NextRequest) {
     }
     // API requests → 401
     return NextResponse.json({ error: "No autenticado" }, { status: 401 });
+  }
+
+  // Legacy /dashboard/* routes redirect permanently once authenticated
+  if (pathname === "/dashboard") {
+    return NextResponse.redirect(new URL(`/inicio${search}`, req.url), 308);
+  }
+  if (pathname.startsWith("/dashboard/")) {
+    const targetPath = pathname.slice("/dashboard".length) || "/inicio";
+    return NextResponse.redirect(new URL(`${targetPath}${search}`, req.url), 308);
   }
 
   return NextResponse.next();

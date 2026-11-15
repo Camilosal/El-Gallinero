@@ -181,7 +181,7 @@ export default function RoutineDayButtons({
           </span>
           {overdueTotal > 0 && (
             <Link
-              href="/dashboard/planeacion/calendario"
+              href="/planeacion/calendario"
               className="inline-flex items-center gap-1 rounded-md border border-rose-200 bg-rose-50 px-2 py-0.5 text-xs font-semibold text-rose-800 hover:bg-rose-100"
             >
               <AlertTriangle className="h-3 w-3 text-rose-700" aria-hidden="true" />
@@ -202,7 +202,7 @@ export default function RoutineDayButtons({
             </button>
           )}
           <Link
-            href="/dashboard/planeacion/calendario"
+            href="/planeacion/calendario"
             className="inline-flex min-h-[48px] items-center gap-1.5 rounded-lg border border-slate-300 bg-white px-3.5 py-2 text-xs sm:text-sm font-semibold text-slate-800 hover:border-slate-400 hover:bg-slate-50"
           >
             <Calendar className="h-4 w-4 text-slate-600" aria-hidden="true" />

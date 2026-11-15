@@ -81,7 +81,7 @@ export default function FeatureGateBanner({
               <span>{unlocking ? "Activando..." : "Activar módulo ahora"}</span>
             </button>
             <Link
-              href="/dashboard/configuracion/modulos"
+              href="/configuracion/modulos"
               className="rounded-lg border border-amber-300 bg-white px-3 py-2 text-xs font-semibold text-amber-900 hover:bg-amber-100"
             >
               Configurar escala

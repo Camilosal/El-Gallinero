@@ -124,40 +124,40 @@ export function buildPageMetadata(options: BuildPageMetadataOptions): Metadata {
   const openGraph: Metadata["openGraph"] =
     ogType === "article"
       ? {
-          title,
-          description,
-          url: canonical,
-          siteName: SITE_NAME,
-          locale: "es_CO",
-          type: "article",
-          publishedTime,
-          modifiedTime,
-          authors: [APP_DEVELOPER.url],
-          images: [
-            {
-              url: absoluteOgImage,
-              width: ogDims.width,
-              height: ogDims.height,
-              alt: imageAlt,
-            },
-          ],
-        }
+        title,
+        description,
+        url: canonical,
+        siteName: SITE_NAME,
+        locale: "es_CO",
+        type: "article",
+        publishedTime,
+        modifiedTime,
+        authors: [APP_DEVELOPER.url],
+        images: [
+          {
+            url: absoluteOgImage,
+            width: ogDims.width,
+            height: ogDims.height,
+            alt: imageAlt,
+          },
+        ],
+      }
       : {
-          title,
-          description,
-          url: canonical,
-          siteName: SITE_NAME,
-          locale: "es_CO",
-          type: "website",
-          images: [
-            {
-              url: absoluteOgImage,
-              width: ogDims.width,
-              height: ogDims.height,
-              alt: imageAlt,
-            },
-          ],
-        };
+        title,
+        description,
+        url: canonical,
+        siteName: SITE_NAME,
+        locale: "es_CO",
+        type: "website",
+        images: [
+          {
+            url: absoluteOgImage,
+            width: ogDims.width,
+            height: ogDims.height,
+            alt: imageAlt,
+          },
+        ],
+      };
 
   return {
     title,

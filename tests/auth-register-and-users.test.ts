@@ -72,7 +72,7 @@ describe("Day 0 Registration (/registro) & Farm User/Role Management", () => {
     expect(regRes.status).toBe(201);
     const regBody = await regRes.json();
     expect(regBody.ok).toBe(true);
-    expect(regBody.redirectTo).toBe("/dashboard?wizard=1");
+    expect(regBody.redirectTo).toBe("/inicio?wizard=1");
     expect(regBody.farm.planCode).toBe("FREEMIUM_SEMILLA");
     expect(regBody.user.role).toBe("propietario");
     expect(regRes.cookies.get(authMod.sessionCookieName)?.value).toBeTruthy();

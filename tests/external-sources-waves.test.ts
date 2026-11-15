@@ -455,7 +455,7 @@ describe("Integración de Fuentes Externas Offline-First (Olas 1, 2 y 3)", () =>
       expect(item.id).toBeTruthy();
       expect(item.code).toBeTruthy();
       expect(item.sourceUrl).toMatch(/^https?:\/\//);
-      expect(item.appRoute).toMatch(/^\/dashboard/);
+      expect(item.appRoute).toMatch(/^\/.+/);
       expect(Array.isArray(item.keyReferences) && item.keyReferences.length).toBeGreaterThan(0);
       expect(Array.isArray(item.complianceChecklist) && item.complianceChecklist.length).toBeGreaterThan(0);
       expect(Array.isArray(item.ginaPrompts) && item.ginaPrompts.length).toBeGreaterThan(0);
@@ -551,7 +551,7 @@ describe("Integración de Fuentes Externas Offline-First (Olas 1, 2 y 3)", () =>
             version: "v1.0",
             species: ["gallina", "pollo"],
             moduleLabel: "Sanidad y Bioseguridad",
-            appRoute: "/dashboard/sanidad/bioseguridad",
+            appRoute: "/sanidad/bioseguridad",
             summary: "Procedimiento operativo estandarizado con soporte PDF.",
             keyReferences: ["Dosis de cloro residual 2-3 ppm"],
             complianceChecklist: ["Registrar lavado semanal en bitácora"],

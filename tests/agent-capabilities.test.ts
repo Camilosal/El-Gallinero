@@ -32,10 +32,10 @@ function context(
 
 describe("nuevas funciones de búsqueda y del agente", () => {
   it("encuentra la guía genética, los lugares y los equipos con términos de uso cotidiano", () => {
-    expect(searchNavigation("linaje").some((entry) => entry.href === "/dashboard/guia/trazabilidad-genetica")).toBe(true);
-    expect(searchNavigation("potrero").some((entry) => entry.href === "/dashboard/ubicaciones")).toBe(true);
-    expect(searchNavigation("equipos").some((entry) => entry.href === "/dashboard/guia/infraestructura-equipos")).toBe(true);
-    expect(searchNavigation("equipos").some((entry) => entry.href === "/dashboard/operaciones/activos")).toBe(true);
+    expect(searchNavigation("linaje").some((entry) => entry.href === "/manual/trazabilidad-genetica")).toBe(true);
+    expect(searchNavigation("potrero").some((entry) => entry.href === "/ubicaciones")).toBe(true);
+    expect(searchNavigation("equipos").some((entry) => entry.href === "/manual/infraestructura-equipos")).toBe(true);
+    expect(searchNavigation("equipos").some((entry) => entry.href === "/operaciones/activos")).toBe(true);
   });
 
   it("consulta una ficha con datos desglosados por lugar", async () => {

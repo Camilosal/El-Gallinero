@@ -148,8 +148,8 @@ export const POST = withApiHandler(async (req: NextRequest) => {
 
   const scope = body.scope === "guides" ? "guides" : "navigation";
   const basePath =
-    typeof body.basePath === "string" && body.basePath.startsWith("/dashboard/guia")
-      ? "/dashboard/guia"
+    typeof body.basePath === "string" && body.basePath.startsWith("/manual")
+      ? "/manual"
       : "/guia";
   const flags =
     body.flags && typeof body.flags === "object"

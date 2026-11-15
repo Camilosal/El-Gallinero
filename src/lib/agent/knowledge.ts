@@ -162,7 +162,7 @@ const TECHNICAL_STANDARDS: TechnicalStandardSeed[] = [
     relatedHrefs: [
       { href: "/finanzas", label: "Finanzas y Presupuestos" },
       { href: "/operaciones", label: "Cierre Diario" },
-      { href: "/dashboard/analisis/kpis", label: "Indicadores de Granja" },
+      { href: "/analisis/kpis", label: "Indicadores de Granja" },
     ],
     steps: [
       "Separar las 3 capas financieras: el dinero en caja refleja entradas y salidas de efectivo; la ganancia operativa real solo resta lo consumido en el período y el desgaste mensual o por ciclo de los equipos; y el patrimonio productivo suma alimento en bodega, valor restante de equipos y valor vivo de tus animales.",

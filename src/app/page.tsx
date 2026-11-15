@@ -261,7 +261,7 @@ export default function HomePage() {
                       <span className="w-2.5 h-2.5 rounded-full bg-[#4f775d]" />
                     </div>
                     <span className="font-mono text-[11px] text-[var(--moss)] truncate">
-                      gallinero.iwage.co/dashboard
+                      gallinero.iwage.co/inicio
                     </span>
                     <span className="font-mono text-[10px] font-semibold uppercase tracking-wider text-[var(--forest)]">
                       Vista real

@@ -13,8 +13,10 @@ import {
   Bird,
   BookOpen,
   Bug,
+  Check,
   ChevronLeft,
   ChevronRight,
+  Copy,
   ExternalLink,
   LogOut,
   Menu,
@@ -27,6 +29,14 @@ import { openBugReportModal } from "@/lib/bug-report";
 const STORAGE_KEY = "sidebar-expanded-groups";
 const COLLAPSED_KEY = "sidebar-collapsed";
 
+const ACTIVE_FARM_META_STORAGE_KEY = "galli-active-farm-meta";
+
+interface ActiveFarmMeta {
+  farmId: string;
+  farmName?: string | null;
+  farmSlug?: string | null;
+}
+
 export default function Sidebar() {
   const pathname = usePathname();
   const searchParams = useSearchParams();
@@ -35,6 +45,8 @@ export default function Sidebar() {
   const [mobileOpenAt, setMobileOpenAt] = useState<string | null>(null);
   const [collapsed, setCollapsed] = useState(false);
   const [settingsLoaded, setSettingsLoaded] = useState(false);
+  const [farmMeta, setFarmMeta] = useState<ActiveFarmMeta | null>(null);
+  const [copiedFarmId, setCopiedFarmId] = useState(false);
   const query = searchParams.toString();
   const locationKey = query ? `${pathname}?${query}` : pathname;
   const mobileOpen = mobileOpenAt === locationKey;
@@ -106,8 +118,65 @@ export default function Sidebar() {
     });
   };
 
+  useEffect(() => {
+    let active = true;
+    try {
+      const cached = localStorage.getItem(ACTIVE_FARM_META_STORAGE_KEY);
+      if (cached) {
+        const parsed = JSON.parse(cached) as ActiveFarmMeta;
+        if (parsed?.farmId) {
+          queueMicrotask(() => {
+            if (active) setFarmMeta(parsed);
+          });
+        }
+      }
+    } catch {
+      // Ignore storage read errors
+    }
+
+    fetch("/api/auth/me", { credentials: "same-origin" })
+      .then((res) => (res.ok ? res.json() : null))
+      .then((data) => {
+        if (!active || !data?.farmId) return;
+        const nextMeta: ActiveFarmMeta = {
+          farmId: String(data.farmId),
+          farmName: data.farmName ?? null,
+          farmSlug: data.farmSlug ?? null,
+        };
+        setFarmMeta(nextMeta);
+        try {
+          localStorage.setItem(ACTIVE_FARM_META_STORAGE_KEY, JSON.stringify(nextMeta));
+        } catch {
+          // Ignore storage write errors
+        }
+      })
+      .catch(() => {
+        // Offline / unauthenticated fallback keeps cached FarmID if available
+      });
+
+    return () => {
+      active = false;
+    };
+  }, []);
+
+  const copyFarmId = async () => {
+    if (!farmMeta?.farmId) return;
+    try {
+      await navigator.clipboard.writeText(farmMeta.farmId);
+      setCopiedFarmId(true);
+      window.setTimeout(() => setCopiedFarmId(false), 1800);
+    } catch {
+      // Clipboard API unavailable
+    }
+  };
+
   const logout = async () => {
     clearOfflineCryptoKey(true);
+    try {
+      localStorage.removeItem(ACTIVE_FARM_META_STORAGE_KEY);
+    } catch {
+      // Ignore storage clear errors
+    }
     await fetch("/api/auth/logout", { method: "POST" });
     router.push("/login");
     router.refresh();
@@ -127,7 +196,7 @@ export default function Sidebar() {
     }
 
     // Las páginas con pestañas activan su índice solo cuando no hay pestaña.
-    if (path === "/dashboard/produccion" && searchParams.get("tab")) return false;
+    if (path === "/produccion" && searchParams.get("tab")) return false;
     return true;
   };
 
@@ -173,10 +242,24 @@ export default function Sidebar() {
         {/* Header */}
         <div className={`border-b border-green-700 ${collapsed ? "px-2 py-4" : "p-5"}`}>
           {collapsed ? (
-            <div className="flex flex-col items-center">
-              <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-green-800 text-farm-300 border border-green-700">
+            <div className="flex flex-col items-center gap-1.5">
+              <div
+                className="flex h-9 w-9 items-center justify-center rounded-xl bg-green-800 text-farm-300 border border-green-700"
+                title={farmMeta?.farmId ? `${farmMeta.farmName || "El Gallinero"} · FarmID: ${farmMeta.farmId}` : "El Gallinero"}
+              >
                 <Bird className="w-5 h-5" />
               </div>
+              {farmMeta?.farmId && (
+                <button
+                  type="button"
+                  onClick={copyFarmId}
+                  className="px-1.5 py-0.5 rounded bg-green-950/70 border border-green-700/80 text-[9px] font-mono text-green-200 hover:text-white hover:bg-green-800 transition-colors"
+                  title={copiedFarmId ? "FarmID copiado" : `FarmID: ${farmMeta.farmId} (clic para copiar)`}
+                  aria-label={`Copiar FarmID ${farmMeta.farmId}`}
+                >
+                  {copiedFarmId ? "OK" : "ID"}
+                </button>
+              )}
             </div>
           ) : (
             <>
@@ -187,6 +270,33 @@ export default function Sidebar() {
                 <span>El Gallinero</span>
               </h1>
               <p className="text-green-300 text-xs mt-1.5">Granja Autosustentable</p>
+              {farmMeta?.farmId && (
+                <div className="mt-2.5 flex items-start justify-between gap-2 rounded-lg bg-green-950/60 border border-green-700/70 px-2.5 py-1.5">
+                  <div className="min-w-0">
+                    {farmMeta.farmName && (
+                      <p className="text-[11px] font-medium text-green-100 truncate">
+                        {farmMeta.farmName}
+                      </p>
+                    )}
+                    <p
+                      className="text-[10px] leading-tight font-mono text-green-200 break-all"
+                      title={farmMeta.farmId}
+                      data-testid="sidebar-farm-id"
+                    >
+                      FarmID: {farmMeta.farmId}
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={copyFarmId}
+                    className="p-1 rounded text-green-300 hover:text-white hover:bg-green-800/70 transition-colors shrink-0"
+                    title={copiedFarmId ? "FarmID copiado" : "Copiar FarmID"}
+                    aria-label="Copiar FarmID"
+                  >
+                    {copiedFarmId ? <Check className="w-3.5 h-3.5 text-emerald-300" /> : <Copy className="w-3.5 h-3.5" />}
+                  </button>
+                </div>
+              )}
             </>
           )}
         </div>
@@ -204,9 +314,9 @@ export default function Sidebar() {
         <nav className="flex-1 overflow-y-auto overflow-x-hidden py-4">
           {/* Dashboard link */}
           <Link
-            href="/dashboard"
+            href="/inicio"
             className={`flex items-center gap-3 py-3 text-sm transition-all hover:bg-green-800 ${collapsed ? "justify-center px-2" : "px-5"
-              } ${pathname === "/dashboard" ? "bg-green-700 border-r-4 border-farm-400 font-semibold" : ""}`}
+              } ${pathname === "/inicio" ? "bg-green-700 border-r-4 border-farm-400 font-semibold" : ""}`}
             title={collapsed ? "Inicio" : undefined}
           >
             <BarChart3 className="w-4 h-4 flex-shrink-0 text-green-200" />
@@ -215,9 +325,9 @@ export default function Sidebar() {
 
           {/* QR Scanner */}
           <Link
-            href="/dashboard/escanear"
+            href="/escanear"
             className={`flex items-center gap-3 py-3 text-sm transition-all hover:bg-green-800 ${collapsed ? "justify-center px-2" : "px-5"
-              } ${pathname === "/dashboard/escanear" || pathname.startsWith("/dashboard/escanear")
+              } ${pathname === "/escanear" || pathname.startsWith("/escanear")
                 ? "bg-green-700 border-r-4 border-farm-400 font-semibold"
                 : ""
               }`}
@@ -245,9 +355,9 @@ export default function Sidebar() {
         {/* Footer: configuracion + guide/logout in one row */}
         <div className={`border-t border-green-700 space-y-2 ${collapsed ? "p-2" : "p-3.5"}`}>
           <Link
-            href="/dashboard/configuracion"
+            href="/configuracion"
             className={`w-full py-1.5 rounded-lg text-xs font-medium transition-colors flex items-center justify-center gap-2 ${collapsed ? "px-1" : "px-3"} ${
-              pathname.startsWith("/dashboard/configuracion")
+              pathname.startsWith("/configuracion")
                 ? "bg-green-600 text-white"
                 : "bg-green-800/90 hover:bg-green-700 text-green-100"
             }`}
@@ -265,7 +375,7 @@ export default function Sidebar() {
               className={`py-1.5 rounded-lg text-xs font-medium transition-colors flex items-center justify-center gap-1.5 ${
                 collapsed ? "w-full px-1" : "px-2"
               } ${
-                pathname.startsWith("/dashboard/guia") || pathname.startsWith("/guia")
+                pathname.startsWith("/manual") || pathname.startsWith("/guia")
                   ? "bg-green-600 text-white"
                   : "bg-green-800 hover:bg-green-700 text-green-100"
               }`}

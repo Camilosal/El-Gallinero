@@ -28,8 +28,8 @@ describe("marca y atribución de desarrollo en producción", () => {
     expect(read("src/app/login/page.tsx")).toContain("DeveloperCredit");
     expect(read("src/app/login/recuperar/page.tsx")).toContain("DeveloperCredit");
     expect(read("src/components/Sidebar.tsx")).toContain("DeveloperCredit");
-    expect(read("src/app/dashboard/_client-layout.tsx")).toContain("DeveloperCredit");
-    expect(read("src/app/dashboard/configuracion/page.tsx")).toContain("DeveloperCredit");
+    expect(read("src/app/(app)/_client-layout.tsx")).toContain("DeveloperCredit");
+    expect(read("src/app/(app)/configuracion/page.tsx")).toContain("DeveloperCredit");
     expect(read("src/app/lote/[id]/page.tsx")).toContain("DeveloperCredit");
     expect(read("src/components/guide/GuideShell.tsx")).toContain("DeveloperCredit");
   });

@@ -30,7 +30,7 @@ export default function LoginPage() {
         setError(data.error || "Error al iniciar sesión");
         return;
       }
-      router.push("/dashboard");
+      router.push("/inicio");
       router.refresh();
     } catch {
       setError("Error de conexión");

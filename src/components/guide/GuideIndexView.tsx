@@ -23,7 +23,7 @@ import {
 } from "@/lib/guide-data";
 
 interface GuideIndexViewProps {
-  basePath: "/guia" | "/dashboard/guia";
+  basePath: "/guia" | "/manual";
 }
 
 export function GuideIndexView({ basePath }: GuideIndexViewProps) {

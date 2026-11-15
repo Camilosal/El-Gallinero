@@ -55,7 +55,7 @@ export const GET = withApiHandler(async (req: NextRequest) => {
         metric: "peso" as const,
         unit: "g de peso vivo",
         sourceLabel: "Catálogos y Datos Maestros de la granja",
-        sourceUrl: "/dashboard/configuracion/catalogos?tab=pesos",
+        sourceUrl: "/configuracion/catalogos?tab=pesos",
         note: "Curva personalizada configurada desde Catálogos → Estándares de peso.",
         points: dbWeightCurve!.points,
       };

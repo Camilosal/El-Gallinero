@@ -136,7 +136,7 @@ export const KPI_WIDGET_CATALOG: Record<KpiWidgetId, KpiWidgetCatalogItem> = {
     defaultTarget: 82,
     warningThreshold: 72,
     criticalThreshold: 60,
-    drilldownHref: "/dashboard/produccion/huevos",
+    drilldownHref: "/produccion/huevos",
     drilldownLabel: "Ver registros de postura",
   },
   laying_haa: {
@@ -154,7 +154,7 @@ export const KPI_WIDGET_CATALOG: Record<KpiWidgetId, KpiWidgetCatalogItem> = {
     defaultTarget: 78,
     warningThreshold: 68,
     criticalThreshold: 55,
-    drilldownHref: "/dashboard/produccion/huevos",
+    drilldownHref: "/produccion/huevos",
     drilldownLabel: "Auditar postura y aves",
   },
   cost_per_egg: {
@@ -172,7 +172,7 @@ export const KPI_WIDGET_CATALOG: Record<KpiWidgetId, KpiWidgetCatalogItem> = {
     defaultTarget: 350,
     warningThreshold: 430,
     criticalThreshold: 520,
-    drilldownHref: "/dashboard/finanzas",
+    drilldownHref: "/finanzas",
     drilldownLabel: "Revisar costos de postura",
   },
   egg_margin: {
@@ -190,7 +190,7 @@ export const KPI_WIDGET_CATALOG: Record<KpiWidgetId, KpiWidgetCatalogItem> = {
     defaultTarget: 80,
     warningThreshold: 0,
     criticalThreshold: -0.01,
-    drilldownHref: "/dashboard/finanzas/ventas",
+    drilldownHref: "/finanzas/ventas",
     drilldownLabel: "Ver ventas y equilibrio",
   },
   mortality_rate: {
@@ -208,7 +208,7 @@ export const KPI_WIDGET_CATALOG: Record<KpiWidgetId, KpiWidgetCatalogItem> = {
     defaultTarget: 1.5,
     warningThreshold: 3,
     criticalThreshold: 5,
-    drilldownHref: "/dashboard/produccion/mortalidad",
+    drilldownHref: "/produccion/mortalidad",
     drilldownLabel: "Ver historial de bajas",
   },
   feed_autonomy: {
@@ -226,7 +226,7 @@ export const KPI_WIDGET_CATALOG: Record<KpiWidgetId, KpiWidgetCatalogItem> = {
     defaultTarget: 10,
     warningThreshold: 5,
     criticalThreshold: 3,
-    drilldownHref: "/dashboard/inventarios/alimentacion",
+    drilldownHref: "/inventarios/alimentacion",
     drilldownLabel: "Ver inventario de alimento",
   },
   net_profit: {
@@ -244,7 +244,7 @@ export const KPI_WIDGET_CATALOG: Record<KpiWidgetId, KpiWidgetCatalogItem> = {
     defaultTarget: 1,
     warningThreshold: 0,
     criticalThreshold: -0.01,
-    drilldownHref: "/dashboard/finanzas",
+    drilldownHref: "/finanzas",
     drilldownLabel: "Ver flujo financiero",
   },
   cost_per_kg_meat: {
@@ -262,7 +262,7 @@ export const KPI_WIDGET_CATALOG: Record<KpiWidgetId, KpiWidgetCatalogItem> = {
     defaultTarget: 8500,
     warningThreshold: 10500,
     criticalThreshold: 12500,
-    drilldownHref: "/dashboard/inventarios/carne",
+    drilldownHref: "/inventarios/carne",
     drilldownLabel: "Ver inventario de carne",
   },
   epef: {
@@ -280,7 +280,7 @@ export const KPI_WIDGET_CATALOG: Record<KpiWidgetId, KpiWidgetCatalogItem> = {
     defaultTarget: 300,
     warningThreshold: 250,
     criticalThreshold: 200,
-    drilldownHref: "/dashboard/produccion/pollos",
+    drilldownHref: "/produccion/pollos",
     drilldownLabel: "Ver lotes de engorde",
   },
   uniformity: {
@@ -298,7 +298,7 @@ export const KPI_WIDGET_CATALOG: Record<KpiWidgetId, KpiWidgetCatalogItem> = {
     defaultTarget: 80,
     warningThreshold: 70,
     criticalThreshold: 60,
-    drilldownHref: "/dashboard/produccion/peso",
+    drilldownHref: "/produccion/peso",
     drilldownLabel: "Revisar pesajes y lotes",
   },
   capex_roi: {
@@ -316,7 +316,7 @@ export const KPI_WIDGET_CATALOG: Record<KpiWidgetId, KpiWidgetCatalogItem> = {
     defaultTarget: 20,
     warningThreshold: 8,
     criticalThreshold: 0,
-    drilldownHref: "/dashboard/operaciones/activos",
+    drilldownHref: "/operaciones/activos",
     drilldownLabel: "Ver inversión y activos",
   },
   chart_laying_curve: {
@@ -334,7 +334,7 @@ export const KPI_WIDGET_CATALOG: Record<KpiWidgetId, KpiWidgetCatalogItem> = {
     defaultTarget: null,
     warningThreshold: null,
     criticalThreshold: null,
-    drilldownHref: "/dashboard/produccion/huevos",
+    drilldownHref: "/produccion/huevos",
     drilldownLabel: "Ir a producción diaria",
   },
   chart_mortality_causes: {
@@ -352,7 +352,7 @@ export const KPI_WIDGET_CATALOG: Record<KpiWidgetId, KpiWidgetCatalogItem> = {
     defaultTarget: null,
     warningThreshold: null,
     criticalThreshold: null,
-    drilldownHref: "/dashboard/sanidad",
+    drilldownHref: "/sanidad",
     drilldownLabel: "Ir a sanidad",
   },
   chart_cost_breakdown: {
@@ -370,7 +370,7 @@ export const KPI_WIDGET_CATALOG: Record<KpiWidgetId, KpiWidgetCatalogItem> = {
     defaultTarget: null,
     warningThreshold: null,
     criticalThreshold: null,
-    drilldownHref: "/dashboard/finanzas",
+    drilldownHref: "/finanzas",
     drilldownLabel: "Ir a finanzas",
   },
   biological_value: {
@@ -389,7 +389,7 @@ export const KPI_WIDGET_CATALOG: Record<KpiWidgetId, KpiWidgetCatalogItem> = {
     defaultTarget: null,
     warningThreshold: null,
     criticalThreshold: null,
-    drilldownHref: "/dashboard/analisis/reportes",
+    drilldownHref: "/analisis/reportes",
     drilldownLabel: "Ver valor de tus animales",
   },
   patrimony_wealth: {
@@ -408,7 +408,7 @@ export const KPI_WIDGET_CATALOG: Record<KpiWidgetId, KpiWidgetCatalogItem> = {
     defaultTarget: null,
     warningThreshold: null,
     criticalThreshold: null,
-    drilldownHref: "/dashboard/operaciones/activos",
+    drilldownHref: "/operaciones/activos",
     drilldownLabel: "Ver equipos y bodega",
   },
 };

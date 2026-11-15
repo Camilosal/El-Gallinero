@@ -3,8 +3,8 @@ import path from "node:path";
 import { describe, expect, it } from "vitest";
 import { NextRequest } from "next/server";
 import { proxy } from "@/proxy";
-import { metadata as dashboardGuiaMetadata } from "@/app/dashboard/guia/page";
-import { generateMetadata as generateDashboardGuiaArticleMetadata } from "@/app/dashboard/guia/[slug]/page";
+import { metadata as manualMetadata } from "@/app/(app)/manual/page";
+import { generateMetadata as generateManualArticleMetadata } from "@/app/(app)/manual/[slug]/page";
 import { canonicalUrlFor, SITE_URL } from "@/lib/seo";
 
 function walkFiles(dir: string): string[] {
@@ -22,7 +22,7 @@ function walkFiles(dir: string): string[] {
   return results;
 }
 
-describe("SEC-01 & SEC-02 · Credenciales, controles de acceso y /dashboard/guia", () => {
+describe("SEC-01 & SEC-02 · Credenciales, controles de acceso y /manual", () => {
   it("documentación de agentes y código fuente no exponen contraseñas operativas ni claves demo débiles", () => {
     const forbiddenPatterns = [
       /Pr@yectos/i,
@@ -51,12 +51,14 @@ describe("SEC-01 & SEC-02 · Credenciales, controles de acceso y /dashboard/guia
   });
 
   it("proxy protege rutas privadas HTML/API sin sesión y permite rutas públicas", async () => {
-    const privateHtml = new NextRequest(`${SITE_URL}/dashboard/finanzas`, {
-      headers: { accept: "text/html" },
-    });
-    const privateHtmlRes = await proxy(privateHtml);
-    expect(privateHtmlRes.status).toBe(307);
-    expect(privateHtmlRes.headers.get("location")).toBe(`${SITE_URL}/login`);
+    for (const privatePath of ["/finanzas", "/dashboard/finanzas"]) {
+      const privateHtml = new NextRequest(`${SITE_URL}${privatePath}`, {
+        headers: { accept: "text/html" },
+      });
+      const privateHtmlRes = await proxy(privateHtml);
+      expect(privateHtmlRes.status).toBe(307);
+      expect(privateHtmlRes.headers.get("location")).toBe(`${SITE_URL}/login`);
+    }
 
     const privateApi = new NextRequest(`${SITE_URL}/api/superadmin/granjas`);
     const privateApiRes = await proxy(privateApi);
@@ -72,8 +74,8 @@ describe("SEC-01 & SEC-02 · Credenciales, controles de acceso y /dashboard/guia
       "/",
       "/guia",
       "/guia/primeros-pasos",
-      "/dashboard/guia",
-      "/dashboard/guia/primeros-pasos",
+      "/manual",
+      "/manual/primeros-pasos",
       "/bitacora",
       "/planes",
       "/realidad-campo",
@@ -91,6 +93,18 @@ describe("SEC-01 & SEC-02 · Credenciales, controles de acceso y /dashboard/guia
       expect(res.headers.get("location")).toBeNull();
     }
 
+    for (const [legacyPath, expectedTarget] of [
+      ["/dashboard/guia", "/manual"],
+      ["/dashboard/guia/primeros-pasos", "/manual/primeros-pasos"],
+    ]) {
+      const req = new NextRequest(`${SITE_URL}${legacyPath}`, {
+        headers: { accept: "text/html" },
+      });
+      const res = await proxy(req);
+      expect(res.status).toBe(308);
+      expect(res.headers.get("location")).toBe(`${SITE_URL}${expectedTarget}`);
+    }
+
     const unknownUrl = new NextRequest(`${SITE_URL}/ruta-inexistente-404`, {
       headers: { accept: "text/html" },
     });
@@ -99,11 +113,11 @@ describe("SEC-01 & SEC-02 · Credenciales, controles de acceso y /dashboard/guia
     expect(unknownRes.headers.get("location")).toBeNull();
   });
 
-  it("/dashboard/guia mantiene acceso público pero emite noindex + canonical a /guia", async () => {
-    expect(dashboardGuiaMetadata.robots).toEqual({ index: false, follow: false });
-    expect(dashboardGuiaMetadata.alternates?.canonical).toBe(canonicalUrlFor("/guia"));
+  it("/manual mantiene acceso público pero emite noindex + canonical a /guia", async () => {
+    expect(manualMetadata.robots).toEqual({ index: false, follow: false });
+    expect(manualMetadata.alternates?.canonical).toBe(canonicalUrlFor("/guia"));
 
-    const articleMeta = await generateDashboardGuiaArticleMetadata({
+    const articleMeta = await generateManualArticleMetadata({
       params: Promise.resolve({ slug: "primeros-pasos" }),
     });
     expect(articleMeta.robots).toEqual({ index: false, follow: false });

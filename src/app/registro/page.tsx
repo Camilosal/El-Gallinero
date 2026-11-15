@@ -153,12 +153,12 @@ export default function RegistroPage() {
           farmName: data.farm?.name || farmName,
           username: data.user?.username || username,
           recoveryCode: String(data.recoveryCode),
-          redirectTo: data.redirectTo || "/dashboard?wizard=1",
+          redirectTo: data.redirectTo || "/inicio?wizard=1",
         });
         setLoading(false);
         return;
       }
-      router.push(data.redirectTo || "/dashboard?wizard=1");
+      router.push(data.redirectTo || "/inicio?wizard=1");
       router.refresh();
     } catch {
       setError("Error de conexión. Revisa tu señal e intenta de nuevo.");

@@ -47,7 +47,7 @@ export default function EntityQrModal({
   const [copied, setCopied] = useState(false);
 
   const payload = entityId ? generateEntityQrPayload(entityType, entityId) : "";
-  const scannerUrl = entityId ? generateEntityQrUrl(entityType, entityId) : "/dashboard/escanear";
+  const scannerUrl = entityId ? generateEntityQrUrl(entityType, entityId) : "/escanear";
 
   useEffect(() => {
     if (!open || !payload) return;

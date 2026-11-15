@@ -132,13 +132,13 @@ describe("Capacidades JEV distribuidas fuera del agente", () => {
         id: "c1",
         title: "Control Sanitario",
         summary: "Vacunas, tratamientos y días de carencia",
-        href: "/dashboard/sanidad/control",
+        href: "/sanidad/control",
       },
       {
         id: "c2",
         title: "Balance Financiero",
         summary: "Ingresos y egresos mensuales",
-        href: "/dashboard/finanzas/balance",
+        href: "/finanzas/balance",
       },
     ];
     const fetcher = vi.fn(async () =>

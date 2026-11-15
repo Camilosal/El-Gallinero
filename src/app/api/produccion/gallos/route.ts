@@ -44,7 +44,7 @@ export const GET = withApiHandler(async (req: NextRequest) => {
 /** Las nuevas altas deben quedar enlazadas a una adquisición. */
 export const POST = withApiHandler(async () => NextResponse.json({
   error: "Registra los nuevos gallos desde Adquisiciones para conservar su origen.",
-  href: "/dashboard/produccion/adquisiciones?nuevo=gallo",
+  href: "/produccion/adquisiciones?nuevo=gallo",
 }, { status: 409 }));
 
 /** PUT /api/produccion/gallos — actualiza un gallo existente. */

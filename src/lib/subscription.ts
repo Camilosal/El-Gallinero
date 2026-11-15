@@ -112,7 +112,7 @@ function getWompiSecrets() {
     checkoutBaseUrl: process.env.WOMPI_CHECKOUT_URL || "https://checkout.wompi.co/p/",
     redirectUrl:
       process.env.WOMPI_REDIRECT_URL ||
-      "https://gallinero.iwage.co/dashboard/configuracion/plan?payment=return",
+      "https://gallinero.iwage.co/configuracion/plan?payment=return",
     sandbox: !process.env.WOMPI_PUBLIC_KEY || process.env.WOMPI_PUBLIC_KEY.startsWith("pub_test_"),
   };
 }

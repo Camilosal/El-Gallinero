@@ -86,24 +86,24 @@ function parseCustomNormativeItems(raw?: string): NormativeCatalogItem[] {
             : "guia_tecnica";
       const legalBinding: NormativeLegalBinding =
         obj.legalBinding === "obligatoria_legal" ||
-        obj.legalBinding === "norma_tecnica_voluntaria" ||
-        obj.legalBinding === "estandar_referencia" ||
-        obj.legalBinding === "guia_tecnica"
+          obj.legalBinding === "norma_tecnica_voluntaria" ||
+          obj.legalBinding === "estandar_referencia" ||
+          obj.legalBinding === "guia_tecnica"
           ? obj.legalBinding
           : defaultLegalBinding;
       const verificationStatus: NormativeVerificationStatus =
         obj.verificationStatus === "verificado" ||
-        obj.verificationStatus === "pendiente" ||
-        obj.verificationStatus === "reemplazado" ||
-        obj.verificationStatus === "derogado"
+          obj.verificationStatus === "pendiente" ||
+          obj.verificationStatus === "reemplazado" ||
+          obj.verificationStatus === "derogado"
           ? obj.verificationStatus
           : typeof obj.lastVerifiedAt === "string" && obj.lastVerifiedAt.trim()
             ? "verificado"
             : "pendiente";
       const sourceKind: NormativeSourceKind =
         obj.sourceKind === "documento_especifico" ||
-        obj.sourceKind === "portal_oficial" ||
-        obj.sourceKind === "norma_paga_referencia"
+          obj.sourceKind === "portal_oficial" ||
+          obj.sourceKind === "norma_paga_referencia"
           ? obj.sourceKind
           : typeof obj.sourceUrl === "string" && obj.sourceUrl.trim()
             ? "documento_especifico"
@@ -153,7 +153,7 @@ function parseCustomNormativeItems(raw?: string): NormativeCatalogItem[] {
         appRoute:
           typeof obj.appRoute === "string" && obj.appRoute.startsWith("/")
             ? obj.appRoute
-            : "/dashboard/configuracion/catalogos?tab=normas",
+            : "/configuracion/catalogos?tab=normas",
         appRouteLabel:
           typeof obj.appRouteLabel === "string" && obj.appRouteLabel.trim()
             ? obj.appRouteLabel
@@ -699,7 +699,7 @@ export const POST = withApiHandler(async (req: NextRequest) => {
     const moduleLabel = String(body.moduleLabel || "").trim() || "Gestión y Bioseguridad";
     const appRoute = String(body.appRoute || "").trim().startsWith("/")
       ? String(body.appRoute).trim()
-      : "/dashboard/sanidad/bioseguridad";
+      : "/sanidad/bioseguridad";
     const appRouteLabel = String(body.appRouteLabel || "").trim() || "Ir al módulo";
     const draftEntityId = String(body.draftEntityId || "").trim();
 

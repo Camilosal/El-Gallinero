@@ -44,57 +44,57 @@ const KNOWN_CATALOG_CATEGORIES = [
 ];
 
 const STATIC_DASHBOARD_ROUTES = [
-  "/dashboard",
-  "/dashboard/almacen",
-  "/dashboard/analisis",
-  "/dashboard/analisis/kpis",
-  "/dashboard/analisis/razas",
-  "/dashboard/analisis/reportes",
-  "/dashboard/animales",
-  "/dashboard/configuracion",
-  "/dashboard/configuracion/catalogos",
-  "/dashboard/contactos",
-  "/dashboard/escanear",
-  "/dashboard/finanzas",
-  "/dashboard/finanzas/cuentas",
-  "/dashboard/finanzas/egresos",
-  "/dashboard/finanzas/finanzas",
-  "/dashboard/finanzas/presupuestos",
-  "/dashboard/finanzas/ventas",
-  "/dashboard/guia",
-  "/dashboard/inventarios",
-  "/dashboard/inventarios/alimentacion",
-  "/dashboard/inventarios/balance",
-  "/dashboard/inventarios/carne",
-  "/dashboard/inventarios/gallinaza",
-  "/dashboard/inventarios/huevos",
-  "/dashboard/inventarios/insumos",
-  "/dashboard/operaciones",
-  "/dashboard/operaciones/activos",
-  "/dashboard/operaciones/cierre",
-  "/dashboard/operaciones/compostaje",
-  "/dashboard/operaciones/gallinaza",
-  "/dashboard/operaciones/mantenimiento",
-  "/dashboard/planeacion",
-  "/dashboard/planeacion/calendario",
-  "/dashboard/produccion",
-  "/dashboard/produccion/adquisiciones",
-  "/dashboard/produccion/alimentacion",
-  "/dashboard/produccion/gallinas",
-  "/dashboard/produccion/huevos",
-  "/dashboard/produccion/incubacion",
-  "/dashboard/produccion/mortalidad",
-  "/dashboard/produccion/peso",
-  "/dashboard/produccion/plan-parvada",
-  "/dashboard/produccion/pollos",
-  "/dashboard/produccion/sacrificio",
-  "/dashboard/sanidad",
-  "/dashboard/sanidad/alertas",
-  "/dashboard/sanidad/bioseguridad",
-  "/dashboard/sanidad/calendario",
-  "/dashboard/sanidad/control",
-  "/dashboard/soberania",
-  "/dashboard/ubicaciones",
+  "/inicio",
+  "/almacen",
+  "/analisis",
+  "/analisis/kpis",
+  "/analisis/razas",
+  "/analisis/reportes",
+  "/animales",
+  "/configuracion",
+  "/configuracion/catalogos",
+  "/contactos",
+  "/escanear",
+  "/finanzas",
+  "/finanzas/cuentas",
+  "/finanzas/egresos",
+  "/finanzas/finanzas",
+  "/finanzas/presupuestos",
+  "/finanzas/ventas",
+  "/manual",
+  "/inventarios",
+  "/inventarios/alimentacion",
+  "/inventarios/balance",
+  "/inventarios/carne",
+  "/inventarios/gallinaza",
+  "/inventarios/huevos",
+  "/inventarios/insumos",
+  "/operaciones",
+  "/operaciones/activos",
+  "/operaciones/cierre",
+  "/operaciones/compostaje",
+  "/operaciones/gallinaza",
+  "/operaciones/mantenimiento",
+  "/planeacion",
+  "/planeacion/calendario",
+  "/produccion",
+  "/produccion/adquisiciones",
+  "/produccion/alimentacion",
+  "/produccion/gallinas",
+  "/produccion/huevos",
+  "/produccion/incubacion",
+  "/produccion/mortalidad",
+  "/produccion/peso",
+  "/produccion/plan-parvada",
+  "/produccion/pollos",
+  "/produccion/sacrificio",
+  "/sanidad",
+  "/sanidad/alertas",
+  "/sanidad/bioseguridad",
+  "/sanidad/calendario",
+  "/sanidad/control",
+  "/soberania",
+  "/ubicaciones",
 ];
 
 export interface OfflineMirrorMeta {
@@ -182,7 +182,7 @@ export function buildStaticDashboardRoutes(): string[] {
   }
   for (const guide of guides) {
     if (guide.slug) {
-      routes.add(`/dashboard/guia/${guide.slug}`);
+      routes.add(`/manual/${guide.slug}`);
       routes.add(`/guia/${guide.slug}`);
     }
   }
@@ -516,7 +516,7 @@ export async function syncFullOfflineCopy(options?: { force?: boolean }): Promis
         emitState({
           completed,
           total: baseTotal + discoveredAssets.size,
-          currentLabel: `Pantalla: ${route.replace("/dashboard", "") || "/inicio"}`,
+          currentLabel: `Pantalla: ${route.replace("/inicio", "") || "/inicio"}`,
         });
       });
 
@@ -624,7 +624,7 @@ export async function syncFullOfflineCopy(options?: { force?: boolean }): Promis
       if (Array.isArray(rawLocationsAll)) {
         for (const loc of rawLocationsAll) {
           if (loc && typeof loc === "object" && "id" in loc && typeof loc.id === "string") {
-            detailRoutes.push(`/dashboard/ubicaciones/${loc.id}`);
+            detailRoutes.push(`/ubicaciones/${loc.id}`);
             detailUrls.push(`/api/ubicaciones/movimientos?locationId=${encodeURIComponent(loc.id)}`);
           }
         }
@@ -638,7 +638,7 @@ export async function syncFullOfflineCopy(options?: { force?: boolean }): Promis
         for (const hen of targetHens) {
           if (hen && typeof hen.id === "string") {
             if (detailRoutes.length < 60) {
-              detailRoutes.push(`/dashboard/produccion/gallinas/${hen.id}`);
+              detailRoutes.push(`/produccion/gallinas/${hen.id}`);
             }
             detailUrls.push(`/api/produccion/gallinas/historial?henId=${encodeURIComponent(hen.id)}`);
           }

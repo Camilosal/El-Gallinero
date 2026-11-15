@@ -166,10 +166,10 @@ export const EXTRA_LANDING_MODULES: ExtraLandingModuleItem[] = [
 
 export interface CyclePlanShowcase {
   id:
-    | "FREEMIUM_SEMILLA"
-    | "CICLO_60D"
-    | "SEMESTRAL_PONEDORA"
-    | "MEDIANO_MENSUAL";
+  | "FREEMIUM_SEMILLA"
+  | "CICLO_60D"
+  | "SEMESTRAL_PONEDORA"
+  | "MEDIANO_MENSUAL";
   slug: string;
   updatedAt: string;
   badge: string;
@@ -200,7 +200,7 @@ export const SHOWCASE_TABS: ShowcaseTabItem[] = [
     title: "Lo importante primero y tareas que se validan con hechos",
     description:
       "Al abrir la app ves las cifras clave, los avisos urgentes y la lista de tareas del día. Cada tarea se marca al guardar su registro real o confirmar el recorrido en campo.",
-    routeLabel: "gallinero.iwage.co/dashboard",
+    routeLabel: "gallinero.iwage.co/inicio",
     screenshot: "/images/guia/inicio-dashboard.webp",
     screenshotAlt:
       "Pantalla principal del tablero de El Gallinero con alertas del día, preparación de granja y estado de copia offline",
@@ -220,7 +220,7 @@ export const SHOWCASE_TABS: ShowcaseTabItem[] = [
     title: "Escanea la entrada del galpón y anota la jornada en menos de 2 minutos",
     description:
       "Sin menús largos: lee el código QR del galpón o corral, suma cubetas de 30 huevos o bultos de 40 kg con botones grandes y recibe el resumen al instante.",
-    routeLabel: "gallinero.iwage.co/dashboard · Registro rápido",
+    routeLabel: "gallinero.iwage.co/inicio · Registro rápido",
     screenshot: "/images/guia/captura-rapida-modal.webp",
     screenshotAlt:
       "Modal de Registro Rápido con pestañas de huevos, alimento, mortalidad, gasto y venta, y botones de incremento por cubeta",
@@ -268,7 +268,7 @@ export const SHOWCASE_TABS: ShowcaseTabItem[] = [
     title: "Clasifica huevos por tamaño y compara el peso del lote con su raza",
     description:
       "Separa huevos aptos, rotos o para incubar desde la recolección, ordena las salidas del más antiguo al más nuevo y compara el crecimiento contra la curva esperada.",
-    routeLabel: "gallinero.iwage.co/dashboard/produccion",
+    routeLabel: "gallinero.iwage.co/produccion",
     screenshot: "/images/guia/produccion-huevos.webp",
     screenshotAlt:
       "Módulo de Producción de Huevos Multiespecie con KPIs de huevos totales, promedio diario, ahorro hogar y postura esperada",
@@ -292,7 +292,7 @@ export const SHOWCASE_TABS: ShowcaseTabItem[] = [
     title: "Vacunas al día y bloqueo automático cuando hay tratamiento activo",
     description:
       "Registra aplicaciones veterinarias y sus días de retiro para evitar vender huevos o carne antes de tiempo, junto con alertas de reemplazo y listas de bioseguridad.",
-    routeLabel: "gallinero.iwage.co/dashboard/sanidad/control",
+    routeLabel: "gallinero.iwage.co/sanidad/control",
     screenshot: "/images/guia/sanidad-control.webp",
     screenshotAlt:
       "Pantalla de Control Fitosanitario con resumen de registros, vacunaciones, próximos eventos programados e historial",
@@ -316,7 +316,7 @@ export const SHOWCASE_TABS: ShowcaseTabItem[] = [
     title: "Separa ingresos y gastos por especie y sigue trabajando sin internet",
     description:
       "Registra ventas de huevos, carne, animales en pie o abono, lee recibos con la cámara y sigue anotando en el galpón aunque no haya cobertura en la vereda.",
-    routeLabel: "gallinero.iwage.co/dashboard/finanzas · Modo offline",
+    routeLabel: "gallinero.iwage.co/finanzas · Modo offline",
     screenshot: "/images/guia/finanzas-balance.webp",
     screenshotAlt:
       "Panel Financiero con ingresos, egresos, utilidad neta, margen y flujo de caja en el período",
@@ -339,7 +339,7 @@ export const SHOWCASE_GALLERY: ShowcaseGalleryItem[] = [
     id: "gal-adquisiciones",
     title: "Adquisiciones y origen",
     moduleTag: "Animales",
-    routeLabel: "/dashboard/produccion/adquisiciones",
+    routeLabel: "/produccion/adquisiciones",
     summary: "Historial de compras, nacimientos, procedencia y valor invertido.",
     image: "/images/guia/adquisiciones-genetica.webp",
     alt: "Pantalla de Adquisiciones y entradas de animales con historial, inversión total y detalle de linaje",
@@ -348,7 +348,7 @@ export const SHOWCASE_GALLERY: ShowcaseGalleryItem[] = [
     id: "gal-ubicacion",
     title: "Ficha por corral o galpón",
     moduleTag: "Lugares",
-    routeLabel: "/dashboard/ubicaciones/[id]",
+    routeLabel: "/ubicaciones/[id]",
     summary: "Ocupación, producción, sanidad y mantenimientos por espacio.",
     image: "/images/guia/ubicacion-ficha.webp",
     alt: "Ficha de Criadora y Enfermería Sur con KPIs de ocupación, producción por especie y traslados",
@@ -357,7 +357,7 @@ export const SHOWCASE_GALLERY: ShowcaseGalleryItem[] = [
     id: "gal-qr",
     title: "Escáner QR de campo",
     moduleTag: "Agilidad",
-    routeLabel: "/dashboard/escanear",
+    routeLabel: "/escanear",
     summary: "Escanea la placa del lugar para recoger huevos o servir alimento en segundos.",
     image: "/images/guia/escanear-qr.webp",
     alt: "Escáner QR de Granja mostrando acciones rápidas para el Galpón Principal",
@@ -366,7 +366,7 @@ export const SHOWCASE_GALLERY: ShowcaseGalleryItem[] = [
     id: "gal-peso",
     title: "Curvas de crecimiento",
     moduleTag: "Producción",
-    routeLabel: "/dashboard/produccion/peso",
+    routeLabel: "/produccion/peso",
     summary: "Compara el peso del lote frente a la meta esperada por semana.",
     image: "/images/guia/peso-biometria.webp",
     alt: "Curva de peso ISA Brown con banda de referencia combinada e indicadores semanales",
@@ -375,7 +375,7 @@ export const SHOWCASE_GALLERY: ShowcaseGalleryItem[] = [
     id: "gal-ventas",
     title: "Ventas de toda la finca",
     moduleTag: "Finanzas",
-    routeLabel: "/dashboard/finanzas/ventas",
+    routeLabel: "/finanzas/ventas",
     summary: "Registra ventas de huevos, animales, carne, gallinaza y productos.",
     image: "/images/guia/finanzas-ventas.webp",
     alt: "Módulo de Ventas con pestañas de Huevos, Aves, Carne y Gallinaza e inventario disponible por calibre",
@@ -384,7 +384,7 @@ export const SHOWCASE_GALLERY: ShowcaseGalleryItem[] = [
     id: "gal-kpis",
     title: "Indicadores del negocio",
     moduleTag: "Análisis",
-    routeLabel: "/dashboard/analisis/kpis",
+    routeLabel: "/analisis/kpis",
     summary: "Porcentaje de postura, mortalidad, costos unitarios y reportes.",
     image: "/images/guia/analisis-kpis.webp",
     alt: "Tablero de Indicadores Clave KPIs con tasa de mortalidad y tasa de postura sobre población elegible",
@@ -393,7 +393,7 @@ export const SHOWCASE_GALLERY: ShowcaseGalleryItem[] = [
     id: "gal-parvada",
     title: "Plan de parvada",
     moduleTag: "Planeación",
-    routeLabel: "/dashboard/produccion/plan-parvada",
+    routeLabel: "/produccion/plan-parvada",
     summary: "Seguimiento de aves aptas frente a la meta y programación de reemplazos.",
     image: "/images/guia/plan-parvada.webp",
     alt: "Plan de Parvada con cumplimiento del 117.9% y recomendaciones de reposición y sacrificio",

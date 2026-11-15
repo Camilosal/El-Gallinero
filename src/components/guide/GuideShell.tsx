@@ -21,7 +21,7 @@ import { guideModules, guides } from "@/lib/guide-data";
 
 interface GuideShellProps {
   children: ReactNode;
-  basePath: "/guia" | "/dashboard/guia";
+  basePath: "/guia" | "/manual";
   isStandalone: boolean;
 }
 
@@ -259,7 +259,7 @@ export function GuideShell({ children, basePath, isStandalone }: GuideShellProps
             )}
 
             <Link
-              href="/dashboard"
+              href="/inicio"
               className={`inline-flex items-center gap-1.5 rounded-xl px-3 py-1.5 text-xs font-semibold transition-colors ${
                 isStandalone
                   ? "bg-green-800 text-white shadow-xs hover:bg-green-900"

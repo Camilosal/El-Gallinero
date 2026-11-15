@@ -80,12 +80,12 @@ describe("Unified Calendar & Routine Engine", () => {
     const legacyWeighing: RoutineTaskConfig = {
       ...byId.get("routine-weekly-weighing")!,
       autoDetectSource: "manual",
-      actionHref: "/dashboard/produccion?tab=animales",
+      actionHref: "/produccion?tab=animales",
       actionLabel: "Ver lotes",
     };
     const normalizedWeighing = normalizeRoutineTaskConfig(legacyWeighing);
     expect(normalizedWeighing.autoDetectSource).toBe("weight_records");
-    expect(normalizedWeighing.actionHref).toBe("/dashboard/produccion/peso?nuevo=1");
+    expect(normalizedWeighing.actionHref).toBe("/produccion/peso?nuevo=1");
     expect(normalizedWeighing.actionLabel).toBe("Registrar pesaje");
     expect(getTaskVerificationMode(normalizedWeighing)).toBe("record_required");
 
@@ -99,7 +99,7 @@ describe("Unified Calendar & Routine Engine", () => {
       daysOfWeek: [3],
       enabled: true,
       autoDetectSource: "manual",
-      actionHref: "/dashboard",
+      actionHref: "/inicio",
       actionLabel: "Revisar",
       icon: "wrench",
     };

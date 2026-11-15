@@ -37,7 +37,7 @@ export const BEHAVIORAL_NUDGE_GROUPS: Record<string, BehavioralNudgeGroup> = {
         tone: "amber",
         message: "Siete días seguidos con tus 4 registros esenciales completados bastan para que el tablero proyecte quiebre de bultos y punto de equilibrio sin supuestos.",
         actionLabel: "Ver cierre diario",
-        actionHref: "/dashboard/operaciones/cierre",
+        actionHref: "/operaciones/cierre",
       },
       {
         id: "ini-3",
@@ -45,7 +45,7 @@ export const BEHAVIORAL_NUDGE_GROUPS: Record<string, BehavioralNudgeGroup> = {
         tone: "sky",
         message: "Antes de definir raciones o despachos de hoy, revisa clima ITH y alertas activas: un golpe de calor reduce el consumo antes de caer la postura.",
         actionLabel: "Clima y entorno",
-        actionHref: "/dashboard/analisis/fuentes-externas",
+        actionHref: "/analisis/fuentes-externas",
       },
       {
         id: "ini-4",
@@ -68,7 +68,7 @@ export const BEHAVIORAL_NUDGE_GROUPS: Record<string, BehavioralNudgeGroup> = {
         tone: "emerald",
         message: "Pega la placa QR plastificada a la altura de la puerta de cada galpón o jaula: escanear abre la ficha exacta sin buscar nombres en listas largas.",
         actionLabel: "Imprimir plancha QR",
-        actionHref: "/dashboard/configuracion/kit-campo",
+        actionHref: "/configuracion/kit-campo",
       },
       {
         id: "qr-2",
@@ -101,7 +101,7 @@ export const BEHAVIORAL_NUDGE_GROUPS: Record<string, BehavioralNudgeGroup> = {
         tone: "emerald",
         message: "Mantener el saldo vivo exacto por lote evita dosificar vacunas o bultos de concentrado de más para aves que ya salieron o tuvieron bajas.",
         actionLabel: "Registrar entrada",
-        actionHref: "/dashboard/produccion/adquisiciones",
+        actionHref: "/produccion/adquisiciones",
       },
       {
         id: "ani-2",
@@ -115,7 +115,7 @@ export const BEHAVIORAL_NUDGE_GROUPS: Record<string, BehavioralNudgeGroup> = {
         tone: "sky",
         message: "Un lote con CV % menor al 10 % inicia postura parejo; pesar una muestra semanal cuesta 5 minutos y predice el pico de producción.",
         actionLabel: "Control de peso",
-        actionHref: "/dashboard/produccion/peso",
+        actionHref: "/produccion/peso",
       },
       {
         id: "ani-4",
@@ -150,7 +150,7 @@ export const BEHAVIORAL_NUDGE_GROUPS: Record<string, BehavioralNudgeGroup> = {
         tone: "sky",
         message: "Despachar primero las cubetas más antiguas (PEPS) y vigilar temperatura de bodega protege la frescura y evita devoluciones de clientes.",
         actionLabel: "Inventario PEPS",
-        actionHref: "/dashboard/inventarios/huevos",
+        actionHref: "/inventarios/huevos",
       },
       {
         id: "hue-4",
@@ -171,7 +171,7 @@ export const BEHAVIORAL_NUDGE_GROUPS: Record<string, BehavioralNudgeGroup> = {
         tone: "amber",
         message: "Después del día óptimo de cada raza, cada kilo extra ganado consume mucho más concentrado y reduce la ganancia: revisa cuánta comida gasta por kilo antes de retener lotes.",
         actionLabel: "Ver curvas de crecimiento",
-        actionHref: "/dashboard/analisis/razas",
+        actionHref: "/analisis/razas",
       },
       {
         id: "car-2",
@@ -179,7 +179,7 @@ export const BEHAVIORAL_NUDGE_GROUPS: Record<string, BehavioralNudgeGroup> = {
         tone: "emerald",
         message: "Nunca programes sacrificio sin revisar días de retiro farmacológico activos: el sistema bloquea automáticamente lotes con carencia vigente.",
         actionLabel: "Revisar sanidad",
-        actionHref: "/dashboard/sanidad/alertas",
+        actionHref: "/sanidad/alertas",
       },
       {
         id: "car-3",
@@ -212,7 +212,7 @@ export const BEHAVIORAL_NUDGE_GROUPS: Record<string, BehavioralNudgeGroup> = {
         tone: "amber",
         message: "La gallinaza fresca quema raíces y dispersa patógenos; pasarla por compostaje a 55–65 °C multiplica su precio comercial y cumple ICA.",
         actionLabel: "Ir a compostaje",
-        actionHref: "/dashboard/operaciones/compostaje",
+        actionHref: "/operaciones/compostaje",
       },
       {
         id: "gal-3",
@@ -247,7 +247,7 @@ export const BEHAVIORAL_NUDGE_GROUPS: Record<string, BehavioralNudgeGroup> = {
         tone: "emerald",
         message: "Revisa los días de cobertura antes de quedar por debajo de 5 días de stock: comprar de afán encarece el flete y obliga a cambiar marca de golpe.",
         actionLabel: "Ver inventario alimento",
-        actionHref: "/dashboard/inventarios/alimentacion",
+        actionHref: "/inventarios/alimentacion",
       },
       {
         id: "ali-3",
@@ -282,7 +282,7 @@ export const BEHAVIORAL_NUDGE_GROUPS: Record<string, BehavioralNudgeGroup> = {
         tone: "emerald",
         message: "Retirar bajas en la primera ronda del día y llevarlas a la pila térmica 7:2:2 o compostera corta vectores y olores alrededor del galpón.",
         actionLabel: "Compostaje térmico",
-        actionHref: "/dashboard/operaciones/compostaje",
+        actionHref: "/operaciones/compostaje",
       },
       {
         id: "mor-3",
@@ -340,7 +340,7 @@ export const BEHAVIORAL_NUDGE_GROUPS: Record<string, BehavioralNudgeGroup> = {
         tone: "amber",
         message: "Anotar cada dosis con sus días de carencia protege a tus clientes y previene sanciones sanitarias antes de vender huevo o carne.",
         actionLabel: "Ver alertas activas",
-        actionHref: "/dashboard/sanidad/alertas",
+        actionHref: "/sanidad/alertas",
       },
       {
         id: "san-2",
@@ -348,7 +348,7 @@ export const BEHAVIORAL_NUDGE_GROUPS: Record<string, BehavioralNudgeGroup> = {
         tone: "emerald",
         message: "Cumplir el calendario de refuerzos a tiempo cuesta una fracción mínima frente a perder una semana de postura o mortalidad aguda.",
         actionLabel: "Calendario sanitario",
-        actionHref: "/dashboard/sanidad/calendario",
+        actionHref: "/sanidad/calendario",
       },
       {
         id: "san-3",
@@ -356,7 +356,7 @@ export const BEHAVIORAL_NUDGE_GROUPS: Record<string, BehavioralNudgeGroup> = {
         tone: "sky",
         message: "Registrar desinfección de ingreso y control de visitantes cumple las resoluciones ICA 3650–3652 y deja soporte listo ante auditorías.",
         actionLabel: "Bioseguridad POE",
-        actionHref: "/dashboard/sanidad/bioseguridad",
+        actionHref: "/sanidad/bioseguridad",
       },
       {
         id: "san-4",
@@ -377,7 +377,7 @@ export const BEHAVIORAL_NUDGE_GROUPS: Record<string, BehavioralNudgeGroup> = {
         tone: "emerald",
         message: "Separar ingresos y egresos por especie/lote evita que el margen de las ponedoras tape pérdidas ocultas en engorde o subproductos.",
         actionLabel: "Contabilidad analítica",
-        actionHref: "/dashboard/analisis/reportes?tab=analitica",
+        actionHref: "/analisis/reportes?tab=analitica",
       },
       {
         id: "fin-2",
@@ -393,7 +393,7 @@ export const BEHAVIORAL_NUDGE_GROUPS: Record<string, BehavioralNudgeGroup> = {
         tone: "sky",
         message: "Anotar las entregas fiadas en Cuentas por Cobrar con fecha límite evita que el capital de trabajo se quede inmovilizado en clientes morosos.",
         actionLabel: "Revisar cuentas",
-        actionHref: "/dashboard/finanzas/cuentas",
+        actionHref: "/finanzas/cuentas",
       },
       {
         id: "fin-4",
@@ -447,7 +447,7 @@ export const BEHAVIORAL_NUDGE_GROUPS: Record<string, BehavioralNudgeGroup> = {
         tone: "emerald",
         message: "Cerrar la jornada antes de apagar luces congela el saldo auditado de huevos, dinero y alimento evitando correcciones ambiguas después.",
         actionLabel: "Ir a Cierre Diario",
-        actionHref: "/dashboard/operaciones/cierre",
+        actionHref: "/operaciones/cierre",
       },
       {
         id: "alm-2",
@@ -455,7 +455,7 @@ export const BEHAVIORAL_NUDGE_GROUPS: Record<string, BehavioralNudgeGroup> = {
         tone: "amber",
         message: "Revisar bebederos, mallas, cortinas y termostatos antes de dañarse cuesta menos que reponer aves ahogadas o enfriadas.",
         actionLabel: "Ver mantenimiento",
-        actionHref: "/dashboard/operaciones/mantenimiento",
+        actionHref: "/operaciones/mantenimiento",
       },
       {
         id: "alm-3",
@@ -463,7 +463,7 @@ export const BEHAVIORAL_NUDGE_GROUPS: Record<string, BehavioralNudgeGroup> = {
         tone: "sky",
         message: "Voltear la pila cuando supere o baje la banda térmica acelera la sanitización y evita olores y moscas alrededor del galpón.",
         actionLabel: "Ver pilas",
-        actionHref: "/dashboard/operaciones/compostaje",
+        actionHref: "/operaciones/compostaje",
       },
       {
         id: "alm-4",
@@ -484,7 +484,7 @@ export const BEHAVIORAL_NUDGE_GROUPS: Record<string, BehavioralNudgeGroup> = {
         tone: "emerald",
         message: "Planificar la entrada de pollitas de levante con 18–20 semanas de anticipación evita quedarte sin cubetas cuando sale el lote viejo.",
         actionLabel: "Plan de Parvada",
-        actionHref: "/dashboard/produccion/plan-parvada",
+        actionHref: "/produccion/plan-parvada",
       },
       {
         id: "pla-2",
@@ -492,7 +492,7 @@ export const BEHAVIORAL_NUDGE_GROUPS: Record<string, BehavioralNudgeGroup> = {
         tone: "sky",
         message: "Apoyarse en rutinas diarias y calendario visible libera carga mental del equipo y asegura continuidad cuando cambia el operario de turno.",
         actionLabel: "Ver calendario",
-        actionHref: "/dashboard/planeacion/calendario",
+        actionHref: "/planeacion/calendario",
       },
       {
         id: "pla-3",
@@ -500,7 +500,7 @@ export const BEHAVIORAL_NUDGE_GROUPS: Record<string, BehavioralNudgeGroup> = {
         tone: "amber",
         message: "Cuantificar huevos, carne y abono consumidos en la finca muestra cuánto dinero ahorra la granja en el presupuesto familiar.",
         actionLabel: "Soberanía alimentaria",
-        actionHref: "/dashboard/soberania",
+        actionHref: "/soberania",
       },
       {
         id: "pla-4",
@@ -521,7 +521,7 @@ export const BEHAVIORAL_NUDGE_GROUPS: Record<string, BehavioralNudgeGroup> = {
         tone: "emerald",
         message: "Revisar postura, comida gastada por kilo ganado y costo por cubeta cada semana detecta lotes improductivos mucho antes de que falte plata.",
         actionLabel: "Abrir KPIs",
-        actionHref: "/dashboard/analisis/kpis",
+        actionHref: "/analisis/kpis",
       },
       {
         id: "ana-2",
@@ -529,7 +529,7 @@ export const BEHAVIORAL_NUDGE_GROUPS: Record<string, BehavioralNudgeGroup> = {
         tone: "sky",
         message: "Comparar tu precio en granja frente al promedio SIPSA y vigilar alertas ICA locales te da poder real de negociación frente a intermediarios.",
         actionLabel: "Clima y mercado",
-        actionHref: "/dashboard/analisis/fuentes-externas",
+        actionHref: "/analisis/fuentes-externas",
       },
       {
         id: "ana-3",
@@ -537,7 +537,7 @@ export const BEHAVIORAL_NUDGE_GROUPS: Record<string, BehavioralNudgeGroup> = {
         tone: "amber",
         message: "Antes de cambiar calibres NTC 1240 o protocolos de retiro ICA, verifica la norma vigente en el catálogo y consulta dudas con Gina.",
         actionLabel: "Normas y guías",
-        actionHref: "/dashboard/analisis/normas",
+        actionHref: "/analisis/normas",
       },
       {
         id: "ana-4",
@@ -545,7 +545,7 @@ export const BEHAVIORAL_NUDGE_GROUPS: Record<string, BehavioralNudgeGroup> = {
         tone: "slate",
         message: "Descargar el reporte mensual de ganancias con gastos compartidos bien repartidos deja todo listo para contador, impuestos o crédito agropecuario.",
         actionLabel: "Ver reportes",
-        actionHref: "/dashboard/analisis/reportes",
+        actionHref: "/analisis/reportes",
       },
       {
         id: "ana-5",
@@ -553,7 +553,7 @@ export const BEHAVIORAL_NUDGE_GROUPS: Record<string, BehavioralNudgeGroup> = {
         tone: "emerald",
         message: "Comprar equipos y bultos baja el efectivo hoy, pero suma a tus bienes y solo se descuenta al usarse; no confundas falta de efectivo temporal con pérdida real.",
         actionLabel: "Ver KPIs",
-        actionHref: "/dashboard/analisis/kpis",
+        actionHref: "/analisis/kpis",
       },
     ],
   },
@@ -574,7 +574,7 @@ export const BEHAVIORAL_NUDGE_GROUPS: Record<string, BehavioralNudgeGroup> = {
         tone: "sky",
         message: "Activa módulos avanzados solo cuando tu operación los necesite; empezar simple multiplica el uso diario en galpón.",
         actionLabel: "Módulos progresivos",
-        actionHref: "/dashboard/configuracion/modulos",
+        actionHref: "/configuracion/modulos",
       },
       {
         id: "cfg-3",
@@ -588,7 +588,7 @@ export const BEHAVIORAL_NUDGE_GROUPS: Record<string, BehavioralNudgeGroup> = {
         tone: "slate",
         message: "Si algo se comporta extraño en cualquier módulo, usa 'Reportar falla': el sistema etiqueta pantalla, red y contexto automáticamente.",
         actionLabel: "Historial de fallas",
-        actionHref: "/dashboard/configuracion/fallas",
+        actionHref: "/configuracion/fallas",
       },
     ],
   },
@@ -609,7 +609,7 @@ export const BEHAVIORAL_NUDGE_GROUPS: Record<string, BehavioralNudgeGroup> = {
         tone: "sky",
         message: "Puedes abrir las normas ICA y estándares NTC 1240 directo desde Análisis → Normas y guías aplicables con adjuntos en PDF.",
         actionLabel: "Normas aplicables",
-        actionHref: "/dashboard/analisis/normas",
+        actionHref: "/analisis/normas",
       },
       {
         id: "gui-3",
@@ -631,14 +631,14 @@ export function resolvePageNudgeGroup(
   pathname: string,
   searchQuery = "",
 ): BehavioralNudgeGroup {
-  const cleanPath = (pathname || "/dashboard").split("?")[0].replace(/\/+$/, "") || "/dashboard";
+  const cleanPath = (pathname || "/inicio").split("?")[0].replace(/\/+$/, "") || "/inicio";
   const params = new URLSearchParams(searchQuery.startsWith("?") ? searchQuery.slice(1) : searchQuery);
   const tab = (params.get("tab") || "").toLowerCase();
 
-  if (cleanPath === "/dashboard") return BEHAVIORAL_NUDGE_GROUPS.inicio;
-  if (cleanPath.startsWith("/dashboard/escanear")) return BEHAVIORAL_NUDGE_GROUPS.escanear;
+  if (cleanPath === "/inicio") return BEHAVIORAL_NUDGE_GROUPS.inicio;
+  if (cleanPath.startsWith("/escanear")) return BEHAVIORAL_NUDGE_GROUPS.escanear;
 
-  if (cleanPath.startsWith("/dashboard/produccion")) {
+  if (cleanPath.startsWith("/produccion")) {
     if (cleanPath.includes("/mortalidad")) return BEHAVIORAL_NUDGE_GROUPS.mortalidad;
     if (cleanPath.includes("/plan-parvada")) return BEHAVIORAL_NUDGE_GROUPS.planeacion;
     if (cleanPath.includes("/sacrificio") || cleanPath.includes("/carne") || tab === "carne") {
@@ -664,29 +664,29 @@ export function resolvePageNudgeGroup(
     return BEHAVIORAL_NUDGE_GROUPS.produccion_huevos;
   }
 
-  if (cleanPath.startsWith("/dashboard/animales")) return BEHAVIORAL_NUDGE_GROUPS.animales;
-  if (cleanPath.startsWith("/dashboard/ubicaciones")) return BEHAVIORAL_NUDGE_GROUPS.ubicaciones;
-  if (cleanPath.startsWith("/dashboard/sanidad")) return BEHAVIORAL_NUDGE_GROUPS.sanidad;
-  if (cleanPath.startsWith("/dashboard/finanzas") || cleanPath.startsWith("/dashboard/contactos")) {
+  if (cleanPath.startsWith("/animales")) return BEHAVIORAL_NUDGE_GROUPS.animales;
+  if (cleanPath.startsWith("/ubicaciones")) return BEHAVIORAL_NUDGE_GROUPS.ubicaciones;
+  if (cleanPath.startsWith("/sanidad")) return BEHAVIORAL_NUDGE_GROUPS.sanidad;
+  if (cleanPath.startsWith("/finanzas") || cleanPath.startsWith("/contactos")) {
     return BEHAVIORAL_NUDGE_GROUPS.finanzas;
   }
-  if (cleanPath.startsWith("/dashboard/inventarios/alimentacion")) {
+  if (cleanPath.startsWith("/inventarios/alimentacion")) {
     return BEHAVIORAL_NUDGE_GROUPS.alimentacion;
   }
-  if (cleanPath.startsWith("/dashboard/inventarios")) {
+  if (cleanPath.startsWith("/inventarios")) {
     return BEHAVIORAL_NUDGE_GROUPS.inventarios;
   }
-  if (cleanPath.startsWith("/dashboard/almacen") || cleanPath.startsWith("/dashboard/operaciones")) {
+  if (cleanPath.startsWith("/almacen") || cleanPath.startsWith("/operaciones")) {
     return BEHAVIORAL_NUDGE_GROUPS.almacen_operaciones;
   }
-  if (cleanPath.startsWith("/dashboard/planeacion") || cleanPath.startsWith("/dashboard/soberania")) {
+  if (cleanPath.startsWith("/planeacion") || cleanPath.startsWith("/soberania")) {
     return BEHAVIORAL_NUDGE_GROUPS.planeacion;
   }
-  if (cleanPath.startsWith("/dashboard/analisis")) return BEHAVIORAL_NUDGE_GROUPS.analisis;
-  if (cleanPath.startsWith("/dashboard/configuracion") || cleanPath.startsWith("/dashboard/exportar")) {
+  if (cleanPath.startsWith("/analisis")) return BEHAVIORAL_NUDGE_GROUPS.analisis;
+  if (cleanPath.startsWith("/configuracion") || cleanPath.startsWith("/exportar")) {
     return BEHAVIORAL_NUDGE_GROUPS.configuracion;
   }
-  if (cleanPath.startsWith("/dashboard/guia") || cleanPath.startsWith("/guia")) {
+  if (cleanPath.startsWith("/manual") || cleanPath.startsWith("/guia")) {
     return BEHAVIORAL_NUDGE_GROUPS.guia;
   }
 

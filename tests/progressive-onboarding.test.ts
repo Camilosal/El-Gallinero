@@ -226,44 +226,44 @@ describe("Onboarding progresivo — lógica de dominio, feature flags y auto-tri
 
   it("aplica gating de rutas progresivas y etiqueta resultados bloqueados en búsqueda global", () => {
     const lockedFlags = getEffectiveFlags(createDefaultProgressiveConfig("PEQUENO"));
-    expect(isHrefEnabledByFlags("/dashboard/produccion", lockedFlags)).toBe(true);
-    expect(isHrefEnabledByFlags("/dashboard/analisis/reportes", lockedFlags)).toBe(true);
-    expect(isHrefEnabledByFlags("/dashboard/sanidad/bioseguridad", lockedFlags)).toBe(false);
-    expect(isHrefEnabledByFlags("/dashboard/operaciones/cierre", lockedFlags)).toBe(false);
-    expect(isHrefEnabledByFlags("/dashboard/analisis/reportes?tab=analitica", lockedFlags)).toBe(false);
-    expect(isHrefEnabledByFlags("/dashboard/finanzas/presupuestos", lockedFlags)).toBe(false);
+    expect(isHrefEnabledByFlags("/produccion", lockedFlags)).toBe(true);
+    expect(isHrefEnabledByFlags("/analisis/reportes", lockedFlags)).toBe(true);
+    expect(isHrefEnabledByFlags("/sanidad/bioseguridad", lockedFlags)).toBe(false);
+    expect(isHrefEnabledByFlags("/operaciones/cierre", lockedFlags)).toBe(false);
+    expect(isHrefEnabledByFlags("/analisis/reportes?tab=analitica", lockedFlags)).toBe(false);
+    expect(isHrefEnabledByFlags("/finanzas/presupuestos", lockedFlags)).toBe(false);
 
     const searchLocked = searchNavigation("Bioseguridad", 12, lockedFlags);
-    const bioResult = searchLocked.find((item) => item.href === "/dashboard/sanidad/bioseguridad");
+    const bioResult = searchLocked.find((item) => item.href === "/sanidad/bioseguridad");
     expect(bioResult).toBeDefined();
     expect(bioResult?.lockedByFlag).toBe("auditoria_poe_gab_ica");
 
     const defaultLocked = searchNavigation("", 12, lockedFlags);
-    expect(defaultLocked.some((item) => item.href === "/dashboard/sanidad/bioseguridad")).toBe(false);
+    expect(defaultLocked.some((item) => item.href === "/sanidad/bioseguridad")).toBe(false);
 
     const navLocked = filterNavigationGroups(lockedFlags).flatMap((g) => g.items.map((i) => i.href));
-    expect(navLocked).not.toContain("/dashboard/sanidad/bioseguridad");
-    expect(navLocked).not.toContain("/dashboard/operaciones/cierre");
-    expect(navLocked).toContain("/dashboard/produccion?tab=huevos");
+    expect(navLocked).not.toContain("/sanidad/bioseguridad");
+    expect(navLocked).not.toContain("/operaciones/cierre");
+    expect(navLocked).toContain("/produccion?tab=huevos");
 
     const unlockedFlags = getEffectiveFlags(createDefaultProgressiveConfig("MEDIANO"));
-    expect(isHrefEnabledByFlags("/dashboard/sanidad/bioseguridad", unlockedFlags)).toBe(true);
+    expect(isHrefEnabledByFlags("/sanidad/bioseguridad", unlockedFlags)).toBe(true);
     const searchUnlocked = searchNavigation("Bioseguridad", 12, unlockedFlags);
-    const bioUnlocked = searchUnlocked.find((item) => item.href === "/dashboard/sanidad/bioseguridad");
+    const bioUnlocked = searchUnlocked.find((item) => item.href === "/sanidad/bioseguridad");
     expect(bioUnlocked?.lockedByFlag).toBeUndefined();
 
-    expect(isHrefEnabledByFlags("/dashboard/analisis/kpis", lockedFlags)).toBe(false);
-    expect(isHrefEnabledByFlags("/dashboard/inventarios/huevos", lockedFlags)).toBe(false);
-    expect(isHrefEnabledByFlags("/dashboard/analisis/razas", lockedFlags)).toBe(false);
-    expect(isHrefEnabledByFlags("/dashboard/operaciones/activos", lockedFlags)).toBe(false);
-    expect(isHrefEnabledByFlags("/dashboard/operaciones/mantenimiento", lockedFlags)).toBe(false);
+    expect(isHrefEnabledByFlags("/analisis/kpis", lockedFlags)).toBe(false);
+    expect(isHrefEnabledByFlags("/inventarios/huevos", lockedFlags)).toBe(false);
+    expect(isHrefEnabledByFlags("/analisis/razas", lockedFlags)).toBe(false);
+    expect(isHrefEnabledByFlags("/operaciones/activos", lockedFlags)).toBe(false);
+    expect(isHrefEnabledByFlags("/operaciones/mantenimiento", lockedFlags)).toBe(false);
 
     const navUnlocked = filterNavigationGroups(unlockedFlags).flatMap((g) => g.items.map((i) => i.href));
-    expect(navUnlocked).toContain("/dashboard/sanidad/bioseguridad");
-    expect(navUnlocked).toContain("/dashboard/operaciones/cierre");
-    expect(navUnlocked).toContain("/dashboard/analisis/kpis");
-    expect(navUnlocked).toContain("/dashboard/inventarios/huevos");
-    expect(navUnlocked).toContain("/dashboard/finanzas/presupuestos");
+    expect(navUnlocked).toContain("/sanidad/bioseguridad");
+    expect(navUnlocked).toContain("/operaciones/cierre");
+    expect(navUnlocked).toContain("/analisis/kpis");
+    expect(navUnlocked).toContain("/inventarios/huevos");
+    expect(navUnlocked).toContain("/finanzas/presupuestos");
     expect(navUnlocked.length).toBeGreaterThan(navLocked.length + 5);
   });
 });
@@ -532,7 +532,7 @@ describe("API /api/onboarding integración contra el_gallinero_test", () => {
   it("expone accesos visibles al Asistente inicial desde Inicio, Configuración y Creación rápida, manteniendo el Sidebar limpio", () => {
     const read = (rel: string) => fs.readFileSync(path.join(process.cwd(), rel), "utf8");
 
-    const dashboardSrc = read("src/app/dashboard/page.tsx");
+    const dashboardSrc = read("src/app/(app)/inicio/page.tsx");
     expect(dashboardSrc).toContain("OPEN_ONBOARDING_WIZARD_EVENT");
     expect(dashboardSrc).toContain("Asistente inicial: prepara tu granja en 3 pasos");
     expect(dashboardSrc).toContain("<span>Asistente inicial</span>");
@@ -543,8 +543,8 @@ describe("API /api/onboarding integración contra el_gallinero_test", () => {
     expect(sidebarSrc).not.toContain("Modo Pequeño · Simple");
     expect(sidebarSrc).not.toContain("Escala:");
 
-    const configSrc = read("src/app/dashboard/configuracion/page.tsx");
-    expect(configSrc).toContain('/dashboard?wizard=1');
+    const configSrc = read("src/app/(app)/configuracion/page.tsx");
+    expect(configSrc).toContain('/inicio?wizard=1');
     expect(configSrc).toContain("Asistente inicial (Día 1 · 3 pasos)");
 
     const flagsPanelSrc = read("src/components/FeatureFlagsPanel.tsx");
@@ -556,26 +556,26 @@ describe("API /api/onboarding integración contra el_gallinero_test", () => {
     expect(wizardSrc).toContain("if (step === 2) {");
 
     const createSrc = read("src/lib/create-actions.ts");
-    expect(createSrc).toContain('/dashboard?wizard=1');
+    expect(createSrc).toContain('/inicio?wizard=1');
     expect(createSrc).toContain("Abrir asistente inicial (Día 1 · 3 pasos)");
   });
 
   it("diferencia visual y funcionalmente el Modo Pequeño del Modo Mediano en layout, Inicio y módulos", () => {
     const read = (rel: string) => fs.readFileSync(path.join(process.cwd(), rel), "utf8");
 
-    expect(read("src/app/dashboard/_client-layout.tsx")).toContain("<ScaleModeControl");
+    expect(read("src/app/(app)/_client-layout.tsx")).toContain("<ScaleModeControl");
     expect(read("src/components/ScaleModeControl.tsx")).toContain('patchOnboarding({ scale: nextScale })');
 
-    const dashSrc = read("src/app/dashboard/page.tsx");
+    const dashSrc = read("src/app/(app)/inicio/page.tsx");
     expect(dashSrc).toContain("Modo Pequeño Productor");
     expect(dashSrc).toContain("Modo Mediano / Tecnificado");
     expect(dashSrc).not.toContain("Franja operativa diferenciada");
 
-    expect(read("src/app/dashboard/produccion/_components/HuevosTab.tsx")).toContain("ntc1240Enabled");
-    expect(read("src/app/dashboard/produccion/_components/ReproduccionTab.tsx")).toContain("advancedGenetics");
-    expect(read("src/app/dashboard/sanidad/bioseguridad/page.tsx")).toContain('mode="gate"');
-    expect(read("src/app/dashboard/operaciones/cierre/page.tsx")).toContain('mode="gate"');
-    expect(read("src/app/dashboard/finanzas/presupuestos/page.tsx")).toContain('mode="gate"');
-    expect(read("src/app/dashboard/analisis/reportes/page.tsx")).toContain('mode="gate"');
+    expect(read("src/app/(app)/produccion/_components/HuevosTab.tsx")).toContain("ntc1240Enabled");
+    expect(read("src/app/(app)/produccion/_components/ReproduccionTab.tsx")).toContain("advancedGenetics");
+    expect(read("src/app/(app)/sanidad/bioseguridad/page.tsx")).toContain('mode="gate"');
+    expect(read("src/app/(app)/operaciones/cierre/page.tsx")).toContain('mode="gate"');
+    expect(read("src/app/(app)/finanzas/presupuestos/page.tsx")).toContain('mode="gate"');
+    expect(read("src/app/(app)/analisis/reportes/page.tsx")).toContain('mode="gate"');
   });
 });

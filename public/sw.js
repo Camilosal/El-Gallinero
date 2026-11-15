@@ -1,14 +1,14 @@
-const CACHE_VERSION = 'v8';
+const CACHE_VERSION = 'v9';
 const APP_CACHE = `gallinero-app-${CACHE_VERSION}`;
 const PRECACHE = [
   '/',
   '/login',
   '/login/recuperar',
   '/guia',
-  '/dashboard',
-  '/dashboard/escanear',
-  '/dashboard/operaciones/cierre',
-  '/dashboard/guia',
+  '/inicio',
+  '/escanear',
+  '/operaciones/cierre',
+  '/manual',
   '/manifest.json',
   '/icon-192.svg',
   '/icon-512.svg',
@@ -143,9 +143,28 @@ self.addEventListener('fetch', (e) => {
           const cachedPage = await caches.match(canonicalPageKey, { ignoreVary: true });
           if (cachedPage) return cachedPage;
 
-          if (url.pathname.startsWith('/dashboard')) {
-            const cachedDashboard = await caches.match(url.origin + '/dashboard', { ignoreVary: true });
-            if (cachedDashboard) return cachedDashboard;
+          if (
+            url.pathname === '/inicio' ||
+            url.pathname.startsWith('/inicio/') ||
+            url.pathname.startsWith('/almacen') ||
+            url.pathname.startsWith('/analisis') ||
+            url.pathname.startsWith('/animales') ||
+            url.pathname.startsWith('/configuracion') ||
+            url.pathname.startsWith('/contactos') ||
+            url.pathname.startsWith('/escanear') ||
+            url.pathname.startsWith('/exportar') ||
+            url.pathname.startsWith('/finanzas') ||
+            url.pathname.startsWith('/manual') ||
+            url.pathname.startsWith('/inventarios') ||
+            url.pathname.startsWith('/operaciones') ||
+            url.pathname.startsWith('/planeacion') ||
+            url.pathname.startsWith('/produccion') ||
+            url.pathname.startsWith('/sanidad') ||
+            url.pathname.startsWith('/soberania') ||
+            url.pathname.startsWith('/ubicaciones')
+          ) {
+            const cachedAppShell = await caches.match(url.origin + '/inicio', { ignoreVary: true });
+            if (cachedAppShell) return cachedAppShell;
           }
 
           const rootFallback = await caches.match(url.origin + '/', { ignoreVary: true });

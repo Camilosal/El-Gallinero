@@ -66,7 +66,7 @@ const STATUS_BADGE_COLOR: Record<string, string> = {
 };
 
 export default function BugReportModal() {
-  const pathname = usePathname() || "/dashboard";
+  const pathname = usePathname() || "/inicio";
   const searchParams = useSearchParams();
   const queryString = searchParams.toString();
 
@@ -466,7 +466,7 @@ export default function BugReportModal() {
             </button>
           </div>
           <Link
-            href="/dashboard/configuracion/fallas"
+            href="/configuracion/fallas"
             onClick={() => setOpen(false)}
             className="text-xs font-semibold text-green-800 hover:underline pb-2"
           >

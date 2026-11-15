@@ -229,7 +229,7 @@ export const POST = withApiHandler(async (req: NextRequest) => {
       },
       user: created.owner,
       recoveryCode,
-      redirectTo: "/dashboard?wizard=1",
+      redirectTo: "/inicio?wizard=1",
     },
     { status: 201 },
   );

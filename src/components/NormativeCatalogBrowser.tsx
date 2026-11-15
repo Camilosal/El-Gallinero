@@ -78,14 +78,14 @@ const SPECIES_FILTER_OPTIONS: Array<{ value: string; label: string }> = [
 ];
 
 const MODULE_OPTIONS: Array<{ appRoute: string; moduleLabel: string }> = [
-  { appRoute: "/dashboard/sanidad/bioseguridad", moduleLabel: "Sanidad y Bioseguridad" },
-  { appRoute: "/dashboard/sanidad/control", moduleLabel: "Control Sanitario y Retiro" },
-  { appRoute: "/dashboard/produccion?tab=huevos", moduleLabel: "Producción de Huevos" },
-  { appRoute: "/dashboard/produccion?tab=animales", moduleLabel: "Gestión Animal" },
-  { appRoute: "/dashboard/produccion?tab=alimentacion", moduleLabel: "Nutrición y Raciones" },
-  { appRoute: "/dashboard/operaciones/compostaje", moduleLabel: "Compostaje y Residuos" },
-  { appRoute: "/dashboard/finanzas", moduleLabel: "Finanzas y Normativa" },
-  { appRoute: "/dashboard/configuracion/catalogos?tab=normas", moduleLabel: "Catálogos y Documentación" },
+  { appRoute: "/sanidad/bioseguridad", moduleLabel: "Sanidad y Bioseguridad" },
+  { appRoute: "/sanidad/control", moduleLabel: "Control Sanitario y Retiro" },
+  { appRoute: "/produccion?tab=huevos", moduleLabel: "Producción de Huevos" },
+  { appRoute: "/produccion?tab=animales", moduleLabel: "Gestión Animal" },
+  { appRoute: "/produccion?tab=alimentacion", moduleLabel: "Nutrición y Raciones" },
+  { appRoute: "/operaciones/compostaje", moduleLabel: "Compostaje y Residuos" },
+  { appRoute: "/finanzas", moduleLabel: "Finanzas y Normativa" },
+  { appRoute: "/configuracion/catalogos?tab=normas", moduleLabel: "Catálogos y Documentación" },
 ];
 
 const SPECIES_LABELS: Record<string, string> = {

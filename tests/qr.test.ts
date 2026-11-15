@@ -36,7 +36,7 @@ describe("QR multi-entidad de granja", () => {
 
   it("interpreta URLs de escáner (?qr=...) y rutas de trazabilidad /lote/<id>", () => {
     const deepUrl = generateEntityQrUrl("ubicacion", "galpon-norte", "https://mi-granja.local");
-    expect(deepUrl).toBe("https://mi-granja.local/dashboard/escanear?qr=GALLINERO%3ALOC%3Agalpon-norte");
+    expect(deepUrl).toBe("https://mi-granja.local/escanear?qr=GALLINERO%3ALOC%3Agalpon-norte");
     expect(parseQrTarget(deepUrl)).toEqual({
       type: "ubicacion",
       id: "galpon-norte",
@@ -47,6 +47,18 @@ describe("QR multi-entidad de granja", () => {
       type: "lote",
       id: "abc-123-def",
       raw: "https://mi-granja.local/lote/abc-123-def",
+    });
+
+    expect(parseQrTarget("https://mi-granja.local/ubicaciones/loc-7")).toEqual({
+      type: "ubicacion",
+      id: "loc-7",
+      raw: "https://mi-granja.local/ubicaciones/loc-7",
+    });
+
+    expect(parseQrTarget("https://mi-granja.local/dashboard/ubicaciones/loc-9")).toEqual({
+      type: "ubicacion",
+      id: "loc-9",
+      raw: "https://mi-granja.local/dashboard/ubicaciones/loc-9",
     });
 
     expect(parseQrTarget("")).toBeNull();

@@ -55,7 +55,7 @@ export const POST = withApiHandler(async () => {
   }
   return NextResponse.json({
     error: "Registra los nuevos lotes desde Adquisiciones para conservar su especie, destino y origen.",
-    href: "/dashboard/produccion/adquisiciones?nuevo=lote_pollos",
+    href: "/produccion/adquisiciones?nuevo=lote_pollos",
   }, { status: 409 });
 });
 

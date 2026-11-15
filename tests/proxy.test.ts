@@ -29,14 +29,32 @@ describe("public access routes", () => {
   });
 
   it("still redirects other protected pages without a session", async () => {
-    const request = new NextRequest("https://gallinero.test/dashboard/animales", {
-      headers: { accept: "text/html" },
+    for (const protectedPath of ["/animales", "/dashboard/animales"]) {
+      const request = new NextRequest(`https://gallinero.test${protectedPath}`, {
+        headers: { accept: "text/html" },
+      });
+
+      const response = await proxy(request);
+
+      expect(response.status).toBe(307);
+      expect(response.headers.get("location")).toBe("https://gallinero.test/login");
+    }
+  });
+
+  it("permanently redirects authenticated legacy /dashboard routes to direct app routes", async () => {
+    const rootLegacy = new NextRequest("https://gallinero.test/dashboard", {
+      headers: { accept: "text/html", cookie: "galli_session=token-demo" },
     });
+    const rootRes = await proxy(rootLegacy);
+    expect(rootRes.status).toBe(308);
+    expect(rootRes.headers.get("location")).toBe("https://gallinero.test/inicio");
 
-    const response = await proxy(request);
-
-    expect(response.status).toBe(307);
-    expect(response.headers.get("location")).toBe("https://gallinero.test/login");
+    const nestedLegacy = new NextRequest("https://gallinero.test/dashboard/animales?tab=pollos", {
+      headers: { accept: "text/html", cookie: "galli_session=token-demo" },
+    });
+    const nestedRes = await proxy(nestedLegacy);
+    expect(nestedRes.status).toBe(308);
+    expect(nestedRes.headers.get("location")).toBe("https://gallinero.test/animales?tab=pollos");
   });
 
   it("blocks protected API routes with 401 without a session", async () => {

@@ -10,7 +10,7 @@ function readSource(relPath: string): string {
 
 describe("Nudges debajo del Hero y fila única en Inicio", () => {
   it("el layout del dashboard ubica DashboardBreadcrumb arriba y no renderiza BehavioralNudgeBanner sobre los Hero", () => {
-    const layout = readSource("src/app/dashboard/_client-layout.tsx");
+    const layout = readSource("src/app/(app)/_client-layout.tsx");
     expect(layout).toContain("<DashboardBreadcrumb />");
     expect(layout).not.toContain("<BehavioralNudgeBanner");
   });
@@ -22,11 +22,11 @@ describe("Nudges debajo del Hero y fila única en Inicio", () => {
     expect(frameIdx).toBeGreaterThan(-1);
     expect(nudgeIdx).toBeGreaterThan(frameIdx);
     expect(heroBanner).toContain("hideNudge");
-    expect(heroBanner).toContain('pathname?.startsWith("/dashboard")');
+    expect(heroBanner).toContain("isAppRoutePath(pathname)");
   });
 
   it("la hoja de Inicio coloca el nudge y las dos tarjetas adjuntas en una sola fila (lg:grid-cols-3) debajo del Hero", () => {
-    const home = readSource("src/app/dashboard/page.tsx");
+    const home = readSource("src/app/(app)/inicio/page.tsx");
     const heroIdx = home.indexOf("<HeroBanner");
     const rowIdx = home.indexOf("${topStripGridCols}");
     const nudgeCompactIdx = home.indexOf("<BehavioralNudgeBanner compact");
@@ -39,37 +39,37 @@ describe("Nudges debajo del Hero y fila única en Inicio", () => {
 
 describe("Camino de migajas (DashboardBreadcrumb)", () => {
   it("resuelve correctamente rutas de Inicio, módulos, pestañas y páginas dinámicas", () => {
-    expect(resolveDashboardBreadcrumb("/dashboard")).toEqual([{ label: "Inicio" }]);
+    expect(resolveDashboardBreadcrumb("/inicio")).toEqual([{ label: "Inicio" }]);
 
-    expect(resolveDashboardBreadcrumb("/dashboard/produccion", "tab=huevos")).toEqual([
-      { label: "Inicio", href: "/dashboard" },
-      { label: "Producción", href: "/dashboard/produccion" },
+    expect(resolveDashboardBreadcrumb("/produccion", "tab=huevos")).toEqual([
+      { label: "Inicio", href: "/inicio" },
+      { label: "Producción", href: "/produccion" },
       { label: "Huevos" },
     ]);
 
     expect(
-      resolveDashboardBreadcrumb("/dashboard/produccion", "tab=alimentacion&subtab=etapas"),
+      resolveDashboardBreadcrumb("/produccion", "tab=alimentacion&subtab=etapas"),
     ).toEqual([
-      { label: "Inicio", href: "/dashboard" },
-      { label: "Almacén", href: "/dashboard/almacen" },
-      { label: "Gestión de alimentación", href: "/dashboard/produccion?tab=alimentacion" },
+      { label: "Inicio", href: "/inicio" },
+      { label: "Almacén", href: "/almacen" },
+      { label: "Gestión de alimentación", href: "/produccion?tab=alimentacion" },
       { label: "Programas y dietas" },
     ]);
 
-    expect(resolveDashboardBreadcrumb("/dashboard/ubicaciones/abc-123")).toEqual([
-      { label: "Inicio", href: "/dashboard" },
-      { label: "Animales", href: "/dashboard/animales" },
-      { label: "Lugares de manejo", href: "/dashboard/ubicaciones" },
+    expect(resolveDashboardBreadcrumb("/ubicaciones/abc-123")).toEqual([
+      { label: "Inicio", href: "/inicio" },
+      { label: "Animales", href: "/animales" },
+      { label: "Lugares de manejo", href: "/ubicaciones" },
       { label: "Detalle del lugar" },
     ]);
 
-    expect(resolveDashboardBreadcrumb("/dashboard/configuracion/fallas")).toEqual([
-      { label: "Inicio", href: "/dashboard" },
-      { label: "Configuración", href: "/dashboard/configuracion" },
+    expect(resolveDashboardBreadcrumb("/configuracion/fallas")).toEqual([
+      { label: "Inicio", href: "/inicio" },
+      { label: "Configuración", href: "/configuracion" },
       { label: "Reportes de fallas" },
     ]);
 
-    const guiaCrumb = resolveDashboardBreadcrumb("/dashboard/guia/normas-estandares");
+    const guiaCrumb = resolveDashboardBreadcrumb("/manual/normas-estandares");
     expect(guiaCrumb.map((c) => c.label)).toEqual([
       "Inicio",
       "Guía de Usuario",
@@ -80,7 +80,7 @@ describe("Camino de migajas (DashboardBreadcrumb)", () => {
 
   it("evita doble camino de migajas en las guías vistas dentro del dashboard", () => {
     const guideArticle = readSource("src/components/guide/GuideArticleView.tsx");
-    expect(guideArticle).toContain('basePath.startsWith("/dashboard")');
+    expect(guideArticle).toContain('basePath.startsWith("/manual")');
     expect(guideArticle).toContain("{!isDashboard && (");
   });
 });

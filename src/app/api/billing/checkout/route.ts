@@ -22,7 +22,7 @@ function resolveCheckoutRedirectUrl(req: NextRequest): string | undefined {
     !cleanHost.startsWith("localhost")
   ) {
     const proto = (req.headers.get("x-forwarded-proto") || "https").split(",")[0].trim();
-    return `${proto}://${cleanHost}/dashboard/configuracion/plan?payment=return`;
+    return `${proto}://${cleanHost}/configuracion/plan?payment=return`;
   }
   return undefined;
 }

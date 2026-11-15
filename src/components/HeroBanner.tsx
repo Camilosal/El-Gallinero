@@ -6,6 +6,7 @@ import { HelpCircle, Lightbulb } from "lucide-react";
 import { HeroFrame } from "@/components/HeroFrame";
 import BehavioralNudgeBanner from "@/components/BehavioralNudgeBanner";
 import { resolveHeroThemeByPath, type HeroThemeKey } from "@/lib/hero-themes";
+import { isAppRoutePath } from "@/lib/app-routes";
 
 function renderHelpBody(text: string) {
   const normalized = text.replace(/\\n/g, "\n");
@@ -67,7 +68,7 @@ export function HeroBanner({
   const [helpOpen, setHelpOpen] = useState(false);
 
   const resolvedTheme = theme ?? resolveHeroThemeByPath(pathname);
-  const showNudgeBelowHero = Boolean(pathname?.startsWith("/dashboard") && !hideNudge);
+  const showNudgeBelowHero = Boolean(isAppRoutePath(pathname) && !hideNudge);
 
   const combinedActions =
     help || actions ? (

@@ -14,6 +14,7 @@ import {
 } from "@/lib/guide-data";
 import { getGuideHeroTheme, resolveHeroThemeByPath } from "@/lib/hero-themes";
 import { navigationGroups } from "@/lib/navigation";
+import { isAppRoutePath } from "@/lib/app-routes";
 
 const REQUIRED_LEGACY_SLUGS = [
   "primeros-pasos",
@@ -115,10 +116,15 @@ describe("guía de uso actualizada y capturas verificadas", () => {
       expect(getGuidePreviewImage(guide)?.src).toBeTruthy();
 
       for (const rel of guide.relatedHrefs) {
-        expect(rel.href.startsWith("/dashboard")).toBe(true);
-        const cleanRoute = rel.href.split("?")[0].replace(/^\//, "");
+        const cleanHrefPath = rel.href.split("?")[0];
+        expect(isAppRoutePath(cleanHrefPath), `Ruta relacionada fuera de app: ${rel.href}`).toBe(true);
+        const cleanRoute = cleanHrefPath.replace(/^\//, "");
+        const appGroupPageFile = path.join(process.cwd(), "src", "app", "(app)", cleanRoute, "page.tsx");
         const pageFile = path.join(process.cwd(), "src", "app", cleanRoute, "page.tsx");
-        expect(fs.existsSync(pageFile), `Ruta relacionada inexistente: ${pageFile}`).toBe(true);
+        expect(
+          fs.existsSync(appGroupPageFile) || fs.existsSync(pageFile),
+          `Ruta relacionada inexistente: ${appGroupPageFile}`,
+        ).toBe(true);
       }
     }
 
@@ -152,13 +158,13 @@ describe("guía de uso actualizada y capturas verificadas", () => {
     expect(searchGuides("vida util").some((g) => g.slug === "infraestructura-equipos")).toBe(true);
     expect(searchGuides("ganancia real").some((g) => g.slug === "balance-financiero")).toBe(true);
     const allHrefs = new Set(guides.flatMap((g) => g.relatedHrefs.map((r) => r.href.split("?")[0])));
-    expect(allHrefs.has("/dashboard/configuracion/modulos")).toBe(true);
-    expect(allHrefs.has("/dashboard/configuracion")).toBe(true);
-    expect(allHrefs.has("/dashboard/configuracion/fallas")).toBe(true);
-    expect(allHrefs.has("/dashboard/finanzas")).toBe(true);
-    expect(allHrefs.has("/dashboard/analisis")).toBe(true);
-    expect(allHrefs.has("/dashboard/analisis/normas")).toBe(true);
-    expect(allHrefs.has("/dashboard/analisis/fuentes-externas")).toBe(true);
+    expect(allHrefs.has("/configuracion/modulos")).toBe(true);
+    expect(allHrefs.has("/configuracion")).toBe(true);
+    expect(allHrefs.has("/configuracion/fallas")).toBe(true);
+    expect(allHrefs.has("/finanzas")).toBe(true);
+    expect(allHrefs.has("/analisis")).toBe(true);
+    expect(allHrefs.has("/analisis/normas")).toBe(true);
+    expect(allHrefs.has("/analisis/fuentes-externas")).toBe(true);
 
     const first = getAdjacentGuides(guides[0].slug);
     expect(first.prev).toBeNull();
@@ -166,10 +172,10 @@ describe("guía de uso actualizada y capturas verificadas", () => {
 
     expect(resolveHeroThemeByPath("/guia")).toBe("guia");
     expect(resolveHeroThemeByPath("/guia/escanear-qr")).toBe("guia");
-    expect(resolveHeroThemeByPath("/dashboard/planeacion/calendario")).toBe("aves");
-    expect(resolveHeroThemeByPath("/dashboard/sanidad/bioseguridad")).toBe("sanidad");
-    expect(resolveHeroThemeByPath("/dashboard/operaciones/compostaje")).toBe("gallinaza");
-    expect(resolveHeroThemeByPath("/dashboard/operaciones/cierre")).toBe("insumos");
+    expect(resolveHeroThemeByPath("/planeacion/calendario")).toBe("aves");
+    expect(resolveHeroThemeByPath("/sanidad/bioseguridad")).toBe("sanidad");
+    expect(resolveHeroThemeByPath("/operaciones/compostaje")).toBe("gallinaza");
+    expect(resolveHeroThemeByPath("/operaciones/cierre")).toBe("insumos");
     expect(getGuideHeroTheme("escanear-qr")).toBe("escanear");
   });
 });

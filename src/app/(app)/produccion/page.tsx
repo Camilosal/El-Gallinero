@@ -1,0 +1,228 @@
+"use client";
+
+import Link from "next/link";
+import { useSearchParams, useRouter } from "next/navigation";
+import { Suspense, lazy, useEffect, useMemo, useState } from "react";
+import { Egg, PawPrint, Skull } from "lucide-react";
+import { AppIcon } from "@/components/AppIcon";
+import { HeroBanner } from "@/components/HeroBanner";
+import { EmptyState } from "@/components/ui";
+import TableSearch from "@/components/TableSearch";
+import { apiFetch } from "@/lib/fetch";
+import { matchesTextQuery } from "@/lib/text";
+
+const AnimalesTab = lazy(() => import("./_components/AnimalesTab"));
+const AlimentacionTab = lazy(() => import("./_components/AlimentacionTab"));
+const HuevosTab = lazy(() => import("./_components/HuevosTab"));
+const IncubacionTab = lazy(() => import("./_components/IncubacionTab"));
+const CarneTab = lazy(() => import("./_components/CarneTab"));
+const GallinazaTab = lazy(() => import("./_components/GallinazaTab"));
+const ReproduccionTab = lazy(() => import("./_components/ReproduccionTab"));
+
+const tabComponents: Record<string, React.ComponentType> = {
+  animales: AnimalesTab,
+  gallinas: AnimalesTab,
+  gallos: AnimalesTab,
+  pollos: AnimalesTab,
+  codornices: AnimalesTab,
+  patos: AnimalesTab,
+  conejos: AnimalesTab,
+  cuyes: AnimalesTab,
+  lotes: AnimalesTab,
+  alimentacion: AlimentacionTab,
+  huevos: HuevosTab,
+  incubacion: IncubacionTab,
+  carne: CarneTab,
+  gallinaza: GallinazaTab,
+  reproduccion: ReproduccionTab,
+};
+
+const secciones = [
+  { href: "/produccion?tab=huevos", label: "Huevos", icon: "egg", desc: "Recolección diaria, clasificación NTC 1240, T°/HR y microcápsulas" },
+  { href: "/produccion?tab=carne", label: "Carne", icon: "meat", desc: "Faena multiespecie, despiece, rendimiento en canal y tiempos de retiro" },
+  { href: "/produccion?tab=gallinaza", label: "Gallinaza", icon: "sprout", desc: "Recolección por especie, valorización, compostaje y ventas" },
+];
+
+interface ResumenProduccion {
+  huevosHoy: number;
+  huevosSemana: number;
+  totalGallinas: number;
+  totalAnimals: number;
+  totalBirds: number;
+  species?: { species: string; label: string; count: number }[];
+  mortalidadSemana: number;
+  consumoAlimentoSemanal: number;
+}
+
+function TabFallback() {
+  return (
+    <div className="p-8">
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-2.5 sm:gap-4">
+        {[1, 2, 3, 4].map((i) => (
+          <div key={i} className="bg-white rounded-lg shadow-md p-4 sm:p-6 animate-pulse">
+            <div className="h-4 bg-gray-200 rounded w-1/2 mb-2"></div>
+            <div className="h-8 bg-gray-200 rounded"></div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+export default function ProduccionPage() {
+  return (
+    <Suspense fallback={<TabFallback />}>
+      <ProduccionContent />
+    </Suspense>
+  );
+}
+
+function ProduccionContent() {
+  const searchParams = useSearchParams();
+  const router = useRouter();
+  const tab = searchParams.get("tab");
+  const TabComponent = tab ? tabComponents[tab] : null;
+
+  useEffect(() => {
+    if (tab === "inventario") {
+      router.replace("/inventarios/balance");
+    }
+  }, [tab, router]);
+
+  if (tab === "inventario") {
+    return <TabFallback />;
+  }
+
+  if (TabComponent) {
+    return (
+      <Suspense fallback={<TabFallback />}>
+        <TabComponent />
+      </Suspense>
+    );
+  }
+
+  return <CategoryView />;
+}
+
+function CategoryView() {
+  const [resumen, setResumen] = useState<ResumenProduccion | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [search, setSearch] = useState("");
+
+  useEffect(() => {
+    apiFetch("/api/produccion/resumen")
+      .then((r) => r.json())
+      .then(setResumen)
+      .catch(console.error)
+      .finally(() => setLoading(false));
+  }, []);
+
+  const filteredSecciones = useMemo(
+    () => (search.trim() ? secciones.filter((sec) => matchesTextQuery(search, [sec.label, sec.desc])) : secciones),
+    [search],
+  );
+
+  const speciesHint = (resumen?.species ?? [])
+    .filter((s) => s.count > 0)
+    .map((s) => `${s.count} ${s.label.toLowerCase()}`)
+    .join(" · ");
+
+  return (
+    <div className="p-4 sm:p-8">
+      <HeroBanner
+        theme="huevos"
+        icon={<Egg className="w-3.5 h-3.5 text-amber-200" aria-hidden="true" />}
+        title="Producción"
+        description="Productos generados por la granja: huevos (NTC 1240), carne multi-especie y gallinaza. Animales, reproducción, incubación y peso se gestionan en Animales."
+      />
+
+      <TableSearch
+        value={search}
+        onChange={setSearch}
+        placeholder="Buscar módulos de producción (huevos, carne, gallinaza)..."
+        resultCount={filteredSecciones.length}
+        totalCount={secciones.length}
+        className="mb-6"
+      />
+
+      {loading ? (
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-2.5 sm:gap-4 mb-6 sm:mb-8">
+          {[1, 2, 3, 4].map((i) => (
+            <div key={i} className="bg-white rounded-lg shadow-md p-3.5 sm:p-6 animate-pulse">
+              <div className="h-4 bg-gray-200 rounded w-1/2 mb-2"></div>
+              <div className="h-8 bg-gray-200 rounded"></div>
+            </div>
+          ))}
+        </div>
+      ) : resumen ? (
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-2.5 sm:gap-4 mb-6 sm:mb-8">
+          <div className="bg-white rounded-lg shadow-md p-3.5 sm:p-6 min-w-0 border-l-4 border-blue-500">
+            <p className="text-xs sm:text-sm text-gray-600 mb-1 flex items-center gap-1.5"><Egg className="w-4 h-4 text-blue-600 shrink-0" aria-hidden="true" /> <span className="truncate">Huevos Hoy</span></p>
+            <p className="text-xl sm:text-3xl font-bold text-gray-900 truncate">{resumen.huevosHoy}</p>
+          </div>
+          <div className="bg-white rounded-lg shadow-md p-3.5 sm:p-6 min-w-0 border-l-4 border-green-500">
+            <p className="text-xs sm:text-sm text-gray-600 mb-1 flex items-center gap-1.5"><Egg className="w-4 h-4 text-green-600 shrink-0" aria-hidden="true" /> <span className="truncate">Huevos Semana</span></p>
+            <p className="text-xl sm:text-3xl font-bold text-gray-900 truncate">{resumen.huevosSemana}</p>
+          </div>
+          <div className="bg-white rounded-lg shadow-md p-3.5 sm:p-6 min-w-0 border-l-4 border-purple-500">
+            <p className="text-xs sm:text-sm text-gray-600 mb-1 flex items-center gap-1.5"><PawPrint className="w-4 h-4 text-purple-600 shrink-0" aria-hidden="true" /> <span className="truncate">Animales</span></p>
+            <p className="text-xl sm:text-3xl font-bold text-gray-900 truncate">{resumen.totalAnimals ?? resumen.totalGallinas}</p>
+            <p className="text-[11px] sm:text-xs text-gray-500 mt-0.5 line-clamp-1">{speciesHint || `${resumen.totalBirds ?? 0} aves`}</p>
+            <Link href="/animales" className="mt-1 inline-block text-xs font-semibold text-purple-700 hover:underline">
+              Ver animales →
+            </Link>
+          </div>
+          <div className="bg-white rounded-lg shadow-md p-3.5 sm:p-6 min-w-0 border-l-4 border-red-500">
+            <p className="text-xs sm:text-sm text-gray-600 mb-1 flex items-center gap-1.5"><Skull className="w-4 h-4 text-red-600 shrink-0" aria-hidden="true" /> <span className="truncate">Mortalidad Sem.</span></p>
+            <p className="text-xl sm:text-3xl font-bold text-gray-900 truncate">{resumen.mortalidadSemana}</p>
+            <Link href="/produccion/mortalidad" className="mt-1 inline-block text-xs font-semibold text-red-700 hover:underline">
+              Ver registro →
+            </Link>
+          </div>
+        </div>
+      ) : null}
+
+      <div className="mb-6 flex flex-col gap-2 rounded-xl border border-green-200 bg-green-50 p-4 text-sm text-green-900 sm:flex-row sm:items-center sm:justify-between">
+        <p className="flex items-center gap-2">
+          <PawPrint className="w-4 h-4 text-green-700 shrink-0" aria-hidden="true" />
+          <span><strong>¿Buscas animales, reproducción, control de peso o incubación?</strong> Todo el ciclo vivo multi-especie está en Animales.</span>
+        </p>
+        <div className="flex flex-wrap gap-3">
+          <Link href="/produccion?tab=reproduccion" className="font-semibold text-green-800 hover:underline">
+            Reproducción →
+          </Link>
+          <Link href="/produccion/peso" className="font-semibold text-green-800 hover:underline">
+            Control de peso →
+          </Link>
+          <Link href="/animales" className="font-semibold text-green-800 hover:underline">
+            Ir a Animales →
+          </Link>
+        </div>
+      </div>
+
+      {filteredSecciones.length === 0 ? (
+        <EmptyState icon="egg" message="No hay módulos de producción que coincidan con la búsqueda" />
+      ) : (
+        <div className="grid grid-cols-2 lg:grid-cols-3 gap-2.5 sm:gap-6">
+          {filteredSecciones.map((sec) => (
+            <Link
+              key={sec.href}
+              href={sec.href}
+              className="bg-white rounded-lg shadow-md p-3.5 sm:p-6 min-w-0 hover:shadow-lg transition-shadow border border-gray-200"
+            >
+              <div className="flex flex-col sm:flex-row sm:items-start gap-2.5 sm:gap-4">
+                <div className="w-9 h-9 sm:w-11 sm:h-11 rounded-xl bg-slate-100 flex items-center justify-center text-slate-700 shrink-0">
+                  <AppIcon icon={sec.icon} className="w-5 h-5 sm:w-6 sm:h-6" />
+                </div>
+                <div className="min-w-0">
+                  <h3 className="text-sm sm:text-lg font-semibold text-gray-900 leading-snug">{sec.label}</h3>
+                  <p className="text-xs sm:text-sm text-gray-600 mt-1 line-clamp-2">{sec.desc}</p>
+                </div>
+              </div>
+            </Link>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}

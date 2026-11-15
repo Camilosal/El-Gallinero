@@ -214,7 +214,7 @@ export const POST = withApiHandler(async (req: NextRequest) => {
     );
   }
 
-  const rawPath = typeof body.originPath === "string" ? body.originPath.trim().slice(0, 200) : "/dashboard";
+  const rawPath = typeof body.originPath === "string" ? body.originPath.trim().slice(0, 200) : "/inicio";
   const rawQuery = typeof body.originQuery === "string" ? body.originQuery.trim().slice(0, 300) : "";
   const resolvedOrigin = resolveBugOriginInfo(rawPath, rawQuery, triggerSource);
 
