@@ -1,4 +1,5 @@
 export const SANITARY_CALENDAR_REVIEW_KEY = "onboarding.sanitary_calendar_reviewed_at";
+export const FEEDING_PROGRAMS_REVIEW_KEY = "onboarding.feeding_programs_reviewed_at";
 export const PROGRESSIVE_CONFIG_SETTING_KEY = "onboarding.progressive_config.v1";
 export const ACTIVATION_HISTORY_SETTING_KEY = "onboarding.activation_history.v1";
 export const ONBOARDING_UPDATED_EVENT = "gallinero:onboarding-updated";

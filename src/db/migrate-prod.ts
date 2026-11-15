@@ -24,6 +24,7 @@ export const ORDERED_MIGRATION_SCRIPTS = [
   "scripts/add_export_tokens.sql",
   "scripts/add_external_data_sources.sql",
   "scripts/add_asset_depreciation_and_lifecycle.sql",
+  "scripts/add_export_token_scopes_and_profile.sql",
 ] as const;
 
 const MIGRATION_LOCK_KEY = 74820913;

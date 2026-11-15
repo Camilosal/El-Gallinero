@@ -7,6 +7,7 @@ import { runWithFarmContext } from "@/db/tenant-context";
 import { safeParseJson, withApiHandler } from "@/lib/api-handler";
 import { createSession, hashPassword, sessionCookieName } from "@/lib/auth";
 import { createDefaultProgressiveConfig, PROGRESSIVE_CONFIG_SETTING_KEY } from "@/lib/onboarding";
+import { seedStarterFeedsAndPrograms } from "@/lib/feeding/default-tenant-seed";
 import { LEGAL_CONSENT_SETTING_KEY, LEGAL_DOCS_VERSION } from "@/lib/legal";
 import { notifyNewFarmRegistration } from "@/lib/notifications";
 import { isRequestRateLimited } from "@/lib/rate-limit";
@@ -205,9 +206,10 @@ export const POST = withApiHandler(async (req: NextRequest) => {
 
   invalidateSettingsCache();
 
-  const rawToken = await runWithFarmContext(created.farm.id, () =>
-    createSession(created.owner.id, created.farm.id),
-  );
+  const rawToken = await runWithFarmContext(created.farm.id, async () => {
+    await seedStarterFeedsAndPrograms(created.farm.id);
+    return createSession(created.owner.id, created.farm.id);
+  });
 
   void notifyNewFarmRegistration({
     farmName: created.farm.name,

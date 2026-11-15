@@ -131,6 +131,7 @@ interface TareasPendientes {
     budgetConfigured: boolean;
     assetsRegistered: boolean;
     sanitaryConfigured: boolean;
+    feedingProgramsValidated: boolean;
   };
   pendingSanitary: { id: string; name: string; type: string; dueDate: string; isOverdue: boolean } | null;
   maintenanceDue: { id: string; title: string; scheduledDate: string; locationName: string | null; assetName: string | null; isOverdue: boolean }[];
@@ -276,6 +277,7 @@ export default function Dashboard() {
       { done: tareas.setup.contactsConfigured, coreDay1: false, title: "Clientes y proveedores", description: "Contactos comerciales.", href: "/contactos", icon: "handshake" },
       { done: tareas.setup.budgetConfigured, coreDay1: false, title: "Presupuesto", description: "Metas de ingresos y gastos.", href: "/finanzas/presupuestos?nuevo=base", icon: "money" },
       { done: tareas.setup.sanitaryConfigured, coreDay1: false, title: "Calendario sanitario", description: "Vacunas y revisiones.", href: "/sanidad/calendario", icon: "pill" },
+      { done: tareas.setup.feedingProgramsValidated, coreDay1: false, title: "Planes de alimentación", description: "Raciones mixtas y etapas iniciales.", href: "/produccion?tab=alimentacion&subtab=etapas", icon: "wheat" },
       { done: tareas.setup.assetsRegistered, coreDay1: false, title: "Equipos y activos", description: "Herramientas e infraestructura.", href: "/operaciones/activos", icon: "equipment" },
     ]
     : [];

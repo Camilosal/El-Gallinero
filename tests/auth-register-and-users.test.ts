@@ -3,7 +3,7 @@ import { NextRequest } from "next/server";
 import { eq } from "drizzle-orm";
 import crypto from "node:crypto";
 import { db } from "@/db";
-import { farms, farmSubscriptions, sessions, users } from "@/db/schema";
+import { appSettings, catalogos, farms, farmSubscriptions, feedInventory, feedPrograms, sessions, users } from "@/db/schema";
 import { runWithFarmContext } from "@/db/tenant-context";
 import * as authMod from "@/lib/auth";
 import { proxy } from "@/proxy";
@@ -28,6 +28,12 @@ describe("Day 0 Registration (/registro) & Farm User/Role Management", () => {
     });
 
     for (const farmId of createdFarmIds) {
+      await runWithFarmContext(farmId, async () => {
+        await db.delete(feedPrograms).where(eq(feedPrograms.farmId, farmId));
+        await db.delete(feedInventory).where(eq(feedInventory.farmId, farmId));
+        await db.delete(catalogos).where(eq(catalogos.farmId, farmId));
+        await db.delete(appSettings).where(eq(appSettings.farmId, farmId));
+      });
       await db.delete(sessions).where(eq(sessions.farmId, farmId));
       await db.delete(users).where(eq(users.farmId, farmId));
       await db.delete(farmSubscriptions).where(eq(farmSubscriptions.farmId, farmId));

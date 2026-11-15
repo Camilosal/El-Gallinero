@@ -10,6 +10,7 @@ const SESSION_COOKIE = "galli_session";
 /** Routes that do not require a session cookie */
 const PUBLIC_PREFIXES = [
   "/api/auth/",
+  "/api/v1/integrations/",
   "/lote/",
   "/guia/",
   "/manual/",

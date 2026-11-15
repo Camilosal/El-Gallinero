@@ -24,6 +24,7 @@ import {
   type ProducerScale,
 } from "@/lib/onboarding";
 import { forbiddenResponse, normalizeRole } from "@/lib/rbac";
+import { seedStarterFeedsAndPrograms } from "@/lib/feeding/default-tenant-seed";
 import { invalidateSettingsCache } from "@/lib/settings";
 import { PLAN_CATALOG } from "@/lib/subscription";
 
@@ -588,6 +589,8 @@ export const POST = withApiHandler(async (req: NextRequest) => {
           set: { value: entry.value, updatedAt: new Date() },
         });
     }
+
+    await seedStarterFeedsAndPrograms(created.farm.id);
   });
 
   invalidateSettingsCache();

@@ -10,8 +10,11 @@ import { db } from "@/db";
 import {
   appSettings,
   billingPayments,
+  catalogos,
   farms,
   farmSubscriptions,
+  feedInventory,
+  feedPrograms,
   sessions,
   users,
 } from "@/db/schema";
@@ -51,6 +54,10 @@ describe("Lanzamiento: legal, confianza, soporte, recuperación y bitácora", ()
 
     for (const farmId of createdFarmIds) {
       await runWithFarmContext(farmId, async () => {
+        await db.delete(feedPrograms).where(eq(feedPrograms.farmId, farmId));
+        await db.delete(feedInventory).where(eq(feedInventory.farmId, farmId));
+        await db.delete(catalogos).where(eq(catalogos.farmId, farmId));
+        await db.delete(appSettings).where(eq(appSettings.farmId, farmId));
         await db.delete(sessions).where(eq(sessions.farmId, farmId));
         await db.delete(billingPayments).where(eq(billingPayments.farmId, farmId));
         await db.delete(users).where(eq(users.farmId, farmId));

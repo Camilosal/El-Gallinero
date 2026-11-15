@@ -37,7 +37,7 @@ async function resolveActor(req: NextRequest): Promise<ExportActor | NextRespons
     const resolved = await resolveExportToken(rawToken);
     if (!resolved) {
       return NextResponse.json(
-        { error: "Token de exportación inválido o revocado" },
+        { error: "Token de exportación inválido, expirado o revocado" },
         { status: 401 },
       );
     }
@@ -71,7 +71,7 @@ function catalogResponse() {
       category: dataset.category,
       granularity: dataset.granularity,
       usesRange: dataset.usesRange,
-      formats: dataset.formats,
+      formats: [...dataset.formats, "json"],
       columns: dataset.headers,
     })),
   });
@@ -85,6 +85,24 @@ function sheetToXlsxRows(sheet: ExportSheetData): CellValue[][] {
   return [sheet.headers, ...sheet.rows];
 }
 
+function extractRowDateIso(row: CellValue[]): string | null {
+  for (const cell of row) {
+    if (typeof cell === "string") {
+      const isoMatch = cell.match(/^(\d{4}-\d{2}-\d{2})/);
+      if (isoMatch) return isoMatch[1];
+    }
+  }
+  return null;
+}
+
+function rowToRecord(headers: string[], row: CellValue[]): Record<string, CellValue> {
+  const record: Record<string, CellValue> = {};
+  for (let i = 0; i < headers.length; i += 1) {
+    record[headers[i]] = row[i] ?? null;
+  }
+  return record;
+}
+
 export async function GET(req: NextRequest) {
   try {
     const actor = await resolveActor(req);
@@ -93,7 +111,12 @@ export async function GET(req: NextRequest) {
     const { searchParams } = new URL(req.url);
     const datasetId = (searchParams.get("dataset") || "").trim();
     const formatParam = (searchParams.get("format") || "csv").trim().toLowerCase();
-    const format: ExportFormat = formatParam === "xlsx" || formatParam === "excel" ? "xlsx" : "csv";
+    const format: ExportFormat | "json" =
+      formatParam === "xlsx" || formatParam === "excel"
+        ? "xlsx"
+        : formatParam === "json"
+          ? "json"
+          : "csv";
 
     if (!datasetId) {
       return catalogResponse();
@@ -110,9 +133,14 @@ export async function GET(req: NextRequest) {
       );
     }
 
-    if (formatParam !== "csv" && formatParam !== "xlsx" && formatParam !== "excel") {
+    if (
+      formatParam !== "csv" &&
+      formatParam !== "xlsx" &&
+      formatParam !== "excel" &&
+      formatParam !== "json"
+    ) {
       return NextResponse.json(
-        { error: "Formato inválido. Usa format=csv o format=xlsx." },
+        { error: "Formato inválido. Usa format=csv, format=xlsx o format=json." },
         { status: 400 },
       );
     }
@@ -123,6 +151,16 @@ export async function GET(req: NextRequest) {
     }
     const range: ExportRange = rangeResult.range;
 
+    if (datasetId === EXPORT_PACKAGE_ID && format !== "xlsx") {
+      return NextResponse.json(
+        {
+          error:
+            "El paquete operativo completo solo está disponible en Excel (format=xlsx). Para CSV o JSON descarga cada dataset por separado.",
+        },
+        { status: 400 },
+      );
+    }
+
     const payload = await runWithFarmContext(actor.farmId, async () => {
       if (datasetId === EXPORT_PACKAGE_ID) {
         const sheets = await loadExportPackage(range);
@@ -131,16 +169,6 @@ export async function GET(req: NextRequest) {
       const sheet = await loadExportDataset(datasetId, range);
       return { sheets: [sheet], truncated: sheet.truncated };
     });
-
-    if (datasetId === EXPORT_PACKAGE_ID && format !== "xlsx") {
-      return NextResponse.json(
-        {
-          error:
-            "El paquete operativo completo solo está disponible en Excel (format=xlsx). Para CSV descarga cada dataset por separado.",
-        },
-        { status: 400 },
-      );
-    }
 
     const suffix = `${range.from}-a-${range.to}`;
     const baseName =
@@ -154,6 +182,63 @@ export async function GET(req: NextRequest) {
       "X-Export-Auth": actor.via,
       "X-Export-Truncated": payload.truncated ? "1" : "0",
     };
+
+    if (format === "json") {
+      const sheet = payload.sheets[0];
+      const updatedSinceRaw = (searchParams.get("updated_since") || "").trim();
+      let updatedSinceDateOnly: string | null = null;
+      if (updatedSinceRaw) {
+        const match = updatedSinceRaw.match(/^(\d{4}-\d{2}-\d{2})/);
+        if (!match) {
+          return NextResponse.json(
+            { error: "Parámetro updated_since inválido. Usa formato YYYY-MM-DD o ISO-8601." },
+            { status: 400 },
+          );
+        }
+        updatedSinceDateOnly = match[1];
+      }
+
+      const limitRaw = Number(searchParams.get("limit") || "500");
+      const limit = Number.isFinite(limitRaw) && limitRaw > 0 ? Math.min(1000, Math.floor(limitRaw)) : 500;
+      const cursorRaw = Number(searchParams.get("cursor") || "0");
+      const offset = Number.isFinite(cursorRaw) && cursorRaw >= 0 ? Math.floor(cursorRaw) : 0;
+
+      const filteredRows = updatedSinceDateOnly
+        ? sheet.rows.filter((row) => {
+            const rowDate = extractRowDateIso(row);
+            return rowDate === null || rowDate >= updatedSinceDateOnly;
+          })
+        : sheet.rows;
+
+      const pagedRows = filteredRows.slice(offset, offset + limit);
+      const hasMore = offset + pagedRows.length < filteredRows.length;
+      const nextCursor = hasMore ? String(offset + limit) : null;
+
+      headers["X-Export-Rows"] = String(pagedRows.length);
+      return NextResponse.json(
+        {
+          object: "export_records",
+          version: 1,
+          dataset: datasetId,
+          label: sheet.label,
+          farmId: actor.farmId,
+          from: range.from,
+          to: range.to,
+          updatedSince: updatedSinceRaw || null,
+          totalMatched: filteredRows.length,
+          count: pagedRows.length,
+          limit,
+          cursor: String(offset),
+          nextCursor,
+          hasMore,
+          truncated: payload.truncated,
+          syncedAt: new Date().toISOString(),
+          columns: sheet.headers,
+          records: pagedRows.map((row) => rowToRecord(sheet.headers, row)),
+        },
+        { status: 200, headers },
+      );
+    }
 
     if (format === "csv") {
       const sheet = payload.sheets[0];

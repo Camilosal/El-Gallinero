@@ -5,8 +5,11 @@ import { db } from "@/db";
 import {
   appSettings,
   billingPayments,
+  catalogos,
   farmSubscriptions,
   farms,
+  feedInventory,
+  feedPrograms,
   users,
 } from "@/db/schema";
 import { DEFAULT_FARM_ID, runWithFarmContext } from "@/db/tenant-context";
@@ -58,6 +61,9 @@ describe("Super-Admin Panel de Granjas (Tenants) API", () => {
   afterAll(async () => {
     for (const fId of createdFarmIds) {
       await runWithFarmContext(fId, async () => {
+        await db.delete(feedPrograms).where(eq(feedPrograms.farmId, fId));
+        await db.delete(feedInventory).where(eq(feedInventory.farmId, fId));
+        await db.delete(catalogos).where(eq(catalogos.farmId, fId));
         await db.delete(appSettings).where(eq(appSettings.farmId, fId));
       });
       await db.delete(billingPayments).where(eq(billingPayments.farmId, fId));

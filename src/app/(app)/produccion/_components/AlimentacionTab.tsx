@@ -266,6 +266,10 @@ export default function AlimentacionPage() {
   const [editing, setEditing] = useState<Feed | null>(null);
   const [editingStage, setEditingStage] = useState<Stage | null>(null);
   const [programEntries, setProgramEntries] = useState<FeedProgramEntry[]>([]);
+  const [feedingReview, setFeedingReview] = useState<{ reviewed: boolean; reviewedAt: string | null } | null>(null);
+  const [reviewSaving, setReviewSaving] = useState(false);
+  const [seedingDefaults, setSeedingDefaults] = useState(false);
+  const [reviewNotice, setReviewNotice] = useState("");
 
   // ─── Nuevo Plan de Alimentación Multiespecie ───
   const [newPlanModalOpen, setNewPlanModalOpen] = useState(false);
@@ -344,7 +348,8 @@ export default function AlimentacionPage() {
       apiFetch("/api/produccion/alimentacion/movimientos").then((r) => r.json()),
       apiFetch("/api/produccion/etapas").then((r) => r.json()).catch(() => []),
       apiFetch(`/api/produccion/alimentacion/comparativo?days=${comparativoDays}`).then((r) => r.json()).catch(() => null),
-    ]).then(([f, m, s, comp]) => {
+      apiFetch("/api/dashboard/setup/feeding-review").then((r) => (r.ok ? r.json() : null)).catch(() => null),
+    ]).then(([f, m, s, comp, feedRev]) => {
       const normalizedF = normalizeFeedList(f);
       setFeeds(normalizedF);
       void setCachedCatalog("feed_inventory", normalizedF);
@@ -357,6 +362,7 @@ export default function AlimentacionPage() {
       setComparativo(comp?.comparativo || []);
       setDailyData(comp?.dailyData || []);
       setDietPerformance(Array.isArray(comp?.dietPerformance) ? comp.dietPerformance : []);
+      if (feedRev && typeof feedRev.reviewed === "boolean") setFeedingReview(feedRev);
       if (pred) setPrediccion(pred);
     })).catch(() => {
       // Si falla la red, mantenemos los datos de IndexedDB
@@ -371,6 +377,41 @@ export default function AlimentacionPage() {
     window.addEventListener("gallinero-sync-status", handler);
     return () => window.removeEventListener("gallinero-sync-status", handler);
   }, [load]);
+
+  const confirmFeedingReview = async () => {
+    setReviewSaving(true);
+    setReviewNotice("");
+    try {
+      const res = await apiFetch("/api/dashboard/setup/feeding-review", { method: "POST" });
+      const body = await res.json().catch(() => null);
+      if (!res.ok) {
+        setReviewNotice(body?.error || "No se pudo confirmar la revisión de planes");
+        return;
+      }
+      setFeedingReview(body);
+    } finally {
+      setReviewSaving(false);
+    }
+  };
+
+  const seedDefaultPrograms = async () => {
+    setSeedingDefaults(true);
+    setReviewNotice("");
+    try {
+      const res = await apiFetch("/api/produccion/etapas/seed-defaults", { method: "POST" });
+      const body = await res.json().catch(() => null);
+      if (!res.ok) {
+        setReviewNotice(body?.error || "No se pudieron inicializar los planes base");
+        return;
+      }
+      setReviewNotice(
+        `Planes base aplicados: ${body?.createdFeeds ?? 0} alimentos, ${body?.createdStages ?? 0} etapas y ${body?.createdPrograms ?? 0} fórmulas.`,
+      );
+      load();
+    } finally {
+      setSeedingDefaults(false);
+    }
+  };
 
   const openNewFeed = () => {
     setEditing(null);
@@ -934,11 +975,45 @@ export default function AlimentacionPage() {
       {/* Tab: Etapas y Programas de Alimentación Multiespecie */}
       {tab === "etapas" && (
         <div className="space-y-4">
+          <Card className={feedingReview?.reviewed ? "border-green-200 bg-green-50" : "border-amber-200 bg-amber-50"}>
+            <div className="flex flex-col justify-between gap-4 sm:flex-row sm:items-center">
+              <div>
+                <h3 className={`font-semibold ${feedingReview?.reviewed ? "text-green-800" : "text-amber-900"}`}>
+                  {feedingReview?.reviewed
+                    ? "Planes de alimentación iniciales validados"
+                    : "Valida los planes de alimentación iniciales"}
+                </h3>
+                <p className={`mt-1 text-sm ${feedingReview?.reviewed ? "text-green-700" : "text-amber-800"}`}>
+                  {feedingReview?.reviewed
+                    ? `Revisión confirmada${feedingReview.reviewedAt ? ` el ${new Intl.DateTimeFormat("es-CO", { dateStyle: "medium", timeStyle: "short", timeZone: "America/Bogota" }).format(new Date(feedingReview.reviewedAt))}` : ""}. Puedes seguir ajustando raciones y proporciones cuando lo necesites.`
+                    : "Revisa las dietas mixtas precargadas por especie y etapa (concentrado, forrajes y suplementos) antes de confirmar este paso de arranque."}
+                </p>
+                {reviewNotice && <p className="mt-2 text-xs font-medium text-slate-700">{reviewNotice}</p>}
+              </div>
+              <div className="flex flex-wrap items-center gap-2 shrink-0">
+                {(stages.length === 0 || !stages.some((s) => s.programs.length > 0)) && (
+                  <Button variant="secondary" onClick={seedDefaultPrograms} disabled={seedingDefaults || loading}>
+                    {seedingDefaults ? "Inicializando..." : "Inicializar planes base"}
+                  </Button>
+                )}
+                {!feedingReview?.reviewed && (
+                  <Button
+                    onClick={confirmFeedingReview}
+                    disabled={reviewSaving || loading || stages.length === 0 || !stages.some((s) => s.programs.length > 0)}
+                  >
+                    {reviewSaving ? "Guardando..." : "Validar planes iniciales"}
+                  </Button>
+                )}
+              </div>
+            </div>
+          </Card>
+
           <div className="flex flex-wrap items-center justify-between gap-3 mb-2">
             <div className="flex flex-wrap gap-1">
               {[
                 { id: "all", label: "Todos los Planes", icon: "globe" },
                 { id: "gallina", label: "Gallinas", icon: "hen" },
+                { id: "gallo", label: "Gallos", icon: "rooster" },
                 { id: "pollo", label: "Pollos", icon: "rooster" },
                 { id: "codorniz", label: "Codornices", icon: "egg" },
                 { id: "pato", label: "Patos", icon: "duck" },
