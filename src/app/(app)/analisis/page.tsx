@@ -18,6 +18,7 @@ const secciones = [
   { href: "/analisis/razas", label: "Curvas y desempeño", icon: "trend-up", desc: "Postura y crecimiento por especie ajustados según altura y temperatura de la finca" },
   { href: "/analisis/fuentes-externas", label: "Clima, mercado y entorno", icon: "globe", desc: "Pronóstico de calor y humedad en galpón, precios de mercado, alertas sanitarias, festivos y sensores" },
   { href: "/analisis/normas", label: "Normas, estándares y guías aplicables", icon: "book-open", desc: "Resoluciones sanitarias, tamaños de huevo, bienestar animal y guías con PDFs y ayuda de Gina" },
+  { href: "/exportar", label: "Exportación y Conectores ERP", icon: "download", desc: "Descarga CSV/Excel multi-hoja, API JSON incremental, tokens y mapeo PUC para SIIGO, Alegra, Odoo y Zoho" },
 ];
 
 interface ResumenAnalisis {
@@ -76,7 +77,7 @@ export default function AnalisisPage() {
       {hiddenSeccionesCount > 0 && (
         <div className="mb-5 flex flex-wrap items-center justify-between gap-2 rounded-xl border border-amber-200 bg-amber-50/70 px-3.5 py-2 text-xs text-amber-900">
           <span>Modo Pequeño: {hiddenSeccionesCount} secciones técnicas (KPIs / Curvas) ocultas hasta pasar a Mediano o habilitar el módulo.</span>
-          <Link href="/manual/niveles-productivos" className="font-semibold underline">
+          <Link href="/configuracion/modulos" className="font-semibold underline">
             Administrar niveles →
           </Link>
         </div>

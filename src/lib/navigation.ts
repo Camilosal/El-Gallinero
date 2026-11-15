@@ -137,6 +137,7 @@ export const navigationGroups: MenuGroup[] = [
       { href: "/analisis/razas", label: "Curvas y desempeño", icon: "trend-up" },
       { href: "/analisis/fuentes-externas", label: "Clima, mercado y entorno", icon: "globe" },
       { href: "/analisis/normas", label: "Normas y guías aplicables", icon: "book-open" },
+      { href: "/exportar", label: "Exportación y Conectores ERP", icon: "download" },
     ],
   },
 ];
@@ -187,6 +188,7 @@ const ITEM_KEYWORDS: Record<string, string[]> = {
   "/analisis/razas": ["razas", "estandares", "curvas", "desempeño", "postura", "pesos", "genetica", "crecimiento", "gallina", "pollo", "ross 308", "codorniz", "pato", "conejo", "cuy", "cuyes", "epef"],
   "/analisis/fuentes-externas": ["fuentes externas", "clima", "calor", "lluvia", "ith", "estres termico", "pronostico", "open-meteo", "sipsa", "trm", "precios mayoristas", "ica", "epidemiologia", "festivos", "dian", "uvt", "finagro", "iot", "sensores", "divipola", "entorno"],
   "/analisis/normas": ["normas", "estandares", "guias", "guia", "ica", "ntc 1240", "resoluciones", "protocolos", "adjuntos", "pdf", "bienestar animal", "gina"],
+  "/exportar": ["exportar", "csv", "excel", "xlsx", "json", "descargar", "respaldo", "backup", "siigo", "alegra", "odoo", "zoho", "erp", "api", "token", "conector", "contabilidad", "puc"],
   "/configuracion/fallas": ["fallas", "reporte", "reportar error", "errores", "bug", "incidencia", "soporte", "tags", "diagnostico"],
   "/configuracion/catalogos": ["catalogos", "datos maestros", "configuracion", "etapas", "categorias", "tipos", "valores", "ajustes", "especies", "vacunas", "pesos", "gallinaza", "alimentacion", "parametros", "contactos"],
   "/produccion?tab=reproduccion": ["reproduccion", "empadre", "palpacion", "nidal", "parto", "destete", "conejo", "conejos", "cuy", "cuyes", "consanguinidad", "madre elite", "paridad", "descarte", "camada", "gazapos", "crias"],
@@ -219,6 +221,7 @@ const FIXED_ENTRIES: SearchEntry[] = [
   { href: "/analisis/reportes?tab=dim", label: "Reportes: Rentabilidad por especie y lugar", icon: "bar-chart", group: "Análisis", groupIcon: "bar-chart", keywords: ["especie", "lugar", "margen", "utilidad", "rentabilidad", "segmentacion"] },
   { href: "/analisis/reportes?tab=analitica", label: "Reportes: Contabilidad analítica, unitarios y prorrateo", icon: "calculator", group: "Análisis", groupIcon: "bar-chart", keywords: ["contabilidad analitica", "prorrateo", "costos indirectos", "costo por huevo", "calibres", "capex", "roi"] },
   { href: "/analisis/fuentes-externas", label: "Análisis: Hoja de control clima, mercado y entorno", icon: "globe", group: "Análisis", groupIcon: "bar-chart", keywords: ["fuentes externas", "clima", "open-meteo", "ith", "sipsa", "trm", "precios mayoristas", "alertas ica", "festivos", "dian", "uvt", "finagro", "iot"] },
+  { href: "/exportar?tab=conectores", label: "Conectores ERP y API JSON (SIIGO, Alegra, Odoo, Zoho)", icon: "link", group: "Análisis", groupIcon: "bar-chart", keywords: ["conector", "erp", "siigo", "alegra", "odoo", "zoho", "puc", "api", "json", "token", "bearer", "contabilidad", "exportar"] },
   { href: "/planeacion/calendario?tab=calendario", label: "Planeación: Calendario mensual", icon: "calendar-days", group: "Planeación", groupIcon: "calendar-days", keywords: ["calendario", "mes", "fecha", "programacion", "eventos"] },
   { href: "/planeacion/calendario?tab=horizonte", label: "Planeación: Horizonte a mediano y largo plazo", icon: "clock", group: "Planeación", groupIcon: "calendar-days", keywords: ["horizonte", "7 dias", "30 dias", "90 dias", "vencimientos", "proyeccion"] },
   { href: "/planeacion/calendario?tab=cumplimiento", label: "Planeación: Cumplidos vs incumplidos", icon: "check-circle", group: "Planeación", groupIcon: "calendar-days", keywords: ["cumplimiento", "atrasadas", "incumplidas", "vencidas", "auditoria rutina"] },

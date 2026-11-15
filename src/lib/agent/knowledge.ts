@@ -52,8 +52,8 @@ const TECHNICAL_STANDARDS: TechnicalStandardSeed[] = [
     summary: "Pesos oficiales NTC 1240 (Jumbo, AAA, AA, A, B, C), equivalencias de cubeta (30) y docena (12), y conservación.",
     tags: ["ntc 1240", "huevo", "calibre", "jumbo", "aaa", "aa", "cubeta", "docena", "clasificacion"],
     relatedHrefs: [
-      { href: "/huevos", label: "Producción de Huevos" },
-      { href: "/ventas", label: "Ventas y Cartera" },
+      { href: "/produccion?tab=huevos", label: "Producción de Huevos" },
+      { href: "/finanzas/ventas", label: "Ventas y Cartera" },
     ],
     steps: [
       "Clasificar por peso unitario según NTC 1240: Jumbo (> 78 g), AAA (67.0–77.9 g), AA (60.0–66.9 g), A (53.0–59.9 g), B (46.0–52.9 g), C (< 46.0 g).",
@@ -111,7 +111,7 @@ const TECHNICAL_STANDARDS: TechnicalStandardSeed[] = [
     module: "compostaje",
     summary: "Relaciones 3:1:1 y 7:2:2, rango termofílico (55–65 °C), humedad (50–60 %) y ciclo de volteos.",
     tags: ["compostaje", "agrosavia", "3:1:1", "7:2:2", "mortalidad", "gallinaza", "volteo", "termofila"],
-    relatedHrefs: [{ href: "/gallinaza", label: "Gallinaza y Compostaje" }],
+    relatedHrefs: [{ href: "/produccion?tab=gallinaza", label: "Gallinaza y Compostaje" }],
     steps: [
       "Construir la pila por capas alternas siguiendo fórmula AGROSAVIA 3:1:1 o 7:2:2 (gallinaza/pollinaza/cuyinaza : mortalidad : material vegetal seco o cascarilla).",
       "Mantener humedad entre 50 % y 60 % (prueba de puño sin escurrimiento) y alcanzar fase termofílica de 55–65 °C durante al menos 3 días para sanitizar patógenos.",
@@ -127,7 +127,7 @@ const TECHNICAL_STANDARDS: TechnicalStandardSeed[] = [
     module: "operaciones",
     summary: "Cálculo e interpretación del ITH, umbrales críticos de temperatura, humedad relativa y NH3 ppm en cama.",
     tags: ["ith", "estres calorico", "amoniaco", "nh3", "sensor", "temperatura", "humedad", "ventilacion"],
-    relatedHrefs: [{ href: "/operaciones", label: "Sensores y Cierre Diario" }],
+    relatedHrefs: [{ href: "/operaciones/cierre", label: "Sensores y Cierre Diario" }],
     steps: [
       "Registrar lecturas de temperatura (°C), humedad relativa (%) y concentración de amoníaco NH3 (ppm) por galpón o módulo.",
       "El sistema calcula ITH = 1.8·T + 32 − (0.55 − 0.0055·HR)·(1.8·T − 26). ITH ≥ 72 indica alerta moderada; ITH ≥ 78 indica estrés calórico severo.",
@@ -143,7 +143,7 @@ const TECHNICAL_STANDARDS: TechnicalStandardSeed[] = [
     module: "produccion",
     summary: "Plazos fisiológicos de gestación en conejas y cuyes, empadre, parto, destete y días de incubación en aves.",
     tags: ["conejo", "cuy", "empadre", "palpacion", "nidal", "parto", "destete", "incubacion", "ovoscopia"],
-    relatedHrefs: [{ href: "/reproduccion", label: "Reproducción e Incubación" }],
+    relatedHrefs: [{ href: "/produccion?tab=reproduccion", label: "Reproducción e Incubación" }],
     steps: [
       "Conejos: gestación promedio 31 días; palpación de diagnóstico días 12–14 post-empadre; colocación de nidal día 27; destete habitual 30–35 días.",
       "Cuyes: gestación ~67 días; parto de crías precoces con pelo y ojos abiertos; destete recomendado entre días 14 y 21 separando machos y hembras.",
@@ -161,7 +161,7 @@ const TECHNICAL_STANDARDS: TechnicalStandardSeed[] = [
     tags: ["epef", "fcr", "conversion", "uniformidad", "prorrateo", "gastos compartidos", "cierre diario", "roi", "presupuesto", "capex", "patrimonio", "desgaste", "vida util", "valor animales"],
     relatedHrefs: [
       { href: "/finanzas", label: "Finanzas y Presupuestos" },
-      { href: "/operaciones", label: "Cierre Diario" },
+      { href: "/operaciones/cierre", label: "Cierre Diario" },
       { href: "/analisis/kpis", label: "Indicadores de Granja" },
     ],
     steps: [

@@ -1,8 +1,9 @@
 "use client";
 
 import { Suspense, useEffect, useState, useCallback, useMemo } from "react";
+import Link from "next/link";
 import { useSearchParams } from "next/navigation";
-import { ArrowDownLeft, ArrowUpRight, AlertTriangle, Download, FileSpreadsheet, FileText, Printer, MessageCircle, Scale, Plus, Trash2 } from "lucide-react";
+import { ArrowDownLeft, ArrowUpRight, AlertTriangle, Download, FileSpreadsheet, FileText, Printer, MessageCircle, PlugZap, Scale, Plus, Trash2 } from "lucide-react";
 import { AppIcon } from "@/components/AppIcon";
 import { PageHeader, Card, Input, Button, Table, EmptyState, Select, Modal, Badge } from "@/components/ui";
 import { ANIMAL_SPECIES, SPECIES_LABELS } from "@/lib/species";
@@ -415,6 +416,12 @@ ${netText}`);
             <Button className="px-3 py-1.5 text-xs" variant="secondary" onClick={shareWhatsApp}>
               <MessageCircle className="w-4 h-4 mr-1 inline" /> WhatsApp
             </Button>
+            <Link
+              href="/exportar"
+              className="inline-flex items-center px-3 py-1.5 text-xs font-medium rounded-lg border border-emerald-200 bg-emerald-50 text-emerald-800 hover:bg-emerald-100 transition-colors"
+            >
+              <PlugZap className="w-4 h-4 mr-1 inline" /> Exportación completa / ERP
+            </Link>
           </div>
         }
       />

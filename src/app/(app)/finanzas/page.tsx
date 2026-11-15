@@ -78,7 +78,7 @@ export default function FinanzasPage() {
       {hiddenSeccionesCount > 0 && (
         <div className="mb-5 flex flex-wrap items-center justify-between gap-2 rounded-xl border border-amber-200 bg-amber-50/70 px-3.5 py-2 text-xs text-amber-900">
           <span>Modo Pequeño: Presupuestos formales oculto para simplificar finanzas diarias.</span>
-          <Link href="/manual/niveles-productivos" className="font-semibold underline">
+          <Link href="/configuracion/modulos" className="font-semibold underline">
             Ver niveles →
           </Link>
         </div>

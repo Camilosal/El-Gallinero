@@ -20,7 +20,7 @@ const secciones = [
   { href: "/configuracion/catalogos", label: "Catálogos y datos de la granja", icon: "folder", desc: "Parámetros, especies, listas maestras, vacunas, pesos, gallinaza, nutrición, contactos y tablas maestras externas (DIVIPOLA, SIPSA, ICA, festivos)" },
   { href: "/configuracion/catalogos?tab=normas", label: "Normas, Estándares y Guías Aplicables", icon: "book-open", desc: "Resoluciones ICA, NTC 1240, guías técnicas y protocolos propios con consulta directa a Gina y adjuntos PDF o fotográficos" },
   { href: "/configuracion/fallas", label: "Reportes de fallas y diagnóstico", icon: "alert", desc: "Presenta fallas etiquetadas automáticamente con origen, módulo, red y seguimiento de solución" },
-  { href: "/exportar?tab=conectores", label: "Conectores ERP y API JSON (SIIGO, Alegra, Odoo, Zoho)", icon: "globe", desc: "Tokens por alcance, mapeo contable PUC y endpoints REST JSON para conectar contabilidad o BI externo" },
+  { href: "/exportar", label: "Exportación y Conectores ERP (SIIGO, Alegra, Odoo, Zoho)", icon: "download", desc: "Descarga CSV/Excel multi-hoja, tokens por alcance, mapeo contable PUC y endpoints JSON para conectar ERP o BI" },
   { href: "/contactos", label: "Clientes y Proveedores", icon: "handshake", desc: "Directorio comercial con teléfonos, WhatsApp, ubicación GPS y plazos de crédito" },
 ];
 
