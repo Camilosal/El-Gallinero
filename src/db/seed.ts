@@ -2,11 +2,11 @@ import { config } from "dotenv";
 config({ path: ".env.local" });
 
 import { db, pool } from "./index";
-import { hens, feedInventory, feedMovements, feedPrograms, eggProduction, eggProductionDetails, eggSales, eggSalesItems, transactions, maintenance, healthControl, incubation, users, sessions, catalogos, chickenSales, slaughter, roosters, broilerBatches, manureFactors, manureSales, manureAdjustments, birdAcquisitions, mortalityRecords, eggLosses, supplyInventory, supplyMovements, meatSales, meatLosses, manureProduction, budgets, budgetItems, accountsReceivable, accountsPayable, payments, sanitaryCalendar, flockPlans, flockPlanMilestones, weightLogs, breedWeightStandards, autoconsumoLogs } from "./schema";
-import { eq, sql } from "drizzle-orm";
+import { hens, feedInventory, feedMovements, feedPrograms, eggProduction, eggProductionDetails, eggSales, eggSalesItems, transactions, maintenance, healthControl, incubation, users, sessions, catalogos, chickenSales, slaughter, roosters, broilerBatches, manureFactors, manureSales, manureAdjustments, birdAcquisitions, mortalityRecords, eggLosses, supplyInventory, supplyMovements, meatSales, meatLosses, manureProduction, budgets, budgetItems, accountsReceivable, accountsPayable, payments, sanitaryCalendar, flockPlans, flockPlanMilestones, weightLogs, autoconsumoLogs } from "./schema";
+import { and, eq, sql } from "drizzle-orm";
 import { hashPassword } from "@/lib/auth";
-import { DEFAULT_BREEDS_BY_SPECIES } from "@/lib/animal-breeds";
-import { ALL_BREED_STANDARD_DEFS } from "@/lib/breed-standards";
+import { DEFAULT_FARM_ID } from "./tenant-context";
+import { runCoreSeed } from "./seed-config";
 
 async function main() {
   if (process.env.NODE_ENV === "production") {
@@ -44,7 +44,6 @@ async function main() {
   await db.delete(meatLosses);
   await db.delete(mortalityRecords);
   await db.delete(weightLogs);
-  await db.delete(breedWeightStandards);
   await db.delete(healthControl);
   await db.delete(maintenance);
   await db.delete(incubation);
@@ -68,138 +67,13 @@ async function main() {
   await db.delete(catalogos);
   await db.delete(users);
 
-  // ——— Catálogos / Datos maestros ———
-  const chickenBreeds = DEFAULT_BREEDS_BY_SPECIES.gallina;
-  const speciesBreeds = (Object.entries(DEFAULT_BREEDS_BY_SPECIES) as [string, string[]][])
-    .filter(([species]) => species !== "gallina")
-    .flatMap(([species, values]) => values.map((value) => ({ value, species })));
-  const catalogDefaults: { category: string; values: string[]; prices?: number[]; units?: number[]; types?: (string | null)[] }[] = [
-    // Clientes y proveedores son propios de cada granja y se registran al comenzar.
-    {
-      category: "raza",
-      values: [...chickenBreeds, ...speciesBreeds.map((item) => item.value)],
-      types: [...chickenBreeds.map(() => "gallina"), ...speciesBreeds.map((item) => item.species)],
-    },
-    {
-      category: "tamano_huevo",
-      values: ["Jumbo", "Extra", "Grande", "Mediano", "Pequeño"],
-      prices: [800, 700, 600, 500, 400],
-    },
-    {
-      category: "presentacion_venta",
-      values: ["Unidad", "Docena", "Media docena", "1/2 Bandeja", "Bandeja/Cubeta"],
-      units: [1, 12, 6, 15, 30],
-    },
-    {
-      category: "enfermedad",
-      values: ["Newcastle", "Coccidiosis", "Viruela aviar", "Mycoplasma", "Ácaros / piojos", "Cólera aviar", "Marek", "Coriza"],
-    },
-    {
-      category: "unidad_medida",
-      values: ["unidades", "kg", "lb", "litros", "docenas", "gramos", "otro"],
-    },
-    {
-      category: "categoria_ingreso",
-      values: ["Venta de huevos", "Venta de animales", "Venta de carne", "Venta de gallinas", "Venta de pollitos", "Venta de abono/gallinaza", "Venta de subproductos", "Otro ingreso"],
-    },
-    {
-      category: "categoria_egreso",
-      values: ["Compra de alimento", "Compra de insumos", "Control sanitario", "Mantenimiento", "Mano de obra", "Servicios (agua/luz)", "Compra de gallinas", "Equipamiento", "Transporte", "Otro egreso"],
-    },
-    {
-      category: "tipo_sanidad",
-      values: ["vacunacion", "desparasitacion", "tratamiento", "inspeccion", "fumigacion", "vitaminas", "otro"],
-    },
-    {
-      category: "tipo_mantenimiento",
-      values: [
-        "Limpieza y desinfección del gallinero",
-        "Revisión y reparación de nidales",
-        "Cambio de cama / viruta",
-        "Revisión del sistema de agua",
-        "Reparación de cercas y malla",
-        "Poda de vegetación alrededor",
-        "Revisión de techos y drenajes",
-        "Mantenimiento de comederos",
-        "Fumigación preventiva",
-        "Pintura y protección de estructuras",
-      ],
-    },
-    {
-      category: "presentacion_compra",
-      values: ["Kg", "Bulto 25kg", "Bulto 40kg", "Bulto 50kg", "Arpilla 5kg", "Litro", "Galón", "Unidad"],
-      units: [1, 25, 40, 50, 5, 1, 4, 1],
-    },
-    {
-      category: "estado_gallina",
-      values: ["activa", "empollando", "enferma", "recomendada_sacrificio", "descarte", "vendida", "faena", "muerta"],
-    },
-    {
-      category: "categoria_alimento",
-      values: ["Concentrado", "En Fresco", "Preparados"],
-    },
-    {
-      category: "tipo_alimento",
-      values: [
-        "Concentrado Aves",
-        "Concentrado Codorniz",
-        "Concentrado Conejos",
-        "Purinas",
-        "Maiz en Grano",
-        "Maíz Germinado",
-        "Mosca Soldado",
-        "Forraje Verde",
-        "Pastos y gramíneas",
-        "Bore o Raices",
-        "Otro",
-      ],
-    },
-    {
-      category: "tipo_ave",
-      values: ["Gallina", "Pollo", "Gallo", "Pollito", "Codorniz", "Pato", "Conejo", "Cuy"],
-      types: ["ave", "ave", "ave", "ave", "ave", "ave", "mamifero", "mamifero"],
-    },
-    {
-      category: "categoria_insumo",
-      values: ["medicamento", "vacuna", "desinfectante", "limpieza", "equipo", "otro"],
-    },
-    {
-      category: "causa_mortalidad",
-      values: ["enfermedad", "depredador", "accidente", "sacrificio_sanitario", "causa_natural", "otro"],
-    },
-  ];
-  const catalogRows = catalogDefaults.flatMap((c) =>
-    c.values.map((v, i) => ({
-      category: c.category,
-      value: v,
-      tipo: c.types?.[i] ?? null,
-      price: c.prices?.[i] != null ? String(c.prices[i]) : null,
-      units: c.units?.[i] != null ? Number(c.units[i]) : null,
-      sortOrder: i,
-    }))
-  );
-  await db.insert(catalogos).values(catalogRows);
+  // ——— Capa Core (granja base, catálogos, estándares, vacunas y factores base) ———
+  await runCoreSeed({ includeStarterFeeding: false });
 
-  // ——— Etapas de crecimiento (avícola estándar) ———
-  const createdStages = await db.insert(catalogos).values([
-    { category: "etapa_crecimiento", value: "Pollito", minWeeks: 0, maxWeeks: 6, expectedEggsPerHen: "0", sortOrder: 0 },
-    { category: "etapa_crecimiento", value: "Juvenil", minWeeks: 6, maxWeeks: 18, expectedEggsPerHen: "0", sortOrder: 1 },
-    { category: "etapa_crecimiento", value: "Pre-postura", minWeeks: 18, maxWeeks: 20, expectedEggsPerHen: "0.3", sortOrder: 2 },
-    { category: "etapa_crecimiento", value: "Postura", minWeeks: 20, maxWeeks: null, expectedEggsPerHen: "0.85", sortOrder: 3 },
-  ]).returning();
-
-  // ——— Parámetros productivos por especie (params_especie) ———
-  await db.insert(catalogos).values([
-    { category: "params_especie", value: "Pollo de engorde (Cobb 500 / Ross 308)", tipo: "pollo", price: "14000", units: 72, minWeeks: 7, maxWeeks: 49, targetWeightKg: "2.50", dailyFeedG: 120, feedCostPerKg: "2800", sortOrder: 1 },
-    { category: "params_especie", value: "Pollo criollo / campero", tipo: "pollo", price: "18000", units: 68, minWeeks: 12, maxWeeks: 84, targetWeightKg: "2.00", dailyFeedG: 90, feedCostPerKg: "2600", sortOrder: 2 },
-    { category: "params_especie", value: "Codorniz Japónica (Doble propósito)", tipo: "codorniz", price: "32000", units: 65, minWeeks: 6, maxWeeks: 42, targetWeightKg: "0.16", dailyFeedG: 25, feedCostPerKg: "3000", expectedEggsPerHen: "0.90", sortOrder: 3 },
-    { category: "params_especie", value: "Pato Pekín", tipo: "pato", price: "24000", units: 70, minWeeks: 8, maxWeeks: 56, targetWeightKg: "3.00", dailyFeedG: 200, feedCostPerKg: "2700", sortOrder: 4 },
-    { category: "params_especie", value: "Pato Muscovy / Criollo", tipo: "pato", price: "26000", units: 73, minWeeks: 12, maxWeeks: 84, targetWeightKg: "3.20", dailyFeedG: 180, feedCostPerKg: "2600", sortOrder: 5 },
-    { category: "params_especie", value: "Conejo de engorde (Nueva Zelanda / California)", tipo: "conejo", price: "28000", units: 55, minWeeks: 11, maxWeeks: 77, targetWeightKg: "2.40", dailyFeedG: 130, feedCostPerKg: "2500", sortOrder: 6 },
-    { category: "params_especie", value: "Gallina ponedora (Postura / Descarte)", tipo: "gallina", price: "10000", units: 65, minWeeks: 80, maxWeeks: 560, targetWeightKg: "1.80", dailyFeedG: 115, feedCostPerKg: "2700", expectedEggsPerHen: "0.85", sortOrder: 7 },
-    { category: "params_especie", value: "Cuy Mejorado (Perú / Andino)", tipo: "cuy", price: "36000", units: 68, minWeeks: 13, maxWeeks: 90, targetWeightKg: "1.10", dailyFeedG: 55, feedCostPerKg: "2700", sortOrder: 8 },
-    { category: "params_especie", value: "Cuy Criollo", tipo: "cuy", price: "32000", units: 64, minWeeks: 16, maxWeeks: 112, targetWeightKg: "0.85", dailyFeedG: 45, feedCostPerKg: "2400", sortOrder: 9 },
-  ]);
+  const createdStages = await db
+    .select()
+    .from(catalogos)
+    .where(and(eq(catalogos.farmId, DEFAULT_FARM_ID), eq(catalogos.category, "etapa_crecimiento")));
 
   // ——— Usuario administrador ———
   await db.insert(users).values({
@@ -335,16 +209,7 @@ async function main() {
     { stageCatalogoId: postura.id, feedId: bore.id, percentage: "5", dailyAmountPerHen: "5" },
   ]);
 
-  // ——— Gallinaza: factores de producción (kg/ave/día, editables desde la UI) ———
-  await db.insert(manureFactors).values([
-    { stageCatalogoId: pollito.id, birdGroup: "etapa", kgPerBirdPerDay: "0.05" },
-    { stageCatalogoId: juvenil.id, birdGroup: "etapa", kgPerBirdPerDay: "0.08" },
-    { stageCatalogoId: prePostura.id, birdGroup: "etapa", kgPerBirdPerDay: "0.11" },
-    { stageCatalogoId: postura.id, birdGroup: "etapa", kgPerBirdPerDay: "0.13" },
-    { birdGroup: "gallo", kgPerBirdPerDay: "0.15" },
-    { birdGroup: "lote", kgPerBirdPerDay: "0.10" },
-  ]);
-
+  // ——— Gallinaza: factores de producción ya inicializados por runCoreSeed ———
   // ——— Gallinaza: venta de ejemplo + transacción vinculada ———
   const [manureSale] = await db.insert(manureSales).values({
     date: daysAgo(3),
@@ -742,22 +607,6 @@ async function main() {
     { planId, weekNumber: 30, expectedHens: 29, expectedEggsPerWeek: 150, expectedFeedKgPerWeek: "43.5" },
     { planId, weekNumber: 40, expectedHens: 28, expectedEggsPerWeek: 145, expectedFeedKgPerWeek: "42" },
   ]);
-
-  // ——— Estándares de peso por especie y raza ———
-  const standardRows = ALL_BREED_STANDARD_DEFS.flatMap((def) =>
-    def.points.map((p) => ({
-      species: def.species,
-      breed: def.breed,
-      gender: def.gender,
-      weekNumber: p.week,
-      targetWeightG: String(p.targetG),
-      minWeightG: p.minG != null ? String(p.minG) : null,
-      maxWeightG: p.maxG != null ? String(p.maxG) : null,
-    })),
-  );
-  if (standardRows.length > 0) {
-    await db.insert(breedWeightStandards).values(standardRows).onConflictDoNothing();
-  }
 
   console.log("Datos de ejemplo insertados correctamente.");
   console.log("   30 gallinas: 5 pollitos, 7 juveniles, 3 pre-postura, 15 postura");
