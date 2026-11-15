@@ -356,11 +356,10 @@ export default function Sidebar() {
         <div className={`border-t border-green-700 space-y-2 ${collapsed ? "p-2" : "p-3.5"}`}>
           <Link
             href="/configuracion"
-            className={`w-full py-1.5 rounded-lg text-xs font-medium transition-colors flex items-center justify-center gap-2 ${collapsed ? "px-1" : "px-3"} ${
-              pathname.startsWith("/configuracion")
-                ? "bg-green-600 text-white"
-                : "bg-green-800/90 hover:bg-green-700 text-green-100"
-            }`}
+            className={`w-full py-1.5 rounded-lg text-xs font-medium transition-colors flex items-center justify-center gap-2 ${collapsed ? "px-1" : "px-3"} ${pathname.startsWith("/configuracion")
+              ? "bg-green-600 text-white"
+              : "bg-green-800/90 hover:bg-green-700 text-green-100"
+              }`}
             title={collapsed ? "Configuración" : "Ir a Configuración, Catálogos y Módulos"}
           >
             <Settings className="w-3.5 h-3.5 shrink-0" aria-hidden="true" />
@@ -372,13 +371,11 @@ export default function Sidebar() {
               href="/guia"
               target="_blank"
               rel="noopener noreferrer"
-              className={`py-1.5 rounded-lg text-xs font-medium transition-colors flex items-center justify-center gap-1.5 ${
-                collapsed ? "w-full px-1" : "px-2"
-              } ${
-                pathname.startsWith("/manual") || pathname.startsWith("/guia")
+              className={`py-1.5 rounded-lg text-xs font-medium transition-colors flex items-center justify-center gap-1.5 ${collapsed ? "w-full px-1" : "px-2"
+                } ${pathname.startsWith("/manual") || pathname.startsWith("/guia")
                   ? "bg-green-600 text-white"
                   : "bg-green-800 hover:bg-green-700 text-green-100"
-              }`}
+                }`}
               title={collapsed ? "Guía de Usuario (abre en hoja aparte)" : "Abrir manual de usuario"}
               aria-label="Guía de Usuario"
             >
@@ -392,9 +389,8 @@ export default function Sidebar() {
             </a>
             <button
               onClick={logout}
-              className={`py-1.5 rounded-lg bg-green-700 hover:bg-green-600 text-green-100 text-[11px] font-medium transition-colors flex items-center justify-center gap-1 ${
-                collapsed ? "w-full px-1" : "px-2"
-              }`}
+              className={`py-1.5 rounded-lg bg-green-700 hover:bg-green-600 text-green-100 text-[11px] font-medium transition-colors flex items-center justify-center gap-1 ${collapsed ? "w-full px-1" : "px-2"
+                }`}
               title="Cerrar Sesión"
               aria-label="Cerrar Sesión"
             >
@@ -405,9 +401,8 @@ export default function Sidebar() {
           <button
             type="button"
             onClick={() => openBugReportModal({ triggerSource: "sidebar" })}
-            className={`w-full py-1.5 rounded-lg text-xs font-medium transition-colors flex items-center justify-center gap-2 bg-rose-950/60 hover:bg-rose-900/80 text-rose-100 border border-rose-800/50 ${
-              collapsed ? "px-1" : "px-3"
-            }`}
+            className={`w-full py-1.5 rounded-lg text-xs font-medium transition-colors flex items-center justify-center gap-2 bg-rose-950/60 hover:bg-rose-900/80 text-rose-100 border border-rose-800/50 ${collapsed ? "px-1" : "px-3"
+              }`}
             title={collapsed ? "Reportar falla" : "Reportar falla con origen etiquetado"}
             aria-label="Reportar falla"
           >
