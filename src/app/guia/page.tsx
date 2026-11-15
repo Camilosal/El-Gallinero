@@ -12,7 +12,7 @@ export const metadata: Metadata = buildPageMetadata({
   description: DESCRIPTION,
   path: "/guia",
   ogImage: "/images/guia/inicio-dashboard.webp",
-  ogImageAlt: "Manual completo de uso de El Gallinero con 14 módulos",
+  ogImageAlt: "Manual completo de uso de El Gallinero: 8 módulos reales y 2 guías complementarias",
 });
 
 export default function StandaloneGuiaPage() {

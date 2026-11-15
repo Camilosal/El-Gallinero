@@ -2490,3 +2490,13 @@ export function searchGuides(query: string, moduleId?: string): Guide[] {
   scored.sort((a, b) => b.score - a.score);
   return scored.map((item) => item.guide);
 }
+
+/** Enlace canónico al encabezado de módulo dentro del índice /guia. */
+export function guideModuleAnchorHref(moduleId: GuideModule["id"], basePath = "/guia"): string {
+  return `${basePath}#mod-${moduleId}`;
+}
+
+/** Enlace canónico a la ficha individual de una guía. */
+export function guideDetailHref(slug: string, basePath = "/guia"): string {
+  return `${basePath}/${slug}`;
+}

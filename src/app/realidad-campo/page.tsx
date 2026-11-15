@@ -22,8 +22,8 @@ const FIELD_PAINS = [
     reality:
       "En el corral no hay tiempo para formularios de 20 campos ni siempre llega el internet. Muchos productores terminan anotando en papel y pasando datos tarde en la noche (o nunca).",
     solution:
-      "Modo 100% offline cifrado en IndexedDB, escáner QR en la puerta del galpón, botones grandes de alto contraste bajo el sol y dictado por voz con Gina para registrar en menos de 2 minutos.",
-    moduleLink: "/guia#primeros-pasos",
+      "Modo offline cifrado en IndexedDB (tras la primera carga con red), escáner QR en la puerta del galpón, botones grandes de alto contraste bajo el sol y dictado por voz con Gina para agilizar el registro en galpón.",
+    moduleLink: "/guia#mod-primeros-pasos",
     moduleLabel: "Ver modo offline y Gina",
   },
   {
@@ -33,7 +33,7 @@ const FIELD_PAINS = [
       "Cuando se mezclan gastos de luz, mano de obra y concentrado entre ponedoras, engorde, conejos o cuyes, el subsidio cruzado oculta qué lote da pérdida y se termina vendiendo por debajo del costo.",
     solution:
       "Contabilidad analítica por especie y lote: separa costos directos, prorratea indirectos compartidos y muestra el punto de equilibrio unitario antes de facturar.",
-    moduleLink: "/guia#finanzas",
+    moduleLink: "/guia#mod-finanzas",
     moduleLabel: "Ver finanzas y punto de equilibrio",
   },
   {
@@ -43,7 +43,7 @@ const FIELD_PAINS = [
       "Sin control por tamaño ni orden de salida (PEPS), las cubetas más antiguas pierden frescura en bodega y los descartes nunca se reflejan en el rendimiento real del lote.",
     solution:
       "Clasificación NTC 1240 de Jumbo a C en cubetas de 30 unidades, descuento de rotos antes de entrar a bodega y salida PEPS obligatoria al vender.",
-    moduleLink: "/guia#produccion",
+    moduleLink: "/guia#mod-produccion",
     moduleLabel: "Ver postura NTC 1240",
   },
   {
@@ -53,7 +53,7 @@ const FIELD_PAINS = [
       "Un descuido tras aplicar un antibiótico o antiparasitario pone en riesgo al consumidor, al comprador institucional y la certificación sanitaria de toda la granja.",
     solution:
       "Calendario sanitario ICA precargado y bloqueo preventivo automático: mientras un lote esté en tiempo de retiro, la app impide registrar ventas de huevo o carne de ese lote.",
-    moduleLink: "/guia#sanidad",
+    moduleLink: "/guia#mod-sanidad",
     moduleLabel: "Ver sanidad y bloqueos",
   },
   {
@@ -63,7 +63,7 @@ const FIELD_PAINS = [
       "Calcular al ojo cuántos bultos quedan para 400 aves o 60 conejos genera compras de urgencia más caras o cambios bruscos de dieta.",
     solution:
       "Inventario por bultos de 40 kg con descuento automático al alimentar, cálculo de días de cobertura restantes y alerta temprana de reposición.",
-    moduleLink: "/guia#almacen",
+    moduleLink: "/guia#mod-almacen",
     moduleLabel: "Ver alimento y bodega",
   },
   {
@@ -72,8 +72,8 @@ const FIELD_PAINS = [
     reality:
       "La mayoría del software agropecuario muestra decenas de menús contables y configuraciones históricas el primer día, abrumando al equipo.",
     solution:
-      "Arranque Día 1 sin deuda histórica: cargas solo tus animales vivos hoy y ves 6 módulos esenciales. Los otros 8 módulos avanzados se desbloquean gradualmente cuando tu escala lo pide.",
-    moduleLink: "/guia#configuracion",
+      "Arranque Día 1 sin deuda histórica: cargas solo tus animales vivos hoy y ves los frentes esenciales. El resto de los 8 módulos reales y herramientas avanzadas se activan gradualmente cuando tu escala lo pide.",
+    moduleLink: "/guia#mod-configuracion",
     moduleLabel: "Ver activación progresiva",
   },
 ] as const;

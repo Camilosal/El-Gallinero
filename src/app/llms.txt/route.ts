@@ -24,7 +24,7 @@ export function GET() {
     "En producción en el gallinero piloto de Iwagé Granja (vereda Ambalá, Ibagué, Tolima, Colombia). Desarrollado por Camilo Saldarriaga (https://camilosaldarriaga.com) dentro del ecosistema Iwagé (https://iwage.co).",
     "",
     "## Documentación y soporte",
-    `- [Manual de uso completo (14 módulos)](${SITE_URL}/guia): guía ilustrada paso a paso con capturas reales`,
+    `- [Manual de uso completo (8 módulos y 2 secciones base)](${SITE_URL}/guia): guía ilustrada paso a paso con capturas reales`,
     `- [Ayuda y preguntas frecuentes](${SITE_URL}/ayuda): pagos por ciclo, modo offline, exportación y normativa`,
     `- [Contacto y soporte](${SITE_URL}/contacto): soporte técnico, implementación y canal PQR (respuesta en 1 día hábil)`,
     ...guideLines,

@@ -35,10 +35,10 @@ export function ModulesAccordionShowcase({
       <details className="land-accordion rounded-xl border border-[var(--line)] bg-[var(--paper)]">
         <summary className="flex cursor-pointer list-none items-center justify-between gap-3 px-4 py-3 text-sm font-semibold text-[var(--forest)] hover:bg-[#f4ede0] rounded-xl transition-colors">
           <span>
-            Ver los {totalCount} módulos completos (incluye los {extraModules.length} módulos avanzados)
+            Explorar los {totalCount} frentes operativos (incluye {extraModules.length} herramientas avanzadas)
           </span>
           <span className="rounded-full border border-[var(--line)] bg-white px-2.5 py-0.5 font-mono text-[11px] font-semibold text-[var(--ink)]">
-            +{extraModules.length} módulos
+            +{extraModules.length} herramientas
           </span>
         </summary>
 

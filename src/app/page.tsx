@@ -71,14 +71,14 @@ const HERO_DOCK_CARDS = [
   {
     id: "arranque",
     icon: Clock,
-    title: "Arranca en 3 minutos",
+    title: "Arranca en pocos minutos",
     summary: "Solo aves o animales vivos de hoy y guía precargada.",
   },
   {
     id: "offline",
     icon: WifiOff,
     title: "Funciona sin señal",
-    summary: "Registra en el galpón y sincroniza al volver a casa.",
+    summary: "Abre una vez con red, registra en el galpón y sincroniza al volver.",
   },
   {
     id: "productores",
@@ -450,11 +450,11 @@ export default function HomePage() {
             <div className="max-w-2xl mb-7">
               <p className="land-eyebrow">3 · Qué incluye el sistema</p>
               <h2 id="modulos-heading" className="land-h2">
-                14 módulos que crecen contigo
+                8 módulos reales que crecen contigo
               </h2>
               <p className="land-section-sub" style={{ marginBottom: 0 }}>
-                Empiezas con los 6 módulos esenciales desde el Día 1 y puedes activar los
-                otros 8 módulos avanzados cuando tu operación lo pida.
+                Empiezas con 6 frentes esenciales desde el Día 1 y puedes activar
+                las demás herramientas de los 8 módulos cuando tu operación lo pida.
               </p>
             </div>
 
@@ -503,7 +503,7 @@ export default function HomePage() {
               </span>
               <div>
                 <p className="font-mono text-[10px] font-bold uppercase tracking-[0.16em] text-[#e7cf9e]">
-                  Manual práctico · 14 módulos
+                  Manual práctico · 8 módulos y 2 guías base
                 </p>
                 <h2 className="font-display text-lg sm:text-xl font-bold text-white leading-snug">
                   ¿Quieres ver cada pantalla y flujo antes de registrarte?
@@ -614,7 +614,7 @@ export default function HomePage() {
                 />
                 <div>
                   <p className="font-semibold text-[var(--ink)]">
-                    Tus datos nunca se bloquean al vencer un ciclo
+                    Tu historial nunca se bloquea al vencer un ciclo
                   </p>
                   <p className="mt-1 text-[var(--moss)] leading-relaxed">
                     {PLAN_PROMISES.expiry}
@@ -761,7 +761,7 @@ export default function HomePage() {
               </div>
 
               <p className="mt-3 text-xs text-[#c7cebb]">
-                30 días full · sin tarjeta · datos siempre disponibles
+                30 días full · sin tarjeta · historial y exportación siempre disponibles
               </p>
             </div>
           </div>

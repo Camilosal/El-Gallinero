@@ -112,55 +112,55 @@ export interface ExtraLandingModuleItem {
   guideHash: string;
 }
 
-/** Los 8 módulos adicionales que completan los 14 módulos de la plataforma. */
+/** 8 frentes operativos adicionales que completan el recorrido por los 8 módulos reales y 2 guías base de la plataforma. */
 export const EXTRA_LANDING_MODULES: ExtraLandingModuleItem[] = [
   {
     id: "qr",
     name: "Escáner QR y etiquetas",
     summary: "Escaneo en campo de galpones, jaulas, lotes y equipos.",
-    guideHash: "/guia#escanear-qr",
+    guideHash: "/guia/escanear-qr",
   },
   {
     id: "lugares",
     name: "Lugares de manejo",
     summary: "Galpones, jaulas, potreros, ocupación y vacío sanitario.",
-    guideHash: "/guia#ubicaciones",
+    guideHash: "/guia/lugares-manejo",
   },
   {
     id: "carne",
     name: "Producción de carne",
     summary: "Peso en pie, rendimiento en canal, sacrificio y lotes.",
-    guideHash: "/guia#produccion",
+    guideHash: "/guia#mod-produccion",
   },
   {
     id: "subproductos",
     name: "Compostaje y gallinaza",
     summary: "Control de pilas de 8 semanas, volteos y liberación.",
-    guideHash: "/guia#almacen",
+    guideHash: "/guia#mod-almacen",
   },
   {
     id: "planeacion",
     name: "Planeación y calendario",
     summary: "Rutinas automáticas, Plan de Parvada y reemplazos.",
-    guideHash: "/guia#planeacion",
+    guideHash: "/guia#mod-planeacion",
   },
   {
     id: "analisis",
     name: "Análisis y curvas",
     summary: "KPIs (HAA, EPEF, ROI) y curvas ajustadas por altitud.",
-    guideHash: "/guia#analisis",
+    guideHash: "/guia#mod-analisis",
   },
   {
     id: "cierre",
     name: "Cierre diario y sensores",
     summary: "Acta auditable de fin de jornada y lectura ambiental.",
-    guideHash: "/guia#almacen",
+    guideHash: "/guia#mod-almacen",
   },
   {
     id: "configuracion",
     name: "Configuración y escala",
     summary: "Activación progresiva, catálogos y copia de respaldo.",
-    guideHash: "/guia#configuracion",
+    guideHash: "/guia#mod-configuracion",
   },
 ];
 
@@ -401,7 +401,7 @@ export const SHOWCASE_GALLERY: ShowcaseGalleryItem[] = [
     id: "gal-trazabilidad",
     title: "Trazabilidad pública QR",
     moduleTag: "Confianza",
-    routeLabel: "/trazabilidad/[lote]",
+    routeLabel: "/lote/[id]",
     summary: "Página pública compartible para respaldar origen, edad y cuidado del lote.",
     image: "/images/guia/trazabilidad-lote-publica.webp",
     alt: "Ficha pública de Trazabilidad del Lote L-001 raza Cobb 500 lista para consulta vía QR",
@@ -453,7 +453,7 @@ export const SECTOR_STANDARDS: SectorStandardItem[] = [
     authority: "Inocuidad alimentaria",
     title: "Bloqueo preventivo durante tiempos de retiro",
     summary:
-      "Cada tratamiento veterinario cargado calcula la fecha de liberación según etiqueta ICA e impide registrar ventas de ese lote durante el retiro.",
+      "Cada tratamiento veterinario cargado calcula la fecha de liberación según los días de retiro configurados e impide registrar ventas de ese lote en la app mientras el retiro siga vigente.",
     enforcement: "Evita mezclar lotes en retiro con mercancía disponible para venta.",
     tags: ["Cero residuos", "Retiros"],
     sourceLabel: "INVIMA · Inocuidad Veterinaria",
@@ -706,7 +706,7 @@ export const CYCLE_PLANS_SHOWCASE: CyclePlanShowcase[] = [
       "Unidades con planta de incubación, compostaje y múltiples líneas de venta.",
     ],
     includedFeatures: [
-      "Los 14 módulos habilitados (incluye Incubación, Escáner QR, Análisis de curvas y Auditoría).",
+      "Los 8 módulos reales completos (incluye Incubación, Escáner QR, Análisis de curvas y Auditoría).",
       "Contabilidad analítica con prorrateo configurable de costos indirectos compartidos.",
       "Control de roles, trazabilidad pública QR por lote y cierre diario auditable anti-fraude.",
       "Reportes exportables en Excel/PDF listos para contador, DIAN y crédito agropecuario.",

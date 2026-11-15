@@ -12,7 +12,7 @@ export default function NotFoundPage() {
           {
             href: "/",
             title: "Inicio y vitrina",
-            desc: "Conoce los 14 módulos, el modo sin señal y cómo empezar hoy en tu granja.",
+            desc: "Conoce los 8 módulos reales, el modo sin señal y cómo empezar hoy en tu granja.",
           },
           {
             href: "/guia",
