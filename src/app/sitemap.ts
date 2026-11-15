@@ -42,7 +42,7 @@ export default function sitemap(): MetadataRoute.Sitemap {
   for (const article of BITACORA_ARTICLES) {
     entries.push({
       url: `${SITE_URL}/bitacora/${article.slug}`,
-      lastModified: new Date(article.publishedAt),
+      lastModified: new Date(article.reviewedAt),
       changeFrequency: "monthly",
       priority: 0.8,
     });

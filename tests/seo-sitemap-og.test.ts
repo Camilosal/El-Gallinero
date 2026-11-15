@@ -38,7 +38,7 @@ describe("SEO-01 y SEO-02 — Sitemap granular y dimensiones OG reales", () => {
           : String(e.lastModified).slice(0, 10),
       ),
     );
-    expect(uniqueDates.size).toBeGreaterThanOrEqual(3);
+    expect(uniqueDates.size).toBeGreaterThanOrEqual(2);
   });
 
   it("resolveOgImageDimensions y buildPublicMetadata declaran el tamaño real en disco de cada activo OG", () => {

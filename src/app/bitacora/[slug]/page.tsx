@@ -9,7 +9,9 @@ import {
   BITACORA_CTA_LABEL,
   countArticleWords,
   getBitacoraArticleBySlug,
+  getRelatedBitacoraArticles,
 } from "@/lib/bitacora-content";
+import { NORMATIVE_CATALOG } from "@/lib/normative-catalog";
 import {
   buildPageMetadata,
   canonicalUrlFor,
@@ -59,6 +61,7 @@ export async function generateMetadata({
     };
   }
   const publishedIso = `${article.publishedAt}T09:00:00-05:00`;
+  const modifiedIso = `${article.reviewedAt}T09:00:00-05:00`;
   return buildPageMetadata({
     title: fitSeoTitle(article.title),
     description: fitSeoDescription(article.summary),
@@ -67,7 +70,7 @@ export async function generateMetadata({
     ogImageAlt: article.image.alt,
     ogType: "article",
     publishedTime: publishedIso,
-    modifiedTime: publishedIso,
+    modifiedTime: modifiedIso,
   });
 }
 
@@ -85,11 +88,15 @@ export default async function BitacoraArticlePage({
   const words = countArticleWords(article);
   const canonical = canonicalUrlFor(`/bitacora/${article.slug}`);
   const publishedIso = `${article.publishedAt}T09:00:00-05:00`;
-  const otherArticles = BITACORA_ARTICLES.filter((a) => a.slug !== article.slug).slice(0, 3);
+  const modifiedIso = `${article.reviewedAt}T09:00:00-05:00`;
+  const otherArticles = getRelatedBitacoraArticles(article, 3);
   const relatedGuide = RELATED_GUIDE_MAP[article.slug] ?? {
-    href: "/guia",
-    label: "Explorar el manual de uso ilustrado de El Gallinero",
+    href: `/guia/${article.relatedGuideSlug}`,
+    label: "Explorar la guía práctica relacionada en El Gallinero",
   };
+  const relatedNorms = article.relatedNormIds
+    .map((normId) => NORMATIVE_CATALOG.find((item) => item.id === normId))
+    .filter((item): item is NonNullable<typeof item> => Boolean(item));
 
   const articleJsonLd = {
     "@type": "TechArticle",
@@ -98,12 +105,15 @@ export default async function BitacoraArticlePage({
     description: article.summary,
     image: toAbsoluteUrl(article.image.src),
     datePublished: publishedIso,
-    dateModified: publishedIso,
+    dateModified: modifiedIso,
     inLanguage: "es-CO",
     author: { "@id": ENTITY_IDS.person },
     publisher: { "@id": ENTITY_IDS.organization },
     mainEntityOfPage: { "@id": `${canonical}#webpage` },
-    about: [{ "@type": "Thing", name: article.category }],
+    about: [
+      { "@type": "Thing", name: article.category },
+      ...article.topics.map((topic) => ({ "@type": "Thing", name: topic })),
+    ],
   };
 
   return (
@@ -153,13 +163,36 @@ export default async function BitacoraArticlePage({
         <div className="grid gap-6 lg:grid-cols-12 items-start">
           <div className="lg:col-span-5 space-y-4">
             <p className="text-base leading-relaxed text-slate-700 font-medium">{article.summary}</p>
-            <div className="rounded-xl border border-emerald-200 bg-emerald-50/70 p-4">
+            <div className="rounded-xl border border-emerald-200 bg-emerald-50/70 p-4 space-y-2.5">
               <p className="text-xs font-bold uppercase tracking-wide text-emerald-900">
                 {article.realFarmData.label}
               </p>
-              <p className="mt-1.5 text-sm leading-relaxed text-emerald-950">
+              <p className="text-sm leading-relaxed text-emerald-950">
                 {article.realFarmData.fact}
               </p>
+              <dl className="border-t border-emerald-200/80 pt-2.5 space-y-1 text-xs text-emerald-950/90">
+                <div>
+                  <dt className="inline font-semibold">Período y muestra: </dt>
+                  <dd className="inline">
+                    {article.realFarmData.observationPeriod} · {article.realFarmData.contextAndSample}
+                  </dd>
+                </div>
+                <div>
+                  <dt className="inline font-semibold">Método: </dt>
+                  <dd className="inline">{article.realFarmData.unitAndMethod}</dd>
+                </div>
+                <div>
+                  <dt className="inline font-semibold">Fuente y revisión: </dt>
+                  <dd className="inline">
+                    {article.realFarmData.sourceRef} ({article.realFarmData.reviewedBy}, rev.{" "}
+                    {article.realFarmData.reviewedAt})
+                  </dd>
+                </div>
+                <div>
+                  <dt className="inline font-semibold">Alcance y límites: </dt>
+                  <dd className="inline">{article.realFarmData.limitations}</dd>
+                </div>
+              </dl>
             </div>
           </div>
 
@@ -219,6 +252,24 @@ export default async function BitacoraArticlePage({
                 </Link>
               </li>
             ))}
+            {relatedNorms.length > 0 && (
+              <li className="pt-1 text-xs text-slate-700">
+                <span className="font-semibold text-slate-800">Referencias normativas y técnicas: </span>
+                {relatedNorms.map((norm, idx) => (
+                  <span key={norm.id}>
+                    {idx > 0 ? " · " : ""}
+                    <a
+                      href={norm.sourceUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="underline underline-offset-4 hover:text-emerald-800"
+                    >
+                      {norm.code}
+                    </a>
+                  </span>
+                ))}
+              </li>
+            )}
             <li>
               <Link
                 href="/planes"

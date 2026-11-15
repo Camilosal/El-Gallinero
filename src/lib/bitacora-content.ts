@@ -3,17 +3,36 @@ export interface BitacoraSection {
   paragraphs: string[];
 }
 
+export type BitacoraEvidenceKind =
+  | "observacion_piloto"
+  | "ejemplo_metodologico"
+  | "referencia_normativa";
+
 export interface BitacoraArticle {
   slug: string;
   title: string;
   subtitle: string;
   publishedAt: string;
+  reviewedAt: string;
   readingMinutes: number;
   category: string;
+  topics: string[];
+  species: string[];
+  relatedSlugs: string[];
+  relatedNormIds: string[];
+  relatedGuideSlug: string;
   summary: string;
   realFarmData: {
     label: string;
+    kind: BitacoraEvidenceKind;
     fact: string;
+    observationPeriod: string;
+    contextAndSample: string;
+    unitAndMethod: string;
+    sourceRef: string;
+    reviewedBy: string;
+    reviewedAt: string;
+    limitations: string;
   };
   image: {
     src: string;
@@ -43,13 +62,38 @@ export const BITACORA_ARTICLES: BitacoraArticle[] = [
     title: "Cuánto cuesta producir un huevo en una granja mixta",
     subtitle: "Cómo separar el alimento por especie, evitar el subsidio cruzado y calcular tu punto de equilibrio diario en pesos colombianos.",
     publishedAt: "2026-11-01",
+    reviewedAt: "2026-11-15",
     readingMinutes: 4,
     category: "Costos y rentabilidad",
+    topics: ["costos", "postura", "alimento", "finanzas"],
+    species: ["gallina", "pollo", "codorniz", "conejo"],
+    relatedSlugs: [
+      "clasificacion-de-huevo-ntc-1240",
+      "registrar-en-la-finca-sin-senal",
+      "compostaje-de-gallinaza",
+    ],
+    relatedNormIds: [
+      "norm-dian-finagro-agro",
+      "std-fedna-nrc-nutricion",
+      "guia-hyline-isa-postura",
+    ],
+    relatedGuideSlug: "balance-financiero",
     summary:
       "La mayoría de los productores pequeños conoce el precio al que vende la cubeta, pero no sabe cuánto le cuesta producir cada huevo porque mezcla el concentrado de postura con el de engorde o los gastos domésticos de la finca.",
     realFarmData: {
       label: "Dato real del gallinero piloto en Ambalá (Ibagué)",
+      kind: "observacion_piloto",
       fact: "Con bultos de concentrado de postura de 40 kg alrededor de $118.000 COP ($2.950/kg), cada gallina consume en promedio entre 115 y 120 gramos diarios ($340 a $354 COP solo en alimento). Cuando la postura cae por debajo del 72 %, el costo alimenticio supera los $475 COP por huevo antes de sumar empaque, vacunas y reemplazo.",
+      observationPeriod: "Ciclo piloto 2026 (Ambalá, Ibagué)",
+      contextAndSample:
+        "Unidad piloto mixta en clima medio (1.285 m s. n. m.), bulto comercial de postura de 40 kg y consumo promedio diario observado por ave.",
+      unitAndMethod:
+        "COP por huevo = (consumo diario en kg × precio/kg de alimento) ÷ tasa de postura diaria; desglosado por lote sin gastos de otras especies.",
+      sourceRef: "Registro operativo de granja piloto · Iwagé Granja (Ambalá, Ibagué)",
+      reviewedBy: "Camilo Saldarriaga · Iwagé Granja",
+      reviewedAt: "2026-11-15",
+      limitations:
+        "Los precios de concentrado de 40 kg en plaza local varían según región, marca y flete; el ejemplo aísla el costo de alimento antes de mano de obra, reposición y empaques.",
     },
     image: {
       src: "/images/guia/finanzas-balance.webp",
@@ -90,13 +134,34 @@ export const BITACORA_ARTICLES: BitacoraArticle[] = [
     title: "Tiempos de retiro de medicamentos veterinarios: qué son y cómo evitar sanciones",
     subtitle: "Cómo proteger al consumidor, cumplir la normativa ICA en granja y bloquear automáticamente la venta de huevos o carne en periodo de carencia.",
     publishedAt: "2026-11-04",
+    reviewedAt: "2026-11-15",
     readingMinutes: 4,
     category: "Sanidad y bioseguridad",
+    topics: ["sanidad", "retiros", "ica", "inocuidad"],
+    species: ["gallina", "pollo", "conejo"],
+    relatedSlugs: [
+      "clasificacion-de-huevo-ntc-1240",
+      "compostaje-de-gallinaza",
+      "registrar-en-la-finca-sin-senal",
+    ],
+    relatedNormIds: ["norm-invima-pramsac-gsmi", "norm-ica-3651-3652"],
+    relatedGuideSlug: "control-sanitario",
     summary:
       "Aplicar un antibiótico, antiparasitario o coccidiostato sin registrar el día exacto de finalización del tiempo de retiro expone a los compradores a residuos químicos y puede frenar cualquier comercialización formal ante el ICA o el INVIMA.",
     realFarmData: {
       label: "Dato real del gallinero piloto en Ambalá (Ibagué)",
+      kind: "observacion_piloto",
       fact: "Durante un tratamiento antiparasitario oral aplicado en corral de levante con etiqueta comercial de 7 días de carencia, separar el grupo afectado dejó visibles 148 huevos que habrían entrado por error al inventario vendible si no existiera un bloqueo sanitario por fecha.",
+      observationPeriod: "Ciclo piloto 2026 (Ambalá, Ibagué)",
+      contextAndSample:
+        "Corral de levante y postura separado operativamente durante tratamiento antiparasitario oral de 7 días de carencia según etiqueta del producto.",
+      unitAndMethod:
+        "Conteo diario de unidades recolectadas en el corral aislado entre la fecha de aplicación y la fecha calculada de liberación.",
+      sourceRef: "Bitácora sanitaria piloto · Iwagé Granja (Ambalá, Ibagué)",
+      reviewedBy: "Camilo Saldarriaga · Iwagé Granja",
+      reviewedAt: "2026-11-15",
+      limitations:
+        "El periodo exacto de carencia depende del principio activo, la dosis, la especie y las instrucciones de la etiqueta vigente o prescripción veterinaria.",
     },
     image: {
       src: "/images/guia/sanidad-control.webp",
@@ -139,13 +204,34 @@ export const BITACORA_ARTICLES: BitacoraArticle[] = [
     title: "Clasificación de huevo NTC 1240 e inventario PEPS para vender mejor",
     subtitle: "Tabla exacta de pesos en Colombia (Jumbo, AAA, AA, A, B y C), condiciones de almacenamiento en bodega y rotación por lotes sin huevos viejos.",
     publishedAt: "2026-11-06",
+    reviewedAt: "2026-11-15",
     readingMinutes: 4,
     category: "Calidad y empaque",
+    topics: ["postura", "ntc-1240", "calidad", "inventarios"],
+    species: ["gallina"],
+    relatedSlugs: [
+      "cuanto-cuesta-producir-un-huevo",
+      "tiempos-de-retiro-medicamentos-veterinarios",
+      "registrar-en-la-finca-sin-senal",
+    ],
+    relatedNormIds: ["norm-ntc-1240", "guia-hyline-isa-postura"],
+    relatedGuideSlug: "recoger-huevos",
     summary:
       "Vender huevos sin pesar ni separar calibres hace que el comprador pague todo al precio del huevo pequeño mientras se lleva piezas AA y AAA gratis. Ordenar la recolección con la norma NTC 1240 mejora el margen desde la primera semana.",
     realFarmData: {
       label: "Dato real del gallinero piloto en Ambalá (Ibagué)",
+      kind: "observacion_piloto",
       fact: "Al separar por calibre con gramera digital las recolecciones de gallinas Hy-Line e ISA Brown entre la semana 28 y la 42, el 64 % clasificó en AA y AAA, lo que permitió cobrar diferencia comercial por cubeta y bajar el huevo quebrado en bodega a menos del 1,8 %.",
+      observationPeriod: "Semanas de postura 28 a 42 · Ciclo piloto 2026",
+      contextAndSample:
+        "Recolecciones de gallinas ponedoras Hy-Line e ISA Brown pesadas con gramera digital en mesa de clasificación en Ambalá (Ibagué).",
+      unitAndMethod:
+        "Clasificación individual en gramos bajo rangos NTC 1240 (Jumbo >78 g, AAA 67–77,9 g, AA 60–66,9 g) y registro de porcentaje de rotura en bodega.",
+      sourceRef: "Registro de postura y bodega · Iwagé Granja (Ambalá, Ibagué)",
+      reviewedBy: "Camilo Saldarriaga · Iwagé Granja",
+      reviewedAt: "2026-11-15",
+      limitations:
+        "La distribución de calibres cambia por edad de la parvada, línea genética, temperatura ambiental y formulación nutricional; la NTC 1240 es norma técnica de clasificación comercial para gallina.",
     },
     image: {
       src: "/images/guia/produccion-huevos.webp",
@@ -187,13 +273,34 @@ export const BITACORA_ARTICLES: BitacoraArticle[] = [
     title: "Cómo llevar registros en la finca cuando no hay señal de internet",
     subtitle: "Por qué el papel sucio o los mensajes sueltos por WhatsApp fallan en el galpón y cómo funciona la sincronización offline-first cifrada en el celular.",
     publishedAt: "2026-11-09",
+    reviewedAt: "2026-11-15",
     readingMinutes: 4,
     category: "Operación en campo",
+    topics: ["offline", "campo", "captura-rapida", "trazabilidad"],
+    species: ["todas"],
+    relatedSlugs: [
+      "cuanto-cuesta-producir-un-huevo",
+      "clasificacion-de-huevo-ntc-1240",
+      "tiempos-de-retiro-medicamentos-veterinarios",
+    ],
+    relatedNormIds: ["norm-ica-3651-3652", "norm-dian-finagro-agro"],
+    relatedGuideSlug: "modo-offline-voz",
     summary:
       "La mayoría de los programas agrícolas fracasan en el campo por una razón simple: exigen señal estable justo dentro del galpón, donde el celular apenas muestra una raya de datos o solo funciona en la casa principal.",
     realFarmData: {
       label: "Dato real del gallinero piloto en Ambalá (Ibagué)",
+      kind: "observacion_piloto",
       fact: "En recorridos de la tarde con tres corrales activos y señal intermitente, capturar recolección de huevos, alimento entregado y cierre diario desde el celular tomó en promedio 1 minuto 45 segundos en modo offline, sincronizando 14 eventos pendientes al regresar al Wi-Fi de la casa sin duplicar registros.",
+      observationPeriod: "Pruebas operativas de campo 2026 (Ambalá, Ibagué)",
+      contextAndSample:
+        "Recorridos vespertinos sobre 3 corrales activos con cobertura móvil intermitente tras habilitar la copia local previa con conexión.",
+      unitAndMethod:
+        "Medición de tiempo desde apertura de captura rápida hasta guardado en IndexedDB cifrado y conteo de eventos drenados al reconectar a Wi-Fi.",
+      sourceRef: "Pruebas de campo offline-first · Iwagé Granja (Ambalá, Ibagué)",
+      reviewedBy: "Camilo Saldarriaga · Iwagé Granja",
+      reviewedAt: "2026-11-15",
+      limitations:
+        "Requiere haber abierto la aplicación al menos una vez con conexión para almacenar el paquete operativo offline; el tiempo de captura varía según número de corrales.",
     },
     image: {
       src: "/images/guia/captura-rapida-modal.webp",
@@ -236,13 +343,34 @@ export const BITACORA_ARTICLES: BitacoraArticle[] = [
     title: "Compostaje de gallinaza y manejo técnico de mortalidad en la granja",
     subtitle: "Cómo transformar un residuo riesgoso en abono maduro y rentable siguiendo proporciones 3:1:1, control térmico y registro sanitario sin malos olores.",
     publishedAt: "2026-11-12",
+    reviewedAt: "2026-11-15",
     readingMinutes: 4,
     category: "Sostenibilidad e ICA",
+    topics: ["compostaje", "gallinaza", "sanidad", "subproductos"],
+    species: ["gallina", "pollo"],
+    relatedSlugs: [
+      "tiempos-de-retiro-medicamentos-veterinarios",
+      "cuanto-cuesta-producir-un-huevo",
+      "registrar-en-la-finca-sin-senal",
+    ],
+    relatedNormIds: ["norm-ica-30292-agrosavia", "norm-ica-3651-3652"],
+    relatedGuideSlug: "compostaje",
     summary:
       "Sacar la gallinaza cruda o botar mortalidades sin compostar atrae moscas, genera quejas con vecinos, infringe normas sanitarias y además desperdicia un ingreso extra muy valorado en huertas, pastos y cultivos de café o plátano.",
     realFarmData: {
       label: "Dato real del gallinero piloto en Ambalá (Ibagué)",
+      kind: "observacion_piloto",
       fact: "En pilas operadas con mezcla base 3:1:1 de gallinaza, fuente de carbono seca y mortalidad con volteo programado, alcanzar temperaturas estables entre 55 °C y 62 °C durante las primeras semanas permitió cosechar abono estabilizado libre de olores fétidos y comercializar excedentes por kilogramo.",
+      observationPeriod: "Pilas piloto 2026 (Ambalá, Ibagué)",
+      contextAndSample:
+        "Pilas de compostaje bajo techo ventilado con proporción volumétrica 3 partes de cama/gallinaza, 1 de carbono seco (cisco/aserrín) y control semanal.",
+      unitAndMethod:
+        "Lectura periódica de temperatura en centro de pila (55–62 °C fase termofílica) y registro de kilogramos cosechados tras estabilización.",
+      sourceRef: "Registro de pilas y subproductos · Iwagé Granja (Ambalá, Ibagué)",
+      reviewedBy: "Camilo Saldarriaga · Iwagé Granja",
+      reviewedAt: "2026-11-15",
+      limitations:
+        "El tiempo total hasta madurez y la frecuencia de volteo dependen de humedad inicial, tamaño de pila y disponibilidad de material estructurante.",
     },
     image: {
       src: "/images/guia/produccion-gallinaza.webp",
@@ -284,4 +412,28 @@ export const BITACORA_ARTICLES: BitacoraArticle[] = [
 
 export function getBitacoraArticleBySlug(slug: string): BitacoraArticle | undefined {
   return BITACORA_ARTICLES.find((a) => a.slug === slug);
+}
+
+/**
+ * Selecciona artículos relacionados priorizando enlaces temáticos curados (relatedSlugs)
+ * y coincidencia por topics/species en lugar de orden posicional.
+ */
+export function getRelatedBitacoraArticles(article: BitacoraArticle, limit = 3): BitacoraArticle[] {
+  const candidates = BITACORA_ARTICLES.filter((a) => a.slug !== article.slug);
+  const articleTopics = new Set(article.topics);
+  const articleSpecies = new Set(article.species);
+
+  const scored = candidates.map((candidate) => {
+    const curatedIndex = article.relatedSlugs.indexOf(candidate.slug);
+    const curatedScore = curatedIndex >= 0 ? 100 - curatedIndex * 10 : 0;
+    const topicOverlap = candidate.topics.filter((t) => articleTopics.has(t)).length * 5;
+    const speciesOverlap = candidate.species.filter((s) => articleSpecies.has(s)).length * 2;
+    return {
+      candidate,
+      score: curatedScore + topicOverlap + speciesOverlap,
+    };
+  });
+
+  scored.sort((a, b) => b.score - a.score);
+  return scored.slice(0, limit).map((item) => item.candidate);
 }
