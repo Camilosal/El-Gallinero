@@ -210,10 +210,10 @@ docker compose -f /home/ubuntu/negocio/docker-compose.yml up -d gallinero_app
 ### Aplicar cambios de esquema y sembrar datos
 
 ```bash
-# Esquema (tablas) — el entrypoint ya lo hace en cada arranque
-npm run db:push
+# Inicializar o actualizar esquema + roles/RLS + semilla base (y admin opcional si pasas ADMIN_USERNAME/ADMIN_PASSWORD)
+npm run db:bootstrap
 
-# Crear administrador inicial (requiere >= 12 caracteres, nunca credenciales débiles)
+# Crear administrador inicial por separado (requiere >= 12 caracteres)
 ADMIN_USERNAME=<usuario> ADMIN_PASSWORD=<clave_segura_12_plus> npm run db:create-admin
 
 # Datos demo idempotentes SOLO en base local descartable (bloqueado en NODE_ENV=production)
@@ -226,8 +226,8 @@ DEMO_ADMIN_PASSWORD=<clave_segura_12_plus> npm run db:seed -- --allow-destructiv
 - El `DATABASE_URL` del compose y del `.env.local` debe mantenerse consistente y con contraseña URL-encoded. **No usar `${DB_PASSWORD}` sin URL-encoding** en la URL.
 - Acceso directo en servidor/host: leer `$DATABASE_URL` desde `.env.local` sin hardcodear secretos en comandos o commits.
 
-- **Esquema:** `src/db/schema.ts`. Conexión: `src/db/index.ts` (lee `.env.local`). Seed: `src/db/seed.ts`.
-- **Migraciones / Esquema:** `drizzle-kit push` (y scripts idempotentes documentados en `scripts/` / `docs/deployment.md`).
+- **Esquema:** `src/db/schema.ts`. Conexión: `src/db/index.ts` (lee `.env.local`). Semilla base: `src/db/seed-config.ts`. Seed demo: `src/db/seed.ts`.
+- **Migraciones / Bootstrap:** `drizzle/0000_baseline.sql` + `drizzle/0001_roles_constraints_and_rls.sql`, aplicados vía `npm run db:bootstrap` (`src/db/bootstrap.ts`) o `npm run db:migrate` (`src/db/migrate-prod.ts`), documentado en `docs/deployment.md`.
 
 ## 🧩 Módulos y Rutas Principales
 
@@ -297,7 +297,7 @@ npm run lint         # eslint
 ## 👤 Acceso y Creación de Usuarios
 
 - **No existen credenciales predeterminadas activas.**
-- El primer administrador se aprovisiona explícitamente con `npm run db:create-admin` (`ADMIN_USERNAME` + `ADMIN_PASSWORD` ≥ 12 caracteres).
+- El primer administrador se aprovisiona pasando `ADMIN_USERNAME` + `ADMIN_PASSWORD` a `npm run db:bootstrap` o ejecutando `npm run db:create-admin` (≥ 12 caracteres).
 - En entorno local de pruebas, `npm run db:seed -- --allow-destructive` exige `DEMO_ADMIN_PASSWORD` ≥ 12 caracteres y está bloqueado en `NODE_ENV=production`.
 - Para rotación o recuperación de emergencia existen `npm run db:rotate-admin-password` y `npm run db:issue-admin-recovery-code`.
 
@@ -307,8 +307,11 @@ npm run lint         # eslint
 |:--- |:--- |
 | `npm run dev` | Servidor de desarrollo |
 | `npm run build` / `start` | Compilar y servir en producción |
-| `npm run db:push` | Aplicar esquema a la BD |
-| `npm run db:seed` | Datos demo (idempotente) |
-| `npm run db:generate` | Generar migración SQL |
+| `npm run db:bootstrap` | Migraciones unificadas + semilla base + admin opcional |
+| `npm run db:migrate` | Aplicar migraciones SQL de `drizzle/` |
+| `npm run db:seed-config` | Semilla base obligatoria e idempotente |
+| `npm run db:seed` | Datos demo (destructivo en BD descartable local) |
+| `npm run db:generate` | Generar nueva migración SQL en `drizzle/` |
+| `npm run db:push` | Sincronizar esquema rápido en dev |
 | `npm run test` | Pruebas con vitest |
 | `npm run typecheck` / `lint` | Verificación de tipos y estilo |

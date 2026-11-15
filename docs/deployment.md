@@ -1,48 +1,37 @@
-# Despliegue de producción
+# Despliegue y Operación de Base de Datos
 
-El repositorio no contiene configuración versionada para un proveedor de hosting. El despliegue requiere una imagen Docker y PostgreSQL administrado. Configura `DATABASE_URL` como secreto del proveedor; no guardes credenciales en el repositorio ni dentro de la imagen.
+## Inicialización limpia en una instancia nueva
 
-## Preparación de base de datos
+Para levantar cualquier instancia nueva (local, VPS o Docker) desde una base de datos PostgreSQL vacía, usa un único comando idempotente:
 
-1. Haz una copia de seguridad y ensaya el cambio sobre una copia reciente de producción.
-2. Comprueba que no haya códigos de animal duplicados antes de activar los índices únicos. `scripts/enforce_animal_code_integrity.sql` cancela la operación si los encuentra.
-3. Ejecuta estos scripts, en este orden, con `psql` y `ON_ERROR_STOP` activado:
+```bash
+ADMIN_USERNAME='admin' ADMIN_PASSWORD='elige-una-clave-segura-de-12-caracteres' npm run db:bootstrap
+```
 
-   ```bash
-   psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f scripts/enforce_animal_code_integrity.sql
-   psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f scripts/add_animal_exit_snapshots.sql
-   psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f scripts/link_egg_autoconsumo_logs.sql
-   psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f scripts/enforce_manure_daily_integrity.sql
-   psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f scripts/enforce_manure_factor_integrity.sql
-   psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f scripts/add_animal_genetic_traceability.sql
-   psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f scripts/add_farm_locations.sql
-   psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f scripts/add_admin_recovery_code.sql
-   ```
+`npm run db:bootstrap` (`src/db/bootstrap.ts`) ejecuta automáticamente:
 
-   `enforce_manure_daily_integrity.sql` se detiene si existen registros automáticos duplicados. `enforce_manure_factor_integrity.sql` conserva el factor editado más recientemente por grupo y etapa y elimina los duplicados restantes; revisa primero esos registros en la copia de ensayo.
-   `add_farm_locations.sql` agrega las fichas georreferenciadas y los vínculos de alojamiento. Es idempotente y deja sin ubicación los registros históricos cuyo lugar no se conoce; asígnalos con un traslado cuando se confirme el sitio.
-4. Compara el esquema desplegado con `src/db/schema.ts`. Ensaya cualquier cambio en una copia reciente y revisa el SQL antes de producción. La imagen de la aplicación no contiene `drizzle-kit`; el arranque no ejecuta `db:push`.
-5. Ejecuta `npm run db:seed-config` una vez después de aplicar el esquema. Es idempotente y conserva los valores existentes.
-6. Si la base todavía no tiene usuarios, crea el primer administrador con `npm run db:create-admin`, proporcionando `ADMIN_USERNAME` y `ADMIN_PASSWORD` como variables de entorno. La contraseña debe tener al menos 12 caracteres. El comando aborta si ya existe una cuenta.
-7. Si la instancia usó el seed anterior, rota la clave de ese administrador con `npm run db:rotate-admin-password`. El comando cambia solo la cuenta indicada y revoca sus sesiones activas.
-8. Para habilitar la recuperación de acceso, emite el código de un solo uso después de desplegar la columna: `ADMIN_USERNAME='admin' npm run db:issue-admin-recovery-code`. Entrégalo al usuario por un canal seguro; el código no se guarda en texto claro, vence a los 30 días y queda invalidado después del primer uso.
+1. **Migraciones unificadas (`npm run db:migrate` / `src/db/migrate-prod.ts`):**
+   - `drizzle/0000_baseline.sql`: todas las tablas, enums, llaves foráneas e índices definidos en `src/db/schema.ts`.
+   - `drizzle/0001_roles_constraints_and_rls.sql`: rol PostgreSQL `gallinero_tenant_role`, restricciones `CHECK`, índices parciales (tokens activos, factores de gallinaza y registro diario único) y políticas estrictas RLS multi-tenant (`tenant_isolation_policy`) más catálogo compartido.
+   - Registro en `schema_migrations` para no re-aplicar archivos ya ejecutados.
+2. **Semilla base obligatoria (`npm run db:seed-config` / `src/db/seed-config.ts`):**
+   - Granja base (`DEFAULT_FARM_ID`) y suscripción activa inicial (`farm_subscriptions`).
+   - Configuración global por defecto (`app_settings`), catálogos maestros multi-especie (`catalogos`), parámetros por especie, estándares de peso (`breed_weight_standards`), planes de vacunación (`vaccination_templates`), factores de compostaje (`manure_factors`) y alimentos/planes iniciales de alimentación mixta.
+3. **Administrador inicial opcional:**
+   - Si `ADMIN_USERNAME` y `ADMIN_PASSWORD` (mínimo 12 caracteres) están configurados y la tabla `users` está vacía, crea el primer usuario `admin`. Si ya existen usuarios, omite este paso sin error.
 
-La clave de bootstrap debe suministrarse al comando de aprovisionamiento desde un entorno seguro; no la incluyas en la imagen ni en archivos versionados.
+## Actualización de una instancia existente
 
-## Enrutamiento opcional del asistente con Jev
+1. Haz una copia de seguridad de PostgreSQL antes de desplegar cambios de esquema.
+2. Ejecuta `npm run db:bootstrap` (o `npm run db:migrate && npm run db:seed-config`).
+   - Si la base existente provenía de `drizzle-kit push` o de migraciones previas (`farms`, `users`, `catalogos`, `export_tokens` y `external_data_snapshots` ya existen sin `schema_migrations`), el runner adopta `drizzle/0000_baseline.sql` de forma segura sin intentar recrear tablas y luego aplica `drizzle/0001_roles_constraints_and_rls.sql` y cualquier migración futura de forma idempotente.
+3. En contenedores Docker:
+   - El `docker-compose.yml` de ejemplo habilita `AUTO_MIGRATE_ON_BOOT: "true"` para ejecutar `npm run db:bootstrap` automáticamente al iniciar.
+   - En despliegues con `AUTO_MIGRATE_ON_BOOT=false`, ejecuta explícitamente:
+     ```bash
+     docker compose --profile migrate run --rm migrate
+     ```
 
-El asistente conversacional sigue funcionando sin TypeSafe. Para activar el enrutamiento de intención con Jev, configura `ASSISTANT_JEV_ROUTING=true` y `TYPESAFE_API_KEY` en el entorno seguro del servidor. `TYPESAFE_MODEL` es opcional y por defecto usa `jev-latest`. Cuando está activo, la aplicación envía el mensaje actual del usuario a TypeSafe; Jev solo sugiere qué grupo de consultas ofrecer y no ejecuta registros ni cambia las confirmaciones del asistente. Si la intención no es clara o el servicio falla, se conserva el conjunto completo de herramientas del asistente existente.
+## Datos de demostración (solo desarrollo / staging)
 
-## Esquema de activos y tareas periódicas
-
-Antes de desplegar esta versión, aplica `scripts/add_farm_assets_and_recurring_maintenance.sql` después de `scripts/add_farm_locations.sql`. Es aditivo e idempotente: conserva las tareas y costos actuales, agrega fichas de activos, sus vínculos opcionales y el intervalo de repetición.
-
-## Imagen y arranque
-
-Construye y publica la imagen desde el commit que se vaya a desplegar. Proporciona `DATABASE_URL` en el entorno de ejecución. El comando de arranque del contenedor solo inicia el servidor y ejecuta la siembra idempotente de configuración; no modifica el esquema.
-
-Antes de dirigir tráfico a la nueva versión, confirma que el proceso arranca, que puede conectarse a PostgreSQL y que las vistas principales cargan correctamente. El rollback de aplicación debe volver a la imagen anterior; restaura la copia de seguridad solo si la migración de datos no es compatible con esa versión.
-
-## Datos de acceso
-
-No ejecutes `npm run db:seed` en producción. Es un seed de demostración destructivo y está bloqueado cuando `NODE_ENV=production`.
+No ejecutes `npm run db:seed` en producción. Es un seed de demostración destructivo (requiere `--allow-destructive` y `DEMO_ADMIN_PASSWORD` de al menos 12 caracteres) y está bloqueado cuando `NODE_ENV=production`.

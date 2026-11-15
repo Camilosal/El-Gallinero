@@ -127,11 +127,14 @@ Revisa los archivos generados antes de aplicarlos.
 #### Aplicar Cambios
 
 ```bash
-# Aplica todas las migraciones pendientes
+# Inicializa o actualiza migraciones SQL + semilla base (idempotente)
+npm run db:bootstrap
+
+# En desarrollo iterativo rápido tras editar src/db/schema.ts (solo dev)
 npm run db:push
 ```
 
-Para vincular de forma segura los registros antiguos de autoconsumo de huevo con su cosecha, ejecuta después [`scripts/link_egg_autoconsumo_logs.sql`](../scripts/link_egg_autoconsumo_logs.sql). El script solo asocia casos sin ambigüedad; revisa manualmente los registros históricos que no queden vinculados.
+Cuando el cambio al esquema sea definitivo, genera la siguiente migración en `drizzle/` con `npm run db:generate` y agrégala a `src/db/migrate-prod.ts` si no se detecta automáticamente en la cadena unificada.
 
 #### Sembrar Datos
 
@@ -333,12 +336,11 @@ Use las variables de entorno en `.env.local` con prefijo `NEXT_PUBLIC_` para car
 
 Recuerde reiniciar el servidor de desarrollo después de cambiar variables de entorno.
 
-## Integridad de códigos y reversión de sanidad
+## Migraciones unificadas e integridad histórica
 
-La migración `scripts/enforce_animal_code_integrity.sql` agrega índices únicos a los códigos de gallinas, gallos y lotes, y crea la columna que conserva el estado anterior de las aves en controles sanitarios. Antes de aplicarla en otra base de datos, confirme que no existan códigos duplicados; la migración aborta sin cambios si encuentra alguno. Los controles sanitarios anteriores no tienen una instantánea y no pueden restaurar automáticamente su estado original.
+Todas las migraciones incrementales anteriores (`scripts/*.sql`) quedaron consolidadas en la cadena unificada dentro de `drizzle/`:
 
-La migración `scripts/enforce_manure_daily_integrity.sql` agrega un índice único parcial para impedir más de un registro de acumulación automática de gallinaza por fecha. La estimación diaria se guarda al consultar o modificar el inventario; los días en los que no se generó un registro no se reconstruyen con la población actual.
+1. [`drizzle/0000_baseline.sql`](../drizzle/0000_baseline.sql): esquema completo de tablas, enumeraciones, llaves foráneas e índices generados desde `src/db/schema.ts`.
+2. [`drizzle/0001_roles_constraints_and_rls.sql`](../drizzle/0001_roles_constraints_and_rls.sql): rol `gallinero_tenant_role`, restricciones `CHECK`, índices parciales únicos (como gallinaza automática diaria, factores por grupo y tokens activos) y políticas PostgreSQL RLS por granja (`tenant_isolation_policy`).
 
-La migración `scripts/enforce_manure_factor_integrity.sql` elimina factores duplicados por etapa o grupo global conservando el actualizado más recientemente y agrega índices únicos parciales para ambos casos. Aplícala antes de desplegar la versión que crea factores automáticamente.
-
-La migración `scripts/add_animal_exit_snapshots.sql` agrega instantáneas del estado previo a ventas, faenas y mortalidades vinculadas con gallinas, gallos o lotes. Los registros históricos anteriores no incluyen esa instantánea; al revertirlos se conserva el comportamiento de compatibilidad y no se puede recuperar un estado que nunca se guardó.
+Para inicializar una instancia nueva o actualizar una existente usa siempre `npm run db:bootstrap` (o `npm run db:migrate` seguido de `npm run db:seed-config`). En bases de datos que ya venían de versiones anteriores con tablas creadas manualmente o con `db:push`, `migrate-prod.ts` detecta las tablas existentes y adopta automáticamente `drizzle/0000_baseline.sql` en `schema_migrations` antes de aplicar `0001_roles_constraints_and_rls.sql`.

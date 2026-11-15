@@ -141,14 +141,18 @@ DATABASE_URL=postgresql://TU_USUARIO:TU_CONTRASENA@127.0.0.1:5432/app_db
 
 > `.env.local` está ignorado en `.gitignore`. Nunca subas secretos o cadenas de conexión reales al repositorio.
 
-### 3. Aplicar esquema y sembrar datos sintéticos
+### 3. Aplicar esquema, roles/RLS y semilla base en un solo comando
 
 ```bash
-npm run db:push          # Crea tablas según src/db/schema.ts
-npm run db:seed-config   # Catálogos base (razas, vacunas, parámetros idempotentes)
+npm run db:bootstrap
 ```
 
-Opcionalmente, solo en una base **local descartable de pruebas** (bloqueado en producción):
+`db:bootstrap` es idempotente y realiza en orden:
+1. Aplica `drizzle/0000_baseline.sql` + `drizzle/0001_roles_constraints_and_rls.sql` (y adopta automáticamente la línea base si la BD venía de despliegues previos).
+2. Ejecuta `db:seed-config` (granja por defecto, catálogos maestros, etapas, estándares de peso, vacunas, factores de compostaje y alimentos/planes iniciales).
+3. Si defines `ADMIN_USERNAME` y `ADMIN_PASSWORD` (mínimo 12 caracteres) y la tabla `users` está vacía, crea el administrador inicial.
+
+Si quieres crear o agregar un proyecto con datos sintéticos de demostración en una base **local descartable de pruebas** (bloqueado en producción):
 
 ```bash
 DEMO_ADMIN_PASSWORD='elige-una-clave-de-12-caracteres' npm run db:seed -- --allow-destructive
@@ -171,19 +175,24 @@ npm run build && npm start
 Para levantar aplicación + PostgreSQL localmente o en un servidor propio:
 
 ```bash
-docker compose --profile migrate run --rm migrate
-docker compose run --rm -e ADMIN_USERNAME='admin' -e ADMIN_PASSWORD='elige-una-clave-segura-de-12-caracteres' --entrypoint npm app run db:create-admin
+ADMIN_USERNAME='admin' ADMIN_PASSWORD='elige-una-clave-segura-de-12-caracteres' docker compose up -d
+```
+
+O ejecutar explícitamente el perfil de inicialización antes de levantar la app:
+
+```bash
+ADMIN_USERNAME='admin' ADMIN_PASSWORD='elige-una-clave-segura-de-12-caracteres' docker compose --profile migrate run --rm migrate
 docker compose up -d
 ```
 
 - La aplicación queda expuesta en `http://localhost:3000` (y en despliegues con proxy inverso detrás de TLS en tu dominio).
-- Para operación en producción, actualización de esquema SQL idempotente y variables opcionales de **Gina** (modelo IA, voz y lectura de documentos), sigue paso a paso **[docs/deployment.md](docs/deployment.md)**.
+- Para operación en producción, actualizaciones futuras con Drizzle y variables opcionales de **Gina** (modelo IA, voz y lectura de documentos), sigue paso a paso **[docs/deployment.md](docs/deployment.md)**.
 
 ### Acceso inicial y recuperación de administrador
 
-- **Primer usuario en producción:** `ADMIN_USERNAME='admin' ADMIN_PASSWORD='...' npm run db:create-admin` (mínimo 12 caracteres; aborta si ya existen usuarios).
+- **Primer usuario automático o manual:** pasa `ADMIN_USERNAME` + `ADMIN_PASSWORD` a `npm run db:bootstrap`, o ejecuta `ADMIN_USERNAME='admin' ADMIN_PASSWORD='...' npm run db:create-admin` (mínimo 12 caracteres; aborta si ya existen usuarios).
 - **Rotar contraseña:** `npm run db:rotate-admin-password` (revoca sesiones activas).
-- **Código de recuperación de un solo uso:** tras aplicar `scripts/add_admin_recovery_code.sql`, ejecuta `ADMIN_USERNAME='admin' npm run db:issue-admin-recovery-code` y utilízalo en `/login/recuperar`.
+- **Código de recuperación de un solo uso:** ejecuta `ADMIN_USERNAME='admin' npm run db:issue-admin-recovery-code` y utilízalo en `/login/recuperar`.
 
 ---
 
