@@ -32,6 +32,18 @@ ADMIN_USERNAME='admin' ADMIN_PASSWORD='elige-una-clave-segura-de-12-caracteres' 
      docker compose --profile migrate run --rm migrate
      ```
 
+## Variables de entorno
+
+Todas las variables de entorno requeridas y opcionales están documentadas en [`.env.example`](../.env.example):
+
+- **Obligatoria:** `DATABASE_URL` (conexión PostgreSQL).
+- **Arranque y admin inicial:** `AUTO_MIGRATE_ON_BOOT`, `PORT`, `ADMIN_USERNAME`, `ADMIN_PASSWORD`, `ADMIN_NAME`.
+- **Asistente Gina (opcional):** `ASSISTANT_AI_*`, `ASSISTANT_STT_*`, `ASSISTANT_VISION_*` (o `DEEPSEEK_API_KEY`, `OPENAI_API_KEY`, `GEMINI_API_KEY`) y `ASSISTANT_INTERNAL_BASE_URL`.
+- **Correo, alertas y pagos (opcional):** `SMTP_*`, `NOTIFY_EMAIL`, `TELEGRAM_BOT_TOKEN`, `TELEGRAM_CHAT_ID`, `WOMPI_*`.
+- **IoT, analítica y datos legales (opcional):** `SENSOR_WEBHOOK_TOKEN`, `NEXT_PUBLIC_SWETRIX_*`, `LEGAL_*`.
+
+> Asegúrate de definir un `.env` o `.env.local` propio en cada entorno para no heredar variables globales no deseadas del servidor.
+
 ## Datos de demostración (solo desarrollo / staging)
 
 No ejecutes `npm run db:seed` en producción. Es un seed de demostración destructivo (requiere `--allow-destructive` y `DEMO_ADMIN_PASSWORD` de al menos 12 caracteres) y está bloqueado cuando `NODE_ENV=production`.

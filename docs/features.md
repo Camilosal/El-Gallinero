@@ -1,6 +1,6 @@
 # Funcionalidades, Módulos y Arquitectura Multi-Especie
 
-Este documento resume la cobertura funcional del **Core Abierto Operativo (`El Gallinero`)**, complementando el [README principal](../README.md) y la **Guía de Usuario interactiva** disponible en `/guia` y `/dashboard/guia`.
+Este documento resume la cobertura funcional del **Core Abierto Operativo (`El Gallinero`)**, complementando el [README principal](../README.md) y la **Guía de Usuario interactiva** disponible en `/guia` (pública) y `/manual` (dentro de sesión).
 
 ## Visión General
 
@@ -19,16 +19,16 @@ Este documento resume la cobertura funcional del **Core Abierto Operativo (`El G
 ## Detalle por Sección y Módulos
 
 ### 1. Inicio, Captura Directa, Escáner QR y Gina
-- **Tablero Inicio (`/dashboard`):** organizado en grupos enmarcados y sin numeración (**Resumen del día**, **Requiere atención**, **Tareas de hoy** con verificación por evidencia real, **Accesos directos**) y dos paneles plegables estándar (**Resumen del mes / Tablero técnico** y **Completar configuración de finca**).
+- **Tablero Inicio (`/inicio`):** organizado en grupos enmarcados y sin numeración (**Resumen del día**, **Requiere atención**, **Tareas de hoy** con verificación por evidencia real, **Accesos directos**) y dos paneles plegables estándar (**Resumen del mes / Tablero técnico** y **Completar configuración de finca**).
 - **Asistente inicial (Día 1 · 3 pasos):** configura escala, nombre de finca, lugares, animales actuales y saldo inicial de alimento manual o por plantilla CSV.
 - **Botón `+ Crear` y Captura Rápida:** apertura directa en modal o formulario exacto sin pasos intermedios + microcápsulas de rentabilidad y cobertura al guardar.
-- **Escáner QR Unificado (`/dashboard/escanear`):** identifica lugares (`LOC-`), ejemplares (`G-`), lotes (`L-`) y activos (`ACT-`), dispara acciones rápidas y enlaza a fichas públicas de trazabilidad (`/lote/[id]`).
+- **Escáner QR Unificado (`/escanear`):** identifica lugares (`LOC-`), ejemplares (`G-`), lotes (`L-`) y activos (`ACT-`), dispara acciones rápidas y enlaza a fichas públicas de trazabilidad (`/lote/[id]`).
 
 ### 2. Animales y Lugares de Manejo
-- **Directorio Multiespecie (`/dashboard/animales`):** inventario unificado de las 6 especies con estado, etapa y filtro por lugar.
-- **Lugares de Manejo (`/dashboard/ubicaciones` y `[id]`):** gestión de galpones, jaulas, pozas y potreros, capacidad, altitud (m.s.n.m.), tipo de piso, traslados masivos o individuales y etiquetas QR imprimibles.
+- **Directorio Multiespecie (`/animales`):** inventario unificado de las 6 especies con estado, etapa y filtro por lugar.
+- **Lugares de Manejo (`/ubicaciones` y `/ubicaciones/[id]`):** gestión de galpones, jaulas, pozas y potreros, capacidad, altitud (m.s.n.m.), tipo de piso, traslados masivos o individuales y etiquetas QR imprimibles.
 
-### 3. Producción (`/dashboard/produccion`)
+### 3. Producción (`/produccion`)
 - **Huevos (NTC 1240):** registro por tamaño (Jumbo a C) o conteo simple en Modo Pequeño, porcentaje ave-día, autoconsumo, pérdidas y ambiente (T°/HR).
 - **Aves y Lotes:** seguimiento de gallinas ponedoras (8 estados y ciclo automático), pollos de engorde (`L-###`) y gallos reproductores (`GA-###`).
 - **Reproducción e Incubación:** ciclos de empadre-gestación-parto-destete para conejos y cuyes con alerta de consanguinidad; control de tandas de incubación multi-especie (16–30 días según especie) con nacimientos e índice de eclosión.
@@ -36,19 +36,20 @@ Este documento resume la cobertura funcional del **Core Abierto Operativo (`El G
 - **Alimentación y Gallinaza:** raciones diarias, dietas mixtas (%MS, %PC, forraje y vitamina C para cuyes), cálculo de FCR y producción automática de gallinaza.
 
 ### 4. Inventarios y Almacén / Operaciones
-- **Inventarios (`/dashboard/inventarios/...`):** balance patrimonial consolidado, inventario **PEPS/FIFO** de huevos (alertas de envejecimiento), carne, gallinaza, alimento por bultos/kg con días de autonomía e insumos operativos.
-- **Almacén y Operaciones (`/dashboard/almacen`, `operaciones/...`):** registro de activos/equipos con **CAPEX/ROI** y QR, mantenimiento preventivo/correctivo periódico, **pilas de compostaje térmico (AGROSAVIA)**, **cierre diario auditable** con hash de integridad y lecturas **IoT** (`ITH`, `NH3`, temperatura, humedad y báscula).
+- **Inventarios (`/inventarios/...`):** balance patrimonial consolidado, inventario **PEPS/FIFO** de huevos (alertas de envejecimiento), carne, gallinaza, alimento por bultos/kg con días de autonomía e insumos operativos.
+- **Almacén y Operaciones (`/almacen`, `/operaciones/...`):** registro de activos/equipos con **CAPEX/ROI** y QR, mantenimiento preventivo/correctivo periódico, **pilas de compostaje térmico (AGROSAVIA)**, **cierre diario auditable** con hash de integridad y lecturas **IoT** (`ITH`, `NH3`, temperatura, humedad y báscula).
 
 ### 5. Planeación y Soberanía Alimentaria
-- **Calendario Maestro (`/dashboard/planeacion/calendario`):** agenda consolidada con rutinas diarias auto-ajustables, hitos de incubación/reproducción, vacunas, retiros, compostaje y vencimientos de cartera.
-- **Soberanía Alimentaria (`/dashboard/soberania`):** trazabilidad de autoconsumo familiar y balance nutricional producido en la finca.
+- **Calendario Maestro (`/planeacion/calendario`):** agenda consolidada con rutinas diarias auto-ajustables, hitos de incubación/reproducción, vacunas, retiros, compostaje y vencimientos de cartera.
+- **Soberanía Alimentaria (`/soberania`):** trazabilidad de autoconsumo familiar y balance nutricional producido en la finca.
 
 ### 6. Sanidad y Bioseguridad
-- **Plan Sanitario, Control y Vacunación (`/dashboard/sanidad/...`):** protocolos por etapa, aplicación de vacunas con deducción de insumos, historial clínico y **candado automático de tiempo de retiro farmacológico** (impide comercializar huevo o carne en carencia).
+- **Plan Sanitario, Control y Vacunación (`/sanidad/...`):** protocolos por etapa, aplicación de vacunas con deducción de insumos, historial clínico y **candado automático de tiempo de retiro farmacológico** (impide comercializar huevo o carne en carencia).
 - **Bioseguridad POE GAB y Bienestar Animal:** listas de chequeo alineadas con **ICA Res. 3651/3652** y **Res. 205/2022 y 8452/2025**.
 
-### 7. Finanzas, Análisis, Contactos y Configuración
-- **Finanzas (`/dashboard/finanzas/...`):** ventas en **5 líneas** (huevos, carne, animales en pie, gallinaza y otros), egresos con productos frecuentes y lectura **OCR** de facturas, **CxC/CxP** con abonos, presupuestos con desviación y estado de resultados.
-- **Contactos (`/dashboard/contactos`):** directorio unificado de clientes y proveedores con ubicación, WhatsApp y plazo de crédito.
-- **Análisis (`/dashboard/analisis/...`):** KPIs zootécnicos, curvas ajustadas por raza y altitud, **contabilidad analítica anti-subsidio cruzado** con prorrateo de indirectos y exportación Excel/PDF.
-- **Configuración (`/dashboard/configuracion/...`):** **Módulos Progresivos**, **Catálogos en 8 pestañas** (listas, contactos, parámetros, 6 especies, vacunas, pesos, gallinaza y nutrición) y recuperación segura de acceso (`/login/recuperar`).
+### 7. Finanzas, Análisis, Exportación, Contactos y Configuración
+- **Finanzas (`/finanzas/...`):** ventas en **5 líneas** (huevos, carne, animales en pie, gallinaza y otros), egresos con productos frecuentes y lectura **OCR** de facturas, **CxC/CxP** con abonos, presupuestos con desviación y estado de resultados.
+- **Contactos (`/contactos`):** directorio unificado de clientes y proveedores con ubicación, WhatsApp y plazo de crédito.
+- **Análisis (`/analisis/...`):** KPIs zootécnicos, curvas ajustadas por raza y altitud, fuentes externas y **contabilidad analítica anti-subsidio cruzado** con prorrateo de indirectos.
+- **Exportación y Conectores ERP (`/exportar` y `/api/v1/integrations/*`):** exportación CSV/XLSX y tokens Bearer con alcances (`read:all`, `inventory`, `transactions`, `contacts`, `cost_centers`) para integración con ERPs externos.
+- **Configuración (`/configuracion/...`):** **Módulos Progresivos**, **Catálogos en 8 pestañas** (listas, contactos, parámetros, 6 especies, vacunas, pesos, gallinaza y nutrición), **Usuarios y Roles** (`/configuracion/usuarios`), **Kit de Campo** (`/configuracion/kit-campo`), **Suscripción/Plan** (`/configuracion/plan`), **Panel Multi-Granja** (`/configuracion/granjas`) y recuperación segura de acceso (`/login/recuperar`).

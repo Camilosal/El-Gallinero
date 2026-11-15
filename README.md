@@ -64,11 +64,12 @@ El proyecto opera bajo una estrategia **Open-Core + Licenciamiento Dual** pensad
 
 - **Inicio Progresivo sin Fricción (Pequeño vs. Mediano):**
   - **Asistente inicial (Día 1 · 3 pasos):** carga finca, lugares, inventario vivo actual y alimento en bultos/kg (manual o mediante **plantilla CSV**).
-  - **Selector de Escala en tiempo real:** alterna entre **Modo Pequeño (Operación Simple)** y **Modo Mediano (Tecnificado)** desde la barra superior sin perder historial; los 4 módulos esenciales están siempre activos y los 5 módulos avanzados se desbloquean manual o automáticamente según el crecimiento de la finca (`/dashboard/configuracion/modulos`).
+  - **Selector de Escala en tiempo real:** alterna entre **Modo Pequeño (Operación Simple)** y **Modo Mediano (Tecnificado)** desde la barra superior sin perder historial; los 4 módulos esenciales están siempre activos y los 5 módulos avanzados se desbloquean manual o automáticamente según el crecimiento de la finca (`/configuracion/modulos`).
   - **Creación Directa (`+ Crear` y Captura Rápida):** cada acceso rápido abre directamente su modal o formulario sin rodeos, y cada registro muestra microcápsulas con costo unitario, días de autonomía o margen.
 - **Gina, tu asistente de la granja:** interfaz cercana con avatar propio que consulta datos reales en vivo, lee fotos de facturas o etiquetas con la cámara, graba dictado o notas de voz *offline*, guarda reglas en **Memoria de la granja** y exige confirmación explícita en tarjeta antes de ejecutar cualquier escritura.
-- **Escáner QR Unificado (`/dashboard/escanear`):** lee códigos QR o códigos manuales de lugares (`LOC-`), ejemplares (`G-`), lotes (`L-`) y equipos (`ACT-`) para ejecutar movimientos en campo y generar fichas públicas de trazabilidad (`/lote/[id]`).
-- **Guía de Usuario Integrada (45 artículos):** accesible dentro de la sesión (`/dashboard/guia`) y como manual público sin login (`/guia`) para capacitación en campo con buscador instantáneo, diagramas y capturas reales.
+- **Escáner QR Unificado (`/escanear`):** lee códigos QR o códigos manuales de lugares (`LOC-`), ejemplares (`G-`), lotes (`L-`) y equipos (`ACT-`) para ejecutar movimientos en campo y generar fichas públicas de trazabilidad (`/lote/[id]`).
+- **Guía de Usuario Integrada (45+ artículos):** accesible dentro de la sesión (`/manual`) y como manual público sin login (`/guia`) para capacitación en campo con buscador instantáneo, diagramas y capturas reales.
+- **Exportación y Conectores ERP (`/exportar`):** descarga directa en CSV/XLSX y generación de tokens con permisos granulares para integrar catálogos, movimientos, inventarios y transacciones vía `/api/v1/integrations/*`.
 
 ---
 
@@ -82,19 +83,19 @@ flowchart LR
     F --> A[KPIs, Curvas por Altitud y P&L]
 ```
 
-Las pantallas del tablero principal (`/dashboard`) se agrupan en **7 módulos** más **Inicio**, **Escanear** y **Guía de Usuario**:
+Las pantallas principales de la aplicación se agrupan en **7 módulos operativos** más **Inicio**, **Escanear**, **Exportar** y **Manual de Usuario**:
 
 | Sección | Rutas principales | Qué cubre |
 | --- | --- | --- |
-| **Inicio y Escáner** | `/dashboard`, `/dashboard/escanear` | Tablero en grupos enmarcados (**Resumen del día**, **Tareas de hoy**, **Accesos directos**, **Resumen del mes / Tablero técnico** y **Completar configuración**), Asistente Día 1 y escáner QR multiespecie. |
-| **Animales y Lugares** | `/dashboard/animales`, `/dashboard/ubicaciones`, `/dashboard/ubicaciones/[id]` | Inventario multiespecie, fichas individuales/lote, capacidad por galpón/jaula/potrero, mapa de ocupación, traslados y etiquetas QR. |
-| **Producción** | `/dashboard/produccion`, `adquisiciones`, `peso`, `mortalidad`, `plan-parvada` | Postura NTC 1240, carne/sacrificio, reproducción conejos/cuyes, incubación, alimentación, gallinaza, entradas/linaje 3 gen, biometría CV%/EPEF y proyecciones. |
-| **Inventarios** | `/dashboard/inventarios/balance`, `huevos`, `carne`, `gallinaza`, `alimentacion`, `insumos` | Balance patrimonial, stock PEPS/FIFO, días de autonomía de alimento y alertas de reposición. |
-| **Almacén y Operaciones** | `/dashboard/almacen`, `/dashboard/operaciones/activos`, `mantenimiento`, `compostaje`, `cierre` | Activos/equipos con CAPEX/ROI y QR, mantenimientos periódicos, pilas térmicas AGROSAVIA, cierre diario auditable y telemetría IoT (ITH, NH3, báscula). |
-| **Planeación** | `/dashboard/planeacion`, `calendario`, `/dashboard/soberania` | Calendario Maestro unificado, rutinas auto-ajustables y balance de autoconsumo / soberanía alimentaria. |
-| **Sanidad** | `/dashboard/sanidad`, `control`, `calendario`, `alertas`, `bioseguridad` | Plan sanitario por etapa, tratamientos con candado de retiro farmacológico, vacunación automática, bajas y listas POE GAB / Bienestar ICA. |
-| **Finanzas y Contactos** | `/dashboard/finanzas`, `ventas`, `egresos`, `finanzas`, `presupuestos`, `cuentas`, `/dashboard/contactos` | 5 líneas de venta, compras con presentación y OCR, catálogo frecuente, CxC/CxP con abonos, presupuestos, flujo acumulado y directorio con crédito/WhatsApp. |
-| **Análisis y Configuración** | `/dashboard/analisis`, `kpis`, `razas`, `reportes`, `/dashboard/configuracion`, `modulos`, `catalogos` | KPIs, curvas por raza/altitud, contabilidad analítica Excel/PDF, escala Pequeño/Mediano, 5 flags progresivos y catálogos maestros en 8 pestañas. |
+| **Inicio y Escáner** | `/inicio`, `/escanear` | Tablero en grupos enmarcados (**Resumen del día**, **Tareas de hoy**, **Accesos directos**, **Resumen del mes / Tablero técnico** y **Completar configuración**), Asistente Día 1 y escáner QR multiespecie. |
+| **Animales y Lugares** | `/animales`, `/ubicaciones`, `/ubicaciones/[id]` | Inventario multiespecie, fichas individuales/lote, capacidad por galpón/jaula/potrero, mapa de ocupación, traslados y etiquetas QR. |
+| **Producción** | `/produccion`, `adquisiciones`, `peso`, `mortalidad`, `plan-parvada` | Postura NTC 1240, carne/sacrificio, reproducción conejos/cuyes, incubación, alimentación, gallinaza, entradas/linaje 3 gen, biometría CV%/EPEF y proyecciones. |
+| **Inventarios** | `/inventarios/balance`, `huevos`, `carne`, `gallinaza`, `alimentacion`, `insumos` | Balance patrimonial, stock PEPS/FIFO, días de autonomía de alimento y alertas de reposición. |
+| **Almacén y Operaciones** | `/almacen`, `/operaciones/activos`, `mantenimiento`, `compostaje`, `cierre` | Activos/equipos con CAPEX/ROI y QR, mantenimientos periódicos, pilas térmicas AGROSAVIA, cierre diario auditable y telemetría IoT (ITH, NH3, báscula). |
+| **Planeación y Soberanía** | `/planeacion`, `/planeacion/calendario`, `/soberania` | Calendario Maestro unificado, rutinas auto-ajustables y balance de autoconsumo / soberanía alimentaria. |
+| **Sanidad** | `/sanidad`, `control`, `calendario`, `alertas`, `bioseguridad` | Plan sanitario por etapa, tratamientos con candado de retiro farmacológico, vacunación automática, bajas y listas POE GAB / Bienestar ICA. |
+| **Finanzas y Contactos** | `/finanzas`, `ventas`, `egresos`, `finanzas`, `presupuestos`, `cuentas`, `/contactos` | 5 líneas de venta, compras con presentación y OCR, catálogo frecuente, CxC/CxP con abonos, presupuestos, flujo acumulado y directorio con crédito/WhatsApp. |
+| **Análisis, Exportación y Config** | `/analisis`, `kpis`, `razas`, `reportes`, `/exportar`, `/configuracion`, `modulos`, `catalogos`, `usuarios`, `plan`, `kit-campo`, `granjas` | KPIs, curvas por raza/altitud, contabilidad analítica Excel/PDF, conectores ERP v1, escala Pequeño/Mediano, módulos progresivos, usuarios/roles y catálogos maestros. |
 
 Para una guía detallada de cada módulo, consulta **[docs/features.md](docs/features.md)**, **[docs/data-dictionary.md](docs/data-dictionary.md)** o entra directamente al manual web en `/guia`.
 
@@ -133,13 +134,19 @@ createdb app_db
 cp .env.example .env.local
 ```
 
-Edita `.env.local` con tu conexión:
+Edita `.env.local` con tus credenciales locales y las integraciones opcionales que utilices (todas documentadas con valores de ejemplo en [`.env.example`](.env.example)):
 
 ```env
 DATABASE_URL=postgresql://TU_USUARIO:TU_CONTRASENA@127.0.0.1:5432/app_db
 ```
 
-> `.env.local` está ignorado en `.gitignore`. Nunca subas secretos o cadenas de conexión reales al repositorio.
+> `.env.local` tiene prioridad local y está ignorado en `.gitignore`. De este modo cada proyecto se configura de forma autónoma sin depender de un `.env` global externo y sin exponer secretos en Git.
+
+Variables opcionales principales incluidas en [`.env.example`](.env.example):
+- **Gina (IA, Voz STT y Cámara/OCR):** `ASSISTANT_AI_*`, `ASSISTANT_STT_*`, `ASSISTANT_VISION_*` (o `DEEPSEEK_API_KEY`, `OPENAI_API_KEY`, `GEMINI_API_KEY`) y `ASSISTANT_INTERNAL_BASE_URL`.
+- **Correo y alertas:** `SMTP_*`, `NOTIFY_EMAIL`, `TELEGRAM_BOT_TOKEN`, `TELEGRAM_CHAT_ID`.
+- **Pagos, IoT y analítica:** `WOMPI_*`, `SENSOR_WEBHOOK_TOKEN`, `NEXT_PUBLIC_SWETRIX_*`.
+- **Datos legales:** `LEGAL_RAZON_SOCIAL`, `LEGAL_NIT`, `LEGAL_EMAIL`, `LEGAL_WHATSAPP`, `LEGAL_IVA_NOTE`.
 
 ### 3. Aplicar esquema, roles/RLS y semilla base en un solo comando
 

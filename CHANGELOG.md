@@ -12,7 +12,7 @@ El formato está basado en [Keep a Changelog](https://keepachangelog.com/es-ES/1
 - **Gina (Asistente Operativa):** personaje cercano (gallina con gafas) con consulta de datos en tiempo real, lectura OCR de facturas/etiquetas con cámara, memoria persistente por finca, dictado por voz y tarjeta de confirmación obligatoria antes de escribir.
 - **Onboarding Progresivo (Pequeño vs. Mediano):** Asistente inicial Día 1 en 3 pasos (con importación CSV), selector de escala en tiempo real, 4 módulos core siempre activos y 5 módulos progresivos desbloqueables por crecimiento o manualmente.
 - **Estándares Técnicos y Normativos:** clasificación NTC 1240 (Jumbo a C) en stock PEPS, listas POE GAB y bienestar animal (ICA Res. 3651/3652, 205/2022 y 8452/2025), compostaje térmico AGROSAVIA, cierre diario auditable con hash e integración IoT (ITH, NH3, báscula), contabilidad analítica con prorrateo de indirectos y soberanía alimentaria.
-- **Guía de Usuario Completa (45 artículos):** manual público (`/guia`) e interno (`/dashboard/guia`) actualizado con capturas reales, diagramas de flujo y buscador completo.
+- **Guía de Usuario Completa (45+ artículos):** manual público (`/guia`) e interno (`/manual`) actualizado con capturas reales, diagramas de flujo y buscador completo.
 - **Formalización Open-Core y Licenciamiento Dual:** incorporación de [COMMERCIAL-LICENSE.md](COMMERCIAL-LICENSE.md) y [docs/estrategia-open-core.md](docs/estrategia-open-core.md) junto a la licencia base [GNU AGPLv3](LICENSE), actualizando [README.md](README.md), [CONTRIBUTING.md](CONTRIBUTING.md), [SECURITY.md](SECURITY.md) y [docs/features.md](docs/features.md).
 
 ### Cambiado

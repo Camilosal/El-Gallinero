@@ -44,34 +44,29 @@ DATABASE_URL=postgresql://TU_USUARIO:TU_CONTRASENA@localhost:5432/app_db
 
 ### 4. Preparar la Base de Datos
 
-#### Opción A: Usar el script de configuración completa (recomendado para inicio)
+#### Opción A: Inicialización limpia y semilla base obligatoria (recomendado)
 
 ```bash
 # Crear la base de datos
 createdb app_db
 
-# Aplicar el esquema
-npm run db:push
-
-# Sembrar datos de demostración
-DEMO_ADMIN_PASSWORD='elige-una-clave-de-12-caracteres' npm run db:seed -- --allow-destructive
+# Aplicar migraciones unificadas (drizzle/), RLS y semilla base (y admin opcional)
+ADMIN_USERNAME='admin' ADMIN_PASSWORD='elige-una-clave-de-12-caracteres' npm run db:bootstrap
 ```
 
-#### Opción B: Paso a paso (para desarrollo activo)
+#### Opción B: Datos de demostración y prototipado rápido de esquema
 
 ```bash
-# 1. Crear base de datos
+# 1. Crear y bootstappear la base de datos local descartable
 createdb app_db
+npm run db:bootstrap
 
-# 2. Aplicar migraciones del esquema
-npm run db:push
-
-# 3. (Opcional) Reemplazar una base local descartable con datos de demostración
+# 2. (Opcional) Cargar datos sintéticos de demostración (bloqueado en producción)
 DEMO_ADMIN_PASSWORD='elige-una-clave-de-12-caracteres' npm run db:seed -- --allow-destructive
 
-# 4. Durante el desarrollo, cuando cambie el esquema:
-npm run db:generate   # Genera archivos de migración SQL
-npm run db:push       # Aplica los cambios a la BD
+# 3. Durante el desarrollo activo tras editar src/db/schema.ts:
+npm run db:push       # Sincroniza cambios rápidos en BD local
+npm run db:generate   # Genera el SQL definitivo en drizzle/
 ```
 
 ### 5. Iniciar el Servidor de Desarrollo
@@ -171,27 +166,17 @@ Las pruebas se ubican en:
 - `tests/` para pruebas de integración y de flujo
 - Junto a los archivos fuente como `*.test.ts` para pruebas unitarias
 
-Ejemplo de estructura de prueba:
+Ejemplo de estructura de prueba con Vitest:
 
 ```typescript
-import { describe, it, expect, beforeEach } from 'vitest'
-import { render, screen } from '@testing-library/react'
-import { MiComponente } from './MiComponente'
+import { describe, expect, it } from "vitest";
+import { calcularMiRegla } from "@/lib/mi-modulo";
 
-describe('MiComponente', () => {
-  beforeEach(() => {
-    // Configuración antes de cada prueba
-  })
-
-  it('debe renderizar correctamente', () => {
-    render(<MiComponente />)
-    expect(screen.getByText(/texto esperado/i)).toBeInTheDocument()
-  })
-
-  it('maneja el caso edge correctamente', () => {
-    // ... implementación
-  })
-})
+describe("mi-modulo", () => {
+  it("calcula el resultado esperado", () => {
+    expect(calcularMiRegla(10)).toBe(20);
+  });
+});
 ```
 
 ### Estilos y UI
@@ -313,9 +298,9 @@ Revise cuidadosamente los mensajes de error - suelen indicar exactamente qué es
 
 ### ¿Dónde debo colocar nuevos componentes?
 
-Siga la estructura existente en `src/app/(app)/[sección]/[submódulo]/`. Por ejemplo:
-- Nuevos componentes de producción van en `src/app/(app)/produccion/[submódulo]/components/`
-- Componentes reutilizables van en `src/components/`
+Siga la estructura existente en `src/app/(app)/[sección]/`:
+- Los componentes específicos de cada módulo van en `src/app/(app)/[sección]/_components/`
+- Los componentes reutilizables globales van en `src/components/`
 
 ### ¿Cómo agrego una nueva ruta API?
 
