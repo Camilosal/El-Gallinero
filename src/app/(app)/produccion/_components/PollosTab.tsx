@@ -6,7 +6,7 @@ import { useSearchParams } from "next/navigation";
 import { AlertTriangle, BarChart3, CheckCircle2, QrCode } from "lucide-react";
 import EntityQrModal from "@/components/EntityQrModal";
 import { apiFetch } from "@/lib/fetch";
-import { PageHeader, StatCard, Card, Button, Input, Select, Textarea, Badge, Modal, Table, EmptyState } from "@/components/ui";
+import { PageHeader, HeroActionLink, StatCard, Card, Button, Input, Select, Textarea, Badge, Modal, Table, EmptyState } from "@/components/ui";
 import { AppIcon } from "@/components/AppIcon";
 import TableSearch from "@/components/TableSearch";
 import { matchesTextQuery } from "@/lib/text";
@@ -374,9 +374,9 @@ export default function PollosPage({ embedded = false, initialTab, initialSpecie
         description="Gestión integral de lotes de engorde o cría (pollos, codornices, patos, conejos y cuyes) y gallos reproductores"
         help="Aquí gestionas los lotes de crianza y engorde de todas las especies de la granja:\n\n• Pollos de engorde (ciclo ~7 sem, ~2.5 kg)\n• Codornices (ciclo ~6 sem, postura o carne)\n• Patos Pekín y Criollos (ciclo 8-12 sem, carne tierna)\n• Conejos de engorde (ciclo ~11 sem / 77 días, carne magra)\n• Cuyes / Curíes (ciclo ~13 sem / 90 días, dieta forraje + Vitamina C)\n\nEl sistema evalúa automáticamente si el lote cumplió la edad o peso objetivo para faena."
         actions={
-          <div className="flex gap-2">
-            {tab === "gallos" && <Link href="/produccion/adquisiciones?nuevo=gallo" className="inline-flex items-center rounded-lg bg-green-700 px-4 py-2 text-sm font-semibold text-white hover:bg-green-800">Registrar ingreso de gallos</Link>}
-            {tab === "lotes" && <Link href="/produccion/adquisiciones?nuevo=lote_pollos" className="inline-flex items-center rounded-lg bg-green-700 px-4 py-2 text-sm font-semibold text-white hover:bg-green-800">Registrar lote nuevo</Link>}
+          <div className="flex flex-wrap gap-2">
+            {tab === "gallos" && <HeroActionLink href="/produccion/adquisiciones?nuevo=gallo" tone="solid">Registrar ingreso de gallos</HeroActionLink>}
+            {tab === "lotes" && <HeroActionLink href="/produccion/adquisiciones?nuevo=lote_pollos" tone="solid">Registrar lote nuevo</HeroActionLink>}
           </div>
         }
       />}

@@ -1,7 +1,6 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import Link from "next/link";
 import {
   ArrowLeft,
   ArrowRightLeft,
@@ -18,7 +17,7 @@ import {
   Sparkles,
   Users,
 } from "lucide-react";
-import { HeroBanner } from "@/components/HeroBanner";
+import { HeroActionButton, HeroActionLink, HeroBanner } from "@/components/HeroBanner";
 import TableSearch from "@/components/TableSearch";
 import { Input, Modal, Select, Tooltip } from "@/components/ui";
 import { matchesTextQuery } from "@/lib/text";
@@ -592,17 +591,22 @@ export default function SuperAdminGranjasPage() {
 
   if (forbiddenMessage) {
     return (
-      <div className="p-4 sm:p-8 max-w-4xl mx-auto">
+      <div className="space-y-6">
+        <HeroBanner
+          theme="guia"
+          icon={<ShieldCheck className="w-4 h-4 text-amber-200" aria-hidden="true" />}
+          title="Panel Super-Admin de Granjas (Tenants)"
+          description="Gobierno central multi-tenant: administra fincas registradas, planes, fechas de vencimiento, cupos de usuarios y modo soporte."
+          actions={
+            <HeroActionLink href="/configuracion" tone="glass">
+              <ArrowLeft className="w-4 h-4" />
+              <span>Volver a Configuración</span>
+            </HeroActionLink>
+          }
+        />
         <div className="bg-red-50 border-2 border-red-200 rounded-2xl p-6 text-red-900">
           <h2 className="text-lg font-bold mb-2">Acceso Restringido</h2>
-          <p className="text-sm mb-4">{forbiddenMessage}</p>
-          <Link
-            href="/configuracion"
-            className="inline-flex items-center gap-2 min-h-[48px] px-4 py-2.5 rounded-xl bg-white border border-red-300 font-semibold text-sm text-red-900 hover:bg-red-100"
-          >
-            <ArrowLeft className="w-4 h-4" />
-            Volver a Configuración
-          </Link>
+          <p className="text-sm">{forbiddenMessage}</p>
         </div>
       </div>
     );
@@ -613,45 +617,38 @@ export default function SuperAdminGranjasPage() {
     data.currentContext.activeFarmId !== data.currentContext.defaultFarmId;
 
   return (
-    <div className="p-4 sm:p-8 max-w-7xl mx-auto space-y-6">
-      <div className="flex items-center justify-between gap-3 flex-wrap">
-        <Link
-          href="/configuracion"
-          className="inline-flex items-center gap-2 min-h-[48px] px-3.5 py-2 rounded-xl bg-white border border-slate-300 text-sm font-semibold text-slate-700 hover:bg-slate-50"
-        >
-          <ArrowLeft className="w-4 h-4" />
-          Volver a Configuración
-        </Link>
-
-        <div className="flex items-center gap-2.5 flex-wrap">
-          <button
-            type="button"
-            onClick={() => loadTenants(true)}
-            disabled={loading}
-            className="inline-flex items-center gap-2 min-h-[48px] px-4 py-2.5 rounded-xl bg-white border border-slate-300 text-sm font-semibold text-slate-700 hover:bg-slate-50 disabled:opacity-50"
-          >
-            <RefreshCw className={`w-4 h-4 ${loading ? "animate-spin" : ""}`} />
-            Actualizar
-          </button>
-          <button
-            type="button"
-            onClick={() => {
-              setCreatedCredentials(null);
-              setShowCreateModal(true);
-            }}
-            className="inline-flex items-center gap-2 min-h-[48px] px-5 py-2.5 rounded-xl bg-emerald-700 text-white text-sm font-bold hover:bg-emerald-800 shadow-sm"
-          >
-            <Plus className="w-4 h-4" />
-            + Nueva Granja (Alta Llave en Mano)
-          </button>
-        </div>
-      </div>
-
+    <div className="space-y-6">
       <HeroBanner
         theme="guia"
         icon={<ShieldCheck className="w-4 h-4 text-amber-200" aria-hidden="true" />}
         title="Panel Super-Admin de Granjas (Tenants)"
         description="Gobierno central multi-tenant: administra fincas registradas, planes, fechas de vencimiento, cupos de usuarios, activaciones por transferencia y modo soporte."
+        actions={
+          <>
+            <HeroActionLink href="/configuracion" tone="glass">
+              <ArrowLeft className="w-4 h-4" />
+              <span>Volver a Configuración</span>
+            </HeroActionLink>
+            <HeroActionButton
+              tone="glass"
+              onClick={() => loadTenants(true)}
+              disabled={loading}
+            >
+              <RefreshCw className={`w-4 h-4 ${loading ? "animate-spin" : ""}`} />
+              <span>Actualizar</span>
+            </HeroActionButton>
+            <HeroActionButton
+              tone="solid"
+              onClick={() => {
+                setCreatedCredentials(null);
+                setShowCreateModal(true);
+              }}
+            >
+              <Plus className="w-4 h-4" />
+              <span>Nueva Granja (Llave en Mano)</span>
+            </HeroActionButton>
+          </>
+        }
       />
 
       {feedback && (

@@ -59,7 +59,7 @@ export default function FinanzasPage() {
   );
 
   return (
-    <div className="p-8">
+    <div>
       <HeroBanner
         theme="finanzas"
         icon={<CircleDollarSign className="w-3.5 h-3.5 text-amber-200" aria-hidden="true" />}

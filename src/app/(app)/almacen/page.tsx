@@ -4,7 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { AlertTriangle, PackageOpen, Wheat, Wrench } from "lucide-react";
 import { AppIcon } from "@/components/AppIcon";
-import { PageHeader, Card, StatCard, Badge, EmptyState } from "@/components/ui";
+import { PageHeader, HeroActionLink, Card, StatCard, Badge, EmptyState } from "@/components/ui";
 import TableSearch from "@/components/TableSearch";
 import { apiFetch } from "@/lib/fetch";
 import { matchesTextQuery } from "@/lib/text";
@@ -188,20 +188,14 @@ export default function AlmacenPage() {
         description="Alimentos, insumos, activos, mantenimiento, compostaje térmico y cierre diario de la granja."
         help="Este espacio reúne los recursos operativos, instalaciones y procesos de soporte diarios de la granja:\n\n• Gestión de alimentación e Inventario de alimentos: stock en bultos de 40 kg, dieta combinada (%MS/%PC/Vit. C), programas y predicción.\n• Insumos: medicamentos, vacunas, empaques y materiales.\n• Activos y equipos / Mantenimiento: hojas de vida, garantías y tareas periódicas.\n• Compostaje: pilas 3:1:1 y 7:2:2 con monitoreo de temperatura y volteos.\n• Cierre Diario y Sensores: conciliación auditable al cierre de jornada y lecturas IoT (ITH, NH3, T°/HR, báscula)."
         actions={
-          <div className="flex flex-wrap gap-2">
-            <Link
-              href="/produccion?tab=alimentacion"
-              className="rounded-lg bg-green-600 px-3 py-2 text-sm font-medium text-white transition-colors hover:bg-green-700"
-            >
-              Gestionar alimentación
-            </Link>
-            <Link
-              href="/inventarios/insumos"
-              className="rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm font-medium text-slate-700 transition-colors hover:bg-slate-50"
-            >
+          <>
+            <HeroActionLink href="/inventarios/insumos" tone="glass">
               Gestionar insumos
-            </Link>
-          </div>
+            </HeroActionLink>
+            <HeroActionLink href="/produccion?tab=alimentacion" tone="solid">
+              Gestionar alimentación
+            </HeroActionLink>
+          </>
         }
       />
 

@@ -3,7 +3,7 @@
 import { useEffect, useState, useCallback, useMemo } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { AlertTriangle, ArrowDown, ArrowUp, BarChart3, ClipboardList, Lightbulb, Package, Pencil, ShoppingCart, Sparkles, TrendingDown, TrendingUp, X } from "lucide-react";
-import { PageHeader, Button, Card, Table, Badge, Modal, Input, Select, Textarea, EmptyState, StatCard, Tooltip as FieldTooltip } from "@/components/ui";
+import { PageHeader, HeroActionButton, Button, Card, Table, Badge, Modal, Input, Select, Textarea, EmptyState, StatCard, Tooltip as FieldTooltip } from "@/components/ui";
 import { AppIcon } from "@/components/AppIcon";
 import { useCatalog } from "@/lib/useCatalog";
 import ContactField from "@/components/contacts/ContactField";
@@ -795,20 +795,16 @@ export default function AlimentacionPage() {
         description="Alimentos, movimientos, programas por etapa y predicción de consumo"
         help="Gestiona los alimentos de tus animales y su consumo.\n\n• Inventario: registra los alimentos que tienes (de granja o comprados), su stock y costo.\n• Movimientos: registra entradas (compras, donaciones) y salidas manuales. El consumo diario por programa se calcula automáticamente.\n• Etapas y Programas: define qué come cada grupo de animales según su etapa de crecimiento. El sistema calcula el consumo automático diario.\n• Planificado vs Real: compara lo que debieron comer vs lo que realmente consumieron.\n• Predicción de Stock: proyecta cuándo se agotará cada alimento según el consumo actual.\n\nLa proyección de stock y la comparación con lo esperado viven solo en sus pestañas, para no duplicar información."
         actions={
-          <div className="flex gap-2">
-            <Button onClick={openNewFeed}>+ Nuevo Alimento</Button>
-            <Button variant="success" onClick={() => openMovement(true)}>
-              <span className="inline-flex items-center gap-1.5">
-                <ShoppingCart className="w-4 h-4" aria-hidden="true" />
-                <span>Entrada</span>
-              </span>
-            </Button>
-            <Button variant="danger" onClick={() => openMovement(false)}>
-              <span className="inline-flex items-center gap-1.5">
-                <ArrowUp className="w-4 h-4" aria-hidden="true" />
-                <span>Salida</span>
-              </span>
-            </Button>
+          <div className="flex flex-wrap gap-2">
+            <HeroActionButton tone="glass" onClick={() => openMovement(true)}>
+              <ShoppingCart className="w-4 h-4" aria-hidden="true" />
+              <span>Entrada</span>
+            </HeroActionButton>
+            <HeroActionButton tone="glass" onClick={() => openMovement(false)}>
+              <ArrowUp className="w-4 h-4" aria-hidden="true" />
+              <span>Salida</span>
+            </HeroActionButton>
+            <HeroActionButton tone="solid" onClick={openNewFeed}>+ Nuevo Alimento</HeroActionButton>
           </div>
         }
       />

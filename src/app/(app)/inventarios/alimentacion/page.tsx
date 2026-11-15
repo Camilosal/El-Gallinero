@@ -1,5 +1,6 @@
 import {
   PageHeader,
+  HeroActionButton,
   Card,
   StatCard,
 } from "@/components/ui";
@@ -59,7 +60,7 @@ export default async function AlimentacionInventoryPage({
           >
             <label
               htmlFor="days"
-              className="text-sm text-slate-600 whitespace-nowrap"
+              className="text-xs font-medium text-emerald-50 whitespace-nowrap"
             >
               Proyección:
             </label>
@@ -67,7 +68,7 @@ export default async function AlimentacionInventoryPage({
               id="days"
               name="days"
               defaultValue={String(period)}
-              className="border border-slate-300 rounded-lg px-3 py-1.5 text-sm font-medium bg-white"
+              className="min-h-[38px] border border-white/30 rounded-xl px-3 py-1.5 text-xs sm:text-[13px] font-semibold bg-white/95 text-slate-800"
             >
               {ALLOWED_PERIODS.map((days) => (
                 <option key={days} value={days}>
@@ -75,12 +76,9 @@ export default async function AlimentacionInventoryPage({
                 </option>
               ))}
             </select>
-            <button
-              type="submit"
-              className="px-3 py-1.5 text-sm font-medium rounded-lg bg-green-600 text-white hover:bg-green-700 transition-colors"
-            >
+            <HeroActionButton type="submit" tone="solid">
               Aplicar
-            </button>
+            </HeroActionButton>
           </form>
         }
       />

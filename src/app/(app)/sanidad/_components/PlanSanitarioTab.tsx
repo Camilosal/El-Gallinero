@@ -3,7 +3,7 @@
 import { useEffect, useState, useCallback, useMemo } from "react";
 import Link from "next/link";
 import { AlertCircle, AlertTriangle, BarChart3, Bird, Calendar, CheckCircle2, ClipboardList, Clock, History, Lightbulb, ShieldCheck, Stethoscope, Wrench, Zap } from "lucide-react";
-import { PageHeader, Button, Card, Table, Badge, Modal, Input, Select, Textarea, EmptyState, StatCard } from "@/components/ui";
+import { PageHeader, HeroActionButton, HeroActionLink, Button, Card, Table, Badge, Modal, Input, Select, Textarea, EmptyState, StatCard } from "@/components/ui";
 import { apiFetch } from "@/lib/fetch";
 import TableSearch from "@/components/TableSearch";
 import { matchesTextQuery } from "@/lib/text";
@@ -346,17 +346,12 @@ export default function PlanSanitarioTab() {
         help="El Plan Sanitario es tu sistema proactivo de salud multi-especie.\n\n• Plan de Acción: muestra las acciones pendientes organizadas por urgencia.\n• Protocolos por Etapa: define qué acciones sanitarias corresponden a cada etapa.\n• Ejecutar: registra la aplicación de cada acción confirmando recursos y días de retiro.\n• Historial y Recursos: trazabilidad e inventario de medicamentos.\n• Módulos hermanos: accede directo a Control sanitario, Calendario, Alertas y Bioseguridad/Bienestar (POE GAB ICA / Res. 8452)."
         actions={
           <div className="flex flex-wrap gap-2">
-            <Link
-              href="/sanidad/bioseguridad"
-              className="inline-flex items-center gap-1.5 rounded-lg border border-emerald-300 bg-emerald-50 px-3 py-2 text-sm font-medium text-emerald-800 hover:bg-emerald-100"
-            >
+            <HeroActionLink href="/sanidad/bioseguridad" tone="glass">
               <ShieldCheck className="w-4 h-4" aria-hidden="true" /> Bioseguridad e ICA
-            </Link>
-            <Button onClick={() => { setSeedStage(stages[0]?.value || ""); setSeedModalOpen(true); }}>
-              <span className="inline-flex items-center gap-1.5">
-                <ClipboardList className="w-4 h-4" aria-hidden="true" /> Generar desde Protocolo
-              </span>
-            </Button>
+            </HeroActionLink>
+            <HeroActionButton tone="solid" onClick={() => { setSeedStage(stages[0]?.value || ""); setSeedModalOpen(true); }}>
+              <ClipboardList className="w-4 h-4" aria-hidden="true" /> Generar desde Protocolo
+            </HeroActionButton>
           </div>
         }
       />

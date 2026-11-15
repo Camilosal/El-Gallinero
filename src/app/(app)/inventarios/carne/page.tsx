@@ -1,9 +1,8 @@
 "use client";
 
 import { useEffect, useState, useCallback, useMemo } from "react";
-import Link from "next/link";
 import { Tag } from "lucide-react";
-import { PageHeader, Card, Table, StatCard, EmptyState, Button, Badge } from "@/components/ui";
+import { PageHeader, HeroActionLink, Card, Table, StatCard, EmptyState, Badge } from "@/components/ui";
 import { AppIcon } from "@/components/AppIcon";
 import { apiFetch } from "@/lib/fetch";
 import TableSearch from "@/components/TableSearch";
@@ -100,10 +99,10 @@ export default function InventarioCarnePage() {
         description="Stock de carne limpia en frío: pollo, gallina, codorniz, pato, conejo y cuy. Consumo FIFO."
         help="Inventario de carne disponible proveniente de faenas. Se muestra lo producido, vendido, perdido y disponible por especie y lote. Los precios de valoración se basan en el mercado local por kg canal."
         actions={
-          <div className="flex gap-2">
-            <Link href="/produccion/sacrificio"><Button variant="secondary">Registrar Faena</Button></Link>
-            <Link href="/finanzas/ventas?tab=carne"><Button>+ Registrar Venta de Carne</Button></Link>
-          </div>
+          <>
+            <HeroActionLink href="/produccion/sacrificio" tone="glass">Registrar Faena</HeroActionLink>
+            <HeroActionLink href="/finanzas/ventas?tab=carne" tone="solid">+ Registrar Venta de Carne</HeroActionLink>
+          </>
         }
       />
 

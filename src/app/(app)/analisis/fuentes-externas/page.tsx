@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { Globe, RefreshCw, MapPin, CloudSun, TrendingUp, ShieldAlert, Landmark, Cpu, TableProperties } from "lucide-react";
-import { Badge, Button, Card, PageHeader, Select } from "@/components/ui";
+import { Badge, Button, Card, HeroActionButton, HeroActionLink, PageHeader, Select } from "@/components/ui";
 import { apiFetch } from "@/lib/fetch";
 import { COLOMBIA_DIVIPOLA_CATALOG } from "@/lib/divipola-catalog";
 
@@ -291,16 +291,13 @@ export default function FuentesExternasControlPage() {
           "• Vigilancia ICA, calendario y sensores: prioriza las alertas sanitarias de su departamento, verifica festivos para programación de personal e integra lecturas ambientales de galpón.",
         ].join("\n")}
         actions={
-          <div className="flex flex-wrap items-center gap-2">
-            <Link
-              href="/configuracion/catalogos?tab=fuentes"
-              className="inline-flex items-center gap-1.5 px-3 py-2 text-xs font-semibold rounded-lg border border-white/25 bg-white/15 backdrop-blur-sm text-white hover:bg-white/25 transition-colors"
-            >
+          <>
+            <HeroActionLink href="/configuracion/catalogos?tab=fuentes" tone="glass">
               <TableProperties className="w-3.5 h-3.5" />
-              Ver tablas maestras en Catálogos
-            </Link>
-            <Button
-              variant="primary"
+              <span>Ver tablas maestras en Catálogos</span>
+            </HeroActionLink>
+            <HeroActionButton
+              tone="solid"
               disabled={busyAction !== null}
               onClick={() =>
                 runAction(
@@ -310,10 +307,10 @@ export default function FuentesExternasControlPage() {
                 )
               }
             >
-              <RefreshCw className={`w-4 h-4 mr-1.5 ${busyAction === "sync_all" ? "animate-spin" : ""}`} />
-              {busyAction === "sync_all" ? "Sincronizando..." : "Sincronizar todas las fuentes"}
-            </Button>
-          </div>
+              <RefreshCw className={`w-3.5 h-3.5 ${busyAction === "sync_all" ? "animate-spin" : ""}`} />
+              <span>{busyAction === "sync_all" ? "Sincronizando..." : "Sincronizar todas las fuentes"}</span>
+            </HeroActionButton>
+          </>
         }
       />
 

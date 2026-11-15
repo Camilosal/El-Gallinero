@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { AlertTriangle, Award, Calendar, CheckCircle2, Dna, HeartHandshake, Rabbit } from "lucide-react";
-import { Badge, Button, Card, EmptyState, Input, Modal, PageHeader, Select, StatCard, Table, Textarea } from "@/components/ui";
+import { Badge, Button, Card, EmptyState, HeroActionButton, Input, Modal, PageHeader, Select, StatCard, Table, Textarea } from "@/components/ui";
 import TableSearch from "@/components/TableSearch";
 import { apiFetch } from "@/lib/fetch";
 import { todayColombiaIso } from "@/lib/date-validation";
@@ -201,9 +201,9 @@ export default function ReproduccionTab() {
         }
         actions={(
           <div className="flex flex-wrap gap-2">
-            <Button onClick={() => openModalWith("empadre")}>+ Registrar Empadre</Button>
-            <Button variant="secondary" onClick={() => openModalWith("parto")}>+ Registrar Parto</Button>
-            <Button variant="success" onClick={() => openModalWith("destete")}>+ Destete y Lote</Button>
+            <HeroActionButton tone="glass" onClick={() => openModalWith("parto")}>+ Registrar Parto</HeroActionButton>
+            <HeroActionButton tone="glass" onClick={() => openModalWith("destete")}>+ Destete y Lote</HeroActionButton>
+            <HeroActionButton tone="solid" onClick={() => openModalWith("empadre")}>+ Registrar Empadre</HeroActionButton>
           </div>
         )}
       />

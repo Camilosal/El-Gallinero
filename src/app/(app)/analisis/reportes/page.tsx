@@ -1,11 +1,10 @@
 "use client";
 
 import { Suspense, useEffect, useState, useCallback, useMemo } from "react";
-import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { ArrowDownLeft, ArrowUpRight, AlertTriangle, Download, FileSpreadsheet, FileText, Printer, MessageCircle, PlugZap, Scale, Plus, Trash2 } from "lucide-react";
 import { AppIcon } from "@/components/AppIcon";
-import { PageHeader, Card, Input, Button, Table, EmptyState, Select, Modal, Badge } from "@/components/ui";
+import { PageHeader, HeroActionButton, HeroActionLink, Card, Input, Button, Table, EmptyState, Select, Modal, Badge } from "@/components/ui";
 import { ANIMAL_SPECIES, SPECIES_LABELS } from "@/lib/species";
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip, Legend, BarChart, Bar, XAxis, YAxis, CartesianGrid } from "recharts";
 import { apiFetch } from "@/lib/fetch";
@@ -395,33 +394,35 @@ ${netText}`);
         description="Estado de resultados, prorrateo por especie/lugar, márgenes NTC 1240, ROI y exportación"
         actions={
           <div className="flex flex-wrap gap-2 print:hidden">
-            <Button className="px-3 py-1.5 text-xs" variant="secondary" onClick={() => exportFile("csv")}>
-              <Download className="w-4 h-4 mr-1 inline" /> CSV
-            </Button>
+            <HeroActionButton tone="glass" onClick={() => exportFile("csv")}>
+              <Download className="w-3.5 h-3.5" />
+              <span>CSV</span>
+            </HeroActionButton>
             {formalReportsEnabled && (
-              <Button className="px-3 py-1.5 text-xs" variant="secondary" onClick={() => exportFile("xlsx")}>
-                <FileSpreadsheet className="w-4 h-4 mr-1 inline" /> Excel (.xlsx)
-              </Button>
+              <HeroActionButton tone="glass" onClick={() => exportFile("xlsx")}>
+                <FileSpreadsheet className="w-3.5 h-3.5" />
+                <span>Excel (.xlsx)</span>
+              </HeroActionButton>
             )}
-            <Button className="px-3 py-1.5 text-xs" variant="secondary" onClick={() => window.print()}>
-              <Printer className="w-4 h-4 mr-1 inline" /> PDF / Imprimir
-            </Button>
-            <Button
-              className="px-3 py-1.5 text-xs"
-              variant="secondary"
+            <HeroActionButton tone="glass" onClick={() => window.print()}>
+              <Printer className="w-3.5 h-3.5" />
+              <span>PDF / Imprimir</span>
+            </HeroActionButton>
+            <HeroActionButton
+              tone="glass"
               onClick={() => window.open("/api/operaciones/entregables-ruta2?tipo=acta-entrega&format=pdf", "_blank")}
             >
-              <FileText className="w-4 h-4 mr-1 inline" /> Acta Semana 4 / Punto de Equilibrio (PDF)
-            </Button>
-            <Button className="px-3 py-1.5 text-xs" variant="secondary" onClick={shareWhatsApp}>
-              <MessageCircle className="w-4 h-4 mr-1 inline" /> WhatsApp
-            </Button>
-            <Link
-              href="/exportar"
-              className="inline-flex items-center px-3 py-1.5 text-xs font-medium rounded-lg border border-emerald-200 bg-emerald-50 text-emerald-800 hover:bg-emerald-100 transition-colors"
-            >
-              <PlugZap className="w-4 h-4 mr-1 inline" /> Exportación completa / ERP
-            </Link>
+              <FileText className="w-3.5 h-3.5" />
+              <span>Acta Semana 4 / Equilibrio (PDF)</span>
+            </HeroActionButton>
+            <HeroActionButton tone="glass" onClick={shareWhatsApp}>
+              <MessageCircle className="w-3.5 h-3.5" />
+              <span>WhatsApp</span>
+            </HeroActionButton>
+            <HeroActionLink href="/exportar" tone="solid">
+              <PlugZap className="w-3.5 h-3.5" />
+              <span>Exportación / ERP</span>
+            </HeroActionLink>
           </div>
         }
       />

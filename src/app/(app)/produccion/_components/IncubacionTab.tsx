@@ -3,7 +3,7 @@
 import { useEffect, useState, useCallback, useMemo } from "react";
 import { useSearchParams } from "next/navigation";
 import { AlertTriangle, Bird, Calendar, CheckCircle2, ClipboardList, Egg, Eye, Flame } from "lucide-react";
-import { PageHeader, Button, Card, Table, Badge, Modal, Input, Select, Textarea, EmptyState, StatCard } from "@/components/ui";
+import { PageHeader, HeroActionButton, Button, Card, Table, Badge, Modal, Input, Select, Textarea, EmptyState, StatCard } from "@/components/ui";
 import { AppIcon } from "@/components/AppIcon";
 import { apiFetch } from "@/lib/fetch";
 import TableSearch from "@/components/TableSearch";
@@ -216,7 +216,7 @@ export default function IncubacionPage() {
         theme="incubacion"
         title="Incubación Multiespecie"
         description="Incubación natural y artificial para gallinas (21d), codornices (17d) y patos (28d) con ovoscopía, fertilidad y nacimiento sobre fértiles."
-        actions={<Button onClick={() => { setSaveError(""); setForm({ species: "gallina", henId: "", roosterId: "", locationId: locations[0]?.id || "", incubatorName: "", trayCode: "", startDate: new Date().toISOString().split("T")[0], eggsSet: 10, notes: "" }); setModalOpen(true); }}>+ Nueva Incubación</Button>}
+        actions={<HeroActionButton tone="solid" onClick={() => { setSaveError(""); setForm({ species: "gallina", henId: "", roosterId: "", locationId: locations[0]?.id || "", incubatorName: "", trayCode: "", startDate: new Date().toISOString().split("T")[0], eggsSet: 10, notes: "" }); setModalOpen(true); }}>+ Nueva Incubación</HeroActionButton>}
       />
 
       {lastInsight && (

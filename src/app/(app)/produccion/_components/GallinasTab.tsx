@@ -4,7 +4,7 @@ import { useEffect, useState, useCallback, useMemo } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { AlertTriangle, Egg } from "lucide-react";
-import { PageHeader, Button, Card, Table, Badge, Modal, Input, Select, Textarea, EmptyState } from "@/components/ui";
+import { PageHeader, HeroActionLink, Button, Card, Table, Badge, Modal, Input, Select, Textarea, EmptyState } from "@/components/ui";
 import TableSearch from "@/components/TableSearch";
 import { useCatalog } from "@/lib/useCatalog";
 import { getBreedsForSpecies } from "@/lib/animal-breeds";
@@ -230,11 +230,11 @@ export default function GallinasPage({ embedded = false }: { embedded?: boolean 
         description="Estado, postura y evolución de las gallinas ya ingresadas"
         help="Esta vista sirve para dar seguimiento a gallinas que ya están registradas. Toda gallina nueva debe ingresar primero por Adquisiciones con su origen (compra, donación o cría propia); las gallinas nacidas por incubación quedan vinculadas automáticamente a ese proceso.\n\n• Los gallos y lotes se gestionan aparte en Animales.\n• El sistema calcula automáticamente la etapa de crecimiento y cambia el estado según la edad y condición.\n• Las gallinas marcadas como 'recomendada sacrificio' son candidatas para venta o faena según su rendimiento.\n• Usa el botón 'Etiquetas QR' para generar códigos QR que puedes imprimir y pegar en bandas de pata. Luego escanéalo con tu celular para acceder rápido a cada ave.\n• Filtra por estado o etapa para encontrar gallinas específicas."
         actions={
-          <div className="flex gap-2">
-            <QrGeneratorButton hens={hens} />
-            <Link href="/produccion/adquisiciones?nuevo=gallina" className="inline-flex items-center rounded-lg bg-green-700 px-4 py-2 text-sm font-semibold text-white hover:bg-green-800">
+          <div className="flex flex-wrap gap-2">
+            <QrGeneratorButton hens={hens} hero />
+            <HeroActionLink href="/produccion/adquisiciones?nuevo=gallina" tone="solid">
               Registrar ingreso
-            </Link>
+            </HeroActionLink>
           </div>
         }
       />}

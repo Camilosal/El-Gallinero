@@ -23,7 +23,7 @@ import {
   Wheat,
 } from "lucide-react";
 import { AppIcon } from "@/components/AppIcon";
-import { HeroBanner } from "@/components/HeroBanner";
+import { HeroActionButton, HeroBanner } from "@/components/HeroBanner";
 import BehavioralNudgeBanner from "@/components/BehavioralNudgeBanner";
 import { Card } from "@/components/ui";
 import RoutineDayButtons from "@/components/RoutineDayButtons";
@@ -545,28 +545,23 @@ export default function Dashboard() {
           ) : undefined
         }
         actions={
-          <div className="flex flex-wrap items-center gap-2">
-            <button
-              type="button"
+          <>
+            <HeroActionButton
+              tone="glass"
               onClick={handleManualExternalSync}
               disabled={syncingExternal}
-              className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-lg border transition-colors bg-white/15 backdrop-blur-sm border-white/25 text-white hover:bg-white/25 disabled:opacity-60 cursor-pointer"
             >
               <RefreshCw className={`w-3.5 h-3.5 ${syncingExternal ? "animate-spin" : ""}`} aria-hidden="true" />
               <span>{syncingExternal ? "Sincronizando..." : "Sincronizar fuentes externas"}</span>
-            </button>
-            <button
-              type="button"
+            </HeroActionButton>
+            <HeroActionButton
+              tone={showWizardCta ? "accent" : "glass"}
               onClick={() => setWizardOpen(true)}
-              className={`inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-lg border transition-colors cursor-pointer ${showWizardCta
-                ? "bg-amber-400 border-amber-300 text-slate-950 hover:bg-amber-300 shadow-sm"
-                : "bg-white/15 backdrop-blur-sm border-white/25 text-white hover:bg-white/25"
-                }`}
             >
               <Wand2 className="w-3.5 h-3.5" aria-hidden="true" />
               <span>Asistente inicial</span>
-            </button>
-          </div>
+            </HeroActionButton>
+          </>
         }
         helpTitle="Cómo funciona este inicio"
         help={`• Arriba ves las 4 cifras clave del día y el botón Asistente inicial.\n• En «Tareas de hoy» ejecutas o confirmas las labores pendientes según tu rutina.\n• En «Accesos directos» entras directo a registrar o consultar cada área.`}

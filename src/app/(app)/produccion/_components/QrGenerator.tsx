@@ -4,7 +4,7 @@ import { useEffect, useState, useRef } from "react";
 import Image from "next/image";
 import { Printer, Tag } from "lucide-react";
 import QRCode from "qrcode";
-import { Button, Modal } from "@/components/ui";
+import { Button, HeroActionButton, Modal } from "@/components/ui";
 import { generateQrPayload } from "@/lib/qr";
 import { HEN_PRESENT_STATUSES } from "@/lib/animal-status";
 
@@ -15,21 +15,28 @@ interface Hen {
   status: string;
 }
 
-export function QrGeneratorButton({ hens }: { hens: Hen[] }) {
+export function QrGeneratorButton({ hens, hero = false }: { hens: Hen[]; hero?: boolean }) {
   const [open, setOpen] = useState(false);
   const activeHens = hens.filter((h) => HEN_PRESENT_STATUSES.includes(h.status));
 
   return (
     <>
-      <button
-        onClick={() => setOpen(true)}
-        className="px-3 py-1.5 bg-indigo-600 text-white text-xs font-medium rounded-lg hover:bg-indigo-700 transition-colors"
-      >
-        <span className="inline-flex items-center gap-1.5">
+      {hero ? (
+        <HeroActionButton tone="glass" onClick={() => setOpen(true)}>
           <Tag className="w-3.5 h-3.5" aria-hidden="true" />
           <span>Etiquetas QR</span>
-        </span>
-      </button>
+        </HeroActionButton>
+      ) : (
+        <button
+          onClick={() => setOpen(true)}
+          className="px-3 py-1.5 bg-indigo-600 text-white text-xs font-medium rounded-lg hover:bg-indigo-700 transition-colors"
+        >
+          <span className="inline-flex items-center gap-1.5">
+            <Tag className="w-3.5 h-3.5" aria-hidden="true" />
+            <span>Etiquetas QR</span>
+          </span>
+        </button>
+      )}
       <Modal open={open} onClose={() => setOpen(false)} title="Etiquetas QR de Gallinas">
         <QrGeneratorContent hens={activeHens} />
       </Modal>

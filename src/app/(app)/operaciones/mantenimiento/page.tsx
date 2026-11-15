@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useCallback, useMemo } from "react";
 import { Building2, Zap } from "lucide-react";
-import { PageHeader, Button, Card, Table, Badge, Modal, Input, Select, Textarea, EmptyState, StatCard } from "@/components/ui";
+import { PageHeader, HeroActionButton, HeroActionLink, Button, Card, Table, Badge, Modal, Input, Select, Textarea, EmptyState, StatCard } from "@/components/ui";
 import { useCatalog } from "@/lib/useCatalog";
 import { apiFetch } from "@/lib/fetch";
 import TableSearch from "@/components/TableSearch";
@@ -154,7 +154,7 @@ export default function MantenimientoPage() {
         title="Mantenimiento del Gallinero"
         description="Programación y seguimiento de tareas de mantenimiento e infraestructura"
         help="Registra tareas por lugar o por equipo. Al completar una tarea periódica se programa automáticamente la próxima fecha. El Inicio muestra los vencimientos de los próximos siete días."
-        actions={<div className="flex flex-wrap gap-2"><a href="/operaciones/activos" className="inline-flex items-center gap-1.5 rounded-lg border border-white/40 bg-white/95 px-3 py-2 text-sm font-medium text-slate-800 hover:bg-white transition-colors"><Building2 className="w-4 h-4 text-slate-600" aria-hidden="true" /> Activos y equipos</a><Button onClick={openNew}>+ Nueva Tarea</Button></div>}
+        actions={<div className="flex flex-wrap gap-2"><HeroActionLink href="/operaciones/activos" tone="glass"><Building2 className="w-4 h-4" aria-hidden="true" /> Activos y equipos</HeroActionLink><HeroActionButton tone="solid" onClick={openNew}>+ Nueva Tarea</HeroActionButton></div>}
       />
       {error && !modalOpen && <p className="mb-4 rounded-lg bg-red-50 p-3 text-sm text-red-700">{error}</p>}
 

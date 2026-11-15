@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useParams } from "next/navigation";
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { Badge, Button, Card, EmptyState, Input, PageHeader, Select, StatCard, Table, Textarea } from "@/components/ui";
+import { Badge, Button, Card, EmptyState, HeroActionLink, Input, PageHeader, Select, StatCard, Table, Textarea } from "@/components/ui";
 import TableSearch from "@/components/TableSearch";
 import { apiFetch } from "@/lib/fetch";
 import { matchesTextQuery } from "@/lib/text";
@@ -112,7 +112,7 @@ export default function UbicacionFichaPage() {
       <PageHeader
         title={`Ficha · ${location.name}`}
         description={`${location.code} · ${LOCATION_TYPE_LABELS[location.type] || location.type}${location.parentName ? ` · dentro de ${location.parentName}` : ""}`}
-        actions={<div className="flex gap-2"><Link className="rounded-lg border border-white/40 bg-white/95 px-3 py-2 text-sm font-semibold text-slate-800 hover:bg-white transition-colors" href="/ubicaciones">Todos los lugares</Link></div>}
+        actions={<HeroActionLink href="/ubicaciones" tone="glass">Todos los lugares</HeroActionLink>}
       />
       <div className="grid grid-cols-2 gap-4 xl:grid-cols-4">
         <StatCard icon="paw-print" label="Animales alojados" value={`${location.animals || 0}${location.capacity ? ` / ${location.capacity}` : ""}`} color="green" />

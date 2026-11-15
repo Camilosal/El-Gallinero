@@ -1,8 +1,7 @@
 "use client";
 
 import { useEffect, useState, useCallback, useMemo } from "react";
-import Link from "next/link";
-import { PageHeader, Card, Table, StatCard, EmptyState, Button } from "@/components/ui";
+import { PageHeader, HeroActionLink, Card, Table, StatCard, EmptyState } from "@/components/ui";
 import { apiFetch } from "@/lib/fetch";
 import TableSearch from "@/components/TableSearch";
 import { matchesTextQuery } from "@/lib/text";
@@ -67,10 +66,10 @@ export default function InventarioGallinazaPage() {
         description="Stock de abono disponible: producido + ajustes - vendido."
         help="Controla el inventario de gallinaza (abono orgánico). La producción se estima automáticamente según el número de aves y los factores configurados en Catálogos. Se pueden hacer ajustes manuales y registrar ventas desde Producción de Gallinaza."
         actions={
-          <div className="flex flex-wrap gap-2">
-            <Link href="/configuracion/catalogos?tab=gallinaza"><Button variant="secondary">Factores en Catálogos</Button></Link>
-            <Link href="/produccion?tab=gallinaza"><Button>Producción y Ajustes</Button></Link>
-          </div>
+          <>
+            <HeroActionLink href="/configuracion/catalogos?tab=gallinaza" tone="glass">Factores en Catálogos</HeroActionLink>
+            <HeroActionLink href="/produccion?tab=gallinaza" tone="solid">Producción y Ajustes</HeroActionLink>
+          </>
         }
       />
 

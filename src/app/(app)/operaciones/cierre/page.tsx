@@ -3,7 +3,7 @@
 import { Suspense, useCallback, useEffect, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { AlertTriangle, Lock, Radio, Thermometer, Unlock } from "lucide-react";
-import { PageHeader, Card, StatCard, Table, Modal, Button, Badge, Input, Select, Textarea, EmptyState } from "@/components/ui";
+import { PageHeader, HeroActionButton, Card, StatCard, Table, Modal, Button, Badge, Input, Select, Textarea, EmptyState } from "@/components/ui";
 import FarmLocationSelect from "@/components/FarmLocationSelect";
 import { apiFetch } from "@/lib/fetch";
 import { useActionQuery } from "@/lib/useActionQuery";
@@ -158,7 +158,7 @@ function CierreYSensoresInner() {
       <PageHeader
         title="Cierre Diario Auditable y Telemetría Ambiental"
         description="Bloqueo operativo de jornadas cerradas (reapertura restringida a Admin/Propietario) y monitoreo ITH, NH3, T°, HR% y básculas"
-        actions={<Button onClick={openSensorModal}>+ Registrar Lectura Sensor</Button>}
+        actions={<HeroActionButton tone="solid" onClick={openSensorModal}>+ Registrar Lectura Sensor</HeroActionButton>}
       />
 
       <FeatureGateBanner flagKey="genealogia_3gen_qr_iot" mode="gate">

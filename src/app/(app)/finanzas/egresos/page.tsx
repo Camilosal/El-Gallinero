@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useEffect, useState, useCallback, useMemo } from "react";
 import { ArrowUp, BarChart3, Calculator, Package, Pencil } from "lucide-react";
-import { PageHeader, Button, Card, Table, Badge, Modal, Input, Select, Textarea, EmptyState, StatCard, Tooltip as FieldTooltip } from "@/components/ui";
+import { PageHeader, HeroActionButton, Button, Card, Table, Badge, Modal, Input, Select, Textarea, EmptyState, StatCard, Tooltip as FieldTooltip } from "@/components/ui";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from "recharts";
 import { apiFetch } from "@/lib/fetch";
 import { useCatalog } from "@/lib/useCatalog";
@@ -573,14 +573,14 @@ export default function EgresosPage() {
         description="Gestión de egresos, costos operativos y compras del gallinero"
         help="Registra todos los gastos y egresos del gallinero.\n\n• Los egresos por 'Compra de alimento' pueden registrarse como compras detalladas con presentaciones (bultos, costales) que actualizan automáticamente el inventario.\n• Otros egresos son registros simples de gastos.\n• Las compras de alimento generan automáticamente movimientos de entrada en el inventario de alimentación.\n• Todos los egresos afectan el balance financiero."
         actions={
-          <div className="flex gap-2">
+          <div className="flex flex-wrap items-end gap-2">
             <Select value={period} onChange={(e) => setPeriod(e.target.value)}>
               <option value="7">Últimos 7 días</option>
               <option value="30">Últimos 30 días</option>
               <option value="90">Últimos 90 días</option>
               <option value="365">Último año</option>
             </Select>
-            <Button onClick={openNew}>+ Nuevo Egreso</Button>
+            <HeroActionButton tone="solid" onClick={openNew}>+ Nuevo Egreso</HeroActionButton>
           </div>
         }
       />

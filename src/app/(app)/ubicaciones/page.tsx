@@ -7,7 +7,7 @@ import { Suspense, useCallback, useEffect, useMemo, useState } from "react";
 import { FileText, MapPin, QrCode, Wrench } from "lucide-react";
 import BatchQrSheetModal from "@/components/BatchQrSheetModal";
 import EntityQrModal from "@/components/EntityQrModal";
-import { Badge, Button, Card, EmptyState, Input, Modal, PageHeader, Select, StatCard, Textarea } from "@/components/ui";
+import { Badge, Button, Card, EmptyState, HeroActionButton, Input, Modal, PageHeader, Select, StatCard, Textarea } from "@/components/ui";
 import TableSearch from "@/components/TableSearch";
 import { apiFetch } from "@/lib/fetch";
 import { matchesTextQuery } from "@/lib/text";
@@ -259,21 +259,25 @@ function UbicacionesInner() {
         description="Registra dónde se alojan y manejan los animales, con su ficha sanitaria, operativa y de mantenimiento."
         help="Crea cada corral, jaula, galpón, potrero, jardín o patio. Añade coordenadas para ubicarlo en el predio. El estado sanitario refleja la última revisión que registraste; la aplicación no certifica cumplimiento ni sustituye una inspección profesional. Los registros antiguos quedan como ubicación no informada hasta que se asignen."
         actions={
-          <div className="flex flex-wrap gap-2">
-            <Button
-              variant="secondary"
+          <>
+            <HeroActionButton
+              tone="glass"
               onClick={() => window.open("/api/operaciones/entregables-ruta2?tipo=zonificacion&format=pdf", "_blank")}
             >
-              <FileText className="w-4 h-4 mr-1.5 inline" />
-              Mapa de zonificación PDF
-            </Button>
-            <Button variant="secondary" onClick={() => setBatchQrOpen(true)}>
-              <QrCode className="w-4 h-4 mr-1.5 inline" />
-              Plancha QR en lote
-            </Button>
-            <Button variant="secondary" onClick={openTransferModal}>Trasladar animal / lote</Button>
-            <Button onClick={startNew}>+ Nuevo lugar</Button>
-          </div>
+              <FileText className="w-3.5 h-3.5" />
+              <span>Mapa de zonificación PDF</span>
+            </HeroActionButton>
+            <HeroActionButton tone="glass" onClick={() => setBatchQrOpen(true)}>
+              <QrCode className="w-3.5 h-3.5" />
+              <span>Plancha QR en lote</span>
+            </HeroActionButton>
+            <HeroActionButton tone="glass" onClick={openTransferModal}>
+              Trasladar animal / lote
+            </HeroActionButton>
+            <HeroActionButton tone="solid" onClick={startNew}>
+              + Nuevo lugar
+            </HeroActionButton>
+          </>
         }
       />
 

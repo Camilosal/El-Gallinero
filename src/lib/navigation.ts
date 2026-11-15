@@ -142,6 +142,41 @@ export const navigationGroups: MenuGroup[] = [
   },
 ];
 
+// Grupo de configuración / administración del tenant (separado de navigationGroups para conservar los 8 módulos operativos base)
+export const CONFIGURACION_MENU_GROUP: MenuGroup = {
+  id: "configuracion",
+  label: "Configuración",
+  icon: "settings",
+  indexHref: "/configuracion",
+  keywords: [
+    "configuracion",
+    "ajustes",
+    "administracion",
+    "llave en mano",
+    "kit campo",
+    "usuarios",
+    "roles",
+    "granjas",
+    "super admin",
+    "tenants",
+    "plan",
+    "pagos",
+    "modulos",
+    "escala",
+    "catalogos",
+    "fallas",
+  ],
+  items: [
+    { href: "/configuracion/kit-campo", label: "Llave en Mano y Kit QR", icon: "qrcode" },
+    { href: "/configuracion/usuarios", label: "Usuarios y Roles", icon: "users" },
+    { href: "/configuracion/granjas", label: "Panel de Granjas", icon: "shield" },
+    { href: "/configuracion/plan", label: "Plan y Pagos", icon: "credit-card" },
+    { href: "/configuracion/modulos", label: "Escala y Módulos", icon: "sparkles" },
+    { href: "/configuracion/catalogos", label: "Catálogos Maestros", icon: "folder" },
+    { href: "/configuracion/fallas", label: "Reportes de Fallas", icon: "alert" },
+  ],
+};
+
 // ─── Sinónimos y palabras clave por módulo (búsqueda "semántica") ───
 const ITEM_KEYWORDS: Record<string, string[]> = {
   "/animales": ["animales", "aves", "gallinas", "gallos", "pollos", "conejos", "cuyes", "cuy", "codornices", "patos", "lotes", "registro", "inventario animal", "valorizacion"],
@@ -189,6 +224,12 @@ const ITEM_KEYWORDS: Record<string, string[]> = {
   "/analisis/fuentes-externas": ["fuentes externas", "clima", "calor", "lluvia", "ith", "estres termico", "pronostico", "open-meteo", "sipsa", "trm", "precios mayoristas", "ica", "epidemiologia", "festivos", "dian", "uvt", "finagro", "iot", "sensores", "divipola", "entorno"],
   "/analisis/normas": ["normas", "estandares", "guias", "guia", "ica", "ntc 1240", "resoluciones", "protocolos", "adjuntos", "pdf", "bienestar animal", "gina"],
   "/exportar": ["exportar", "csv", "excel", "xlsx", "json", "descargar", "respaldo", "backup", "siigo", "alegra", "odoo", "zoho", "erp", "api", "token", "conector", "contabilidad", "puc"],
+  "/configuracion": ["configuracion", "ajustes", "administracion", "datos maestros", "granja", "usuarios", "llave en mano", "plan", "catalogos"],
+  "/configuracion/kit-campo": ["llave en mano", "implementacion", "kit campo", "ruta 2", "cronograma", "4 semanas", "plancha qr", "mapa zonificacion", "acta entrega", "qr"],
+  "/configuracion/usuarios": ["usuarios", "roles", "equipo", "operario", "veterinario", "gerente", "socio", "accesos", "permisos", "contrasenas", "credenciales", "whatsapp"],
+  "/configuracion/granjas": ["super admin", "superadmin", "granjas", "tenants", "multi granja", "fincas", "soporte", "alta llave en mano", "vencimientos", "cupos", "recuperacion"],
+  "/configuracion/plan": ["plan", "suscripcion", "ciclo", "pagos", "nequi", "daviplata", "pse", "wompi", "cosecha", "renovar", "facturacion"],
+  "/configuracion/modulos": ["onboarding", "escala", "pequeno", "mediano", "modulos", "feature flags", "niveles"],
   "/configuracion/fallas": ["fallas", "reporte", "reportar error", "errores", "bug", "incidencia", "soporte", "tags", "diagnostico"],
   "/configuracion/catalogos": ["catalogos", "datos maestros", "configuracion", "etapas", "categorias", "tipos", "valores", "ajustes", "especies", "vacunas", "pesos", "gallinaza", "alimentacion", "parametros", "contactos"],
   "/produccion?tab=reproduccion": ["reproduccion", "empadre", "palpacion", "nidal", "parto", "destete", "conejo", "conejos", "cuy", "cuyes", "consanguinidad", "madre elite", "paridad", "descarte", "camada", "gazapos", "crias"],
@@ -311,7 +352,7 @@ export function filterNavigationGroups(
 function buildSearchEntries(): SearchEntry[] {
   const entries: SearchEntry[] = [];
 
-  for (const group of navigationGroups) {
+  for (const group of [...navigationGroups, CONFIGURACION_MENU_GROUP]) {
     const itemHrefs = new Set(group.items.map((item) => item.href));
     if (!itemHrefs.has(group.indexHref)) {
       entries.push({
@@ -457,6 +498,7 @@ const DEFAULT_HREFS = [
   "/sanidad/bioseguridad",
   "/finanzas/ventas",
   "/analisis/reportes?tab=analitica",
+  "/exportar",
 ];
 
 /**

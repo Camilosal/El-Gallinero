@@ -42,7 +42,8 @@ const PATH_OVERRIDES: Record<string, BreadcrumbItem[]> = {
   ],
   "/exportar": [
     { label: "Inicio", href: "/inicio" },
-    { label: "Exportar datos" },
+    { label: "Análisis", href: "/analisis" },
+    { label: "Exportación y Conectores ERP" },
   ],
   "/manual": [
     { label: "Inicio", href: "/inicio" },
@@ -55,12 +56,12 @@ const PATH_OVERRIDES: Record<string, BreadcrumbItem[]> = {
   "/configuracion/catalogos": [
     { label: "Inicio", href: "/inicio" },
     { label: "Configuración", href: "/configuracion" },
-    { label: "Catálogos del sistema" },
+    { label: "Catálogos Maestros" },
   ],
   "/configuracion/modulos": [
     { label: "Inicio", href: "/inicio" },
     { label: "Configuración", href: "/configuracion" },
-    { label: "Escala y módulos visibles" },
+    { label: "Escala y Módulos" },
   ],
   "/configuracion/fallas": [
     { label: "Inicio", href: "/inicio" },
@@ -70,22 +71,22 @@ const PATH_OVERRIDES: Record<string, BreadcrumbItem[]> = {
   "/configuracion/granjas": [
     { label: "Inicio", href: "/inicio" },
     { label: "Configuración", href: "/configuracion" },
-    { label: "Granjas" },
+    { label: "Panel de Granjas" },
   ],
   "/configuracion/usuarios": [
     { label: "Inicio", href: "/inicio" },
     { label: "Configuración", href: "/configuracion" },
-    { label: "Usuarios" },
+    { label: "Usuarios y Roles" },
   ],
   "/configuracion/plan": [
     { label: "Inicio", href: "/inicio" },
     { label: "Configuración", href: "/configuracion" },
-    { label: "Plan y suscripción" },
+    { label: "Plan y Pagos" },
   ],
   "/configuracion/kit-campo": [
     { label: "Inicio", href: "/inicio" },
     { label: "Configuración", href: "/configuracion" },
-    { label: "Kit de campo e impresión" },
+    { label: "Llave en Mano y Kit QR" },
   ],
   "/produccion/peso": [
     { label: "Inicio", href: "/inicio" },

@@ -19,7 +19,12 @@ import {
   formatBugReportPreviewText,
   resolveBugOriginInfo,
 } from "@/lib/bug-report";
-import { filterNavigationGroups, navigationGroups, searchNavigation } from "@/lib/navigation";
+import {
+  CONFIGURACION_MENU_GROUP,
+  filterNavigationGroups,
+  navigationGroups,
+  searchNavigation,
+} from "@/lib/navigation";
 import { clearSentNotificationsLog, getSentNotificationsLog } from "@/lib/notifications";
 import { buildScaleDefaultFlags } from "@/lib/onboarding";
 import { mockRequest, parseJson } from "./helpers";
@@ -72,6 +77,26 @@ describe("Análisis con Normas/Guías, Nudges Conductuales Rotativos y Reporte d
     expect(
       searchNavigation("fallas").some((entry) => entry.href === "/configuracion/fallas"),
     ).toBe(true);
+    expect(
+      searchNavigation("exportar").some((entry) => entry.href === "/exportar"),
+    ).toBe(true);
+    expect(
+      searchNavigation("erp").some((entry) => entry.href === "/exportar?tab=conectores"),
+    ).toBe(true);
+    expect(
+      searchNavigation("usuarios").some((entry) => entry.href === "/configuracion/usuarios"),
+    ).toBe(true);
+    expect(
+      searchNavigation("llave").some((entry) => entry.href === "/configuracion/kit-campo"),
+    ).toBe(true);
+    expect(
+      searchNavigation("granjas").some((entry) => entry.href === "/configuracion/granjas"),
+    ).toBe(true);
+    expect(analisisGroup?.items.some((item) => item.href === "/exportar")).toBe(true);
+    expect(CONFIGURACION_MENU_GROUP.items.some((item) => item.href === "/configuracion/usuarios")).toBe(true);
+    expect(CONFIGURACION_MENU_GROUP.items.some((item) => item.href === "/configuracion/kit-campo")).toBe(true);
+    expect(CONFIGURACION_MENU_GROUP.items.some((item) => item.href === "/configuracion/granjas")).toBe(true);
+    expect(CONFIGURACION_MENU_GROUP.items.some((item) => item.href === "/configuracion/fallas")).toBe(true);
   });
 
   it("resuelve nudges conductuales específicos por página y rota secuencialmente en cada recarga o apertura", () => {

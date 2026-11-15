@@ -1,9 +1,8 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import Link from "next/link";
 import { ArrowLeft, CalendarClock, CheckCircle2, CreditCard, ShieldCheck, Smartphone } from "lucide-react";
-import { HeroBanner } from "@/components/HeroBanner";
+import { HeroActionLink, HeroBanner } from "@/components/HeroBanner";
 import { Badge, Button, Card } from "@/components/ui";
 import SubscriptionUpgradeModal from "@/components/SubscriptionUpgradeModal";
 import { apiFetch } from "@/lib/fetch";
@@ -63,22 +62,18 @@ export default function PlanSuscripcionPage() {
   const badge = subscription ? STATUS_BADGE[subscription.status] : STATUS_BADGE.trial;
 
   return (
-    <div className="p-4 sm:p-8 max-w-5xl mx-auto space-y-6">
-      <div className="flex items-center justify-between gap-2">
-        <Link
-          href="/configuracion"
-          className="inline-flex min-h-[44px] items-center gap-1.5 text-sm font-semibold text-slate-700 hover:text-slate-900"
-        >
-          <ArrowLeft className="h-4 w-4" aria-hidden="true" />
-          <span>Volver a Configuración</span>
-        </Link>
-      </div>
-
+    <div className="space-y-6">
       <HeroBanner
         theme="finanzas"
         icon={<CreditCard className="w-3.5 h-3.5 text-amber-200" aria-hidden="true" />}
         title="Plan por Ciclo Productivo y Pagos"
         description="Renueva por cosecha o semestre mediante Nequi, Daviplata o PSE. Nunca secuestramos tu histórico ni bloqueamos el cierre del lote actual."
+        actions={
+          <HeroActionLink href="/configuracion" tone="glass">
+            <ArrowLeft className="h-4 w-4" aria-hidden="true" />
+            <span>Volver a Configuración</span>
+          </HeroActionLink>
+        }
       />
 
       {paymentReturnInfo && (

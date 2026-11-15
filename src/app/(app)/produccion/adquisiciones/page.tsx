@@ -11,7 +11,7 @@ import { formatContactLocation } from "@/lib/contacts-shared";
 import AttachmentPanel from "@/components/attachments/AttachmentPanel";
 import { bindDraftAttachments, createDraftEntityId } from "@/lib/attachments-shared";
 import { getBreedsForSpecies, speciesForAcquisitionType } from "@/lib/animal-breeds";
-import { Card, StatCard, PageHeader, Button, Input, Select, Textarea, Modal, Table, Badge, EmptyState } from "@/components/ui";
+import { Card, StatCard, PageHeader, HeroActionButton, Button, Input, Select, Textarea, Modal, Table, Badge, EmptyState } from "@/components/ui";
 import TableSearch from "@/components/TableSearch";
 import { matchesTextQuery } from "@/lib/text";
 import { useFarmLocations } from "@/lib/useFarmLocations";
@@ -257,7 +257,7 @@ function AdquisicionesInner() {
         title="Adquisiciones y entradas de animales"
         description="Registra el origen y el linaje junto con cada ficha individual o lote"
         help="Cada animal o lote queda enlazado a su ingreso. Registra criador, procedencia, lote de origen, línea genética, generación, progenitores y referencias de documentos. Si los animales tienen familias de origen distintas, crea un ingreso separado para cada una. Una referencia documental no significa que el sistema haya validado el documento."
-        actions={<Button onClick={() => { setEditingId(null); setForm(emptyForm); setError(""); setModalOpen(true); }}>Nueva entrada y trazabilidad</Button>}
+        actions={<HeroActionButton tone="solid" onClick={() => { setEditingId(null); setForm(emptyForm); setError(""); setModalOpen(true); }}>Nueva entrada y trazabilidad</HeroActionButton>}
       />
 
       <div className="grid grid-cols-2 lg:grid-cols-5 gap-2.5 sm:gap-4">

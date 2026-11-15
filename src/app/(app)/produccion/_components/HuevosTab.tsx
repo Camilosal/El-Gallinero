@@ -4,7 +4,7 @@ import { useEffect, useState, useCallback, useMemo } from "react";
 import { useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { AlertTriangle, Banknote, BarChart3, ClipboardList, Home, Package, Target, Zap } from "lucide-react";
-import { PageHeader, Button, Card, Table, Modal, Input, Textarea, EmptyState, StatCard, Badge, Select } from "@/components/ui";
+import { PageHeader, HeroActionButton, Button, Card, Table, Modal, Input, Textarea, EmptyState, StatCard, Badge, Select } from "@/components/ui";
 import { AppIcon } from "@/components/AppIcon";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend, ComposedChart, Line } from "recharts";
 import { apiFetch } from "@/lib/fetch";
@@ -587,7 +587,7 @@ export default function HuevosPage() {
         title="Producción de Huevos Multiespecie"
         description="Recolección de huevos de Gallinas, Codornices y Patos con partición para el hogar y venta"
         help="Aquí registras la recolección diaria de huevos de todas las aves ponedoras:\n\n• Gallinas: clasificación por tamaño comercial o modo rápido.\n• Codornices: alta densidad y postura continua desde semana 6.\n• Patos: huevos grandes de alto valor culinario.\n\nCada registro permite destinar unidades al hogar (autoconsumo familiar) y a la venta de excedentes."
-        actions={<Button onClick={openNew}>+ Registrar Recolección</Button>}
+        actions={<HeroActionButton tone="solid" onClick={openNew}>+ Registrar Recolección</HeroActionButton>}
       />
 
       <FeatureGateBanner

@@ -27,6 +27,8 @@ const SYNONYM_EXPANSIONS: Array<[RegExp, string]> = [
   [/\b(qr|camara|foto|codigo|escane)\b/, "escanear qr adjuntos ocr"],
   [/\b(offline|internet|senal|campo|voz|microfono)\b/, "offline voz asistente cierre"],
   [/\b(error|falla|bug|no sirve|bloque|ayuda|problema)\b/, "fallas soporte guia control"],
+  [/\b(export|descarg|respald|backup|csv|excel|xlsx|siigo|alegra|odoo|zoho|erp|conector|api|token|puc)\b/, "exportar conectores erp csv excel json siigo alegra odoo zoho"],
+  [/\b(configur|usuario|permiso|rol|operario|llave|tenant|superadmin|granja|plan|pago|nequi|pse|wompi|catalogo)\b/, "configuracion usuarios roles llave en mano granjas plan catalogos"],
 ];
 
 function expandQueryTokens(query: string): string[] {

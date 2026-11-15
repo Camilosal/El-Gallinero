@@ -31,7 +31,7 @@ export default function ConfiguracionPage() {
   );
 
   return (
-    <div className="p-8">
+    <div className="space-y-6">
       <HeroBanner
         theme="guia"
         icon={<FolderKanban className="w-3.5 h-3.5 text-amber-200" aria-hidden="true" />}

@@ -5,7 +5,7 @@ import { Suspense, useCallback, useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { useActionQuery } from "@/lib/useActionQuery";
 import { CalendarDays, Target, TrendingUp } from "lucide-react";
-import { PageHeader, Button, Card, Badge, Modal, Input, Textarea, EmptyState } from "@/components/ui";
+import { PageHeader, HeroActionButton, Button, Card, Badge, Modal, Input, Textarea, EmptyState } from "@/components/ui";
 import { AppIcon } from "@/components/AppIcon";
 import TableSearch from "@/components/TableSearch";
 import {
@@ -400,7 +400,7 @@ function PlanParvadaInner() {
         title="Plan de Parvada"
         description="Diagnóstico y proyección real de la postura, el alimento y el reemplazo"
         help="El plan compara la parvada real con una curva de postura calculada a partir de la edad de cada gallina y los estándares de Catálogos. Muestra las 4 semanas anteriores, la semana actual y las 12 próximas, con huevos esperados vs reales, gallinas en ciclo, alimento estimado y recomendaciones. Crea un plan para fijar la meta de gallinas/gallos y la fecha de reemplazo; la proyección se actualiza sola con los datos reales."
-        actions={<Button onClick={openNew}>+ Nuevo Plan</Button>}
+        actions={<HeroActionButton tone="solid" onClick={openNew}>+ Nuevo Plan</HeroActionButton>}
       />
 
       {loading ? (

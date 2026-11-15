@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useCallback, useMemo } from "react";
 import { AlertTriangle } from "lucide-react";
-import { PageHeader, Button, Card, Table, Badge, Modal, Input, Select, Textarea, EmptyState, StatCard } from "@/components/ui";
+import { PageHeader, HeroActionButton, Button, Card, Table, Badge, Modal, Input, Select, Textarea, EmptyState, StatCard } from "@/components/ui";
 import { apiFetch } from "@/lib/fetch";
 import { useCatalog } from "@/lib/useCatalog";
 import ContactField from "@/components/contacts/ContactField";
@@ -173,10 +173,10 @@ export default function InsumosPage() {
         description="Inventario de insumos no alimenticios y sus movimientos"
         help="Gestiona el inventario de insumos no alimenticios (medicamentos, vacunas, productos de limpieza, equipos, etc.). Registra entradas y salidas por movimiento. Cada insumo tiene stock mínimo para alertas de reabastecimiento, costo unitario y proveedor. Los movimientos registran fecha, cantidad, tipo y notas."
         actions={
-          <div className="flex gap-2">
-            <Button variant="secondary" onClick={() => { setMovForm({ supplyId: supplies[0]?.id || "", quantity: "", isEntry: true, movementType: movementTypes[0], date: new Date().toISOString().split("T")[0], notes: "" }); setMovError(""); setMovementModalOpen(true); }}>Registrar Movimiento</Button>
-            <Button onClick={() => { setEditingId(null); setForm({ name: "", category: supplyCategories[0], unit: "unidades", currentStock: "", minStock: "", costPerUnit: "", supplier: "", expiryDate: "" }); setError(""); setSupplyModalOpen(true); }}>+ Nuevo Insumo</Button>
-          </div>
+          <>
+            <HeroActionButton tone="glass" onClick={() => { setMovForm({ supplyId: supplies[0]?.id || "", quantity: "", isEntry: true, movementType: movementTypes[0], date: new Date().toISOString().split("T")[0], notes: "" }); setMovError(""); setMovementModalOpen(true); }}>Registrar Movimiento</HeroActionButton>
+            <HeroActionButton tone="solid" onClick={() => { setEditingId(null); setForm({ name: "", category: supplyCategories[0], unit: "unidades", currentStock: "", minStock: "", costPerUnit: "", supplier: "", expiryDate: "" }); setError(""); setSupplyModalOpen(true); }}>+ Nuevo Insumo</HeroActionButton>
+          </>
         }
       />
 

@@ -17,7 +17,7 @@ import {
   Users,
   X,
 } from "lucide-react";
-import { HeroBanner } from "@/components/HeroBanner";
+import { HeroActionLink, HeroBanner } from "@/components/HeroBanner";
 import { Tooltip } from "@/components/ui";
 import {
   PERMISSION_LABELS,
@@ -281,25 +281,23 @@ export default function UsuariosConfiguracionPage() {
   const limitReached = usersList.length >= maxUsers;
 
   return (
-    <div className="p-4 sm:p-8 max-w-5xl mx-auto space-y-6">
-      <div className="flex items-center justify-between">
-        <Link
-          href="/configuracion"
-          className="inline-flex items-center gap-2 min-h-[48px] px-4 rounded-xl border border-slate-300 bg-white text-sm font-semibold text-slate-800 hover:bg-slate-50"
-        >
-          <ArrowLeft className="w-4 h-4" />
-          Volver a Configuración
-        </Link>
-        <div className="text-xs sm:text-sm font-semibold text-slate-700 bg-slate-100 border border-slate-200 px-3 py-2 rounded-xl">
-          Cupo: {usersList.length} / {maxUsers} ({planCode})
-        </div>
-      </div>
-
+    <div className="space-y-6">
       <HeroBanner
         theme="guia"
         icon={<Users className="w-4 h-4 text-amber-200" aria-hidden="true" />}
         title="Usuarios y Roles de la Granja"
         description="Da acceso seguro a tu operario de galpón, veterinario o socio sin compartir contraseñas ni usar comandos."
+        badge={
+          <span className="inline-flex items-center gap-1 rounded-full border border-white/25 bg-white/15 px-2.5 py-0.5 text-[11px] font-medium text-emerald-50">
+            Cupo: {usersList.length} / {maxUsers} ({planCode})
+          </span>
+        }
+        actions={
+          <HeroActionLink href="/configuracion" tone="glass">
+            <ArrowLeft className="w-4 h-4" />
+            <span>Volver a Configuración</span>
+          </HeroActionLink>
+        }
       />
 
       {error && (

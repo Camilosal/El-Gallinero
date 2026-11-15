@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useCallback, useMemo } from "react";
 import { AlertCircle, Clock } from "lucide-react";
-import { PageHeader, Button, Card, Table, Badge, Modal, Input, Select, Textarea, EmptyState, StatCard } from "@/components/ui";
+import { PageHeader, HeroActionButton, Button, Card, Table, Badge, Modal, Input, Select, Textarea, EmptyState, StatCard } from "@/components/ui";
 import { apiFetch } from "@/lib/fetch";
 import TableSearch from "@/components/TableSearch";
 import { matchesTextQuery } from "@/lib/text";
@@ -195,9 +195,9 @@ export default function CalendarioSanitarioPage() {
         description="Revisa y ajusta las actividades sanitarias sugeridas para tus animales"
         help="Valida el manejo sanitario inicial para las especies, etapas y prácticas de tu granja. Ajusta fechas, frecuencias, actividades y tiempos de retiro según corresponda.\n\n• Cada evento tiene una fecha programada y un estado de vencimiento.\n• Puedes editar, completar o desactivar eventos.\n• Los eventos sugeridos pueden provenir de esquemas sanitarios y también puedes agregar actividades manuales.\n• Al confirmar la revisión, el sistema deja constancia para completar el paso de preparación de la granja."
         actions={
-          <Button onClick={() => { setEditingId(null); setForm({ type: eventTypes[0], name: "", description: "", targetBirds: "todas", frequencyDays: "", nextDueDate: new Date().toISOString().split("T")[0], withdrawalDays: "" }); setError(""); setModalOpen(true); }}>
+          <HeroActionButton tone="solid" onClick={() => { setEditingId(null); setForm({ type: eventTypes[0], name: "", description: "", targetBirds: "todas", frequencyDays: "", nextDueDate: new Date().toISOString().split("T")[0], withdrawalDays: "" }); setError(""); setModalOpen(true); }}>
             + Nuevo Evento
-          </Button>
+          </HeroActionButton>
         }
       />
 

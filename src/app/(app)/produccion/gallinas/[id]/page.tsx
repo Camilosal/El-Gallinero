@@ -2,12 +2,11 @@
 
 import { useEffect, useState, useCallback, useRef } from "react";
 import { useParams } from "next/navigation";
-import Link from "next/link";
-import { Bird, CheckCircle2, CircleDollarSign, ClipboardList, Egg, FileEdit, Pill, Skull } from "lucide-react";
+import { ArrowLeft, Bird, CheckCircle2, CircleDollarSign, ClipboardList, Egg, FileEdit, Pill, Skull } from "lucide-react";
 import { Card, Badge, Button, Modal, Input, Select, Textarea, EmptyState } from "@/components/ui";
 import ContactField from "@/components/contacts/ContactField";
 import { AppIcon } from "@/components/AppIcon";
-import { HeroBanner } from "@/components/HeroBanner";
+import { HeroActionLink, HeroBanner } from "@/components/HeroBanner";
 import TableSearch from "@/components/TableSearch";
 import { apiFetch } from "@/lib/fetch";
 import { matchesTextQuery } from "@/lib/text";
@@ -219,12 +218,8 @@ export default function HenDetailPage() {
   }
 
   return (
-    <div className="max-w-2xl mx-auto">
-      {/* Header */}
-      <div className="mb-6">
-        <Link href="/escanear" className="text-sm text-green-700 hover:text-green-800 mb-3 inline-flex items-center gap-1 font-medium">
-          ← Volver al escáner
-        </Link>
+    <div className="space-y-6">
+      <div>
         <HeroBanner
           theme="aves"
           compact
@@ -237,6 +232,12 @@ export default function HenDetailPage() {
               <Badge color={statusColors[hen.status] || "gray"}>{statusLabels[hen.status] || hen.status}</Badge>
               {hen.stage && <Badge color={stageColors[hen.stage] || "gray"}>{hen.stage}</Badge>}
             </div>
+          }
+          actions={
+            <HeroActionLink href="/escanear" tone="glass">
+              <ArrowLeft className="w-4 h-4" />
+              <span>Volver al escáner</span>
+            </HeroActionLink>
           }
           className="mb-0"
         />

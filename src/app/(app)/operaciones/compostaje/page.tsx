@@ -3,7 +3,7 @@
 import { Suspense, useCallback, useEffect, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { AlertTriangle, Flame, Recycle, RefreshCw } from "lucide-react";
-import { PageHeader, Card, StatCard, Table, Modal, Button, Badge, Input, Select, Textarea, EmptyState } from "@/components/ui";
+import { PageHeader, HeroActionButton, Card, StatCard, Table, Modal, Button, Badge, Input, Select, Textarea, EmptyState } from "@/components/ui";
 import FarmLocationSelect from "@/components/FarmLocationSelect";
 import AttachmentPanel from "@/components/attachments/AttachmentPanel";
 import { apiFetch } from "@/lib/fetch";
@@ -181,9 +181,9 @@ function CompostajePageInner() {
         title="Compostaje de Mortalidad y Estiércol"
         description="Formulación 3:1:1 y 7:2:2, ciclos de 8 semanas, control térmico ≤70 °C y humedad de cosecha ≤20 %"
         actions={
-          <Button onClick={openNew}>
+          <HeroActionButton tone="solid" onClick={openNew}>
             + Nueva Pila de Compostaje
-          </Button>
+          </HeroActionButton>
         }
       />
 

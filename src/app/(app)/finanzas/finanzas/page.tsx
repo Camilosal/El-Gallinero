@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useCallback, useMemo } from "react";
 import { ArrowDownLeft, ArrowUpRight, BarChart3, Calculator, CalendarDays, ClipboardList, Package, Target, TrendingDown, TrendingUp, Trophy } from "lucide-react";
-import { PageHeader, Button, Card, Table, Badge, Modal, Input, Select, Textarea, EmptyState, StatCard } from "@/components/ui";
+import { PageHeader, HeroActionButton, Button, Card, Table, Badge, Modal, Input, Select, Textarea, EmptyState, StatCard } from "@/components/ui";
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip, Legend, AreaChart, Area, XAxis, YAxis, CartesianGrid } from "recharts";
 import { apiFetch } from "@/lib/fetch";
 import { useCatalog } from "@/lib/useCatalog";
@@ -262,14 +262,14 @@ export default function FinanzasPage() {
         description="Comportamiento de ingresos y egresos a través del tiempo y KPIs del negocio"
         help="Vista completa de las finanzas del gallinero.\n\n• KPIs: ingresos, egresos, ganancia, margen de rentabilidad.\n• Gráficos: evolución de ingresos vs egresos, distribución por categoría.\n• Puedes filtrar por período (7, 14, 30, 60, 90 días).\n• Los datos se generan automáticamente desde las ventas y egresos registrados.\n• Incluye proyección mensual basada en el rendimiento actual."
         actions={
-          <div className="flex gap-2">
+          <div className="flex flex-wrap items-end gap-2">
             <Select value={period} onChange={(e) => setPeriod(e.target.value)}>
               <option value="7">Últimos 7 días</option>
               <option value="30">Últimos 30 días</option>
               <option value="90">Últimos 90 días</option>
               <option value="365">Último año</option>
             </Select>
-            <Button onClick={openNew}>+ Nueva Transacción</Button>
+            <HeroActionButton tone="solid" onClick={openNew}>+ Nueva Transacción</HeroActionButton>
           </div>
         }
       />

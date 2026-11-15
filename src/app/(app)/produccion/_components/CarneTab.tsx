@@ -4,7 +4,7 @@ import { useEffect, useState, useCallback, useMemo } from "react";
 import { useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { Banknote, Beef, Home, Scale } from "lucide-react";
-import { PageHeader, Button, Card, Table, Modal, Input, Select, Textarea, EmptyState, StatCard, Badge } from "@/components/ui";
+import { PageHeader, HeroActionButton, Button, Card, Table, Modal, Input, Select, Textarea, EmptyState, StatCard, Badge } from "@/components/ui";
 import { AppIcon } from "@/components/AppIcon";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from "recharts";
 import { apiFetch } from "@/lib/fetch";
@@ -430,7 +430,7 @@ export default function CarneTab() {
         title="Faena y Producción de Carne"
         description="Registro multiespecie de faena con partición dual: autoconsumo del hogar y venta de excedentes"
         help="Aquí registras la faena de pollos, codornices, patos, conejos o aves de descarte.\n\n• Partición Dual: divide cada faena entre carne para el hogar (calcula el ahorro familiar según precios locales) y carne para la venta (va al inventario comercial).\n• El peso en canal es el peso limpio listo para cocina.\n• Cada registro con destino hogar se sincroniza automáticamente con el módulo de Soberanía Alimentaria."
-        actions={<Button onClick={openNew}>+ Registrar Faena</Button>}
+        actions={<HeroActionButton tone="solid" onClick={openNew}>+ Registrar Faena</HeroActionButton>}
       />
 
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-2.5 sm:gap-4 mb-6">

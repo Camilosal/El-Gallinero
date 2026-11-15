@@ -18,7 +18,7 @@ import {
   ShieldCheck,
   Users,
 } from "lucide-react";
-import { HeroBanner } from "@/components/HeroBanner";
+import { HeroActionLink, HeroBanner } from "@/components/HeroBanner";
 import BatchQrSheetModal from "@/components/BatchQrSheetModal";
 import { apiFetch } from "@/lib/fetch";
 import { exportDay1StarterCsvTemplate } from "@/lib/onboarding";
@@ -133,27 +133,25 @@ export default function KitCampoRuta2Page() {
   const completedWeeks = data?.roadmap.filter((w) => w.status === "completado").length ?? 0;
 
   return (
-    <div className="p-4 sm:p-8 max-w-6xl mx-auto space-y-6">
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <Link
-          href="/configuracion"
-          className="inline-flex items-center gap-2 min-h-[48px] px-4 rounded-xl border border-slate-300 bg-white text-sm font-semibold text-slate-800 hover:bg-slate-50"
-        >
-          <ArrowLeft className="w-4 h-4" />
-          Volver a Configuración
-        </Link>
-        {data && (
-          <div className="text-xs sm:text-sm font-semibold text-slate-700 bg-slate-100 border border-slate-200 px-3.5 py-2 rounded-xl">
-            {data.farm.farmName} · Escala {data.farm.scale} · Plan {data.farm.planCode} ({completedWeeks}/4 semanas)
-          </div>
-        )}
-      </div>
-
+    <div className="space-y-6">
       <HeroBanner
         theme="guia"
         icon={<ClipboardCheck className="w-4 h-4 text-amber-200" aria-hidden="true" />}
         title='Implementación "Llave en Mano" y Kit de Campo (Ruta 2)'
         description="Cronograma vivo de 4 semanas para granjas comerciales, plancha QR plastificable en lote y entregables PDF formales."
+        badge={
+          data ? (
+            <span className="inline-flex items-center gap-1 rounded-full border border-white/25 bg-white/15 px-2.5 py-0.5 text-[11px] font-medium text-emerald-50">
+              {data.farm.farmName} · Escala {data.farm.scale} · Plan {data.farm.planCode} ({completedWeeks}/4 semanas)
+            </span>
+          ) : undefined
+        }
+        actions={
+          <HeroActionLink href="/configuracion" tone="glass">
+            <ArrowLeft className="w-4 h-4" />
+            <span>Volver a Configuración</span>
+          </HeroActionLink>
+        }
       />
 
       {error && (

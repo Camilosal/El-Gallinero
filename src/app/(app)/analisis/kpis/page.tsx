@@ -11,7 +11,7 @@ import {
   Sparkles,
   TrendingDown,
 } from "lucide-react";
-import { PageHeader, Select } from "@/components/ui";
+import { HeroActionButton, PageHeader, Select } from "@/components/ui";
 import TableSearch from "@/components/TableSearch";
 import { matchesTextQuery } from "@/lib/text";
 import {
@@ -223,14 +223,10 @@ export default function KpisPage() {
         title="Tablero de KPIs conectado a tu granja"
         description="Métricas con contexto, comparación vs. período anterior, metas por especie y vista personalizable por rol."
         actions={
-          <button
-            type="button"
-            onClick={() => setCustomizerOpen(true)}
-            className="inline-flex items-center gap-2 rounded-lg bg-white/95 hover:bg-white text-slate-900 px-3.5 py-2 text-sm font-semibold shadow-sm transition-colors"
-          >
-            <SlidersHorizontal className="w-4 h-4 text-green-700" />
-            Personalizar tablero
-          </button>
+          <HeroActionButton tone="solid" onClick={() => setCustomizerOpen(true)}>
+            <SlidersHorizontal className="w-4 h-4 text-emerald-700" />
+            <span>Personalizar tablero</span>
+          </HeroActionButton>
         }
       />
 

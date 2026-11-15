@@ -4,6 +4,7 @@ import { useCallback, useEffect, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { useActionQuery } from "@/lib/useActionQuery";
 import {
+  ArrowLeft,
   Bug,
   Check,
   ClipboardCopy,
@@ -12,7 +13,7 @@ import {
   RefreshCw,
   Tag,
 } from "lucide-react";
-import { HeroBanner } from "@/components/HeroBanner";
+import { HeroActionButton, HeroActionLink, HeroBanner } from "@/components/HeroBanner";
 import TableSearch from "@/components/TableSearch";
 import { Badge, Button, Card, EmptyState, Select } from "@/components/ui";
 import {
@@ -139,7 +140,7 @@ export default function ConfiguracionFallasPage() {
   };
 
   return (
-    <div className="p-4 sm:p-8 max-w-7xl mx-auto space-y-6">
+    <div className="space-y-6">
       <HeroBanner
         theme="guia"
         icon={<Bug className="w-3.5 h-3.5 text-rose-200" aria-hidden="true" />}
@@ -147,26 +148,26 @@ export default function ConfiguracionFallasPage() {
         title="Reportes de fallas e incidencias"
         description="Cada falla enviada queda etiquetada automáticamente con la pantalla, módulo, usuario, red y diagnóstico técnico para saber exactamente de dónde proviene."
         actions={
-          <div className="flex flex-wrap gap-2">
-            <Button
-              type="button"
-              variant="secondary"
+          <>
+            <HeroActionLink href="/configuracion" tone="glass">
+              <ArrowLeft className="w-4 h-4" />
+              <span>Volver a Configuración</span>
+            </HeroActionLink>
+            <HeroActionButton
+              tone="glass"
               onClick={() => void loadReports()}
-              className="inline-flex items-center gap-1.5"
             >
               <RefreshCw className={`w-3.5 h-3.5 ${loading ? "animate-spin" : ""}`} />
               <span>Actualizar</span>
-            </Button>
-            <Button
-              type="button"
-              variant="primary"
+            </HeroActionButton>
+            <HeroActionButton
+              tone="solid"
               onClick={() => openBugReportModal({ triggerSource: "pagina" })}
-              className="inline-flex items-center gap-1.5"
             >
               <Plus className="w-4 h-4" />
               <span>Presentar falla</span>
-            </Button>
-          </div>
+            </HeroActionButton>
+          </>
         }
       />
 

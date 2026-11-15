@@ -4,7 +4,7 @@ import { Suspense, useEffect, useState, useCallback, useMemo } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { AlertTriangle, BarChart3, Banknote, Bird, Egg, Info, Package, Sprout, Tag, Utensils } from "lucide-react";
 import { AppIcon } from "@/components/AppIcon";
-import { PageHeader, Button, Card, Table, Modal, Input, Select, Textarea, EmptyState, StatCard, Badge, Tooltip as FieldTooltip } from "@/components/ui";
+import { PageHeader, HeroActionButton, Button, Card, Table, Modal, Input, Select, Textarea, EmptyState, StatCard, Badge, Tooltip as FieldTooltip } from "@/components/ui";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from "recharts";
 import { apiFetch } from "@/lib/fetch";
 import { useCatalog } from "@/lib/useCatalog";
@@ -628,10 +628,10 @@ function VentasContent() {
         description="Gestión de ventas de huevos, animales en pie, carne, gallinaza y otros productos"
         help="Registra todas las ventas de la granja organizadas por línea comercial.\n\n• Huevos: venta por tamaño NTC 1240 (descuento PEPS del inventario).\n• Animales en pie: venta de gallinas, gallos o lotes (pollos, codornices, patos, conejos y cuyes).\n• Carne: venta en canal o despiece por kilogramos.\n• Gallinaza: venta de abono y subproductos compostados.\n• Otras ventas: subproductos, plumas, humus u otro producto comercial.\n• Todos los canales soportan ventas a crédito en Cuentas."
         actions={
-          <div className="flex gap-2">
-            {tab === "huevos" && <Button onClick={openNew}>+ Nueva Venta de Huevos</Button>}
-            {tab === "aves" && <Button onClick={openNewBird}>+ Nueva Venta de Animales</Button>}
-          </div>
+          <>
+            {tab === "huevos" && <HeroActionButton tone="solid" onClick={openNew}>+ Nueva Venta de Huevos</HeroActionButton>}
+            {tab === "aves" && <HeroActionButton tone="solid" onClick={openNewBird}>+ Nueva Venta de Animales</HeroActionButton>}
+          </>
         }
       />
 

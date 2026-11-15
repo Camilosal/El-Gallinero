@@ -3,7 +3,7 @@
 import { Suspense, useCallback, useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { AlertTriangle, Download, ShieldCheck } from "lucide-react";
-import { PageHeader, Card, StatCard, Table, Modal, Button, Badge, Input, Select, Textarea, EmptyState } from "@/components/ui";
+import { PageHeader, HeroActionAnchor, HeroActionButton, Card, StatCard, Table, Modal, Button, Badge, Input, Select, Textarea, EmptyState } from "@/components/ui";
 import TableSearch from "@/components/TableSearch";
 import FarmLocationSelect from "@/components/FarmLocationSelect";
 import AttachmentPanel from "@/components/attachments/AttachmentPanel";
@@ -242,17 +242,17 @@ function BioseguridadPageInner() {
         description="Control POE GAB (Res. ICA 3651/3652), evaluación de bienestar (Res. 8452/2025), certificaciones a 5 años y paquete auditable"
         actions={
           <div className="flex flex-wrap gap-2">
-            <a href="/api/sanidad/bioseguridad?export=xlsx" className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg text-sm font-medium bg-emerald-50 text-emerald-800 border border-emerald-200 hover:bg-emerald-100">
+            <HeroActionAnchor href="/api/sanidad/bioseguridad?export=xlsx" tone="glass">
               <Download className="w-4 h-4" />
               <span>Exportar ICA XLSX</span>
-            </a>
-            <a href="/api/sanidad/bioseguridad?export=csv" className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg text-sm font-medium bg-slate-100 text-slate-700 hover:bg-slate-200">
+            </HeroActionAnchor>
+            <HeroActionAnchor href="/api/sanidad/bioseguridad?export=csv" tone="glass">
               <span>CSV</span>
-            </a>
-            <a href="/api/sanidad/bioseguridad?export=json" className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg text-sm font-medium bg-slate-100 text-slate-700 hover:bg-slate-200">
+            </HeroActionAnchor>
+            <HeroActionAnchor href="/api/sanidad/bioseguridad?export=json" tone="glass">
               <span>JSON</span>
-            </a>
-            <Button onClick={openNew}>+ Registrar Bitácora</Button>
+            </HeroActionAnchor>
+            <HeroActionButton tone="solid" onClick={openNew}>+ Registrar Bitácora</HeroActionButton>
           </div>
         }
       />

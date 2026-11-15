@@ -1,11 +1,10 @@
 "use client";
 
 import { Suspense, useEffect, useState, useCallback, useMemo } from "react";
-import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { useActionQuery } from "@/lib/useActionQuery";
 import { MapPin, MessageCircle, Pencil, Phone } from "lucide-react";
-import { PageHeader, Button, Card, Table, Badge, Modal, Input, Select, EmptyState, StatCard } from "@/components/ui";
+import { PageHeader, HeroActionButton, HeroActionLink, Button, Card, Table, Badge, Modal, Input, Select, EmptyState, StatCard } from "@/components/ui";
 import ContactFormModal from "@/components/contacts/ContactFormModal";
 import AttachmentPanel from "@/components/attachments/AttachmentPanel";
 import {
@@ -241,9 +240,12 @@ function CuentasInner() {
         title="Cuentas"
         description="Gestión de cuentas por cobrar y por pagar"
         actions={
-          <div className="flex flex-wrap gap-2">
-            <Button
-              variant="secondary"
+          <>
+            <HeroActionLink href="/contactos" tone="glass">
+              Directorio completo
+            </HeroActionLink>
+            <HeroActionButton
+              tone="solid"
               onClick={() => {
                 setEditingContact(null);
                 setPrefillName("");
@@ -252,14 +254,8 @@ function CuentasInner() {
               }}
             >
               + Nuevo contacto
-            </Button>
-            <Link
-              href="/contactos"
-              className="inline-flex items-center px-3 py-2 rounded-lg text-sm font-medium bg-white border border-slate-300 text-slate-700 hover:bg-slate-50"
-            >
-              Directorio completo
-            </Link>
-          </div>
+            </HeroActionButton>
+          </>
         }
       />
 

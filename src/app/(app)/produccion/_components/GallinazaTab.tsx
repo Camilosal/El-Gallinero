@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useEffect, useState, useCallback, useMemo } from "react";
 import { Banknote, Calculator, Ruler, Scale, Settings } from "lucide-react";
-import { PageHeader, Button, Card, Table, Modal, Input, Textarea, EmptyState, StatCard } from "@/components/ui";
+import { PageHeader, HeroActionButton, Button, Card, Table, Modal, Input, Textarea, EmptyState, StatCard } from "@/components/ui";
 import { apiFetch } from "@/lib/fetch";
 import ContactField from "@/components/contacts/ContactField";
 import TableSearch from "@/components/TableSearch";
@@ -175,9 +175,9 @@ export default function GallinazaPage() {
         description="Estimación según aves y etapa, inventario de abono y ventas integradas con finanzas"
         help="Gestiona la producción y venta de gallinaza (abono).\n\n• La estimación se calcula automáticamente según las aves por etapa y los factores de producción (kg/ave/día) configurados en Catálogos.\n• Los factores se editan únicamente desde Configuración → Catálogos → Factores de gallinaza.\n• Usa 'Ajustes' para corregir el stock cuando haces mediciones reales de la pila de compostaje.\n• Registra ventas de gallinaza y el ingreso se refleja automáticamente en finanzas."
         actions={
-          <div className="flex gap-2">
-            <Button variant="secondary" onClick={() => { setError(""); setAdjustModal(true); }}>± Ajuste</Button>
-            <Button onClick={() => { setError(""); setSaleModal(true); }}>+ Registrar Venta</Button>
+          <div className="flex flex-wrap gap-2">
+            <HeroActionButton tone="glass" onClick={() => { setError(""); setAdjustModal(true); }}>± Ajuste</HeroActionButton>
+            <HeroActionButton tone="solid" onClick={() => { setError(""); setSaleModal(true); }}>+ Registrar Venta</HeroActionButton>
           </div>
         }
       />

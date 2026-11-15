@@ -565,7 +565,7 @@ export default function EscanearPage() {
   };
 
   return (
-    <div className="max-w-lg mx-auto">
+    <div className="space-y-6">
       <HeroBanner
         theme="escanear"
         compact
@@ -593,8 +593,8 @@ export default function EscanearPage() {
         </div>
       )}
 
-      <Card className="mb-4">
-        <div id="qr-reader" ref={containerRef} className="w-full rounded-lg overflow-hidden mb-3" />
+      <Card className="mb-4 max-w-2xl mx-auto">
+        <div id="qr-reader" ref={containerRef} className="w-full max-w-lg mx-auto rounded-lg overflow-hidden mb-3" />
 
         {!scanning ? (
           <div className="space-y-4">

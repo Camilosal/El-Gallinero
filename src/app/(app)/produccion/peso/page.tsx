@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState, useCallback, useMemo } from "react";
-import { PageHeader, Card, Select, Button, Modal, Input, Table, EmptyState } from "@/components/ui";
+import { PageHeader, HeroActionLink, Card, Select, Button, Modal, Input, Table, EmptyState } from "@/components/ui";
 import TableSearch from "@/components/TableSearch";
 import { matchesTextQuery } from "@/lib/text";
 import {
@@ -236,10 +236,10 @@ export default function PesoPage() {
             <Select value={breed} onChange={(e) => setBreed(e.target.value)} aria-label="Seleccionar raza">
               {breedOptions.map((b) => <option key={b} value={b}>{b}</option>)}
             </Select>
-            <Link href="/configuracion/catalogos?tab=pesos" className="inline-flex items-center rounded-lg border border-white/40 bg-white/95 px-3 py-2 text-sm font-semibold text-green-800 hover:bg-white transition-colors">
+            <HeroActionLink href="/configuracion/catalogos?tab=pesos" tone="glass">
               Gestionar curvas en Catálogos
-            </Link>
-            <Link href="/analisis/razas" className="inline-flex items-center rounded-lg border border-white/40 bg-white/95 px-3 py-2 text-sm font-semibold text-green-800 hover:bg-white transition-colors">Comparación de desempeño</Link>
+            </HeroActionLink>
+            <HeroActionLink href="/analisis/razas" tone="glass">Comparación de desempeño</HeroActionLink>
           </div>
         }
       />

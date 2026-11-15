@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState, useCallback, Suspense } from "react";
 import { useSearchParams } from "next/navigation";
 import { Calendar } from "lucide-react";
-import { PageHeader, Button, Card, Table, Badge, Modal, Input, Select, Textarea, EmptyState, StatCard } from "@/components/ui";
+import { PageHeader, HeroActionButton, Button, Card, Table, Badge, Modal, Input, Select, Textarea, EmptyState, StatCard } from "@/components/ui";
 import { apiFetch } from "@/lib/fetch";
 import { useCatalog } from "@/lib/useCatalog";
 import TableSearch from "@/components/TableSearch";
@@ -372,7 +372,7 @@ function SanidadPageInner() {
         title="Control Fitosanitario"
         description="Vacunaciones, desparasitaciones, tratamientos, inspecciones y fumigaciones"
         help="Registra todos los eventos sanitarios: vacunaciones, desparasitaciones, tratamientos, inspecciones y fumigaciones.\n\n• Si hay un evento pendiente del calendario sanitario, verás un banner para pre-llenar el formulario automáticamente.\n• El campo 'Próximo evento programado' ayuda a mantener el calendario actualizado.\n• Los costos se reflejan automáticamente en los egresos de finanzas."
-        actions={<Button onClick={openNew}>+ Nuevo Registro</Button>}
+        actions={<HeroActionButton tone="solid" onClick={openNew}>+ Nuevo Registro</HeroActionButton>}
       />
 
       {lastInsight && (

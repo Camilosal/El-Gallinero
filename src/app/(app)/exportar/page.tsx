@@ -415,7 +415,7 @@ export default function ExportarDatosPage() {
   const sampleEndpointPath = selectedEndpoint.buildPath(activeProfile);
 
   return (
-    <div className="p-4 sm:p-6 space-y-6 max-w-7xl mx-auto">
+    <div className="space-y-6">
       <PageHeader
         title="Exportar datos y conectores ERP"
         description="Descarga la operación en CSV/Excel o conecta tu contabilidad y ERP (SIIGO, Alegra, Odoo, Zoho o API JSON propia) mediante tokens seguros de solo lectura."

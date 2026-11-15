@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useCallback, useMemo } from "react";
 import { BarChart3 } from "lucide-react";
-import { PageHeader, Button, Card, Table, Badge, Modal, Input, Select, Textarea, EmptyState, StatCard } from "@/components/ui";
+import { PageHeader, HeroActionButton, Button, Card, Table, Badge, Modal, Input, Select, Textarea, EmptyState, StatCard } from "@/components/ui";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from "recharts";
 import { apiFetch } from "@/lib/fetch";
 import TableSearch from "@/components/TableSearch";
@@ -183,9 +183,9 @@ export default function PresupuestosPage() {
         description="Planificación y control presupuestario"
         help="Planifica y controla ingresos y gastos por período. Puedes crear un presupuesto base en $0 y agregar categorías y metas cuando las definas.\n\n• El sistema compara automáticamente lo presupuestado vs lo real.\n• Las variaciones ayudan a identificar desviaciones y planificar el crecimiento."
         actions={
-          <Button onClick={() => { setEditingId(null); setForm({ name: "", periodStart: "", periodEnd: "", type: budgetTypes[0] }); setItems([]); setError(""); setModalOpen(true); }}>
+          <HeroActionButton tone="solid" onClick={() => { setEditingId(null); setForm({ name: "", periodStart: "", periodEnd: "", type: budgetTypes[0] }); setItems([]); setError(""); setModalOpen(true); }}>
             + Nuevo Presupuesto
-          </Button>
+          </HeroActionButton>
         }
       />
 

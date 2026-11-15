@@ -56,7 +56,7 @@ interface ResumenProduccion {
 
 function TabFallback() {
   return (
-    <div className="p-8">
+    <div>
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-2.5 sm:gap-4">
         {[1, 2, 3, 4].map((i) => (
           <div key={i} className="bg-white rounded-lg shadow-md p-4 sm:p-6 animate-pulse">
@@ -128,7 +128,7 @@ function CategoryView() {
     .join(" · ");
 
   return (
-    <div className="p-4 sm:p-8">
+    <div>
       <HeroBanner
         theme="huevos"
         icon={<Egg className="w-3.5 h-3.5 text-amber-200" aria-hidden="true" />}

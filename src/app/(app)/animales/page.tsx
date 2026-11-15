@@ -4,7 +4,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { Bird, Egg, Feather, PackageOpen, Scale } from "lucide-react";
 import { AppIcon } from "@/components/AppIcon";
-import { PageHeader, Card, StatCard, Table, Badge, EmptyState } from "@/components/ui";
+import { PageHeader, HeroActionLink, Card, StatCard, Table, Badge, EmptyState } from "@/components/ui";
 import TableSearch from "@/components/TableSearch";
 import { apiFetch } from "@/lib/fetch";
 import { matchesTextQuery } from "@/lib/text";
@@ -228,14 +228,9 @@ export default function AnimalesPage() {
         description="Inventario y seguimiento unificado de gallinas, gallos, pollos, codornices, patos, conejos y cuyes."
         help="Aquí ves los animales activos en la granja separados por especie, junto con accesos directos a Adquisiciones, Gestión de Animales, Lugares de manejo, Reproducción (conejos y cuyes), Control de peso y biometría, Incubación y Mortalidad. El inventario excluye animales vendidos, faenados o fallecidos."
         actions={
-          <div className="flex flex-wrap gap-2">
-            <Link
-              href="/produccion/adquisiciones"
-              className="rounded-lg bg-green-600 px-3 py-2 text-sm font-medium text-white transition-colors hover:bg-green-700"
-            >
-              + Registrar ingreso
-            </Link>
-          </div>
+          <HeroActionLink href="/produccion/adquisiciones" tone="solid">
+            + Registrar ingreso
+          </HeroActionLink>
         }
       />
 

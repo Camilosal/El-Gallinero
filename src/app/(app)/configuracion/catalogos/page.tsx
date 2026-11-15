@@ -1,9 +1,9 @@
 "use client";
 
 import { useEffect, useState, useCallback, useMemo } from "react";
-import Link from "next/link";
+import { ArrowLeft } from "lucide-react";
 import { AppIcon } from "@/components/AppIcon";
-import { PageHeader, Button, Card, Table, Badge, Modal, Input, Select, EmptyState } from "@/components/ui";
+import { PageHeader, HeroActionLink, Button, Card, Table, Badge, Modal, Input, Select, EmptyState } from "@/components/ui";
 import { apiFetch } from "@/lib/fetch";
 import TableSearch from "@/components/TableSearch";
 import { matchesTextQuery } from "@/lib/text";
@@ -529,33 +529,34 @@ export default function CatalogosPage() {
   };
 
   return (
-    <div>
+    <div className="space-y-6">
       <PageHeader
         title="Catálogos y Datos Maestros"
         description="Ajuste en un solo lugar las reglas que guían el día a día de su granja: metas de postura y peso, planes de vacunación, raciones por especie, factores de aprovechamiento, normas, estándares y guías con adjuntos, y las tablas oficiales sincronizadas de municipios, precios de referencia, medicamentos ICA y festivos."
         help="Cada tabla que configure aquí se aplica de inmediato en la operación: calcula cuánto concentrado repartir por galpón, bloquea ventas cuando hay retiro sanitario vigente, clasifica los huevos por calibre, compara sus márgenes frente al mercado regional y organiza turnos de trabajo en días festivos."
+        actions={
+          <HeroActionLink href="/configuracion" tone="glass">
+            <ArrowLeft className="w-4 h-4" />
+            <span>Volver a Configuración</span>
+          </HeroActionLink>
+        }
       />
 
-      <div className="flex flex-wrap items-center justify-between gap-2 mb-6">
-        <div className="flex flex-wrap gap-2">
-          {TABS.map((item) => (
-            <button
-              key={item.key}
-              onClick={() => selectTab(item.key)}
-              className={`inline-flex items-center gap-1.5 px-4 py-2 rounded-xl text-sm font-medium transition-colors border ${
-                effectiveTab === item.key
-                  ? "bg-green-700 text-white border-green-700"
-                  : "bg-white text-slate-600 border-slate-200 hover:bg-slate-50"
-              }`}
-            >
-              <AppIcon icon={item.icon} className="w-4 h-4" />
-              {item.label}
-            </button>
-          ))}
-        </div>
-        <Link href="/configuracion" className="text-xs font-semibold text-emerald-800 hover:underline">
-          ← Volver a Configuración
-        </Link>
+      <div className="flex flex-wrap gap-2">
+        {TABS.map((item) => (
+          <button
+            key={item.key}
+            onClick={() => selectTab(item.key)}
+            className={`inline-flex items-center gap-1.5 px-4 py-2 rounded-xl text-sm font-medium transition-colors border ${
+              effectiveTab === item.key
+                ? "bg-green-700 text-white border-green-700"
+                : "bg-white text-slate-600 border-slate-200 hover:bg-slate-50"
+            }`}
+          >
+            <AppIcon icon={item.icon} className="w-4 h-4" />
+            {item.label}
+          </button>
+        ))}
       </div>
 
       {effectiveTab === "parametros" && <ParametrosTab />}

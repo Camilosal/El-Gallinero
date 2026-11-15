@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useCallback, useMemo } from "react";
 import { apiFetch } from "@/lib/fetch";
-import { Card, StatCard, PageHeader, Button, Input, Select, Textarea, Modal, Table, Badge, EmptyState } from "@/components/ui";
+import { Card, StatCard, PageHeader, HeroActionButton, Button, Input, Select, Textarea, Modal, Table, Badge, EmptyState } from "@/components/ui";
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip, Legend } from "recharts";
 import TableSearch from "@/components/TableSearch";
 import { matchesTextQuery } from "@/lib/text";
@@ -340,9 +340,9 @@ export default function MortalidadPage() {
         description="Registro de muertes por causa y pérdidas de huevo"
         help="Registra muertes de gallinas y gallos individuales, o de animales en lotes de pollos, codornices, patos, conejos y cuyes. Indica la causa para identificar problemas sanitarios. También puedes registrar pérdidas de huevo. El panel resume la mortalidad de los últimos 30 días y su distribución por causa."
         actions={
-          <div className="flex gap-2">
-            <Button variant="secondary" onClick={() => { setLossForm(emptyLoss); setLossError(""); setLossModalOpen(true); }}>Pérdida de huevos</Button>
-            <Button onClick={() => { setForm(emptyForm); setError(""); setEditingId(null); setModalOpen(true); }}>Registrar muerte</Button>
+          <div className="flex flex-wrap gap-2">
+            <HeroActionButton tone="glass" onClick={() => { setLossForm(emptyLoss); setLossError(""); setLossModalOpen(true); }}>Pérdida de huevos</HeroActionButton>
+            <HeroActionButton tone="solid" onClick={() => { setForm(emptyForm); setError(""); setEditingId(null); setModalOpen(true); }}>Registrar muerte</HeroActionButton>
           </div>
         }
       />

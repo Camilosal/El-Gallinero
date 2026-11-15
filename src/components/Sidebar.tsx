@@ -4,7 +4,12 @@ import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useState, useEffect } from "react";
 import { AppIcon } from "@/components/AppIcon";
-import { filterNavigationGroups, navigationGroups, type MenuGroup } from "@/lib/navigation";
+import {
+  CONFIGURACION_MENU_GROUP,
+  filterNavigationGroups,
+  navigationGroups,
+  type MenuGroup,
+} from "@/lib/navigation";
 import { useOnboardingState } from "@/lib/useOnboardingState";
 import { DeveloperCredit } from "@/components/DeveloperCredit";
 import { clearOfflineCryptoKey } from "@/lib/offline/crypto";
@@ -21,7 +26,6 @@ import {
   LogOut,
   Menu,
   QrCode,
-  Settings,
   X,
 } from "lucide-react";
 import { openBugReportModal } from "@/lib/bug-report";
@@ -85,6 +89,36 @@ export default function Sidebar() {
     });
     return () => { active = false; };
   }, []);
+
+  useEffect(() => {
+    if (!settingsLoaded) return;
+    const allGroups = [...visibleGroups, CONFIGURACION_MENU_GROUP];
+    const activeIds = allGroups
+      .filter(
+        (group) =>
+          pathname === group.indexHref ||
+          pathname.startsWith(`${group.indexHref}/`) ||
+          group.items.some((item) => {
+            const [itemPath] = item.href.split("?");
+            return pathname === itemPath || (itemPath !== "/" && pathname.startsWith(`${itemPath}/`));
+          }),
+      )
+      .map((g) => g.id);
+    if (activeIds.length === 0) return;
+    queueMicrotask(() => {
+      setExpandedGroups((prev) => {
+        let changed = false;
+        const next = new Set(prev);
+        for (const id of activeIds) {
+          if (!next.has(id)) {
+            next.add(id);
+            changed = true;
+          }
+        }
+        return changed ? next : prev;
+      });
+    });
+  }, [locationKey, pathname, settingsLoaded, visibleGroups]);
 
   useEffect(() => {
     if (!settingsLoaded) return;
@@ -350,21 +384,23 @@ export default function Sidebar() {
               collapsed={collapsed}
             />
           ))}
+
+          {/* Configuración unificada dentro del mismo árbol de navegación */}
+          <div className="mt-2 pt-2 border-t border-green-800/80">
+            <GroupItem
+              group={CONFIGURACION_MENU_GROUP}
+              pathname={pathname}
+              expandedGroups={expandedGroups}
+              toggleGroup={toggleGroup}
+              isItemActive={isItemActive}
+              isGroupActive={isGroupActive}
+              collapsed={collapsed}
+            />
+          </div>
         </nav>
 
-        {/* Footer: configuracion + guide/logout in one row */}
+        {/* Footer: guide/logout + bug report in clean block */}
         <div className={`border-t border-green-700 space-y-2 ${collapsed ? "p-2" : "p-3.5"}`}>
-          <Link
-            href="/configuracion"
-            className={`w-full py-1.5 rounded-lg text-xs font-medium transition-colors flex items-center justify-center gap-2 ${collapsed ? "px-1" : "px-3"} ${pathname.startsWith("/configuracion")
-              ? "bg-green-600 text-white"
-              : "bg-green-800/90 hover:bg-green-700 text-green-100"
-              }`}
-            title={collapsed ? "Configuración" : "Ir a Configuración, Catálogos y Módulos"}
-          >
-            <Settings className="w-3.5 h-3.5 shrink-0" aria-hidden="true" />
-            {!collapsed && <span className="flex-1 text-left">Configuración</span>}
-          </Link>
 
           <div className={collapsed ? "flex flex-col gap-1.5" : "grid grid-cols-2 gap-1.5"}>
             <a

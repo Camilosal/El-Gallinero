@@ -29,6 +29,7 @@ import {
   Button,
   Card,
   EmptyState,
+  HeroActionButton,
   Input,
   Modal,
   PageHeader,
@@ -316,14 +317,14 @@ function UnifiedCalendarInner() {
         description="Unifica todas las fechas de producción, sanidad ICA, incubación, reproducción, cosecha de lotes, compostaje y finanzas con tu rutina diaria auto-ajustable."
         actions={
           <div className="flex flex-wrap gap-2">
-            <Button variant="secondary" onClick={() => setActiveTab("rutina")}>
-              <Settings2 className="mr-1.5 h-4 w-4 inline" aria-hidden="true" />
+            <HeroActionButton tone="glass" onClick={() => setActiveTab("rutina")}>
+              <Settings2 className="h-4 w-4" aria-hidden="true" />
               Configurar Rutina
-            </Button>
-            <Button onClick={() => setNewTaskModalOpen(true)}>
-              <Plus className="mr-1.5 h-4 w-4 inline" aria-hidden="true" />
+            </HeroActionButton>
+            <HeroActionButton tone="solid" onClick={() => setNewTaskModalOpen(true)}>
+              <Plus className="h-4 w-4" aria-hidden="true" />
               Nueva Tarea de Rutina
-            </Button>
+            </HeroActionButton>
           </div>
         }
       />

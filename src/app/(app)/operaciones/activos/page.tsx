@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { Badge, Button, Card, EmptyState, Input, Modal, PageHeader, Select, StatCard, Table, Textarea } from "@/components/ui";
+import { Badge, Button, Card, EmptyState, HeroActionButton, Input, Modal, PageHeader, Select, StatCard, Table, Textarea } from "@/components/ui";
 import { apiFetch } from "@/lib/fetch";
 import { useFarmLocations } from "@/lib/useFarmLocations";
 import TableSearch from "@/components/TableSearch";
@@ -162,7 +162,7 @@ export default function ActivosPage() {
         title="Activos y equipos"
         description="Identifica equipos, herramientas e infraestructura, y conéctalos con su lugar y mantenimiento."
         help="Registra un activo una sola vez para asociar a su ficha las tareas y reparaciones futuras. El código se asigna automáticamente. Retirar conserva el historial."
-        actions={<Button onClick={openNew}>+ Nuevo activo</Button>}
+        actions={<HeroActionButton tone="solid" onClick={openNew}>+ Nuevo activo</HeroActionButton>}
       />
       {error && !modalOpen && <p className="mb-4 rounded-lg bg-red-50 p-3 text-sm text-red-700">{error}</p>}
 

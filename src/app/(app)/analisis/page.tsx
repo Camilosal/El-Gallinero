@@ -58,7 +58,7 @@ export default function AnalisisPage() {
   );
 
   return (
-    <div className="p-8">
+    <div>
       <HeroBanner
         theme="analisis"
         icon={<BarChart3 className="w-3.5 h-3.5 text-amber-200" aria-hidden="true" />}

@@ -5,7 +5,7 @@ import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { AppIcon } from "@/components/AppIcon";
 import TableSearch from "@/components/TableSearch";
-import { EmptyState, PageHeader } from "@/components/ui";
+import { EmptyState, HeroActionLink, PageHeader } from "@/components/ui";
 import { matchesTextQuery } from "@/lib/text";
 import GallinasTab from "./GallinasTab";
 import PollosTab from "./PollosTab";
@@ -77,12 +77,12 @@ export default function AnimalesTab() {
         description="Registro, seguimiento y estado de gallinas, gallos, pollos, codornices, patos, conejos y cuyes."
         help="Cada pestaña muestra una especie o tipo de animal por separado. Las gallinas y gallos tienen ficha individual; pollos, codornices, patos, conejos y cuyes se manejan por lote. Adquisiciones conserva el criador, ubicación, lote de origen, línea genética, generación, progenitores y referencias documentales enlazadas a cada ficha o lote."
         actions={
-          <Link
+          <HeroActionLink
             href={acquisitionPreset ? `/produccion/adquisiciones?nuevo=${acquisitionPreset}` : "/produccion/adquisiciones"}
-            className="inline-flex items-center rounded-lg bg-green-700 px-4 py-2 text-sm font-semibold text-white hover:bg-green-800"
+            tone="solid"
           >
             + Registrar ingreso y genética
-          </Link>
+          </HeroActionLink>
         }
       />
 
