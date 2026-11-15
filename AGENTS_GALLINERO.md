@@ -10,7 +10,7 @@ Sistema de gestión para gallineros pequeños y medianos. Control integral del c
     - El archivo [`.env.local`](./.env.local) (excluido del repo) contiene la `DATABASE_URL` local del proyecto para desarrollo individual.
 2.  **Uso de Skills:** Consultar prioritariamente [`.agent/skills/`](../../.agent/skills/) antes de tareas complejas.
 3.  **Aislamiento de Cambios:** Trabajar dentro de `data/app_gallinero/`. No modificar infraestructura global sin consulta previa.
-4.  **Preservación Estricta (Append-Only):** Al expandir archivos de código o conocimiento, inyectar subsecciones puntuales. No reescribir, resumir o eliminar bloques existentes a menos que se ordene explícitamente.
+4.  **Preservación Estricta con Corrección Segura:** Al expandir archivos de código o conocimiento, inyectar subsecciones puntuales sin eliminar bloques vigentes salvo aprobación explícita o **corrección obligatoria de seguridad, eliminación de credenciales expuestas o corrección de documentación/rutas obsoletas**.
 
 ## ⚠️ Anti-Lazy Coding (Tolerancia Cero)
 
@@ -37,7 +37,7 @@ docker compose up -d gallinero_app
 **VERIFICAR QUE LOS CAMBIOS SE APLICARON:**
 ```bash
 # Entrar al contenedor y verificar el código fuente
-docker exec gallinero_web cat /app/src/app/\(app\)/page.tsx | grep "texto_que_cambiaste"
+docker exec gallinero_web cat /app/src/app/dashboard/page.tsx | grep "texto_que_cambiaste"
 
 # Si no aparece el cambio, el contenedor no se actualizó correctamente
 ```
@@ -65,8 +65,8 @@ docker exec gallinero_web cat /app/src/app/\(app\)/page.tsx | grep "texto_que_ca
 
 **COMUNICACIÓN ENTRE CONTENEDORES:**
 ```bash
-# Desde gallinero_web a sostenibilidad_db
-DATABASE_URL=postgresql://admin:password@sostenibilidad_db:5432/el_gallinero
+# Desde gallinero_web a sostenibilidad_db (definida vía env en docker-compose / .env)
+DATABASE_URL=postgresql://<DB_USER>:<DB_PASSWORD_URL_ENCODED>@sostenibilidad_db:5432/el_gallinero
 # ✅ Usa el nombre del servicio, NO la IP
 
 # Desde gallinero_web a redis_app
@@ -94,22 +94,25 @@ REDIS_URL=redis://redis_app:6379
 
 ### 4. Base de Datos
 
-**CONEXIÓN DESDE EL HOST:**
+> Nunca escribas contraseñas reales en archivos versionados. Toma `DATABASE_URL` siempre desde `.env.local` (desarrollo/pruebas) o `.env` del servidor.
+
+**CONEXIÓN DESDE EL HOST (usando `.env.local`):**
 ```bash
-PGPASSWORD='Pr@yectos123' psql -h 127.0.0.1 -U admin -d el_gallinero
+set -a && source .env.local && set +a
+psql "$DATABASE_URL"
 ```
 
 **CONEXIÓN DESDE DENTRO DEL CONTENEDOR GALLINERO:**
 ```bash
 docker exec -it gallinero_web sh
-# Dentro del contenedor:
-PGPASSWORD='Pr@yectos123' psql -h sostenibilidad_db -U admin -d el_gallinero
+# Dentro del contenedor, usa la variable DATABASE_URL inyectada por el entorno:
+psql "$DATABASE_URL"
 ```
 
 **CONEXIÓN DESDE OTROS CONTENEDORES EN LA RED:**
 ```bash
-postgresql://admin:Pr%40yectos123@sostenibilidad_db:5432/el_gallinero
-# Nota: @ en password se codifica como %40
+postgresql://<DB_USER>:<DB_PASSWORD_URL_ENCODED>@sostenibilidad_db:5432/el_gallinero
+# Nota: cualquier carácter reservado (@, :, /) en la contraseña debe ir URL-encoded
 ```
 
 ### 5. Strapi (CMS de Marca Personal)
@@ -210,42 +213,36 @@ docker compose -f /home/ubuntu/negocio/docker-compose.yml up -d gallinero_app
 # Esquema (tablas) — el entrypoint ya lo hace en cada arranque
 npm run db:push
 
-# Datos demo idempotentes (admin/admin123)
-npm run db:seed
+# Crear administrador inicial (requiere >= 12 caracteres, nunca credenciales débiles)
+ADMIN_USERNAME=<usuario> ADMIN_PASSWORD=<clave_segura_12_plus> npm run db:create-admin
+
+# Datos demo idempotentes SOLO en base local descartable (bloqueado en NODE_ENV=production)
+DEMO_ADMIN_PASSWORD=<clave_segura_12_plus> npm run db:seed -- --allow-destructive
 ```
 
 ## 🗄️ Base de Datos
 
-- **Conexión:** `postgresql://admin:Pr%40yectos123@sostenibilidad_db:5432/el_gallinero` (URL-encoded; el `@` de la contraseña se codifica como `%40`).
-- El `DATABASE_URL` del compose y del `.env.local` debe mantenerse igual. **No usar `${DB_PASSWORD}` sin URL-encoding** en la URL.
-- Acesso directo:
+- **Conexión:** configurada mediante `DATABASE_URL` en `.env.local` (local) o `.env` (servidor), apuntando a `sostenibilidad_db:5432/el_gallinero`.
+- El `DATABASE_URL` del compose y del `.env.local` debe mantenerse consistente y con contraseña URL-encoded. **No usar `${DB_PASSWORD}` sin URL-encoding** en la URL.
+- Acceso directo en servidor/host: leer `$DATABASE_URL` desde `.env.local` sin hardcodear secretos en comandos o commits.
 
-```bash
-PGPASSWORD='Pr@yectos123' psql -h 127.0.0.1 -U admin -d el_gallinero
-```
+- **Esquema:** `src/db/schema.ts`. Conexión: `src/db/index.ts` (lee `.env.local`). Seed: `src/db/seed.ts`.
+- **Migraciones / Esquema:** `drizzle-kit push` (y scripts idempotentes documentados en `scripts/` / `docs/deployment.md`).
 
-- **Esquema:** `src/db/schema.ts` (25 tablas). Conexión: `src/db/index.ts` (lee `.env.local`). Seed: `src/db/seed.ts`.
-- **Migas:** `drizzle-kit push` (no hay carpeta de migraciones versionadas).
+## 🧩 Módulos y Rutas Principales
 
-## 🧩 Módulos y Rutas
-
-| Módulo | Ruta | Funcionalidad |
+| Módulo | Ruta principal | Funcionalidad |
 |:--- |:--- |:--- |
-| Dashboard | `/` | Gallinas activas, huevos esperados/real, ingresos, ganancia, FCR, gráficos 14d, proyección de stock, mant. pendientes, balance de gallos |
-| Gallinas | `/produccion?tab=gallinas` | Registro individual, ciclo de vida (8 estados, etapa por edad), recomendación de sacrificio, filtros |
-| Pollos y Gallos | `/produccion?tab=pollos` | Gallos reproductores (GA-###), lotes de engorde (L-###), balance de parvada 1:10 |
-| Alimentación | `/produccion?tab=alimentacion` | Inventario, movimientos (bloqueo stock negativo), programas por etapa, proyección |
-| Producción de Huevos | `/produccion?tab=huevos` | Recolección por tamaño, producción esperada, alerta de sobreproducción 1.5× |
-| Inventario de Huevos | `/inventario` | Stock por tamaño PEPS, envejecimiento >21 días, valor estimado, lotes |
-| Incubación | `/produccion?tab=incubacion` | Eclosión a 21 días, asignación automática de nacidos (hembras→gallinas, machos→déficit/lote) |
-| Gallinaza | `/produccion?tab=gallinaza` | Factores de producción, stock con ajustes, ventas por presentación |
-| Ventas | `/ventas` | Huevos multi-ítem por presentación + aves (por ave o kg); genera ingreso |
-| Carne / Sacrificio | `/produccion?tab=carne` | Sacrificio por tipo, peso en canal, destino (consumo/venta/donación) |
-| Egresos | `/egresos` | Gastos con presentación o general; alimentación vincula inventario |
-| Mantenimiento | `/mantenimiento` | Tareas con costo; completar genera egreso automático (sin duplicados) |
-| Control Sanitario | `/sanidad` | Eventos (vacunación, tratamiento…), productos, próximas aplicaciones |
-| Finanzas | `/finanzas` | KPIs, gráficos de evolución, utilidad acumulada, distribución por categoría |
-| Catálogos | `/catalogos` | Datos maestros (16 categorías) con activar/desactivar |
+| Inicio / Tablero | `/dashboard` | KPIs diarios, alertas biológicas, tareas verificables y captura rápida |
+| Animales | `/dashboard/animales` | 6 especies, aves individuales (`gallinas`), `pollos`, `adquisiciones`, `ubicaciones` e `incubacion` |
+| Producción | `/dashboard/produccion` | Postura NTC 1240 (`huevos`), `peso` / biometría, `sacrificio` (carne) y `gallinaza` |
+| Inventarios | `/dashboard/inventarios` | Stock PEPS de `huevos`, `carne`, `alimentacion`, `insumos`, `gallinaza` y `balance` |
+| Almacén y Operaciones | `/dashboard/almacen` | Raciones/alimentación, `operaciones/activos`, `mantenimiento`, `compostaje` y `cierre` diario |
+| Planeación | `/dashboard/planeacion` | Calendario Maestro de rutinas, `produccion/plan-parvada` y `soberania` alimentaria |
+| Sanidad | `/dashboard/sanidad` | `control` y bloqueos de retiro, `calendario` vacunal, `alertas`/mortalidad y `bioseguridad` |
+| Finanzas | `/dashboard/finanzas` | `ventas` (5 líneas), `egresos`, `cuentas` CxC/CxP, `presupuestos`, `contactos` y balance |
+| Análisis | `/dashboard/analisis` | `kpis`, `razas` y curvas, `fuentes-externas`, `normas`, `reportes` y `guia` |
+| Herramientas y Configuración | `/dashboard/escanear`, `/dashboard/configuracion` | Escáner QR, guías (`/guia` / `/dashboard/guia`), usuarios, granjas, módulos, plan y fallas |
 
 ## 📐 Reglas de Negocio Clave
 
@@ -297,12 +294,12 @@ npm run lint         # eslint
 - Acceso local para pruebas: `http://127.0.0.1:4327`
 - Acceso de producción: `https://gallinero.iwage.co`
 
-## 👤 Acceso
+## 👤 Acceso y Creación de Usuarios
 
-El seed crea el usuario administrador:
-
-- **Usuario:** `admin`
-- **Contraseña:** `admin123`
+- **No existen credenciales predeterminadas activas.**
+- El primer administrador se aprovisiona explícitamente con `npm run db:create-admin` (`ADMIN_USERNAME` + `ADMIN_PASSWORD` ≥ 12 caracteres).
+- En entorno local de pruebas, `npm run db:seed -- --allow-destructive` exige `DEMO_ADMIN_PASSWORD` ≥ 12 caracteres y está bloqueado en `NODE_ENV=production`.
+- Para rotación o recuperación de emergencia existen `npm run db:rotate-admin-password` y `npm run db:issue-admin-recovery-code`.
 
 ## 📦 Scripts
 
