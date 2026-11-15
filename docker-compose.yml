@@ -1,6 +1,6 @@
 services:
   db:
-    image: postgres:14
+    image: postgres:16-alpine
     restart: unless-stopped
     environment:
       POSTGRES_USER: ${POSTGRES_USER:-app}
@@ -8,8 +8,8 @@ services:
       POSTGRES_DB: ${POSTGRES_DB:-app_db}
     volumes:
       - pgdata:/var/lib/postgresql/data
-    # Compose está pensado para desarrollo local. No publiques PostgreSQL en
-    # interfaces externas en un despliegue real.
+    # Compose está pensado para desarrollo o despliegue autoalojado en red local.
+    # No publiques PostgreSQL en interfaces externas sin TLS y firewall.
     ports:
       - "127.0.0.1:5432:5432"
     healthcheck:
@@ -25,10 +25,49 @@ services:
         condition: service_healthy
     environment:
       DATABASE_URL: postgres://${POSTGRES_USER:-app}:${POSTGRES_PASSWORD:-app}@db:5432/${POSTGRES_DB:-app_db}
+      PORT: ${PORT:-3000}
       AUTO_MIGRATE_ON_BOOT: ${AUTO_MIGRATE_ON_BOOT:-true}
       ADMIN_USERNAME: ${ADMIN_USERNAME:-}
       ADMIN_PASSWORD: ${ADMIN_PASSWORD:-}
-      # Add other env variables as needed, e.g., NEXTAUTH_SECRET, etc.
+      ADMIN_NAME: ${ADMIN_NAME:-}
+      ASSISTANT_AI_BASE_URL: ${ASSISTANT_AI_BASE_URL:-https://api.deepseek.com/v1}
+      ASSISTANT_AI_MODEL: ${ASSISTANT_AI_MODEL:-deepseek-chat}
+      ASSISTANT_AI_API_KEY: ${ASSISTANT_AI_API_KEY:-}
+      ASSISTANT_INTERNAL_BASE_URL: ${ASSISTANT_INTERNAL_BASE_URL:-http://127.0.0.1:3000}
+      ASSISTANT_STT_BASE_URL: ${ASSISTANT_STT_BASE_URL:-https://generativelanguage.googleapis.com/v1beta}
+      ASSISTANT_STT_MODEL: ${ASSISTANT_STT_MODEL:-gemini-3.5-transcribe}
+      ASSISTANT_STT_API_KEY: ${ASSISTANT_STT_API_KEY:-}
+      ASSISTANT_VISION_BASE_URL: ${ASSISTANT_VISION_BASE_URL:-https://generativelanguage.googleapis.com/v1beta/openai}
+      ASSISTANT_VISION_MODEL: ${ASSISTANT_VISION_MODEL:-gemini-3.5-flash-lite}
+      ASSISTANT_VISION_API_KEY: ${ASSISTANT_VISION_API_KEY:-}
+      DEEPSEEK_API_KEY: ${DEEPSEEK_API_KEY:-}
+      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+      GEMINI_API_KEY: ${GEMINI_API_KEY:-}
+      SMTP_HOST: ${SMTP_HOST:-}
+      SMTP_PORT: ${SMTP_PORT:-587}
+      SMTP_SECURE: ${SMTP_SECURE:-false}
+      SMTP_USER: ${SMTP_USER:-}
+      SMTP_PASS: ${SMTP_PASS:-}
+      SMTP_FROM: ${SMTP_FROM:-}
+      SMTP_FROM_EMAIL: ${SMTP_FROM_EMAIL:-}
+      NOTIFY_EMAIL: ${NOTIFY_EMAIL:-}
+      TELEGRAM_BOT_TOKEN: ${TELEGRAM_BOT_TOKEN:-}
+      TELEGRAM_CHAT_ID: ${TELEGRAM_CHAT_ID:-}
+      WOMPI_PUBLIC_KEY: ${WOMPI_PUBLIC_KEY:-}
+      WOMPI_INTEGRITY_SECRET: ${WOMPI_INTEGRITY_SECRET:-}
+      WOMPI_EVENTS_SECRET: ${WOMPI_EVENTS_SECRET:-}
+      WOMPI_CHECKOUT_URL: ${WOMPI_CHECKOUT_URL:-https://checkout.wompi.co/p/}
+      WOMPI_REDIRECT_URL: ${WOMPI_REDIRECT_URL:-}
+      SENSOR_WEBHOOK_TOKEN: ${SENSOR_WEBHOOK_TOKEN:-}
+      NEXT_PUBLIC_SWETRIX_PID: ${NEXT_PUBLIC_SWETRIX_PID:-}
+      NEXT_PUBLIC_SWETRIX_API_URL: ${NEXT_PUBLIC_SWETRIX_API_URL:-}
+      LEGAL_RAZON_SOCIAL: ${LEGAL_RAZON_SOCIAL:-}
+      LEGAL_NIT: ${LEGAL_NIT:-}
+      LEGAL_TIPO_PERSONA: ${LEGAL_TIPO_PERSONA:-persona natural}
+      LEGAL_CIUDAD: ${LEGAL_CIUDAD:-Ibagué, Tolima, Colombia}
+      LEGAL_EMAIL: ${LEGAL_EMAIL:-}
+      LEGAL_WHATSAPP: ${LEGAL_WHATSAPP:-}
+      LEGAL_IVA_NOTE: ${LEGAL_IVA_NOTE:-}
     ports:
       - "3000:3000"
   migrate:
@@ -43,6 +82,7 @@ services:
       DATABASE_URL: postgres://${POSTGRES_USER:-app}:${POSTGRES_PASSWORD:-app}@db:5432/${POSTGRES_DB:-app_db}
       ADMIN_USERNAME: ${ADMIN_USERNAME:-}
       ADMIN_PASSWORD: ${ADMIN_PASSWORD:-}
+      ADMIN_NAME: ${ADMIN_NAME:-}
     command: ["npm", "run", "db:bootstrap"]
 volumes:
   pgdata:
