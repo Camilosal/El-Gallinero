@@ -35,6 +35,8 @@ export interface GuideSection {
   targetLabel?: string;
 }
 
+export const GUIDE_DEFAULT_UPDATED_AT = "2026-11-14";
+
 export interface Guide {
   slug: string;
   title: string;
@@ -42,6 +44,7 @@ export interface Guide {
   icon: string;
   summary: string;
   estimatedMinutes: number;
+  updatedAt?: string;
   tags: string[];
   relatedHrefs: { href: string; label: string }[];
   sections: GuideSection[];

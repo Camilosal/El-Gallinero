@@ -171,6 +171,7 @@ export interface CyclePlanShowcase {
     | "SEMESTRAL_PONEDORA"
     | "MEDIANO_MENSUAL";
   slug: string;
+  updatedAt: string;
   badge: string;
   name: string;
   priceLabel: string;
@@ -578,6 +579,7 @@ export const CYCLE_PLANS_SHOWCASE: CyclePlanShowcase[] = [
   {
     id: "FREEMIUM_SEMILLA",
     slug: "semilla",
+    updatedAt: "2026-11-14",
     badge: "Gratis siempre",
     name: "Semilla (1 lote)",
     priceLabel: "$0 COP",
@@ -614,6 +616,7 @@ export const CYCLE_PLANS_SHOWCASE: CyclePlanShowcase[] = [
   {
     id: "CICLO_60D",
     slug: "ciclo-60d",
+    updatedAt: "2026-11-14",
     badge: "Por cosecha",
     name: "Ciclo Engorde 60d",
     priceLabel: "$45.000 COP",
@@ -651,6 +654,7 @@ export const CYCLE_PLANS_SHOWCASE: CyclePlanShowcase[] = [
   {
     id: "SEMESTRAL_PONEDORA",
     slug: "semestral-ponedora",
+    updatedAt: "2026-11-14",
     badge: "Postura y mixtas",
     name: "Semestral 180d",
     priceLabel: "$120.000 COP",
@@ -687,6 +691,7 @@ export const CYCLE_PLANS_SHOWCASE: CyclePlanShowcase[] = [
   {
     id: "MEDIANO_MENSUAL",
     slug: "mediano-mensual",
+    updatedAt: "2026-11-15",
     badge: "Multi-galpón",
     name: "Escala Mediano · cobro mensual",
     priceLabel: "$149.000 COP",

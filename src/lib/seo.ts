@@ -6,6 +6,37 @@ export const SITE_URL = "https://gallinero.iwage.co";
 export const SITE_NAME = "El Gallinero · Iwagé Granja";
 export const DEFAULT_OG_IMAGE = `${SITE_URL}/images/guia/inicio-dashboard.webp`;
 
+/** Dimensiones reales medidas en disco para los activos OG y diagramas en public/. */
+export const OG_IMAGE_DIMENSIONS: Record<string, { width: number; height: number }> = {
+  "/images/guia/inicio-dashboard.webp": { width: 1366, height: 860 },
+  "/images/guia/asistente-ia.webp": { width: 1366, height: 860 },
+  "/images/guia/configuracion-modulos.webp": { width: 1366, height: 860 },
+  "/images/guia/configuracion-panel.webp": { width: 1366, height: 860 },
+  "/images/heroes/inicio-2x.webp": { width: 1600, height: 560 },
+  "/images/heroes/inicio-1x.webp": { width: 800, height: 280 },
+  "/traceability-flow.png": { width: 1792, height: 1024 },
+  "/hero-illustration.png": { width: 1024, height: 768 },
+  "/modules-diagram.png": { width: 1024, height: 1024 },
+  "/icon-192.png": { width: 1024, height: 1024 },
+  "/icon-512.png": { width: 1024, height: 1024 },
+};
+
+export function resolveOgImageDimensions(pathOrUrl?: string): { width: number; height: number } {
+  const raw = (pathOrUrl || DEFAULT_OG_IMAGE).trim();
+  const normalizedPath = raw.startsWith(SITE_URL) ? raw.slice(SITE_URL.length) : raw;
+  if (OG_IMAGE_DIMENSIONS[normalizedPath]) {
+    return OG_IMAGE_DIMENSIONS[normalizedPath];
+  }
+  if (normalizedPath.startsWith("/images/heroes/") && normalizedPath.endsWith("-2x.webp")) {
+    return { width: 1600, height: 560 };
+  }
+  if (normalizedPath.startsWith("/images/heroes/") && normalizedPath.endsWith("-1x.webp")) {
+    return { width: 800, height: 280 };
+  }
+  // Todas las capturas restantes en public/images/guia/*.webp son 1200x750
+  return { width: 1200, height: 750 };
+}
+
 export const ENTITY_IDS = {
   person: "https://camilosaldarriaga.com/#person",
   organization: "https://iwage.co/#organization",
@@ -88,6 +119,8 @@ export function buildPageMetadata(options: BuildPageMetadataOptions): Metadata {
   const absoluteOgImage = toAbsoluteUrl(ogImage);
   const imageAlt = ogImageAlt ?? title;
 
+  const ogDims = resolveOgImageDimensions(absoluteOgImage);
+
   const openGraph: Metadata["openGraph"] =
     ogType === "article"
       ? {
@@ -103,8 +136,8 @@ export function buildPageMetadata(options: BuildPageMetadataOptions): Metadata {
           images: [
             {
               url: absoluteOgImage,
-              width: 1200,
-              height: 630,
+              width: ogDims.width,
+              height: ogDims.height,
               alt: imageAlt,
             },
           ],
@@ -119,8 +152,8 @@ export function buildPageMetadata(options: BuildPageMetadataOptions): Metadata {
           images: [
             {
               url: absoluteOgImage,
-              width: 1200,
-              height: 630,
+              width: ogDims.width,
+              height: ogDims.height,
               alt: imageAlt,
             },
           ],
