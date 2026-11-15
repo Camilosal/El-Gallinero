@@ -48,7 +48,15 @@ const TONE_CLASSES: Record<
 
 const RECENT_ROTATIONS = new Map<string, { at: number; result: PickedNudgeResult }>();
 
-export default function BehavioralNudgeBanner() {
+export interface BehavioralNudgeBannerProps {
+  compact?: boolean;
+  className?: string;
+}
+
+export default function BehavioralNudgeBanner({
+  compact = false,
+  className,
+}: BehavioralNudgeBannerProps = {}) {
   const pathname = usePathname() || "/dashboard";
   const searchParams = useSearchParams();
   const query = searchParams.toString();
@@ -118,7 +126,7 @@ export default function BehavioralNudgeBanner() {
     return (
       <div
         aria-hidden="true"
-        className="mb-4 h-12 rounded-xl border border-slate-200/70 bg-slate-50/70 animate-pulse"
+        className={`${className ?? "mb-4"} ${compact ? "h-full min-h-[104px]" : "h-12"} rounded-xl border border-slate-200/70 bg-slate-50/70 animate-pulse`}
       />
     );
   }
@@ -128,9 +136,9 @@ export default function BehavioralNudgeBanner() {
       aria-label={`Recordatorio conductual de ${group.label}`}
       data-nudge-group={group.key}
       data-nudge-id={nudge.id}
-      className={`mb-4 rounded-xl border px-3.5 py-2.5 shadow-2xs transition-colors ${tone.container}`}
+      className={`${className ?? "mb-4"} rounded-xl border px-3.5 py-2.5 shadow-2xs transition-colors ${compact ? "flex flex-col justify-between gap-2.5 h-full" : ""} ${tone.container}`}
     >
-      <div className="flex flex-wrap items-center justify-between gap-2">
+      <div className={compact ? "flex flex-col justify-between gap-2.5 h-full" : "flex flex-wrap items-center justify-between gap-2"}>
         <div className="flex items-start sm:items-center gap-2.5 min-w-0 flex-1">
           <div className={`mt-0.5 sm:mt-0 flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-white/90 border border-slate-200 ${tone.icon}`}>
             <Lightbulb className="h-4 w-4" aria-hidden="true" />
@@ -155,7 +163,7 @@ export default function BehavioralNudgeBanner() {
           </div>
         </div>
 
-        <div className="flex flex-wrap items-center gap-1.5 shrink-0">
+        <div className={`flex flex-wrap items-center gap-1.5 shrink-0 ${compact ? "pt-1 border-t border-slate-200/60 justify-end" : ""}`}>
           {!minimized && nudge.actionLabel && nudge.quickCaptureMode && (
             <button
               type="button"

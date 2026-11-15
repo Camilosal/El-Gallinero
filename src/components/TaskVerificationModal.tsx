@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { ShieldCheck, ArrowRight, AlertCircle, CheckSquare } from "lucide-react";
-import { Modal, Button } from "@/components/ui";
+import { Modal, Button, Tooltip } from "@/components/ui";
 import { AppIcon } from "@/components/AppIcon";
 import { apiFetch } from "@/lib/fetch";
 import type { UnifiedCalendarEvent } from "@/lib/unified-calendar";
@@ -146,12 +146,15 @@ function VerificationFormContent({
       </div>
 
       <div>
-        <label
-          htmlFor="task-verification-note"
-          className="block text-xs font-semibold text-slate-700 mb-1"
-        >
-          Evidencia u observación en campo (mínimo 5 caracteres)
-        </label>
+        <div className="flex items-center gap-1 mb-1">
+          <label
+            htmlFor="task-verification-note"
+            className="block text-xs font-semibold text-slate-700"
+          >
+            Evidencia u observación en campo (mínimo 5 caracteres)
+          </label>
+          <Tooltip text="Escribe brevemente qué revisaste o hiciste hoy en galpón (ej. «Agua limpia en los 3 galpones y sin bajas»)." />
+        </div>
         <textarea
           id="task-verification-note"
           rows={3}

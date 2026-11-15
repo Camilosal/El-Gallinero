@@ -16,6 +16,7 @@ import {
   X,
 } from "lucide-react";
 import { apiFetch } from "@/lib/fetch";
+import { Tooltip } from "@/components/ui";
 import { todayColombiaIso } from "@/lib/date-validation";
 import { COLOMBIA_DIVIPOLA_CATALOG, resolveZoneWithFallback } from "@/lib/divipola-catalog";
 import {
@@ -685,9 +686,12 @@ function WizardBody({
               ) : (
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div>
-                <label htmlFor="ob-farm-name" className="block text-sm font-semibold text-slate-800 mb-1">
-                  Nombre de la granja o predio <span className="text-red-600" aria-hidden="true">*</span>
-                </label>
+                <div className="flex items-center gap-1 mb-1">
+                  <label htmlFor="ob-farm-name" className="block text-sm font-semibold text-slate-800">
+                    Nombre de la granja o predio <span className="text-red-600" aria-hidden="true">*</span>
+                  </label>
+                  <Tooltip text="Cómo llaman tu finca o granja (aparecerá en tu panel principal y comprobantes)." />
+                </div>
                 <input
                   id="ob-farm-name"
                   name="nombrePredio"
@@ -703,9 +707,12 @@ function WizardBody({
               </div>
 
               <div>
-                <label htmlFor="ob-city" className="block text-sm font-semibold text-slate-800 mb-1">
-                  Municipio DIVIPOLA (Colombia)
-                </label>
+                <div className="flex items-center gap-1 mb-1">
+                  <label htmlFor="ob-city" className="block text-sm font-semibold text-slate-800">
+                    Municipio DIVIPOLA (Colombia)
+                  </label>
+                  <Tooltip text="Municipio de tu granja; con este dato la app consulta clima, precios y alertas sanitarias de tu zona." />
+                </div>
                 <select
                   id="ob-city"
                   name="ciudad"
@@ -735,9 +742,12 @@ function WizardBody({
               </div>
 
               <div>
-                <label htmlFor="ob-altitude" className="block text-sm font-semibold text-slate-800 mb-1">
-                  Altitud aproximada (msnm)
-                </label>
+                <div className="flex items-center gap-1 mb-1">
+                  <label htmlFor="ob-altitude" className="block text-sm font-semibold text-slate-800">
+                    Altitud aproximada (msnm)
+                  </label>
+                  <Tooltip text="Metros sobre el nivel del mar; se llena sola si eliges municipio y sirve para ajustar alertas de frío o calor." />
+                </div>
                 <input
                   id="ob-altitude"
                   name="altitudMsnm"
@@ -757,9 +767,12 @@ function WizardBody({
               </div>
 
               <div>
-                <label htmlFor="ob-admin" className="block text-sm font-semibold text-slate-800 mb-1">
-                  Responsable o administrador
-                </label>
+                <div className="flex items-center gap-1 mb-1">
+                  <label htmlFor="ob-admin" className="block text-sm font-semibold text-slate-800">
+                    Responsable o administrador
+                  </label>
+                  <Tooltip text="Persona encargada de la granja o de validar los reportes diarios." />
+                </div>
                 <input
                   id="ob-admin"
                   name="administrador"
@@ -952,9 +965,12 @@ function WizardBody({
 
                   <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
                     <div>
-                      <label htmlFor={`unit-loc-${u.id}`} className="block text-xs font-semibold text-slate-700 mb-1">
-                        Galpón / Corral / Poza
-                      </label>
+                      <div className="flex items-center gap-1 mb-1">
+                        <label htmlFor={`unit-loc-${u.id}`} className="block text-xs font-semibold text-slate-700">
+                          Galpón / Corral / Poza
+                        </label>
+                        <Tooltip text="Nombre del espacio donde viven estos animales (ej. Galpón 1, Jaula A)." />
+                      </div>
                       <input
                         id={`unit-loc-${u.id}`}
                         type="text"
@@ -968,9 +984,12 @@ function WizardBody({
                       />
                     </div>
                     <div>
-                      <label htmlFor={`unit-sp-${u.id}`} className="block text-xs font-semibold text-slate-700 mb-1">
-                        Especie
-                      </label>
+                      <div className="flex items-center gap-1 mb-1">
+                        <label htmlFor={`unit-sp-${u.id}`} className="block text-xs font-semibold text-slate-700">
+                          Especie
+                        </label>
+                        <Tooltip text="Tipo de animal alojado en este lugar." />
+                      </div>
                       <select
                         id={`unit-sp-${u.id}`}
                         value={u.especie}
@@ -1005,9 +1024,12 @@ function WizardBody({
                       </select>
                     </div>
                     <div>
-                      <label htmlFor={`unit-type-${u.id}`} className="block text-xs font-semibold text-slate-700 mb-1">
-                        Tipo instalación
-                      </label>
+                      <div className="flex items-center gap-1 mb-1">
+                        <label htmlFor={`unit-type-${u.id}`} className="block text-xs font-semibold text-slate-700">
+                          Tipo instalación
+                        </label>
+                        <Tooltip text="Si están sueltos en piso, en jaulas elevadas, en corral o pastoreo." />
+                      </div>
                       <select
                         id={`unit-type-${u.id}`}
                         value={u.tipoInstalacion}
@@ -1028,9 +1050,12 @@ function WizardBody({
 
                   <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
                     <div>
-                      <label htmlFor={`unit-qty-${u.id}`} className="block text-xs font-semibold text-slate-700 mb-1">
-                        Vivos hoy
-                      </label>
+                      <div className="flex items-center gap-1 mb-1">
+                        <label htmlFor={`unit-qty-${u.id}`} className="block text-xs font-semibold text-slate-700">
+                          Vivos hoy
+                        </label>
+                        <Tooltip text="Cantidad de animales vivos que tienes hoy en este galpón o lote (sin registros viejos)." />
+                      </div>
                       <input
                         id={`unit-qty-${u.id}`}
                         type="number"
@@ -1046,9 +1071,12 @@ function WizardBody({
                       />
                     </div>
                     <div>
-                      <label htmlFor={`unit-age-${u.id}`} className="block text-xs font-semibold text-slate-700 mb-1">
-                        Edad aprox. ({u.edadActualDias} días)
-                      </label>
+                      <div className="flex items-center gap-1 mb-1">
+                        <label htmlFor={`unit-age-${u.id}`} className="block text-xs font-semibold text-slate-700">
+                          Edad aprox. ({u.edadActualDias} días)
+                        </label>
+                        <Tooltip text="Edad estimada del grupo hoy en semanas, días o meses; sirve para calcular su meta de peso o postura." />
+                      </div>
                       <div className="flex gap-1.5">
                         <input
                           id={`unit-age-${u.id}`}
@@ -1098,9 +1126,12 @@ function WizardBody({
                       </div>
                     </div>
                     <div>
-                      <label htmlFor={`unit-breed-${u.id}`} className="block text-xs font-semibold text-slate-700 mb-1">
-                        Línea / raza
-                      </label>
+                      <div className="flex items-center gap-1 mb-1">
+                        <label htmlFor={`unit-breed-${u.id}`} className="block text-xs font-semibold text-slate-700">
+                          Línea / raza
+                        </label>
+                        <Tooltip text="Raza o línea comercial (ej. Hy-Line Brown, Cobb 500, Criolla) para comparar contra su curva esperada." />
+                      </div>
                       <input
                         id={`unit-breed-${u.id}`}
                         type="text"
@@ -1170,9 +1201,12 @@ function WizardBody({
 
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 rounded-xl border border-amber-200 bg-amber-50/60 p-4">
               <div className="sm:col-span-2 lg:col-span-1">
-                <label htmlFor="ob-feed-name" className="block text-xs font-semibold text-slate-800 mb-1">
-                  Alimento en bodega
-                </label>
+                <div className="flex items-center gap-1 mb-1">
+                  <label htmlFor="ob-feed-name" className="block text-xs font-semibold text-slate-800">
+                    Alimento en bodega
+                  </label>
+                  <Tooltip text="Nombre del concentrado o grano principal que tienes guardado hoy." />
+                </div>
                 <input
                   id="ob-feed-name"
                   type="text"
@@ -1182,9 +1216,12 @@ function WizardBody({
                 />
               </div>
               <div>
-                <label htmlFor="ob-feed-bags" className="block text-xs font-semibold text-slate-800 mb-1">
-                  Bultos de 40 kg hoy
-                </label>
+                <div className="flex items-center gap-1 mb-1">
+                  <label htmlFor="ob-feed-bags" className="block text-xs font-semibold text-slate-800">
+                    Bultos de 40 kg hoy
+                  </label>
+                  <Tooltip text="Cuántos sacos cerrados de 40 kg tienes hoy en bodega (la app multiplica por 40 automáticamente)." />
+                </div>
                 <input
                   id="ob-feed-bags"
                   type="number"
@@ -1196,9 +1233,12 @@ function WizardBody({
                 />
               </div>
               <div>
-                <label htmlFor="ob-feed-kg" className="block text-xs font-semibold text-slate-800 mb-1">
-                  Kg sueltos adicionales
-                </label>
+                <div className="flex items-center gap-1 mb-1">
+                  <label htmlFor="ob-feed-kg" className="block text-xs font-semibold text-slate-800">
+                    Kg sueltos adicionales
+                  </label>
+                  <Tooltip text="Kilos en sacos ya empezados o alimento suelto que quieras sumar a los bultos cerrados." />
+                </div>
                 <input
                   id="ob-feed-kg"
                   type="number"
@@ -1210,9 +1250,12 @@ function WizardBody({
                 />
               </div>
               <div>
-                <label htmlFor="ob-feed-bag-cost" className="block text-xs font-semibold text-slate-800 mb-1">
-                  Valor aprox. bulto 40 kg ($ COP)
-                </label>
+                <div className="flex items-center gap-1 mb-1">
+                  <label htmlFor="ob-feed-bag-cost" className="block text-xs font-semibold text-slate-800">
+                    Valor aprox. bulto 40 kg ($ COP)
+                  </label>
+                  <Tooltip text="Precio aproximado por bulto de 40 kg para valorar lo que tienes en bodega y calcular costo por kilo consumido." />
+                </div>
                 <input
                   id="ob-feed-bag-cost"
                   type="number"

@@ -15,6 +15,7 @@ import {
   X,
 } from "lucide-react";
 import { apiFetch } from "@/lib/fetch";
+import { Tooltip } from "@/components/ui";
 import {
   ATTACHMENT_CATEGORIES,
   parseColombianAgroDocument,
@@ -348,7 +349,10 @@ export default function AttachmentPanel({
       {!compact && (
         <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
           <div>
-            <label className="mb-1 block text-[11px] font-semibold text-slate-600">Tipo de soporte</label>
+            <div className="mb-1 flex items-center gap-1">
+              <label className="block text-[11px] font-semibold text-slate-600">Tipo de soporte</label>
+              <Tooltip text="Indica qué documento o foto estás adjuntando (factura, recibo, foto clínica o norma)." />
+            </div>
             <select
               value={category}
               onChange={(e) => setCustomCategory(e.target.value as AttachmentCategory)}
@@ -362,7 +366,10 @@ export default function AttachmentPanel({
             </select>
           </div>
           <div>
-            <label className="mb-1 block text-[11px] font-semibold text-slate-600">Nota del soporte (opcional)</label>
+            <div className="mb-1 flex items-center gap-1">
+              <label className="block text-[11px] font-semibold text-slate-600">Nota del soporte (opcional)</label>
+              <Tooltip text="Comentario corto para reconocer el archivo más adelante." />
+            </div>
             <input
               type="text"
               value={notes}
@@ -376,9 +383,12 @@ export default function AttachmentPanel({
 
       {ocrMode && showTextOcrBox && (
         <div className="rounded-xl border border-emerald-200 bg-white p-3 space-y-2">
-          <label className="block text-xs font-semibold text-slate-700">
-            Pegar texto de factura, etiqueta ICA o comprobante para autocompletar sin foto:
-          </label>
+          <div className="flex items-center gap-1">
+            <label className="block text-xs font-semibold text-slate-700">
+              Pegar texto de factura, etiqueta ICA o comprobante para autocompletar sin foto:
+            </label>
+            <Tooltip text="Pega el texto copiado de una factura o etiqueta y la app llenará los datos del formulario por ti." />
+          </div>
           <textarea
             rows={2}
             value={textHint}

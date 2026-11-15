@@ -17,7 +17,7 @@ import {
   Wheat,
   WifiOff,
 } from "lucide-react";
-import { Button, Input, Modal, Select } from "@/components/ui";
+import { Button, Input, Modal, Select, Tooltip } from "@/components/ui";
 import ContactField from "@/components/contacts/ContactField";
 import FarmLocationSelect from "@/components/FarmLocationSelect";
 import AttachmentPanel from "@/components/attachments/AttachmentPanel";
@@ -1473,10 +1473,11 @@ export default function QuickCaptureModal() {
                     value={eggLocationId || effectiveDefaultLocation}
                     onChange={setEggLocationId}
                     label="Galpón / ubicación"
-                    help=""
+                    help="Elige el galpón o corral donde recogiste estos huevos."
                   />
                   <Input
                     label="Fecha"
+                    help="Día en que se recolectaron estos huevos."
                     type="date"
                     value={eggDate}
                     onChange={(e) => setEggDate(e.target.value)}
@@ -1486,6 +1487,7 @@ export default function QuickCaptureModal() {
                 {eggSpecies !== "gallina" && (
                   <Select
                     label="Lote en postura"
+                    help="Grupo de animales que puso estos huevos."
                     value={eggBatchId}
                     onChange={(e) => setEggBatchId(e.target.value)}
                   >
@@ -1502,7 +1504,10 @@ export default function QuickCaptureModal() {
                 <div className="rounded-xl border border-yellow-200 bg-yellow-50/70 p-3.5 space-y-3">
                   <div className="grid grid-cols-2 gap-3">
                     <div>
-                      <span className="mb-1 block text-xs font-semibold text-slate-700">Cubetas (×30)</span>
+                      <span className="mb-1 inline-flex items-center gap-1 text-xs font-semibold text-slate-700">
+                        <span>Cubetas (×30)</span>
+                        <Tooltip text="Cantidad de cartones completos de 30 huevos que llenaste hoy." />
+                      </span>
                       <div className="flex items-center gap-1.5">
                         <button
                           type="button"
@@ -1531,7 +1536,10 @@ export default function QuickCaptureModal() {
                     </div>
 
                     <div>
-                      <span className="mb-1 block text-xs font-semibold text-slate-700">Huevos sueltos</span>
+                      <span className="mb-1 inline-flex items-center gap-1 text-xs font-semibold text-slate-700">
+                        <span>Huevos sueltos</span>
+                        <Tooltip text="Huevos adicionales que no alcanzan a completar otra cubeta de 30." />
+                      </span>
                       <div className="flex items-center gap-1.5">
                         <button
                           type="button"
@@ -1648,12 +1656,23 @@ export default function QuickCaptureModal() {
                     value={feedLocationId || effectiveDefaultLocation}
                     onChange={setFeedLocationId}
                     label="Galpón / ubicación"
-                    help=""
+                    help="Lugar donde entregaste esta ración de alimento."
                   />
-                  <Input label="Fecha" type="date" value={feedDate} onChange={(e) => setFeedDate(e.target.value)} />
+                  <Input
+                    label="Fecha"
+                    help="Día en que se entregó o sirvió este alimento."
+                    type="date"
+                    value={feedDate}
+                    onChange={(e) => setFeedDate(e.target.value)}
+                  />
                 </div>
 
-                <Select label="Alimento del inventario" value={feedId} onChange={(e) => setFeedId(e.target.value)}>
+                <Select
+                  label="Alimento del inventario"
+                  help="Producto de tu bodega del cual se descontará esta cantidad."
+                  value={feedId}
+                  onChange={(e) => setFeedId(e.target.value)}
+                >
                   <option value="">Selecciona un alimento…</option>
                   {feeds.map((f) => (
                     <option key={f.id} value={f.id}>
@@ -1665,6 +1684,7 @@ export default function QuickCaptureModal() {
                 <div className="rounded-xl border border-amber-200 bg-amber-50/70 p-3 space-y-2.5">
                   <Input
                     label={`Cantidad entregada (${selectedFeedObj?.unit || "kg"})`}
+                    help="Cuánto alimento serviste hoy en comederos en esta ubicación."
                     type="number"
                     step="0.5"
                     min="0.1"
@@ -1708,13 +1728,22 @@ export default function QuickCaptureModal() {
                       setMortBatchId("");
                     }}
                     label="Ubicación"
-                    help=""
+                    help="Galpón o corral donde se encontró la baja."
                   />
-                  <Input label="Fecha" type="date" value={mortDate} onChange={(e) => setMortDate(e.target.value)} />
+                  <Input
+                    label="Fecha"
+                    help="Día en que se registró la mortalidad."
+                    type="date"
+                    value={mortDate}
+                    onChange={(e) => setMortDate(e.target.value)}
+                  />
                 </div>
 
                 <div>
-                  <span className="mb-1.5 block text-xs font-semibold text-slate-700">Tipo de animal / lote</span>
+                  <span className="mb-1.5 inline-flex items-center gap-1 text-xs font-semibold text-slate-700">
+                    <span>Tipo de animal / lote</span>
+                    <Tooltip text="Selecciona si es una gallina individual, un gallo o animales dentro de un lote." />
+                  </span>
                   <div className="flex flex-wrap gap-1.5">
                     {MORTALITY_BIRD_TYPES.map((bt) => (
                       <button
@@ -1804,7 +1833,10 @@ export default function QuickCaptureModal() {
                 )}
 
                 <div>
-                  <span className="mb-1.5 block text-xs font-semibold text-slate-700">Causa (1 toque)</span>
+                  <span className="mb-1.5 inline-flex items-center gap-1 text-xs font-semibold text-slate-700">
+                    <span>Causa (1 toque)</span>
+                    <Tooltip text="Motivo más probable de la pérdida para vigilar alertas sanitarias o de manejo." />
+                  </span>
                   <div className="grid grid-cols-2 gap-1.5 sm:grid-cols-3">
                     {MORTALITY_CAUSES.map((c) => (
                       <button
@@ -1873,7 +1905,10 @@ export default function QuickCaptureModal() {
             {mode === "gasto" && (
               <div className="space-y-3.5">
                 <div>
-                  <span className="mb-1.5 block text-xs font-semibold text-slate-700">Categoría</span>
+                  <span className="mb-1.5 inline-flex items-center gap-1 text-xs font-semibold text-slate-700">
+                    <span>Categoría</span>
+                    <Tooltip text="Tipo de gasto o compra para agruparlo bien en tus reportes y bodega." />
+                  </span>
                   <div className="flex flex-wrap gap-1.5">
                     {categoriesList.slice(0, 8).map((cat) => (
                       <button
@@ -2309,21 +2344,24 @@ export default function QuickCaptureModal() {
                 />
 
                 <div className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 space-y-2">
-                  <label className="flex items-center gap-2 text-xs font-medium text-slate-700 cursor-pointer">
-                    <input
-                      type="checkbox"
-                      checked={saleIsCredit}
-                      onChange={(e) => {
-                        const checked = e.target.checked;
-                        setSaleIsCredit(checked);
-                        if (checked && !saleDueDate) {
-                          setSaleDueDate(addDaysIso(saleDate, saleClientCreditDays || 15));
-                        }
-                      }}
-                      className="rounded border-slate-300 text-green-600 focus:ring-green-500"
-                    />
-                    <span>Venta a crédito (cuenta por cobrar)</span>
-                  </label>
+                  <div className="flex items-center gap-2">
+                    <label className="flex items-center gap-2 text-xs font-medium text-slate-700 cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={saleIsCredit}
+                        onChange={(e) => {
+                          const checked = e.target.checked;
+                          setSaleIsCredit(checked);
+                          if (checked && !saleDueDate) {
+                            setSaleDueDate(addDaysIso(saleDate, saleClientCreditDays || 15));
+                          }
+                        }}
+                        className="rounded border-slate-300 text-green-600 focus:ring-green-500"
+                      />
+                      <span>Venta a crédito (cuenta por cobrar)</span>
+                    </label>
+                    <Tooltip text="Marca esta casilla si el cliente te pagará después; queda anotado como deuda pendiente en Cuentas." />
+                  </div>
                   {saleIsCredit && (
                     <Input
                       label="Fecha de vencimiento *"

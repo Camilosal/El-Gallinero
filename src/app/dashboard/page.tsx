@@ -24,6 +24,7 @@ import {
 } from "lucide-react";
 import { AppIcon } from "@/components/AppIcon";
 import { HeroBanner } from "@/components/HeroBanner";
+import BehavioralNudgeBanner from "@/components/BehavioralNudgeBanner";
 import { Card } from "@/components/ui";
 import RoutineDayButtons from "@/components/RoutineDayButtons";
 import OnboardingWizardModal from "@/components/OnboardingWizardModal";
@@ -504,12 +505,23 @@ export default function Dashboard() {
         ? `${data.species.filter((s) => s.count > 0).length} especies`
         : "Inventario vivo";
 
+  const hasExternalCard = Boolean(externalSyncNotice || externalZoneLabel);
+  const hasSecondaryBannerCard = showWizardCta || recentAutoTriggers.length > 0;
+  const topStripGridCols =
+    hasExternalCard && hasSecondaryBannerCard
+      ? "lg:grid-cols-3"
+      : hasExternalCard || hasSecondaryBannerCard
+        ? "lg:grid-cols-2"
+        : "lg:grid-cols-1";
+
   return (
     <div>
       {/* Encabezado limpio */}
       <HeroBanner
         theme="inicio"
         compact
+        hideNudge
+        className="mb-4"
         icon={<Home className="w-3.5 h-3.5 text-amber-200" aria-hidden="true" />}
         title={onboardingState?.farmProfile?.name || "Panel principal"}
         description={
@@ -558,83 +570,94 @@ export default function Dashboard() {
         help={`• Arriba ves las 4 cifras clave del día y el botón Asistente inicial.\n• En «Tareas de hoy» ejecutas o confirmas las labores pendientes según tu rutina.\n• En «Accesos directos» entras directo a registrar o consultar cada área.`}
       />
 
-      {(externalSyncNotice || externalZoneLabel) && (
-        <div
-          className={`mb-4 flex flex-wrap items-center justify-between gap-2 rounded-xl border px-3.5 py-2 text-xs ${externalSyncNotice && !externalSyncNotice.ok
-            ? "border-red-200 bg-red-50 text-red-900"
-            : "border-emerald-200 bg-emerald-50/70 text-emerald-900"
-            }`}
-        >
-          <span>
-            {externalSyncNotice
-              ? externalSyncNotice.text
-              : `Entorno externo activo: ${externalZoneLabel} (renovación automática por periodo).`}
-          </span>
-          <Link href="/dashboard/analisis/fuentes-externas" className="font-semibold underline">
-            Ver monitoreo de clima, precios e ICA →
-          </Link>
-        </div>
-      )}
+      {/* Mensaje conductual y tarjetas adjuntas debajo del hero en una sola fila */}
+      <div className={`mb-5 grid grid-cols-1 ${topStripGridCols} gap-3 items-stretch`}>
+        <BehavioralNudgeBanner compact className="mb-0 h-full" />
 
-      {/* Tarjeta destacada de arranque Día 1 */}
-      {showWizardCta ? (
-        <section
-          aria-label="Asistente inicial de configuración"
-          className="mb-5 rounded-2xl border border-emerald-200 border-l-4 border-l-emerald-700 bg-gradient-to-r from-emerald-50/90 via-white to-amber-50/70 p-4 sm:p-5 shadow-sm"
-        >
-          <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
-            <div className="space-y-2 max-w-2xl">
-              <div className="flex flex-wrap items-center gap-2">
-                <span className="inline-flex items-center gap-1 rounded-full bg-emerald-700 px-2.5 py-0.5 text-[11px] font-bold uppercase tracking-wide text-white">
+        {hasExternalCard && (
+          <div
+            className={`rounded-xl border px-3.5 py-2.5 text-xs flex flex-col justify-between gap-2 h-full shadow-2xs ${externalSyncNotice && !externalSyncNotice.ok
+              ? "border-red-200 bg-red-50/90 text-red-900"
+              : "border-emerald-200 bg-emerald-50/75 text-emerald-950"
+              }`}
+          >
+            <div className="space-y-1">
+              <span className="inline-flex items-center rounded-full bg-emerald-800 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-white">
+                Entorno externo
+              </span>
+              <p className="text-xs sm:text-[13px] font-medium leading-snug">
+                {externalSyncNotice
+                  ? externalSyncNotice.text
+                  : `Entorno externo activo: ${externalZoneLabel} (renovación automática por periodo).`}
+              </p>
+            </div>
+            <div className="pt-1 border-t border-emerald-200/70">
+              <Link href="/dashboard/analisis/fuentes-externas" className="font-semibold text-emerald-800 hover:underline inline-flex items-center gap-1">
+                <span>Ver clima, precios e ICA →</span>
+              </Link>
+            </div>
+          </div>
+        )}
+
+        {showWizardCta ? (
+          <section
+            aria-label="Asistente inicial de configuración"
+            className="rounded-xl border border-emerald-200 border-l-4 border-l-emerald-700 bg-gradient-to-br from-emerald-50/90 via-white to-amber-50/70 px-3.5 py-2.5 shadow-2xs flex flex-col justify-between gap-2.5 h-full"
+          >
+            <div className="space-y-1">
+              <div className="flex flex-wrap items-center gap-1.5">
+                <span className="inline-flex items-center gap-1 rounded-full bg-emerald-700 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-white">
                   <Wand2 className="w-3 h-3" aria-hidden="true" />
                   Onboarding Día 1
                 </span>
-                <span className="text-xs font-medium text-emerald-900">
-                  Sin historial previo · Menos de 5 minutos
+                <span className="text-[11px] font-medium text-emerald-900">
+                  &lt; 5 minutos
                 </span>
               </div>
-              <h2 className="text-base sm:text-lg font-bold text-slate-900">
+              <h2 className="text-xs sm:text-[13px] font-bold text-slate-900 leading-snug">
                 Asistente inicial: prepara tu granja en 3 pasos
               </h2>
-              <p className="text-xs sm:text-sm text-slate-600">
-                Carga los datos de la finca, lugares y animales vivos hoy, y el alimento disponible (manual o desde plantilla CSV).
+              <p className="text-[11px] text-slate-600 leading-snug">
+                Finca, lugares y animales vivos, más stock inicial o plantilla CSV.
               </p>
-              <div className="flex flex-wrap gap-2 pt-0.5 text-[11px] font-medium text-slate-700">
-                <span className="rounded-md border border-emerald-200 bg-white px-2.5 py-1">1. Escala y finca</span>
-                <span className="rounded-md border border-emerald-200 bg-white px-2.5 py-1">2. Lugares y especies</span>
-                <span className="rounded-md border border-emerald-200 bg-white px-2.5 py-1">3. Stock inicial o CSV</span>
-              </div>
             </div>
-            <div className="flex flex-wrap items-center gap-2 shrink-0">
+            <div className="flex flex-wrap items-center gap-1.5 pt-1 border-t border-emerald-200/60">
               <button
                 type="button"
                 onClick={() => setWizardOpen(true)}
-                className="inline-flex items-center gap-2 rounded-xl bg-emerald-700 px-4 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-emerald-800 cursor-pointer"
+                className="inline-flex items-center gap-1.5 rounded-lg bg-emerald-700 px-2.5 py-1.5 text-[11px] font-semibold text-white shadow-2xs hover:bg-emerald-800 cursor-pointer"
               >
-                <Wand2 className="w-4 h-4" aria-hidden="true" />
-                <span>Abrir asistente inicial</span>
+                <Wand2 className="w-3 h-3" aria-hidden="true" />
+                <span>Abrir asistente</span>
               </button>
               <button
                 type="button"
                 onClick={() => void patchOnboarding({ wizardDismissed: true })}
-                className="rounded-xl border border-slate-200 bg-white px-3.5 py-2.5 text-xs font-medium text-slate-600 hover:bg-slate-50 cursor-pointer"
+                className="rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-[11px] font-medium text-slate-600 hover:bg-slate-50 cursor-pointer"
               >
-                Omitir por ahora
+                Omitir
               </button>
             </div>
+          </section>
+        ) : recentAutoTriggers.length > 0 ? (
+          <div className="rounded-xl border border-slate-200 border-l-4 border-l-emerald-600 bg-white px-3.5 py-2.5 flex flex-col justify-between gap-2 text-xs text-slate-700 h-full shadow-2xs">
+            <div className="space-y-1">
+              <span className="inline-flex items-center rounded-full bg-emerald-700 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-white">
+                Desbloqueo automático
+              </span>
+              <p className="text-xs sm:text-[13px] leading-snug">
+                <strong className="text-slate-900">Nuevas funciones habilitadas:</strong>{" "}
+                {recentAutoTriggers.map((t) => FEATURE_FLAG_BY_KEY[t.featureKey]?.name || t.featureKey).join(" · ")}
+              </p>
+            </div>
+            <div className="pt-1 border-t border-slate-100">
+              <Link href="/dashboard/configuracion/modulos" className="font-semibold text-emerald-800 hover:underline inline-flex items-center">
+                Ver módulos →
+              </Link>
+            </div>
           </div>
-        </section>
-      ) : recentAutoTriggers.length > 0 ? (
-        <div className="mb-5 rounded-xl border border-slate-200 border-l-4 border-l-emerald-600 bg-white px-4 py-2.5 flex flex-wrap items-center justify-between gap-2 text-xs text-slate-700">
-          <span>
-            <strong className="text-slate-900">Nuevas funciones habilitadas:</strong>{" "}
-            {recentAutoTriggers.map((t) => FEATURE_FLAG_BY_KEY[t.featureKey]?.name || t.featureKey).join(" · ")}
-          </span>
-          <Link href="/dashboard/configuracion/modulos" className="font-semibold text-emerald-800 hover:underline shrink-0">
-            Ver módulos →
-          </Link>
-        </div>
-      ) : null}
+        ) : null}
+      </div>
 
       {/* Cifras clave siempre visibles en grupo enmarcado */}
       <section

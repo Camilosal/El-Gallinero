@@ -1,35 +1,106 @@
 "use client";
 
-import { ReactNode, ButtonHTMLAttributes, InputHTMLAttributes, SelectHTMLAttributes, TextareaHTMLAttributes } from "react";
+import {
+  ReactNode,
+  ButtonHTMLAttributes,
+  InputHTMLAttributes,
+  SelectHTMLAttributes,
+  TextareaHTMLAttributes,
+  useEffect,
+  useRef,
+  useState,
+} from "react";
 import { X } from "lucide-react";
 import { AppIcon } from "@/components/AppIcon";
 import { HeroBanner } from "@/components/HeroBanner";
 import type { HeroThemeKey } from "@/lib/hero-themes";
+import { resolveDefaultFieldHelp } from "@/lib/field-help";
 
-// ─── Tooltip ───
+// ─── Tooltip (accesible por mouse, teclado y toque en celular) ───
 export function Tooltip({ text, children }: { text: string; children?: ReactNode }) {
+  const [open, setOpen] = useState(false);
+  const rootRef = useRef<HTMLSpanElement>(null);
+
+  useEffect(() => {
+    if (!open) return;
+    const onPointerDown = (e: MouseEvent | TouchEvent) => {
+      if (rootRef.current && !rootRef.current.contains(e.target as Node)) {
+        setOpen(false);
+      }
+    };
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setOpen(false);
+    };
+    document.addEventListener("mousedown", onPointerDown);
+    document.addEventListener("touchstart", onPointerDown, { passive: true });
+    document.addEventListener("keydown", onKeyDown);
+    return () => {
+      document.removeEventListener("mousedown", onPointerDown);
+      document.removeEventListener("touchstart", onPointerDown);
+      document.removeEventListener("keydown", onKeyDown);
+    };
+  }, [open]);
+
   if (!text) return <>{children}</>;
   return (
-    <span className="relative inline-flex items-center group">
-      {children || (
-        <span className="ml-1 inline-flex items-center justify-center w-4 h-4 rounded-full bg-slate-200 text-slate-500 text-[10px] font-bold cursor-help select-none">?</span>
+    <span ref={rootRef} className="relative inline-flex items-center group">
+      {children ? (
+        <span
+          role="button"
+          tabIndex={0}
+          aria-expanded={open}
+          onClick={(e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            setOpen((prev) => !prev);
+          }}
+          onKeyDown={(e) => {
+            if (e.key === "Enter" || e.key === " ") {
+              e.preventDefault();
+              setOpen((prev) => !prev);
+            }
+          }}
+          className="inline-flex items-center cursor-help"
+        >
+          {children}
+        </span>
+      ) : (
+        <button
+          type="button"
+          aria-label={text}
+          aria-expanded={open}
+          onClick={(e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            setOpen((prev) => !prev);
+          }}
+          className="ml-1 inline-flex items-center justify-center w-4 h-4 rounded-full bg-slate-200 hover:bg-emerald-100 hover:text-emerald-800 text-slate-600 text-[10px] font-bold cursor-help select-none focus:outline-none focus:ring-2 focus:ring-emerald-500 transition-colors shrink-0"
+        >
+          ?
+        </button>
       )}
-      <span className="pointer-events-none absolute bottom-full left-1/2 -translate-x-1/2 mb-2 z-50 opacity-0 group-hover:opacity-100 transition-opacity duration-150">
-        <span className="block w-56 px-3 py-2 rounded-lg bg-slate-800 text-white text-xs font-normal leading-relaxed shadow-lg text-left whitespace-pre-line">
+      <span
+        role="tooltip"
+        className={`pointer-events-none absolute bottom-full left-1/2 -translate-x-1/2 mb-2 z-[60] transition-opacity duration-150 ${
+          open ? "opacity-100" : "opacity-0 group-hover:opacity-100 group-focus-within:opacity-100"
+        }`}
+      >
+        <span className="block w-56 max-w-[min(15rem,calc(100vw-2rem))] px-3 py-2 rounded-lg bg-slate-900 text-white text-xs font-normal leading-relaxed shadow-xl text-left whitespace-pre-line">
           {text}
-          <span className="absolute top-full left-1/2 -translate-x-1/2 border-4 border-transparent border-t-slate-800" />
+          <span className="absolute top-full left-1/2 -translate-x-1/2 border-4 border-transparent border-t-slate-900" />
         </span>
       </span>
     </span>
   );
 }
 
-function FieldLabel({ label, help }: { label: string; help?: string }) {
+function FieldLabelRow({ label, help }: { label: string; help?: string }) {
+  const resolvedHelp = help !== undefined ? help : resolveDefaultFieldHelp(label);
   return (
-    <span className="inline-flex items-center gap-1">
-      <span>{label}</span>
-      {help && <Tooltip text={help} />}
-    </span>
+    <div className="flex items-center gap-1 mb-1">
+      <label className="block text-sm font-medium text-slate-700">{label}</label>
+      {resolvedHelp && <Tooltip text={resolvedHelp} />}
+    </div>
   );
 }
 
@@ -137,7 +208,7 @@ export function Input({
       : "px-3 py-2 text-sm border-slate-300";
   return (
     <div className={className}>
-      {label && <label className="block text-sm font-medium text-slate-700 mb-1"><FieldLabel label={label} help={help} /></label>}
+      {label && <FieldLabelRow label={label} help={help} />}
       <input
         className={`w-full border rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent ${inputCls}`}
         {...props}
@@ -149,7 +220,7 @@ export function Input({
 export function Select({ label, help, children, className = "", ...props }: SelectHTMLAttributes<HTMLSelectElement> & { label?: string; help?: string }) {
   return (
     <div className={className}>
-      {label && <label className="block text-sm font-medium text-slate-700 mb-1"><FieldLabel label={label} help={help} /></label>}
+      {label && <FieldLabelRow label={label} help={help} />}
       <select
         className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent bg-white"
         {...props}
@@ -163,7 +234,7 @@ export function Select({ label, help, children, className = "", ...props }: Sele
 export function Textarea({ label, help, className = "", ...props }: TextareaHTMLAttributes<HTMLTextAreaElement> & { label?: string; help?: string }) {
   return (
     <div className={className}>
-      {label && <label className="block text-sm font-medium text-slate-700 mb-1"><FieldLabel label={label} help={help} /></label>}
+      {label && <FieldLabelRow label={label} help={help} />}
       <textarea
         className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent"
         rows={3}

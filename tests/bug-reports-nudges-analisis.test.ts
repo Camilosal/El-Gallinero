@@ -121,8 +121,16 @@ describe("Análisis con Normas/Guías, Nudges Conductuales Rotativos y Reporte d
       path.join(process.cwd(), "src/app/dashboard/_client-layout.tsx"),
       "utf8",
     );
-    expect(layoutSrc).toContain("BehavioralNudgeBanner");
+    const heroBannerSrc = fs.readFileSync(
+      path.join(process.cwd(), "src/components/HeroBanner.tsx"),
+      "utf8",
+    );
+    expect(layoutSrc).toContain("DashboardBreadcrumb");
     expect(layoutSrc).toContain("BugReportModal");
+    expect(heroBannerSrc).toContain("<BehavioralNudgeBanner");
+    expect(heroBannerSrc.indexOf("<BehavioralNudgeBanner")).toBeGreaterThan(
+      heroBannerSrc.indexOf("<HeroFrame"),
+    );
   });
 
   it("etiqueta automáticamente el origen de cada falla y formatea vista previa", () => {

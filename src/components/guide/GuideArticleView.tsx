@@ -81,18 +81,22 @@ export function GuideArticleView({ slug, basePath }: GuideArticleViewProps) {
     [guide.sections],
   );
 
+  const isDashboard = basePath.startsWith("/dashboard");
+
   return (
     <div className="mx-auto max-w-6xl space-y-6">
-      {/* Miga de pan */}
-      <nav aria-label="Ruta actual en el manual" className="flex flex-wrap items-center gap-1.5 text-xs text-slate-500">
-        <Link href={basePath} className="font-medium transition-colors hover:text-green-700">
-          Manual de Uso
-        </Link>
-        <ChevronRight className="h-3.5 w-3.5 text-slate-400" aria-hidden="true" />
-        <span className="font-medium text-slate-600">{mod?.label || guide.module}</span>
-        <ChevronRight className="h-3.5 w-3.5 text-slate-400" aria-hidden="true" />
-        <span className="font-semibold text-slate-900">{guide.title}</span>
-      </nav>
+      {/* Miga de pan (en ruta pública; el dashboard ya muestra DashboardBreadcrumb superior) */}
+      {!isDashboard && (
+        <nav aria-label="Ruta actual en el manual" className="flex flex-wrap items-center gap-1.5 text-xs text-slate-500">
+          <Link href={basePath} className="font-medium transition-colors hover:text-green-700">
+            Manual de Uso
+          </Link>
+          <ChevronRight className="h-3.5 w-3.5 text-slate-400" aria-hidden="true" />
+          <span className="font-medium text-slate-600">{mod?.label || guide.module}</span>
+          <ChevronRight className="h-3.5 w-3.5 text-slate-400" aria-hidden="true" />
+          <span className="font-semibold text-slate-900">{guide.title}</span>
+        </nav>
+      )}
 
       <HeroBanner
         theme={heroTheme}

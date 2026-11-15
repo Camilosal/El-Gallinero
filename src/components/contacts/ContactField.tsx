@@ -3,6 +3,7 @@
 import { useId, useMemo, useRef, useState } from "react";
 import { MapPin, Pencil, Phone, Plus, UserCheck } from "lucide-react";
 import { Tooltip } from "@/components/ui";
+import { resolveDefaultFieldHelp } from "@/lib/field-help";
 import { formatContactLocation, type ContactRecord } from "@/lib/contacts-shared";
 import { findContactByName, useContacts } from "@/lib/useContacts";
 import ContactFormModal from "./ContactFormModal";
@@ -76,14 +77,22 @@ export default function ContactField({
     onChange(saved.name, saved);
   };
 
+  const resolvedHelp =
+    help !== undefined
+      ? help
+      : resolveDefaultFieldHelp(label) ||
+        (role === "cliente"
+          ? "Escribe o elige el cliente al que le vendes. Si es nuevo puedes crearlo con + Cliente."
+          : "Escribe o elige el proveedor o agropecuaria donde compras.");
+
   return (
     <div ref={containerRef} className={className}>
-      <label htmlFor={inputId} className="block text-sm font-medium text-slate-700 mb-1">
-        <span className="inline-flex items-center gap-1">
-          <span>{label}</span>
-          {help && <Tooltip text={help} />}
-        </span>
-      </label>
+      <div className="flex items-center gap-1 mb-1">
+        <label htmlFor={inputId} className="block text-sm font-medium text-slate-700">
+          {label}
+        </label>
+        {resolvedHelp && <Tooltip text={resolvedHelp} />}
+      </div>
 
       <div className="relative">
         <div className="flex gap-1.5">

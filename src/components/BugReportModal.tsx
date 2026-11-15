@@ -578,6 +578,7 @@ export default function BugReportModal() {
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   <Select
                     label="Tipo de falla"
+                    help="Elige si es un problema visual, de guardado, un cálculo o una duda en pantalla."
                     value={category}
                     onChange={(e) => setCategory(e.target.value as BugReportCategory)}
                   >
@@ -589,6 +590,7 @@ export default function BugReportModal() {
                   </Select>
                   <Select
                     label="Impacto en operación"
+                    help="Qué tanto te impide trabajar hoy: baja (estético), media (molesto), alta o crítica (bloquea)."
                     value={severity}
                     onChange={(e) => setSeverity(e.target.value as BugReportSeverity)}
                   >
@@ -602,6 +604,7 @@ export default function BugReportModal() {
 
                 <Input
                   label="Título corto de la falla *"
+                  help="Resume en una frase qué falló (ej. «No deja guardar huevos cuando cambio de galpón»)."
                   value={title}
                   onChange={(e) => setTitle(e.target.value)}
                   placeholder="Ej. Al guardar postura NTC 1240 no actualiza el saldo de cubetas"
@@ -611,6 +614,7 @@ export default function BugReportModal() {
 
                 <Textarea
                   label="¿Qué ocurrió exactamente? *"
+                  help="Cuenta con tus palabras qué botón tocaste y qué mensaje o error viste en pantalla."
                   value={description}
                   onChange={(e) => setDescription(e.target.value)}
                   placeholder="Cuéntanos qué botón presionaste, qué mensaje apareció o qué dato salió distinto..."
@@ -621,6 +625,7 @@ export default function BugReportModal() {
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   <Textarea
                     label="Pasos para reproducir (opcional)"
+                    help="Anota en orden 1, 2, 3 qué hiciste antes de ver el problema."
                     value={stepsToReproduce}
                     onChange={(e) => setStepsToReproduce(e.target.value)}
                     placeholder="1. Entré a... 2. Elegí..."
@@ -628,6 +633,7 @@ export default function BugReportModal() {
                   />
                   <Textarea
                     label="¿Qué esperabas ver? (opcional)"
+                    help="Explica qué debió pasar normalmente según tu trabajo diario."
                     value={expectedBehavior}
                     onChange={(e) => setExpectedBehavior(e.target.value)}
                     placeholder="Esperaba que guardara el lote o mostrara..."
@@ -637,6 +643,7 @@ export default function BugReportModal() {
 
                 <Input
                   label="Etiquetas adicionales opcionales (separadas por coma)"
+                  help="Palabras cortas separadas por coma para ubicar rápido tu reporte (la ruta y módulo ya se agregan solos)."
                   value={extraTagsText}
                   onChange={(e) => setExtraTagsText(e.target.value)}
                   placeholder="ej. lote-p2, android, bulto-40kg"

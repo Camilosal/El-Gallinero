@@ -6,7 +6,7 @@ import Sidebar from "@/components/Sidebar";
 import AssistantWidget from "@/components/AssistantWidget";
 import QuickCreateMenu from "@/components/QuickCreateMenu";
 import QuickCaptureModal from "@/components/QuickCaptureModal";
-import BehavioralNudgeBanner from "@/components/BehavioralNudgeBanner";
+import DashboardBreadcrumb from "@/components/DashboardBreadcrumb";
 import BugReportModal from "@/components/BugReportModal";
 import OfflineSyncStatus from "@/components/OfflineSyncStatus";
 import GlobalSearch from "@/components/GlobalSearch";
@@ -88,7 +88,7 @@ export default function ClientAppLayout({ children }: { children: React.ReactNod
           </button>
           <QuickCreateMenu />
         </div>
-        <BehavioralNudgeBanner />
+        <DashboardBreadcrumb />
         {children}
         <footer className="mt-10 border-t border-slate-200/80 pt-4 flex flex-wrap items-center justify-between gap-3">
           <DeveloperCredit variant="inline" showAppName />

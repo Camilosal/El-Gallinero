@@ -3,7 +3,7 @@
 import { useEffect, useState, useCallback, useMemo } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { AlertTriangle, ArrowDown, ArrowUp, BarChart3, ClipboardList, Lightbulb, Package, Pencil, ShoppingCart, Sparkles, TrendingDown, TrendingUp, X } from "lucide-react";
-import { PageHeader, Button, Card, Table, Badge, Modal, Input, Select, Textarea, EmptyState, StatCard } from "@/components/ui";
+import { PageHeader, Button, Card, Table, Badge, Modal, Input, Select, Textarea, EmptyState, StatCard, Tooltip as FieldTooltip } from "@/components/ui";
 import { AppIcon } from "@/components/AppIcon";
 import { useCatalog } from "@/lib/useCatalog";
 import ContactField from "@/components/contacts/ContactField";
@@ -950,11 +950,10 @@ export default function AlimentacionPage() {
                   <button
                     key={sp.id}
                     onClick={() => setSelectedProgramSpeciesFilter(sp.id)}
-                    className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium transition-all ${
-                      isSelected
-                        ? "bg-emerald-600 text-white shadow-sm"
-                        : "bg-slate-100 text-slate-600 hover:bg-slate-200"
-                    }`}
+                    className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium transition-all ${isSelected
+                      ? "bg-emerald-600 text-white shadow-sm"
+                      : "bg-slate-100 text-slate-600 hover:bg-slate-200"
+                      }`}
                   >
                     <AppIcon icon={sp.icon} className="w-3.5 h-3.5" />
                     <span>{sp.label}</span>
@@ -1141,33 +1140,33 @@ export default function AlimentacionPage() {
                     }
                   />
                 ) : (
-                <Table headers={["Alimento", "Planificado/día", `Planificado (${comparativoDays}d)`, `Real (${comparativoDays}d)`, "Entradas", "Diferencia", "%", "Stock", "Costo/kg"]}>
-                  {filteredComparativo.map((item) => {
-                    const isOver = item.variance > 0;
-                    const isUnder = item.variance < 0;
-                    return (
-                      <tr key={item.feedId} className={`hover:bg-slate-50 ${isUnder ? "bg-orange-50" : isOver ? "bg-blue-50" : ""}`}>
-                        <td className="px-4 py-2 font-medium">{item.feedName}</td>
-                        <td className="px-4 py-2">{item.plannedDaily} kg</td>
-                        <td className="px-4 py-2">{item.plannedTotal} kg</td>
-                        <td className="px-4 py-2 font-semibold">{item.actualTotal} kg</td>
-                        <td className="px-4 py-2 text-green-600">{item.entryTotal} kg</td>
-                        <td className="px-4 py-2">
-                          <span className={`font-bold ${isUnder ? "text-orange-600" : isOver ? "text-blue-600" : "text-slate-500"}`}>
-                            {item.variance > 0 ? "+" : ""}{item.variance} kg
-                          </span>
-                        </td>
-                        <td className="px-4 py-2">
-                          <span className={`text-sm font-semibold ${item.variancePercent > 10 ? "text-red-600" : item.variancePercent < -10 ? "text-orange-600" : "text-green-600"}`}>
-                            {item.variancePercent > 0 ? "+" : ""}{item.variancePercent}%
-                          </span>
-                        </td>
-                        <td className="px-4 py-2">{item.currentStock} kg</td>
-                        <td className="px-4 py-2">${item.costPerUnit.toLocaleString()}</td>
-                      </tr>
-                    );
-                  })}
-                </Table>
+                  <Table headers={["Alimento", "Planificado/día", `Planificado (${comparativoDays}d)`, `Real (${comparativoDays}d)`, "Entradas", "Diferencia", "%", "Stock", "Costo/kg"]}>
+                    {filteredComparativo.map((item) => {
+                      const isOver = item.variance > 0;
+                      const isUnder = item.variance < 0;
+                      return (
+                        <tr key={item.feedId} className={`hover:bg-slate-50 ${isUnder ? "bg-orange-50" : isOver ? "bg-blue-50" : ""}`}>
+                          <td className="px-4 py-2 font-medium">{item.feedName}</td>
+                          <td className="px-4 py-2">{item.plannedDaily} kg</td>
+                          <td className="px-4 py-2">{item.plannedTotal} kg</td>
+                          <td className="px-4 py-2 font-semibold">{item.actualTotal} kg</td>
+                          <td className="px-4 py-2 text-green-600">{item.entryTotal} kg</td>
+                          <td className="px-4 py-2">
+                            <span className={`font-bold ${isUnder ? "text-orange-600" : isOver ? "text-blue-600" : "text-slate-500"}`}>
+                              {item.variance > 0 ? "+" : ""}{item.variance} kg
+                            </span>
+                          </td>
+                          <td className="px-4 py-2">
+                            <span className={`text-sm font-semibold ${item.variancePercent > 10 ? "text-red-600" : item.variancePercent < -10 ? "text-orange-600" : "text-green-600"}`}>
+                              {item.variancePercent > 0 ? "+" : ""}{item.variancePercent}%
+                            </span>
+                          </td>
+                          <td className="px-4 py-2">{item.currentStock} kg</td>
+                          <td className="px-4 py-2">${item.costPerUnit.toLocaleString()}</td>
+                        </tr>
+                      );
+                    })}
+                  </Table>
                 )}
               </>
             )}
@@ -1314,34 +1313,34 @@ export default function AlimentacionPage() {
                     }
                   />
                 ) : (
-                <Table headers={["Alimento", "Stock Actual", "Consumo/día", "Se agota en", "Reponer antes de", "Compra sugerida", "Alerta"]}>
-                  {filteredPredictions.map((item) => (
-                    <tr key={item.feedId} className={item.alertLevel === "critico" ? "bg-red-50" : item.alertLevel === "bajo" ? "bg-yellow-50" : "hover:bg-slate-50"}>
-                      <td className="px-4 py-2 font-medium">{item.feedName}</td>
-                      <td className="px-4 py-2">{item.currentStockKg} kg</td>
-                      <td className="px-4 py-2">{item.dailyNeedKg} kg/día</td>
-                      <td className="px-4 py-2">
-                        <span className={`font-bold ${item.alertLevel === "critico" ? "text-red-600" : item.alertLevel === "bajo" ? "text-yellow-700" : "text-slate-700"}`}>
-                          {item.daysRemaining !== null ? `${item.daysRemaining} días` : "—"}
-                        </span>
-                        {item.outOfStockDate && <span className="block text-xs text-slate-500">{item.outOfStockDate}</span>}
-                      </td>
-                      <td className="px-4 py-2">
-                        {item.reorderDate ? (
-                          <span className="text-slate-700">{item.reorderDate}</span>
-                        ) : (
-                          <span className="text-slate-400">—</span>
-                        )}
-                      </td>
-                      <td className="px-4 py-2 font-semibold">{item.suggestedOrderQty} kg</td>
-                      <td className="px-4 py-2">
-                        <Badge color={item.alertLevel === "ok" ? "green" : item.alertLevel === "bajo" ? "yellow" : item.alertLevel === "critico" ? "red" : "gray"}>
-                          {alertLabels[item.alertLevel] || item.alertLevel}
-                        </Badge>
-                      </td>
-                    </tr>
-                  ))}
-                </Table>
+                  <Table headers={["Alimento", "Stock Actual", "Consumo/día", "Se agota en", "Reponer antes de", "Compra sugerida", "Alerta"]}>
+                    {filteredPredictions.map((item) => (
+                      <tr key={item.feedId} className={item.alertLevel === "critico" ? "bg-red-50" : item.alertLevel === "bajo" ? "bg-yellow-50" : "hover:bg-slate-50"}>
+                        <td className="px-4 py-2 font-medium">{item.feedName}</td>
+                        <td className="px-4 py-2">{item.currentStockKg} kg</td>
+                        <td className="px-4 py-2">{item.dailyNeedKg} kg/día</td>
+                        <td className="px-4 py-2">
+                          <span className={`font-bold ${item.alertLevel === "critico" ? "text-red-600" : item.alertLevel === "bajo" ? "text-yellow-700" : "text-slate-700"}`}>
+                            {item.daysRemaining !== null ? `${item.daysRemaining} días` : "—"}
+                          </span>
+                          {item.outOfStockDate && <span className="block text-xs text-slate-500">{item.outOfStockDate}</span>}
+                        </td>
+                        <td className="px-4 py-2">
+                          {item.reorderDate ? (
+                            <span className="text-slate-700">{item.reorderDate}</span>
+                          ) : (
+                            <span className="text-slate-400">—</span>
+                          )}
+                        </td>
+                        <td className="px-4 py-2 font-semibold">{item.suggestedOrderQty} kg</td>
+                        <td className="px-4 py-2">
+                          <Badge color={item.alertLevel === "ok" ? "green" : item.alertLevel === "bajo" ? "yellow" : item.alertLevel === "critico" ? "red" : "gray"}>
+                            {alertLabels[item.alertLevel] || item.alertLevel}
+                          </Badge>
+                        </td>
+                      </tr>
+                    ))}
+                  </Table>
                 )}
                 <p className="text-xs text-slate-500 mt-2">
                   El mínimo de stock y la compra sugerida se actualizan automáticamente con el consumo estimado para {prediccion.days} días. Solo se ajustan alimentos con consumo previsto por programas activos.
@@ -1447,7 +1446,7 @@ export default function AlimentacionPage() {
           <p className="text-xs text-slate-500 bg-blue-50 border border-blue-100 rounded-lg p-3 flex items-start gap-2">
             <Lightbulb className="w-4 h-4 text-blue-600 shrink-0 mt-0.5" aria-hidden="true" />
             <span>El consumo diario por programa se registra automáticamente. Aquí registras compras,
-            donaciones, traslados, producción propia (entradas) y salidas manuales como uso interno o merma.</span>
+              donaciones, traslados, producción propia (entradas) y salidas manuales como uso interno o merma.</span>
           </p>
           <Select label="Alimento" help="Selecciona el alimento al que aplica este movimiento." value={movForm.feedId} onChange={(e) => setMovForm({ ...movForm, feedId: e.target.value })}>
             {feeds.map((f) => <option key={f.id} value={f.id}>{f.name} ({f.currentStock} {f.unit})</option>)}
@@ -1482,7 +1481,10 @@ export default function AlimentacionPage() {
             {programEntries.map((entry, idx) => (
               <div key={idx} className="flex gap-2 items-end">
                 <div className="flex-1">
-                  <label className="block text-xs font-medium text-slate-600 mb-1">Alimento</label>
+                  <div className="flex items-center gap-1 mb-1">
+                    <label className="block text-xs font-medium text-slate-600">Alimento</label>
+                    <FieldTooltip text="Concentrado, grano o forraje de esta receta." />
+                  </div>
                   <select
                     className="w-full border rounded-lg px-3 py-2 text-sm"
                     value={entry.feedId}
@@ -1492,7 +1494,10 @@ export default function AlimentacionPage() {
                   </select>
                 </div>
                 <div className="w-24">
-                  <label className="block text-xs font-medium text-slate-600 mb-1">% Dieta</label>
+                  <div className="flex items-center gap-1 mb-1">
+                    <label className="block text-xs font-medium text-slate-600">% Dieta</label>
+                    <FieldTooltip text="Porcentaje que representa este alimento en la mezcla (se calcula solo según los gramos)." />
+                  </div>
                   <input
                     type="number"
                     step="0.01"
@@ -1504,7 +1509,10 @@ export default function AlimentacionPage() {
                   />
                 </div>
                 <div className="w-28">
-                  <label className="block text-xs font-medium text-slate-600 mb-1">g/ave/día</label>
+                  <div className="flex items-center gap-1 mb-1">
+                    <label className="block text-xs font-medium text-slate-600">g/ave/día</label>
+                    <FieldTooltip text="Gramos diarios que come cada animal en esta etapa." />
+                  </div>
                   <input
                     type="number"
                     step="0.01"
@@ -1549,10 +1557,10 @@ export default function AlimentacionPage() {
                 const sp = e.target.value;
                 const defaultName = sp === "pollo" ? "Pollo Engorde (4-7 sem)"
                   : sp === "codorniz" ? "Codorniz Postura (6+ sem)"
-                  : sp === "pato" ? "Pato Engorde (4-9 sem)"
-                  : sp === "conejo" ? "Conejo Engorde (8-12 sem)"
-                  : sp === "cuy" ? "Cuy Engorde (10-12 sem)"
-                  : "Gallina Postura";
+                    : sp === "pato" ? "Pato Engorde (4-9 sem)"
+                      : sp === "conejo" ? "Conejo Engorde (8-12 sem)"
+                        : sp === "cuy" ? "Cuy Engorde (10-12 sem)"
+                          : "Gallina Postura";
                 setNewPlanForm((prev) => ({ ...prev, species: sp, name: defaultName }));
               }}
             >
@@ -1601,7 +1609,10 @@ export default function AlimentacionPage() {
               {newPlanForm.entries.map((entry, idx) => (
                 <div key={idx} className="flex gap-2 items-end bg-slate-50 p-2 rounded-lg border border-slate-200">
                   <div className="flex-1">
-                    <label className="block text-[11px] font-medium text-slate-600 mb-1">Alimento</label>
+                    <div className="flex items-center gap-1 mb-1">
+                      <label className="block text-[11px] font-medium text-slate-600">Alimento</label>
+                      <FieldTooltip text="Producto o ingrediente de bodega incluido en el plan." />
+                    </div>
                     <select
                       className="w-full border rounded-md px-2 py-1.5 text-xs bg-white"
                       value={entry.feedId}
@@ -1614,7 +1625,10 @@ export default function AlimentacionPage() {
                     </select>
                   </div>
                   <div className="w-20">
-                    <label className="block text-[11px] font-medium text-slate-600 mb-1">% Dieta</label>
+                    <div className="flex items-center gap-1 mb-1">
+                      <label className="block text-[11px] font-medium text-slate-600">% Dieta</label>
+                      <FieldTooltip text="Proporción dentro de la dieta total, calculada automáticamente." />
+                    </div>
                     <input
                       type="number"
                       step="1"
@@ -1628,7 +1642,10 @@ export default function AlimentacionPage() {
                     />
                   </div>
                   <div className="w-24">
-                    <label className="block text-[11px] font-medium text-slate-600 mb-1">g/animal/día</label>
+                    <div className="flex items-center gap-1 mb-1">
+                      <label className="block text-[11px] font-medium text-slate-600">g/animal/día</label>
+                      <FieldTooltip text="Cantidad en gramos recomendada por animal cada día." />
+                    </div>
                     <input
                       type="number"
                       step="1"

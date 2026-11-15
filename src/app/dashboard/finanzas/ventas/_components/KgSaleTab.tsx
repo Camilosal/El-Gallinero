@@ -3,7 +3,7 @@
 import { useEffect, useState, useCallback, useMemo } from "react";
 import { Banknote, Scale } from "lucide-react";
 import { AppIcon } from "@/components/AppIcon";
-import { Card, Table, Modal, Input, Textarea, Button, EmptyState, StatCard, Select, Badge } from "@/components/ui";
+import { Card, Table, Modal, Input, Textarea, Button, EmptyState, StatCard, Select, Badge, Tooltip } from "@/components/ui";
 import { apiFetch } from "@/lib/fetch";
 import ContactField from "@/components/contacts/ContactField";
 import MicroInsightCard from "@/components/MicroInsightCard";
@@ -412,21 +412,24 @@ export default function KgSaleTab({ apiEndpoint, onSaved, labels }: KgSaleTabPro
           </div>
           <Input label="Presentación" value={form.presentation} onChange={(e) => setForm({ ...form, presentation: e.target.value })} placeholder="Ej: canal limpia entera, por presas, congelado" />
           <div className="rounded-lg border border-slate-200 bg-slate-50 p-3 space-y-2">
-            <label className="flex items-center gap-2 text-sm font-medium text-slate-700 cursor-pointer">
-              <input
-                type="checkbox"
-                checked={isCredit}
-                onChange={(e) => {
-                  const checked = e.target.checked;
-                  setIsCredit(checked);
-                  if (checked && !dueDate) {
-                    setDueDate(computeCreditDueDate(form.date, buyerCreditDays || 15));
-                  }
-                }}
-                className="rounded border-slate-300 text-green-600 focus:ring-green-500"
-              />
-              <span>Venta a crédito (generar cuenta por cobrar)</span>
-            </label>
+            <div className="flex items-center gap-2">
+              <label className="flex items-center gap-2 text-sm font-medium text-slate-700 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={isCredit}
+                  onChange={(e) => {
+                    const checked = e.target.checked;
+                    setIsCredit(checked);
+                    if (checked && !dueDate) {
+                      setDueDate(computeCreditDueDate(form.date, buyerCreditDays || 15));
+                    }
+                  }}
+                  className="rounded border-slate-300 text-green-600 focus:ring-green-500"
+                />
+                <span>Venta a crédito (generar cuenta por cobrar)</span>
+              </label>
+              <Tooltip text="Actívala si el comprador te pagará después; queda registrada como cuenta por cobrar." />
+            </div>
             {isCredit && (
               <Input
                 label="Fecha de vencimiento *"

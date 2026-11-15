@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useEffect, useState, useCallback, useMemo } from "react";
 import { ArrowUp, BarChart3, Calculator, Package, Pencil } from "lucide-react";
-import { PageHeader, Button, Card, Table, Badge, Modal, Input, Select, Textarea, EmptyState, StatCard } from "@/components/ui";
+import { PageHeader, Button, Card, Table, Badge, Modal, Input, Select, Textarea, EmptyState, StatCard, Tooltip as FieldTooltip } from "@/components/ui";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from "recharts";
 import { apiFetch } from "@/lib/fetch";
 import { useCatalog } from "@/lib/useCatalog";
@@ -506,9 +506,9 @@ export default function EgresosPage() {
     }
     const finalAmount = Number(
       body.amount ||
-        (body.presentations && body.pricePerPresentation
-          ? Number(body.presentations) * Number(body.pricePerPresentation)
-          : 0),
+      (body.presentations && body.pricePerPresentation
+        ? Number(body.presentations) * Number(body.pricePerPresentation)
+        : 0),
     );
     setLastInsight(
       buildExpenseMicroInsight({
@@ -699,7 +699,10 @@ export default function EgresosPage() {
           {/* ─── Product selector for non-feed purchase categories ─── */}
           {isNonFeedPurchase && (
             <div>
-              <label className="block text-sm font-medium text-slate-700 mb-1">Producto frecuente</label>
+              <div className="flex items-center gap-1 mb-1">
+                <label className="block text-sm font-medium text-slate-700">Producto frecuente</label>
+                <FieldTooltip text="Elige un producto que ya hayas comprado antes para rellenar unidad y precio automático." />
+              </div>
               <div className="flex gap-2">
                 <select
                   className="flex-1 rounded-lg border border-slate-300 px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"

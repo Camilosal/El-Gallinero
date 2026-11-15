@@ -4,7 +4,7 @@ import { Suspense, useEffect, useState, useCallback, useMemo } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { AlertTriangle, BarChart3, Banknote, Bird, Egg, Info, Package, Sprout, Tag, Utensils } from "lucide-react";
 import { AppIcon } from "@/components/AppIcon";
-import { PageHeader, Button, Card, Table, Modal, Input, Select, Textarea, EmptyState, StatCard, Badge } from "@/components/ui";
+import { PageHeader, Button, Card, Table, Modal, Input, Select, Textarea, EmptyState, StatCard, Badge, Tooltip as FieldTooltip } from "@/components/ui";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from "recharts";
 import { apiFetch } from "@/lib/fetch";
 import { useCatalog } from "@/lib/useCatalog";
@@ -928,17 +928,24 @@ function VentasContent() {
               className="rounded"
             />
             <label htmlFor="isCredit" className="text-sm font-medium text-gray-700">Venta a crédito</label>
+            <FieldTooltip text="Actívala si el cliente queda debiendo este valor para cobrarlo después." />
           </div>
           {isCredit && (
             <div>
-              <label className="text-sm font-medium text-gray-700">Fecha vencimiento</label>
+              <div className="flex items-center gap-1">
+                <label className="text-sm font-medium text-gray-700">Fecha vencimiento</label>
+                <FieldTooltip text="Día límite acordado con el cliente para pagar esta venta." />
+              </div>
               <input type="date" value={dueDate} onChange={(e) => setDueDate(e.target.value)} className="mt-1 block w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm focus:border-green-500 focus:ring-1 focus:ring-green-500" />
             </div>
           )}
 
           <div>
             <div className="flex items-center justify-between mb-2">
-              <label className="text-sm font-medium text-slate-700">Tamaños y cantidades</label>
+              <div className="flex items-center gap-1">
+                <label className="text-sm font-medium text-slate-700">Tamaños y cantidades</label>
+                <FieldTooltip text="Elige cada talla o calibre de huevo que estás entregando, cuántas cubetas/unidades y el precio." />
+              </div>
               <button type="button" onClick={addItem} className="text-xs text-blue-600 hover:underline font-medium">+ Agregar tamaño</button>
             </div>
             <div className="space-y-3">
@@ -1111,10 +1118,14 @@ function VentasContent() {
               className="rounded"
             />
             <label htmlFor="birdIsCredit" className="text-sm font-medium text-gray-700">Venta a crédito</label>
+            <FieldTooltip text="Marca esta opción si la venta queda fiada o por cobrar." />
           </div>
           {birdIsCredit && (
             <div>
-              <label className="text-sm font-medium text-gray-700">Fecha vencimiento</label>
+              <div className="flex items-center gap-1">
+                <label className="text-sm font-medium text-gray-700">Fecha vencimiento</label>
+                <FieldTooltip text="Plazo máximo en que el comprador debe pagar." />
+              </div>
               <input type="date" value={birdDueDate} onChange={(e) => setBirdDueDate(e.target.value)} className="mt-1 block w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm focus:border-green-500 focus:ring-1 focus:ring-green-500" />
             </div>
           )}

@@ -18,6 +18,7 @@ import {
   X,
 } from "lucide-react";
 import { HeroBanner } from "@/components/HeroBanner";
+import { Tooltip } from "@/components/ui";
 import {
   PERMISSION_LABELS,
   ROLE_LABELS,
@@ -357,7 +358,10 @@ export default function UsuariosConfiguracionPage() {
         ) : (
           <form onSubmit={handleCreateUser} className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
-              <label className="block text-sm font-semibold text-slate-800 mb-1">Nombre completo</label>
+              <div className="flex items-center gap-1 mb-1">
+                <label className="block text-sm font-semibold text-slate-800">Nombre completo</label>
+                <Tooltip text="Nombre real de la persona (se mostrará en la bitácora y cierres diarios)." />
+              </div>
               <input
                 type="text"
                 required
@@ -370,7 +374,10 @@ export default function UsuariosConfiguracionPage() {
             </div>
 
             <div>
-              <label className="block text-sm font-semibold text-slate-800 mb-1">Usuario o celular de ingreso</label>
+              <div className="flex items-center gap-1 mb-1">
+                <label className="block text-sm font-semibold text-slate-800">Usuario o celular de ingreso</label>
+                <Tooltip text="Nombre corto o número celular con el que entrará a la app (sin espacios)." />
+              </div>
               <input
                 type="text"
                 required
@@ -383,7 +390,10 @@ export default function UsuariosConfiguracionPage() {
             </div>
 
             <div>
-              <label className="block text-sm font-semibold text-slate-800 mb-1">Contraseña temporal (mín. 8)</label>
+              <div className="flex items-center gap-1 mb-1">
+                <label className="block text-sm font-semibold text-slate-800">Contraseña temporal (mín. 8)</label>
+                <Tooltip text="Clave inicial para que entre por primera vez (mínimo 8 caracteres)." />
+              </div>
               <input
                 type="password"
                 required
@@ -396,7 +406,10 @@ export default function UsuariosConfiguracionPage() {
             </div>
 
             <div>
-              <label className="block text-sm font-semibold text-slate-800 mb-1">Rol en la finca</label>
+              <div className="flex items-center gap-1 mb-1">
+                <label className="block text-sm font-semibold text-slate-800">Rol en la finca</label>
+                <Tooltip text="Define qué puede ver o editar (ej. operario solo registra diario; administrador controla todo)." />
+              </div>
               <select
                 value={role}
                 onChange={(e) => setRole(e.target.value as AppRole)}
@@ -595,7 +608,10 @@ export default function UsuariosConfiguracionPage() {
 
             <form onSubmit={handleSaveEdit} className="space-y-4">
               <div>
-                <label className="block text-sm font-semibold text-slate-800 mb-1">Nombre completo</label>
+                <div className="flex items-center gap-1 mb-1">
+                  <label className="block text-sm font-semibold text-slate-800">Nombre completo</label>
+                  <Tooltip text="Nombre completo de la persona." />
+                </div>
                 <input
                   type="text"
                   required
@@ -607,7 +623,10 @@ export default function UsuariosConfiguracionPage() {
               </div>
 
               <div>
-                <label className="block text-sm font-semibold text-slate-800 mb-1">Rol asignado</label>
+                <div className="flex items-center gap-1 mb-1">
+                  <label className="block text-sm font-semibold text-slate-800">Rol asignado</label>
+                  <Tooltip text="Nivel de permisos dentro de la granja." />
+                </div>
                 <select
                   value={editRole}
                   onChange={(e) => setEditRole(e.target.value as AppRole)}
@@ -622,9 +641,12 @@ export default function UsuariosConfiguracionPage() {
               </div>
 
               <div>
-                <label className="block text-sm font-semibold text-slate-800 mb-1">
-                  Nueva contraseña temporal (opcional, mín. 8)
-                </label>
+                <div className="flex items-center gap-1 mb-1">
+                  <label className="block text-sm font-semibold text-slate-800">
+                    Nueva contraseña temporal (opcional, mín. 8)
+                  </label>
+                  <Tooltip text="Escríbela solo si necesitas cambiarle la clave a este usuario." />
+                </div>
                 <input
                   type="password"
                   value={editPassword}

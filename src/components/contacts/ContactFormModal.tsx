@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
 import { Building2, MapPin, Phone, Receipt, User, X } from "lucide-react";
-import { Button, Input, Select, Textarea } from "@/components/ui";
+import { Button, Input, Select, Textarea, Tooltip } from "@/components/ui";
 import { apiFetch } from "@/lib/fetch";
 import {
   CLIENT_CATEGORY_SUGGESTIONS,
@@ -424,7 +424,10 @@ function ContactFormModalBody({
               />
               <div>
                 <div className="flex items-center justify-between mb-1">
-                  <label className="text-sm font-medium text-slate-700">WhatsApp</label>
+                  <div className="flex items-center gap-1">
+                    <label className="text-sm font-medium text-slate-700">WhatsApp</label>
+                    <Tooltip text="Número para escribirle o enviarle recibos directos por WhatsApp." />
+                  </div>
                   {form.phone.trim() && form.whatsapp.trim() !== form.phone.trim() && (
                     <button
                       type="button"

@@ -1,9 +1,10 @@
 "use client";
 
-import { useState, type ReactNode } from "react";
+import { Suspense, useState, type ReactNode } from "react";
 import { usePathname } from "next/navigation";
 import { HelpCircle, Lightbulb } from "lucide-react";
 import { HeroFrame } from "@/components/HeroFrame";
+import BehavioralNudgeBanner from "@/components/BehavioralNudgeBanner";
 import { resolveHeroThemeByPath, type HeroThemeKey } from "@/lib/hero-themes";
 
 function renderHelpBody(text: string) {
@@ -38,6 +39,7 @@ export interface HeroBannerProps {
   helpTitle?: string;
   priority?: "high" | "auto";
   compact?: boolean;
+  hideNudge?: boolean;
   className?: string;
 }
 
@@ -58,12 +60,14 @@ export function HeroBanner({
   helpTitle = "Cómo usar esta sección",
   priority = "high",
   compact = false,
+  hideNudge = false,
   className = "mb-6",
 }: HeroBannerProps) {
   const pathname = usePathname();
   const [helpOpen, setHelpOpen] = useState(false);
 
   const resolvedTheme = theme ?? resolveHeroThemeByPath(pathname);
+  const showNudgeBelowHero = Boolean(pathname?.startsWith("/dashboard") && !hideNudge);
 
   const combinedActions =
     help || actions ? (
@@ -106,6 +110,12 @@ export function HeroBanner({
             </div>
           </div>
         </div>
+      )}
+
+      {showNudgeBelowHero && (
+        <Suspense fallback={null}>
+          <BehavioralNudgeBanner className="mt-3 mb-0" />
+        </Suspense>
       )}
     </div>
   );

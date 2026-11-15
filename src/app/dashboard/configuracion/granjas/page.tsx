@@ -20,22 +20,29 @@ import {
 } from "lucide-react";
 import { HeroBanner } from "@/components/HeroBanner";
 import TableSearch from "@/components/TableSearch";
-import { Input, Modal, Select } from "@/components/ui";
+import { Input, Modal, Select, Tooltip } from "@/components/ui";
 import { matchesTextQuery } from "@/lib/text";
 import { COLOMBIA_DIVIPOLA_CATALOG } from "@/lib/divipola-catalog";
+import { resolveDefaultFieldHelp } from "@/lib/field-help";
 
 function FormField({
   label,
+  help,
   children,
 }: {
   label: string;
+  help?: string;
   children: React.ReactNode;
 }) {
+  const resolvedHelp = help !== undefined ? help : resolveDefaultFieldHelp(label);
   return (
     <div>
-      <label className="block text-xs sm:text-sm font-semibold text-slate-700 mb-1">
-        {label}
-      </label>
+      <div className="flex items-center gap-1 mb-1">
+        <label className="block text-xs sm:text-sm font-semibold text-slate-700">
+          {label}
+        </label>
+        {resolvedHelp && <Tooltip text={resolvedHelp} />}
+      </div>
       {children}
     </div>
   );

@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { Banknote, Package } from "lucide-react";
-import { Badge, Button, Card, EmptyState, Input, Modal, Select, StatCard, Table, Textarea } from "@/components/ui";
+import { Badge, Button, Card, EmptyState, Input, Modal, Select, StatCard, Table, Textarea, Tooltip } from "@/components/ui";
 import ContactField from "@/components/contacts/ContactField";
 import MicroInsightCard from "@/components/MicroInsightCard";
 import TableSearch from "@/components/TableSearch";
@@ -375,21 +375,24 @@ export default function OtherSalesTab({ onSaved }: OtherSalesTabProps) {
           </div>
 
           <div className="rounded-lg border border-slate-200 bg-slate-50 p-3 space-y-2">
-            <label className="flex items-center gap-2 text-sm font-medium text-slate-700 cursor-pointer">
-              <input
-                type="checkbox"
-                checked={isCredit}
-                onChange={(e) => {
-                  const checked = e.target.checked;
-                  setIsCredit(checked);
-                  if (checked && !dueDate) {
-                    setDueDate(computeCreditDueDate(form.date, buyerCreditDays || 15));
-                  }
-                }}
-                className="rounded border-slate-300 text-green-600 focus:ring-green-500"
-              />
-              <span>Venta a crédito (generar cuenta por cobrar)</span>
-            </label>
+            <div className="flex items-center gap-2">
+              <label className="flex items-center gap-2 text-sm font-medium text-slate-700 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={isCredit}
+                  onChange={(e) => {
+                    const checked = e.target.checked;
+                    setIsCredit(checked);
+                    if (checked && !dueDate) {
+                      setDueDate(computeCreditDueDate(form.date, buyerCreditDays || 15));
+                    }
+                  }}
+                  className="rounded border-slate-300 text-green-600 focus:ring-green-500"
+                />
+                <span>Venta a crédito (generar cuenta por cobrar)</span>
+              </label>
+              <Tooltip text="Actívala si el cliente pagará en una fecha posterior; se creará en Cuentas por cobrar." />
+            </div>
             {isCredit && (
               <Input
                 label="Fecha de vencimiento *"
