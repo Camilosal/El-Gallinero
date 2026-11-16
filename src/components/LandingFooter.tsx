@@ -34,18 +34,17 @@ export function LandingFooter() {
           <div>
             <Link
               href="#top"
+              aria-label="IwaGranja — Volver arriba"
               className="inline-flex items-center gap-3 font-display text-lg font-bold tracking-tight text-[var(--ink)]"
             >
               <BrandLogo
-                variant="full"
-                size={68}
-                decorative
-                className="rounded-2xl border border-[var(--line)] shadow-xs"
+                variant="square"
+                size={76}
+                className="rounded-2xl bg-white/95 p-1.5 border border-[var(--line)] shadow-xs"
               />
-              <span>El Corral</span>
             </Link>
             <p className="mt-2 text-sm text-[var(--moss)]">
-              Iwagé Granja · Gestión para granjas mixtas en Colombia.
+              Tu granja, todo bajo control · Gestión para granjas mixtas en Colombia.
             </p>
             <p className="mt-3 text-xs leading-relaxed text-[var(--moss)]">
               Operado y desarrollado por{" "}

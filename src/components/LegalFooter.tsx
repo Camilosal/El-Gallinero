@@ -14,10 +14,10 @@ export function LegalFooter({ className = "" }: { className?: string }) {
       <div className="max-w-[1080px] mx-auto px-4 sm:px-7 space-y-2">
         <p className="flex flex-wrap items-center gap-2">
           <BrandLogo
-            variant="mark"
-            size={22}
+            variant="square"
+            size={32}
             decorative
-            className="rounded-md border border-slate-200"
+            className="rounded-lg bg-white p-0.5 border border-slate-200"
           />
           <span>
             <strong className="text-slate-900">{LEGAL.marca}</strong> · Operado por{" "}

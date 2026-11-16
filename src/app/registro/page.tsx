@@ -171,9 +171,9 @@ export default function RegistroPage() {
       <div className="w-full max-w-md bg-white rounded-2xl shadow-xl border border-earth-200 p-6 sm:p-8">
         <div className="text-center mb-6">
           <BrandLogo
-            variant="full"
-            size={84}
-            className="mx-auto mb-3 rounded-2xl border border-earth-200 shadow-sm"
+            variant="square"
+            size={96}
+            className="mx-auto mb-3 rounded-2xl bg-[#faf6ec] p-1.5 border border-earth-200 shadow-sm"
           />
           <p className="text-xs font-bold uppercase tracking-wider text-emerald-700">
             Iwagé Granja · Plan Semilla

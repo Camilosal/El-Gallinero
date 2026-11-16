@@ -274,64 +274,25 @@ export default function Sidebar() {
         </button>
 
         {/* Header */}
-        <div className={`border-b border-green-700 ${collapsed ? "px-2 py-4" : "p-5"}`}>
+        <div className={`border-b border-green-700 ${collapsed ? "px-2 py-3.5" : "px-4 py-3.5"}`}>
           {collapsed ? (
-            <div className="flex flex-col items-center gap-1.5">
-              <div
-                className="flex h-9 w-9 items-center justify-center rounded-xl border border-green-700/70 overflow-hidden shadow-sm"
-                title={farmMeta?.farmId ? `${farmMeta.farmName || "El Corral"} · FarmID: ${farmMeta.farmId}` : "El Corral"}
+            <div className="flex flex-col items-center">
+              <Link
+                href="/inicio"
+                className="flex h-9 w-9 items-center justify-center rounded-xl bg-white/95 p-1 border border-white/25 shadow-sm"
+                title={farmMeta?.farmName ? `IwaGranja · ${farmMeta.farmName}` : "IwaGranja — Tu granja, todo bajo control."}
               >
-                <BrandLogo variant="mark" size={36} decorative className="rounded-xl" />
-              </div>
-              {farmMeta?.farmId && (
-                <button
-                  type="button"
-                  onClick={copyFarmId}
-                  className="px-1.5 py-0.5 rounded bg-green-950/70 border border-green-700/80 text-[9px] font-mono text-green-200 hover:text-white hover:bg-green-800 transition-colors"
-                  title={copiedFarmId ? "FarmID copiado" : `FarmID: ${farmMeta.farmId} (clic para copiar)`}
-                  aria-label={`Copiar FarmID ${farmMeta.farmId}`}
-                >
-                  {copiedFarmId ? "OK" : "ID"}
-                </button>
-              )}
+                <BrandLogo variant="mark" size={28} decorative />
+              </Link>
             </div>
           ) : (
-            <>
-              <h1 className="text-xl font-bold flex items-center gap-2.5">
-                <span className="flex h-10 w-10 items-center justify-center rounded-xl border border-green-700/70 overflow-hidden shadow-sm shrink-0">
-                  <BrandLogo variant="mark" size={40} decorative className="rounded-xl" />
-                </span>
-                <span>El Corral</span>
-              </h1>
-              <p className="text-green-300 text-xs mt-1.5">Granja Autosustentable</p>
-              {farmMeta?.farmId && (
-                <div className="mt-2.5 flex items-start justify-between gap-2 rounded-lg bg-green-950/60 border border-green-700/70 px-2.5 py-1.5">
-                  <div className="min-w-0">
-                    {farmMeta.farmName && (
-                      <p className="text-[11px] font-medium text-green-100 truncate">
-                        {farmMeta.farmName}
-                      </p>
-                    )}
-                    <p
-                      className="text-[10px] leading-tight font-mono text-green-200 break-all"
-                      title={farmMeta.farmId}
-                      data-testid="sidebar-farm-id"
-                    >
-                      FarmID: {farmMeta.farmId}
-                    </p>
-                  </div>
-                  <button
-                    type="button"
-                    onClick={copyFarmId}
-                    className="p-1 rounded text-green-300 hover:text-white hover:bg-green-800/70 transition-colors shrink-0"
-                    title={copiedFarmId ? "FarmID copiado" : "Copiar FarmID"}
-                    aria-label="Copiar FarmID"
-                  >
-                    {copiedFarmId ? <Check className="w-3.5 h-3.5 text-emerald-300" /> : <Copy className="w-3.5 h-3.5" />}
-                  </button>
-                </div>
-              )}
-            </>
+            <Link
+              href="/inicio"
+              aria-label="IwaGranja — Inicio del panel"
+              className="block rounded-xl bg-white/95 px-2.5 py-2 shadow-sm border border-white/25 hover:bg-white transition-colors"
+            >
+              <BrandLogo variant="horizontal" height={42} priority className="mx-auto max-w-full" />
+            </Link>
           )}
         </div>
 
@@ -399,8 +360,48 @@ export default function Sidebar() {
           </div>
         </nav>
 
-        {/* Footer: guide/logout + bug report in clean block */}
+        {/* Footer: FarmID + guide/logout + bug report in clean block */}
         <div className={`border-t border-green-700 space-y-2 ${collapsed ? "p-2" : "p-3.5"}`}>
+          {farmMeta?.farmId && (
+            collapsed ? (
+              <button
+                type="button"
+                onClick={copyFarmId}
+                className="w-full px-1 py-1 rounded bg-green-950/70 border border-green-700/80 text-[9px] font-mono text-green-200 hover:text-white hover:bg-green-800 transition-colors"
+                title={copiedFarmId ? "FarmID copiado" : `FarmID: ${farmMeta.farmId} (clic para copiar)`}
+                aria-label={`Copiar FarmID ${farmMeta.farmId}`}
+                data-testid="sidebar-farm-id"
+              >
+                {copiedFarmId ? "OK" : "ID"}
+              </button>
+            ) : (
+              <div className="flex items-start justify-between gap-2 rounded-lg bg-green-950/60 border border-green-700/70 px-2.5 py-1.5">
+                <div className="min-w-0">
+                  {farmMeta.farmName && (
+                    <p className="text-[11px] font-medium text-green-100 truncate">
+                      {farmMeta.farmName}
+                    </p>
+                  )}
+                  <p
+                    className="text-[10px] leading-tight font-mono text-green-200 break-all"
+                    title={farmMeta.farmId}
+                    data-testid="sidebar-farm-id"
+                  >
+                    FarmID: {farmMeta.farmId}
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={copyFarmId}
+                  className="p-1 rounded text-green-300 hover:text-white hover:bg-green-800/70 transition-colors shrink-0"
+                  title={copiedFarmId ? "FarmID copiado" : "Copiar FarmID"}
+                  aria-label="Copiar FarmID"
+                >
+                  {copiedFarmId ? <Check className="w-3.5 h-3.5 text-emerald-300" /> : <Copy className="w-3.5 h-3.5" />}
+                </button>
+              </div>
+            )
+          )}
 
           <div className={collapsed ? "flex flex-col gap-1.5" : "grid grid-cols-2 gap-1.5"}>
             <a

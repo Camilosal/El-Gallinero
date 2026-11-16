@@ -35,14 +35,10 @@ export default function MobileNav() {
       <div className={`land-mobile-menu ${open ? "open" : ""}`}>
         <div className="flex items-center gap-2.5 pb-3 mb-2 border-b border-[var(--line)]">
           <BrandLogo
-            variant="mark"
-            size={30}
-            decorative
-            className="rounded-lg border border-[var(--line)]"
+            variant="square"
+            size={48}
+            className="rounded-xl bg-white/90 p-1 border border-[var(--line)]"
           />
-          <span className="font-display text-base font-bold text-[var(--ink)]">
-            El Corral
-          </span>
         </div>
         <nav className="land-mobile-nav">
           {LINKS.map((l) => (

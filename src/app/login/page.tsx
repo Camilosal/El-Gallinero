@@ -60,10 +60,10 @@ export default function LoginPage() {
           <HeroFrame
             theme="inicio"
             compact
-            icon={<BrandLogo variant="mark" size={18} decorative className="rounded-sm" />}
+            icon={<BrandLogo variant="mark" size={18} decorative className="rounded-sm bg-white/95 p-0.5" />}
             eyebrow="Acceso al sistema"
-            title="El Corral"
-            description="Sistema de Gestión Avícola"
+            title="IwaGranja"
+            description="Tu granja, todo bajo control."
             className="mb-6"
           />
 
@@ -71,9 +71,9 @@ export default function LoginPage() {
           <div className="bg-white rounded-2xl shadow-xl p-8 border border-earth-100">
             <div className="flex justify-center mb-5">
               <BrandLogo
-                variant="full"
-                size={84}
-                className="rounded-2xl border border-earth-100 shadow-xs"
+                variant="square"
+                size={96}
+                className="rounded-2xl bg-[#faf6ec] p-1.5 border border-earth-100 shadow-xs"
               />
             </div>
             <form onSubmit={submit} className="space-y-5">

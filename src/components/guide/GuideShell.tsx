@@ -207,17 +207,16 @@ export function GuideShell({ children, basePath, isStandalone }: GuideShellProps
               )}
             </button>
 
-            <Link href={basePath} className="flex min-w-0 items-center gap-2.5">
+            <Link href={basePath} className="flex min-w-0 items-center gap-3">
               <BrandLogo
-                variant="mark"
-                size={36}
-                decorative
-                className="rounded-xl border border-slate-200 shadow-xs"
+                variant="horizontal"
+                height={38}
+                className="h-8 sm:h-[38px] w-auto"
               />
-              <span className="min-w-0">
+              <span className="min-w-0 border-l border-slate-200 pl-3">
                 <span className="flex items-center gap-2">
                   <span className="truncate text-sm font-bold text-slate-900 sm:text-base">
-                    Manual de Uso · El Corral
+                    Manual de Uso
                   </span>
                   <span className="hidden sm:inline-flex items-center rounded-full border border-green-200 bg-green-50 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-green-800">
                     {guides.length} guías

@@ -136,7 +136,7 @@ export default async function LoteTraceabilityPage({ params }: Props) {
         {/* Footer */}
         <div className="text-center mt-8 pt-6 border-t border-gray-200">
           <div className="flex justify-center mb-3">
-            <BrandLogo variant="full" size={64} className="rounded-2xl border border-gray-200 shadow-xs" />
+            <BrandLogo variant="square" size={80} className="rounded-2xl bg-[#faf6ec] p-1.5 border border-gray-200 shadow-xs" />
           </div>
           <p className="text-sm text-gray-500">
             Producto de <span className="font-semibold text-green-700">El Corral</span> - Granja Autosustentable

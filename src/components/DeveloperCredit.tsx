@@ -59,7 +59,7 @@ export function DeveloperCredit({
             Desarrollo y soporte
           </p>
           <h2 className="mt-1 flex items-center gap-2 text-base font-semibold text-slate-900">
-            <BrandLogo variant="mark" size={24} decorative className="rounded-md border border-slate-200" />
+            <BrandLogo variant="square" size={32} decorative className="rounded-lg border border-slate-200 p-0.5 bg-white" />
             <span>
               {APP_BRAND.name} · Desarrollado por{" "}
               <a

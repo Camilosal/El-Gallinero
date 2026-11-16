@@ -153,18 +153,18 @@ export default function HomePage() {
 
       <ScrollReveal>
         <nav className="land-nav" aria-label="Navegación principal">
-          <div className="land-wrap flex items-center justify-between gap-4 py-3.5">
+          <div className="land-wrap flex items-center justify-between gap-4 py-2.5 sm:py-3">
             <Link
               href="#top"
-              className="font-display text-lg font-bold tracking-tight text-[var(--ink)] flex items-center gap-2.5 shrink-0"
+              aria-label="IwaGranja — Inicio"
+              className="inline-flex items-center shrink-0"
             >
               <BrandLogo
-                variant="mark"
-                size={34}
-                decorative
-                className="rounded-xl border border-[var(--line)] shadow-xs"
+                variant="horizontal"
+                height={42}
+                priority
+                className="h-9 sm:h-[42px] w-auto"
               />
-              <span>El Corral</span>
             </Link>
 
             <div className="hidden md:flex items-center gap-6 text-sm font-medium text-[var(--moss)]">
@@ -223,7 +223,7 @@ export default function HomePage() {
                     variant="mark"
                     size={28}
                     decorative
-                    className="rounded-lg border border-white/25 shadow-sm"
+                    className="rounded-lg bg-white/95 p-0.5 border border-white/25 shadow-sm"
                   />
                   <p className="inline-flex items-center rounded-full border border-white/15 bg-white/10 px-3 py-1 font-mono text-[11px] uppercase tracking-[0.14em] text-[#e7cf9e]">
                     Plataforma digital y herramienta informativa
