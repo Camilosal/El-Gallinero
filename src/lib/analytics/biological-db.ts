@@ -7,6 +7,7 @@ import {
   feedInventory,
   hens,
   roosters,
+  supplyInventory,
   weightLogs,
 } from "@/db/schema";
 import {
@@ -20,6 +21,7 @@ import {
   type FlockLike,
   type LocationLike,
 } from "@/lib/analytics/biological-valuation";
+import type { SupplyWarehouseLike } from "@/lib/analytics/payroll-tax-supplies";
 import { syncMarketPricesSnapshot } from "@/lib/external-sources/wave1-territory-weather-market";
 import { computeUniformityStats } from "@/lib/zootechnics";
 
@@ -27,6 +29,7 @@ export interface LoadedFarmBiologicalContext {
   locations: LocationLike[];
   assets: AssetLike[];
   feedRows: FeedInventoryLike[];
+  supplyRows: SupplyWarehouseLike[];
   batches: BroilerBatchLike[];
   flocks: FlockLike[];
   marketOverrides: ReturnType<typeof buildMarketPriceOverridesFromSipsa>;
@@ -52,7 +55,7 @@ export async function loadFarmBiologicalContext(options?: {
   } = options || {};
   const today = referenceDate || new Date().toISOString().slice(0, 10);
 
-  const [locRows, assetRows, feedInvRows, batchRows, henRows, roosterRows, recentWeights, marketSnap] =
+  const [locRows, assetRows, feedInvRows, supplyInvRows, batchRows, henRows, roosterRows, recentWeights, marketSnap] =
     await Promise.all([
       db
         .select({
@@ -78,6 +81,18 @@ export async function loadFarmBiologicalContext(options?: {
         })
         .from(feedInventory)
         .where(farmId ? eq(feedInventory.farmId, farmId) : undefined),
+      db
+        .select({
+          id: supplyInventory.id,
+          name: supplyInventory.name,
+          category: supplyInventory.category,
+          unit: supplyInventory.unit,
+          currentStock: supplyInventory.currentStock,
+          minStock: supplyInventory.minStock,
+          costPerUnit: supplyInventory.costPerUnit,
+        })
+        .from(supplyInventory)
+        .where(farmId ? eq(supplyInventory.farmId, farmId) : undefined),
       db
         .select()
         .from(broilerBatches)
@@ -142,6 +157,16 @@ export async function loadFarmBiologicalContext(options?: {
     currentKg: f.currentStock,
     unitCost: f.costPerUnit,
     reorderLevelKg: f.minStock,
+  }));
+
+  const supplyRows: SupplyWarehouseLike[] = supplyInvRows.map((s) => ({
+    id: s.id,
+    name: s.name,
+    category: s.category,
+    unit: s.unit,
+    currentStock: s.currentStock,
+    minStock: s.minStock,
+    costPerUnit: s.costPerUnit,
   }));
 
   const batches: BroilerBatchLike[] = [];
@@ -248,6 +273,7 @@ export async function loadFarmBiologicalContext(options?: {
     locations,
     assets,
     feedRows,
+    supplyRows,
     batches,
     flocks,
     marketOverrides: buildMarketPriceOverridesFromSipsa(marketSnap?.payload),

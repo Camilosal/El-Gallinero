@@ -438,7 +438,7 @@ export async function computeFinanceSummary(params: {
   if (params.speciesFilter) feedConds.push(eq(feedMovements.species, params.speciesFilter));
   if (params.locationIdFilter) feedConds.push(eq(feedMovements.locationId, params.locationIdFilter));
 
-  const [txRows, feedMovRows, bioCtx] = await Promise.all([
+  const [txRows, feedMovRows, bioCtx, payrollSuppliesCtx] = await Promise.all([
     db
       .select({
         type: transactions.type,
@@ -466,8 +466,18 @@ export async function computeFinanceSummary(params: {
       batchIdFilter: params.batchIdFilter,
       referenceDate: params.endDate,
     }),
+    import("@/lib/analytics/payroll-tax-supplies-db").then((m) =>
+      m.loadPeriodPayrollAndSupplies({
+        from: params.startDate,
+        to: params.endDate,
+        farmId: params.farmId,
+        speciesFilter: params.speciesFilter,
+        locationIdFilter: params.locationIdFilter,
+      }),
+    ),
   ]);
 
+  const { computeSupplyWarehouseValuation } = await import("@/lib/analytics/payroll-tax-supplies");
   const accruedFeedConsumedCostCop = feedMovRows.reduce(
     (s, fc) => s + Number(fc.quantity || 0) * Number(fc.unitCost ?? fc.fallbackCost ?? 0),
     0,
@@ -477,6 +487,7 @@ export async function computeFinanceSummary(params: {
     toDate: params.endDate,
   });
   const warehouseSummary = computeFeedWarehouseValuation(bioCtx.feedRows);
+  const supplyWarehouseSummary = computeSupplyWarehouseValuation(bioCtx.supplyRows);
   const biologicalSummary = evaluateBiologicalPortfolio({
     flocks: bioCtx.flocks,
     broilerBatches: bioCtx.batches,
@@ -489,6 +500,10 @@ export async function computeFinanceSummary(params: {
     transactions: txRows,
     accruedFeedConsumedCostCop,
     hasFeedConsumptionRecords: feedMovRows.length > 0 && accruedFeedConsumedCostCop > 0,
+    accruedSupplyConsumedCostCop: payrollSuppliesCtx.accruedSupplyCostCop,
+    hasSupplyConsumptionRecords: payrollSuppliesCtx.hasSupplyConsumptionRecords,
+    imputedOwnerLaborCop: payrollSuppliesCtx.imputedOwnerLaborCop,
+    warehouseSupplyAssetCop: supplyWarehouseSummary.totalValueCop,
     assetsSummary,
     warehouseSummary,
     biologicalSummary,

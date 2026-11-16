@@ -3,6 +3,8 @@ import { supplyMovements, supplyInventory } from "@/db/schema";
 import { eq, desc, sql, and } from "drizzle-orm";
 import { NextRequest, NextResponse } from "next/server";
 import { withApiHandler, safeParseJson } from "@/lib/api-handler";
+import { resolveDimensions } from "@/lib/analytics-dimensions";
+import { computeWeightedAverageUnitCost } from "@/lib/analytics/payroll-tax-supplies";
 
 export const dynamic = "force-dynamic";
 
@@ -69,6 +71,16 @@ export const POST = withApiHandler(async (req: NextRequest) => {
       }
     }
 
+    const resolvedDimensions = await resolveDimensions(db, body as Record<string, unknown>);
+    if ("error" in resolvedDimensions) {
+      throw new Error(resolvedDimensions.error);
+    }
+    const unitCostValue = isEntry
+      ? body.unitCost != null && Number(body.unitCost) >= 0
+        ? String(Number(body.unitCost).toFixed(2))
+        : supply.costPerUnit
+      : supply.costPerUnit;
+
     const [row] = await tx
       .insert(supplyMovements)
       .values({
@@ -77,16 +89,30 @@ export const POST = withApiHandler(async (req: NextRequest) => {
         isEntry,
         movementType,
         date,
+        species: resolvedDimensions.dimensions.species ?? null,
+        locationId: resolvedDimensions.dimensions.locationId ?? null,
+        unitCost: unitCostValue,
         notes: notes || null,
       })
       .returning();
 
     // Use relative SQL update to avoid race conditions
     if (isEntry) {
+      const incomingPrice = Number(unitCostValue || 0);
+      const nextAvgCost =
+        incomingPrice > 0
+          ? computeWeightedAverageUnitCost(
+              Number(supply.currentStock),
+              Number(supply.costPerUnit),
+              qty,
+              incomingPrice,
+            ).toFixed(2)
+          : supply.costPerUnit;
       await tx
         .update(supplyInventory)
         .set({
           currentStock: sql`(${supplyInventory.currentStock}::numeric + ${qty})`,
+          costPerUnit: nextAvgCost,
           updatedAt: new Date(),
         })
         .where(eq(supplyInventory.id, supplyId));

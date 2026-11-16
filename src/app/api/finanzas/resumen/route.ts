@@ -10,6 +10,8 @@ import {
   evaluateBiologicalPortfolio,
   loadFarmBiologicalContext,
 } from "@/lib/analytics/biological-db";
+import { computeSupplyWarehouseValuation } from "@/lib/analytics/payroll-tax-supplies";
+import { loadPeriodPayrollAndSupplies } from "@/lib/analytics/payroll-tax-supplies-db";
 
 export const GET = withApiHandler(async () => {
   try {
@@ -19,7 +21,7 @@ export const GET = withApiHandler(async () => {
     const hace30DiasStr = hace30Dias.toISOString().split("T")[0];
     const hoyStr = hoy.toISOString().split("T")[0];
 
-    const [txRows, feedMovRows, bioCtx] = await Promise.all([
+    const [txRows, feedMovRows, bioCtx, payrollSuppliesCtx] = await Promise.all([
       db
         .select({
           type: transactions.type,
@@ -41,6 +43,7 @@ export const GET = withApiHandler(async () => {
         .innerJoin(feedInventory, eq(feedMovements.feedId, feedInventory.id))
         .where(and(eq(feedMovements.isEntry, false), gte(feedMovements.date, hace30DiasStr), lte(feedMovements.date, hoyStr))),
       loadFarmBiologicalContext({ referenceDate: hoyStr }),
+      loadPeriodPayrollAndSupplies({ from: hace30DiasStr, to: hoyStr }),
     ]);
 
     const ingresosMes = txRows
@@ -60,6 +63,7 @@ export const GET = withApiHandler(async () => {
       toDate: hoyStr,
     });
     const warehouseSummary = computeFeedWarehouseValuation(bioCtx.feedRows);
+    const supplyWarehouseSummary = computeSupplyWarehouseValuation(bioCtx.supplyRows);
     const biologicalSummary = evaluateBiologicalPortfolio({
       flocks: bioCtx.flocks,
       broilerBatches: bioCtx.batches,
@@ -71,6 +75,10 @@ export const GET = withApiHandler(async () => {
       transactions: txRows,
       accruedFeedConsumedCostCop: accruedFeedCost,
       hasFeedConsumptionRecords: feedMovRows.length > 0 && accruedFeedCost > 0,
+      accruedSupplyConsumedCostCop: payrollSuppliesCtx.accruedSupplyCostCop,
+      hasSupplyConsumptionRecords: payrollSuppliesCtx.hasSupplyConsumptionRecords,
+      imputedOwnerLaborCop: payrollSuppliesCtx.imputedOwnerLaborCop,
+      warehouseSupplyAssetCop: supplyWarehouseSummary.totalValueCop,
       assetsSummary,
       warehouseSummary,
       biologicalSummary,

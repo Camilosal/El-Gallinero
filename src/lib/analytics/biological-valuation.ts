@@ -12,6 +12,7 @@ export type TransactionNature =
   | "operating_income"
   | "capex"
   | "feed_inventory_purchase"
+  | "supply_inventory_purchase"
   | "biological_stock_acquisition"
   | "operating_expense";
 
@@ -135,22 +136,27 @@ export interface ThreeLayerFinancialSummary {
   cashNetFlowCop: number;
   capexCashOutflowCop: number;
   feedPurchaseCashOutflowCop: number;
+  supplyPurchaseCashOutflowCop?: number;
   biologicalPurchaseCashOutflowCop: number;
   directOperatingCashOutflowCop: number;
   // 2. Resultado Operativo Devengado (lo justo del periodo)
   operatingIncomeCop: number;
   accruedFeedCostCop: number;
+  accruedSupplyCostCop?: number;
+  imputedOwnerLaborCop?: number;
   periodDepreciationCop: number;
   accruedOperatingExpenseCop: number;
   operatingNetProfitCop: number;
   operatingMarginPct: number;
   // 3. Patrimonio Productivo (Activos en granja)
   warehouseFeedAssetCop: number;
+  warehouseSupplyAssetCop?: number;
   netEquipmentBookValueCop: number;
   biologicalPortfolioValueCop: number;
   totalProductiveWealthCop: number;
   wealthChangeAfterCashCop: number;
   usedFeedConsumptionBasis: boolean;
+  usedSupplyConsumptionBasis?: boolean;
 }
 
 export interface TransactionLike {
@@ -318,10 +324,20 @@ export function classifyTransactionNature(tx: TransactionLike): TransactionNatur
 
   if (
     sourceType === "feed_purchase" ||
+    sourceType === "alimento" ||
     sourceType === "feed_inventory" ||
     /alimento|concentrado|nutrici|bulto|sal_mineral/.test(category)
   ) {
     return "feed_inventory_purchase";
+  }
+
+  if (
+    sourceType === "supply_purchase" ||
+    sourceType === "insumo" ||
+    sourceType === "supply_inventory" ||
+    /compra de insumos|compra_insumos/.test(category)
+  ) {
+    return "supply_inventory_purchase";
   }
 
   if (
@@ -992,6 +1008,10 @@ export function computeThreeLayerFinancials(input: {
   transactions: TransactionLike[];
   accruedFeedConsumedCostCop: number;
   hasFeedConsumptionRecords: boolean;
+  accruedSupplyConsumedCostCop?: number;
+  hasSupplyConsumptionRecords?: boolean;
+  imputedOwnerLaborCop?: number;
+  warehouseSupplyAssetCop?: number;
   assetsSummary: AssetsDepreciationSummary;
   warehouseSummary: FeedWarehouseSummary;
   biologicalSummary: BiologicalPortfolioSummary;
@@ -1000,6 +1020,7 @@ export function computeThreeLayerFinancials(input: {
   let cashOutflowsCop = 0;
   let capexCashOutflowCop = 0;
   let feedPurchaseCashOutflowCop = 0;
+  let supplyPurchaseCashOutflowCop = 0;
   let biologicalPurchaseCashOutflowCop = 0;
   let directOperatingCashOutflowCop = 0;
 
@@ -1013,6 +1034,7 @@ export function computeThreeLayerFinancials(input: {
     cashOutflowsCop += amount;
     if (nature === "capex") capexCashOutflowCop += amount;
     else if (nature === "feed_inventory_purchase") feedPurchaseCashOutflowCop += amount;
+    else if (nature === "supply_inventory_purchase") supplyPurchaseCashOutflowCop += amount;
     else if (nature === "biological_stock_acquisition") biologicalPurchaseCashOutflowCop += amount;
     else directOperatingCashOutflowCop += amount;
   }
@@ -1025,9 +1047,21 @@ export function computeThreeLayerFinancials(input: {
     ? input.accruedFeedConsumedCostCop
     : feedPurchaseCashOutflowCop;
 
+  const supplyConsumed = Math.max(0, Number(input.accruedSupplyConsumedCostCop || 0));
+  const usedSupplyConsumptionBasis =
+    Boolean(input.hasSupplyConsumptionRecords) || supplyConsumed > 0;
+  const accruedSupplyCostCop = usedSupplyConsumptionBasis
+    ? supplyConsumed
+    : supplyPurchaseCashOutflowCop;
+
+  const imputedOwnerLaborCop = Math.max(0, Number(input.imputedOwnerLaborCop || 0));
+  const warehouseSupplyAssetCop = Math.max(0, Number(input.warehouseSupplyAssetCop || 0));
+
   const accruedOperatingExpenseCop =
     directOperatingCashOutflowCop +
     accruedFeedCostCop +
+    accruedSupplyCostCop +
+    imputedOwnerLaborCop +
     input.assetsSummary.periodDepreciationCop;
 
   const operatingNetProfitCop = cashInflowsCop - accruedOperatingExpenseCop;
@@ -1036,6 +1070,7 @@ export function computeThreeLayerFinancials(input: {
 
   const totalProductiveWealthCop =
     input.warehouseSummary.totalValueCop +
+    warehouseSupplyAssetCop +
     input.assetsSummary.netBookValueCop +
     input.biologicalSummary.totalBiologicalValueCop;
 
@@ -1048,20 +1083,25 @@ export function computeThreeLayerFinancials(input: {
     cashNetFlowCop: round2(cashNetFlowCop),
     capexCashOutflowCop: round2(capexCashOutflowCop),
     feedPurchaseCashOutflowCop: round2(feedPurchaseCashOutflowCop),
+    supplyPurchaseCashOutflowCop: round2(supplyPurchaseCashOutflowCop),
     biologicalPurchaseCashOutflowCop: round2(biologicalPurchaseCashOutflowCop),
     directOperatingCashOutflowCop: round2(directOperatingCashOutflowCop),
     operatingIncomeCop: round2(cashInflowsCop),
     accruedFeedCostCop: round2(accruedFeedCostCop),
+    accruedSupplyCostCop: round2(accruedSupplyCostCop),
+    imputedOwnerLaborCop: round2(imputedOwnerLaborCop),
     periodDepreciationCop: round2(input.assetsSummary.periodDepreciationCop),
     accruedOperatingExpenseCop: round2(accruedOperatingExpenseCop),
     operatingNetProfitCop: round2(operatingNetProfitCop),
     operatingMarginPct,
     warehouseFeedAssetCop: round2(input.warehouseSummary.totalValueCop),
+    warehouseSupplyAssetCop: round2(warehouseSupplyAssetCop),
     netEquipmentBookValueCop: round2(input.assetsSummary.netBookValueCop),
     biologicalPortfolioValueCop: round2(input.biologicalSummary.totalBiologicalValueCop),
     totalProductiveWealthCop: round2(totalProductiveWealthCop),
     wealthChangeAfterCashCop: round2(wealthChangeAfterCashCop),
     usedFeedConsumptionBasis,
+    usedSupplyConsumptionBasis,
   };
 }
 

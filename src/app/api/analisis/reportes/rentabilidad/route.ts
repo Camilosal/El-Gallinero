@@ -12,6 +12,8 @@ import {
   evaluateBiologicalPortfolio,
   loadFarmBiologicalContext,
 } from "@/lib/analytics/biological-db";
+import { computeSupplyWarehouseValuation } from "@/lib/analytics/payroll-tax-supplies";
+import { loadPeriodPayrollAndSupplies } from "@/lib/analytics/payroll-tax-supplies-db";
 
 export const dynamic = "force-dynamic";
 
@@ -84,7 +86,7 @@ export const GET = withApiHandler(async (req: NextRequest) => {
   if (species) conditions.push(eq(transactions.species, species));
   if (locationId) conditions.push(eq(transactions.locationId, locationId));
 
-  const [txs, locations, feedMovRows, bioCtx] = await Promise.all([
+  const [txs, locations, feedMovRows, bioCtx, payrollSuppliesCtx] = await Promise.all([
     db.select().from(transactions).where(and(...conditions)).orderBy(transactions.date),
     db.select({ id: farmLocations.id, name: farmLocations.name }).from(farmLocations),
     db
@@ -102,6 +104,12 @@ export const GET = withApiHandler(async (req: NextRequest) => {
       speciesFilter: species,
       locationIdFilter: locationId || null,
       referenceDate: to,
+    }),
+    loadPeriodPayrollAndSupplies({
+      from,
+      to,
+      speciesFilter: species,
+      locationIdFilter: locationId || null,
     }),
   ]);
   const locationNames = new Map(locations.map((l) => [l.id, l.name]));
@@ -164,6 +172,7 @@ export const GET = withApiHandler(async (req: NextRequest) => {
   );
   const assetsSummary = computeAssetsDepreciationSummary(bioCtx.assets, { fromDate: from, toDate: to });
   const warehouseSummary = computeFeedWarehouseValuation(bioCtx.feedRows);
+  const supplyWarehouseSummary = computeSupplyWarehouseValuation(bioCtx.supplyRows);
   const biologicalSummary = evaluateBiologicalPortfolio({
     flocks: bioCtx.flocks,
     broilerBatches: bioCtx.batches,
@@ -182,6 +191,10 @@ export const GET = withApiHandler(async (req: NextRequest) => {
     })),
     accruedFeedConsumedCostCop: accruedFeedCost,
     hasFeedConsumptionRecords: filteredFeedMovs.length > 0 && accruedFeedCost > 0,
+    accruedSupplyConsumedCostCop: payrollSuppliesCtx.accruedSupplyCostCop,
+    hasSupplyConsumptionRecords: payrollSuppliesCtx.hasSupplyConsumptionRecords,
+    imputedOwnerLaborCop: payrollSuppliesCtx.imputedOwnerLaborCop,
+    warehouseSupplyAssetCop: supplyWarehouseSummary.totalValueCop,
     assetsSummary,
     warehouseSummary,
     biologicalSummary,

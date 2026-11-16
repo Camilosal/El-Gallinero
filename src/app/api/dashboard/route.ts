@@ -346,7 +346,7 @@ export const GET = withApiHandler(async () => {
       .sort(([a], [b]) => a.localeCompare(b))
       .map(([, v]) => v);
 
-    const [txDetailRows, feedCostRows, bioCtx] = await Promise.all([
+    const [txDetailRows, feedCostRows, bioCtx, payrollSuppliesCtx] = await Promise.all([
       db
         .select({
           type: transactions.type,
@@ -368,7 +368,11 @@ export const GET = withApiHandler(async () => {
         .innerJoin(feedInventory, eq(feedMovements.feedId, feedInventory.id))
         .where(and(eq(feedMovements.isEntry, false), gte(feedMovements.date, dateStr), lte(feedMovements.date, todayStr))),
       loadFarmBiologicalContext({ referenceDate: todayStr }),
+      import("@/lib/analytics/payroll-tax-supplies-db").then((m) =>
+        m.loadPeriodPayrollAndSupplies({ from: dateStr, to: todayStr }),
+      ),
     ]);
+    const { computeSupplyWarehouseValuation } = await import("@/lib/analytics/payroll-tax-supplies");
     const accruedFeedCost30d = feedCostRows.reduce(
       (s, fc) => s + Number(fc.quantity || 0) * Number(fc.unitCost ?? fc.fallbackCost ?? 0),
       0,
@@ -378,6 +382,7 @@ export const GET = withApiHandler(async () => {
       toDate: todayStr,
     });
     const warehouseSummary = computeFeedWarehouseValuation(bioCtx.feedRows);
+    const supplyWarehouseSummary = computeSupplyWarehouseValuation(bioCtx.supplyRows);
     const biologicalSummary = evaluateBiologicalPortfolio({
       flocks: bioCtx.flocks,
       broilerBatches: bioCtx.batches,
@@ -390,6 +395,10 @@ export const GET = withApiHandler(async () => {
         transactions: txDetailRows,
         accruedFeedConsumedCostCop: accruedFeedCost30d,
         hasFeedConsumptionRecords: feedCostRows.length > 0 && accruedFeedCost30d > 0,
+        accruedSupplyConsumedCostCop: payrollSuppliesCtx.accruedSupplyCostCop,
+        hasSupplyConsumptionRecords: payrollSuppliesCtx.hasSupplyConsumptionRecords,
+        imputedOwnerLaborCop: payrollSuppliesCtx.imputedOwnerLaborCop,
+        warehouseSupplyAssetCop: supplyWarehouseSummary.totalValueCop,
         assetsSummary,
         warehouseSummary,
         biologicalSummary,

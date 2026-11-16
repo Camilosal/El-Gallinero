@@ -273,6 +273,9 @@ export const POST = withApiHandler(async (req: NextRequest) => {
           isEntry: false,
           movementType: "uso",
           date: body.date,
+          species: record.species || null,
+          locationId: record.locationId || null,
+          unitCost: supply.costPerUnit,
           healthControlId: record.id,
           notes: `Usado en: ${body.description || body.type}`,
         });
@@ -462,6 +465,9 @@ export const PUT = withApiHandler(async (req: NextRequest) => {
           isEntry: false,
           movementType: "uso",
           date: body.date,
+          species: record.species || null,
+          locationId: record.locationId || null,
+          unitCost: supply.costPerUnit,
           healthControlId: body.id,
           notes: `Usado en: ${nextDescription || nextType}`,
         });
