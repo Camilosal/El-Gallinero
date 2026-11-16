@@ -14,6 +14,7 @@ import { matchesTextQuery } from "@/lib/text";
 import { SPECIES_LABEL } from "@/lib/species-params";
 import { useActionQuery } from "@/lib/useActionQuery";
 import { useCatalog } from "@/lib/useCatalog";
+import { TaxDeductionsFields, emptyTaxFields, type TaxFieldsState } from "@/components/TaxDeductionsFields";
 
 interface OtherSaleTx {
   id: string;
@@ -33,6 +34,12 @@ interface OtherSaleTx {
   isCredit: boolean;
   dueDate: string | null;
   notes: string | null;
+  ivaRate?: string | null;
+  reteFuenteRate?: string | null;
+  icaRate?: string | null;
+  otherDeductionsAmount?: string | null;
+  netSettlementAmount?: string | null;
+  taxNotes?: string | null;
 }
 
 const EXCLUDED_DEDICATED_SOURCES = new Set(["venta", "venta_ave", "venta_carne", "gallinaza"]);
@@ -64,6 +71,7 @@ export default function OtherSalesTab({ onSaved }: OtherSalesTabProps) {
   const [isCredit, setIsCredit] = useState(false);
   const [dueDate, setDueDate] = useState("");
   const [buyerCreditDays, setBuyerCreditDays] = useState(0);
+  const [taxFields, setTaxFields] = useState<TaxFieldsState>(emptyTaxFields());
 
   const [form, setForm] = useState({
     date: new Date().toISOString().split("T")[0],
@@ -143,6 +151,7 @@ export default function OtherSalesTab({ onSaved }: OtherSalesTabProps) {
       locationId: "",
       notes: "",
     });
+    setTaxFields(emptyTaxFields());
     setModalOpen(true);
   };
 
@@ -166,6 +175,13 @@ export default function OtherSalesTab({ onSaved }: OtherSalesTabProps) {
       species: tx.species || "",
       locationId: tx.locationId || "",
       notes: tx.notes || "",
+    });
+    setTaxFields({
+      ivaRate: tx.ivaRate ? String(tx.ivaRate) : "",
+      reteFuenteRate: tx.reteFuenteRate ? String(tx.reteFuenteRate) : "",
+      icaRate: tx.icaRate ? String(tx.icaRate) : "",
+      otherDeductionsAmount: tx.otherDeductionsAmount ? String(tx.otherDeductionsAmount) : "",
+      taxNotes: tx.taxNotes || "",
     });
     setModalOpen(true);
   };
@@ -213,6 +229,11 @@ export default function OtherSalesTab({ onSaved }: OtherSalesTabProps) {
       isCredit,
       dueDate: isCredit ? dueDate : null,
       notes: form.notes.trim() || null,
+      ivaRate: taxFields.ivaRate !== "" ? Number(taxFields.ivaRate) : 0,
+      reteFuenteRate: taxFields.reteFuenteRate !== "" ? Number(taxFields.reteFuenteRate) : 0,
+      icaRate: taxFields.icaRate !== "" ? Number(taxFields.icaRate) : 0,
+      otherDeductionsAmount: taxFields.otherDeductionsAmount !== "" ? Number(taxFields.otherDeductionsAmount) : 0,
+      taxNotes: taxFields.taxNotes || null,
       ...(editing ? { id: editing.id } : {}),
     };
 
@@ -402,6 +423,13 @@ export default function OtherSalesTab({ onSaved }: OtherSalesTabProps) {
               />
             )}
           </div>
+
+          <TaxDeductionsFields
+            mode="ingreso"
+            grossAmount={computedTotal}
+            value={taxFields}
+            onChange={setTaxFields}
+          />
 
           <Textarea label="Notas" value={form.notes} onChange={(e) => setForm({ ...form, notes: e.target.value })} />
 

@@ -14,7 +14,8 @@ import { useOnboardingState } from "@/lib/useOnboardingState";
 
 const secciones = [
   { href: "/finanzas/ventas", label: "Ventas", icon: "money", desc: "5 líneas: huevos, carne, animales en pie, gallinaza y otros" },
-  { href: "/finanzas/egresos", label: "Egresos", icon: "outgoing", desc: "Gastos, compras y comprobantes con adjuntos y OCR" },
+  { href: "/finanzas/egresos", label: "Egresos", icon: "outgoing", desc: "Gastos, compras, impuestos/retenciones y adjuntos con OCR" },
+  { href: "/finanzas/personal", label: "Personal y Nómina", icon: "users", desc: "Trabajo propio del productor, jornales, aportes y deducciones" },
   { href: "/finanzas/finanzas", label: "Finanzas", icon: "trend-up", desc: "Balance, flujo de caja y estado de resultados" },
   { href: "/finanzas/presupuestos", label: "Presupuestos", icon: "banknote", desc: "Planificación financiera y cumplimiento" },
   { href: "/finanzas/cuentas", label: "Cuentas", icon: "card", desc: "CxC, CxP, vencimientos y abonos" },

@@ -119,6 +119,7 @@ export const navigationGroups: MenuGroup[] = [
     items: [
       { href: "/finanzas/ventas", label: "Ventas", icon: "money" },
       { href: "/finanzas/egresos", label: "Egresos", icon: "outgoing" },
+      { href: "/finanzas/personal", label: "Personal y Nómina", icon: "users" },
       { href: "/finanzas/finanzas", label: "Balance", icon: "trend-up" },
       { href: "/finanzas/presupuestos", label: "Presupuestos", icon: "banknote" },
       { href: "/finanzas/cuentas", label: "Cuentas", icon: "card" },

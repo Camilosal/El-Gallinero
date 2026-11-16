@@ -16,12 +16,16 @@ import { useOnboardingState } from "@/lib/useOnboardingState";
 
 interface OperatingContext {
   operatingIncomeCop: number;
+  accruedFeedCostCop?: number;
+  accruedSupplyCostCop?: number;
+  imputedOwnerLaborCop?: number;
   accruedOperatingExpenseCop: number;
   operatingNetProfitCop: number;
   cashNetFlowCop: number;
   periodDepreciationCop: number;
   capexCashOutflowCop?: number;
   warehouseFeedAssetCop: number;
+  warehouseSupplyAssetCop?: number;
   netEquipmentBookValueCop: number;
   biologicalPortfolioValueCop: number;
   totalProductiveWealthCop: number;
@@ -95,12 +99,37 @@ interface AnalyticalData {
     directRevenue: number;
     directCost: number;
     proratedCost: number;
+    imputedOwnerLaborCost?: number;
+    supplyCost?: number;
     depreciationCost?: number;
     totalCost: number;
     netProfit: number;
     unallocatedSharedCost: number;
     cashNetFlow?: number;
     capexExcluded?: number;
+  };
+  warehouseSupply?: {
+    totalValueCop: number;
+    itemsCount: number;
+  };
+  taxAndDeductions?: {
+    ivaGeneradoCop: number;
+    ivaDescontableCop: number;
+    ivaSaldoEstimadoCop: number;
+    reteFuentePracticadaCop: number;
+    reteFuenteSufridaCop: number;
+    icaTotalCop: number;
+    otherDeductionsCop: number;
+    payrollGrossCop: number;
+    payrollEmployerBurdenCop: number;
+    payrollWorkerDeductionsCop: number;
+    payrollReteFuenteCop: number;
+    payrollTotalEconomicCop: number;
+    paidPayrollCostCop: number;
+    imputedOwnerLaborCop: number;
+    gmf4x1000EstimatedCop: number;
+    gmf4x1000Enabled: boolean;
+    totalTaxesAndWithholdingsCop: number;
   };
   lifecycleMode?: string;
   lifecycleLabel?: string;
@@ -542,7 +571,9 @@ ${netText}`);
                   {fmt(plData.operatingContext.operatingNetProfitCop)}
                 </p>
                 <p className="text-xs text-slate-600 mt-1">
-                  Sin contar compra de equipos ni alimento guardado en bodega · Incluye desgaste de equipos ({fmt(plData.operatingContext.periodDepreciationCop)})
+                  Sin contar compra de equipos ni stock guardado en bodega · Incluye desgaste ({fmt(plData.operatingContext.periodDepreciationCop)})
+                  {(plData.operatingContext.accruedSupplyCostCop ?? 0) > 0 && ` · Insumos usados (${fmt(plData.operatingContext.accruedSupplyCostCop!)})`}
+                  {(plData.operatingContext.imputedOwnerLaborCop ?? 0) > 0 && ` · Trabajo propio (${fmt(plData.operatingContext.imputedOwnerLaborCop!)})`}
                 </p>
               </Card>
               <Card className="border-sky-200 bg-sky-50/50">
@@ -551,7 +582,7 @@ ${netText}`);
                   {fmt(plData.operatingContext.totalProductiveWealthCop)}
                 </p>
                 <p className="text-xs text-slate-600 mt-1">
-                  Animales hoy: {fmt(plData.operatingContext.biologicalPortfolioValueCop)} · Bodega: {fmt(plData.operatingContext.warehouseFeedAssetCop)} · Equipos: {fmt(plData.operatingContext.netEquipmentBookValueCop)}
+                  Animales: {fmt(plData.operatingContext.biologicalPortfolioValueCop)} · Alimento: {fmt(plData.operatingContext.warehouseFeedAssetCop)} · Insumos: {fmt(plData.operatingContext.warehouseSupplyAssetCop ?? 0)} · Equipos: {fmt(plData.operatingContext.netEquipmentBookValueCop)}
                 </p>
               </Card>
               <Card className="border-slate-200">
@@ -683,7 +714,7 @@ ${netText}`);
                   {fmt(analitica.totals.netProfit)}
                 </p>
                 <p className="text-xs text-slate-600 mt-1">
-                  Cuenta solo alimento servido + desgaste de equipos ({fmt(analitica.totals.depreciationCost ?? 0)}). Compra de equipos apartada: {fmt(analitica.totals.capexExcluded ?? 0)}.
+                  Alimento + insumos ({fmt(analitica.totals.supplyCost ?? 0)}) + trabajo propio ({fmt(analitica.totals.imputedOwnerLaborCost ?? 0)}) + desgaste ({fmt(analitica.totals.depreciationCost ?? 0)}). Equipos apartados: {fmt(analitica.totals.capexExcluded ?? 0)}.
                 </p>
               </Card>
               <Card className="border-sky-200 bg-sky-50/50">
@@ -692,7 +723,7 @@ ${netText}`);
                   {fmt(analitica.biologicalPortfolio.totalBiologicalValueCop)}
                 </p>
                 <p className="text-xs text-slate-600 mt-1">
-                  {analitica.biologicalPortfolio.totalAliveAnimals} animales · Valor estimado al vender: {fmt(analitica.biologicalPortfolio.projectedHarvestValueCop)} · Bodega: {fmt(analitica.warehouseFeed?.totalValueCop ?? 0)} ({analitica.warehouseFeed?.bultos40Kg ?? 0} bultos)
+                  {analitica.biologicalPortfolio.totalAliveAnimals} animales · Cosecha est.: {fmt(analitica.biologicalPortfolio.projectedHarvestValueCop)} · Alimento: {fmt(analitica.warehouseFeed?.totalValueCop ?? 0)} · Insumos: {fmt(analitica.warehouseSupply?.totalValueCop ?? 0)}
                 </p>
               </Card>
               <Card className="border-slate-200">
@@ -782,6 +813,56 @@ ${netText}`);
             </Card>
             )}
           </div>
+
+          {analitica.taxAndDeductions && (
+            <Card>
+              <div className="flex flex-wrap items-center justify-between gap-2 mb-3">
+                <div>
+                  <h3 className="font-semibold text-slate-800">Resumen de Personal, Impuestos y Deducciones</h3>
+                  <p className="text-xs text-slate-500">
+                    Consolidado del período para control normativo, declaración DIAN y pago de aportes.
+                  </p>
+                </div>
+                <HeroActionLink href="/finanzas/personal" tone="solid">
+                  <span>Ir a Personal y Nómina</span>
+                </HeroActionLink>
+              </div>
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-3 text-xs">
+                <div className="rounded-lg border border-slate-200 p-3">
+                  <p className="text-slate-500">Nómina / trabajo pagado</p>
+                  <p className="text-base font-bold text-slate-900">{fmt(analitica.taxAndDeductions.paidPayrollCostCop)}</p>
+                  <p className="text-slate-400">Aportes empleador: {fmt(analitica.taxAndDeductions.payrollEmployerBurdenCop)}</p>
+                </div>
+                <div className="rounded-lg border border-slate-200 p-3">
+                  <p className="text-slate-500">Trabajo propio valorado</p>
+                  <p className="text-base font-bold text-emerald-700">{fmt(analitica.taxAndDeductions.imputedOwnerLaborCop)}</p>
+                  <p className="text-slate-400">Deducc. trab.: {fmt(analitica.taxAndDeductions.payrollWorkerDeductionsCop)}</p>
+                </div>
+                <div className="rounded-lg border border-slate-200 p-3">
+                  <p className="text-slate-500">IVA (Gen. vs Descont.)</p>
+                  <p className="text-base font-bold text-slate-900">{fmt(analitica.taxAndDeductions.ivaSaldoEstimadoCop)}</p>
+                  <p className="text-slate-400">
+                    Gen: {fmt(analitica.taxAndDeductions.ivaGeneradoCop)} · Desc: {fmt(analitica.taxAndDeductions.ivaDescontableCop)}
+                  </p>
+                </div>
+                <div className="rounded-lg border border-slate-200 p-3">
+                  <p className="text-slate-500">Retenciones, ICA y GMF</p>
+                  <p className="text-base font-bold text-amber-700">
+                    {fmt(
+                      analitica.taxAndDeductions.reteFuentePracticadaCop +
+                        analitica.taxAndDeductions.icaTotalCop +
+                        analitica.taxAndDeductions.otherDeductionsCop +
+                        analitica.taxAndDeductions.gmf4x1000EstimatedCop,
+                    )}
+                  </p>
+                  <p className="text-slate-400">
+                    ReteFte: {fmt(analitica.taxAndDeductions.reteFuentePracticadaCop)} · ICA: {fmt(analitica.taxAndDeductions.icaTotalCop)}
+                    {analitica.taxAndDeductions.gmf4x1000Enabled ? ` · 4x1000: ${fmt(analitica.taxAndDeductions.gmf4x1000EstimatedCop)}` : ""}
+                  </p>
+                </div>
+              </div>
+            </Card>
+          )}
 
           {analitica.totals.unallocatedSharedCost > 0 && (
             <div className="rounded-xl border border-amber-200 bg-amber-50 p-3 text-sm text-amber-800 flex items-center gap-2">

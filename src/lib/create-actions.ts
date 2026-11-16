@@ -71,7 +71,8 @@ export const CREATE_ACTION_GROUPS: CreateActionGroup[] = [
   },
   {
     label: "Finanzas", actions: [
-      { label: "Registrar egreso o compra", description: "Guarda gastos, equipos o compras de alimento por especie o lugar", icon: "outgoing", href: "/finanzas/egresos?nuevo=1", keywords: ["gasto", "pago", "compra", "especie", "lugar", "capex", "equipo", "bodega"] },
+      { label: "Registrar egreso o compra", description: "Guarda gastos, equipos, impuestos o compras de alimento/insumos", icon: "outgoing", href: "/finanzas/egresos?nuevo=1", keywords: ["gasto", "pago", "compra", "especie", "lugar", "capex", "equipo", "bodega", "iva", "retencion"] },
+      { label: "Registrar jornal o nómina", description: "Valora tu propio trabajo diario o liquida personal de apoyo con aportes", icon: "users", href: "/finanzas/personal?nuevo=1", keywords: ["personal", "nomina", "jornal", "sueldo", "trabajo propio", "seguridad social", "mano de obra"] },
       { label: "Registrar transacción financiera", description: "Registra un ingreso u otro movimiento y elige su tipo", icon: "incoming", href: "/finanzas/finanzas?nuevo=1", keywords: ["ingreso", "dinero", "abono", "cobro"] },
       { label: "Repartir gastos compartidos", description: "Distribuye luz, agua o mano de obra entre especies según animales, peso o área", icon: "calculator", href: "/analisis/reportes?tab=analitica&nuevo=prorrateo", keywords: ["prorrateo", "costo indirecto", "energia", "agua", "mano de obra", "contabilidad analitica", "reporte", "gastos compartidos"] },
       { label: "Crear presupuesto", description: "Define un período y sus partidas", icon: "banknote", href: "/finanzas/presupuestos?nuevo=1", keywords: ["plan", "meta", "gasto"] },

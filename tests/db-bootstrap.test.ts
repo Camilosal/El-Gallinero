@@ -7,6 +7,7 @@ import { runDatabaseBootstrap } from "@/db/bootstrap";
 import {
   BASELINE_MIGRATION_FILE,
   CORE_RLS_MIGRATION_FILE,
+  PAYROLL_TAX_SUPPLIES_MIGRATION_FILE,
   getOrderedMigrationScripts,
 } from "@/db/migrate-prod";
 import { runCoreSeed } from "@/db/seed-config";
@@ -25,7 +26,11 @@ import { DEFAULT_FARM_ID, runWithFarmContext } from "@/db/tenant-context";
 describe("Cadena unificada de migración, semilla base y bootstrap", () => {
   it("expone únicamente la cadena unificada en drizzle/ sin scripts SQL heredados", () => {
     const scripts = getOrderedMigrationScripts();
-    expect(scripts).toEqual([BASELINE_MIGRATION_FILE, CORE_RLS_MIGRATION_FILE]);
+    expect(scripts).toEqual([
+      BASELINE_MIGRATION_FILE,
+      CORE_RLS_MIGRATION_FILE,
+      PAYROLL_TAX_SUPPLIES_MIGRATION_FILE,
+    ]);
 
     for (const relPath of scripts) {
       expect(fs.existsSync(path.join(process.cwd(), relPath))).toBe(true);

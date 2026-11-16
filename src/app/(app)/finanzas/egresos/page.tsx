@@ -22,6 +22,7 @@ import TableSearch from "@/components/TableSearch";
 import { matchesTextQuery } from "@/lib/text";
 import { useSearchParams } from "next/navigation";
 import { useActionQuery } from "@/lib/useActionQuery";
+import { TaxDeductionsFields, emptyTaxFields, type TaxFieldsState } from "@/components/TaxDeductionsFields";
 
 interface Transaction {
   id: string;
@@ -37,6 +38,23 @@ interface Transaction {
   presentation: string | null;
   notes: string | null;
   feedId?: string | null;
+  ivaRate?: string | null;
+  ivaAmount?: string | null;
+  reteFuenteRate?: string | null;
+  reteFuenteAmount?: string | null;
+  icaRate?: string | null;
+  otherDeductionsAmount?: string | null;
+  netSettlementAmount?: string | null;
+  taxNotes?: string | null;
+}
+
+interface SupplyInventoryItem {
+  id: string;
+  name: string;
+  category: string;
+  unit: string;
+  currentStock: string;
+  costPerUnit: string;
 }
 
 interface FeedItem {
@@ -121,6 +139,7 @@ interface EgresoForm {
   notes: string;
   // Presentation fields (purchase)
   feedId: string;
+  supplyId: string;
   presentation: string;
   presentations: string;
   pricePerPresentation: string;
@@ -138,6 +157,7 @@ const defaultForm = (): EgresoForm => ({
   amount: "",
   notes: "",
   feedId: "",
+  supplyId: "",
   presentation: "",
   presentations: "",
   pricePerPresentation: "",
@@ -156,7 +176,9 @@ export default function EgresosPage() {
   const [lastInsight, setLastInsight] = useState<MicroInsightPayload | null>(null);
   const [error, setError] = useState("");
   const [form, setForm] = useState<EgresoForm>(defaultForm());
+  const [taxFields, setTaxFields] = useState<TaxFieldsState>(emptyTaxFields());
   const [feeds, setFeeds] = useState<FeedItem[]>([]);
+  const [supplies, setSupplies] = useState<SupplyInventoryItem[]>([]);
   const [products, setProducts] = useState<PurchaseProduct[]>([]);
   const [selectedProductId, setSelectedProductId] = useState("");
   const [productModalOpen, setProductModalOpen] = useState(false);
@@ -168,9 +190,10 @@ export default function EgresosPage() {
 
   const isPurchase = purchaseCategories.includes(form.category);
   const isFeedPurchase = form.category === "Compra de alimento";
+  const isSupplyPurchase = form.category === "Compra de insumos" || form.category === "Control sanitario";
   const isNonFeedPurchase = isPurchase && !isFeedPurchase;
 
-  // Load purchase products for non-feed purchase categories
+  // Load purchase products and supply inventory for non-feed purchase categories
   useEffect(() => {
     if (isNonFeedPurchase && modalOpen) {
       apiFetch(`/api/purchase-products?category=${encodeURIComponent(form.category)}`)
@@ -178,7 +201,13 @@ export default function EgresosPage() {
         .then((data) => setProducts(Array.isArray(data) ? data : []))
         .catch(() => setProducts([]));
     }
-  }, [isNonFeedPurchase, form.category, modalOpen]);
+    if (isSupplyPurchase && modalOpen) {
+      apiFetch("/api/inventarios/insumos")
+        .then((r) => r.json())
+        .then((data) => setSupplies(Array.isArray(data) ? data : []))
+        .catch(() => setSupplies([]));
+    }
+  }, [isNonFeedPurchase, isSupplyPurchase, form.category, modalOpen]);
 
   // Load feeds for "Compra de alimento"
   useEffect(() => {
@@ -361,6 +390,7 @@ export default function EgresosPage() {
     // Preseleccionar la primera presentación (la categoría por defecto es de compra)
     const first = getPresentationsForUnit("unidades")[0];
     setForm({ ...defaultForm(), presentation: first?.label || "", factor: first ? String(first.factor) : "" });
+    setTaxFields(emptyTaxFields());
     setModalOpen(true);
   };
   useActionQuery(searchParams.get("nuevo"), { "1": openNew, producto: openProductNew, proveedor: openSupplierNew });
@@ -401,10 +431,18 @@ export default function EgresosPage() {
       amount: t.amount,
       notes: t.notes || "",
       feedId: t.feedId || "",
+      supplyId: "",
       presentation,
       presentations,
       pricePerPresentation,
       factor,
+    });
+    setTaxFields({
+      ivaRate: t.ivaRate ? String(t.ivaRate) : "",
+      reteFuenteRate: t.reteFuenteRate ? String(t.reteFuenteRate) : "",
+      icaRate: t.icaRate ? String(t.icaRate) : "",
+      otherDeductionsAmount: t.otherDeductionsAmount ? String(t.otherDeductionsAmount) : "",
+      taxNotes: t.taxNotes || "",
     });
     setModalOpen(true);
   };
@@ -420,6 +458,7 @@ export default function EgresosPage() {
       category,
       // Reset purchase-specific fields when switching
       feedId: "",
+      supplyId: "",
       presentation: first?.label || "",
       presentations: "",
       pricePerPresentation: "",
@@ -467,6 +506,14 @@ export default function EgresosPage() {
     setError("");
     const method = editing ? "PUT" : "POST";
 
+    const taxPayload = {
+      ivaRate: taxFields.ivaRate !== "" ? Number(taxFields.ivaRate) : 0,
+      reteFuenteRate: taxFields.reteFuenteRate !== "" ? Number(taxFields.reteFuenteRate) : 0,
+      icaRate: taxFields.icaRate !== "" ? Number(taxFields.icaRate) : 0,
+      otherDeductionsAmount: taxFields.otherDeductionsAmount !== "" ? Number(taxFields.otherDeductionsAmount) : 0,
+      taxNotes: taxFields.taxNotes || null,
+    };
+
     let body: any;
     if (isPurchase && form.presentations && form.pricePerPresentation && form.presentation && form.factor) {
       body = {
@@ -481,14 +528,16 @@ export default function EgresosPage() {
         factor: Number(form.factor),
         unit: selectedFeed?.unit || form.unit || "unidades",
         notes: form.notes || null,
+        ...taxPayload,
         ...(isFeedPurchase && form.feedId ? { feedId: form.feedId } : {}),
+        ...(isSupplyPurchase && form.supplyId ? { supplyId: form.supplyId } : {}),
         ...(selectedProductId ? { purchaseProductId: selectedProductId } : {}),
         ...(editing ? { id: editing.id } : {}),
       };
     } else if (editing) {
-      body = { ...form, id: editing.id, type: "egreso", amount: computedTotal || form.amount };
+      body = { ...form, ...taxPayload, id: editing.id, type: "egreso", amount: computedTotal || form.amount };
     } else {
-      body = { ...form, type: "egreso", amount: computedTotal || form.amount };
+      body = { ...form, ...taxPayload, type: "egreso", amount: computedTotal || form.amount };
     }
 
     const res = await apiFetch("/api/finanzas/finanzas", {
@@ -673,7 +722,14 @@ export default function EgresosPage() {
                     <span>{t.quantity} × ${Number(t.unitPrice).toLocaleString()}</span>
                   ) : "—"}
                 </td>
-                <td className="px-4 py-3 font-bold text-red-600">-${Number(t.amount).toLocaleString()}</td>
+                <td className="px-4 py-3 font-bold text-red-600">
+                  <div>-${Number(t.amount).toLocaleString()}</div>
+                  {t.netSettlementAmount && Number(t.netSettlementAmount) !== Number(t.amount) && (
+                    <div className="text-[11px] font-medium text-emerald-700">
+                      Neto pagado: ${Number(t.netSettlementAmount).toLocaleString()}
+                    </div>
+                  )}
+                </td>
                 <td className="px-4 py-3">
                   <div className="flex gap-1">
                     <button onClick={() => openEdit(t)} className="text-blue-600 hover:underline text-xs">Editar</button>
@@ -756,6 +812,30 @@ export default function EgresosPage() {
                 </Select>
               )}
 
+              {isSupplyPurchase && !editing && supplies.length > 0 && (
+                <Select
+                  label="Vincular a insumo en bodega (opcional — suma stock y promedia costo)"
+                  value={form.supplyId}
+                  onChange={(e) => {
+                    const sid = e.target.value;
+                    const sup = supplies.find((x) => x.id === sid);
+                    setForm((f) => ({
+                      ...f,
+                      supplyId: sid,
+                      description: f.description || sup?.name || "",
+                      unit: sup?.unit || f.unit,
+                    }));
+                  }}
+                >
+                  <option value="">Solo egreso directo (sin mover inventario de insumos)</option>
+                  {supplies.map((s) => (
+                    <option key={s.id} value={s.id}>
+                      {s.name} ({s.currentStock} {s.unit} · prom. ${Number(s.costPerUnit).toLocaleString()})
+                    </option>
+                  ))}
+                </Select>
+              )}
+
               <div className="grid grid-cols-2 gap-3">
                 <Select label="Presentación" value={form.presentation} onChange={(e) => onPresentationChange(e.target.value)} required>
                   <option value="">Seleccionar...</option>
@@ -806,6 +886,13 @@ export default function EgresosPage() {
               <Input label="Monto Total ($)" type="number" step="0.01" value={form.amount} onChange={(e) => setForm({ ...form, amount: e.target.value })} placeholder="Usado cuando no hay cantidad/valor unitario" />
             )
           )}
+
+          <TaxDeductionsFields
+            mode="egreso"
+            grossAmount={Number(computedTotal || form.amount || 0)}
+            value={taxFields}
+            onChange={setTaxFields}
+          />
 
           <Textarea label="Notas" value={form.notes} onChange={(e) => setForm({ ...form, notes: e.target.value })} />
 
