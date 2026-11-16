@@ -1,10 +1,10 @@
 {
-  "name": "El Corral",
-  "short_name": "El Corral",
-  "description": "Gestión de animales, producción, sanidad, inventarios y finanzas de la granja",
+  "name": "IwaGranja",
+  "short_name": "IwaGranja",
+  "description": "Tu granja, todo bajo control. Gestión de animales, producción, sanidad, inventarios y finanzas.",
   "start_url": "/",
   "display": "standalone",
-  "background_color": "#fcf6e7",
+  "background_color": "#faf6ec",
   "theme_color": "#16a34a",
   "orientation": "any",
   "icons": [
