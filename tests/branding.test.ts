@@ -5,9 +5,10 @@ import { APP_BRAND, APP_DEVELOPER } from "@/lib/branding";
 
 describe("marca y atribución de desarrollo en producción", () => {
   it("expone constantes exactas de autoría y contacto", () => {
-    expect(APP_BRAND.name).toBe("El Corral");
-    expect(APP_BRAND.logoSrc).toBe("/logo-el-corral.webp");
-    expect(APP_BRAND.markSrc).toBe("/logo-el-corral-mark.webp");
+    expect(APP_BRAND.name).toBe("IwaGranja");
+    expect(APP_BRAND.horizontalLogoSrc).toBe("/logo-iwagranja-horizontal.webp");
+    expect(APP_BRAND.squareLogoSrc).toBe("/logo-iwagranja.webp");
+    expect(APP_BRAND.markSrc).toBe("/logo-iwagranja-mark.webp");
     expect(APP_DEVELOPER.name).toBe("Camilo Saldarriaga");
     expect(APP_DEVELOPER.url).toBe("https://camilosaldarriaga.com");
     expect(APP_DEVELOPER.domain).toBe("camilosaldarriaga.com");
@@ -36,13 +37,26 @@ describe("marca y atribución de desarrollo en producción", () => {
     expect(read("src/components/guide/GuideShell.tsx")).toContain("DeveloperCredit");
   });
 
-  it("sirve el logotipo ligero en WebP y lo integra en landing y toda la aplicación", () => {
+  it("sirve el logotipo ligero en WebP (horizontal con eslogan y cuadrado) y lo integra en landing y toda la aplicación", () => {
     const read = (rel: string) => fs.readFileSync(path.join(process.cwd(), rel), "utf8");
     const sizeOf = (rel: string) => fs.statSync(path.join(process.cwd(), rel)).size;
 
-    expect(sizeOf("public/logo-el-corral.webp")).toBeLessThan(80_000);
-    expect(sizeOf("public/logo-el-corral-mark.webp")).toBeLessThan(40_000);
+    expect(sizeOf("public/logo-iwagranja-horizontal.webp")).toBeLessThan(80_000);
+    expect(sizeOf("public/logo-iwagranja.webp")).toBeLessThan(80_000);
+    expect(sizeOf("public/logo-iwagranja-mark.webp")).toBeLessThan(40_000);
     expect(sizeOf("public/icon-192.png")).toBeLessThan(40_000);
+
+    // Cabeceras web/app usan horizontal; pie/sidebar usan cuadrado y FarmID vive en footer de sidebar
+    expect(read("src/app/page.tsx")).toContain('variant="horizontal"');
+    expect(read("src/components/LegalPage.tsx")).toContain('variant="horizontal"');
+    expect(read("src/components/guide/GuideShell.tsx")).toContain('variant="horizontal"');
+    expect(read("src/components/Sidebar.tsx")).toContain('variant="horizontal"');
+    expect(read("src/components/LandingFooter.tsx")).toContain('variant="square"');
+    expect(read("src/app/login/page.tsx")).toContain('variant="square"');
+    expect(read("src/app/registro/page.tsx")).toContain('variant="square"');
+
+    const sidebarSrc = read("src/components/Sidebar.tsx");
+    expect(sidebarSrc.indexOf("sidebar-farm-id")).toBeGreaterThan(sidebarSrc.indexOf("Footer:"));
 
     for (const surface of [
       "src/app/page.tsx",
