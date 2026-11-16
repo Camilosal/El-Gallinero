@@ -560,6 +560,16 @@ export const transactions = pgTable("transactions", {
   locationId: uuid("location_id").references(() => farmLocations.id, { onDelete: "set null" }), // dimensión analítica: lugar
   batchId: uuid("batch_id").references(() => broilerBatches.id, { onDelete: "set null" }), // dimensión analítica: lote
   isCredit: boolean("is_credit").default(false).notNull(),
+  subtotalAmount: decimal("subtotal_amount", { precision: 12, scale: 2 }),
+  ivaRate: decimal("iva_rate", { precision: 6, scale: 2 }),
+  ivaAmount: decimal("iva_amount", { precision: 12, scale: 2 }),
+  reteFuenteRate: decimal("rete_fuente_rate", { precision: 6, scale: 2 }),
+  reteFuenteAmount: decimal("rete_fuente_amount", { precision: 12, scale: 2 }),
+  icaRate: decimal("ica_rate", { precision: 6, scale: 2 }),
+  icaAmount: decimal("ica_amount", { precision: 12, scale: 2 }),
+  otherDeductionsAmount: decimal("other_deductions_amount", { precision: 12, scale: 2 }),
+  netSettlementAmount: decimal("net_settlement_amount", { precision: 12, scale: 2 }),
+  taxNotes: text("tax_notes"),
   notes: text("notes"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
@@ -818,6 +828,9 @@ export const supplyMovements = pgTable("supply_movements", {
   isEntry: boolean("is_entry").notNull(),
   movementType: varchar("movement_type", { length: 50 }).notNull(),
   date: date("date").notNull(),
+  species: varchar("species", { length: 20 }),
+  locationId: uuid("location_id").references(() => farmLocations.id, { onDelete: "set null" }),
+  unitCost: decimal("unit_cost", { precision: 10, scale: 2 }),
   healthControlId: uuid("health_control_id").references(() => healthControl.id),
   maintenanceId: uuid("maintenance_id").references(() => maintenance.id),
   notes: text("notes"),
@@ -1378,4 +1391,60 @@ export const externalDataSnapshots = pgTable("external_data_snapshots", {
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 }, (t) => [
   uniqueIndex("external_data_snapshots_farm_source_scope_idx").on(t.farmId, t.sourceKey, t.scopeKey),
+]);
+
+// ─── Personal, Trabajo Propio y Nómina Agropecuaria ───
+export const staffProfiles = pgTable("staff_profiles", {
+  farmId: farmIdCol(),
+  id: uuid("id").defaultRandom().primaryKey(),
+  fullName: varchar("full_name", { length: 150 }).notNull(),
+  documentId: varchar("document_id", { length: 40 }),
+  workerKind: varchar("worker_kind", { length: 30 }).default("apoyo").notNull(), // productor | apoyo
+  contractType: varchar("contract_type", { length: 40 }).default("jornal").notNull(), // propio | jornal | salario_fijo | prestacion_servicios
+  payPeriod: varchar("pay_period", { length: 20 }).default("dia").notNull(), // hora | dia | semana | quincena | mes
+  baseRateCop: decimal("base_rate_cop", { precision: 12, scale: 2 }).notNull(),
+  roleLabel: varchar("role_label", { length: 100 }),
+  defaultSpecies: varchar("default_species", { length: 20 }),
+  defaultLocationId: uuid("default_location_id").references(() => farmLocations.id, { onDelete: "set null" }),
+  applySocialSecurity: boolean("apply_social_security").default(false).notNull(),
+  employerBurdenPct: decimal("employer_burden_pct", { precision: 6, scale: 2 }).default("0").notNull(),
+  workerDeductionPct: decimal("worker_deduction_pct", { precision: 6, scale: 2 }).default("0").notNull(),
+  arlRiskRatePct: decimal("arl_risk_rate_pct", { precision: 6, scale: 3 }).default("0.522").notNull(),
+  isActive: boolean("is_active").default(true).notNull(),
+  notes: text("notes"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+}, (t) => [
+  index("staff_profiles_farm_active_idx").on(t.farmId, t.isActive),
+]);
+
+export const payrollEntries = pgTable("payroll_entries", {
+  farmId: farmIdCol(),
+  id: uuid("id").defaultRandom().primaryKey(),
+  staffId: uuid("staff_id").references(() => staffProfiles.id, { onDelete: "restrict" }).notNull(),
+  date: date("date").notNull(),
+  periodFrom: date("period_from"),
+  periodTo: date("period_to"),
+  unitsWorked: decimal("units_worked", { precision: 10, scale: 2 }).default("1").notNull(),
+  unitRateCop: decimal("unit_rate_cop", { precision: 12, scale: 2 }).notNull(),
+  grossPayCop: decimal("gross_pay_cop", { precision: 12, scale: 2 }).notNull(),
+  bonusesCop: decimal("bonuses_cop", { precision: 12, scale: 2 }).default("0").notNull(),
+  employerBurdenCop: decimal("employer_burden_cop", { precision: 12, scale: 2 }).default("0").notNull(),
+  workerDeductionsCop: decimal("worker_deductions_cop", { precision: 12, scale: 2 }).default("0").notNull(),
+  reteFuenteCop: decimal("rete_fuente_cop", { precision: 12, scale: 2 }).default("0").notNull(),
+  netPayableCop: decimal("net_payable_cop", { precision: 12, scale: 2 }).notNull(),
+  totalEmployerCostCop: decimal("total_employer_cost_cop", { precision: 12, scale: 2 }).notNull(),
+  accountingMode: varchar("accounting_mode", { length: 30 }).default("cash_expense").notNull(), // cash_expense | imputed_economic
+  paymentStatus: varchar("payment_status", { length: 20 }).default("pagado").notNull(), // pagado | pendiente | calculado
+  dueDate: date("due_date"),
+  species: varchar("species", { length: 20 }),
+  locationId: uuid("location_id").references(() => farmLocations.id, { onDelete: "set null" }),
+  prorationBasis: varchar("proration_basis", { length: 30 }),
+  linkedTransactionId: uuid("linked_transaction_id").references(() => transactions.id, { onDelete: "set null" }),
+  linkedAllocationId: uuid("linked_allocation_id").references(() => costAllocations.id, { onDelete: "set null" }),
+  notes: text("notes"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+}, (t) => [
+  index("payroll_entries_farm_date_idx").on(t.farmId, t.date),
+  index("payroll_entries_staff_idx").on(t.staffId),
 ]);

@@ -9,10 +9,12 @@ import { Pool, type PoolClient } from "pg";
 
 export const BASELINE_MIGRATION_FILE = "drizzle/0000_baseline.sql";
 export const CORE_RLS_MIGRATION_FILE = "drizzle/0001_roles_constraints_and_rls.sql";
+export const PAYROLL_TAX_SUPPLIES_MIGRATION_FILE = "drizzle/0002_personal_impuestos_insumos.sql";
 
 export const ORDERED_MIGRATION_SCRIPTS = [
   BASELINE_MIGRATION_FILE,
   CORE_RLS_MIGRATION_FILE,
+  PAYROLL_TAX_SUPPLIES_MIGRATION_FILE,
 ] as const;
 
 export function getOrderedMigrationScripts(rootDir = process.cwd()): string[] {
