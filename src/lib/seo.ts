@@ -2,9 +2,29 @@ import type { Metadata } from "next";
 import { APP_DEVELOPER } from "@/lib/branding";
 import { LEGAL } from "@/lib/legal";
 
-export const SITE_URL = "https://gallinero.iwage.co";
-export const SITE_NAME = "El Corral · Iwagé Granja";
+export const SITE_URL = "https://app.iwage.co";
+export const SITE_NAME = "IwaGranja";
 export const DEFAULT_OG_IMAGE = `${SITE_URL}/images/guia/inicio-dashboard.webp`;
+
+/** Rutas públicas estáticas del sitio comercial con su fecha real de última actualización (sitemap). */
+export const STATIC_ROUTE_LAST_MODIFIED: Record<string, string> = {
+  "": "2026-11-15",
+  "/funcionalidades": "2026-11-17",
+  "/recursos": "2026-11-17",
+  "/recursos/herramientas/p1": "2026-11-17",
+  "/registro": "2026-11-14",
+  "/guia": "2026-11-15",
+  "/ayuda": "2026-11-14",
+  "/open-source": "2026-11-14",
+  "/realidad-campo": "2026-11-15",
+  "/planes": "2026-11-14",
+  "/nosotros": "2026-11-14",
+  "/contacto": "2026-11-14",
+  "/bitacora": "2026-11-17",
+  "/terminos": "2026-11-14",
+  "/retracto": "2026-11-14",
+  "/privacidad": "2026-11-14",
+};
 
 /** Dimensiones reales medidas en disco para los activos OG y diagramas en public/. */
 export const OG_IMAGE_DIMENSIONS: Record<string, { width: number; height: number }> = {
@@ -70,7 +90,7 @@ export function toAbsoluteUrl(pathOrUrl?: string): string {
   return `${SITE_URL}${normalized}`;
 }
 
-export function fitSeoTitle(rawTitle: string, suffix = " · El Corral", maxLen = 62): string {
+export function fitSeoTitle(rawTitle: string, suffix = " · IwaGranja", maxLen = 62): string {
   const clean = rawTitle.trim().replace(/\s+/g, " ");
   if (clean.length + suffix.length <= maxLen) {
     return `${clean}${suffix}`;
@@ -261,9 +281,9 @@ export function buildSoftwareNode(): Record<string, unknown> {
   return {
     "@type": "SoftwareApplication",
     "@id": ENTITY_IDS.software,
-    name: "El Corral",
+    name: "IwaGranja",
     description:
-      "Gestión avícola y multiespecie de código abierto: identidad individual por ave, trazabilidad financiera automática, sanidad ICA, clasificación NTC 1240, inventarios y modo simple/avanzado. Funciona sin conexión. En producción en Iwagé Granja, Ibagué, Colombia.",
+      "Gestión de granjas multiespecie: identificación animal, trazabilidad financiera, sanidad, inventarios y modo sin conexión. En producción en Ibagué, Colombia.",
     applicationCategory: "BusinessApplication",
     applicationSubCategory: "Farm Management Software",
     operatingSystem: "Web, PWA",

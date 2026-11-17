@@ -44,6 +44,7 @@ import { useFarmLocations } from "@/lib/useFarmLocations";
 import { useSpeciesCatalog } from "@/lib/use-species-params";
 import { syncManager } from "@/lib/offline/syncManager";
 import { getCachedCatalog, getCachedRecords } from "@/lib/offline/db";
+import { trackAdoptionSample } from "@/lib/offline/telemetry";
 import { OPEN_ASSISTANT_VOICE_EVENT } from "@/lib/offline/voiceNotes";
 import {
   OPEN_QUICK_CAPTURE_EVENT,
@@ -316,11 +317,7 @@ export default function QuickCaptureModal() {
   const trackCaptureTelemetry = useCallback((captureMode: QuickCaptureMode) => {
     const startMs = openedAtRef.current || Date.now();
     const durationSec = Math.max(1, Math.min(3600, Math.round((Date.now() - startMs) / 1000)));
-    void apiFetch("/api/analisis/kpis-adopcion", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ type: "capture", mode: captureMode, durationSec }),
-    }).catch(() => {});
+    trackAdoptionSample(captureMode, durationSec);
   }, []);
   const [eggInventory, setEggInventory] = useState<EggSizeInventory[]>([]);
   const [meatInventory, setMeatInventory] = useState<MeatSpeciesStock[]>([]);

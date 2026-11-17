@@ -10,6 +10,8 @@ import TableSearch from "@/components/TableSearch";
 import { matchesTextQuery } from "@/lib/text";
 import { useSearchParams } from "next/navigation";
 import { useActionQuery } from "@/lib/useActionQuery";
+import { loadSpeciesMasterParamsClient, useSpeciesCatalog } from "@/lib/use-species-params";
+import { loadMasterSettings, useMasterSettings } from "@/lib/use-master-settings";
 
 interface AutoconsumoLog {
   id: string;
@@ -58,6 +60,9 @@ const productTypeLabels: Record<string, string> = {
 
 export default function SoberaniaPage() {
   const searchParams = useSearchParams();
+  const { priceKg, priceEgg } = useSpeciesCatalog();
+  const { values: masterSettings } = useMasterSettings();
+  const manurePricePerKg = Number(masterSettings["inventory.manure_price_per_kg"] || 0);
   const [data, setData] = useState<SoberaniaData | null>(null);
   const [loading, setLoading] = useState(true);
   const [speciesFilter, setSpeciesFilter] = useState("all");
@@ -72,7 +77,7 @@ export default function SoberaniaPage() {
     productType: "carne_canal",
     quantity: "1",
     unit: "kg",
-    marketReferencePrice: "28000",
+    marketReferencePrice: "",
     destinationHousehold: "Familia Granja",
     notes: "",
   });
@@ -96,7 +101,25 @@ export default function SoberaniaPage() {
   useEffect(() => {
     void Promise.resolve().then(loadData);
   }, [loadData]);
-  useActionQuery(searchParams.get("nuevo"), { consumo: () => setModalOpen(true) });
+  const getMarketReferencePrice = (species: string, product: string) => {
+    if (product === "huevo") return priceEgg(species);
+    if (product === "carne_canal") return priceKg(species);
+    if (product === "abono_huerta") return manurePricePerKg;
+    return 0;
+  };
+
+  const openNewConsumption = async () => {
+    const speciesRows = await loadSpeciesMasterParamsClient(true);
+    await loadMasterSettings(true);
+    const defaultPrice = speciesRows.find((row) => row.species === "conejo")?.marketPriceKgCanalCOP || 0;
+    setForm((previous) => ({
+      ...previous,
+      date: new Date().toISOString().split("T")[0],
+      marketReferencePrice: defaultPrice > 0 ? String(defaultPrice) : "",
+    }));
+    setModalOpen(true);
+  };
+  useActionQuery(searchParams.get("nuevo"), { consumo: openNewConsumption });
 
   const filteredLogs = useMemo(() => {
     const logs = data?.logs ?? [];
@@ -121,23 +144,9 @@ export default function SoberaniaPage() {
 
   // Actualizar precio de referencia sugerido al cambiar especie o producto
   const handleSpeciesOrProductChange = (newSpecies: string, newProduct: string) => {
-    let suggestedPrice = "20000";
-    let suggestedUnit = "kg";
-
-    if (newProduct === "huevo") {
-      suggestedUnit = "unidades";
-      suggestedPrice = newSpecies === "codorniz" ? "300" : "600";
-    } else if (newProduct === "carne_canal") {
-      suggestedUnit = "kg";
-      if (newSpecies === "cuy") suggestedPrice = "36000";
-      else if (newSpecies === "conejo") suggestedPrice = "28000";
-      else if (newSpecies === "pato") suggestedPrice = "24000";
-      else if (newSpecies === "codorniz") suggestedPrice = "32000";
-      else suggestedPrice = "14000"; // pollo/gallina
-    } else if (newProduct === "abono_huerta") {
-      suggestedUnit = "kg";
-      suggestedPrice = "1000";
-    }
+    const suggestedUnit = newProduct === "huevo" ? "unidades" : "kg";
+    const defaultPrice = getMarketReferencePrice(newSpecies, newProduct);
+    const suggestedPrice = defaultPrice > 0 ? String(defaultPrice) : "";
 
     setForm((prev) => ({
       ...prev,
@@ -210,7 +219,7 @@ export default function SoberaniaPage() {
               <CalendarDays className="w-4 h-4 shrink-0" aria-hidden="true" />
               <span>Plan de Parvada</span>
             </HeroActionLink>
-            <HeroActionButton tone="solid" onClick={() => setModalOpen(true)}>
+            <HeroActionButton tone="solid" onClick={openNewConsumption}>
               + Registrar Consumo Hogar
             </HeroActionButton>
           </div>

@@ -1,4 +1,4 @@
-import { and, desc, eq, gte, sql } from "drizzle-orm";
+import { and, desc, eq, gte, ne, sql } from "drizzle-orm";
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/db";
 import { payrollEntries, staffProfiles } from "@/db/schema";
@@ -15,6 +15,8 @@ const VALID_CONTRACT_TYPES = new Set(["propio", "jornal", "salario_fijo", "prest
 const VALID_PAY_PERIODS = new Set(["hora", "dia", "semana", "quincena", "mes"]);
 
 export const GET = withApiHandler(async () => {
+  const denied = await requirePermission("finance:write");
+  if (denied) return denied;
   const monthStart = `${todayColombiaIso().slice(0, 7)}-01`;
 
   const [profiles, monthEntries, taxConfig] = await Promise.all([
@@ -32,10 +34,12 @@ export const GET = withApiHandler(async () => {
     const cost = Number(e.totalEmployerCostCop || 0);
     if (e.accountingMode === "imputed_economic") {
       ownerImputedMonthCop += cost;
-    } else if (profiles.find((p) => p.id === e.staffId)?.workerKind === "productor") {
-      ownerCashMonthCop += cost;
-    } else {
-      supportCashMonthCop += cost;
+    } else if (e.paymentStatus === "pagado") {
+      if (profiles.find((p) => p.id === e.staffId)?.workerKind === "productor") {
+        ownerCashMonthCop += cost;
+      } else {
+        supportCashMonthCop += cost;
+      }
     }
     if (e.paymentStatus === "pendiente") {
       pendingPayablesMonthCop += Number(e.netPayableCop || 0);
@@ -80,6 +84,12 @@ export const POST = withApiHandler(async (req: NextRequest) => {
   if (!Number.isFinite(baseRateCop) || baseRateCop <= 0) {
     return NextResponse.json({ error: "La tarifa base debe ser mayor a 0" }, { status: 400 });
   }
+  const documentId = typeof body.documentId === "string" && body.documentId.trim() ? body.documentId.trim() : null;
+  if (documentId) {
+    const [duplicate] = await db.select({ id: staffProfiles.id }).from(staffProfiles)
+      .where(eq(staffProfiles.documentId, documentId)).limit(1);
+    if (duplicate) return NextResponse.json({ error: "Ya existe una persona con ese documento" }, { status: 409 });
+  }
 
   const rawSpecies = typeof body.defaultSpecies === "string" && body.defaultSpecies.trim() ? body.defaultSpecies.trim() : null;
   const defaultSpecies = rawSpecies ? normalizeFeedingSpecies(rawSpecies) : null;
@@ -87,12 +97,15 @@ export const POST = withApiHandler(async (req: NextRequest) => {
     return NextResponse.json({ error: "Especie no válida" }, { status: 400 });
   }
 
+  const taxConfig = await getTaxAndPayrollConfig();
   const applySocialSecurity = Boolean(body.applySocialSecurity);
+  const includeTransportAllowance =
+    Boolean(body.includeTransportAllowance) && workerKind === "apoyo" && contractType !== "prestacion_servicios";
   const employerBurdenPct = applySocialSecurity
-    ? Math.max(0, Math.min(100, Number(body.employerBurdenPct ?? 0)))
+    ? taxConfig.employerBurdenPct
     : 0;
   const workerDeductionPct = applySocialSecurity
-    ? Math.max(0, Math.min(50, Number(body.workerDeductionPct ?? 0)))
+    ? taxConfig.workerDeductionPct
     : 0;
   const arlRiskRatePct = Math.max(0, Math.min(10, Number(body.arlRiskRatePct ?? 0.522)));
 
@@ -100,7 +113,7 @@ export const POST = withApiHandler(async (req: NextRequest) => {
     .insert(staffProfiles)
     .values({
       fullName,
-      documentId: typeof body.documentId === "string" && body.documentId.trim() ? body.documentId.trim() : null,
+      documentId,
       workerKind,
       contractType,
       payPeriod,
@@ -109,6 +122,7 @@ export const POST = withApiHandler(async (req: NextRequest) => {
       defaultSpecies,
       defaultLocationId: typeof body.defaultLocationId === "string" && body.defaultLocationId ? body.defaultLocationId : null,
       applySocialSecurity,
+      includeTransportAllowance,
       employerBurdenPct: employerBurdenPct.toFixed(2),
       workerDeductionPct: workerDeductionPct.toFixed(2),
       arlRiskRatePct: arlRiskRatePct.toFixed(3),
@@ -134,6 +148,15 @@ export const PUT = withApiHandler(async (req: NextRequest) => {
     return NextResponse.json({ error: "Perfil de personal no encontrado" }, { status: 404 });
   }
 
+  const nextDocumentId = body.documentId !== undefined
+    ? (String(body.documentId || "").trim() || null)
+    : existing.documentId;
+  if (nextDocumentId) {
+    const [duplicate] = await db.select({ id: staffProfiles.id }).from(staffProfiles)
+      .where(and(eq(staffProfiles.documentId, nextDocumentId), ne(staffProfiles.id, existing.id))).limit(1);
+    if (duplicate) return NextResponse.json({ error: "Ya existe una persona con ese documento" }, { status: 409 });
+  }
+
   const baseRateCop = body.baseRateCop !== undefined ? Number(body.baseRateCop) : Number(existing.baseRateCop);
   if (!Number.isFinite(baseRateCop) || baseRateCop <= 0) {
     return NextResponse.json({ error: "La tarifa base debe ser mayor a 0" }, { status: 400 });
@@ -141,6 +164,19 @@ export const PUT = withApiHandler(async (req: NextRequest) => {
 
   const applySocialSecurity =
     body.applySocialSecurity !== undefined ? Boolean(body.applySocialSecurity) : existing.applySocialSecurity;
+  const workerKind = body.workerKind && VALID_WORKER_KINDS.has(String(body.workerKind))
+    ? String(body.workerKind)
+    : existing.workerKind;
+  const contractType = body.contractType && VALID_CONTRACT_TYPES.has(String(body.contractType))
+    ? String(body.contractType)
+    : existing.contractType;
+  const includeTransportAllowance =
+    body.includeTransportAllowance !== undefined
+      ? Boolean(body.includeTransportAllowance)
+      : existing.includeTransportAllowance;
+  const eligibleForTransportAllowance =
+    includeTransportAllowance && workerKind === "apoyo" && contractType !== "prestacion_servicios";
+  const taxConfig = await getTaxAndPayrollConfig();
 
   const rawSpecies = body.defaultSpecies !== undefined
     ? (typeof body.defaultSpecies === "string" && body.defaultSpecies.trim() ? body.defaultSpecies.trim() : null)
@@ -154,20 +190,21 @@ export const PUT = withApiHandler(async (req: NextRequest) => {
     .update(staffProfiles)
     .set({
       fullName: body.fullName ? String(body.fullName).trim() : existing.fullName,
-      documentId: body.documentId !== undefined ? (String(body.documentId || "").trim() || null) : existing.documentId,
-      workerKind: body.workerKind && VALID_WORKER_KINDS.has(String(body.workerKind)) ? String(body.workerKind) : existing.workerKind,
-      contractType: body.contractType && VALID_CONTRACT_TYPES.has(String(body.contractType)) ? String(body.contractType) : existing.contractType,
+      documentId: nextDocumentId,
+      workerKind,
+      contractType,
       payPeriod: body.payPeriod && VALID_PAY_PERIODS.has(String(body.payPeriod)) ? String(body.payPeriod) : existing.payPeriod,
       baseRateCop: baseRateCop.toFixed(2),
       roleLabel: body.roleLabel !== undefined ? (String(body.roleLabel || "").trim() || null) : existing.roleLabel,
       defaultSpecies,
       defaultLocationId: body.defaultLocationId !== undefined ? (body.defaultLocationId || null) : existing.defaultLocationId,
       applySocialSecurity,
+      includeTransportAllowance: eligibleForTransportAllowance,
       employerBurdenPct: applySocialSecurity
-        ? Math.max(0, Math.min(100, Number(body.employerBurdenPct ?? existing.employerBurdenPct))).toFixed(2)
+        ? taxConfig.employerBurdenPct.toFixed(2)
         : "0.00",
       workerDeductionPct: applySocialSecurity
-        ? Math.max(0, Math.min(50, Number(body.workerDeductionPct ?? existing.workerDeductionPct))).toFixed(2)
+        ? taxConfig.workerDeductionPct.toFixed(2)
         : "0.00",
       arlRiskRatePct: Math.max(0, Math.min(10, Number(body.arlRiskRatePct ?? existing.arlRiskRatePct))).toFixed(3),
       isActive: body.isActive !== undefined ? Boolean(body.isActive) : existing.isActive,

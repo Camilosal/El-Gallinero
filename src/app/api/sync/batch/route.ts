@@ -122,6 +122,15 @@ export const POST = withApiHandler(async (req: NextRequest) => {
     }
   }
 
+  // C1: disparo por evento (no polling). Si el lote aplicó mortalidad, evalúa
+  // el umbral de anomalía y crea el briefing de anomalía del día si corresponde.
+  if (results.some((r) => r.status === "synced" && mutations.find((m) => m.id === r.id)?.entity === "mortalidad")) {
+    const { maybeTriggerMortalityAnomalyBriefing } = await import("@/lib/agent/proactive");
+    void maybeTriggerMortalityAnomalyBriefing().catch((err) => {
+      console.error("[agente-proactivo] No se pudo evaluar la anomalía de mortalidad:", err);
+    });
+  }
+
   return NextResponse.json({ ok: true, results });
 });
 

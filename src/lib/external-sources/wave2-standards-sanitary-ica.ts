@@ -4,7 +4,7 @@ import { appSettings, breedWeightStandards, vaccinationTemplates } from "@/db/sc
 import { getCurrentFarmId } from "@/db/tenant-context";
 import { ALL_BREED_STANDARD_DEFS } from "@/lib/breed-standards";
 import { VACCINATION_SCHEDULES, VACCINATION_SCHEDULE_SPECIES } from "@/lib/vaccination-schedules";
-import { getExternalSyncConfig, getSettings, invalidateSettingsCache } from "@/lib/settings";
+import { getSettings, invalidateSettingsCache } from "@/lib/settings";
 import { resolveZoneWithFallback, type ZoneCoverageScope } from "@/lib/divipola-catalog";
 import {
   getNormativeCatalogWithSyncMeta,
@@ -13,7 +13,6 @@ import {
   type NormativeCatalogItem,
 } from "@/lib/normative-catalog";
 import {
-  fetchJsonWithTimeout,
   getExternalSnapshot,
   isSnapshotExpired,
   saveExternalSnapshot,
@@ -449,7 +448,7 @@ export interface StandardsFeedSnapshotPayload extends Record<string, unknown> {
     normativeStandards: string[];
     normativeCatalogVersion: string;
     normativeCatalogCount: number;
-    normativeLastCheckedAt: string;
+    normativeLastCheckedAt: null;
     normativeCatalog: NormativeCatalogItem[];
     nutritionTables: FednaNutritionRef[];
     upToDate: boolean;
@@ -471,7 +470,13 @@ export interface StandardsFeedSnapshotPayload extends Record<string, unknown> {
       Array.isArray(existing?.payload?.normativeCatalog) &&
       existing.payload.normativeCatalog.length === NORMATIVE_CATALOG.length;
 
-    if (!options?.forceRefresh && existing && !isSnapshotExpired(existing) && hasCurrentCatalog) {
+    if (
+      !options?.forceRefresh &&
+      existing &&
+      !isSnapshotExpired(existing) &&
+      hasCurrentCatalog &&
+      existing.providerName.startsWith("Catálogo interno versionado")
+    ) {
       return existing;
     }
 
@@ -493,8 +498,7 @@ export interface StandardsFeedSnapshotPayload extends Record<string, unknown> {
     const geneticsCurvesInDb = new Set(distinctBreedRows.map((r) => `${r.species || "ave"}::${r.breed}`)).size;
 
     const upToDate = weightPointsInDb >= totalFeedWeightPoints && vaccineTemplatesInDb >= totalFeedVaccines;
-    const nowIso = new Date().toISOString();
-    const normativeMeta = getNormativeCatalogWithSyncMeta(nowIso.slice(0, 10));
+    const normativeMeta = getNormativeCatalogWithSyncMeta();
 
     const payload: StandardsFeedSnapshotPayload = {
       feedVersion: STANDARDS_FEED_VERSION,
@@ -508,7 +512,7 @@ export interface StandardsFeedSnapshotPayload extends Record<string, unknown> {
       normativeStandards: NORMATIVE_CATALOG.map((item) => `${item.code} (${item.title})`),
       normativeCatalogVersion: normativeMeta.version,
       normativeCatalogCount: normativeMeta.totalItems,
-      normativeLastCheckedAt: nowIso,
+      normativeLastCheckedAt: null,
       normativeCatalog: normativeMeta.items,
       nutritionTables: FEDNA_NRC_NUTRITION_TABLES,
       upToDate,
@@ -517,11 +521,11 @@ export interface StandardsFeedSnapshotPayload extends Record<string, unknown> {
     return saveExternalSnapshot({
       sourceKey: "standards_normative_feed",
       wave: 2,
-      status: "ok",
-      providerName: "Normativa ICA/NTC + Estándares FEDNA/NRC + Guías Genéticas",
+      status: "fallback",
+      providerName: "Catálogo interno versionado; consulta normativa externa pendiente",
       sourceUrl: "https://www.ica.gov.co/normatividad",
       payload,
-      summary: `Catálogo ${normativeMeta.version}: ${normativeMeta.totalItems} normas/estándares/guías, ${geneticsCurvesInDb} curvas genéticas (${weightPointsInDb} pts), ${vaccineTemplatesInDb} esquemas vacunales y ${FEDNA_NRC_NUTRITION_TABLES.length} tablas FEDNA/NRC.`,
+      summary: `Catálogo local ${normativeMeta.version}: ${normativeMeta.totalItems} referencias, ${geneticsCurvesInDb} curvas genéticas (${weightPointsInDb} pts), ${vaccineTemplatesInDb} esquemas vacunales y ${FEDNA_NRC_NUTRITION_TABLES.length} tablas nutricionales. No se valida automáticamente contra ICA/NTC/FEDNA/NRC.`,
       ttlHours: 24 * 7,
     });
   }
@@ -635,9 +639,8 @@ export interface StandardsFeedSnapshotPayload extends Record<string, unknown> {
   export async function syncIcaVademecumAndAlertsSnapshot(
     options?: { forceRefresh?: boolean },
   ): Promise<StoredExternalSnapshot<IcaVademecumSnapshotPayload>> {
-    const [settings, syncConfig, existing] = await Promise.all([
+    const [settings, existing] = await Promise.all([
       getSettings(),
-      getExternalSyncConfig(),
       getExternalSnapshot<IcaVademecumSnapshotPayload>("ica_vademecum_alerts"),
     ]);
 
@@ -653,6 +656,7 @@ export interface StandardsFeedSnapshotPayload extends Record<string, unknown> {
         !options?.forceRefresh &&
         existing &&
         !isSnapshotExpired(existing) &&
+        existing.providerName.startsWith("Referencias locales ICA") &&
         normalizeKey(existing.payload.department) === normalizeKey(department)
       ) {
         return existing;
@@ -675,20 +679,8 @@ export interface StandardsFeedSnapshotPayload extends Record<string, unknown> {
             ? `${zone.coverageLabel}`
             : `Promedio nacional Colombia (${zone.periodLabel})`;
 
-      // Intento no bloqueante de validar endpoint abierto de insumos pecuarios / alertas sanitarias
-      let status: "ok" | "fallback" = "fallback";
-      let lastError: string | null = null;
-      if (syncConfig.syncEnabled) {
-        const res = await fetchJsonWithTimeout<unknown[]>(
-          "https://www.datos.gov.co/resource/gdxc-w37w.json?$limit=1",
-          2500,
-        );
-        if (res.ok) {
-          status = "ok";
-        } else {
-          lastError = `Portales públicos no accesibles (${res.error}); operando con vademécum y boletín epidemiológico local.`;
-        }
-      }
+      const status: "fallback" = "fallback";
+      const lastError = "La consulta automática del vademécum y los boletines ICA aún no está conectada; se muestran referencias locales que requieren revisión antes de decisiones sanitarias.";
 
       const payload: IcaVademecumSnapshotPayload = {
         department,
@@ -698,17 +690,17 @@ export interface StandardsFeedSnapshotPayload extends Record<string, unknown> {
         vademecumCount: ICA_VETERINARY_VADEMECUM.length,
         activeAlertsCount: alerts.length,
         alerts,
-        lastAuthorityCheck: new Date().toISOString().slice(0, 10),
+        lastAuthorityCheck: "Sin conexión automática",
       };
 
       return saveExternalSnapshot({
         sourceKey: "ica_vademecum_alerts",
         wave: 2,
         status,
-        providerName: "ICA Vademécum Veterinario + Vigilancia Epidemiológica",
-        sourceUrl: "https://www.ica.gov.co/areas/pecuaria",
+        providerName: "Referencias locales ICA; conexión automática pendiente",
+        sourceUrl: "https://www.ica.gov.co/areas/pecuaria/servicios/epidemiologia-veterinaria",
         payload,
-        summary: `${ICA_VETERINARY_VADEMECUM.length} fármacos/biológicos ICA · ${alerts.length} alertas (${coverageLabel}).`,
+        summary: `${ICA_VETERINARY_VADEMECUM.length} referencias de productos · ${alerts.length} alertas de catálogo local (${coverageLabel}); sin verificación automática ICA.`,
         ttlHours: 24,
         lastError,
       });

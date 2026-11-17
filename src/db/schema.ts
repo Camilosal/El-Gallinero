@@ -4,6 +4,7 @@ import {
   varchar,
   text,
   integer,
+  bigint,
   decimal,
   date,
   timestamp,
@@ -612,6 +613,9 @@ export const catalogos = pgTable("catalogos", {
   dailyFeedG: integer("daily_feed_g"), // consumo diario estimado en g/ave/día (params_especie)
   targetWeightKg: decimal("target_weight_kg", { precision: 6, scale: 2 }), // peso vivo objetivo en kg (params_especie)
   feedCostPerKg: decimal("feed_cost_per_kg", { precision: 10, scale: 2 }), // costo alimento estimado $/kg (params_especie)
+  initialUnitCostCop: decimal("initial_unit_cost_cop", { precision: 12, scale: 2 }), // costo de adquisición inicial por animal (params_especie)
+  pointOfLayUnitValueCop: decimal("point_of_lay_unit_value_cop", { precision: 12, scale: 2 }), // valor de referencia al inicio de postura (params_especie)
+  breederUnitValueCop: decimal("breeder_unit_value_cop", { precision: 12, scale: 2 }), // valor de referencia de pie de cría (params_especie)
   feedConversionRatio: decimal("feed_conversion_ratio", { precision: 4, scale: 2 }), // kg alimento / kg peso vivo (params_especie)
   systemType: varchar("system_type", { length: 50 }), // piso, jaula, pastoreo, baterias (params_especie)
   description: text("description"), // descripción / notas del registro
@@ -1123,6 +1127,9 @@ export const aiActions = pgTable("ai_actions", {
   args: jsonb("args").notNull(),
   summary: text("summary").notNull(),
   status: varchar("status", { length: 20 }).default("pending").notNull(), // pending | executed | failed | cancelled
+  origin: varchar("origin", { length: 30 }).default("assistant").notNull(), // assistant | delegated_auto | telegram | external_agent | human_confirmed
+  chatId: bigint("chat_id", { mode: "number" }),
+  tokenId: uuid("token_id"), // token de integración que originó la acción (API v1 / MCP)
   result: jsonb("result"),
   error: text("error"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
@@ -1393,6 +1400,25 @@ export const externalDataSnapshots = pgTable("external_data_snapshots", {
   uniqueIndex("external_data_snapshots_farm_source_scope_idx").on(t.farmId, t.sourceKey, t.scopeKey),
 ]);
 
+// Observaciones externas idempotentes por proveedor/periodo para conservar series históricas.
+export const externalSourceObservations = pgTable("external_source_observations", {
+  farmId: farmIdCol(),
+  id: uuid("id").defaultRandom().primaryKey(),
+  sourceKey: varchar("source_key", { length: 60 }).notNull(),
+  observationKey: varchar("observation_key", { length: 200 }).notNull(),
+  observedAt: timestamp("observed_at").notNull(),
+  value: decimal("value", { precision: 18, scale: 6 }).notNull(),
+  unit: varchar("unit", { length: 60 }),
+  providerName: varchar("provider_name", { length: 120 }).notNull(),
+  sourceUrl: varchar("source_url", { length: 500 }),
+  dimensions: jsonb("dimensions").$type<Record<string, unknown>>().default({}).notNull(),
+  metadata: jsonb("metadata").$type<Record<string, unknown>>().default({}).notNull(),
+  ingestedAt: timestamp("ingested_at").defaultNow().notNull(),
+}, (t) => [
+  uniqueIndex("external_source_observations_farm_source_key_idx").on(t.farmId, t.sourceKey, t.observationKey),
+  index("external_source_observations_farm_source_observed_idx").on(t.farmId, t.sourceKey, t.observedAt),
+]);
+
 // ─── Personal, Trabajo Propio y Nómina Agropecuaria ───
 export const staffProfiles = pgTable("staff_profiles", {
   farmId: farmIdCol(),
@@ -1407,6 +1433,7 @@ export const staffProfiles = pgTable("staff_profiles", {
   defaultSpecies: varchar("default_species", { length: 20 }),
   defaultLocationId: uuid("default_location_id").references(() => farmLocations.id, { onDelete: "set null" }),
   applySocialSecurity: boolean("apply_social_security").default(false).notNull(),
+  includeTransportAllowance: boolean("include_transport_allowance").default(false).notNull(),
   employerBurdenPct: decimal("employer_burden_pct", { precision: 6, scale: 2 }).default("0").notNull(),
   workerDeductionPct: decimal("worker_deduction_pct", { precision: 6, scale: 2 }).default("0").notNull(),
   arlRiskRatePct: decimal("arl_risk_rate_pct", { precision: 6, scale: 3 }).default("0.522").notNull(),
@@ -1416,6 +1443,7 @@ export const staffProfiles = pgTable("staff_profiles", {
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 }, (t) => [
   index("staff_profiles_farm_active_idx").on(t.farmId, t.isActive),
+  uniqueIndex("staff_profiles_farm_document_unique_idx").on(t.farmId, t.documentId).where(sql`${t.documentId} IS NOT NULL`),
 ]);
 
 export const payrollEntries = pgTable("payroll_entries", {
@@ -1429,9 +1457,13 @@ export const payrollEntries = pgTable("payroll_entries", {
   unitRateCop: decimal("unit_rate_cop", { precision: 12, scale: 2 }).notNull(),
   grossPayCop: decimal("gross_pay_cop", { precision: 12, scale: 2 }).notNull(),
   bonusesCop: decimal("bonuses_cop", { precision: 12, scale: 2 }).default("0").notNull(),
+  transportAllowanceCop: decimal("transport_allowance_cop", { precision: 12, scale: 2 }).default("0").notNull(),
   employerBurdenCop: decimal("employer_burden_cop", { precision: 12, scale: 2 }).default("0").notNull(),
+  employerBurdenPct: decimal("employer_burden_pct", { precision: 6, scale: 2 }).default("0").notNull(),
   workerDeductionsCop: decimal("worker_deductions_cop", { precision: 12, scale: 2 }).default("0").notNull(),
+  workerDeductionPct: decimal("worker_deduction_pct", { precision: 6, scale: 2 }).default("0").notNull(),
   reteFuenteCop: decimal("rete_fuente_cop", { precision: 12, scale: 2 }).default("0").notNull(),
+  reteFuenteRatePct: decimal("rete_fuente_rate_pct", { precision: 6, scale: 2 }).default("0").notNull(),
   netPayableCop: decimal("net_payable_cop", { precision: 12, scale: 2 }).notNull(),
   totalEmployerCostCop: decimal("total_employer_cost_cop", { precision: 12, scale: 2 }).notNull(),
   accountingMode: varchar("accounting_mode", { length: 30 }).default("cash_expense").notNull(), // cash_expense | imputed_economic
@@ -1447,4 +1479,32 @@ export const payrollEntries = pgTable("payroll_entries", {
 }, (t) => [
   index("payroll_entries_farm_date_idx").on(t.farmId, t.date),
   index("payroll_entries_staff_idx").on(t.staffId),
+]);
+
+// ─── Briefings del agente proactivo (C1) ───
+export const agentBriefings = pgTable("agent_briefings", {
+  farmId: farmIdCol(),
+  id: uuid("id").defaultRandom().primaryKey(),
+  briefingDate: date("briefing_date").notNull(),
+  kind: varchar("kind", { length: 20 }).default("diario").notNull(), // diario | anomalia
+  payload: jsonb("payload").$type<Record<string, unknown>>().default({}).notNull(),
+  narrative: text("narrative").default("").notNull(),
+  readAt: timestamp("read_at"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+}, (t) => [
+  uniqueIndex("agent_briefings_farm_date_kind_idx").on(t.farmId, t.briefingDate, t.kind),
+  index("agent_briefings_farm_created_idx").on(t.farmId, t.createdAt),
+]);
+
+// ─── Chats de Telegram vinculados (C3) ───
+export const telegramChats = pgTable("telegram_chats", {
+  farmId: farmIdCol(),
+  id: uuid("id").defaultRandom().primaryKey(),
+  chatId: bigint("chat_id", { mode: "number" }).notNull().unique(),
+  userId: uuid("user_id").references(() => users.id, { onDelete: "cascade" }).notNull(),
+  status: varchar("status", { length: 20 }).default("activo").notNull(), // activo | revocado
+  linkedAt: timestamp("linked_at").defaultNow().notNull(),
+  lastSeenAt: timestamp("last_seen_at").defaultNow().notNull(),
+}, (t) => [
+  index("telegram_chats_farm_status_idx").on(t.farmId, t.status),
 ]);

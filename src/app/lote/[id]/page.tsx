@@ -9,7 +9,7 @@ import { isUuid } from "@/lib/ids";
 import { HeroFrame } from "@/components/HeroFrame";
 
 export const metadata = {
-  title: "Trazabilidad de lote | El Corral",
+  title: "Trazabilidad de lote | IwaGranja",
   robots: { index: false, follow: false },
 };
 
@@ -62,7 +62,7 @@ export default async function LoteTraceabilityPage({ params }: Props) {
         <HeroFrame
           theme="aves"
           eyebrow="Trazabilidad pública"
-          title="Trazabilidad - El Corral"
+          title="Trazabilidad - IwaGranja"
           description="Información de producción avícola y ciclo del lote"
           className="mb-8"
           icon={<BrandLogo variant="mark" size={18} decorative className="rounded-sm" />}
@@ -139,7 +139,7 @@ export default async function LoteTraceabilityPage({ params }: Props) {
             <BrandLogo variant="square" size={80} className="rounded-2xl bg-[#faf6ec] p-1.5 border border-gray-200 shadow-xs" />
           </div>
           <p className="text-sm text-gray-500">
-            Producto de <span className="font-semibold text-green-700">El Corral</span> - Granja Autosustentable
+            Producto de <span className="font-semibold text-green-700">IwaGranja</span> - Granja Autosustentable
           </p>
           <p className="text-xs text-gray-400 mt-1">
             Sistema integral de gestion avicola

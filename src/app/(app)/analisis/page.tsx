@@ -14,6 +14,7 @@ import { useOnboardingState } from "@/lib/useOnboardingState";
 
 const secciones = [
   { href: "/analisis/kpis", label: "KPIs e indicadores", icon: "target", desc: "Postura, bajas, alimento por kilo ganado, qué tan parejo va el lote, punto de equilibrio y retorno de equipos" },
+  { href: "/analisis/adopcion", label: "Adopción y hábitos", icon: "activity", desc: "Semáforos de arranque Día 1, velocidad de captura en galpón, adherencia semanal, racha y sanidad al día" },
   { href: "/analisis/reportes", label: "Reportes", icon: "clipboard", desc: "Ganancias por especie repartiendo gastos compartidos, dinero en caja vs. patrimonio, Excel y PDF" },
   { href: "/analisis/razas", label: "Curvas y desempeño", icon: "trend-up", desc: "Postura y crecimiento por especie ajustados según altura y temperatura de la finca" },
   { href: "/analisis/fuentes-externas", label: "Clima, mercado y entorno", icon: "globe", desc: "Pronóstico de calor y humedad en galpón, precios de mercado, alertas sanitarias, festivos y sensores" },

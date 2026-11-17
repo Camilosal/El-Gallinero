@@ -1,9 +1,10 @@
 import { beforeAll, afterAll, describe, expect, it, vi } from "vitest";
 import { db } from "@/db";
 import { runWithFarmContext } from "@/db/tenant-context";
-import { broilerBatches, farmLocations, farms, transactions, users } from "@/db/schema";
+import { broilerBatches, eggProduction, farmLocations, farms, transactions, users } from "@/db/schema";
 import { eq } from "drizzle-orm";
 import { buildEggMicroInsight, evaluateHarvestWindowWarning } from "@/lib/micro-insights";
+import { todayColombiaIso } from "@/lib/date-validation";
 import { GET as alertasGET } from "@/app/api/produccion/alertas/route";
 import { GET as kpisGET, POST as kpisPOST } from "@/app/api/analisis/kpis-adopcion/route";
 import { GET as onboardingGET, POST as onboardingPOST } from "@/app/api/onboarding/route";
@@ -216,5 +217,57 @@ describe("Micro-insights de utilidad neta, ventana de sacrificio y KPIs de adopc
     // Sanity check onboardingGET still loads cleanly
     const getOnb = await onboardingGET(mockRequest("http://localhost/api/onboarding", { method: "GET" }));
     expect(getOnb.status).toBe(200);
+  });
+
+  it("POST lote de muestras offline deduplica por recordedAt+mode y GET expone mediana y racha", async () => {
+    const batchBody = {
+      type: "capture",
+      samples: [
+        { mode: "huevos", durationSec: 40, recordedAt: "2026-11-15T12:00:00.000Z" },
+        { mode: "mortalidad", durationSec: 80, recordedAt: "2026-11-15T12:05:00.000Z" },
+        { mode: "huevos", durationSec: 40, recordedAt: "2026-11-15T12:00:00.000Z" }, // duplicada exacta
+        { mode: "venta", durationSec: 9999, recordedAt: "2026-11-15T12:10:00.000Z" }, // inválida (>3600)
+      ],
+    };
+    const b1 = await kpisPOST(
+      mockRequest("http://localhost/api/analisis/kpis-adopcion", { method: "POST", body: batchBody }),
+    );
+    expect(b1.status).toBe(201);
+    const b1Json = (await parseJson(b1)) as { telemetry: { captureSamples: Array<{ mode: string }> } };
+    // 2 previas + 2 aceptadas (duplicada y fuera de rango descartadas)
+    expect(b1Json.telemetry.captureSamples).toHaveLength(4);
+
+    // Reenviar el mismo lote (flush offline repetido): no debe duplicar nada
+    const b2 = await kpisPOST(
+      mockRequest("http://localhost/api/analisis/kpis-adopcion", { method: "POST", body: batchBody }),
+    );
+    expect(b2.status).toBe(201);
+    const b2Json = (await parseJson(b2)) as { telemetry: { captureSamples: unknown[] } };
+    expect(b2Json.telemetry.captureSamples).toHaveLength(4);
+
+    // Sembrar actividad diaria hoy y los 2 días previos para la racha
+    const today = todayColombiaIso();
+    const minus = (days: number) => {
+      const dt = new Date(`${today}T00:00:00Z`);
+      dt.setUTCDate(dt.getUTCDate() - days);
+      return dt.toISOString().slice(0, 10);
+    };
+    await runWithFarmContext(farmId, async () => {
+      for (const date of [today, minus(1), minus(2)]) {
+        await db.insert(eggProduction).values({ farmId, date, totalCollected: 10 });
+      }
+    });
+
+    const res = await kpisGET(mockRequest("http://localhost/api/analisis/kpis-adopcion", { method: "GET" }));
+    expect(res.status).toBe(200);
+    const kpis = (await parseJson(res)) as {
+      medianCaptureSec: number | null;
+      captureStreakDays: number;
+      captureSamplesCount: number;
+    };
+    expect(kpis.captureSamplesCount).toBe(4);
+    // duraciones: 36, 54, 40, 80 -> mediana (40+54)/2 = 47
+    expect(kpis.medianCaptureSec).toBe(47);
+    expect(kpis.captureStreakDays).toBeGreaterThanOrEqual(3);
   });
 });

@@ -3,6 +3,9 @@
 import { ArrowLeft } from "lucide-react";
 import { HeroActionLink, PageHeader } from "@/components/ui";
 import FeatureFlagsPanel from "@/components/FeatureFlagsPanel";
+import DelegationPolicyPanel from "@/components/DelegationPolicyPanel";
+import PushNotificationsPanel from "@/components/PushNotificationsPanel";
+import TelegramChannelPanel from "@/components/TelegramChannelPanel";
 
 export default function ConfiguracionModulosPage() {
   return (
@@ -21,6 +24,9 @@ export default function ConfiguracionModulosPage() {
         }
       />
       <FeatureFlagsPanel />
+      <DelegationPolicyPanel />
+      <PushNotificationsPanel />
+      <TelegramChannelPanel />
     </div>
   );
 }

@@ -1,6 +1,6 @@
 # Changelog
 
-Todos los cambios notables del Core Abierto de **El Corral** se documentan en este archivo.
+Todos los cambios notables del Core Abierto de **IwaGranja** se documentan en este archivo.
 
 El formato está basado en [Keep a Changelog](https://keepachangelog.com/es-ES/1.0.0/), y el proyecto sigue [Versionado Semántico](https://semver.org/lang/es/).
 
@@ -21,7 +21,7 @@ El formato está basado en [Keep a Changelog](https://keepachangelog.com/es-ES/1
 
 ## [1.0.0] - 2026-08-08
 ### Agregado
-- Lanzamiento inicial de El Corral.
+- Lanzamiento inicial de IwaGranja.
 - Sistema de gestión avícola completo (producción, inventarios, sanidad, operaciones, finanzas, análisis y configuración).
 - Integración automática de finanzas con todas las operaciones y diccionario de datos inicial.
 - Licencia GNU AGPLv3.

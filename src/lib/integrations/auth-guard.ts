@@ -3,6 +3,7 @@ import { getSessionUser } from "@/lib/auth";
 import { runWithFarmContext } from "@/db/tenant-context";
 import {
   ERP_PROFILES,
+  INTEGRATION_SCOPES,
   hasIntegrationScope,
   normalizeErpProfile,
   readExportTokenFromRequest,
@@ -16,6 +17,9 @@ export interface IntegrationRequestContext {
   farmId: string;
   via: "session" | "token";
   tokenId: string | null;
+  /** Usuario delegante: dueño del token o usuario de la sesión. */
+  userId: string | null;
+  scopes: IntegrationScope[];
   profile: ErpProfile;
   mapping: ErpAccountMapping;
 }
@@ -94,6 +98,8 @@ export async function withIntegrationContext(
   let via: "session" | "token";
   let tokenId: string | null = null;
   let tokenProfile: ErpProfile | null = null;
+  let delegatingUserId: string | null = null;
+  let grantedScopes: IntegrationScope[] = [];
 
   if (rawToken) {
     const resolved = await resolveExportToken(rawToken);
@@ -122,6 +128,8 @@ export async function withIntegrationContext(
     via = "token";
     tokenId = resolved.tokenId;
     tokenProfile = resolved.profile;
+    delegatingUserId = resolved.userId;
+    grantedScopes = resolved.scopes;
   } else {
     const user = await getSessionUser();
     if (!user) {
@@ -132,6 +140,8 @@ export async function withIntegrationContext(
     }
     farmId = user.farmId;
     via = "session";
+    delegatingUserId = user.id;
+    grantedScopes = [...INTEGRATION_SCOPES];
   }
 
   const { searchParams } = new URL(req.url);
@@ -160,6 +170,8 @@ export async function withIntegrationContext(
       farmId,
       via,
       tokenId,
+      userId: delegatingUserId,
+      scopes: grantedScopes,
       profile,
       mapping,
     });

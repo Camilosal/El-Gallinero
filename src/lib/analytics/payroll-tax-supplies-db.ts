@@ -94,6 +94,7 @@ export async function loadPeriodPayrollAndSupplies(options: {
         payrollEntries: filteredPayroll,
         cashOutflowsCop,
         gmf4x1000Enabled: taxConfig.gmf4x1000Enabled,
+        gmfRatePct: taxConfig.gmfRatePct,
         includeImputedOwnerLabor: taxConfig.includeImputedOwnerLabor,
       }),
   };

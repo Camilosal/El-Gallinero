@@ -3,7 +3,7 @@ import Link from "next/link";
 import { PublicPageShell } from "@/components/LegalPage";
 import { buildPageMetadata } from "@/lib/seo";
 
-const TITLE = "Realidad del campo y soluciones en galpón · El Corral";
+const TITLE = "Realidad del campo y soluciones en galpón · IwaGranja";
 const DESCRIPTION =
   "Cómo resolvemos los 6 dolores reales del galpón y la granja mixta: operación sin señal, subsidio cruzado, retiro ICA, mermas NTC 1240 y bodega.";
 
@@ -12,7 +12,7 @@ export const metadata: Metadata = buildPageMetadata({
   description: DESCRIPTION,
   path: "/realidad-campo",
   ogImage: "/images/guia/captura-rapida-modal.webp",
-  ogImageAlt: "Captura rápida sin señal en el galpón con El Corral",
+  ogImageAlt: "Captura rápida sin señal en el galpón con IwaGranja",
 });
 
 const FIELD_PAINS = [
@@ -82,7 +82,7 @@ export default function RealidadCampoPage() {
   return (
     <PublicPageShell
       title="La realidad del campo y cómo la atendemos"
-      intro="No diseñamos El Corral desde un escritorio: cada módulo responde a un problema real que viven todos los días los productores pequeños y medianos."
+      intro="No diseñamos IwaGranja desde un escritorio: cada módulo responde a un problema real que viven todos los días los productores pequeños y medianos."
       path="/realidad-campo"
       description={DESCRIPTION}
     >
@@ -114,7 +114,7 @@ export default function RealidadCampoPage() {
                 </div>
                 <div className="rounded-xl border border-emerald-200/80 bg-emerald-50/50 p-4">
                   <p className="font-mono text-[10px] font-bold uppercase tracking-wider text-emerald-900">
-                    Cómo lo resolvemos en El Corral
+                    Cómo lo resolvemos en IwaGranja
                   </p>
                   <p className="mt-2 text-sm text-slate-800 leading-relaxed">{item.solution}</p>
                 </div>

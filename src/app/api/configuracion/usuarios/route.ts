@@ -7,22 +7,13 @@ import { safeParseJson, withApiHandler } from "@/lib/api-handler";
 import { getSessionUser, hashPassword } from "@/lib/auth";
 import { requirePermission } from "@/lib/rbac-server";
 import { ROLE_LABELS, type AppRole } from "@/lib/rbac";
-import { PLAN_CATALOG } from "@/lib/subscription";
+import { PLAN_CATALOG, resolveMaxUsersFromPlan } from "@/lib/subscription";
 
 export const dynamic = "force-dynamic";
 
 // "admin" es un rol de plataforma reservado a la granja base y se crea por CLI.
 // La gestión de usuarios de una granja nunca debe poder emitirlo.
 const ALLOWED_ROLES = new Set<AppRole>(["propietario", "gerente", "veterinario", "operario"]);
-
-export function resolveMaxUsersFromPlan(planCode: string | null | undefined, explicitMax: number | null | undefined): number {
-  if (explicitMax != null && explicitMax > 0) return explicitMax;
-  if (planCode && planCode in PLAN_CATALOG) {
-    return PLAN_CATALOG[planCode as keyof typeof PLAN_CATALOG].maxUsers;
-  }
-  if (planCode === "COMERCIAL_MEDIANO") return PLAN_CATALOG.MEDIANO_MENSUAL.maxUsers;
-  return 2;
-}
 
 async function resolveFarmContext() {
   const sessionUser = await getSessionUser();

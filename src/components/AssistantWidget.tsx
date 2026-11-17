@@ -202,6 +202,9 @@ export default function AssistantWidget() {
   const [recordingMode, setRecordingMode] = useState<"dictation" | "audio" | null>(null);
   const [recordingSeconds, setRecordingSeconds] = useState(0);
   const [processingNoteId, setProcessingNoteId] = useState<string | null>(null);
+  // C2: briefing proactivo como primer mensaje + badge de no-leídos.
+  const [briefingUnread, setBriefingUnread] = useState(0);
+  const [briefingMessage, setBriefingMessage] = useState<ChatMessage | null>(null);
 
   const scrollRef = useRef<HTMLDivElement | null>(null);
   const inputRef = useRef<HTMLTextAreaElement | null>(null);
@@ -297,6 +300,34 @@ export default function AssistantWidget() {
       })
       .catch(() => setConfigured(false));
   }, [open, configured, isOnline]);
+
+  useEffect(() => {
+    if (!isOnline) return;
+    let cancelled = false;
+    apiFetch("/api/asistente/briefings?limit=1")
+      .then((res) => (res.ok ? res.json() : null))
+      .then((data) => {
+        if (cancelled || !data) return;
+        setBriefingUnread(Number(data.unreadCount) || 0);
+        const latest = (data.briefings || [])[0];
+        if (!latest) return;
+        const findings = latest.payload?.findings || [];
+        const bullets = findings.map((f: any) => `• ${f.title}: ${f.detail}`).join("\n");
+        const content = [latest.narrative?.trim(), bullets].filter(Boolean).join("\n\n");
+        if (content) {
+          setBriefingMessage({ id: `briefing-${latest.id}`, role: "assistant", content });
+        }
+      })
+      .catch(() => undefined);
+    return () => {
+      cancelled = true;
+    };
+  }, [isOnline]);
+
+  useEffect(() => {
+    if (!open || !briefingMessage) return;
+    setMessages((prev) => (prev.length === 0 ? [briefingMessage] : prev));
+  }, [open, briefingMessage]);
 
   const loadConversation = useCallback(async (id: string) => {
     const res = await apiFetch(`/api/asistente/conversaciones/${id}`);
@@ -862,6 +893,14 @@ export default function AssistantWidget() {
             {voiceNotes.length}
           </span>
         )}
+        {briefingUnread > 0 && !open && (
+          <span
+            className="ml-0.5 rounded-full bg-red-500 px-1.5 py-0.5 text-[10px] font-bold text-white"
+            aria-label={`${briefingUnread} novedades de Gina sin leer`}
+          >
+            {briefingUnread}
+          </span>
+        )}
       </button>
 
       {open && (
@@ -1213,7 +1252,19 @@ export default function AssistantWidget() {
                       : "rounded-bl-md border border-slate-200 bg-white text-slate-700"
                   }`}
                 >
-                  {message.role === "user" ? message.content : <ChatMarkdown content={message.content} />}
+                  {message.role === "user" ? (
+                    message.content
+                  ) : (
+                    <ChatMarkdown
+                      content={message.content}
+                      onNavigate={() => {
+                        // En móvil el widget cubre la pantalla: ciérralo al navegar por un deep-link.
+                        if (typeof window !== "undefined" && window.matchMedia("(max-width: 767px)").matches) {
+                          setOpen(false);
+                        }
+                      }}
+                    />
+                  )}
                 </div>
               </div>
             ))}

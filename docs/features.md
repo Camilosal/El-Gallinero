@@ -1,10 +1,10 @@
 # Funcionalidades, Módulos y Arquitectura Multi-Especie
 
-Este documento resume la cobertura funcional del **Core Abierto Operativo (`El Corral`)**, complementando el [README principal](../README.md) y la **Guía de Usuario interactiva** disponible en `/guia` (pública) y `/manual` (dentro de sesión).
+Este documento resume la cobertura funcional del **Core Abierto Operativo (`IwaGranja`)**, complementando el [README principal](../README.md) y la **Guía de Usuario interactiva** disponible en `/guia` (pública) y `/manual` (dentro de sesión).
 
 ## Visión General
 
-**El Corral** es una plataforma *PWA Offline-First* diseñada para la gestión técnica, sanitaria y financiera de granjas multi-especie (**gallinas ponedoras, pollos de engorde, codornices, patos, conejos y cuyes/curíes**). Toda operación comercial, de almacén o mantenimiento alimenta automáticamente el libro financiero e inventarios (FIFO/PEPS) con trazabilidad completa a su origen.
+**IwaGranja** es una plataforma *PWA Offline-First* diseñada para la gestión técnica, sanitaria y financiera de granjas multi-especie (**gallinas ponedoras, pollos de engorde, codornices, patos, conejos y cuyes/curíes**). Toda operación comercial, de almacén o mantenimiento alimenta automáticamente el libro financiero e inventarios (FIFO/PEPS) con trazabilidad completa a su origen.
 
 ### Pilares del Core Abierto
 
@@ -51,5 +51,7 @@ Este documento resume la cobertura funcional del **Core Abierto Operativo (`El C
 - **Finanzas (`/finanzas/...`):** ventas en **5 líneas** (huevos, carne, animales en pie, gallinaza y otros), egresos con productos frecuentes y lectura **OCR** de facturas, **CxC/CxP** con abonos, presupuestos con desviación y estado de resultados.
 - **Contactos (`/contactos`):** directorio unificado de clientes y proveedores con ubicación, WhatsApp y plazo de crédito.
 - **Análisis (`/analisis/...`):** KPIs zootécnicos, curvas ajustadas por raza y altitud, fuentes externas y **contabilidad analítica anti-subsidio cruzado** con prorrateo de indirectos.
-- **Exportación y Conectores ERP (`/exportar` y `/api/v1/integrations/*`):** exportación CSV/XLSX y tokens Bearer con alcances (`read:all`, `inventory`, `transactions`, `contacts`, `cost_centers`) para integración con ERPs externos.
+- **Exportación y Conectores ERP (`/exportar` y `/api/v1/integrations/*`):** exportación CSV/XLSX y tokens Bearer con alcances de solo lectura (`read:finance`, `read:inventory`, `read:contacts`, `read:production`) para integración con ERPs externos (SIIGO, Alegra, Odoo, Zoho, genérico).
+- **API v1 de herramientas del agente (`/api/v1/agent/tools`):** manifiesto JSON de las mismas herramientas que usa Gina (schemas, dominio Jev, confirmación requerida) y ejecución `POST /api/v1/agent/tools/{name}` como el usuario delegante dueño del token. Scopes `agent:read` (consultas) y `agent:write` (escrituras, con expiración obligatoria ≤ 90 días). Las escrituras sensibles devuelven `202` con `actionId` pendiente; se confirman con el mismo token en `POST /api/asistente/acciones/{id}/confirmar`. Rate limit 60 req/min por token y auditoría `origin: external_agent` + `token_id` en `ai_actions`.
+- **Servidor MCP (`/api/mcp`):** Streamable HTTP con JSON-RPC 2.0 (`initialize`, `tools/list`, `tools/call`) para Claude y otros clientes MCP, autenticado con el mismo token de integración y delegado en el mismo ejecutor de la API v1 (sin lógica duplicada, mismos candados sanitarios, RBAC/RLS y piso duro de confirmación). Sin token válido no hay lista ni escrituras anónimas.
 - **Configuración (`/configuracion/...`):** **Módulos Progresivos**, **Catálogos en 8 pestañas** (listas, contactos, parámetros, 6 especies, vacunas, pesos, gallinaza y nutrición), **Usuarios y Roles** (`/configuracion/usuarios`), **Kit de Campo** (`/configuracion/kit-campo`), **Suscripción/Plan** (`/configuracion/plan`), **Panel Multi-Granja** (`/configuracion/granjas`) y recuperación segura de acceso (`/login/recuperar`).

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useCallback, useMemo } from "react";
+import { useEffect, useState, useCallback, useMemo, useRef } from "react";
 import { Banknote, Scale } from "lucide-react";
 import { AppIcon } from "@/components/AppIcon";
 import { Card, Table, Modal, Input, Textarea, Button, EmptyState, StatCard, Select, Badge, Tooltip } from "@/components/ui";
@@ -12,9 +12,11 @@ import { computeCreditDueDate, type ContactRecord } from "@/lib/contacts-shared"
 import { buildSaleMicroInsight, type MicroInsightPayload } from "@/lib/micro-insights";
 import { matchesTextQuery } from "@/lib/text";
 import { SPECIES_ICON, SPECIES_LABEL } from "@/lib/species-params";
-import { useSpeciesCatalog } from "@/lib/use-species-params";
+import { loadSpeciesMasterParamsClient, useSpeciesCatalog } from "@/lib/use-species-params";
+import { loadMasterSettings, useMasterSettings } from "@/lib/use-master-settings";
 import { useSearchParams } from "next/navigation";
 import { useActionQuery } from "@/lib/useActionQuery";
+import { TaxDeductionsFields, emptyTaxFields, type TaxFieldsState } from "@/components/TaxDeductionsFields";
 
 interface KgSale {
   id: string;
@@ -27,6 +29,11 @@ interface KgSale {
   presentation: string | null;
   buyer: string | null;
   notes: string | null;
+  ivaRate?: string | null;
+  reteFuenteRate?: string | null;
+  icaRate?: string | null;
+  otherDeductionsAmount?: string | null;
+  taxNotes?: string | null;
   isCredit?: boolean;
   dueDate?: string | null;
 }
@@ -51,7 +58,9 @@ interface KgSaleTabProps {
 export default function KgSaleTab({ apiEndpoint, onSaved, labels }: KgSaleTabProps) {
   const searchParams = useSearchParams();
   const { priceKg } = useSpeciesCatalog();
+  const { values: masterSettings } = useMasterSettings();
   const isMeat = apiEndpoint.includes("/carne");
+  const manurePricePerKg = Number(masterSettings["inventory.manure_price_per_kg"] || 0);
   const [sales, setSales] = useState<KgSale[]>([]);
   const [loading, setLoading] = useState(true);
   const [modalOpen, setModalOpen] = useState(false);
@@ -64,13 +73,17 @@ export default function KgSaleTab({ apiEndpoint, onSaved, labels }: KgSaleTabPro
   const [isCredit, setIsCredit] = useState(false);
   const [dueDate, setDueDate] = useState("");
   const [buyerCreditDays, setBuyerCreditDays] = useState(0);
+  const [taxFields, setTaxFields] = useState<TaxFieldsState>(emptyTaxFields);
+  const [saving, setSaving] = useState(false);
+  const savingRef = useRef(false);
+  const mutationIdRef = useRef<string | null>(null);
 
   const [form, setForm] = useState({
     date: new Date().toISOString().split("T")[0],
     species: "pollo",
     locationId: "",
     quantityKg: "",
-    pricePerKg: "14000",
+    pricePerKg: "",
     presentation: "",
     buyer: "",
     notes: "",
@@ -93,7 +106,7 @@ export default function KgSaleTab({ apiEndpoint, onSaved, labels }: KgSaleTabPro
   useEffect(() => { void Promise.resolve().then(load); }, [load]);
 
   const handleSpeciesChange = (species: string) => {
-    const defaultPrice = priceKg(species);
+    const defaultPrice = isMeat ? priceKg(species) : manurePricePerKg;
     setForm((prev) => ({
       ...prev,
       species,
@@ -136,18 +149,25 @@ export default function KgSaleTab({ apiEndpoint, onSaved, labels }: KgSaleTabPro
   const totalKg = filteredSales.reduce((s, r) => s + Number(r.quantityKg), 0);
   const avgPrice = totalKg > 0 ? (totalRevenue / totalKg).toFixed(0) : "0";
 
-  const openNew = () => {
+  const openNew = async () => {
+    const [masterSpecies, settings] = await Promise.all([loadSpeciesMasterParamsClient(true), loadMasterSettings(true)]);
+    const masterMeatPrice = masterSpecies.find((row) => row.species === "pollo")?.marketPriceKgCanalCOP || 0;
+    const masterManurePrice = Number(settings["inventory.manure_price_per_kg"] || 0);
+    mutationIdRef.current = null;
     setEditing(null);
     setError("");
     setIsCredit(false);
     setDueDate("");
     setBuyerCreditDays(0);
+    setTaxFields(emptyTaxFields());
     setForm({
       date: new Date().toISOString().split("T")[0],
       species: isMeat ? "pollo" : "",
       locationId: "",
       quantityKg: "",
-      pricePerKg: isMeat ? String(priceKg("pollo")) : "",
+      pricePerKg: (isMeat ? masterMeatPrice : masterManurePrice) > 0
+        ? String(isMeat ? masterMeatPrice : masterManurePrice)
+        : "",
       presentation: "",
       buyer: "",
       notes: "",
@@ -157,11 +177,19 @@ export default function KgSaleTab({ apiEndpoint, onSaved, labels }: KgSaleTabPro
   useActionQuery(searchParams.get("nuevo"), { "1": openNew });
 
   const openEdit = (s: KgSale) => {
+    mutationIdRef.current = null;
     setEditing(s);
     setError("");
     setIsCredit(Boolean(s.isCredit));
     setDueDate(s.dueDate || "");
     setBuyerCreditDays(0);
+    setTaxFields({
+      ivaRate: s.ivaRate || "",
+      reteFuenteRate: s.reteFuenteRate || "",
+      icaRate: s.icaRate || "",
+      otherDeductionsAmount: s.otherDeductionsAmount || "",
+      taxNotes: s.taxNotes || "",
+    });
     setForm({
       date: s.date,
       species: s.species || (isMeat ? "pollo" : ""),
@@ -176,6 +204,7 @@ export default function KgSaleTab({ apiEndpoint, onSaved, labels }: KgSaleTabPro
   };
 
   const save = async () => {
+    if (savingRef.current) return;
     setError("");
     const qty = Number(form.quantityKg);
     const price = Number(form.pricePerKg);
@@ -195,21 +224,39 @@ export default function KgSaleTab({ apiEndpoint, onSaved, labels }: KgSaleTabPro
       isCredit,
       dueDate: dueDate || null,
       notes: form.notes || null,
+      ivaRate: Number(taxFields.ivaRate || 0),
+      reteFuenteRate: Number(taxFields.reteFuenteRate || 0),
+      icaRate: Number(taxFields.icaRate || 0),
+      otherDeductionsAmount: Number(taxFields.otherDeductionsAmount || 0),
+      taxNotes: taxFields.taxNotes || null,
       ...(editing ? { id: editing.id } : {}),
     };
 
     const method = editing ? "PUT" : "POST";
-    const res = await apiFetch(apiEndpoint, {
-      method,
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(payload),
-    });
+    savingRef.current = true;
+    setSaving(true);
+    mutationIdRef.current ||= crypto.randomUUID();
+    let res: Response;
+    try {
+      res = await apiFetch(apiEndpoint, {
+        method,
+        headers: { "Content-Type": "application/json", "X-Client-Mutation-Id": mutationIdRef.current },
+        body: JSON.stringify(payload),
+      });
+    } catch (err) {
+      savingRef.current = false;
+      setSaving(false);
+      throw err;
+    }
+    savingRef.current = false;
+    setSaving(false);
 
     if (!res.ok) {
       const data = await res.json().catch(() => ({}));
       setError(data.error || "Error al guardar");
       return;
     }
+    mutationIdRef.current = null;
 
     const totalAmt = Math.round(qty * price * 100) / 100;
     const spLabel = form.species ? (SPECIES_LABEL[form.species] || form.species) : "";
@@ -440,6 +487,14 @@ export default function KgSaleTab({ apiEndpoint, onSaved, labels }: KgSaleTabPro
             )}
           </div>
           <Textarea label="Notas" value={form.notes} onChange={(e) => setForm({ ...form, notes: e.target.value })} />
+          <TaxDeductionsFields
+            grossAmount={Number(form.quantityKg) * Number(form.pricePerKg)}
+            value={taxFields}
+            onChange={setTaxFields}
+            mode="ingreso"
+            profile="agro"
+            isExisting={Boolean(editing)}
+          />
 
           {Number(form.quantityKg) > 0 && Number(form.pricePerKg) >= 0 && (
             <div className="p-3 bg-green-50 rounded-lg text-sm text-green-700">
@@ -449,7 +504,7 @@ export default function KgSaleTab({ apiEndpoint, onSaved, labels }: KgSaleTabPro
           )}
 
           <div className="flex gap-3">
-            <Button onClick={save}>{editing ? "Actualizar Venta" : "Registrar Venta"}</Button>
+            <Button onClick={save} disabled={saving}>{saving ? "Guardando..." : editing ? "Actualizar Venta" : "Registrar Venta"}</Button>
             <Button variant="secondary" onClick={() => setModalOpen(false)}>Cancelar</Button>
           </div>
         </div>

@@ -1,6 +1,6 @@
 "use client";
 
-import { Suspense, useCallback, useEffect, useMemo, useState } from "react";
+import { Suspense, useCallback, useEffect, useMemo, useState, useRef } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import {
@@ -34,7 +34,7 @@ import { ANIMAL_SPECIES, SPECIES_LABELS } from "@/lib/species";
 import { todayColombiaIso } from "@/lib/date-validation";
 import { useOnboardingState } from "@/lib/useOnboardingState";
 import { useActionQuery } from "@/lib/useActionQuery";
-import { computePayrollLiquidation } from "@/lib/analytics/payroll-tax-supplies";
+import { calculateTransportAllowanceCop, computePayrollLiquidation } from "@/lib/analytics/payroll-tax-supplies";
 
 interface StaffProfile {
   id: string;
@@ -48,6 +48,7 @@ interface StaffProfile {
   defaultSpecies: string | null;
   defaultLocationId: string | null;
   applySocialSecurity: boolean;
+  includeTransportAllowance: boolean;
   employerBurdenPct: string;
   workerDeductionPct: string;
   arlRiskRatePct: string;
@@ -89,6 +90,12 @@ interface TaxConfigSummary {
   transportAllowanceCop: number;
   employerBurdenPct: number;
   workerDeductionPct: number;
+  reteServiciosPct: number;
+  transportAllowanceMaxSmlmv: number;
+  daysPerMonth: number;
+  hoursPerDay: number;
+  weeksPerMonth: number;
+  quincenasPerMonth: number;
   includeImputedOwnerLabor: boolean;
 }
 
@@ -141,6 +148,9 @@ function PersonalPageInner() {
 
   const [liqModalOpen, setLiqModalOpen] = useState(false);
   const [liqError, setLiqError] = useState("");
+  const [savingLiquidation, setSavingLiquidation] = useState(false);
+  const savingLiquidationRef = useRef(false);
+  const liquidationMutationIdRef = useRef<string | null>(null);
 
   const [staffForm, setStaffForm] = useState({
     fullName: "",
@@ -148,13 +158,14 @@ function PersonalPageInner() {
     workerKind: "productor" as "productor" | "apoyo",
     contractType: "propio" as StaffProfile["contractType"],
     payPeriod: "dia" as StaffProfile["payPeriod"],
-    baseRateCop: "55000",
+    baseRateCop: "",
     roleLabel: "Productor principal",
     defaultSpecies: "",
     defaultLocationId: "",
     applySocialSecurity: false,
-    employerBurdenPct: "29.52",
-    workerDeductionPct: "8",
+    includeTransportAllowance: false,
+    employerBurdenPct: "",
+    workerDeductionPct: "",
     notes: "",
   });
 
@@ -215,14 +226,15 @@ function PersonalPageInner() {
         payPeriod: kind === "apoyo" && isMediano ? "mes" : "dia",
         baseRateCop:
           kind === "apoyo" && isMediano
-            ? String(taxConfig?.smlmvCop || 1423500)
-            : String(taxConfig?.dailySmlmvCop || 50000),
+            ? String(taxConfig?.smlmvCop ?? "")
+            : String(taxConfig?.dailySmlmvCop ?? ""),
         roleLabel: kind === "productor" ? "Propietario / Productor" : "Galponero / Apoyo",
         defaultSpecies: "",
         defaultLocationId: "",
         applySocialSecurity: kind === "apoyo" && isMediano,
-        employerBurdenPct: String(taxConfig?.employerBurdenPct ?? 29.52),
-        workerDeductionPct: String(taxConfig?.workerDeductionPct ?? 8),
+        includeTransportAllowance: false,
+        employerBurdenPct: String(taxConfig?.employerBurdenPct ?? ""),
+        workerDeductionPct: String(taxConfig?.workerDeductionPct ?? ""),
         notes: "",
       });
       setStaffModalOpen(true);
@@ -244,8 +256,9 @@ function PersonalPageInner() {
       defaultSpecies: p.defaultSpecies || "",
       defaultLocationId: p.defaultLocationId || "",
       applySocialSecurity: p.applySocialSecurity,
-      employerBurdenPct: p.employerBurdenPct,
-      workerDeductionPct: p.workerDeductionPct,
+      includeTransportAllowance: p.includeTransportAllowance,
+      employerBurdenPct: String(taxConfig?.employerBurdenPct ?? ""),
+      workerDeductionPct: String(taxConfig?.workerDeductionPct ?? ""),
       notes: p.notes || "",
     });
     setStaffModalOpen(true);
@@ -254,6 +267,7 @@ function PersonalPageInner() {
   const openLiquidationFor = useCallback(
     (staff?: StaffProfile) => {
       setLiqError("");
+      liquidationMutationIdRef.current = null;
       const target = staff || profiles.find((p) => p.isActive) || profiles[0];
       if (!target) {
         openNewStaff("productor");
@@ -270,9 +284,9 @@ function PersonalPageInner() {
         isCredit: false,
         dueDate: "",
         applySocialSecurity: target.applySocialSecurity,
-        employerBurdenPct: target.employerBurdenPct,
-        workerDeductionPct: target.workerDeductionPct,
-        reteFuenteRatePct: target.contractType === "prestacion_servicios" ? "4" : "0",
+        employerBurdenPct: String(taxConfig?.employerBurdenPct ?? "0"),
+        workerDeductionPct: String(taxConfig?.workerDeductionPct ?? "0"),
+        reteFuenteRatePct: target.contractType === "prestacion_servicios" ? String(taxConfig?.reteServiciosPct ?? 0) : "0",
         species: target.defaultSpecies || "",
         locationId: target.defaultLocationId || "",
         prorationBasis: "",
@@ -280,7 +294,7 @@ function PersonalPageInner() {
       });
       setLiqModalOpen(true);
     },
-    [openNewStaff, profiles],
+    [openNewStaff, profiles, taxConfig],
   );
 
   useActionQuery(searchParams.get("nuevo"), { "1": () => openLiquidationFor() });
@@ -294,26 +308,46 @@ function PersonalPageInner() {
       unitRateCop: s.baseRateCop,
       accountingMode: s.workerKind === "productor" ? "imputed_economic" : "cash_expense",
       applySocialSecurity: s.applySocialSecurity,
-      employerBurdenPct: s.employerBurdenPct,
-      workerDeductionPct: s.workerDeductionPct,
-      reteFuenteRatePct: s.contractType === "prestacion_servicios" ? "4" : "0",
+      employerBurdenPct: String(taxConfig?.employerBurdenPct ?? "0"),
+      workerDeductionPct: String(taxConfig?.workerDeductionPct ?? "0"),
+      reteFuenteRatePct: s.contractType === "prestacion_servicios" ? String(taxConfig?.reteServiciosPct ?? 0) : "0",
       species: s.defaultSpecies || "",
       locationId: s.defaultLocationId || "",
     }));
   };
 
   const liqPreview = useMemo(
-    () =>
-      computePayrollLiquidation({
+    () => {
+      const selectedStaff = profiles.find((profile) => profile.id === liqForm.staffId);
+      const transportAllowanceCop = selectedStaff && taxConfig
+        ? calculateTransportAllowanceCop({
+            eligible: selectedStaff.includeTransportAllowance,
+            workerKind: selectedStaff.workerKind,
+            contractType: selectedStaff.contractType,
+            payPeriod: selectedStaff.payPeriod,
+            unitsWorked: Number(liqForm.unitsWorked || 0),
+            unitRateCop: Number(selectedStaff.baseRateCop || 0),
+            smlmvCop: taxConfig.smlmvCop,
+            allowanceMonthlyCop: taxConfig.transportAllowanceCop,
+            maximumMonthlySmlmv: taxConfig.transportAllowanceMaxSmlmv,
+            daysPerMonth: taxConfig.daysPerMonth,
+            hoursPerDay: taxConfig.hoursPerDay,
+            weeksPerMonth: taxConfig.weeksPerMonth,
+            quincenasPerMonth: taxConfig.quincenasPerMonth,
+          })
+        : 0;
+      return computePayrollLiquidation({
         unitsWorked: Number(liqForm.unitsWorked || 0),
         unitRateCop: Number(liqForm.unitRateCop || 0),
         bonusesCop: Number(liqForm.bonusesCop || 0),
+        transportAllowanceCop,
         applySocialSecurity: liqForm.applySocialSecurity,
         employerBurdenPct: Number(liqForm.employerBurdenPct || 0),
         workerDeductionPct: Number(liqForm.workerDeductionPct || 0),
         reteFuenteRatePct: Number(liqForm.reteFuenteRatePct || 0),
-      }),
-    [liqForm],
+      });
+    },
+    [liqForm, profiles, taxConfig],
   );
 
   const saveStaff = async () => {
@@ -347,28 +381,45 @@ function PersonalPageInner() {
   };
 
   const saveLiquidation = async () => {
+    if (savingLiquidationRef.current) return;
     setLiqError("");
-    const res = await apiFetch("/api/finanzas/personal/liquidaciones", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        ...liqForm,
-        unitsWorked: Number(liqForm.unitsWorked),
-        unitRateCop: Number(liqForm.unitRateCop),
-        bonusesCop: Number(liqForm.bonusesCop || 0),
-        employerBurdenPct: Number(liqForm.employerBurdenPct || 0),
-        workerDeductionPct: Number(liqForm.workerDeductionPct || 0),
-        reteFuenteRatePct: Number(liqForm.reteFuenteRatePct || 0),
-        species: liqForm.species || null,
-        locationId: liqForm.locationId || null,
-        prorationBasis: liqForm.prorationBasis || null,
-      }),
-    });
+    savingLiquidationRef.current = true;
+    setSavingLiquidation(true);
+    liquidationMutationIdRef.current ||= crypto.randomUUID();
+    let res: Response;
+    try {
+      res = await apiFetch("/api/finanzas/personal/liquidaciones", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "X-Client-Mutation-Id": liquidationMutationIdRef.current,
+        },
+        body: JSON.stringify({
+          ...liqForm,
+          unitsWorked: Number(liqForm.unitsWorked),
+          unitRateCop: Number(liqForm.unitRateCop),
+          bonusesCop: Number(liqForm.bonusesCop || 0),
+          employerBurdenPct: Number(liqForm.employerBurdenPct || 0),
+          workerDeductionPct: Number(liqForm.workerDeductionPct || 0),
+          reteFuenteRatePct: Number(liqForm.reteFuenteRatePct || 0),
+          species: liqForm.species || null,
+          locationId: liqForm.locationId || null,
+          prorationBasis: liqForm.prorationBasis || null,
+        }),
+      });
+    } catch (err) {
+      savingLiquidationRef.current = false;
+      setSavingLiquidation(false);
+      throw err;
+    }
+    savingLiquidationRef.current = false;
+    setSavingLiquidation(false);
     if (!res.ok) {
       const data = await res.json().catch(() => ({}));
       setLiqError(data.error || "No se pudo registrar la liquidación");
       return;
     }
+    liquidationMutationIdRef.current = null;
     setLiqModalOpen(false);
     await load();
   };
@@ -416,7 +467,7 @@ function PersonalPageInner() {
               <UserPlus className="w-4 h-4" />
               <span>Agregar personal</span>
             </HeroActionButton>
-            <HeroActionLink href="/configuracion/catalogos?tab=parametros" tone="glass">
+            <HeroActionLink href="/configuracion/catalogos?tab=personal" tone="glass">
               <span>Parámetros SMLMV / Aportes</span>
             </HeroActionLink>
           </div>
@@ -432,8 +483,8 @@ function PersonalPageInner() {
             </p>
             <p className="text-sm text-slate-700 max-w-3xl">
               {isMediano
-                ? `Referencia legal cargada: SMLMV ${fmt(taxConfig?.smlmvCop ?? 1423500)} · Auxilio ${fmt(taxConfig?.transportAllowanceCop ?? 200000)} · Aporte empleador sugerido ${taxConfig?.employerBurdenPct ?? 29.52}% · Deducción trabajador ${taxConfig?.workerDeductionPct ?? 8}%.`
-                : `Aunque todavía no retires efectivo del bolsillo, registrar tu jornal (${fmt(taxConfig?.dailySmlmvCop ?? 47450)}/día ref. SMLMV) suma tu esfuerzo al costo real por huevo y por kilo para no vender a pérdida. Cuando sí te pagues, conviértelo en retiro de caja con un clic.`}
+                ? `Referencias configuradas: SMLMV ${fmt(taxConfig?.smlmvCop ?? 0)} · Auxilio ${fmt(taxConfig?.transportAllowanceCop ?? 0)} · Aporte empleador ${taxConfig?.employerBurdenPct ?? 0}% · Deducción trabajador ${taxConfig?.workerDeductionPct ?? 0}%.`
+                : `Aunque todavía no retires efectivo del bolsillo, registrar tu tarifa diaria (${fmt(taxConfig?.dailySmlmvCop ?? 0)}/día según el SMLMV configurado) suma tu esfuerzo al costo real por huevo y por kilo. Cuando sí te pagues, conviértelo en retiro de caja con un clic.`}
             </p>
           </div>
           <Badge color={taxConfig?.includeImputedOwnerLabor ? "green" : "gray"}>
@@ -523,7 +574,12 @@ function PersonalPageInner() {
                   </span>
                   {p.applySocialSecurity && (
                     <span className="rounded bg-sky-100 text-sky-800 px-2 py-0.5 inline-flex items-center gap-1">
-                      <ShieldCheck className="w-3 h-3" /> +{p.employerBurdenPct}% / -{p.workerDeductionPct}%
+                      <ShieldCheck className="w-3 h-3" /> +{taxConfig?.employerBurdenPct ?? 0}% / -{taxConfig?.workerDeductionPct ?? 0}%
+                    </span>
+                  )}
+                  {p.includeTransportAllowance && (
+                    <span className="rounded bg-amber-100 text-amber-800 px-2 py-0.5">
+                      Auxilio vigente
                     </span>
                   )}
                   {p.defaultSpecies && (
@@ -700,6 +756,7 @@ function PersonalPageInner() {
                   ...staffForm,
                   workerKind: kind,
                   contractType: kind === "productor" ? "propio" : "jornal",
+                  includeTransportAllowance: kind === "apoyo" ? staffForm.includeTransportAllowance : false,
                 });
               }}
             >
@@ -715,6 +772,7 @@ function PersonalPageInner() {
                   ...staffForm,
                   contractType: ct,
                   applySocialSecurity: ct === "salario_fijo" ? true : staffForm.applySocialSecurity,
+                  includeTransportAllowance: ct === "prestacion_servicios" ? false : staffForm.includeTransportAllowance,
                 });
               }}
             >
@@ -795,8 +853,8 @@ function PersonalPageInner() {
                   step="0.1"
                   min="0"
                   max="100"
-                  value={staffForm.employerBurdenPct}
-                  onChange={(e) => setStaffForm({ ...staffForm, employerBurdenPct: e.target.value })}
+                  value={taxConfig?.employerBurdenPct ?? ""}
+                  disabled
                 />
                 <Input
                   label="% Deducción trabajador"
@@ -804,10 +862,23 @@ function PersonalPageInner() {
                   step="0.1"
                   min="0"
                   max="50"
-                  value={staffForm.workerDeductionPct}
-                  onChange={(e) => setStaffForm({ ...staffForm, workerDeductionPct: e.target.value })}
+                  value={taxConfig?.workerDeductionPct ?? ""}
+                  disabled
                 />
               </div>
+            )}
+            {staffForm.workerKind === "apoyo" && staffForm.contractType !== "prestacion_servicios" && (
+              <label className="inline-flex items-start gap-2 text-xs text-slate-700 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={staffForm.includeTransportAllowance}
+                  onChange={(e) => setStaffForm({ ...staffForm, includeTransportAllowance: e.target.checked })}
+                  className="mt-0.5 rounded border-slate-300"
+                />
+                <span>
+                  Aplica auxilio de transporte según su perfil. Cada liquidación tomará el valor vigente y validará el tope de SMLMV configurado.
+                </span>
+              </label>
             )}
           </div>
 
@@ -869,10 +940,10 @@ function PersonalPageInner() {
               step="100"
               min="0"
               value={liqForm.unitRateCop}
-              onChange={(e) => setLiqForm({ ...liqForm, unitRateCop: e.target.value })}
+              disabled
             />
             <Input
-              label="Extras / auxilio ($)"
+              label="Bonificaciones / extras ($)"
               type="number"
               step="100"
               min="0"
@@ -930,7 +1001,7 @@ function PersonalPageInner() {
               <input
                 type="checkbox"
                 checked={liqForm.applySocialSecurity}
-                onChange={(e) => setLiqForm({ ...liqForm, applySocialSecurity: e.target.checked })}
+                disabled
                 className="rounded border-slate-300"
               />
               <span>Incluir seguridad social, prestaciones y retención</span>
@@ -941,18 +1012,16 @@ function PersonalPageInner() {
                 type="number"
                 step="0.1"
                 min="0"
-                disabled={!liqForm.applySocialSecurity}
+                disabled
                 value={liqForm.employerBurdenPct}
-                onChange={(e) => setLiqForm({ ...liqForm, employerBurdenPct: e.target.value })}
               />
               <Input
                 label="% Deducc. trab."
                 type="number"
                 step="0.1"
                 min="0"
-                disabled={!liqForm.applySocialSecurity}
+                disabled
                 value={liqForm.workerDeductionPct}
-                onChange={(e) => setLiqForm({ ...liqForm, workerDeductionPct: e.target.value })}
               />
               <Input
                 label="ReteFuente %"
@@ -960,7 +1029,7 @@ function PersonalPageInner() {
                 step="0.1"
                 min="0"
                 value={liqForm.reteFuenteRatePct}
-                onChange={(e) => setLiqForm({ ...liqForm, reteFuenteRatePct: e.target.value })}
+                disabled
               />
             </div>
           </div>
@@ -1028,6 +1097,11 @@ function PersonalPageInner() {
               </p>
             </div>
           </div>
+          {liqPreview.transportAllowanceCop > 0 && (
+            <p className="rounded-lg bg-amber-50 px-3 py-2 text-xs text-amber-800">
+              Auxilio de transporte tomado del valor maestro vigente: <strong>{fmt(liqPreview.transportAllowanceCop)}</strong>.
+            </p>
+          )}
 
           <Textarea
             label="Notas"
@@ -1037,8 +1111,8 @@ function PersonalPageInner() {
 
           <div className="flex justify-end gap-2">
             <Button variant="secondary" onClick={() => setLiqModalOpen(false)}>Cancelar</Button>
-            <Button onClick={saveLiquidation}>
-              <CheckCircle2 className="w-4 h-4 mr-1 inline" /> Guardar liquidación
+            <Button onClick={saveLiquidation} disabled={savingLiquidation}>
+              <CheckCircle2 className="w-4 h-4 mr-1 inline" /> {savingLiquidation ? "Guardando..." : "Guardar liquidación"}
             </Button>
           </div>
         </div>

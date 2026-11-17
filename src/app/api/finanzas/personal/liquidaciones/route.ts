@@ -13,17 +13,20 @@ import { safeParseJson, withApiHandler } from "@/lib/api-handler";
 import { isDateOnly, todayColombiaIso } from "@/lib/date-validation";
 import { normalizeFeedingSpecies } from "@/lib/species";
 import { requirePermission } from "@/lib/rbac-server";
-import { computePayrollLiquidation } from "@/lib/analytics/payroll-tax-supplies";
+import { calculateTransportAllowanceCop, computePayrollLiquidation } from "@/lib/analytics/payroll-tax-supplies";
 import {
   computeSuggestedProrationWeights,
   distributeAmountByWeights,
   VALID_PRORATION_BASES,
 } from "@/lib/analytics/proration";
 import { deleteTransactionsAndUnpaidAccounts } from "@/lib/financial-records";
+import { getTaxAndPayrollConfig } from "@/lib/settings";
 
 export const dynamic = "force-dynamic";
 
 export const GET = withApiHandler(async (req: NextRequest) => {
+  const denied = await requirePermission("finance:write");
+  if (denied) return denied;
   const { searchParams } = new URL(req.url);
   const today = todayColombiaIso();
   const from = searchParams.get("from") || `${today.slice(0, 4)}-01-01`;
@@ -110,30 +113,60 @@ export const POST = withApiHandler(async (req: NextRequest) => {
   const [staff] = await db.select().from(staffProfiles).where(eq(staffProfiles.id, staffId));
   if (!staff) return NextResponse.json({ error: "Perfil de personal no encontrado" }, { status: 404 });
 
-  const unitRateCop = body.unitRateCop !== undefined && body.unitRateCop !== ""
-    ? Number(body.unitRateCop)
-    : Number(staff.baseRateCop);
+  const taxConfig = await getTaxAndPayrollConfig();
+  const unitRateCop = Number(staff.baseRateCop);
   if (!Number.isFinite(unitRateCop) || unitRateCop < 0) {
     return NextResponse.json({ error: "Tarifa inválida" }, { status: 400 });
   }
 
-  const applySocialSecurity =
-    body.applySocialSecurity !== undefined ? Boolean(body.applySocialSecurity) : staff.applySocialSecurity;
-  const employerBurdenPct =
-    body.employerBurdenPct !== undefined ? Number(body.employerBurdenPct) : Number(staff.employerBurdenPct);
-  const workerDeductionPct =
-    body.workerDeductionPct !== undefined ? Number(body.workerDeductionPct) : Number(staff.workerDeductionPct);
+  const applySocialSecurity = Boolean(staff.applySocialSecurity);
+  const employerBurdenPct = applySocialSecurity ? taxConfig.employerBurdenPct : 0;
+  const workerDeductionPct = applySocialSecurity ? taxConfig.workerDeductionPct : 0;
+  const reteFuenteRatePct = staff.contractType === "prestacion_servicios" ? taxConfig.reteServiciosPct : 0;
+  const reteFuenteFixedCop = null;
+  const transportAllowanceCop = calculateTransportAllowanceCop({
+    eligible: staff.includeTransportAllowance,
+    workerKind: staff.workerKind,
+    contractType: staff.contractType,
+    payPeriod: staff.payPeriod,
+    unitsWorked,
+    unitRateCop,
+    smlmvCop: taxConfig.smlmvCop,
+    allowanceMonthlyCop: taxConfig.transportAllowanceCop,
+    maximumMonthlySmlmv: taxConfig.transportAllowanceMaxSmlmv,
+    daysPerMonth: taxConfig.daysPerMonth,
+    hoursPerDay: taxConfig.hoursPerDay,
+    weeksPerMonth: taxConfig.weeksPerMonth,
+    quincenasPerMonth: taxConfig.quincenasPerMonth,
+  });
+  if (!Number.isFinite(employerBurdenPct) || employerBurdenPct < 0 || employerBurdenPct > 100) {
+    return NextResponse.json({ error: "El aporte del empleador debe estar entre 0% y 100%" }, { status: 400 });
+  }
+  if (!Number.isFinite(workerDeductionPct) || workerDeductionPct < 0 || workerDeductionPct > 50) {
+    return NextResponse.json({ error: "La deducción del trabajador debe estar entre 0% y 50%" }, { status: 400 });
+  }
+  if (!Number.isFinite(reteFuenteRatePct) || reteFuenteRatePct < 0 || reteFuenteRatePct > 100) {
+    return NextResponse.json({ error: "La retención debe estar entre 0% y 100%" }, { status: 400 });
+  }
+  if (reteFuenteFixedCop !== null && (!Number.isFinite(reteFuenteFixedCop) || reteFuenteFixedCop < 0)) {
+    return NextResponse.json({ error: "El valor de retención es inválido" }, { status: 400 });
+  }
 
   const liq = computePayrollLiquidation({
     unitsWorked,
     unitRateCop,
     bonusesCop,
+    transportAllowanceCop,
     applySocialSecurity,
     employerBurdenPct,
     workerDeductionPct,
-    reteFuenteRatePct: body.reteFuenteRatePct !== undefined ? Number(body.reteFuenteRatePct) : 0,
-    reteFuenteFixedCop: body.reteFuenteCop !== undefined && body.reteFuenteCop !== "" ? Number(body.reteFuenteCop) : null,
+    reteFuenteRatePct,
+    reteFuenteFixedCop,
   });
+
+  if (liq.workerDeductionsCop + liq.reteFuenteCop > liq.grossPayCop) {
+    return NextResponse.json({ error: "Las deducciones no pueden superar el valor bruto de la liquidación" }, { status: 400 });
+  }
 
   if (liq.totalEmployerCostCop <= 0) {
     return NextResponse.json({ error: "El total de la liquidación debe ser mayor a 0" }, { status: 400 });
@@ -160,8 +193,8 @@ export const POST = withApiHandler(async (req: NextRequest) => {
           reteFuenteAmount: liq.reteFuenteCop.toFixed(2),
           otherDeductionsAmount: liq.workerDeductionsCop.toFixed(2),
           netSettlementAmount: liq.netPayableCop.toFixed(2),
-          taxNotes: applySocialSecurity
-            ? `Aportes empleador: $${liq.employerBurdenCop.toLocaleString("es-CO")} · Deducciones trabajador: $${liq.workerDeductionsCop.toLocaleString("es-CO")}`
+          taxNotes: applySocialSecurity || transportAllowanceCop > 0
+            ? `${transportAllowanceCop > 0 ? `Auxilio de transporte: $${transportAllowanceCop.toLocaleString("es-CO")} · ` : ""}${applySocialSecurity ? `Aportes empleador: $${liq.employerBurdenCop.toLocaleString("es-CO")} · Deducciones trabajador: $${liq.workerDeductionsCop.toLocaleString("es-CO")}` : ""}`
             : null,
           quantity: unitsWorked.toFixed(2),
           unitPrice: unitRateCop.toFixed(2),
@@ -227,9 +260,13 @@ export const POST = withApiHandler(async (req: NextRequest) => {
         unitRateCop: unitRateCop.toFixed(2),
         grossPayCop: liq.grossPayCop.toFixed(2),
         bonusesCop: liq.bonusesCop.toFixed(2),
+        transportAllowanceCop: liq.transportAllowanceCop.toFixed(2),
         employerBurdenCop: liq.employerBurdenCop.toFixed(2),
+        employerBurdenPct: employerBurdenPct.toFixed(2),
         workerDeductionsCop: liq.workerDeductionsCop.toFixed(2),
+        workerDeductionPct: workerDeductionPct.toFixed(2),
         reteFuenteCop: liq.reteFuenteCop.toFixed(2),
+        reteFuenteRatePct: reteFuenteRatePct.toFixed(2),
         netPayableCop: liq.netPayableCop.toFixed(2),
         totalEmployerCostCop: liq.totalEmployerCostCop.toFixed(2),
         accountingMode,

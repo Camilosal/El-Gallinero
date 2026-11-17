@@ -200,10 +200,10 @@ export const SHOWCASE_TABS: ShowcaseTabItem[] = [
     title: "Lo importante primero y tareas que se validan con hechos",
     description:
       "Al abrir la app ves las cifras clave, los avisos urgentes y la lista de tareas del día. Cada tarea se marca al guardar su registro real o confirmar el recorrido en campo.",
-    routeLabel: "gallinero.iwage.co/inicio",
+    routeLabel: "app.iwage.co/inicio",
     screenshot: "/images/guia/inicio-dashboard.webp",
     screenshotAlt:
-      "Pantalla principal del tablero de El Corral con alertas del día, preparación de granja y estado de copia offline",
+      "Pantalla principal del tablero de IwaGranja con alertas del día, preparación de granja y estado de copia offline",
     highlights: [
       "Las tareas productivas se completan automáticamente al guardar huevos, alimento o pesajes.",
       "Los recorridos sin novedad piden confirmación breve en campo para evitar cierres falsos.",
@@ -220,7 +220,7 @@ export const SHOWCASE_TABS: ShowcaseTabItem[] = [
     title: "Escanea la entrada del galpón y anota la jornada en menos de 2 minutos",
     description:
       "Sin menús largos: lee el código QR del galpón o corral, suma cubetas de 30 huevos o bultos de 40 kg con botones grandes y recibe el resumen al instante.",
-    routeLabel: "gallinero.iwage.co/inicio · Registro rápido",
+    routeLabel: "app.iwage.co/inicio · Registro rápido",
     screenshot: "/images/guia/captura-rapida-modal.webp",
     screenshotAlt:
       "Modal de Registro Rápido con pestañas de huevos, alimento, mortalidad, gasto y venta, y botones de incremento por cubeta",
@@ -244,7 +244,7 @@ export const SHOWCASE_TABS: ShowcaseTabItem[] = [
     title: "Habla o escribe a Gina; la app ordena los datos por ti",
     description:
       "Pregúntale a Gina (nuestra gallina asistente con gafas) cuántos huevos o animales tienes, qué vacunas se acercan o cómo va el mes. Si dictas un movimiento o envías foto de factura, lo estructura y te pide confirmar antes de guardar.",
-    routeLabel: "gallinero.iwage.co · Gina",
+    routeLabel: "app.iwage.co · Gina",
     screenshot: "/images/guia/asistente-ia.webp",
     screenshotAlt:
       "Panel lateral de Gina (asistente con gafas) mostrando qué puede hacer, sugerencias rápidas, cámara y dictado por voz",
@@ -268,7 +268,7 @@ export const SHOWCASE_TABS: ShowcaseTabItem[] = [
     title: "Clasifica huevos por tamaño y compara el peso del lote con su raza",
     description:
       "Separa huevos aptos, rotos o para incubar desde la recolección, ordena las salidas del más antiguo al más nuevo y compara el crecimiento contra la curva esperada.",
-    routeLabel: "gallinero.iwage.co/produccion",
+    routeLabel: "app.iwage.co/produccion",
     screenshot: "/images/guia/produccion-huevos.webp",
     screenshotAlt:
       "Módulo de Producción de Huevos Multiespecie con KPIs de huevos totales, promedio diario, ahorro hogar y postura esperada",
@@ -292,7 +292,7 @@ export const SHOWCASE_TABS: ShowcaseTabItem[] = [
     title: "Vacunas al día y bloqueo automático cuando hay tratamiento activo",
     description:
       "Registra aplicaciones veterinarias y sus días de retiro para evitar vender huevos o carne antes de tiempo, junto con alertas de reemplazo y listas de bioseguridad.",
-    routeLabel: "gallinero.iwage.co/sanidad/control",
+    routeLabel: "app.iwage.co/sanidad/control",
     screenshot: "/images/guia/sanidad-control.webp",
     screenshotAlt:
       "Pantalla de Control Fitosanitario con resumen de registros, vacunaciones, próximos eventos programados e historial",
@@ -316,7 +316,7 @@ export const SHOWCASE_TABS: ShowcaseTabItem[] = [
     title: "Separa ingresos y gastos por especie y sigue trabajando sin internet",
     description:
       "Registra ventas de huevos, carne, animales en pie o abono, lee recibos con la cámara y sigue anotando en el galpón aunque no haya cobertura en la vereda.",
-    routeLabel: "gallinero.iwage.co/finanzas · Modo offline",
+    routeLabel: "app.iwage.co/finanzas · Modo offline",
     screenshot: "/images/guia/finanzas-balance.webp",
     screenshotAlt:
       "Panel Financiero con ingresos, egresos, utilidad neta, margen y flujo de caja en el período",

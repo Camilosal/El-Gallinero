@@ -98,9 +98,24 @@ export default function MicroInsightCard({
     }
   };
 
-  const handleWhatsAppShare = () => {
-    const encoded = encodeURIComponent(insight.whatsappText);
-    window.open(`https://wa.me/?text=${encoded}`, "_blank", "noopener,noreferrer");
+  const handleShareParte = async () => {
+    // Parte diario omnicanal: compartir nativo (Telegram, etc.) o copiar al portapapeles.
+    const text = insight.whatsappText;
+    if (typeof navigator.share === "function") {
+      try {
+        await navigator.share({ title: "Parte diario · IwaGranja", text });
+        return;
+      } catch {
+        // Usuario canceló o no soportado: cae al portapapeles.
+      }
+    }
+    try {
+      await navigator.clipboard.writeText(text);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2200);
+    } catch {
+      // Ignore clipboard failures
+    }
   };
 
   return (
@@ -227,11 +242,11 @@ export default function MicroInsightCard({
         <div className="flex flex-wrap items-center gap-2">
           <button
             type="button"
-            onClick={handleWhatsAppShare}
+            onClick={() => void handleShareParte()}
             className="inline-flex min-h-[44px] items-center gap-1.5 rounded-xl border border-emerald-700 bg-emerald-700 px-3.5 py-2 text-xs font-bold text-white shadow-2xs hover:bg-emerald-800 transition-colors"
           >
             <MessageCircle className="h-4 w-4" aria-hidden="true" />
-            <span>Compartir Parte en WhatsApp</span>
+            <span>Compartir parte diario</span>
           </button>
 
           <button

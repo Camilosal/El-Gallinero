@@ -65,6 +65,17 @@ describe("public access routes", () => {
     expect(response.status).toBe(401);
   });
 
+  it("lets the scheduled external sync reach its own Bearer secret check", async () => {
+    const request = new NextRequest("https://gallinero.test/api/cron/fuentes-externas", {
+      method: "POST",
+      headers: { authorization: "Bearer cron-secret" },
+    });
+
+    const response = await proxy(request);
+
+    expect(response.headers.get("x-middleware-next")).toBe("1");
+  });
+
   it("allows unknown root paths through to render Next.js 404 instead of 401 or /login redirect", async () => {
     const htmlReq = new NextRequest("https://gallinero.test/pagina-inexistente-404", {
       headers: { accept: "text/html" },

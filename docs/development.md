@@ -1,6 +1,6 @@
-# Guía de Desarrollo de El Corral
+# Guía de Desarrollo de IwaGranja
 
-Este documento proporciona instrucciones detalladas para configurar el entorno de desarrollo, ejecutar pruebas, y contribuir efectivamente al proyecto El Corral.
+Este documento proporciona instrucciones detalladas para configurar el entorno de desarrollo, ejecutar pruebas, y contribuir efectivamente al proyecto IwaGranja.
 
 ## Prerrequisitos
 

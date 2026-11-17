@@ -27,6 +27,7 @@ import { forbiddenResponse, normalizeRole } from "@/lib/rbac";
 import { seedStarterFeedsAndPrograms } from "@/lib/feeding/default-tenant-seed";
 import { invalidateSettingsCache } from "@/lib/settings";
 import { PLAN_CATALOG } from "@/lib/subscription";
+import { canManagePlatformTenants, SUPERADMIN_PLAN_OPTIONS } from "@/lib/superadmin-tenants";
 
 export const dynamic = "force-dynamic";
 
@@ -37,55 +38,6 @@ function parseProgressiveConfigSafe(raw: string | null) {
   } catch {
     return createDefaultProgressiveConfig("PEQUENO");
   }
-}
-
-export const SUPERADMIN_PLAN_OPTIONS = [
-  {
-    code: "FREEMIUM_SEMILLA",
-    name: "Freemium Semilla (1 lote activo)",
-    durationDays: 30,
-    amountCop: 0,
-    maxUsers: 2,
-    maxActiveBatches: 1 as number | null,
-  },
-  ...Object.values(PLAN_CATALOG).map((p) => ({
-    code: p.code,
-    name: p.name,
-    durationDays: p.durationDays,
-    amountCop: p.amountCop,
-    maxUsers: p.maxUsers,
-    maxActiveBatches: null as number | null,
-  })),
-];
-
-export function canManagePlatformTenants(
-  user:
-    | {
-        role?: string | null;
-        farmId?: string | null;
-        homeFarmId?: string | null;
-        username?: string | null;
-      }
-    | null
-    | undefined,
-): boolean {
-  if (!user) return false;
-  // Solo la granja base de la plataforma puede alojar Super-Admins. Un rol
-  // "admin" creado dentro de la granja de un cliente no otorga acceso global.
-  const effectiveHomeFarmId = user.homeFarmId || user.farmId;
-  if (effectiveHomeFarmId !== DEFAULT_FARM_ID) return false;
-  const rawRole = String(user.role || "")
-    .trim()
-    .toLowerCase();
-  if (rawRole === "admin") return true;
-  if (
-    String(user.username || "")
-      .trim()
-      .toLowerCase() === "admin"
-  ) {
-    return true;
-  }
-  return normalizeRole(user.role) === "propietario";
 }
 
 function toFarmSlug(farmName: string): string {

@@ -69,7 +69,7 @@ export default function SubscriptionUpgradeModal({
   };
 
   return (
-    <Modal open={open} onClose={onClose} title="Renovar ciclo productivo · Iwagé Granja">
+    <Modal open={open} onClose={onClose} title="Renovar ciclo productivo · IwaGranja">
       <div className="space-y-4">
         <div className="rounded-xl border border-emerald-200 bg-emerald-50 p-3.5 text-sm text-emerald-950">
           <div className="flex items-start gap-2.5">

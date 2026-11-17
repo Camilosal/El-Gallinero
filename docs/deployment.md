@@ -47,3 +47,57 @@ Todas las variables de entorno requeridas y opcionales están documentadas en [`
 ## Datos de demostración (solo desarrollo / staging)
 
 No ejecutes `npm run db:seed` en producción. Es un seed de demostración destructivo (requiere `--allow-destructive` y `DEMO_ADMIN_PASSWORD` de al menos 12 caracteres) y está bloqueado cuando `NODE_ENV=production`.
+
+## Staging local aislado con Docker Compose
+
+El perfil de staging usa otro proyecto Compose, una base PostgreSQL y un volumen propios. La aplicación y PostgreSQL solo escuchan en `127.0.0.1` (puertos `3100` y `55432` por defecto), así que no quedan expuestos a la red pública.
+
+1. Crea `.env.staging` a partir de `.env.example` y completa credenciales exclusivas para staging. Genera valores aleatorios para `POSTGRES_PASSWORD` y `CRON_SECRET`; configura también `POSTGRES_USER=iwa_staging`, `POSTGRES_DB=iwagranja_staging`, `ADMIN_USERNAME` y `ADMIN_PASSWORD` únicos para ese entorno. No reutilices credenciales de producción.
+2. Valida y activa el entorno:
+
+   ```bash
+   docker compose --env-file .env.staging -p iwagranja-staging -f docker-compose.yml -f docker-compose.staging.yml config --quiet
+   docker compose --env-file .env.staging -p iwagranja-staging -f docker-compose.yml -f docker-compose.staging.yml up -d --build
+   ```
+
+3. Confirma `/api/health` en `http://127.0.0.1:3100/api/health`, revisa los logs de `app` y `external-sources-scheduler`, e inicia sesión con el administrador de staging definido en el archivo local.
+4. Para detener o reiniciar staging, conserva el nombre del proyecto `iwagranja-staging`. `down` mantiene el volumen de datos; agrega `-v` solo si deliberadamente quieres borrar la base de staging.
+
+La red bridge de staging debe permanecer con `internal: false` para permitir las consultas externas. Esto no reemplaza las reglas del firewall o del proveedor de nube. Camino A requiere TCP saliente a `appweb.dane.gov.co:9001` y `visualizador.ideam.gov.co:443`; Camino B requiere `www.dane.gov.co:443` para anexos SIPSA y `bart.ideam.gov.co:443` para el CSV de alertas. En la instancia revisada, el anexo SIPSA Excel respondió HTTP 200 desde el contenedor en `www.dane.gov.co:443`. El código del conector IDEAM apunta al archivo directo `https://bart.ideam.gov.co/ospa/DatosAbiertos/Alertas_Hidrologicas/alertas_hidrologicas.csv`; la sincronización automática queda registrada por el sincronizador cuando el contenedor alcanza esa URL.
+
+El scheduler requiere `CRON_SECRET`. El sincronizador usa `external.sync_enabled` de la base de staging; si una fuente falla, conserva el último dato válido y reintenta en el siguiente intervalo sin repetir el ciclo completo. Los valores externos se guardan como observaciones y no reemplazan automáticamente los datos maestros.
+
+## API de herramientas del agente y servidor MCP
+
+La instancia expone dos puertas para agentes externos (Claude, orquestadores, n8n, clientes MCP), ambas autenticadas con tokens de integración creados en **Exportar → Conectores**:
+
+- `GET/POST /api/v1/agent/tools[/{name}]` — manifiesto y ejecución de herramientas (scopes `agent:read` / `agent:write`).
+- `POST /api/mcp` — servidor MCP (Streamable HTTP, JSON-RPC 2.0: `initialize`, `tools/list`, `tools/call`) sobre el mismo ejecutor.
+
+Consideraciones operativas:
+
+1. **Tokens de escritura acotados:** un token con `agent:write` exige fecha de expiración obligatoria de máximo 90 días (validado en servidor). Los conectores ERP legacy siguen siendo de solo lectura por defecto.
+2. **Confirmación humana intacta:** las escrituras sensibles (ventas, gastos, cierres, pagos, etc.) devuelven `202` con `actionId` y solo se ejecutan tras `POST /api/asistente/acciones/{id}/confirmar` con el mismo token o desde la app. El piso duro no es configurable ni por MCP.
+3. **Rate limit y auditoría:** 60 solicitudes/minuto por token (en memoria, por instancia). Toda acción queda en `ai_actions` con `origin: external_agent` y `token_id`.
+4. **Sin configuración extra:** no requiere variables de entorno nuevas; usa la misma base de datos y el mismo puerto de la app. Las rutas se auto-autentican (no necesitan sesión de navegador).
+5. **Ejemplo de cliente MCP** (Claude Desktop u otro cliente Streamable HTTP):
+
+   ```json
+   {
+     "mcpServers": {
+       "iwagranja": {
+         "type": "streamable-http",
+         "url": "https://<dominio>/api/mcp",
+         "headers": { "Authorization": "Bearer glli_exp_TU_TOKEN" }
+       }
+     }
+   }
+   ```
+
+   Verificación rápida sin cliente MCP:
+
+   ```bash
+   curl -s https://<dominio>/api/mcp -H "Authorization: Bearer glli_exp_TU_TOKEN" \
+     -H "Content-Type: application/json" \
+     -d '{"jsonrpc":"2.0","id":1,"method":"tools/list"}'
+   ```

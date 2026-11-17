@@ -892,6 +892,8 @@ export default function EgresosPage() {
             grossAmount={Number(computedTotal || form.amount || 0)}
             value={taxFields}
             onChange={setTaxFields}
+            category={form.category}
+            isExisting={Boolean(editing)}
           />
 
           <Textarea label="Notas" value={form.notes} onChange={(e) => setForm({ ...form, notes: e.target.value })} />

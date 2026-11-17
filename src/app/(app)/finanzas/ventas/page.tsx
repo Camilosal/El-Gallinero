@@ -1,6 +1,6 @@
 "use client";
 
-import { Suspense, useEffect, useState, useCallback, useMemo } from "react";
+import { Suspense, useEffect, useState, useCallback, useMemo, useRef } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { AlertTriangle, BarChart3, Banknote, Bird, Egg, Info, Package, Sprout, Tag, Utensils } from "lucide-react";
 import { AppIcon } from "@/components/AppIcon";
@@ -17,6 +17,9 @@ import OtherSalesTab from "./_components/OtherSalesTab";
 import TableSearch from "@/components/TableSearch";
 import { matchesTextQuery } from "@/lib/text";
 import { useActionQuery } from "@/lib/useActionQuery";
+import { loadMasterSettings, useMasterSettings } from "@/lib/use-master-settings";
+import { loadSpeciesMasterParamsClient, useSpeciesCatalog } from "@/lib/use-species-params";
+import { TaxDeductionsFields, emptyTaxFields, type TaxFieldsState } from "@/components/TaxDeductionsFields";
 
 // ─── Types ───
 interface SaleItem {
@@ -38,6 +41,11 @@ interface Sale {
   presentation: string | null;
   buyer: string | null;
   notes: string | null;
+  ivaRate?: string | null;
+  reteFuenteRate?: string | null;
+  icaRate?: string | null;
+  otherDeductionsAmount?: string | null;
+  taxNotes?: string | null;
   isCredit?: boolean;
   items: SaleItem[];
 }
@@ -59,6 +67,11 @@ interface ChickenSale {
   isCredit?: boolean;
   dueDate?: string | null;
   notes: string | null;
+  ivaRate?: string | null;
+  reteFuenteRate?: string | null;
+  icaRate?: string | null;
+  otherDeductionsAmount?: string | null;
+  taxNotes?: string | null;
   hen?: {
     id: string;
     code: string;
@@ -181,10 +194,14 @@ function VentasContent() {
     lotCode: "",
     buyer: "",
     notes: "",
-    items: [{ key: "1", size: "", presentations: 1, presentation: "", pricePerUnit: "500" }] as SaleFormItem[],
+    items: [{ key: "1", size: "", presentations: 1, presentation: "", pricePerUnit: "" }] as SaleFormItem[],
   });
   const [isCredit, setIsCredit] = useState(false);
   const [dueDate, setDueDate] = useState("");
+  const [eggTaxFields, setEggTaxFields] = useState<TaxFieldsState>(emptyTaxFields);
+  const [savingEggSale, setSavingEggSale] = useState(false);
+  const eggSaleSavingRef = useRef(false);
+  const eggSaleMutationIdRef = useRef<string | null>(null);
   const [meatChartRows, setMeatChartRows] = useState<ChartAmountRow[]>([]);
   const [manureChartRows, setManureChartRows] = useState<ChartAmountRow[]>([]);
   const [otherChartRows, setOtherChartRows] = useState<ChartAmountRow[]>([]);
@@ -205,7 +222,7 @@ function VentasContent() {
     quantity: "1",
     weightKg: "",
     priceMode: "por_ave",
-    pricePerUnit: "25000",
+    pricePerUnit: "",
     buyer: "",
     presentation: "",
     henId: "",
@@ -215,9 +232,23 @@ function VentasContent() {
   });
   const [birdIsCredit, setBirdIsCredit] = useState(false);
   const [birdDueDate, setBirdDueDate] = useState("");
+  const [birdTaxFields, setBirdTaxFields] = useState<TaxFieldsState>(emptyTaxFields);
+  const [savingBirdSale, setSavingBirdSale] = useState(false);
+  const birdSaleSavingRef = useRef(false);
+  const birdSaleMutationIdRef = useRef<string | null>(null);
   const [eggBuyerCreditDays, setEggBuyerCreditDays] = useState(0);
   const [birdBuyerCreditDays, setBirdBuyerCreditDays] = useState(0);
   const [birdSearch, setBirdSearch] = useState("");
+  const { values: masterSettings } = useMasterSettings();
+  const { priceEgg, masterParams } = useSpeciesCatalog();
+  const liveBirdPricePerKg = Number(masterSettings["inventory.bird_price_per_kg"] || 0);
+  const getBirdDefaultPrice = (birdType: string, measuredWeightKg?: string | number | null, priceMode: string = "por_ave") => {
+    if (priceMode === "por_kg") return liveBirdPricePerKg > 0 ? String(Math.round(liveBirdPricePerKg)) : "";
+    const species = birdType === "gallina_descarte" || birdType === "gallo" ? "gallina" : birdType === "pollito" ? "pollo" : birdType;
+    const speciesWeight = masterParams.find((row) => row.species === species)?.targetWeightKg || 0;
+    const weight = Number(measuredWeightKg) || speciesWeight;
+    return liveBirdPricePerKg > 0 && weight > 0 ? String(Math.round(liveBirdPricePerKg * weight)) : "";
+  };
 
   // ─── Catalogs ───
   const { items: sizeOptions } = useCatalog("tamano_huevo");
@@ -297,11 +328,15 @@ function VentasContent() {
   const totalAmountAllItems = form.items.reduce((sum, item) => sum + getItemTotal(item), 0);
 
   // ─── Egg sale CRUD ───
-  const openNew = () => {
+  const openNew = async () => {
+    const masterSpecies = await loadSpeciesMasterParamsClient(true);
+    const masterEggPrice = masterSpecies.find((row) => row.species === "gallina")?.marketPriceEggUnitCOP || 0;
+    eggSaleMutationIdRef.current = null;
     setEditing(null);
     setError("");
     setIsCredit(false);
     setDueDate("");
+    setEggTaxFields(emptyTaxFields());
     setForm({
       date: new Date().toISOString().split("T")[0],
       species: "gallina",
@@ -309,14 +344,22 @@ function VentasContent() {
       lotCode: "",
       buyer: "",
       notes: "",
-      items: [{ key: "1", size: "", presentations: 1, presentation: "", pricePerUnit: "500" }],
+      items: [{ key: "1", size: "", presentations: 1, presentation: "", pricePerUnit: masterEggPrice > 0 ? String(masterEggPrice) : "" }],
     });
     setModalOpen(true);
   };
 
   const openEdit = (s: Sale) => {
+    eggSaleMutationIdRef.current = null;
     setEditing(s);
     setError("");
+    setEggTaxFields({
+      ivaRate: s.ivaRate || "",
+      reteFuenteRate: s.reteFuenteRate || "",
+      icaRate: s.icaRate || "",
+      otherDeductionsAmount: s.otherDeductionsAmount || "",
+      taxNotes: s.taxNotes || "",
+    });
     const editItems: SaleFormItem[] = s.items.length > 0
       ? s.items.map((item, idx) => {
         const units = presentOptions.find((o) => o.value === item.presentation)?.units ?? null;
@@ -341,6 +384,9 @@ function VentasContent() {
           if (sizeOpt?.price) {
             const units = getItemUnits(updated);
             updated.pricePerUnit = String(Number(sizeOpt.price) * units);
+          } else {
+            const masterEggPrice = priceEgg(form.species);
+            if (masterEggPrice > 0) updated.pricePerUnit = String(Math.round(masterEggPrice * getItemUnits(updated)));
           }
         }
         if (changes.presentation) {
@@ -348,6 +394,9 @@ function VentasContent() {
           const newUnits = presentOptions.find((o) => o.value === changes.presentation)?.units ?? 1;
           if (sizeOpt?.price) {
             updated.pricePerUnit = String(Number(sizeOpt.price) * newUnits);
+          } else {
+            const masterEggPrice = priceEgg(form.species);
+            if (masterEggPrice > 0) updated.pricePerUnit = String(Math.round(masterEggPrice * newUnits));
           }
         }
         return updated;
@@ -356,7 +405,8 @@ function VentasContent() {
   };
 
   const addItem = () => {
-    setForm((f) => ({ ...f, items: [...f.items, { key: String(Date.now()), size: "", presentations: 1, presentation: "", pricePerUnit: "500" }] }));
+    const masterEggPrice = priceEgg(form.species);
+    setForm((f) => ({ ...f, items: [...f.items, { key: String(Date.now()), size: "", presentations: 1, presentation: "", pricePerUnit: masterEggPrice > 0 ? String(masterEggPrice) : "" }] }));
   };
 
   const removeItem = (key: string) => {
@@ -372,6 +422,7 @@ function VentasContent() {
   };
 
   const saveEggSale = async () => {
+    if (eggSaleSavingRef.current) return;
     setError("");
     for (const item of form.items) {
       if (!item.size) { setError("Selecciona el tamaño del huevo en cada línea"); return; }
@@ -387,15 +438,37 @@ function VentasContent() {
       lotCode: form.lotCode || null,
       buyer: form.buyer || null,
       notes: form.notes || null,
+      ivaRate: Number(eggTaxFields.ivaRate || 0),
+      reteFuenteRate: Number(eggTaxFields.reteFuenteRate || 0),
+      icaRate: Number(eggTaxFields.icaRate || 0),
+      otherDeductionsAmount: Number(eggTaxFields.otherDeductionsAmount || 0),
+      taxNotes: eggTaxFields.taxNotes || null,
       isCredit, dueDate: dueDate || null,
       items: form.items.map((item) => ({ size: item.size, quantity: getItemEggs(item), presentations: item.presentations, pricePerUnit: Number(item.pricePerUnit), presentation: item.presentation || null })),
     };
     const method = editing ? "PUT" : "POST";
     const body = editing ? { ...payload, id: editing.id } : payload;
-    const res = await apiFetch("/api/finanzas/finanzas/ventas", { method, headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
+    eggSaleSavingRef.current = true;
+    setSavingEggSale(true);
+    eggSaleMutationIdRef.current ||= crypto.randomUUID();
+    let res: Response;
+    try {
+      res = await apiFetch("/api/finanzas/finanzas/ventas", {
+        method,
+        headers: { "Content-Type": "application/json", "X-Client-Mutation-Id": eggSaleMutationIdRef.current },
+        body: JSON.stringify(body),
+      });
+    } catch (err) {
+      eggSaleSavingRef.current = false;
+      setSavingEggSale(false);
+      throw err;
+    }
+    eggSaleSavingRef.current = false;
+    setSavingEggSale(false);
     if (!res.ok) { const data = await res.json().catch(() => ({})); setError(data.error || "Error al guardar la venta"); return; }
+    eggSaleMutationIdRef.current = null;
     const summaryText = form.items.map((item) => `${getItemEggs(item)} huevos ${item.size}`).join(" + ");
-    const unitPriceAvg = totalEggsAllItems > 0 ? totalAmountAllItems / totalEggsAllItems : 500;
+    const unitPriceAvg = totalEggsAllItems > 0 ? totalAmountAllItems / totalEggsAllItems : 0;
     setLastInsight(
       buildSaleMicroInsight({
         date: form.date,
@@ -421,12 +494,18 @@ function VentasContent() {
   };
 
   // ─── Chicken sale CRUD ───
-  const openNewBird = () => {
+  const openNewBird = async () => {
+    const [masterSpecies, settings] = await Promise.all([loadSpeciesMasterParamsClient(true), loadMasterSettings(true)]);
+    const liveBirdRate = Number(settings["inventory.bird_price_per_kg"] || 0);
+    const defaultWeight = masterSpecies.find((row) => row.species === "gallina")?.targetWeightKg || 0;
+    const defaultBirdPrice = liveBirdRate > 0 && defaultWeight > 0 ? String(Math.round(liveBirdRate * defaultWeight)) : "";
+    birdSaleMutationIdRef.current = null;
     setEditingBird(null);
     setBirdError("");
     setBirdIsCredit(false);
     setBirdDueDate("");
-    setBirdForm({ date: new Date().toISOString().split("T")[0], birdType: "gallina_descarte", quantity: "1", weightKg: "", priceMode: "por_ave", pricePerUnit: "25000", buyer: "", presentation: "", henId: "", roosterId: "", batchId: "", notes: "" });
+    setBirdTaxFields(emptyTaxFields());
+    setBirdForm({ date: new Date().toISOString().split("T")[0], birdType: "gallina_descarte", quantity: "1", weightKg: defaultWeight > 0 ? String(defaultWeight) : "", priceMode: "por_ave", pricePerUnit: defaultBirdPrice, buyer: "", presentation: "", henId: "", roosterId: "", batchId: "", notes: "" });
     setBirdModalOpen(true);
   };
   const activeTab = searchParams.get("tab");
@@ -441,10 +520,18 @@ function VentasContent() {
   );
 
   const openEditBird = (s: ChickenSale) => {
+    birdSaleMutationIdRef.current = null;
     setEditingBird(s);
     setBirdError("");
     setBirdIsCredit(!!s.isCredit);
     setBirdDueDate(s.dueDate || "");
+    setBirdTaxFields({
+      ivaRate: s.ivaRate || "",
+      reteFuenteRate: s.reteFuenteRate || "",
+      icaRate: s.icaRate || "",
+      otherDeductionsAmount: s.otherDeductionsAmount || "",
+      taxNotes: s.taxNotes || "",
+    });
     setBirdForm({ date: s.date, birdType: s.birdType, quantity: String(s.quantity), weightKg: s.weightKg || "", priceMode: s.priceMode, pricePerUnit: s.pricePerUnit, buyer: s.buyer || "", presentation: s.presentation || "", henId: s.henId || "", roosterId: s.roosterId || "", batchId: s.batchId || "", notes: s.notes || "" });
     setBirdModalOpen(true);
   };
@@ -453,7 +540,7 @@ function VentasContent() {
     if (henId) {
       const hen = hens.find((h) => h.id === henId);
       if (hen) {
-        setBirdForm({ ...birdForm, birdType: "gallina_descarte", henId, roosterId: "", batchId: "", weightKg: hen.weight, quantity: "1" });
+        setBirdForm({ ...birdForm, birdType: "gallina_descarte", henId, roosterId: "", batchId: "", weightKg: hen.weight, pricePerUnit: getBirdDefaultPrice("gallina_descarte", hen.weight), quantity: "1" });
       }
     } else {
       setBirdForm({ ...birdForm, henId: "" });
@@ -463,7 +550,7 @@ function VentasContent() {
   const handleBirdRoosterSelect = (roosterId: string) => {
     if (roosterId) {
       const rooster = roosters.find((r) => r.id === roosterId);
-      setBirdForm({ ...birdForm, roosterId, henId: "", batchId: "", birdType: "gallo", weightKg: rooster?.weight || "", quantity: "1" });
+      setBirdForm({ ...birdForm, roosterId, henId: "", batchId: "", birdType: "gallo", weightKg: rooster?.weight || "", pricePerUnit: getBirdDefaultPrice("gallo", rooster?.weight), quantity: "1" });
     } else {
       setBirdForm({ ...birdForm, roosterId: "" });
     }
@@ -472,7 +559,8 @@ function VentasContent() {
   const handleBirdBatchSelect = (batchId: string) => {
     if (batchId) {
       const batch = batches.find((b) => b.id === batchId);
-      setBirdForm({ ...birdForm, batchId, henId: "", roosterId: "", birdType: batch?.species || "pollo", quantity: String(batch?.currentQuantity || 1) });
+      const species = batch?.species || "pollo";
+      setBirdForm({ ...birdForm, batchId, henId: "", roosterId: "", birdType: species, pricePerUnit: getBirdDefaultPrice(species), quantity: String(batch?.currentQuantity || 1) });
     } else {
       setBirdForm({ ...birdForm, batchId: "" });
     }
@@ -488,6 +576,7 @@ function VentasContent() {
   };
 
   const saveBirdSale = async () => {
+    if (birdSaleSavingRef.current) return;
     setBirdError("");
     const qty = Number(birdForm.quantity);
     if (!birdForm.birdType) { setBirdError("Tipo de ave requerido"); return; }
@@ -507,6 +596,11 @@ function VentasContent() {
       buyer: birdForm.buyer || null,
       presentation: birdForm.presentation || null,
       notes: birdForm.notes || null,
+      ivaRate: Number(birdTaxFields.ivaRate || 0),
+      reteFuenteRate: Number(birdTaxFields.reteFuenteRate || 0),
+      icaRate: Number(birdTaxFields.icaRate || 0),
+      otherDeductionsAmount: Number(birdTaxFields.otherDeductionsAmount || 0),
+      taxNotes: birdTaxFields.taxNotes || null,
       isCredit: birdIsCredit,
       dueDate: birdDueDate || null,
       ...(birdForm.henId ? { henId: birdForm.henId } : {}),
@@ -516,8 +610,25 @@ function VentasContent() {
     };
 
     const method = editingBird ? "PUT" : "POST";
-    const res = await apiFetch("/api/finanzas/finanzas/ventas-aves", { method, headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) });
+    birdSaleSavingRef.current = true;
+    setSavingBirdSale(true);
+    birdSaleMutationIdRef.current ||= crypto.randomUUID();
+    let res: Response;
+    try {
+      res = await apiFetch("/api/finanzas/finanzas/ventas-aves", {
+        method,
+        headers: { "Content-Type": "application/json", "X-Client-Mutation-Id": birdSaleMutationIdRef.current },
+        body: JSON.stringify(payload),
+      });
+    } catch (err) {
+      birdSaleSavingRef.current = false;
+      setSavingBirdSale(false);
+      throw err;
+    }
+    birdSaleSavingRef.current = false;
+    setSavingBirdSale(false);
     if (!res.ok) { const data = await res.json().catch(() => ({})); setBirdError(data.error || "Error al guardar"); return; }
+    birdSaleMutationIdRef.current = null;
     const totalAmt = Number(birdTotal() || 0);
     setLastInsight(
       buildSaleMicroInsight({
@@ -875,7 +986,17 @@ function VentasContent() {
           {error && <p className="text-sm text-red-600 bg-red-50 p-3 rounded-lg">{error}</p>}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <Input label="Fecha" type="date" value={form.date} onChange={(e) => setForm({ ...form, date: e.target.value })} />
-            <Select label="Especie" value={form.species} onChange={(e) => setForm({ ...form, species: e.target.value })}>
+            <Select label="Especie" value={form.species} onChange={(e) => {
+              const species = e.target.value;
+              const masterPrice = priceEgg(species);
+              setForm((previous) => ({
+                ...previous,
+                species,
+                items: previous.items.map((item) => !item.size && masterPrice > 0
+                  ? { ...item, pricePerUnit: String(Math.round(masterPrice * getItemUnits(item))) }
+                  : item),
+              }));
+            }}>
               <option value="gallina">Gallina</option>
               <option value="codorniz">Codorniz</option>
               <option value="pato">Pato</option>
@@ -1027,9 +1148,17 @@ function VentasContent() {
           </div>
 
           <Textarea label="Notas" value={form.notes} onChange={(e) => setForm({ ...form, notes: e.target.value })} />
+          <TaxDeductionsFields
+            grossAmount={totalAmountAllItems}
+            value={eggTaxFields}
+            onChange={setEggTaxFields}
+            mode="ingreso"
+            profile="agro"
+            isExisting={Boolean(editing)}
+          />
           <div className="flex gap-3">
-            <Button onClick={saveEggSale} disabled={totalEggsAllItems < 1 || form.items.some((i) => !i.size) || form.items.some((i) => i.size && getItemEggs(i) > getRemainingAvailable(i.size, i.key))}>
-              {editing ? "Actualizar Venta" : "Registrar Venta"}
+            <Button onClick={saveEggSale} disabled={savingEggSale || totalEggsAllItems < 1 || form.items.some((i) => !i.size) || form.items.some((i) => i.size && getItemEggs(i) > getRemainingAvailable(i.size, i.key))}>
+              {savingEggSale ? "Guardando..." : editing ? "Actualizar Venta" : "Registrar Venta"}
             </Button>
             <Button variant="secondary" onClick={() => setModalOpen(false)}>Cancelar</Button>
           </div>
@@ -1042,7 +1171,10 @@ function VentasContent() {
           {birdError && <p className="text-sm text-red-600 bg-red-50 p-3 rounded-lg">{birdError}</p>}
           <div className="grid grid-cols-2 gap-3">
             <Input label="Fecha" type="date" value={birdForm.date} onChange={(e) => setBirdForm({ ...birdForm, date: e.target.value })} />
-            <Select label="Tipo / Especie" value={birdForm.birdType} onChange={(e) => setBirdForm({ ...birdForm, birdType: e.target.value })}>
+            <Select label="Tipo / Especie" value={birdForm.birdType} onChange={(e) => {
+              const birdType = e.target.value;
+              setBirdForm((previous) => ({ ...previous, birdType, pricePerUnit: getBirdDefaultPrice(birdType, previous.weightKg, previous.priceMode) }));
+            }}>
               {birdTypeOptions.map((t) => (
                 <option key={t} value={t}>{birdTypeLabels[t] || t}</option>
               ))}
@@ -1077,10 +1209,10 @@ function VentasContent() {
           )}
           <div className="grid grid-cols-2 gap-3">
             <Input label="Cantidad (animales)" type="number" min="1" value={birdForm.quantity} onChange={(e) => setBirdForm({ ...birdForm, quantity: e.target.value })} />
-            <Input label="Peso total (kg)" type="number" step="0.1" value={birdForm.weightKg} onChange={(e) => setBirdForm({ ...birdForm, weightKg: e.target.value })} placeholder="Opcional" />
+              <Input label="Peso total (kg)" type="number" step="0.1" value={birdForm.weightKg} onChange={(e) => setBirdForm({ ...birdForm, weightKg: e.target.value, ...(birdForm.priceMode === "por_ave" ? { pricePerUnit: getBirdDefaultPrice(birdForm.birdType, e.target.value, birdForm.priceMode) } : {}) })} placeholder="Opcional" />
           </div>
           <div className="grid grid-cols-2 gap-3">
-            <Select label="Precio por" value={birdForm.priceMode} onChange={(e) => setBirdForm({ ...birdForm, priceMode: e.target.value })}>
+            <Select label="Precio por" value={birdForm.priceMode} onChange={(e) => setBirdForm({ ...birdForm, priceMode: e.target.value, pricePerUnit: getBirdDefaultPrice(birdForm.birdType, birdForm.weightKg, e.target.value) })}>
               <option value="por_ave">Por animal</option>
               <option value="por_kg">Por kg</option>
             </Select>
@@ -1137,9 +1269,17 @@ function VentasContent() {
           </div>
 
           <Textarea label="Notas" value={birdForm.notes} onChange={(e) => setBirdForm({ ...birdForm, notes: e.target.value })} />
+          <TaxDeductionsFields
+            grossAmount={Number(birdTotal())}
+            value={birdTaxFields}
+            onChange={setBirdTaxFields}
+            mode="ingreso"
+            profile="agro"
+            isExisting={Boolean(editingBird)}
+          />
           <div className="flex gap-3">
-            <Button onClick={saveBirdSale} disabled={!birdForm.henId && !birdForm.roosterId && !birdForm.batchId}>
-              {editingBird ? "Actualizar Venta" : "Registrar Venta"}
+            <Button onClick={saveBirdSale} disabled={savingBirdSale || (!birdForm.henId && !birdForm.roosterId && !birdForm.batchId)}>
+              {savingBirdSale ? "Guardando..." : editingBird ? "Actualizar Venta" : "Registrar Venta"}
             </Button>
             <Button variant="secondary" onClick={() => setBirdModalOpen(false)}>Cancelar</Button>
           </div>

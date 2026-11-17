@@ -191,10 +191,12 @@ describe("enrutamiento opcional y re-ranking con TypeSafe Jev", () => {
     expect(disabled).toBeNull();
   });
 
-  it("cubre en TOOL_ROUTES el 100 % de las herramientas registradas en AGENT_TOOLS", () => {
+  it("cubre el 100 % de AGENT_TOOLS: dominio Jev o extra transversal inyectada por routeAgentTools", () => {
+    // navegar_app se inyecta siempre como extra transversal (deep-links exactos en cualquier dominio).
+    const transversalExtras = new Set(["navegar_app"]);
     const routedNames = new Set(Object.values(TOOL_ROUTES).flat());
     for (const registered of AGENT_TOOLS) {
-      expect(routedNames.has(registered.name)).toBe(true);
+      expect(routedNames.has(registered.name) || transversalExtras.has(registered.name)).toBe(true);
     }
   });
 });

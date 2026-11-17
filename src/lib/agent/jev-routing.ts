@@ -18,15 +18,15 @@ export const JEV_INTENT_CRITERIA = {
   animales:
     "Consultar o registrar animales, traslados de aves/lotes, adquisiciones, genética, lotes, pesajes, mortalidad, sacrificio/faena, reproducción de conejos/cuyes o incubación.",
   produccion:
-    "Consultar o registrar huevos (NTC 1240), postura, incubación, autoconsumo, sacrificio/carne, gallinaza/ajustes o sensores en galpón.",
+    "Consultar o registrar huevos (NTC 1240), postura, pérdidas/rotura de huevos, incubación, autoconsumo, sacrificio/carne, gallinaza/ajustes, sensores en galpón o plan de parvada.",
   alimentacion_sanidad:
-    "Consultar o registrar alimentos, programas nutricionales por etapa, insumos/movimientos, predicción/FCR, vacunas, tratamientos, controles sanitarios, bioseguridad POE GAB/Res. 8452 o compostaje.",
+    "Consultar o registrar alimentos, programas nutricionales por etapa, insumos/movimientos, predicción/FCR, vacunas, tratamientos, controles sanitarios, bioseguridad POE GAB/Res. 8452, compostaje o contexto de clima/estrés térmico (ITH, fuentes externas).",
   lugares_mantenimiento:
     "Consultar, crear o editar lugares de manejo, trasladar animales, activos, equipos, mantenimiento, sensores IoT, compostaje, rutina diaria, calendario o cierre diario.",
   finanzas:
-    "Consultar o registrar ingresos, egresos, adquisiciones, compras, ventas, presupuestos comparativos, cuentas por cobrar/pagar, abonos/pagos, contabilidad analítica, prorrateo de costos o contactos.",
+    "Consultar o registrar ingresos, egresos, adquisiciones, compras, ventas, personal, nómina, jornales, prestaciones e impuestos laborales, pagos de personal, presupuestos (crear o comparar), cuentas por cobrar/pagar, abonos/pagos, contabilidad analítica, prorrateo de costos, contactos o adjuntos/facturas.",
   resumen_granja:
-    "Consultar un resumen general, KPIs zootécnicos, inventarios, contabilidad analítica, rutina de hoy, manual de procedimientos o memoria operativa de la granja.",
+    "Consultar un resumen general, KPIs zootécnicos, KPIs de adopción y hábitos, inventarios, contabilidad analítica, rutina de hoy, plan de parvada, fuentes externas (clima, SIPSA, TRM, ICA, IDEAM, DIAN), kit de campo llave en mano, adjuntos/documentos, manual de procedimientos o memoria operativa de la granja.",
   otro: "Pedir ayuda general, conversar o combinar múltiples áreas no cubiertas claramente por una sola.",
 } as const;
 
@@ -65,6 +65,8 @@ export const TOOL_ROUTES: Record<JevDomain, string[]> = {
     "registrar_venta_gallinaza",
     "registrar_sacrificio_carne",
     "ajustar_gallinaza",
+    "registrar_perdida_huevos",
+    "consultar_plan_parvada",
   ],
   alimentacion_sanidad: [
     "consultar_sanidad",
@@ -85,6 +87,7 @@ export const TOOL_ROUTES: Record<JevDomain, string[]> = {
     "registrar_compostaje",
     "registrar_mortalidad",
     "ajustar_gallinaza",
+    "consultar_fuentes_externas",
   ],
   lugares_mantenimiento: [
     "consultar_ubicaciones",
@@ -122,6 +125,10 @@ export const TOOL_ROUTES: Record<JevDomain, string[]> = {
     "registrar_venta_huevos",
     "registrar_venta_carne",
     "registrar_venta_gallinaza",
+    "consultar_personal_nomina",
+    "registrar_pago_personal",
+    "registrar_presupuesto",
+    "consultar_adjuntos",
   ],
   resumen_granja: [
     "consultar_resumen_granja",
@@ -152,6 +159,11 @@ export const TOOL_ROUTES: Record<JevDomain, string[]> = {
     "consultar_conocimiento",
     "consultar_memoria_granja",
     "recordar_dato_granja",
+    "consultar_fuentes_externas",
+    "consultar_plan_parvada",
+    "consultar_kpis_adopcion",
+    "consultar_kit_campo",
+    "consultar_adjuntos",
   ],
 };
 
@@ -287,11 +299,11 @@ export async function routeAgentTools(
         },
         domain_produccion: {
           type: "noul",
-          instructions: "Does user_message involve eggs, incubation, self-consumption, meat/manure output or barn sensor readings?",
+          instructions: "Does user_message involve eggs, egg losses/breakage, incubation, self-consumption, meat/manure output, barn sensor readings or the flock plan?",
         },
         domain_alimentacion_sanidad: {
           type: "noul",
-          instructions: "Does user_message involve feed/nutrition rations, supplies, vaccines, medical withdrawal/treatments, biosecurity or composting?",
+          instructions: "Does user_message involve feed/nutrition rations, supplies, vaccines, medical withdrawal/treatments, biosecurity, composting or weather/heat-stress context (ITH)?",
         },
         domain_lugares_mantenimiento: {
           type: "noul",
@@ -299,7 +311,7 @@ export async function routeAgentTools(
         },
         domain_finanzas: {
           type: "noul",
-          instructions: "Does user_message involve sales, expenses, income, payments/receivables/payables, budgets, analytical cost allocation or contacts?",
+          instructions: "Does user_message involve sales, expenses, income, payroll/staff payments, budgets, payments/receivables/payables, analytical cost allocation, contacts or invoice attachments?",
         },
       },
     });
@@ -313,6 +325,8 @@ export async function routeAgentTools(
     const needsMemory = needsMemoryScore != null && needsMemoryScore >= 0.78;
 
     const extras = new Set<string>();
+    // Navegación transversal: siempre disponible para generar deep-links exactos en cualquier dominio.
+    extras.add("navegar_app");
     if (needsKnowledge) extras.add("consultar_conocimiento");
     if (needsMemory) {
       extras.add("consultar_memoria_granja");

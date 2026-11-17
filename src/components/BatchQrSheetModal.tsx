@@ -191,7 +191,7 @@ export default function BatchQrSheetModal({
         <html lang="es">
           <head>
             <meta charset="utf-8" />
-            <title>Plancha QR en Lote · Iwagé Granja (${escapeHtml(layout)})</title>
+            <title>Plancha QR en Lote · IwaGranja (${escapeHtml(layout)})</title>
             <style>
               * { box-sizing: border-box; }
               @page { size: A4; margin: 10mm; }

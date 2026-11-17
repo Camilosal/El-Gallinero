@@ -6,22 +6,9 @@ import { withApiHandler, safeParseJson } from "@/lib/api-handler";
 import { addDaysIso, isDateOnly, todayColombiaIso } from "@/lib/date-validation";
 import { requirePermission } from "@/lib/rbac-server";
 import { assertDateNotClosed } from "@/lib/sanitary-locks";
+import { suggestCarbonKg } from "@/lib/manure-operations";
 
 export const dynamic = "force-dynamic";
-
-export function suggestCarbonKg(formulaRatio: string, manureKg: number, mortalityKg: number): number {
-  const m = Math.max(0, Number(manureKg) || 0);
-  const mort = Math.max(0, Number(mortalityKg) || 0);
-  if (formulaRatio === "3:1:1") {
-    // 3 partes cama/gallinaza : 1 mortalidad : 1 material carbonoso
-    return Number((m > 0 ? m / 3 : mort).toFixed(2));
-  }
-  if (formulaRatio === "7:2:2") {
-    // 7 partes cama/gallinaza : 2 mortalidad : 2 material carbonoso
-    return Number((m > 0 ? (m * 2) / 7 : mort).toFixed(2));
-  }
-  return Number(((m + mort) * 0.3).toFixed(2));
-}
 
 function evaluatePileAlerts(pile: {
   currentTempC: string | number | null;

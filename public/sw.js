@@ -1,4 +1,4 @@
-const CACHE_VERSION = 'v11';
+const CACHE_VERSION = 'v12';
 const APP_CACHE = `gallinero-app-${CACHE_VERSION}`;
 const PRECACHE = [
   '/',
@@ -224,4 +224,68 @@ self.addEventListener('message', (event) => {
   if (event.data && event.data.type === 'SKIP_WAITING') {
     self.skipWaiting();
   }
+  // C2: push local de briefings, solo si el cliente ya verificó el permiso del usuario.
+  if (event.data && event.data.type === 'SHOW_BRIEFING_NOTIFICATION') {
+    const payload = sanitizeBriefingPushPayload(event.data.payload);
+    event.waitUntil(
+      self.registration.showNotification(payload.title, {
+        body: payload.body,
+        tag: payload.tag,
+        icon: '/icon-192.png',
+        badge: '/icon-192.png',
+        data: { url: payload.url },
+      })
+    );
+  }
+});
+
+// C2: privacidad — la notificación nunca lleva datos sensibles de la granja
+// (hallazgos, cifras, nombres). Solo título genérico + conteo de novedades.
+function sanitizeBriefingPushPayload(raw) {
+  const count = Math.max(0, Math.floor(Number(raw && raw.unreadCount) || 0));
+  return {
+    title: 'Gina te informa',
+    body:
+      count === 1
+        ? 'Tienes 1 novedad de tu granja. Ábrela en IwaGranja.'
+        : 'Tienes ' + count + ' novedades de tu granja. Ábrelas en IwaGranja.',
+    url: '/inicio',
+    tag: 'gina-briefing',
+  };
+}
+
+self.addEventListener('push', (event) => {
+  let raw = null;
+  try {
+    raw = event.data ? event.data.json() : null;
+  } catch {
+    raw = null;
+  }
+  const payload = sanitizeBriefingPushPayload(raw);
+  event.waitUntil(
+    self.registration.showNotification(payload.title, {
+      body: payload.body,
+      tag: payload.tag,
+      icon: '/icon-192.png',
+      badge: '/icon-192.png',
+      data: { url: payload.url },
+    })
+  );
+});
+
+self.addEventListener('notificationclick', (event) => {
+  event.notification.close();
+  const targetUrl = (event.notification.data && event.notification.data.url) || '/inicio';
+  event.waitUntil(
+    self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then((clients) => {
+      for (const client of clients) {
+        if ('focus' in client) {
+          client.focus();
+          if ('navigate' in client) client.navigate(targetUrl).catch(() => undefined);
+          return;
+        }
+      }
+      return self.clients.openWindow(targetUrl);
+    })
+  );
 });

@@ -1,6 +1,6 @@
-# Fórmulas y cálculos — El Corral
+# Fórmulas y cálculos — IwaGranja
 
-> Motor de cálculo del sistema de gestión avícola multi-especie **El Corral**.
+> Motor de cálculo del sistema de gestión avícola multi-especie **IwaGranja**.
 > Documento trazable al código de `src/lib/` y de `src/app/api/` el **14 de noviembre de 2026**.
 
 **Alcance.** Este documento describe cada dato calculado del sistema: qué variable es, cómo se define, cuál es su fórmula, cómo la implementa el código, de qué tablas y campos sale y en qué pantalla, reporte o cálculo posterior termina. No inventa fórmulas: cada ficha cita el archivo y la función que la ejecuta. El modelo de datos subyacente está en el [diccionario de datos](data-dictionary.md).
@@ -574,7 +574,7 @@ Los inventarios son **saldos por movimientos**: no se guarda un campo «stock» 
 | **Cálculo` | Si el usuario ingresa `carbon_material_kg` se usa ese valor; si no, se sugiere por la fórmula. Se asegura que gallinaza + mortalidad > 0. |
 | **Origen` | Entrada del usuario (`manure_kg`, `mortality_kg`, `formula_ratio`). |
 | **Destino` | `composting_piles` y plan de volteo. |
-| **Código` | [`src/app/api/operaciones/compostaje/route.ts`](../src/app/api/operaciones/compostaje/route.ts) → `suggestCarbonKg()`. |
+| **Código` | [`src/lib/manure-operations.ts`](../src/lib/manure-operations.ts) → `suggestCarbonKg()`. |
 
 ### GAL-04 · Programación de volteo y cosecha de compost
 
@@ -660,7 +660,7 @@ Los inventarios son **saldos por movimientos**: no se guarda un campo «stock» 
 | **Cálculo` | `T` = temperatura en °C, `HR` = humedad relativa en % (clampada a 0–100). Resultado redondeado a 2 decimales. Si el registro ya trae `ith_index`, se usa directamente; si no, se calcula desde `temperatura` y `humedad`. |
 | **Origen` | `sensor_readings.value` (temperatura, humedad) o `sensor_readings.ith_index`. |
 | **Destino` | `SEN-02`, resumen de sensores y alertas térmicas. |
-| **Código` | [`src/app/api/operaciones/sensores/route.ts`](../src/app/api/operaciones/sensores/route.ts) → `computeIth()`. |
+| **Código` | [`src/lib/sensor-metrics.ts`](../src/lib/sensor-metrics.ts) → `computeIth()`. |
 
 ### SEN-02 · Evaluación de alertas de sensores
 
@@ -672,7 +672,7 @@ Los inventarios son **saldos por movimientos**: no se guarda un campo «stock» 
 | **Cálculo` | Si viene `ith_index`, se evalúa primero. Si no, se evalúa por tipo de métrica (`temperatura`, `humedad`, `amoniaco_ppm`, `ith`). |
 | **Origen` | `sensor_readings.metric_type`, `value`, `ith_index`. |
 | **Destino` | `sensor_readings.alert_triggered`, resumen de alertas y dashboard de sensores. |
-| **Código` | [`src/app/api/operaciones/sensores/route.ts`](../src/app/api/operaciones/sensores/route.ts) → `evaluateSensorAlert()`. |
+| **Código` | [`src/lib/sensor-metrics.ts`](../src/lib/sensor-metrics.ts) → `evaluateSensorAlert()`. |
 
 ### SEN-03 · Resumen de lecturas de sensores
 
@@ -1095,4 +1095,4 @@ Cuando se agregue, modifique o elimine un cálculo en el código:
 
 ---
 
-*Documento mantenido por el equipo de El Corral. Última verificación: 14 de noviembre de 2026. Código base: `src/lib/` y `src/app/api/`.*
+*Documento mantenido por el equipo de IwaGranja. Última verificación: 14 de noviembre de 2026. Código base: `src/lib/` y `src/app/api/`.*

@@ -11,6 +11,8 @@ import TableSearch from "@/components/TableSearch";
 import { apiFetch } from "@/lib/fetch";
 import { matchesTextQuery } from "@/lib/text";
 import { HEN_PRESENT_STATUSES, isHenAvailableForExit } from "@/lib/animal-status";
+import { loadMasterSettings, useMasterSettings } from "@/lib/use-master-settings";
+import { TaxDeductionsFields, emptyTaxFields, type TaxFieldsState } from "@/components/TaxDeductionsFields";
 
 interface Hen {
   id: string;
@@ -76,6 +78,9 @@ export default function HenDetailPage() {
   const [actionError, setActionError] = useState("");
   const [actionSuccess, setActionSuccess] = useState("");
   const [actionSubmitting, setActionSubmitting] = useState(false);
+  const [saleTaxFields, setSaleTaxFields] = useState<TaxFieldsState>(emptyTaxFields);
+  const { values: masterSettings } = useMasterSettings();
+  const liveBirdPricePerKg = Number(masterSettings["inventory.bird_price_per_kg"] || 0);
   const [timelineSearch, setTimelineSearch] = useState("");
   const actionSubmittingRef = useRef(false);
 
@@ -98,12 +103,17 @@ export default function HenDetailPage() {
     load();
   }, [load]);
 
-  const openAction = (action: "vender" | "tratar" | "muerte") => {
+  const openAction = async (action: "vender" | "tratar" | "muerte") => {
     setActionModal(action);
     setActionError("");
     setActionSuccess("");
     if (action === "vender") {
-      setActionForm({ buyer: "", pricePerUnit: "15000", weightKg: hen?.weight || "" });
+      const currentSettings = await loadMasterSettings();
+      const currentPricePerKg = Number(currentSettings["inventory.bird_price_per_kg"] || 0);
+      const weightKg = Number(hen?.weight || 0);
+      const defaultPrice = currentPricePerKg > 0 && weightKg > 0 ? String(Math.round(currentPricePerKg * weightKg)) : "";
+      setActionForm({ buyer: "", pricePerUnit: defaultPrice, weightKg: hen?.weight || "" });
+      setSaleTaxFields(emptyTaxFields());
     } else if (action === "tratar") {
       setActionForm({
         date: new Date().toISOString().split("T")[0],
@@ -144,6 +154,11 @@ export default function HenDetailPage() {
             totalAmount: price,
             buyer: actionForm.buyer,
             henId: hen.id,
+            ivaRate: Number(saleTaxFields.ivaRate || 0),
+            reteFuenteRate: Number(saleTaxFields.reteFuenteRate || 0),
+            icaRate: Number(saleTaxFields.icaRate || 0),
+            otherDeductionsAmount: Number(saleTaxFields.otherDeductionsAmount || 0),
+            taxNotes: saleTaxFields.taxNotes || null,
           }),
         });
         if (!res.ok) {
@@ -397,13 +412,21 @@ export default function HenDetailPage() {
                   type="number"
                   step="0.01"
                   value={actionForm.weightKg || ""}
-                  onChange={(e) => setActionForm({ ...actionForm, weightKg: e.target.value })}
+                  onChange={(e) => setActionForm({ ...actionForm, weightKg: e.target.value, pricePerUnit: liveBirdPricePerKg > 0 && Number(e.target.value) > 0 ? String(Math.round(liveBirdPricePerKg * Number(e.target.value))) : actionForm.pricePerUnit })}
                 />
                 <Input
                   label="Precio por ave ($)"
                   type="number"
                   value={actionForm.pricePerUnit || ""}
                   onChange={(e) => setActionForm({ ...actionForm, pricePerUnit: e.target.value })}
+                />
+                <TaxDeductionsFields
+                  grossAmount={Number(actionForm.pricePerUnit || 0)}
+                  value={saleTaxFields}
+                  onChange={setSaleTaxFields}
+                  mode="ingreso"
+                  profile="agro"
+                  isExisting={false}
                 />
               </>
             )}

@@ -171,8 +171,8 @@ export const FEATURE_FLAG_CATALOG: FeatureFlagDefinition[] = [
   },
   {
     key: "whatsapp_parte_diario",
-    name: "Resumen y Alertas por WhatsApp",
-    description: "Parte operativo diario y recordatorios rápidos de rutina o stock crítico.",
+    name: "Parte diario · Telegram/compartir",
+    description: "Parte operativo diario y recordatorios rápidos de rutina o stock crítico, listos para Telegram o compartir.",
     defaultPequeno: true,
     defaultMediano: true,
     manualUnlock: false,

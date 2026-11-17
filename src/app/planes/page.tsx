@@ -5,16 +5,16 @@ import { CYCLE_PLANS_SHOWCASE } from "@/lib/landing-showcase";
 import { PLAN_PROMISES } from "@/lib/legal";
 import { buildPageMetadata, buildSoftwareNode } from "@/lib/seo";
 
-const TITLE = "Planes y precios por ciclo productivo · El Corral";
+const TITLE = "Planes y precios por ciclo productivo · IwaGranja";
 const DESCRIPTION =
-  "Compara el plan gratuito Semilla y los ciclos pagos de El Corral en pesos colombianos (IVA incluido), sin tarjeta ni cobros automáticos.";
+  "Compara el plan gratuito Semilla y los ciclos pagos de IwaGranja en pesos colombianos (IVA incluido), sin tarjeta ni cobros automáticos.";
 
 export const metadata: Metadata = buildPageMetadata({
   title: TITLE,
   description: DESCRIPTION,
   path: "/planes",
   ogImage: "/images/guia/finanzas-presupuestos.webp",
-  ogImageAlt: "Planes por ciclo productivo en El Corral",
+  ogImageAlt: "Planes por ciclo productivo en IwaGranja",
 });
 
 export default function PlanesIndexPage() {

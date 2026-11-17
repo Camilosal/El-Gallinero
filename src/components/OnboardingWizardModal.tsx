@@ -29,6 +29,7 @@ import {
 } from "@/lib/onboarding";
 import { broadcastOnboardingState, useOnboardingState } from "@/lib/useOnboardingState";
 import { openQuickCapture } from "@/lib/quick-capture-events";
+import { trackOnboardingCompletion } from "@/lib/offline/telemetry";
 
 type AgeUnit = "dias" | "semanas" | "meses";
 
@@ -524,11 +525,7 @@ function WizardBody({
       }
       const startMs = wizardOpenedAtRef.current || Date.now();
       const durationSec = Math.max(1, Math.min(3600, Math.round((Date.now() - startMs) / 1000)));
-      void apiFetch("/api/analisis/kpis-adopcion", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ type: "onboarding", durationSec }),
-      }).catch(() => { });
+      trackOnboardingCompletion(durationSec);
 
       const validBagCost = Math.max(0, Number(costoPorBulto40kg) || 0);
       setCompletedSummary({

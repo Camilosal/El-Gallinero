@@ -55,6 +55,7 @@ const HEN_STATUSES = [
 interface MasterCatalogDef {
   category: string;
   value: string;
+  description?: string;
   tipo?: string;
   price?: string;
   units?: number;
@@ -203,6 +204,62 @@ const MASTER_CATALOG_DEFS: MasterCatalogDef[] = [
   { category: "etapa_crecimiento", value: "Postura", tipo: "gallina", minWeeks: 20, maxWeeks: null, expectedEggsPerHen: "0.85", sortOrder: 3 },
   { category: "etapa_crecimiento", value: "Cuy Crecimiento (4-8 sem)", tipo: "cuy", minWeeks: 4, maxWeeks: 8, expectedEggsPerHen: "0", sortOrder: 12 },
   { category: "etapa_crecimiento", value: "Cuy Engorde (8-16 sem)", tipo: "cuy", minWeeks: 8, maxWeeks: 16, expectedEggsPerHen: "0", sortOrder: 13 },
+
+  // Plantillas iniciales para formular proyectos donde El Gallinero sea un componente.
+  { category: "proyecto_proposito", value: "Seguridad y autonomía alimentaria", description: "El proyecto busca mejorar la disponibilidad de alimentos del hogar. El Gallinero registra producción destinada al autoconsumo y ayuda a observar su aporte y las brechas definidas por el proyecto.", sortOrder: 0 },
+  { category: "proyecto_proposito", value: "Diversificación de medios de vida e ingreso complementario", description: "El proyecto fortalece el aporte económico de la actividad animal dentro de los ingresos diversos del hogar.", sortOrder: 1 },
+  { category: "proyecto_proposito", value: "Consolidación productiva e ingreso neto", description: "El proyecto acompaña actividades con ventas más regulares y busca mejorar su planificación y viabilidad económica.", sortOrder: 2 },
+  { category: "proyecto_proposito", value: "Sanidad y continuidad productiva", description: "El proyecto acompaña prácticas sanitarias y continuidad de la producción con asistencia técnica competente.", sortOrder: 3 },
+  { category: "proyecto_proposito", value: "Extensión y adopción de prácticas", description: "El proyecto fortalece el acompañamiento técnico y el uso de información en las decisiones de los productores.", sortOrder: 4 },
+  { category: "proyecto_proposito", value: "Fortalecimiento asociativo y mercados locales", description: "El proyecto fortalece coordinación, capacidades colectivas y vínculos comerciales de los productores.", sortOrder: 5 },
+  { category: "proyecto_proposito", value: "Producción circular y uso eficiente de recursos", description: "El proyecto promueve prácticas de aprovechamiento de subproductos y gestión eficiente de recursos.", sortOrder: 6 },
+
+  { category: "beneficiario_arquetipo", value: "Hogar que asegura parte de su alimentación", description: "Perfil ilustrativo para adaptar: la cría aporta alimentos al hogar y puede generar excedentes ocasionales. Validar rutina, destino de producción y acceso a TIC en el territorio.", sortOrder: 0 },
+  { category: "beneficiario_arquetipo", value: "Hogar que planifica la disponibilidad de alimentos", description: "Perfil ilustrativo para adaptar: busca anticipar cambios en producción y autoconsumo. Validar necesidades, temporadas y condiciones de conectividad.", sortOrder: 1 },
+  { category: "beneficiario_arquetipo", value: "Hogar que fortalece su autonomía alimentaria", description: "Perfil ilustrativo para adaptar: incorpora la cría animal en una estrategia de autonomía y aprendizaje familiar o comunitario.", sortOrder: 2 },
+  { category: "beneficiario_arquetipo", value: "Hogar que vende excedentes cuando puede", description: "Perfil ilustrativo para adaptar: combina autoconsumo con ventas ocasionales y necesita distinguir el aporte económico de la actividad.", sortOrder: 3 },
+  { category: "beneficiario_arquetipo", value: "Productor familiar con ventas recurrentes", description: "Perfil ilustrativo para adaptar: realiza ventas frecuentes a pequeña escala y necesita relacionar producción, costos e ingresos.", sortOrder: 4 },
+  { category: "beneficiario_arquetipo", value: "Productor asociado a un mercado local", description: "Perfil ilustrativo para adaptar: participa en una iniciativa colectiva y requiere registrar su actividad con reglas claras de acceso a los datos.", sortOrder: 5 },
+  { category: "beneficiario_arquetipo", value: "Productor en transición hacia ventas regulares", description: "Perfil ilustrativo para adaptar: pasa de ventas ocasionales a pedidos más frecuentes y necesita acompañamiento para organizar registros y costos.", sortOrder: 6 },
+  { category: "beneficiario_arquetipo", value: "Unidad productiva familiar planificada", description: "Perfil ilustrativo para adaptar: distribuye tareas de producción y gestión entre integrantes del hogar y busca información compartida.", sortOrder: 7 },
+  { category: "beneficiario_arquetipo", value: "Emprendedor productor con meta de crecimiento", description: "Perfil ilustrativo para adaptar: busca planear crecimiento con información de producción, ventas, autoconsumo y gastos.", sortOrder: 8 },
+
+  { category: "enfoque_transversal", value: "Género y autonomía económica", description: "Identifica quién realiza el trabajo, quién registra y quién decide sobre la producción y sus ingresos; adaptar al proyecto y territorio.", sortOrder: 0 },
+  { category: "enfoque_transversal", value: "Juventud y proyecto de vida", description: "Vincula la actividad productiva con capacidades, aspiraciones y continuidad de proyectos de vida rurales.", sortOrder: 1 },
+  { category: "enfoque_transversal", value: "Pertinencia cultural y territorial", description: "Ajusta lenguaje, rutinas y acompañamiento a prácticas, identidades y condiciones del territorio.", sortOrder: 2 },
+  { category: "enfoque_transversal", value: "Inclusión y apropiación digital", description: "Considera acceso a dispositivo, conectividad, habilidades, canal preferido y apoyos necesarios para usar la herramienta.", sortOrder: 3 },
+  { category: "enfoque_transversal", value: "Trabajo familiar, asociativo o comunitario", description: "Reconoce quiénes participan en la actividad y cómo se distribuyen decisiones, registros y beneficios.", sortOrder: 4 },
+
+  { category: "ruta_implementacion", value: "Acompañamiento al hogar", description: "Diagnóstico, configuración, formación práctica y seguimiento con cada hogar beneficiario.", sortOrder: 0 },
+  { category: "ruta_implementacion", value: "Adopción facilitada por grupos", description: "La asociación u organización local facilita formación y apoyo colectivo; cada hogar conserva claridad sobre sus datos.", sortOrder: 1 },
+  { category: "ruta_implementacion", value: "Acompañamiento mediante extensión técnica", description: "Los registros se utilizan durante visitas y procesos de asistencia técnica acordados.", sortOrder: 2 },
+  { category: "ruta_implementacion", value: "Integración a un programa territorial", description: "La app se incorpora a varios componentes del proyecto con responsables, soporte y reglas de datos definidos.", sortOrder: 3 },
+
+  { category: "alcance_proyecto", value: "Piloto de encaje", description: "Un territorio o grupo pequeño, un propósito principal y pocas rutinas priorizadas para aprender y ajustar.", sortOrder: 0 },
+  { category: "alcance_proyecto", value: "Cohorte de implementación", description: "Varias familias o unidades productivas acompañadas con un plan común de formación, uso y soporte.", sortOrder: 1 },
+  { category: "alcance_proyecto", value: "Programa territorial", description: "Varias organizaciones o territorios, con gobernanza de datos, soporte sostenido y medición coordinada.", sortOrder: 2 },
+
+  { category: "componente_gallinero", value: "Registro de producción y destino", description: "Seguimiento de producción diferenciando autoconsumo, ventas y otros destinos configurados.", sortOrder: 0 },
+  { category: "componente_gallinero", value: "Captura operativa con asistente", description: "Consultas y registros en lenguaje natural desde el asistente de la aplicación, según las funciones habilitadas.", sortOrder: 1 },
+  { category: "componente_gallinero", value: "Canal externo de mensajería", description: "Componente sujeto a disponibilidad y validación del canal en cada despliegue; no ofertar como activo sin confirmar su estado.", sortOrder: 2 },
+  { category: "componente_gallinero", value: "Producción, alimentación e inventarios", description: "Registro de producción animal, consumo e inventarios relevantes para el proyecto.", sortOrder: 3 },
+  { category: "componente_gallinero", value: "Sanidad y mortalidad", description: "Seguimiento de eventos sanitarios, alertas y mortalidad como apoyo al acompañamiento técnico.", sortOrder: 4 },
+  { category: "componente_gallinero", value: "Finanzas, ventas e ingreso neto", description: "Relación entre ventas y gastos registrados para observar el aporte económico de la actividad.", sortOrder: 5 },
+  { category: "componente_gallinero", value: "Análisis y reportes", description: "Indicadores y reportes disponibles para seguimiento de la granja y del proyecto, sujeto a permisos y alcance técnico.", sortOrder: 6 },
+
+  { category: "medicion_proyecto", value: "Resultado principal del proyecto", description: "Indicador del cambio que busca la intervención, con línea base, periodo, población y método definidos.", sortOrder: 0 },
+  { category: "medicion_proyecto", value: "Aporte de autoconsumo y brechas", description: "Seguimiento de producción destinada al hogar y del aporte o brecha alimentaria definida por el proyecto.", sortOrder: 1 },
+  { category: "medicion_proyecto", value: "Ingreso complementario o neto", description: "Seguimiento del ingreso que aporta la actividad, considerando costos registrados y el método acordado.", sortOrder: 2 },
+  { category: "medicion_proyecto", value: "Adopción y uso sostenido", description: "Seguimiento de hogares activos, rutinas acordadas y continuidad de uso.", sortOrder: 3 },
+  { category: "medicion_proyecto", value: "Esfuerzo y tiempo de captura", description: "Comparación del tiempo y esfuerzo de registro antes y durante la intervención.", sortOrder: 4 },
+  { category: "medicion_proyecto", value: "Calidad y completitud de datos", description: "Seguimiento de registros completos, oportunos, consistentes y corregidos.", sortOrder: 5 },
+  { category: "medicion_proyecto", value: "Uso de información en decisiones", description: "Registro de decisiones de manejo o gestión apoyadas por la información, sin atribuir causalidad automática a la app.", sortOrder: 6 },
+
+  { category: "continuidad_proyecto", value: "Promotor local formado", description: "Persona del territorio con tiempo y responsabilidad asignados para acompañar el uso.", sortOrder: 0 },
+  { category: "continuidad_proyecto", value: "Soporte y mantenimiento financiados", description: "Responsable y recursos definidos para soporte técnico, operación y mantenimiento después del proyecto.", sortOrder: 1 },
+  { category: "continuidad_proyecto", value: "Portabilidad y custodia de datos", description: "Acuerdos sobre acceso, uso, exportación y conservación de datos al cierre de la intervención.", sortOrder: 2 },
+  { category: "continuidad_proyecto", value: "Formación de refuerzo", description: "Plan para capacitar nuevos usuarios y reforzar rutinas de registro cuando sea necesario.", sortOrder: 3 },
+  { category: "continuidad_proyecto", value: "Responsable operativo después del cierre", description: "Persona u organización que asumirá la continuidad de la práctica y del servicio al terminar el financiamiento.", sortOrder: 4 },
 ];
 
 async function ensureDefaultFarmAndSubscription(): Promise<void> {
@@ -345,9 +402,12 @@ async function ensureSpeciesParams(): Promise<number> {
         targetWeightKg: String(p.targetWeightKg),
         units: p.carcassYieldPercent,
         dailyFeedG: p.dailyFeedGPerHead,
-        feedCostPerKg: String(p.feedCostPerKgCOP),
+        feedCostPerKg: p.feedCostPerKgCOP > 0 ? String(p.feedCostPerKgCOP) : null,
+        initialUnitCostCop: p.initialUnitCostCOP != null ? String(p.initialUnitCostCOP) : null,
+        pointOfLayUnitValueCop: p.pointOfLayUnitValueCOP != null ? String(p.pointOfLayUnitValueCOP) : null,
+        breederUnitValueCop: p.breederUnitValueCOP != null ? String(p.breederUnitValueCOP) : null,
         feedConversionRatio: String(p.feedConversionRatio),
-        price: String(p.marketPriceKgCanalCOP),
+        price: p.marketPriceKgCanalCOP > 0 ? String(p.marketPriceKgCanalCOP) : null,
         eggPrice: p.marketPriceEggUnitCOP != null ? String(p.marketPriceEggUnitCOP) : null,
         expectedEggsPerHen: p.eggsPerDayPerFemale != null ? String(p.eggsPerDayPerFemale) : null,
         systemType: p.systemType,
@@ -371,6 +431,7 @@ async function ensureMasterCatalogs(): Promise<number> {
         farmId: DEFAULT_FARM_ID,
         category: item.category,
         value: item.value,
+        description: item.description ?? null,
         tipo: item.tipo ?? null,
         price: item.price ?? null,
         units: item.units ?? null,

@@ -1,0 +1,38 @@
+services:
+  db:
+    ports: !override
+      - "127.0.0.1:${STAGING_DB_PORT:-55432}:5432"
+
+  app:
+    image: iwagranja-staging:local
+    ports: !override
+      - "127.0.0.1:${STAGING_APP_PORT:-3100}:3000"
+    healthcheck:
+      test:
+        - CMD
+        - node
+        - -e
+        - "fetch('http://127.0.0.1:3000/api/health').then((r) => process.exit(r.ok ? 0 : 1)).catch(() => process.exit(1))"
+      interval: 15s
+      timeout: 5s
+      retries: 20
+      start_period: 90s
+
+  external-sources-scheduler:
+    image: iwagranja-staging:local
+    build: !reset null
+    depends_on:
+      app:
+        condition: service_healthy
+
+  agent-proactivo-scheduler:
+    image: iwagranja-staging:local
+    build: !reset null
+    depends_on:
+      app:
+        condition: service_healthy
+
+networks:
+  default:
+    # El servicio necesita consultar conectores oficiales externos.
+    internal: false

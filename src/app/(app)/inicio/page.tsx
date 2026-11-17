@@ -25,6 +25,7 @@ import {
 import { AppIcon } from "@/components/AppIcon";
 import { HeroActionButton, HeroBanner } from "@/components/HeroBanner";
 import BehavioralNudgeBanner from "@/components/BehavioralNudgeBanner";
+import BriefingInboxCard from "@/components/BriefingInboxCard";
 import { Card } from "@/components/ui";
 import RoutineDayButtons from "@/components/RoutineDayButtons";
 import OnboardingWizardModal from "@/components/OnboardingWizardModal";
@@ -566,6 +567,9 @@ export default function Dashboard() {
         helpTitle="Cómo funciona este inicio"
         help={`• Arriba ves las 4 cifras clave del día y el botón Asistente inicial.\n• En «Tareas de hoy» ejecutas o confirmas las labores pendientes según tu rutina.\n• En «Accesos directos» entras directo a registrar o consultar cada área.`}
       />
+
+      {/* C2: inbox del agente proactivo (briefing del día con no-leídos) */}
+      <BriefingInboxCard />
 
       {/* Mensaje conductual y tarjetas adjuntas debajo del hero en una sola fila */}
       <div className={`mb-5 grid grid-cols-1 ${topStripGridCols} gap-3 items-stretch`}>

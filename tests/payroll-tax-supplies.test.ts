@@ -14,6 +14,8 @@ import {
   computeTaxAndDeductionsSummary,
   computeTransactionTaxBreakdown,
   computeWeightedAverageUnitCost,
+  computeUnitCostAfterRemovingStockEntry,
+  resolveTransactionTaxColumns,
   resolveTransactionTaxValues,
 } from "@/lib/analytics/payroll-tax-supplies";
 
@@ -52,6 +54,28 @@ describe("Personal, trabajo propio, impuestos/deducciones y devengo de insumos",
     expect(legacy.subtotalAmount).toBe(85000);
     expect(legacy.ivaAmount).toBe(0);
     expect(legacy.netSettlementAmount).toBe(85000);
+
+    const stored = resolveTransactionTaxColumns({ ivaRate: 19, reteFuenteRate: 2.5, icaRate: 0.4, otherDeductionsAmount: 1000, taxNotes: "Factura 1042" }, 119000);
+    expect(stored.amount).toBe("119000.00");
+    expect(stored.columns.subtotalAmount).toBe("100000.00");
+    expect(stored.columns.ivaAmount).toBe("19000.00");
+    expect(stored.columns.netSettlementAmount).toBe("115100.00");
+  });
+
+  it("excluye nómina pendiente del indicador pagado y conserva el costo económico devengado", () => {
+    const summary = computeTaxAndDeductionsSummary({
+      transactions: [],
+      payrollEntries: [
+        { accountingMode: "cash_expense", paymentStatus: "pendiente", grossPayCop: 100, employerBurdenCop: 0, workerDeductionsCop: 0, reteFuenteCop: 0, netPayableCop: 100, totalEmployerCostCop: 100 },
+        { accountingMode: "cash_expense", paymentStatus: "pagado", grossPayCop: 50, employerBurdenCop: 0, workerDeductionsCop: 0, reteFuenteCop: 0, netPayableCop: 50, totalEmployerCostCop: 50 },
+        { accountingMode: "imputed_economic", paymentStatus: "calculado", grossPayCop: 30, employerBurdenCop: 0, workerDeductionsCop: 0, reteFuenteCop: 0, netPayableCop: 30, totalEmployerCostCop: 30 },
+      ],
+      cashOutflowsCop: 0,
+      gmf4x1000Enabled: false,
+    });
+    expect(summary.paidPayrollCostCop).toBe(50);
+    expect(summary.imputedOwnerLaborCop).toBe(30);
+    expect(summary.payrollTotalEconomicCop).toBe(180);
   });
 
   it("liquida jornal propio (Pequeño) y nómina formal con seguridad social/deducciones (Mediano)", () => {
@@ -89,6 +113,7 @@ describe("Personal, trabajo propio, impuestos/deducciones y devengo de insumos",
 
     const avgSupplyCost = computeWeightedAverageUnitCost(10, 12000, 10, 14000);
     expect(avgSupplyCost).toBe(13000);
+    expect(computeUnitCostAfterRemovingStockEntry(20, 13000, 10, 14000)).toBe(12000);
 
     const supplyWarehouse = computeSupplyWarehouseValuation([
       {

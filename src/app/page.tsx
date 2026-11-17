@@ -24,6 +24,7 @@ import {
   Bird,
 } from "lucide-react";
 import MobileNav from "@/components/MobileNav";
+import LandingDesktopNav from "@/components/LandingDesktopNav";
 import ScrollReveal from "@/components/ScrollReveal";
 import { BrandLogo } from "@/components/BrandLogo";
 import { LandingShowcase } from "@/components/LandingShowcase";
@@ -53,7 +54,7 @@ import { FAQS } from "@/lib/legal-content";
 
 export const dynamic = "force-dynamic";
 
-const HOME_TITLE = "El Corral · Software libre para granjas avícolas";
+const HOME_TITLE = "IwaGranja · Software libre para granjas avícolas";
 const HOME_DESCRIPTION =
   "Gestión de granja sin señal: huevos, alimento, sanidad, trazabilidad QR y finanzas por especie. Código abierto, en producción en Ibagué, Colombia.";
 
@@ -63,7 +64,7 @@ export const metadata: Metadata = {
     description: HOME_DESCRIPTION,
     path: "/",
     ogImage: "/images/guia/inicio-dashboard.webp",
-    ogImageAlt: "Pantalla principal de El Corral con tareas de hoy, alertas y trazabilidad",
+    ogImageAlt: "Pantalla principal de IwaGranja con tareas de hoy, alertas y trazabilidad",
   }),
   authors: [{ name: APP_DEVELOPER.name, url: APP_DEVELOPER.url }],
 };
@@ -167,19 +168,8 @@ export default function HomePage() {
               />
             </Link>
 
-            <div className="hidden md:flex items-center gap-6 text-sm font-medium text-[var(--moss)]">
-              <a href="#como-funciona" className="hover:text-[var(--ink)] transition">
-                Cómo funciona
-              </a>
-              <a href="#modulos" className="hover:text-[var(--ink)] transition">
-                Módulos y Normas
-              </a>
-              <a href="#planes" className="hover:text-[var(--ink)] transition">
-                Planes
-              </a>
-              <Link href="/bitacora" className="hover:text-[var(--ink)] transition">
-                Bitácora
-              </Link>
+            <div className="hidden md:flex items-center gap-4">
+              <LandingDesktopNav />
             </div>
 
             <div className="flex items-center gap-2">
@@ -204,7 +194,7 @@ export default function HomePage() {
         <header className="land-hero relative overflow-hidden bg-[var(--forest-deep)] text-[#f5efe2]">
           <Image
             src="/hero-illustration.png"
-            alt="Ilustración rural de El Corral en Ibagué, Tolima"
+            alt="Ilustración rural de IwaGranja en Ibagué, Tolima"
             fill
             priority
             sizes="100vw"
@@ -262,7 +252,7 @@ export default function HomePage() {
               <div className="lg:col-span-6">
                 <a
                   href="#vitrina"
-                  aria-label="Explorar capturas reales de El Corral"
+                  aria-label="Explorar capturas reales de IwaGranja"
                   className="block land-browser-frame overflow-hidden rounded-2xl border border-white/15 bg-[var(--paper)] shadow-2xl group"
                 >
                   <div className="flex items-center justify-between gap-2 px-3.5 py-2.5 border-b border-[var(--line)] bg-[#f4ede0]">
@@ -272,7 +262,7 @@ export default function HomePage() {
                       <span className="w-2.5 h-2.5 rounded-full bg-[#4f775d]" />
                     </div>
                     <span className="font-mono text-[11px] text-[var(--moss)] truncate">
-                      gallinero.iwage.co/inicio
+                      app.iwage.co/inicio
                     </span>
                     <span className="font-mono text-[10px] font-semibold uppercase tracking-wider text-[var(--forest)]">
                       Vista real
@@ -282,7 +272,7 @@ export default function HomePage() {
                   <div className="relative bg-white overflow-hidden">
                     <Image
                       src="/images/guia/inicio-dashboard.webp"
-                      alt="Pantalla principal real de El Corral con tareas de hoy, alertas y accesos rápidos"
+                      alt="Pantalla principal real de IwaGranja con tareas de hoy, alertas y accesos rápidos"
                       width={1280}
                       height={800}
                       priority

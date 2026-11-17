@@ -21,7 +21,7 @@ import { PROGRESSIVE_CONFIG_SETTING_KEY } from "@/lib/onboarding";
 
 export const dynamic = "force-dynamic";
 
-export const ADOPTION_TELEMETRY_KEY = "telemetry.adoption_metrics";
+const ADOPTION_TELEMETRY_KEY = "telemetry.adoption_metrics";
 
 interface CaptureSample {
   mode: string;
@@ -89,13 +89,7 @@ export const POST = withApiHandler(async (req: NextRequest, user) => {
     return NextResponse.json({ error: "Tipo de telemetría inválido (onboarding | capture)." }, { status: 400 });
   }
 
-  const rawDuration = Number(body.durationSec);
-  if (!Number.isFinite(rawDuration) || rawDuration <= 0 || rawDuration > 3600) {
-    return NextResponse.json({ error: "durationSec debe estar entre 1 y 3600." }, { status: 400 });
-  }
-  const durationSec = Math.round(rawDuration * 10) / 10;
   const farmId = getCurrentFarmId();
-
   const [existing] = await db
     .select()
     .from(appSettings)
@@ -106,17 +100,46 @@ export const POST = withApiHandler(async (req: NextRequest, user) => {
   const nowIso = new Date().toISOString();
 
   if (type === "onboarding") {
-    state.onboardingDurationSec = durationSec;
+    const rawDuration = Number(body.durationSec);
+    if (!Number.isFinite(rawDuration) || rawDuration <= 0 || rawDuration > 3600) {
+      return NextResponse.json({ error: "durationSec debe estar entre 1 y 3600." }, { status: 400 });
+    }
+    state.onboardingDurationSec = Math.round(rawDuration * 10) / 10;
     state.onboardingCompletedAt = nowIso;
   } else {
-    state.captureSamples = [
-      ...state.captureSamples.slice(-99),
-      {
-        mode: String(body.mode || "general").slice(0, 40),
-        durationSec,
-        recordedAt: nowIso,
-      },
-    ];
+    // Lote de muestras (flush offline) o muestra única; dedup por recordedAt+mode.
+    const rawSamples: unknown[] = Array.isArray(body.samples)
+      ? body.samples.slice(0, 200)
+      : [{ mode: body.mode, durationSec: body.durationSec, recordedAt: body.recordedAt }];
+
+    const seen = new Set(state.captureSamples.map((s) => `${s.recordedAt}|${s.mode}`));
+    const accepted: CaptureSample[] = [];
+    let validCount = 0;
+    for (const raw of rawSamples) {
+      if (!raw || typeof raw !== "object") continue;
+      const item = raw as { mode?: unknown; durationSec?: unknown; recordedAt?: unknown };
+      const rawDuration = Number(item.durationSec);
+      if (!Number.isFinite(rawDuration) || rawDuration <= 0 || rawDuration > 3600) continue;
+      validCount += 1;
+      const mode = String(item.mode || "general").slice(0, 40);
+      const recordedAt =
+        typeof item.recordedAt === "string" && Number.isFinite(new Date(item.recordedAt).getTime())
+          ? new Date(item.recordedAt).toISOString()
+          : nowIso;
+      const key = `${recordedAt}|${mode}`;
+      if (seen.has(key)) continue;
+      seen.add(key);
+      accepted.push({ mode, durationSec: Math.round(rawDuration * 10) / 10, recordedAt });
+    }
+
+    if (validCount === 0) {
+      return NextResponse.json({ error: "No hay muestras de captura válidas (durationSec entre 1 y 3600)." }, { status: 400 });
+    }
+    // Lote íntegramente duplicado (flush offline repetido): respuesta idempotente sin cambios.
+    if (accepted.length === 0) {
+      return NextResponse.json({ ok: true, telemetry: state, deduplicated: true }, { status: 201 });
+    }
+    state.captureSamples = [...state.captureSamples, ...accepted].slice(-100);
   }
 
   await db
@@ -237,12 +260,21 @@ export const GET = withApiHandler(async () => {
     }
   }
 
-  // 2. Tiempo medio de captura en galpón
+  // 2. Tiempo medio y mediano de captura en galpón
   const captureSamplesCount = telemetry.captureSamples.length;
   const avgFieldCaptureSeconds =
     captureSamplesCount > 0
       ? Math.round(
           (telemetry.captureSamples.reduce((sum, s) => sum + s.durationSec, 0) / captureSamplesCount) * 10,
+        ) / 10
+      : null;
+  const sortedDurations = telemetry.captureSamples.map((s) => s.durationSec).sort((a, b) => a - b);
+  const medianCaptureSec =
+    sortedDurations.length > 0
+      ? Math.round(
+          (sortedDurations.length % 2 === 1
+            ? sortedDurations[(sortedDurations.length - 1) / 2]
+            : (sortedDurations[sortedDurations.length / 2 - 1] + sortedDurations[sortedDurations.length / 2]) / 2) * 10,
         ) / 10
       : null;
 
@@ -269,6 +301,14 @@ export const GET = withApiHandler(async () => {
   const weeklyClosureDaysCount = closedDays7.size > 0 ? closedDays7.size : activeDays7.size;
   const weeklyClosureAdherencePct = Math.min(100, Math.round((weeklyClosureDaysCount / 7) * 100));
   const adherence21dPct = Math.min(100, Math.round((activeDays21.size / 21) * 100));
+
+  // Racha de días consecutivos con actividad (cierre o captura), viva hasta hoy o ayer
+  let captureStreakDays = 0;
+  let cursorIso = activeDays21.has(todayIso) ? todayIso : shiftIsoDays(todayIso, -1);
+  while (activeDays21.has(cursorIso) && captureStreakDays < 21) {
+    captureStreakDays += 1;
+    cursorIso = shiftIsoDays(cursorIso, -1);
+  }
 
   // 4. Integridad sanitaria y genealógica/raza (% unidades activas con raza + cobertura sanitaria activa)
   const totalActiveUnits = activeHensRows.length + activeBatchRows.length;
@@ -301,7 +341,9 @@ export const GET = withApiHandler(async () => {
     farmId,
     timeToValueMinutes,
     avgFieldCaptureSeconds,
+    medianCaptureSec,
     captureSamplesCount,
+    captureStreakDays,
     weeklyClosureAdherencePct,
     adherence21dPct,
     activeDays7: activeDays7.size,

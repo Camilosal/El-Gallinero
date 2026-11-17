@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useCallback, useMemo } from "react";
+import { useEffect, useState, useCallback, useMemo, useRef } from "react";
 import { AlertTriangle } from "lucide-react";
 import { PageHeader, HeroActionButton, Button, Card, Table, Badge, Modal, Input, Select, Textarea, EmptyState, StatCard } from "@/components/ui";
 import { apiFetch } from "@/lib/fetch";
@@ -57,6 +57,12 @@ export default function InsumosPage() {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [supplySearch, setSupplySearch] = useState("");
   const [movementSearch, setMovementSearch] = useState("");
+  const [savingSupply, setSavingSupply] = useState(false);
+  const [savingMovement, setSavingMovement] = useState(false);
+  const savingSupplyRef = useRef(false);
+  const savingMovementRef = useRef(false);
+  const supplyMutationIdRef = useRef<string | null>(null);
+  const movementMutationIdRef = useRef<string | null>(null);
 
   const load = useCallback(async () => {
     const [supRes, movRes] = await Promise.all([
@@ -70,8 +76,8 @@ export default function InsumosPage() {
 
   useEffect(() => { void Promise.resolve().then(load); }, [load]);
   useActionQuery(searchParams.get("nuevo"), {
-    insumo: () => { setEditingId(null); setForm({ name: "", category: supplyCategories[0], unit: "unidades", currentStock: "", minStock: "", costPerUnit: "", supplier: "", expiryDate: "" }); setError(""); setSupplyModalOpen(true); },
-    movimiento: () => { setMovForm({ supplyId: "", quantity: "", isEntry: true, movementType: movementTypes[0], date: new Date().toISOString().split("T")[0], notes: "" }); setMovError(""); setMovementModalOpen(true); },
+    insumo: () => { supplyMutationIdRef.current = null; setEditingId(null); setForm({ name: "", category: supplyCategories[0], unit: "unidades", currentStock: "", minStock: "", costPerUnit: "", supplier: "", expiryDate: "" }); setError(""); setSupplyModalOpen(true); },
+    movimiento: () => { movementMutationIdRef.current = null; setMovForm({ supplyId: "", quantity: "", isEntry: true, movementType: movementTypes[0], date: new Date().toISOString().split("T")[0], notes: "" }); setMovError(""); setMovementModalOpen(true); },
   });
 
   const lowStockItems = supplies.filter((s) => Number(s.currentStock) <= Number(s.minStock));
@@ -109,17 +115,31 @@ export default function InsumosPage() {
   }, [movements, movementSearch]);
 
   const saveSupply = async () => {
+    if (savingSupplyRef.current) return;
     setError("");
     if (!form.name) return setError("Nombre es requerido");
-    const res = await apiFetch("/api/inventarios/insumos", {
-      method: editingId ? "PUT" : "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(editingId ? { ...form, id: editingId } : form),
-    });
+    savingSupplyRef.current = true;
+    setSavingSupply(true);
+    supplyMutationIdRef.current ||= crypto.randomUUID();
+    let res: Response;
+    try {
+      res = await apiFetch("/api/inventarios/insumos", {
+        method: editingId ? "PUT" : "POST",
+        headers: { "Content-Type": "application/json", "X-Client-Mutation-Id": supplyMutationIdRef.current },
+        body: JSON.stringify(editingId ? { ...form, id: editingId } : form),
+      });
+    } catch (err) {
+      savingSupplyRef.current = false;
+      setSavingSupply(false);
+      throw err;
+    }
+    savingSupplyRef.current = false;
+    setSavingSupply(false);
     if (!res.ok) {
       const d = await res.json().catch(() => ({}));
       return setError(d.error || "Error al guardar");
     }
+    supplyMutationIdRef.current = null;
     setSupplyModalOpen(false);
     setEditingId(null);
     setForm({ name: "", category: supplyCategories[0], unit: "unidades", currentStock: "", minStock: "", costPerUnit: "", supplier: "", expiryDate: "" });
@@ -127,18 +147,32 @@ export default function InsumosPage() {
   };
 
   const saveMovement = async () => {
+    if (savingMovementRef.current) return;
     setMovError("");
     if (!movForm.supplyId) return setMovError("Seleccione un insumo");
     if (!movForm.quantity || Number(movForm.quantity) <= 0) return setMovError("Cantidad debe ser mayor a 0");
-    const res = await apiFetch("/api/inventarios/insumos/movimientos", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(movForm),
-    });
+    savingMovementRef.current = true;
+    setSavingMovement(true);
+    movementMutationIdRef.current ||= crypto.randomUUID();
+    let res: Response;
+    try {
+      res = await apiFetch("/api/inventarios/insumos/movimientos", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "X-Client-Mutation-Id": movementMutationIdRef.current },
+        body: JSON.stringify(movForm),
+      });
+    } catch (err) {
+      savingMovementRef.current = false;
+      setSavingMovement(false);
+      throw err;
+    }
+    savingMovementRef.current = false;
+    setSavingMovement(false);
     if (!res.ok) {
       const d = await res.json().catch(() => ({}));
       return setMovError(d.error || "Error al guardar");
     }
+    movementMutationIdRef.current = null;
     setMovementModalOpen(false);
     setMovForm({ supplyId: "", quantity: "", isEntry: true, movementType: movementTypes[0], date: new Date().toISOString().split("T")[0], notes: "" });
     load();
@@ -174,8 +208,8 @@ export default function InsumosPage() {
         help="Gestiona el inventario de insumos no alimenticios (medicamentos, vacunas, productos de limpieza, equipos, etc.). Registra entradas y salidas por movimiento. Cada insumo tiene stock mínimo para alertas de reabastecimiento, costo unitario y proveedor. Los movimientos registran fecha, cantidad, tipo y notas."
         actions={
           <>
-            <HeroActionButton tone="glass" onClick={() => { setMovForm({ supplyId: supplies[0]?.id || "", quantity: "", isEntry: true, movementType: movementTypes[0], date: new Date().toISOString().split("T")[0], notes: "" }); setMovError(""); setMovementModalOpen(true); }}>Registrar Movimiento</HeroActionButton>
-            <HeroActionButton tone="solid" onClick={() => { setEditingId(null); setForm({ name: "", category: supplyCategories[0], unit: "unidades", currentStock: "", minStock: "", costPerUnit: "", supplier: "", expiryDate: "" }); setError(""); setSupplyModalOpen(true); }}>+ Nuevo Insumo</HeroActionButton>
+            <HeroActionButton tone="glass" onClick={() => { movementMutationIdRef.current = null; setMovForm({ supplyId: supplies[0]?.id || "", quantity: "", isEntry: true, movementType: movementTypes[0], date: new Date().toISOString().split("T")[0], notes: "" }); setMovError(""); setMovementModalOpen(true); }}>Registrar Movimiento</HeroActionButton>
+            <HeroActionButton tone="solid" onClick={() => { supplyMutationIdRef.current = null; setEditingId(null); setForm({ name: "", category: supplyCategories[0], unit: "unidades", currentStock: "", minStock: "", costPerUnit: "", supplier: "", expiryDate: "" }); setError(""); setSupplyModalOpen(true); }}>+ Nuevo Insumo</HeroActionButton>
           </>
         }
       />
@@ -245,6 +279,7 @@ export default function InsumosPage() {
                 <td className="px-4 py-3">
                   <div className="flex gap-2">
                     <button onClick={() => {
+                      supplyMutationIdRef.current = null;
                       setEditingId(s.id);
                       setForm({ name: s.name, category: s.category, unit: s.unit, currentStock: s.currentStock, minStock: s.minStock, costPerUnit: s.costPerUnit, supplier: s.supplier || "", expiryDate: s.expiryDate || "" });
                       setError("");
@@ -327,7 +362,7 @@ export default function InsumosPage() {
           />
           <Input label="Fecha de vencimiento" type="date" value={form.expiryDate} onChange={(e) => setForm({ ...form, expiryDate: e.target.value })} help="Fecha de caducidad si aplica (para control de vencimientos)" />
           <div className="flex gap-3">
-            <Button onClick={saveSupply} disabled={!form.name}>Guardar</Button>
+            <Button onClick={saveSupply} disabled={savingSupply || !form.name}>{savingSupply ? "Guardando..." : "Guardar"}</Button>
             <Button variant="secondary" onClick={() => setSupplyModalOpen(false)}>Cancelar</Button>
           </div>
         </div>
@@ -351,7 +386,7 @@ export default function InsumosPage() {
           <Input label="Fecha" type="date" value={movForm.date} onChange={(e) => setMovForm({ ...movForm, date: e.target.value })} help="Fecha en que se realiza el movimiento" />
           <Textarea label="Notas" value={movForm.notes} onChange={(e) => setMovForm({ ...movForm, notes: e.target.value })} help="Observaciones adicionales sobre el movimiento" />
           <div className="flex gap-3">
-            <Button onClick={saveMovement} disabled={!movForm.supplyId || !movForm.quantity}>Guardar</Button>
+            <Button onClick={saveMovement} disabled={savingMovement || !movForm.supplyId || !movForm.quantity}>{savingMovement ? "Guardando..." : "Guardar"}</Button>
             <Button variant="secondary" onClick={() => setMovementModalOpen(false)}>Cancelar</Button>
           </div>
         </div>

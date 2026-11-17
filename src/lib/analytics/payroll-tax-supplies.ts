@@ -22,6 +22,21 @@ export function computeWeightedAverageUnitCost(
   return round2(totalValue / totalQty);
 }
 
+export function computeUnitCostAfterRemovingStockEntry(
+  currentStock: number,
+  currentCostPerUnit: number,
+  removedQuantity: number,
+  removedUnitCost: number,
+): number {
+  const stock = Math.max(0, Number.isFinite(currentStock) ? currentStock : 0);
+  const averageCost = Math.max(0, Number.isFinite(currentCostPerUnit) ? currentCostPerUnit : 0);
+  const quantity = Math.max(0, Number.isFinite(removedQuantity) ? removedQuantity : 0);
+  const entryCost = Math.max(0, Number.isFinite(removedUnitCost) ? removedUnitCost : 0);
+  const remainingStock = Math.max(0, stock - quantity);
+  if (remainingStock <= 0 || stock <= 0) return round2(averageCost);
+  return round2(Math.max(0, (stock * averageCost - quantity * entryCost) / remainingStock));
+}
+
 export interface TransactionTaxInput {
   amount: number;
   inputMode?: "gross" | "subtotal";
@@ -43,6 +58,171 @@ export interface TransactionTaxBreakdown {
   otherDeductionsAmount: number;
   totalDeductionsAmount: number;
   netSettlementAmount: number;
+}
+
+export interface TransactionTaxColumns {
+  subtotalAmount: string | null;
+  ivaRate: string | null;
+  ivaAmount: string | null;
+  reteFuenteRate: string | null;
+  reteFuenteAmount: string | null;
+  icaRate: string | null;
+  icaAmount: string | null;
+  otherDeductionsAmount: string | null;
+  netSettlementAmount: string | null;
+  taxNotes: string | null;
+}
+
+/** Normalizes optional tax fields for storage on a transaction row. */
+export function resolveTransactionTaxColumns(
+  body: Record<string, unknown>,
+  rawAmount: string | number,
+  forceSnapshot = false,
+) {
+  const numeric = (key: string) => {
+    const raw = body[key];
+    if (raw === undefined || raw === null || raw === "") return 0;
+    const value = Number(raw);
+    return Number.isFinite(value) ? value : 0;
+  };
+  const ivaRate = numeric("ivaRate");
+  const reteFuenteRate = numeric("reteFuenteRate");
+  const icaRate = numeric("icaRate");
+  const otherDeductionsAmount = numeric("otherDeductionsAmount");
+  const taxNotes = typeof body.taxNotes === "string" ? body.taxNotes.trim() : "";
+  const hasExplicitTaxes = forceSnapshot || ivaRate > 0 || reteFuenteRate > 0 || icaRate > 0 || otherDeductionsAmount > 0 || Boolean(taxNotes);
+  const breakdown = computeTransactionTaxBreakdown({
+    amount: Number(rawAmount),
+    inputMode: body.taxInputMode === "subtotal" ? "subtotal" : "gross",
+    ivaRate,
+    reteFuenteRate,
+    icaRate,
+    otherDeductionsAmount,
+  });
+
+  const emptyColumns: TransactionTaxColumns = {
+    subtotalAmount: null,
+    ivaRate: null,
+    ivaAmount: null,
+    reteFuenteRate: null,
+    reteFuenteAmount: null,
+    icaRate: null,
+    icaAmount: null,
+    otherDeductionsAmount: null,
+    netSettlementAmount: null,
+    taxNotes: null,
+  };
+  const columns: TransactionTaxColumns = hasExplicitTaxes
+    ? {
+        subtotalAmount: breakdown.subtotalAmount.toFixed(2),
+        ivaRate: breakdown.ivaRate.toFixed(2),
+        ivaAmount: breakdown.ivaAmount.toFixed(2),
+        reteFuenteRate: breakdown.reteFuenteRate.toFixed(2),
+        reteFuenteAmount: breakdown.reteFuenteAmount.toFixed(2),
+        icaRate: breakdown.icaRate.toFixed(2),
+        icaAmount: breakdown.icaAmount.toFixed(2),
+        otherDeductionsAmount: breakdown.otherDeductionsAmount.toFixed(2),
+        netSettlementAmount: breakdown.netSettlementAmount.toFixed(2),
+        taxNotes: taxNotes || null,
+      }
+    : emptyColumns;
+
+  return {
+    amount: breakdown.grossAmount.toFixed(2),
+    netSettlementAmountNum: breakdown.netSettlementAmount,
+    columns,
+  };
+}
+
+export type ManagedTaxProfile = "agro" | "purchases" | "services" | "general" | "none";
+
+export interface ManagedTaxConfig {
+  uvtCop: number;
+  ivaDefaultPct: number;
+  ivaAgroPct: number;
+  reteAgroPct: number;
+  reteComprasPct: number;
+  reteServiciosPct: number;
+  icaDefaultPct: number;
+  reteComprasThresholdUvt: number;
+  reteAgroThresholdUvt: number;
+}
+
+export interface PreviousTransactionTaxValues {
+  ivaRate?: string | number | null;
+  reteFuenteRate?: string | number | null;
+  icaRate?: string | number | null;
+  otherDeductionsAmount?: string | number | null;
+  taxNotes?: string | null;
+}
+
+export function inferManagedTaxProfile(type: unknown, category: unknown): ManagedTaxProfile {
+  const normalizedType = String(type || "egreso").toLowerCase();
+  const normalizedCategory = String(category || "").normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
+  if (/(nomina|mano de obra|jornal|retiro|aporte|prestamo|credito|transferencia|impuesto|gmf|pago a personal)/.test(normalizedCategory)) {
+    return "none";
+  }
+  if (normalizedType === "ingreso") {
+    if (/(venta|huevo|ave|pollo|gallina|carne|gallinaza|abono|subproducto|producto agro)/.test(normalizedCategory)) return "agro";
+    return "general";
+  }
+  if (/(servicio|honorario|mantenimiento|veterin|asesoria|consultoria|reparacion)/.test(normalizedCategory)) return "services";
+  return "purchases";
+}
+
+/** Applies the current master rates to a new operation and snapshots them on its transaction row. */
+export function resolveManagedTransactionTaxColumns(
+  body: Record<string, unknown>,
+  rawAmount: string | number,
+  config: ManagedTaxConfig,
+  profile: ManagedTaxProfile,
+  previous?: PreviousTransactionTaxValues | null,
+) {
+  let rates: { ivaRate: number; reteFuenteRate: number; icaRate: number };
+  let forceSnapshot = true;
+
+  if (previous) {
+    const hasPreviousSnapshot = [previous.ivaRate, previous.reteFuenteRate, previous.icaRate]
+      .some((value) => value !== null && value !== undefined && value !== "");
+    rates = {
+      ivaRate: hasPreviousSnapshot ? Number(previous.ivaRate || 0) : 0,
+      reteFuenteRate: hasPreviousSnapshot ? Number(previous.reteFuenteRate || 0) : 0,
+      icaRate: hasPreviousSnapshot ? Number(previous.icaRate || 0) : 0,
+    };
+    forceSnapshot = hasPreviousSnapshot;
+  } else if (profile === "none") {
+    rates = { ivaRate: 0, reteFuenteRate: 0, icaRate: 0 };
+  } else {
+    const amount = Math.max(0, Number(rawAmount) || 0);
+    const agroMinimum = Math.max(0, config.uvtCop * config.reteAgroThresholdUvt);
+    const purchaseMinimum = Math.max(0, config.uvtCop * config.reteComprasThresholdUvt);
+    rates = {
+      ivaRate: profile === "agro" ? config.ivaAgroPct : config.ivaDefaultPct,
+      reteFuenteRate:
+        profile === "agro" && amount >= agroMinimum
+          ? config.reteAgroPct
+          : profile === "purchases" && amount >= purchaseMinimum
+            ? config.reteComprasPct
+            : profile === "services"
+              ? config.reteServiciosPct
+              : 0,
+      icaRate: config.icaDefaultPct,
+    };
+  }
+
+  const safeBody = {
+    ...body,
+    taxInputMode: "gross",
+    ivaRate: rates.ivaRate,
+    reteFuenteRate: rates.reteFuenteRate,
+    icaRate: rates.icaRate,
+    otherDeductionsAmount:
+      body.otherDeductionsAmount !== undefined
+        ? body.otherDeductionsAmount
+        : previous?.otherDeductionsAmount,
+    taxNotes: body.taxNotes !== undefined ? body.taxNotes : previous?.taxNotes,
+  };
+  return resolveTransactionTaxColumns(safeBody, rawAmount, forceSnapshot);
 }
 
 /**
@@ -153,6 +333,7 @@ export interface PayrollLiquidationInput {
   unitsWorked: number;
   unitRateCop: number;
   bonusesCop?: number;
+  transportAllowanceCop?: number;
   applySocialSecurity?: boolean;
   employerBurdenPct?: number;
   workerDeductionPct?: number;
@@ -163,11 +344,57 @@ export interface PayrollLiquidationInput {
 export interface PayrollLiquidationResult {
   grossPayCop: number;
   bonusesCop: number;
+  transportAllowanceCop: number;
   employerBurdenCop: number;
   workerDeductionsCop: number;
   reteFuenteCop: number;
   netPayableCop: number;
   totalEmployerCostCop: number;
+}
+
+export interface TransportAllowanceCalculationInput {
+  eligible: boolean;
+  workerKind: string;
+  contractType: string;
+  payPeriod: string;
+  unitsWorked: number;
+  unitRateCop: number;
+  smlmvCop: number;
+  allowanceMonthlyCop: number;
+  maximumMonthlySmlmv: number;
+  daysPerMonth: number;
+  hoursPerDay: number;
+  weeksPerMonth: number;
+  quincenasPerMonth: number;
+}
+
+/** Calculates the configured allowance for eligible staff and snapshots only the amount for this period. */
+export function calculateTransportAllowanceCop(input: TransportAllowanceCalculationInput): number {
+  if (
+    !input.eligible ||
+    input.workerKind !== "apoyo" ||
+    input.contractType === "prestacion_servicios" ||
+    input.allowanceMonthlyCop <= 0
+  ) return 0;
+
+  const days = Math.max(1, input.daysPerMonth);
+  const hours = Math.max(1, input.hoursPerDay);
+  const weeks = Math.max(1, input.weeksPerMonth);
+  const quincenas = Math.max(1, input.quincenasPerMonth);
+  const periodScale = input.payPeriod === "hora"
+    ? hours * days
+    : input.payPeriod === "dia"
+      ? days
+      : input.payPeriod === "semana"
+        ? weeks
+        : input.payPeriod === "quincena"
+          ? quincenas
+          : 1;
+  const monthlyRate = Math.max(0, input.unitRateCop) * periodScale;
+  const monthlyLimit = Math.max(0, input.smlmvCop) * Math.max(0, input.maximumMonthlySmlmv);
+  if (monthlyLimit <= 0 || monthlyRate > monthlyLimit) return 0;
+
+  return round2((input.allowanceMonthlyCop / periodScale) * Math.max(0, input.unitsWorked));
 }
 
 /**
@@ -178,14 +405,16 @@ export function computePayrollLiquidation(input: PayrollLiquidationInput): Payro
   const units = Math.max(0, Number(input.unitsWorked || 0));
   const rate = Math.max(0, Number(input.unitRateCop || 0));
   const bonuses = Math.max(0, Number(input.bonusesCop || 0));
-  const grossPayCop = round2(units * rate + bonuses);
+  const transportAllowanceCop = Math.max(0, Number(input.transportAllowanceCop || 0));
+  const contributoryGrossCop = round2(units * rate + bonuses);
+  const grossPayCop = round2(contributoryGrossCop + transportAllowanceCop);
 
   const applySs = Boolean(input.applySocialSecurity);
   const empPct = applySs ? Math.max(0, Number(input.employerBurdenPct || 0)) : 0;
   const wrkPct = applySs ? Math.max(0, Number(input.workerDeductionPct || 0)) : 0;
 
-  const employerBurdenCop = round2((grossPayCop * empPct) / 100);
-  const workerDeductionsCop = round2((grossPayCop * wrkPct) / 100);
+  const employerBurdenCop = round2((contributoryGrossCop * empPct) / 100);
+  const workerDeductionsCop = round2((contributoryGrossCop * wrkPct) / 100);
   const reteFuenteCop =
     input.reteFuenteFixedCop !== null && input.reteFuenteFixedCop !== undefined
       ? round2(Math.max(0, Number(input.reteFuenteFixedCop)))
@@ -197,6 +426,7 @@ export function computePayrollLiquidation(input: PayrollLiquidationInput): Payro
   return {
     grossPayCop,
     bonusesCop: round2(bonuses),
+    transportAllowanceCop: round2(transportAllowanceCop),
     employerBurdenCop,
     workerDeductionsCop,
     reteFuenteCop,
@@ -265,6 +495,7 @@ export function computeSupplyWarehouseValuation(rows: SupplyWarehouseLike[]): Su
 
 export interface PayrollEntrySummaryInput {
   accountingMode: string;
+  paymentStatus?: string;
   grossPayCop: string | number;
   employerBurdenCop: string | number;
   workerDeductionsCop: string | number;
@@ -298,6 +529,7 @@ export function computeTaxAndDeductionsSummary(input: {
   payrollEntries: PayrollEntrySummaryInput[];
   cashOutflowsCop: number;
   gmf4x1000Enabled: boolean;
+  gmfRatePct?: number;
   includeImputedOwnerLabor?: boolean;
 }): TaxAndDeductionsPeriodSummary {
   let ivaGeneradoCop = 0;
@@ -325,6 +557,7 @@ export function computeTaxAndDeductionsSummary(input: {
   let payrollWorkerDeductionsCop = 0;
   let payrollReteFuenteCop = 0;
   let paidPayrollCostCop = 0;
+  let cashPayrollCostCop = 0;
   let imputedOwnerLaborCop = 0;
 
   for (const p of input.payrollEntries) {
@@ -344,12 +577,15 @@ export function computeTaxAndDeductionsSummary(input: {
         imputedOwnerLaborCop += totalCost;
       }
     } else {
-      paidPayrollCostCop += totalCost;
+      cashPayrollCostCop += totalCost;
+      if (p.paymentStatus === undefined || p.paymentStatus === "pagado") {
+        paidPayrollCostCop += totalCost;
+      }
     }
   }
 
   const gmf4x1000EstimatedCop = input.gmf4x1000Enabled
-    ? round2(Math.max(0, input.cashOutflowsCop) * 0.004)
+    ? round2(Math.max(0, input.cashOutflowsCop) * Math.max(0, Number(input.gmfRatePct ?? 0.4)) / 100)
     : 0;
 
   const ivaSaldoEstimadoCop = round2(ivaGeneradoCop - ivaDescontableCop);
@@ -376,7 +612,7 @@ export function computeTaxAndDeductionsSummary(input: {
     payrollEmployerBurdenCop: round2(payrollEmployerBurdenCop),
     payrollWorkerDeductionsCop: round2(payrollWorkerDeductionsCop),
     payrollReteFuenteCop: round2(payrollReteFuenteCop),
-    payrollTotalEconomicCop: round2(paidPayrollCostCop + imputedOwnerLaborCop),
+    payrollTotalEconomicCop: round2(cashPayrollCostCop + imputedOwnerLaborCop),
     paidPayrollCostCop: round2(paidPayrollCostCop),
     imputedOwnerLaborCop: round2(imputedOwnerLaborCop),
     gmf4x1000EstimatedCop,

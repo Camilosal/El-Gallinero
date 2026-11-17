@@ -59,6 +59,8 @@ services:
       WOMPI_CHECKOUT_URL: ${WOMPI_CHECKOUT_URL:-https://checkout.wompi.co/p/}
       WOMPI_REDIRECT_URL: ${WOMPI_REDIRECT_URL:-}
       SENSOR_WEBHOOK_TOKEN: ${SENSOR_WEBHOOK_TOKEN:-}
+      CRON_SECRET: ${CRON_SECRET:-}
+      SIPSA_SOAP_URL: ${SIPSA_SOAP_URL:-http://appweb.dane.gov.co:9001/sipsaWS/SrvSipsaUpraBeanService}
       NEXT_PUBLIC_SWETRIX_PID: ${NEXT_PUBLIC_SWETRIX_PID:-}
       NEXT_PUBLIC_SWETRIX_API_URL: ${NEXT_PUBLIC_SWETRIX_API_URL:-}
       LEGAL_RAZON_SOCIAL: ${LEGAL_RAZON_SOCIAL:-}
@@ -70,6 +72,26 @@ services:
       LEGAL_IVA_NOTE: ${LEGAL_IVA_NOTE:-}
     ports:
       - "3000:3000"
+  external-sources-scheduler:
+    build: .
+    restart: unless-stopped
+    depends_on:
+      - app
+    environment:
+      EXTERNAL_SOURCES_SYNC_URL: http://app:3000/api/cron/fuentes-externas
+      EXTERNAL_SOURCES_SYNC_INTERVAL_MINUTES: ${EXTERNAL_SOURCES_SYNC_INTERVAL_MINUTES:-60}
+      CRON_SECRET: ${CRON_SECRET:-}
+    command: ["node", "scripts/external-sources-scheduler.mjs"]
+  agent-proactivo-scheduler:
+    build: .
+    restart: unless-stopped
+    depends_on:
+      - app
+    environment:
+      AGENT_PROACTIVE_URL: http://app:3000/api/cron/agente-proactivo
+      AGENT_PROACTIVE_HOUR_BOGOTA: ${AGENT_PROACTIVE_HOUR_BOGOTA:-6}
+      CRON_SECRET: ${CRON_SECRET:-}
+    command: ["node", "scripts/agent-proactive-scheduler.mjs"]
   migrate:
     build:
       context: .

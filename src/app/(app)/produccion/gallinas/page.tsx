@@ -1,5 +1,5 @@
 import { redirect } from "next/navigation";
 
 export default function Page() {
-  redirect("/produccion?tab=gallinas");
+  redirect("/produccion?tab=animales&subtab=gallinas");
 }

@@ -429,6 +429,8 @@ export default function OtherSalesTab({ onSaved }: OtherSalesTabProps) {
             grossAmount={computedTotal}
             value={taxFields}
             onChange={setTaxFields}
+            category={form.category}
+            isExisting={Boolean(editing)}
           />
 
           <Textarea label="Notas" value={form.notes} onChange={(e) => setForm({ ...form, notes: e.target.value })} />

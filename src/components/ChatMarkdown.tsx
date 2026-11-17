@@ -1,13 +1,29 @@
 "use client";
 
+import Link from "next/link";
+import { Lock } from "lucide-react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
+import { useOnboardingState } from "@/lib/useOnboardingState";
+import { FEATURE_FLAG_CATALOG, getGateFlagForHref, isHrefEnabledByFlags } from "@/lib/onboarding";
 
 /**
  * Renderiza las respuestas del asistente con formato legible.
  * No permite HTML crudo: react-markdown lo escapa por defecto.
+ * Los enlaces internos (/ruta) navegan dentro de la app (SPA) y cierran el
+ * widget en móvil vía `onNavigate`; las rutas bloqueadas por escala muestran
+ * el candado y el hito que las desbloquea en lugar de navegar.
  */
-export default function ChatMarkdown({ content }: { content: string }) {
+export default function ChatMarkdown({
+  content,
+  onNavigate,
+}: {
+  content: string;
+  onNavigate?: () => void;
+}) {
+  const { state } = useOnboardingState();
+  const flags = state?.flags ?? null;
+
   return (
     <div className="chat-markdown text-sm leading-relaxed">
       <ReactMarkdown
@@ -36,16 +52,48 @@ export default function ChatMarkdown({ content }: { content: string }) {
             <blockquote className="my-2 border-l-2 border-slate-300 pl-3 text-slate-600">{children}</blockquote>
           ),
           hr: () => <hr className="my-2 border-slate-200" />,
-          a: ({ href, children }) => (
-            <a
-              href={href}
-              target="_blank"
-              rel="noreferrer noopener"
-              className="font-medium text-green-700 underline decoration-green-300 underline-offset-2 hover:text-green-800"
-            >
-              {children}
-            </a>
-          ),
+          a: ({ href, children }) => {
+            const target = String(href || "");
+            if (target.startsWith("/")) {
+              const gate = getGateFlagForHref(target);
+              if (gate && !isHrefEnabledByFlags(target, flags)) {
+                const milestone =
+                  FEATURE_FLAG_CATALOG.find((flag) => flag.key === gate)?.autoTriggerDescription ??
+                  "Se desbloquea al crecer la operación de la granja.";
+                return (
+                  <span
+                    className="inline-flex items-start gap-1 font-medium text-amber-700"
+                    title={milestone}
+                  >
+                    <Lock className="mt-0.5 h-3.5 w-3.5 shrink-0" aria-hidden />
+                    <span>
+                      {children}
+                      <span className="block text-[11px] font-normal text-amber-600">{milestone}</span>
+                    </span>
+                  </span>
+                );
+              }
+              return (
+                <Link
+                  href={target}
+                  onClick={() => onNavigate?.()}
+                  className="font-medium text-green-700 underline decoration-green-300 underline-offset-2 hover:text-green-800"
+                >
+                  {children}
+                </Link>
+              );
+            }
+            return (
+              <a
+                href={href}
+                target="_blank"
+                rel="noreferrer noopener"
+                className="font-medium text-green-700 underline decoration-green-300 underline-offset-2 hover:text-green-800"
+              >
+                {children}
+              </a>
+            );
+          },
           code: ({ className, children }) => {
             const isBlock = Boolean(className);
             return (

@@ -173,6 +173,75 @@ const TECHNICAL_STANDARDS: TechnicalStandardSeed[] = [
     tips: ["Comparar ejecución real vs presupuesto y revisar cartera vencida semanalmente mejora el flujo de caja."],
     body: "EPEF FCR conversion alimenticia uniformidad CV HAA prorrateo costos indirectos gastos compartidos cierre diario presupuesto capex depreciacion desgaste vida util patrimonio bodega valor animales",
   },
+  {
+    id: "std-nomina-rural-colombia",
+    title: "Nómina y prestaciones rurales en Colombia: jornal, salario, trabajo propio y seguridad social",
+    module: "finanzas",
+    summary:
+      "Cómo se liquida el personal de granja en Colombia: tarifa por periodo, prestaciones sociales, seguridad social (salud, pensión, ARL), auxilio de transporte y la diferencia entre pago de caja y costo imputado del trabajo propio.",
+    tags: ["nomina", "personal", "jornal", "salario minimo", "prestaciones", "prima", "cesantias", "seguridad social", "arl", "auxilio de transporte", "uvt", "trabajo propio", "imputado", "liquidacion"],
+    relatedHrefs: [
+      { href: "/finanzas/personal", label: "Personal y Nómina" },
+      { href: "/configuracion/catalogos", label: "Parámetros Tributarios y de Nómina" },
+    ],
+    steps: [
+      "Registrar cada persona con su tipo (productor propio o apoyo), contrato (propio, jornal, salario fijo o prestación de servicios), periodo de pago (hora, día, semana, quincena, mes) y tarifa base; el salario mínimo legal vigente y los porcentajes de aportes se configuran en los parámetros maestros, no se inventan.",
+      "Cuando aplica seguridad social, la liquidación calcula aportes a salud y pensión (parte empleador y trabajador), ARL según clase de riesgo y auxilio de transporte para trabajadores de apoyo elegibles; las prestaciones (prima, cesantías e intereses) se provisionan según el régimen laboral configurado.",
+      "Distinguir los tres modos de pago: pagado (egreso real de caja), imputado (costo económico del trabajo propio del dueño o familia, sin salida de caja) y crédito (cuenta por pagar con fecha de vencimiento). Cada liquidación guarda snapshot de los parámetros vigentes para auditoría.",
+    ],
+    warnings: [
+      "Esto es información operativa de la app, no asesoría contable ni laboral profesional: ante dudas de régimen laboral, prestaciones o impuestos, consultar un contador o abogado laboralista.",
+      "El trabajo propio imputado no es dinero que salió de caja: mezclarlo con pagos reales distorsiona la ganancia operativa y el flujo de efectivo.",
+    ],
+    tips: ["Imputar la nómina a especie y lugar de manejo permite que la contabilidad analítica por lote incluya la mano de obra real."],
+    body: "Nomina personal jornal salario minimo prestaciones prima cesantias intereses seguridad social salud pension ARL riesgo auxilio transporte UVT retencion trabajo propio imputado economico caja credito cuenta por pagar liquidacion snapshot",
+  },
+  {
+    id: "std-fuentes-externas-interpretacion",
+    title: "Fuentes externas: qué son SIPSA, TRM, ITH, UVT y alertas ICA/IDEAM y cómo se interpretan",
+    module: "analisis",
+    summary:
+      "Interpretación de los datos públicos que alimentan el entorno de la granja: precios mayoristas DANE/SIPSA, TRM del dólar, índice ITH de estrés calórico, UVT y festivos DIAN, alertas epidemiológicas ICA e hidrológicas IDEAM y series macro Banrep.",
+    tags: ["sipsa", "dane", "trm", "ith", "uvt", "dian", "festivos", "ica", "ideam", "banrep", "open meteo", "clima", "mercado", "fuentes externas", "precio mayorista"],
+    relatedHrefs: [
+      { href: "/analisis/fuentes-externas", label: "Clima, Mercado y Entorno" },
+      { href: "/configuracion/catalogos", label: "Tablas Externas en Catálogos" },
+    ],
+    steps: [
+      "SIPSA (DANE) es el sistema de precios mayoristas agropecuarios: sirve como referencia de negociación, no como precio garantizado de tu vereda; la TRM es la tasa de cambio oficial del dólar publicada por la Superfinanciera y afecta insumos importados.",
+      "El ITH (índice de temperatura y humedad) combina calor y humedad para estimar estrés calórico: >= 72 alerta moderada, >= 78 severo; se calcula con el clima Open-Meteo del municipio de la finca y con los sensores de galpón cuando existen.",
+      "La UVT (unidad de valor tributario DIAN) y los festivos de Colombia contextualizan retenciones y calendarios fiscales; las alertas epidemiológicas del ICA y las hidrológicas del IDEAM avisan riesgos sanitarios o de inundación en la zona; Banrep aporta series macro (inflación, tasas) como contexto.",
+    ],
+    warnings: [
+      "Todos son datos públicos de contexto, NO cifras de tu finca ni pronósticos certificados: revisar siempre fecha de actualización y cobertura geográfica antes de decidir.",
+      "No constituyen asesoría financiera, tributaria ni veterinaria: ante decisiones críticas, verificar con la fuente oficial o un profesional.",
+    ],
+    tips: ["Sin internet, la app conserva el último snapshot sincronizado y lo marca como vencido cuando supera su vigencia."],
+    body: "SIPSA DANE precios mayoristas TRM dolar Superfinanciera ITH estres calórico Open-Meteo UVT DIAN festivos retencion ICA alertas epidemiologicas IDEAM hidrologicas Banrep macro inflacion fuentes externas publicas contexto snapshot vencido",
+  },
+  {
+    id: "std-delegacion-agentes",
+    title: "Delegación y agentes: qué puede automatizarse y qué NUNCA (piso duro de confirmación)",
+    module: "configuracion",
+    summary:
+      "Política de delegación del asistente y canales externos (Telegram, API v1, MCP): escrituras rutinarias automatizables, piso duro inviolable de confirmación humana y auditoría por origen.",
+    tags: ["delegacion", "agente", "automatizacion", "confirmacion", "piso duro", "telegram", "api", "mcp", "scopes", "token", "auditoria", "erp", "conectores"],
+    relatedHrefs: [
+      { href: "/configuracion/modulos", label: "Módulos, Canales y Delegación" },
+      { href: "/exportar", label: "Exportación y Conectores" },
+    ],
+    steps: [
+      "El propietario/administrador define la política de delegación (manual o gradual) en Configuración → Módulos; en gradual, las escrituras rutinarias de campo (producción de huevo, mortalidad, peso, consumo de alimento, movimientos de insumos, mantenimiento, sensores, reproducción, incubación, bioseguridad, compostaje, control sanitario y rutinas) pueden ejecutarse sin tarjeta previa.",
+      "El piso duro es inviolable desde cualquier canal (web, voz, Telegram, API v1 o MCP): ventas, gastos, ingresos, pagos/abonos de cartera, prorrateos, adquisiciones de animales, creación/edición de lugares, traslados, sacrificio/faena, ajustes de gallinaza, creación/edición de alimentos y cierres diarios SIEMPRE requieren confirmación humana explícita.",
+      "Los agentes externos se autentican con tokens de scopes agent:read (solo consulta) y agent:write (prepara escrituras pendientes de confirmación); el servidor MCP reutiliza el mismo ejecutor y las mismas reglas. Toda escritura delegada o remota queda auditada con su origen (delegated_auto, telegram, external_agent) y el usuario/token/chat responsable.",
+    ],
+    warnings: [
+      "Ninguna política de delegación, integración ERP o bot puede saltarse el piso duro: si una acción sensible queda pendiente, el agente resume qué está listo para confirmar y no la crea de nuevo.",
+      "Los conectores ERP son de solo lectura por diseño; el agente proactivo (briefings y alertas) solo lee y narra, nunca ejecuta herramientas de escritura.",
+    ],
+    tips: ["Empezar en manual y pasar a gradual cuando el equipo ya confía en las capturas de campo; revocar tokens de integraciones que dejen de usarse."],
+    body: "Delegacion politica manual gradual piso duro confirmacion humana ventas gastos ingresos pagos abonos prorrateo adquisiciones lugares traslados sacrificio gallinaza alimentos cierre diario Telegram API v1 MCP scopes agent:read agent:write token auditoria origen delegated_auto external_agent ERP solo lectura proactive",
+  },
 ];
 
 function cleanSpaces(text: unknown): string {
@@ -199,6 +268,9 @@ const DOMAIN_SYNONYMS: Array<[RegExp, string[]]> = [
   [/\b(sacrificio|faena|beneficio|canal|carne|despiece)\b/, ["sacrificio", "carne", "autoconsumo", "retiro"]],
   [/\b(fcr|conversion|epef|uniformidad|rentabilidad|margen|prorrateo|presupuesto|patrimonio|desgaste|depreciacion|capex|perdida|inversion|equipos)\b/, ["kpis", "analitica", "finanzas", "prorrateo", "presupuesto", "patrimonio", "desgaste", "equipos", "bodega"]],
   [/\b(norma|normas|estandar|estandares|resolucion|protocolo|falla|fallas|error|soporte|bug|incidencia)\b/, ["normas", "ica", "ntc", "1240", "fallas", "soporte", "guia"]],
+  [/\b(nomina|jornal|jornalero|salario|sueldo|empleado|trabajador|personal|prestaciones|arl|pagarle|liquidacion|quincena)\b/, ["nomina", "personal", "jornal", "prestaciones", "seguridad", "social", "arl", "imputado", "liquidacion"]],
+  [/\b(telegram|bot|briefing|parte diario|proactivo|delegacion|delegar|automatizar|token|mcp|erp|conector|conectores|api)\b/, ["telegram", "delegacion", "piso", "duro", "confirmacion", "api", "mcp", "token", "scopes", "briefing", "conectores"]],
+  [/\b(sipsa|trm|uvt|dian|festivo|festivos|ideam|banrep|precio mayorista|mayorista)\b/, ["sipsa", "dane", "trm", "uvt", "dian", "festivos", "ideam", "banrep", "fuentes", "externas", "mercado"]],
 ];
 
 function stemSpanishToken(token: string): string {
@@ -325,6 +397,9 @@ export function getKnowledgeDigest(): string {
     "Bioseguridad POE GAB (Res. ICA 3651/3652, 12486/2023) y Bienestar (Res. MADR 205/2022, ICA 8452/2025): zonas limpia/producción/sucia/cuarentena y respeto de vacío sanitario.",
     "Ambiente y Compostaje: ITH >=72 alerta moderada, >=78 estrés calórico severo; NH3 >=20 ppm crítico; compost AGROSAVIA 3:1:1 o 7:2:2 a 55-65°C y 50-60% humedad.",
     "Ciclos fisiológicos: coneja 31d (palpación d12-14, nidal d27, destete 30-35d); cuy 67d (destete 14-21d); incubación gallina 21d, codorniz 17d, pato 28d.",
+    "Nómina rural: jornal/salario con prestaciones y seguridad social según perfil; trabajo propio imputado ≠ salida de caja; parámetros legales vigentes configurables, no asesoría laboral.",
+    "Fuentes externas (SIPSA/TRM/ITH/UVT/ICA/IDEAM/Banrep): datos públicos de contexto con fecha y cobertura, nunca cifras de la finca ni pronósticos certificados.",
+    "Delegación: escrituras rutinarias automatizables según política; piso duro inviolable (ventas, gastos, pagos, traslados, sacrificio, cierres...) siempre con confirmación humana en web, voz, Telegram, API v1 y MCP.",
     `Manual operativo y catálogo normativo sincronizado: ${guides.length} guías de pantallas + ${NORMATIVE_CATALOG.length} normas, estándares y guías técnicas (consultar con consultar_conocimiento cuando pregunten por normativa, parámetros técnicos o flujos de la app).`,
   ].join("\n- ");
 }

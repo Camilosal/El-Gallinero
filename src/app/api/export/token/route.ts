@@ -3,8 +3,10 @@ import { withApiHandler, safeParseJson } from "@/lib/api-handler";
 import { requirePermission } from "@/lib/rbac-server";
 import { getSessionUser } from "@/lib/auth";
 import {
+  DEFAULT_TOKEN_SCOPES,
   ERP_PROFILES,
   INTEGRATION_SCOPES,
+  WRITE_SCOPE_MAX_DAYS,
   issueExportToken,
   listExportTokens,
   normalizeErpProfile,
@@ -22,6 +24,7 @@ export const GET = withApiHandler(async () => {
     active: tokens.length > 0,
     availableScopes: INTEGRATION_SCOPES,
     availableProfiles: ERP_PROFILES,
+    writeScopeMaxDays: WRITE_SCOPE_MAX_DAYS,
     hint: tokens.length
       ? "Usa el token en el header X-Export-Token o Authorization: Bearer."
       : "Genera un token para que un dashboard externo o ERP (SIIGO, Alegra, Odoo, Zoho) consulte datos sin usar tu contraseña.",
@@ -43,7 +46,7 @@ export const POST = withApiHandler(async (req: NextRequest) => {
     const user = await getSessionUser();
     const scopes = Array.isArray(body?.scopes)
       ? normalizeTokenScopes(body.scopes)
-      : [...INTEGRATION_SCOPES];
+      : [...DEFAULT_TOKEN_SCOPES];
     const profile = normalizeErpProfile(body?.profile);
 
     let expiresAt: Date | null = null;
@@ -60,14 +63,23 @@ export const POST = withApiHandler(async (req: NextRequest) => {
 
     const replacePrevious = action === "rotate" ? true : body?.replacePrevious !== false;
 
-    const issued = await issueExportToken({
-      createdBy: user?.id ?? null,
-      name: typeof body?.name === "string" ? body.name : "Dashboard externo",
-      scopes,
-      profile,
-      expiresAt,
-      replacePrevious,
-    });
+    let issued;
+    try {
+      issued = await issueExportToken({
+        createdBy: user?.id ?? null,
+        name: typeof body?.name === "string" ? body.name : "Dashboard externo",
+        scopes,
+        profile,
+        expiresAt,
+        replacePrevious,
+      });
+    } catch (error) {
+      // p. ej. agent:write sin expiración obligatoria o con plazo mayor a 90 días.
+      return NextResponse.json(
+        { error: error instanceof Error ? error.message : "No se pudo emitir el token" },
+        { status: 400 },
+      );
+    }
     return NextResponse.json(
       {
         ok: true,
@@ -84,7 +96,7 @@ export const POST = withApiHandler(async (req: NextRequest) => {
           createdAt: issued.createdAt,
         },
         warning: "Copia este token ahora: no se volverá a mostrar.",
-        usage: `curl -H "X-Export-Token: ${issued.token}" "https://gallinero.iwage.co/api/v1/integrations/transactions?profile=${issued.profile}"`,
+        usage: `curl -H "X-Export-Token: ${issued.token}" "https://app.iwage.co/api/v1/integrations/transactions?profile=${issued.profile}"`,
       },
       { status: 201 },
     );

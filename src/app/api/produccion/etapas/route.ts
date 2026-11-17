@@ -9,7 +9,7 @@ import { getStageSpecies } from "@/lib/feeding/stage-species";
 import { ANIMAL_SPECIES, FEEDING_SPECIES } from "@/lib/species";
 import { findMissingFeeds, normalizeProgramEntries } from "@/lib/feeding/program-validation";
 import { summarizeRation } from "@/lib/feeding/ration";
-import { markFeedingProgramsReviewed } from "@/app/api/dashboard/setup/feeding-review/route";
+import { markFeedingProgramsReviewed } from "@/lib/feeding/review";
 
 export const dynamic = "force-dynamic";
 

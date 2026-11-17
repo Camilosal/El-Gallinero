@@ -25,8 +25,8 @@ export const LEGAL = {
   whatsapp: env("LEGAL_WHATSAPP", "3026693366"),
   /** Texto exacto sobre IVA mostrado junto a los precios. */
   ivaNote: env("LEGAL_IVA_NOTE", "Precio incluye IVA"),
-  sitio: "gallinero.iwage.co",
-  marca: "El Corral · Iwagé Granja",
+  sitio: "app.iwage.co",
+  marca: "IwaGranja",
 } as const;
 
 export const SIC_URL = "https://www.sic.gov.co";

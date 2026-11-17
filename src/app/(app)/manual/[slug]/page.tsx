@@ -17,7 +17,7 @@ export async function generateMetadata({
   const guide = getGuide(slug);
   if (!guide) {
     return {
-      title: "Guía no encontrada · El Corral",
+      title: "Guía no encontrada · IwaGranja",
       robots: { index: false, follow: false },
     };
   }

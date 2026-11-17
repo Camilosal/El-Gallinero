@@ -1,5 +1,5 @@
 // ─── Guide content data & search helpers ───
-// Cada guía refleja la estructura real de navegación y pantallas de El Corral.
+// Cada guía refleja la estructura real de navegación y pantallas de IwaGranja.
 // Todas las capturas en `type: "screenshot"` apuntan a archivos verificados en `public/images/guia/`.
 
 export type SectionType = "intro" | "steps" | "tip" | "warning" | "note" | "diagram" | "screenshot";
@@ -204,7 +204,7 @@ export const guides: Guide[] = [
         type: "screenshot",
         title: "Tablero principal Inicio y barra de herramientas superior",
         image: "/images/guia/inicio-dashboard.webp",
-        alt: "Captura del tablero principal Inicio de El Corral con grupos enmarcados, selector de escala superior y botón Crear +",
+        alt: "Captura del tablero principal Inicio de IwaGranja con grupos enmarcados, selector de escala superior y botón Crear +",
         caption:
           "En la barra superior tienes estado En línea/Offline, buscador global Ctrl+K, selector de escala Pequeño / Mediano y el botón Crear +, que abre directamente el modal o formulario de cada registro sin pantallas intermedias. Abajo a la derecha te acompaña Gina, tu asistente de granja.",
         badge: "Pantalla principal",
@@ -292,7 +292,7 @@ export const guides: Guide[] = [
         image: "/images/guia/configuracion-modulos.webp",
         alt: "Pantalla de Onboarding Progresivo, Escala y Módulos mostrando Modo Pequeño vs Mediano, 4 módulos core y 5 progresivos",
         caption:
-          "Los 4 módulos esenciales (Captura Diaria Offline, Inventario y Cobertura, Sanidad/Retiros/Compostaje y Resumen WhatsApp) están siempre activos; los 5 módulos avanzados se encienden manualmente o al superar umbrales reales de tu finca.",
+          "Los 4 módulos esenciales (Captura Diaria Offline, Inventario y Cobertura, Sanidad/Retiros/Compostaje y Parte diario compartible) están siempre activos; los 5 módulos avanzados se encienden manualmente o al superar umbrales reales de tu finca.",
         badge: "Escala gradual",
         targetHref: "/configuracion/modulos",
         targetLabel: "Abrir Escala y Módulos",
@@ -340,7 +340,7 @@ export const guides: Guide[] = [
     sections: [
       {
         type: "intro",
-        text: "El Corral incluye un motor PWA + IndexedDB diseñado para fincas con señal intermitente. Guarda pantallas, activos visuales y datos en el dispositivo para que puedas abrir módulos, escanear QR y capturar registros sin recibir «Error cargando datos» cuando estás fuera de cobertura.",
+        text: "IwaGranja incluye un motor PWA + IndexedDB diseñado para fincas con señal intermitente. Guarda pantallas, activos visuales y datos en el dispositivo para que puedas abrir módulos, escanear QR y capturar registros sin recibir «Error cargando datos» cuando estás fuera de cobertura.",
       },
       {
         type: "screenshot",
@@ -2213,7 +2213,7 @@ export const guides: Guide[] = [
     sections: [
       {
         type: "intro",
-        text: "El corazón configurable de El Corral vive en Configuración → Catálogos. Organizado en 10 pestañas (Listas, Clientes y Proveedores, Parámetros, Especies, Vacunas, Pesos, Gallinaza, Alimentación, Fuentes Externas y Normas y Guías), gobierna razas de las 6 especies (incluyendo cuyes), tamaños de huevo, reglas de reparto de gastos, vacunas, clima/precios de referencia y biblioteca de normas con adjuntos.",
+        text: "El corazón configurable de IwaGranja vive en Configuración → Catálogos. Organizado en 10 pestañas (Listas, Clientes y Proveedores, Parámetros, Especies, Vacunas, Pesos, Gallinaza, Alimentación, Fuentes Externas y Normas y Guías), gobierna razas de las 6 especies (incluyendo cuyes), tamaños de huevo, reglas de reparto de gastos, vacunas, clima/precios de referencia y biblioteca de normas con adjuntos.",
       },
       {
         type: "screenshot",
@@ -2405,6 +2405,359 @@ export const guides: Guide[] = [
           "Escribe un título breve y cuenta qué estabas intentando hacer y qué pasó.",
           "Verifica la vista previa de etiquetas automáticas (pantalla, red, errores recientes capturados) y envía el reporte; si el caso obedece a un bloqueo sanitario (carencia) o de inventario PEPS, verás de una vez el enlace a la guía correspondiente.",
           "Consulta el estado (Abierto, En revisión o Resuelto) en Configuración → Reportes de fallas.",
+        ],
+      },
+    ],
+  },
+  {
+    slug: "kit-campo-llave-en-mano",
+    title: "Kit de campo llave en mano: las 4 semanas de la Ruta 2",
+    module: "configuracion",
+    icon: "package",
+    summary:
+      "Acompaña la implementación llave en mano del mediano productor: qué entrega cada una de las 4 semanas, cómo imprimir la plancha QR y los entregables PDF, y con qué KPIs se firma el acta de entrega.",
+    estimatedMinutes: 4,
+    updatedAt: "2026-11-17",
+    tags: ["kit de campo", "llave en mano", "ruta 2", "semanas", "acta de entrega", "plancha qr", "entregables", "marcha blanca", "zonificacion"],
+    relatedHrefs: [
+      { href: "/configuracion/kit-campo", label: "Kit de Campo y Entregables" },
+      { href: "/analisis/adopcion", label: "Tablero de Adopción" },
+      { href: "/escanear", label: "Escáner QR de Campo" },
+    ],
+    sections: [
+      {
+        type: "intro",
+        text: "La Ruta 2 (llave en mano) deja la granja mediana operando en 4 semanas con acompañamiento: Semana 1 arranque Día 1 y zonificación biosegura, Semana 2 rutinas y sanidad al día, Semana 3 costos y reportes formales, Semana 4 marcha blanca y acta de entrega. En Configuración → Kit de campo ves el avance real de cada semana y descargas los entregables.",
+      },
+      {
+        type: "screenshot",
+        title: "Avance por semanas y entregables del kit",
+        image: "/images/guia/configuracion-modulos.webp",
+        alt: "Panel de configuración con el estado de módulos y escala de la granja durante la implementación llave en mano",
+        caption:
+          "El kit muestra qué está listo, qué falta y quién es responsable en cada semana; los PDF se descargan listos para imprimir y plastificar.",
+        badge: "Ruta 2 · 4 semanas",
+        targetHref: "/configuracion/kit-campo",
+        targetLabel: "Abrir Kit de Campo",
+      },
+      {
+        type: "steps",
+        title: "Recorrer las 4 semanas y firmar el acta",
+        items: [
+          "Semana 1: completa el arranque Día 1 (predio, lugares, animales vivos y bodega) y descarga el mapa de zonificación biosegura para ubicar zonas limpia, producción, sucia y cuarentena.",
+          "Semana 2: deja las rutinas del calendario y el plan sanitario al día; imprime la guía rápida de galpón y la plancha de etiquetas QR desde Inicio → Plancha QR y pégalas en cada lugar.",
+          "Semana 3: activa centros de costo, revisa el balance real y los reportes Excel/PDF; descarga el POE de compostaje térmico para la zona sucia.",
+          "Semana 4 (marcha blanca): opera sin ayuda externa y verifica los KPIs en Análisis → Adopción; el acta de entrega se firma cuando la captura en galpón es menor a 2 minutos, la adherencia semanal es >= 85% y la sanidad está al día.",
+        ],
+      },
+      {
+        type: "tip",
+        title: "Consejos de campo",
+        items: [
+          "Plastifica la plancha QR y la guía rápida de galpón: resisten humedad y desinfección.",
+          "Gina también consulta el kit: pregúntale «¿cómo va el kit de campo?» y te resume semanas, acta y enlaces a los PDF.",
+        ],
+      },
+      {
+        type: "warning",
+        title: "Importante",
+        items: [
+          "El acta de entrega no se firma con promesas: se firma con los KPIs de adopción en vivo. Si un indicador no cumple, el kit muestra exactamente qué corregir.",
+        ],
+      },
+    ],
+  },
+  {
+    slug: "personal-y-nomina",
+    title: "Personal y nómina: jornales, trabajo propio y prestaciones",
+    module: "finanzas",
+    icon: "money",
+    summary:
+      "Registra al personal de la granja (productor propio o apoyo), sus documentos, tarifas y seguridad social; liquida pagos con prestaciones e impuestos de ley y distingue el trabajo propio imputado del dinero que realmente sale de caja.",
+    estimatedMinutes: 4,
+    updatedAt: "2026-11-17",
+    tags: ["personal", "nomina", "jornal", "salario", "prestaciones", "seguridad social", "arl", "auxilio de transporte", "liquidacion", "trabajo propio", "imputado"],
+    relatedHrefs: [
+      { href: "/finanzas/personal", label: "Personal y Nómina" },
+      { href: "/finanzas", label: "Panel de Finanzas" },
+      { href: "/analisis/reportes", label: "Reportes y Exportación" },
+    ],
+    sections: [
+      {
+        type: "intro",
+        text: "En Finanzas → Personal y nómina registras a cada persona que trabaja en la granja: el productor propio (dueño o familia) y el personal de apoyo (jornalero, salario fijo o prestación de servicios). Cada perfil guarda tarifa base, periodo de pago, documento, especie y lugar por defecto, y si aplica seguridad social y auxilio de transporte.",
+      },
+      {
+        type: "screenshot",
+        title: "Nómina dentro del balance real de la granja",
+        image: "/images/guia/finanzas-balance.webp",
+        alt: "Panel de balance financiero donde se refleja la nómina del mes separada entre trabajo propio imputado y pagos de apoyo",
+        caption:
+          "El resumen del mes separa el costo económico del trabajo propio (imputado, sin salida de caja) de los pagos reales al personal de apoyo y lo que queda por pagar.",
+        badge: "Caja vs. costo económico",
+        targetHref: "/finanzas/personal",
+        targetLabel: "Ir a Personal y Nómina",
+      },
+      {
+        type: "steps",
+        title: "Registrar personal y liquidar un pago",
+        items: [
+          "Crea el perfil con nombre completo, documento (opcional pero recomendado para evitar duplicados), tipo de trabajador, contrato, periodo de pago (hora, día, semana, quincena o mes) y tarifa base mayor a cero.",
+          "Activa seguridad social solo cuando corresponda: el sistema calcula aportes de empleador y trabajador, ARL según riesgo y auxilio de transporte para apoyo elegible; cada liquidación guarda un snapshot de los parámetros vigentes ese día.",
+          "Registra la liquidación indicando unidades trabajadas y bonificaciones; elige el modo: pagado (salió de caja), imputado (costo económico del trabajo propio) o crédito (queda como cuenta por pagar con vencimiento).",
+          "Gina puede preparar el pago por ti («págale 2 días a Juan con bono de 10 mil»): siempre verás una tarjeta de confirmación con el bruto estimado antes de registrar, y la liquidación final aplica prestaciones y deducciones de ley.",
+        ],
+      },
+      {
+        type: "warning",
+        title: "Importante",
+        items: [
+          "Los cálculos usan los parámetros tributarios y laborales vigentes configurados en la app (UVT, porcentajes de aportes): son información operativa, no asesoría contable ni laboral profesional.",
+          "El trabajo propio imputado NO es un gasto de caja: mezclarlo con los pagos reales distorsiona la ganancia operativa y el flujo de efectivo.",
+        ],
+      },
+      {
+        type: "tip",
+        title: "Consejo",
+        items: [
+          "Imputa el costo de nómina a la especie y al lugar de manejo para que la contabilidad analítica por lote refleje la mano de obra real.",
+        ],
+      },
+    ],
+  },
+  {
+    slug: "plan-y-pagos",
+    title: "Plan y pagos: ciclos, Wompi y qué pasa al vencer",
+    module: "configuracion",
+    icon: "banknote",
+    summary:
+      "Elige el plan de la granja desde el catálogo, paga por ciclo mensual, semestral o anual con Wompi (Nequi, Daviplata, PSE o tarjeta) y conoce la degradación suave a freemium al vencer, sin perder nunca tu historial.",
+    estimatedMinutes: 3,
+    updatedAt: "2026-11-17",
+    tags: ["plan", "suscripcion", "pago", "wompi", "nequi", "daviplata", "pse", "ciclo", "semestral", "anual", "freemium", "vencimiento", "facturacion"],
+    relatedHrefs: [
+      { href: "/configuracion/plan", label: "Plan y Facturación" },
+      { href: "/configuracion", label: "Panel Configuración" },
+      { href: "/configuracion/usuarios", label: "Usuarios y Cupos" },
+    ],
+    sections: [
+      {
+        type: "intro",
+        text: "En Configuración → Plan y facturación ves el plan activo de la granja, su fecha de corte y los cupos (usuarios, animales y funcionalidades). El catálogo de planes ofrece ciclos mensual, semestral y anual; los ciclos largos tienen descuento y todos se pagan en pesos colombianos a través de Wompi.",
+      },
+      {
+        type: "screenshot",
+        title: "Estado del plan y facturación desde configuración",
+        image: "/images/guia/configuracion-panel.webp",
+        alt: "Panel de configuración de la granja con acceso a plan, facturación y usuarios",
+        caption:
+          "Desde el panel de configuración controlas el plan vigente, el historial de pagos y los cupos de usuarios sin salir de la app.",
+        badge: "Pagos en COP",
+        targetHref: "/configuracion/plan",
+        targetLabel: "Ver Plan y Facturación",
+      },
+      {
+        type: "steps",
+        title: "Pagar o renovar el plan",
+        items: [
+          "Abre Configuración → Plan y facturación y elige el plan y el ciclo (mensual, semestral o anual) que necesita tu operación.",
+          "Paga con Wompi: Nequi, Daviplata, PSE o tarjeta. La app registra la transacción y activa el plan al confirmarse el pago.",
+          "Revisa el historial de pagos y la fecha de corte; puedes cambiar de ciclo en la siguiente renovación.",
+          "Si el plan vence, la granja degrada suavemente a freemium: conservas TODO tu historial y los datos siguen visibles; solo se limitan las funcionalidades y cupos del plan pago hasta que renueves.",
+        ],
+      },
+      {
+        type: "warning",
+        title: "Importante",
+        items: [
+          "Nunca se borra información al vencer un plan: la degradación es reversible y renovar restaura los cupos y módulos del plan.",
+        ],
+      },
+      {
+        type: "tip",
+        title: "Consejo",
+        items: [
+          "El ciclo anual conviene cuando la operación ya es estable; el mensual da flexibilidad mientras creces de escala Pequeño a Mediano.",
+        ],
+      },
+    ],
+  },
+  {
+    slug: "usuarios-y-roles",
+    title: "Usuarios y roles: quién puede hacer qué en la granja",
+    module: "configuracion",
+    icon: "shield",
+    summary:
+      "Invita a trabajadores y familiares con el rol justo en lenguaje de granja: quién registra el día a día, quién vende o paga, quién cierra el día y quién administra la granja; cupos por plan y recuperación de acceso.",
+    estimatedMinutes: 3,
+    updatedAt: "2026-11-17",
+    tags: ["usuarios", "roles", "permisos", "propietario", "administrador", "gerente", "veterinario", "operario", "cupos", "invitar", "recuperar acceso", "contrasena"],
+    relatedHrefs: [
+      { href: "/configuracion/usuarios", label: "Usuarios de la Granja" },
+      { href: "/configuracion", label: "Panel Configuración" },
+      { href: "/configuracion/plan", label: "Cupos del Plan" },
+    ],
+    sections: [
+      {
+        type: "intro",
+        text: "Cada persona que entra a la app tiene un rol que define qué puede hacer. En palabras de granja: el operario registra lo que pasa en el galpón (huevos, mortalidad, alimento, peso); el veterinario cuida la sanidad; el gerente o administrador vende, paga y cierra el día; el propietario administra todo, incluidos usuarios, plan y configuración. Cada granja tiene sus propios usuarios y nadie ve datos de otra granja.",
+      },
+      {
+        type: "screenshot",
+        title: "Gestión de usuarios desde configuración",
+        image: "/images/guia/configuracion-panel.webp",
+        alt: "Panel de configuración con acceso a la gestión de usuarios y roles de la granja",
+        caption:
+          "Solo el propietario o administrador crea usuarios, asigna roles y restablece accesos; los cupos dependen del plan activo.",
+        badge: "Aislamiento por granja",
+        targetHref: "/configuracion/usuarios",
+        targetLabel: "Administrar Usuarios",
+      },
+      {
+        type: "steps",
+        title: "Invitar y recuperar acceso",
+        items: [
+          "En Configuración → Usuarios, crea la cuenta con nombre, correo y rol; el sistema valida que no excedas los cupos de tu plan.",
+          "Asigna el rol mínimo necesario: quien solo registra en galpón no necesita permisos de venta ni de cierre diario.",
+          "Si alguien olvida su contraseña, usa la recuperación de acceso desde el login (correo de restablecimiento) o el administrador la restablece desde Usuarios.",
+          "Al salir una persona de la granja, desactiva su usuario: el historial de lo que registró se conserva intacto para auditoría.",
+        ],
+      },
+      {
+        type: "warning",
+        title: "Importante",
+        items: [
+          "Las acciones sensibles (ventas, gastos, pagos, cierres, configuración) exigen rol con permiso y confirmación humana cuando el agente las prepara: un operario nunca puede confirmar una venta por ti.",
+        ],
+      },
+    ],
+  },
+  {
+    slug: "integraciones-erp-agentes",
+    title: "Integraciones: ERP, tokens, API de herramientas y MCP",
+    module: "configuracion",
+    icon: "globe",
+    summary:
+      "Conecta sistemas externos de solo lectura (ERP, contabilidad) y agentes de IA mediante tokens con scopes, la API v1 de herramientas del agente y el servidor MCP; conoce la política de delegación y el piso duro de acciones que NUNCA se automatizan.",
+    estimatedMinutes: 4,
+    updatedAt: "2026-11-17",
+    tags: ["integraciones", "erp", "conectores", "api", "token", "scopes", "mcp", "agente externo", "delegacion", "automatizacion", "solo lectura", "webhook"],
+    relatedHrefs: [
+      { href: "/exportar", label: "Exportación y Conectores" },
+      { href: "/configuracion/modulos", label: "Módulos y Canales" },
+      { href: "/configuracion/usuarios", label: "Usuarios y Roles" },
+    ],
+    sections: [
+      {
+        type: "intro",
+        text: "En Exportar → Conectores administras las integraciones de la granja. Los conectores ERP son de solo lectura: traen o llevan información sin modificar tus registros. Para agentes de IA externos (tu propio asistente, un orquestador o una herramienta MCP) la app expone las mismas herramientas que usa Gina, protegidas por tokens con scopes de lectura (agent:read) y escritura (agent:write).",
+      },
+      {
+        type: "screenshot",
+        title: "Exportación, reportes y conectores",
+        image: "/images/guia/analisis-reportes.webp",
+        alt: "Pantalla de reportes y exportación con pestañas de conectores e integraciones externas",
+        caption:
+          "Desde Exportar controlas qué sale de la granja: reportes Excel/PDF, conectores ERP de solo lectura y tokens para agentes externos.",
+        badge: "Tokens con scopes",
+        targetHref: "/exportar",
+        targetLabel: "Abrir Exportación y Conectores",
+      },
+      {
+        type: "steps",
+        title: "Conectar un agente externo con seguridad",
+        items: [
+          "Crea un token en Exportar → Conectores y elige sus scopes: agent:read solo consulta; agent:write permite preparar escrituras, que SIEMPRE quedan pendientes de confirmación humana.",
+          "Consume la API v1 de herramientas (/api/v1/agent/tools) con el token; cada llamada queda auditada con origen external_agent, usuario y token.",
+          "Si tu herramienta habla MCP (Model Context Protocol), conéctala al servidor MCP de la granja (/api/mcp): lista y ejecuta las mismas herramientas sobre el mismo ejecutor, sin lógica duplicada.",
+          "Revisa la política de delegación en Configuración → Módulos: define qué escrituras rutinarias puede ejecutar el agente por su cuenta; el piso duro de confirmación no es configurable.",
+        ],
+      },
+      {
+        type: "note",
+        title: "Ejemplo: conectar un cliente MCP (Claude u otro)",
+        text: 'Apunta tu cliente MCP al servidor de la granja con un token que tenga scopes agent. En Claude Desktop o cualquier cliente compatible con Streamable HTTP: { "mcpServers": { "iwagranja": { "type": "streamable-http", "url": "https://<dominio>/api/mcp", "headers": { "Authorization": "Bearer glli_exp_TU_TOKEN" } } } }. El cliente hace initialize, tools/list y tools/call sobre las mismas herramientas de Gina. Las ventas y demás acciones sensibles llegan como pendientes con actionId: se confirman con el mismo token en POST /api/asistente/acciones/{actionId}/confirmar o desde la app. Los tokens con agent:write vencen obligatoriamente en máximo 90 días.',
+      },
+      {
+        type: "warning",
+        title: "Piso duro: esto NUNCA se automatiza",
+        items: [
+          "Ventas, gastos, ingresos, pagos y abonos de cartera, prorrateos, adquisiciones de animales, creación/edición de lugares, traslados, sacrificio/faena, ajustes de gallinaza, creación/edición de alimentos y cierres diarios siempre requieren confirmación humana explícita, sin importar el canal (web, voz, Telegram, API o MCP) ni la política de delegación.",
+          "Los conectores ERP son de solo lectura por diseño: ninguna integración externa modifica inventarios ni finanzas directamente.",
+        ],
+      },
+      {
+        type: "tip",
+        title: "Consejo",
+        items: [
+          "Usa un token por integración y revócalo al dejar de usarla; los scopes mínimos reducen el riesgo si un token se filtra.",
+        ],
+      },
+    ],
+  },
+  {
+    slug: "asistente-avanzado",
+    title: "Gina avanzada: briefing diario, memoria, delegación y Telegram",
+    module: "primeros-pasos",
+    icon: "rocket",
+    summary:
+      "Sácale el jugo al asistente: briefing diario proactivo con hallazgos de la granja, memoria persistente de preferencias, confirmación por voz o texto, delegación gradual de escrituras rutinarias, deep-links a pantallas y el canal bidireccional de Telegram con comandos y notas de voz.",
+    estimatedMinutes: 5,
+    updatedAt: "2026-11-17",
+    tags: ["gina", "asistente", "briefing", "proactivo", "memoria", "delegacion", "telegram", "voz", "confirmacion", "deep links", "comandos", "parte diario"],
+    relatedHrefs: [
+      { href: "/configuracion/modulos", label: "Módulos y Canales" },
+      { href: "/inicio", label: "Inicio y Briefing" },
+      { href: "/manual", label: "Manual de Guías" },
+    ],
+    sections: [
+      {
+        type: "intro",
+        text: "Gina no solo responde: también vigila. Cada mañana prepara un briefing determinista con los hallazgos de tu granja (alimento por acabarse, vacunas atrasadas, mortalidad fuera de lo normal, desviación de presupuesto, rutinas vencidas) y lo deja en tu bandeja de Inicio; si hay señal y clave de IA configurada, lo narra en español de granja. El agente proactivo SOLO lee y narra: nunca registra datos por su cuenta.",
+      },
+      {
+        type: "screenshot",
+        title: "Gina por voz y texto en cualquier pantalla",
+        image: "/images/guia/asistente-ia.webp",
+        alt: "Widget del asistente Gina conversando por voz y texto con tarjetas de confirmación de acciones",
+        caption:
+          "Las escrituras sensibles llegan como tarjeta de confirmación: revisas el resumen y confirmas con un toque o escribiendo «confirmo».",
+        badge: "Confirmación humana",
+        targetHref: "/inicio",
+        targetLabel: "Abrir Inicio",
+      },
+      {
+        type: "steps",
+        title: "Memoria, delegación y pantallas exactas",
+        items: [
+          "Dile «recuerda que...» para guardar preferencias duraderas (compradores frecuentes, reglas de la finca, proveedores): Gina las usa en adelante sin que las repitas.",
+          "Pide que te lleve a una pantalla («¿dónde registro el linaje?») y Gina responde con el enlace exacto; si el módulo está bloqueado por tu escala, te explica el hito que lo desbloquea.",
+          "En Configuración → Módulos ajusta la política de delegación: manual (todo se confirma), gradual (escrituras rutinarias como producción, mortalidad o alimento se ejecutan solas) o el piso duro, que siempre exige confirmación para ventas, gastos, pagos, traslados, sacrificio y cierres.",
+          "El briefing diario aparece como tarjeta en Inicio; márcalo leído y revisa los hallazgos con un toque en el enlace de cada uno.",
+        ],
+      },
+      {
+        type: "steps",
+        title: "Canal Telegram bidireccional",
+        items: [
+          "Vincula tu Telegram desde Configuración → Módulos → Telegram: la app genera un código de un solo uso (vigente 10 minutos) que envías al bot para emparejar tu chat con tu usuario de la granja.",
+          "Escribe o manda notas de voz al bot: Gina responde con las mismas herramientas y permisos de tu rol, y las acciones sensibles llegan con botones de confirmar/cancelar.",
+          "Comandos rápidos: /resumen (estado de la granja), /parte (parte diario), /estado (alertas y pendientes), /ayuda (qué puede hacer Gina).",
+          "Recibe por Telegram el briefing diario y las alertas; puedes silenciar o desvincular el chat cuando quieras desde Módulos.",
+        ],
+      },
+      {
+        type: "warning",
+        title: "Importante",
+        items: [
+          "El canal Telegram lo activa el administrador de la granja (requiere configurar el bot); cada chat emparejado queda auditado y hereda exactamente los permisos de tu usuario: nada de saltarse el piso duro desde el celular.",
+        ],
+      },
+      {
+        type: "tip",
+        title: "Consejo",
+        items: [
+          "En el galpón, una nota de voz de Telegram («se murieron dos pollitas en el galpón 2») registra la mortalidad con la misma validación que la captura rápida de la app.",
         ],
       },
     ],

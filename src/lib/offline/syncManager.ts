@@ -14,6 +14,7 @@ import {
 } from "./db";
 import { v4 as uuidv4 } from "uuid";
 import { applyOptimisticMutationToCache } from "./optimisticCache";
+import { flushAdoptionTelemetry } from "./telemetry";
 
 const BATCHABLE_ENTITIES = new Set<OutboxMutation["entity"]>([
   "huevos",
@@ -102,6 +103,7 @@ class SyncManager {
       this.notifyListeners();
       // Auto sincronizar cuando regresa la conexión
       void this.syncPending();
+      void flushAdoptionTelemetry();
     });
 
     window.addEventListener("offline", () => {
@@ -232,6 +234,8 @@ class SyncManager {
     } finally {
       this.isSyncing = false;
       await this.notifyListeners();
+      // Vaciar también la telemetría de adopción capturada offline
+      void flushAdoptionTelemetry();
     }
 
     return {

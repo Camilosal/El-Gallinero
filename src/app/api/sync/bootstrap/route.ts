@@ -14,7 +14,7 @@ import { withApiHandler } from "@/lib/api-handler";
 import { HEN_PRESENT_STATUSES } from "@/lib/animal-status";
 import { todayColombiaIso } from "@/lib/date-validation";
 import { getProgressiveOnboardingState } from "@/lib/onboarding-server";
-import { SPECIES_PARAMS } from "@/lib/species-params";
+import { loadSpeciesParams } from "@/lib/species-db";
 import { getStandardCurves, type CurveSpecies } from "@/lib/standard-curves";
 
 export const dynamic = "force-dynamic";
@@ -33,6 +33,7 @@ export const GET = withApiHandler(async () => {
     supplies,
     activeWithdrawals,
     onboardingState,
+    speciesParams,
   ] = await Promise.all([
     db
       .select()
@@ -75,6 +76,7 @@ export const GET = withApiHandler(async () => {
       )
       .orderBy(desc(healthControl.withdrawalUntilDate)),
     getProgressiveOnboardingState(),
+    loadSpeciesParams(),
   ]);
 
   const standardCurves = Object.fromEntries(
@@ -90,7 +92,7 @@ export const GET = withApiHandler(async () => {
     supplyInventory: supplies,
     activeWithdrawals,
     standardCurves,
-    speciesParams: SPECIES_PARAMS,
+    speciesParams,
     onboardingState,
     syncedAt: new Date().toISOString(),
   });

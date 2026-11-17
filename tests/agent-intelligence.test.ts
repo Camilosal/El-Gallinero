@@ -382,10 +382,10 @@ describe("higiene de historial, estado situacional y runtime", () => {
     expect(brief).toContain("COMP-1");
   });
 
-  it("agentStatus reporta 58 herramientas y cobertura de conocimiento", () => {
+  it("agentStatus reporta todas las herramientas registradas y cobertura de conocimiento", () => {
     const status = agentStatus(null);
     expect(status.configured).toBe(false);
-    expect(status.toolCount).toBe(58);
+    expect(status.toolCount).toBe(AGENT_TOOLS.length);
     expect(status.knowledgeCount).toBeGreaterThanOrEqual(50);
   });
 });

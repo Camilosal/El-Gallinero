@@ -15,6 +15,20 @@ function intOrNull(value: unknown): number | null {
   return Number.isNaN(n) ? null : n;
 }
 
+function validateCatalogPrices(body: Record<string, unknown>): string | null {
+  for (const key of ["price", "eggPrice", "feedCostPerKg", "initialUnitCostCop", "pointOfLayUnitValueCop", "breederUnitValueCop"]) {
+    const raw = body[key];
+    if (raw === undefined || raw === null || raw === "") continue;
+    const value = Number(raw);
+    if (!Number.isFinite(value) || value < 0) return "Los precios y costos deben ser números mayores o iguales a cero";
+  }
+  return null;
+}
+
+function numericStringOrNull(value: unknown): string | null {
+  return value === undefined || value === null || value === "" ? null : String(value);
+}
+
 export const GET = withApiHandler(async (req: NextRequest) => {
   const { searchParams } = new URL(req.url);
   const category = searchParams.get("category");
@@ -35,6 +49,9 @@ export const POST = withApiHandler(async (req: NextRequest) => {
   const denied = await requirePermission("config:write");
   if (denied) return denied;
   const body = await safeParseJson(req);
+  if (!body || typeof body !== "object") return NextResponse.json({ error: "Cuerpo inválido" }, { status: 400 });
+  const priceError = validateCatalogPrices(body as Record<string, unknown>);
+  if (priceError) return NextResponse.json({ error: priceError }, { status: 400 });
   const category = (body.category || "").toString().trim();
   const value = (body.value || "").toString().trim();
   if (!category || !value) return NextResponse.json({ error: "Categoría y valor son requeridos" }, { status: 400 });
@@ -56,6 +73,9 @@ export const POST = withApiHandler(async (req: NextRequest) => {
       dailyFeedG: body.dailyFeedG !== undefined && body.dailyFeedG !== "" ? parseInt(body.dailyFeedG) : null,
       targetWeightKg: body.targetWeightKg !== undefined && body.targetWeightKg !== "" ? body.targetWeightKg.toString() : null,
       feedCostPerKg: body.feedCostPerKg !== undefined && body.feedCostPerKg !== "" ? body.feedCostPerKg.toString() : null,
+      initialUnitCostCop: numericStringOrNull(body.initialUnitCostCop),
+      pointOfLayUnitValueCop: numericStringOrNull(body.pointOfLayUnitValueCop),
+      breederUnitValueCop: numericStringOrNull(body.breederUnitValueCop),
       feedConversionRatio: body.feedConversionRatio !== undefined && body.feedConversionRatio !== "" ? body.feedConversionRatio.toString() : null,
       systemType: body.systemType !== undefined && body.systemType !== "" ? body.systemType : null,
       description: body.description !== undefined && body.description !== "" ? body.description : null,
@@ -85,6 +105,9 @@ export const PUT = withApiHandler(async (req: NextRequest) => {
   const denied = await requirePermission("config:write");
   if (denied) return denied;
   const body = await safeParseJson(req);
+  if (!body || typeof body !== "object") return NextResponse.json({ error: "Cuerpo inválido" }, { status: 400 });
+  const priceError = validateCatalogPrices(body as Record<string, unknown>);
+  if (priceError) return NextResponse.json({ error: priceError }, { status: 400 });
   const value = (body.value || "").toString().trim();
   if (!value) return NextResponse.json({ error: "El valor no puede estar vacío" }, { status: 400 });
 
@@ -103,6 +126,9 @@ export const PUT = withApiHandler(async (req: NextRequest) => {
       dailyFeedG: body.dailyFeedG !== undefined ? intOrNull(body.dailyFeedG) : undefined,
       targetWeightKg: body.targetWeightKg !== undefined ? (body.targetWeightKg === "" ? null : body.targetWeightKg.toString()) : undefined,
       feedCostPerKg: body.feedCostPerKg !== undefined ? (body.feedCostPerKg === "" ? null : body.feedCostPerKg.toString()) : undefined,
+      initialUnitCostCop: body.initialUnitCostCop !== undefined ? numericStringOrNull(body.initialUnitCostCop) : undefined,
+      pointOfLayUnitValueCop: body.pointOfLayUnitValueCop !== undefined ? numericStringOrNull(body.pointOfLayUnitValueCop) : undefined,
+      breederUnitValueCop: body.breederUnitValueCop !== undefined ? numericStringOrNull(body.breederUnitValueCop) : undefined,
       feedConversionRatio: body.feedConversionRatio !== undefined ? (body.feedConversionRatio === "" ? null : body.feedConversionRatio.toString()) : undefined,
       systemType: body.systemType !== undefined ? (body.systemType === "" ? null : body.systemType) : undefined,
       description: body.description !== undefined ? (body.description === "" ? null : body.description) : undefined,

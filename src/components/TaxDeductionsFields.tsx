@@ -3,7 +3,12 @@
 import { useState } from "react";
 import { ChevronDown, ChevronUp, Receipt } from "lucide-react";
 import { Input } from "@/components/ui";
-import { computeTransactionTaxBreakdown } from "@/lib/analytics/payroll-tax-supplies";
+import { useMasterSettings } from "@/lib/use-master-settings";
+import {
+  computeTransactionTaxBreakdown,
+  inferManagedTaxProfile,
+  type ManagedTaxProfile,
+} from "@/lib/analytics/payroll-tax-supplies";
 
 export interface TaxFieldsState {
   ivaRate: string;
@@ -21,21 +26,78 @@ export const emptyTaxFields = (): TaxFieldsState => ({
   taxNotes: "",
 });
 
+interface TaxSettingsValues {
+  uvtCop: number;
+  ivaDefaultPct: number;
+  ivaAgroPct: number;
+  reteAgroPct: number;
+  reteComprasPct: number;
+  reteServiciosPct: number;
+  icaDefaultPct: number;
+  reteComprasThresholdUvt: number;
+  reteAgroThresholdUvt: number;
+}
+
 export function TaxDeductionsFields({
   grossAmount,
   value,
   onChange,
   mode = "egreso",
+  category,
+  profile,
+  isExisting = false,
 }: {
   grossAmount: number;
   value: TaxFieldsState;
   onChange: (next: TaxFieldsState) => void;
   mode?: "egreso" | "ingreso";
+  category?: string;
+  profile?: ManagedTaxProfile;
+  isExisting?: boolean;
 }) {
+  const { values: rawTaxSettings } = useMasterSettings();
+  const settingNumber = (key: string) => Number(rawTaxSettings[key] || 0);
+  const taxSettings: TaxSettingsValues = {
+    uvtCop: settingNumber("external.tax_uvt_cop"),
+    ivaDefaultPct: settingNumber("tax.iva_default_pct"),
+    ivaAgroPct: settingNumber("tax.iva_agro_pct"),
+    reteAgroPct: settingNumber("tax.retefuente_agro_pct"),
+    reteComprasPct: settingNumber("tax.retefuente_compras_pct"),
+    reteServiciosPct: settingNumber("tax.retefuente_servicios_pct"),
+    icaDefaultPct: settingNumber("tax.ica_default_pct"),
+    reteComprasThresholdUvt: settingNumber("tax.retefuente_compras_threshold_uvt"),
+    reteAgroThresholdUvt: settingNumber("tax.retefuente_agro_threshold_uvt"),
+  };
+
+  const taxProfile = profile || inferManagedTaxProfile(mode, category);
+  const managedRates = (() => {
+    if (isExisting) {
+      return {
+        ivaRate: Number(value.ivaRate || 0),
+        reteFuenteRate: Number(value.reteFuenteRate || 0),
+        icaRate: Number(value.icaRate || 0),
+      };
+    }
+    if (taxProfile === "none") return { ivaRate: 0, reteFuenteRate: 0, icaRate: 0 };
+    const agriculturalThreshold = taxSettings.uvtCop * taxSettings.reteAgroThresholdUvt;
+    const purchaseThreshold = taxSettings.uvtCop * taxSettings.reteComprasThresholdUvt;
+    return {
+      ivaRate: taxProfile === "agro" ? taxSettings.ivaAgroPct : taxSettings.ivaDefaultPct,
+      reteFuenteRate:
+        taxProfile === "agro" && grossAmount >= agriculturalThreshold
+          ? taxSettings.reteAgroPct
+          : taxProfile === "purchases" && grossAmount >= purchaseThreshold
+            ? taxSettings.reteComprasPct
+            : taxProfile === "services"
+              ? taxSettings.reteServiciosPct
+              : 0,
+      icaRate: taxSettings.icaDefaultPct,
+    };
+  })();
   const hasAnyValue = Boolean(
-    Number(value.ivaRate || 0) > 0 ||
-      Number(value.reteFuenteRate || 0) > 0 ||
-      Number(value.icaRate || 0) > 0 ||
+    managedRates.ivaRate > 0 ||
+      managedRates.reteFuenteRate > 0 ||
+      managedRates.icaRate > 0 ||
       Number(value.otherDeductionsAmount || 0) > 0 ||
       value.taxNotes.trim(),
   );
@@ -44,23 +106,11 @@ export function TaxDeductionsFields({
   const preview = computeTransactionTaxBreakdown({
     amount: grossAmount,
     inputMode: "gross",
-    ivaRate: Number(value.ivaRate || 0),
-    reteFuenteRate: Number(value.reteFuenteRate || 0),
-    icaRate: Number(value.icaRate || 0),
+    ivaRate: managedRates.ivaRate,
+    reteFuenteRate: managedRates.reteFuenteRate,
+    icaRate: managedRates.icaRate,
     otherDeductionsAmount: Number(value.otherDeductionsAmount || 0),
   });
-
-  const applyColombianPreset = (preset: "exento" | "agro92" | "compras19" | "servicios4") => {
-    if (preset === "exento") {
-      onChange({ ...value, ivaRate: "0", reteFuenteRate: "0", icaRate: "0" });
-    } else if (preset === "agro92") {
-      onChange({ ...value, ivaRate: "0", reteFuenteRate: "1.5", icaRate: value.icaRate || "0.4" });
-    } else if (preset === "compras19") {
-      onChange({ ...value, ivaRate: "19", reteFuenteRate: "2.5", icaRate: value.icaRate || "0.4" });
-    } else {
-      onChange({ ...value, ivaRate: "19", reteFuenteRate: "4", icaRate: value.icaRate || "0.4" });
-    }
-  };
 
   return (
     <div className="rounded-xl border border-slate-200 bg-slate-50/70">
@@ -87,37 +137,9 @@ export function TaxDeductionsFields({
 
       {expanded && (
         <div className="px-3.5 pb-3.5 pt-2 border-t border-slate-200 space-y-3">
-          <div className="flex flex-wrap items-center gap-1.5 text-[11px]">
-            <span className="text-slate-500 font-medium mr-1">Plantillas CO:</span>
-            <button
-              type="button"
-              onClick={() => applyColombianPreset("exento")}
-              className="rounded-md border border-slate-200 bg-white px-2 py-0.5 text-slate-700 hover:bg-slate-100"
-            >
-              Exento (0%)
-            </button>
-            <button
-              type="button"
-              onClick={() => applyColombianPreset("agro92")}
-              className="rounded-md border border-slate-200 bg-white px-2 py-0.5 text-slate-700 hover:bg-slate-100"
-            >
-              Agro (Rete 1.5%)
-            </button>
-            <button
-              type="button"
-              onClick={() => applyColombianPreset("compras19")}
-              className="rounded-md border border-slate-200 bg-white px-2 py-0.5 text-slate-700 hover:bg-slate-100"
-            >
-              Insumos 19% + 2.5%
-            </button>
-            <button
-              type="button"
-              onClick={() => applyColombianPreset("servicios4")}
-              className="rounded-md border border-slate-200 bg-white px-2 py-0.5 text-slate-700 hover:bg-slate-100"
-            >
-              Servicios 19% + 4%
-            </button>
-          </div>
+          <p className="text-[11px] text-slate-500">
+            Las tasas provienen de Catálogos y quedan guardadas con esta operación. Para corregirlas, cambia el valor maestro antes de registrar nuevas operaciones.
+          </p>
 
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
             <Input
@@ -126,9 +148,8 @@ export function TaxDeductionsFields({
               step="0.5"
               min="0"
               max="30"
-              value={value.ivaRate}
-              onChange={(e) => onChange({ ...value, ivaRate: e.target.value })}
-              placeholder="0"
+              value={managedRates.ivaRate}
+              disabled
             />
             <Input
               label="ReteFuente %"
@@ -136,9 +157,8 @@ export function TaxDeductionsFields({
               step="0.1"
               min="0"
               max="25"
-              value={value.reteFuenteRate}
-              onChange={(e) => onChange({ ...value, reteFuenteRate: e.target.value })}
-              placeholder="0"
+              value={managedRates.reteFuenteRate}
+              disabled
             />
             <Input
               label="ICA %"
@@ -146,9 +166,8 @@ export function TaxDeductionsFields({
               step="0.05"
               min="0"
               max="5"
-              value={value.icaRate}
-              onChange={(e) => onChange({ ...value, icaRate: e.target.value })}
-              placeholder="0.4"
+              value={managedRates.icaRate}
+              disabled
             />
             <Input
               label="Otras deducc. ($)"

@@ -38,8 +38,10 @@ import { parseQrTarget } from "@/lib/qr";
 import { HEN_PRESENT_STATUSES, isHenAvailableForExit } from "@/lib/animal-status";
 import { LOCATION_TYPE_LABELS, type FarmLocation, useFarmLocations } from "@/lib/useFarmLocations";
 import { getCachedCatalog } from "@/lib/offline/db";
+import { TaxDeductionsFields, emptyTaxFields, type TaxFieldsState } from "@/components/TaxDeductionsFields";
 import { openQuickCapture, QUICK_CAPTURE_SAVED_EVENT } from "@/lib/quick-capture-events";
 import { SPECIES_LABEL } from "@/lib/species-params";
+import { loadMasterSettings, useMasterSettings } from "@/lib/use-master-settings";
 
 interface Hen {
   id: string;
@@ -154,6 +156,9 @@ export default function EscanearPage() {
   const [actionSuccess, setActionSuccess] = useState("");
   const [actionError, setActionError] = useState("");
   const [actionSubmitting, setActionSubmitting] = useState(false);
+  const [saleTaxFields, setSaleTaxFields] = useState<TaxFieldsState>(emptyTaxFields);
+  const { values: masterSettings } = useMasterSettings();
+  const liveBirdPricePerKg = Number(masterSettings["inventory.bird_price_per_kg"] || 0);
 
   const scannerRef = useRef<Html5Qrcode | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
@@ -446,13 +451,18 @@ export default function EscanearPage() {
 
   const scannedHen = selected?.type === "gallina" ? selected.hen : null;
 
-  const openHenAction = (action: "vender" | "tratar" | "muerte") => {
+  const openHenAction = async (action: "vender" | "tratar" | "muerte") => {
     if (!scannedHen) return;
     setActionModal(action);
     setActionError("");
     setActionSuccess("");
     if (action === "vender") {
-      setActionForm({ buyer: "", pricePerUnit: "15000", weightKg: scannedHen.weight || "" });
+      const currentSettings = await loadMasterSettings();
+      const currentPricePerKg = Number(currentSettings["inventory.bird_price_per_kg"] || 0);
+      const weightKg = Number(scannedHen.weight || 0);
+      const defaultPrice = currentPricePerKg > 0 && weightKg > 0 ? String(Math.round(currentPricePerKg * weightKg)) : "";
+      setActionForm({ buyer: "", pricePerUnit: defaultPrice, weightKg: scannedHen.weight || "" });
+      setSaleTaxFields(emptyTaxFields());
     } else if (action === "tratar") {
       setActionForm({
         date: todayColombiaIso(),
@@ -494,6 +504,11 @@ export default function EscanearPage() {
             totalAmount: price,
             buyer: actionForm.buyer,
             henId: scannedHen.id,
+            ivaRate: Number(saleTaxFields.ivaRate || 0),
+            reteFuenteRate: Number(saleTaxFields.reteFuenteRate || 0),
+            icaRate: Number(saleTaxFields.icaRate || 0),
+            otherDeductionsAmount: Number(saleTaxFields.otherDeductionsAmount || 0),
+            taxNotes: saleTaxFields.taxNotes || null,
           }),
         });
         const queued = res.headers.get("X-Gallinero-Offline-Queued") === "1";
@@ -1118,7 +1133,7 @@ export default function EscanearPage() {
                   type="number"
                   step="0.01"
                   value={actionForm.weightKg || ""}
-                  onChange={(e) => setActionForm({ ...actionForm, weightKg: e.target.value })}
+                  onChange={(e) => setActionForm({ ...actionForm, weightKg: e.target.value, pricePerUnit: liveBirdPricePerKg > 0 && Number(e.target.value) > 0 ? String(Math.round(liveBirdPricePerKg * Number(e.target.value))) : actionForm.pricePerUnit })}
                   placeholder="Ej: 2.5"
                 />
                 <Input
@@ -1126,6 +1141,14 @@ export default function EscanearPage() {
                   type="number"
                   value={actionForm.pricePerUnit || ""}
                   onChange={(e) => setActionForm({ ...actionForm, pricePerUnit: e.target.value })}
+                />
+                <TaxDeductionsFields
+                  grossAmount={Number(actionForm.pricePerUnit || 0)}
+                  value={saleTaxFields}
+                  onChange={setSaleTaxFields}
+                  mode="ingreso"
+                  profile="agro"
+                  isExisting={false}
                 />
               </>
             )}

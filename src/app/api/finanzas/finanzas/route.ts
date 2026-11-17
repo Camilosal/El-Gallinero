@@ -30,10 +30,12 @@ import {
 } from "@/lib/analytics/biological-db";
 import {
   computeSupplyWarehouseValuation,
-  computeTransactionTaxBreakdown,
+  inferManagedTaxProfile,
+  resolveManagedTransactionTaxColumns,
   computeWeightedAverageUnitCost,
 } from "@/lib/analytics/payroll-tax-supplies";
 import { loadPeriodPayrollAndSupplies } from "@/lib/analytics/payroll-tax-supplies-db";
+import { getTaxAndPayrollConfig } from "@/lib/settings";
 
 export const dynamic = "force-dynamic";
 
@@ -316,54 +318,6 @@ function computeKpis(txs: any[], periodDays: number): Kpis {
   };
 }
 
-function resolveTransactionTaxColumns(body: Record<string, any>, rawAmount: string) {
-  const ivaRate = body.ivaRate !== undefined && body.ivaRate !== "" && body.ivaRate !== null ? Number(body.ivaRate) : 0;
-  const reteFuenteRate = body.reteFuenteRate !== undefined && body.reteFuenteRate !== "" && body.reteFuenteRate !== null ? Number(body.reteFuenteRate) : 0;
-  const icaRate = body.icaRate !== undefined && body.icaRate !== "" && body.icaRate !== null ? Number(body.icaRate) : 0;
-  const otherDeductionsAmount = body.otherDeductionsAmount !== undefined && body.otherDeductionsAmount !== "" && body.otherDeductionsAmount !== null ? Number(body.otherDeductionsAmount) : 0;
-  const hasExplicitTaxes = ivaRate > 0 || reteFuenteRate > 0 || icaRate > 0 || otherDeductionsAmount > 0 || Boolean(body.taxNotes);
-  const inputMode = body.taxInputMode === "subtotal" ? "subtotal" : "gross";
-
-  const breakdown = computeTransactionTaxBreakdown({
-    amount: Number(rawAmount),
-    inputMode,
-    ivaRate: Number.isFinite(ivaRate) ? ivaRate : 0,
-    reteFuenteRate: Number.isFinite(reteFuenteRate) ? reteFuenteRate : 0,
-    icaRate: Number.isFinite(icaRate) ? icaRate : 0,
-    otherDeductionsAmount: Number.isFinite(otherDeductionsAmount) ? otherDeductionsAmount : 0,
-  });
-
-  return {
-    amount: breakdown.grossAmount.toFixed(2),
-    netSettlementAmountNum: breakdown.netSettlementAmount,
-    columns: hasExplicitTaxes
-      ? {
-          subtotalAmount: breakdown.subtotalAmount.toFixed(2),
-          ivaRate: breakdown.ivaRate.toFixed(2),
-          ivaAmount: breakdown.ivaAmount.toFixed(2),
-          reteFuenteRate: breakdown.reteFuenteRate.toFixed(2),
-          reteFuenteAmount: breakdown.reteFuenteAmount.toFixed(2),
-          icaRate: breakdown.icaRate.toFixed(2),
-          icaAmount: breakdown.icaAmount.toFixed(2),
-          otherDeductionsAmount: breakdown.otherDeductionsAmount.toFixed(2),
-          netSettlementAmount: breakdown.netSettlementAmount.toFixed(2),
-          taxNotes: typeof body.taxNotes === "string" && body.taxNotes.trim() ? body.taxNotes.trim() : null,
-        }
-      : {
-          subtotalAmount: null,
-          ivaRate: null,
-          ivaAmount: null,
-          reteFuenteRate: null,
-          reteFuenteAmount: null,
-          icaRate: null,
-          icaAmount: null,
-          otherDeductionsAmount: null,
-          netSettlementAmount: null,
-          taxNotes: null,
-        },
-  };
-}
-
 export const POST = withApiHandler(async (req: NextRequest) => {
   const denied = await requirePermission("finance:write");
   if (denied) return denied;
@@ -386,7 +340,13 @@ export const POST = withApiHandler(async (req: NextRequest) => {
   if (!amount) {
     return NextResponse.json({ error: "Defina el monto o cantidad y valor unitario" }, { status: 400 });
   }
-  const taxResolved = resolveTransactionTaxColumns(body as Record<string, any>, amount);
+  const taxConfig = await getTaxAndPayrollConfig();
+  const taxResolved = resolveManagedTransactionTaxColumns(
+    body as Record<string, unknown>,
+    amount,
+    taxConfig,
+    inferManagedTaxProfile(body.type || "egreso", body.category),
+  );
 
   // Determine if this is a purchase with presentation data
   const hasPresentationInputs = [body.presentations, body.pricePerPresentation]
@@ -666,7 +626,6 @@ export const PUT = withApiHandler(async (req: NextRequest) => {
   if (!amount) {
     return NextResponse.json({ error: "Defina el monto o cantidad y valor unitario" }, { status: 400 });
   }
-  const taxResolved = resolveTransactionTaxColumns(body as Record<string, any>, amount);
   if (!isDateOnly(body.date)) return NextResponse.json({ error: "Fecha inválida" }, { status: 400 });
   const resolvedDimensions = await resolveDimensions(db, body);
   if ("error" in resolvedDimensions) return NextResponse.json({ error: resolvedDimensions.error }, { status: 400 });
@@ -743,7 +702,14 @@ export const PUT = withApiHandler(async (req: NextRequest) => {
     if ((current.sourceType || current.sourceId) && !(current.sourceType === "alimento" && current.sourceId)) {
       throw new Error("Transacción vinculada: debe editarse desde el módulo que la creó");
     }
-    const taxResolved = resolveTransactionTaxColumns(body as Record<string, any>, amount);
+    const taxConfig = await getTaxAndPayrollConfig();
+    const taxResolved = resolveManagedTransactionTaxColumns(
+      body as Record<string, unknown>,
+      amount,
+      taxConfig,
+      inferManagedTaxProfile(body.type ?? current.type, body.category ?? current.category),
+      current,
+    );
     const [updated] = await tx.update(transactions).set({
       ...(hasDimensions ? dims : {}),
       date: body.date,

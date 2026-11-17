@@ -7,6 +7,7 @@ const NON_QUEUEABLE_MUTATION_PREFIXES = [
   "/api/asistente",
   "/api/sync/",
   "/api/produccion/alimentacion/prediccion",
+  "/api/configuracion/fuentes-externas/importar",
 ];
 
 const METHOD_LABELS: Record<string, string> = {
@@ -81,6 +82,13 @@ export async function apiFetch(url: string, options?: RequestInit, cookies?: str
   const parsedUrl = isBrowser ? new URL(url, window.location.origin) : null;
   const isSameOriginApi = Boolean(parsedUrl && parsedUrl.origin === window.location.origin);
   const endpoint = parsedUrl ? `${parsedUrl.pathname}${parsedUrl.search}` : url;
+  if (
+    isSameOriginApi &&
+    (method === "POST" || method === "PUT" || method === "DELETE") &&
+    !headers.has("X-Client-Mutation-Id")
+  ) {
+    headers.set("X-Client-Mutation-Id", crypto.randomUUID());
+  }
   const cacheableGet = Boolean(isSameOriginApi && method === "GET" && parsedUrl && shouldCacheApiGet(parsedUrl.pathname));
   const cacheKey = getApiCacheKey(endpoint);
 
@@ -121,10 +129,10 @@ export async function apiFetch(url: string, options?: RequestInit, cookies?: str
 
   try {
     const res = await fetch(url, {
+      ...options,
       cache: "no-store",
       credentials: cookies ? "omit" : "include", // Use omit when manually providing cookies
       headers,
-      ...options,
     });
 
     if (res.status === 401) {

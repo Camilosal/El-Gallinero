@@ -26,6 +26,12 @@ const opciones = [
     label: "Soberanía Alimentaria",
     desc: "Gestión integral de la proteína producida para el hogar y cuantificación del ahorro económico en la canasta familiar. Registra consumo de huevos y carne en casa.",
   },
+  {
+    href: "/planeacion/proyectos/p1",
+    icon: "book-open",
+    label: "Plantilla de proyecto P1",
+    desc: "Explora y personaliza una ficha inicial para proyectos de seguridad y autonomía alimentaria, con un plan preliminar y medición diferenciada.",
+  },
 ];
 
 export default function PlaneacionPage() {

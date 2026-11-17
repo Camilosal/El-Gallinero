@@ -21,7 +21,13 @@ import { apiFetch } from "@/lib/fetch";
 import type { ErpAccountMapping } from "@/lib/integrations/profiles";
 
 type ErpProfile = "generic" | "siigo" | "alegra" | "odoo" | "zoho";
-type IntegrationScope = "read:finance" | "read:inventory" | "read:contacts" | "read:production";
+type IntegrationScope =
+  | "read:finance"
+  | "read:inventory"
+  | "read:contacts"
+  | "read:production"
+  | "agent:read"
+  | "agent:write";
 
 interface ExportDatasetInfo {
   id: string;
@@ -65,6 +71,8 @@ const SCOPE_LABELS: Record<IntegrationScope, string> = {
   "read:inventory": "Inventarios y kardex",
   "read:contacts": "Terceros (clientes/proveedores)",
   "read:production": "Centros de costo y producción",
+  "agent:read": "Agente externo: consultar",
+  "agent:write": "Agente externo: registrar datos",
 };
 
 const SPECIES_LABELS: Record<string, string> = {
@@ -275,11 +283,22 @@ export default function ExportarDatosPage() {
   };
 
   const generateToken = async (replacePrevious = true, customProfile?: ErpProfile, customScopes?: IntegrationScope[]) => {
+    const effectiveScopes = customScopes ?? tokenScopes;
+    const expiresInDays = Number(tokenExpiryDays);
+    if (effectiveScopes.includes("agent:write")) {
+      if (!Number.isFinite(expiresInDays) || expiresInDays <= 0) {
+        setError("Un token con alcance agent:write necesita fecha de expiración obligatoria (máximo 90 días).");
+        return;
+      }
+      if (expiresInDays > 90) {
+        setError("La expiración de un token con agent:write no puede superar 90 días.");
+        return;
+      }
+    }
     setTokenBusy(true);
     setError("");
     setMessage("");
     try {
-      const expiresInDays = Number(tokenExpiryDays);
       const res = await apiFetch("/api/export/token", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -288,7 +307,7 @@ export default function ExportarDatosPage() {
           replacePrevious,
           name: tokenName,
           profile: customProfile ?? tokenProfile,
-          scopes: customScopes ?? tokenScopes,
+          scopes: effectiveScopes,
           ...(Number.isFinite(expiresInDays) && expiresInDays > 0 ? { expiresInDays } : {}),
         }),
       });
@@ -373,7 +392,14 @@ export default function ExportarDatosPage() {
       }
       return [...prev, scope];
     });
+    // agent:write exige expiración obligatoria de máximo 90 días.
+    if (scope === "agent:write" && !tokenScopes.includes(scope)) {
+      const days = Number(tokenExpiryDays);
+      if (!Number.isFinite(days) || days <= 0 || days > 90) setTokenExpiryDays("90");
+    }
   };
+
+  const hasWriteScope = tokenScopes.includes("agent:write");
 
   const copyToken = async () => {
     try {
@@ -714,16 +740,16 @@ export default function ExportarDatosPage() {
 
 # Resumen diario en CSV
 curl -H "X-Export-Token: $TOKEN" \\
-  "https://gallinero.iwage.co/api/export?dataset=resumen-diario&format=csv&from=2026-01-01&to=2026-11-14" \\
+  "https://app.iwage.co/api/export?dataset=resumen-diario&format=csv&from=2026-01-01&to=2026-11-14" \\
   -o resumen-diario.csv
 
 # Dataset incremental en JSON con cursor
 curl -H "X-Export-Token: $TOKEN" \\
-  "https://gallinero.iwage.co/api/export?dataset=finanzas&format=json&updated_since=2026-11-01&limit=200"
+  "https://app.iwage.co/api/export?dataset=finanzas&format=json&updated_since=2026-11-01&limit=200"
 
 # Paquete completo en Excel
 curl -H "X-Export-Token: $TOKEN" \\
-  "https://gallinero.iwage.co/api/export?dataset=paquete-operativo&format=xlsx" \\
+  "https://app.iwage.co/api/export?dataset=paquete-operativo&format=xlsx" \\
   -o gallinero.xlsx`}
                     </pre>
                   </div>
@@ -964,8 +990,8 @@ curl -H "X-Export-Token: $TOKEN" \\
               >
                 <option value="30">30 días</option>
                 <option value="90">90 días</option>
-                <option value="365">1 año (recomendado)</option>
-                <option value="0">Sin expiración</option>
+                <option value="365" disabled={hasWriteScope}>1 año (recomendado)</option>
+                <option value="0" disabled={hasWriteScope}>Sin expiración</option>
               </Select>
             </div>
 
@@ -992,6 +1018,18 @@ curl -H "X-Export-Token: $TOKEN" \\
                   );
                 })}
               </div>
+              {hasWriteScope && (
+                <div className="mt-3 rounded-xl border border-amber-300 bg-amber-50 px-3.5 py-2.5 text-xs text-amber-900">
+                  <p className="font-semibold">
+                    Un agente externo con este token puede registrar datos en tu granja; las acciones
+                    sensibles seguirán requiriendo tu confirmación.
+                  </p>
+                  <p className="mt-1">
+                    Por seguridad, los tokens con <code className="font-mono">agent:write</code> vencen
+                    obligatoriamente en máximo 90 días. Puedes revocarlo en cualquier momento.
+                  </p>
+                </div>
+              )}
             </div>
 
             <div className="mt-4 flex flex-wrap gap-2">
@@ -1075,7 +1113,7 @@ curl -H "X-Export-Token: $TOKEN" \\
 
             <pre className="mt-4 overflow-x-auto rounded-lg bg-slate-900 text-slate-100 p-3 font-mono text-xs leading-relaxed">
 {`curl -H "Authorization: Bearer glli_exp_tu_token" \\
-  "https://gallinero.iwage.co${sampleEndpointPath}"`}
+  "https://app.iwage.co${sampleEndpointPath}"`}
             </pre>
 
             {testPreview && (

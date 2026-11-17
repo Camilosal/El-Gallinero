@@ -87,6 +87,36 @@ export async function GET(req: NextRequest) {
               queryParams: ["dataset", "format=json", "from", "to", "updated_since", "limit", "cursor"],
               description: "Exportación incremental JSON de los 17 datasets operativos.",
             },
+            {
+              id: "agent-tools",
+              method: "GET",
+              path: "/api/v1/agent/tools",
+              requiredScope: "agent:read | agent:write",
+              description:
+                "Manifiesto de herramientas del agente (schemas JSON, dominio Jev, confirmación requerida) filtrado por scopes.",
+            },
+            {
+              id: "agent-tool-execute",
+              method: "POST",
+              path: "/api/v1/agent/tools/{name}",
+              requiredScope: "agent:read (consultas) | agent:write (escrituras)",
+              description:
+                "Ejecuta una herramienta como el usuario delegante del token. Escrituras sensibles devuelven 202 con actionId pendiente de confirmación.",
+            },
+            {
+              id: "agent-action-confirm",
+              method: "POST",
+              path: "/api/asistente/acciones/{actionId}/confirmar",
+              requiredScope: "agent:write",
+              description: "Confirma y ejecuta una acción pendiente creada por el agente externo (mismo token).",
+            },
+            {
+              id: "agent-action-cancel",
+              method: "POST",
+              path: "/api/asistente/acciones/{actionId}/cancelar",
+              requiredScope: "agent:write",
+              description: "Cancela una acción pendiente creada por el agente externo (mismo token).",
+            },
           ],
           syncedAt: new Date().toISOString(),
         },

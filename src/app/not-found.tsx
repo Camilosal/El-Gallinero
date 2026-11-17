@@ -5,7 +5,7 @@ export default function NotFoundPage() {
   return (
     <PublicPageShell
       title="Página no encontrada (404)"
-      intro="La dirección que buscaste no existe o cambió de ubicación en El Corral. Puedes retomar desde las secciones principales:"
+      intro="La dirección que buscaste no existe o cambió de ubicación en IwaGranja. Puedes retomar desde las secciones principales:"
     >
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
         {[

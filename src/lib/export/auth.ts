@@ -2,7 +2,9 @@
 //
 // Dos caminos válidos:
 //   1. Cookie de sesión `galli_session` (personas desde el navegador).
-//   2. Token de solo lectura `glli_exp_...` (sistemas externos: SIIGO, Alegra, Odoo, Zoho, Power BI, n8n).
+//   2. Token `glli_exp_...` (sistemas externos: SIIGO, Alegra, Odoo, Zoho, Power BI, n8n).
+//      Por defecto solo lectura ERP; los alcances agent:read/agent:write habilitan
+//      la API de herramientas del agente y exigen expiración acotada.
 //
 // Los tokens se guardan como SHA-256 y viven en `export_tokens`, una tabla sin
 // RLS porque el token debe resolver la granja ANTES de abrir el contexto
@@ -22,8 +24,22 @@ export const INTEGRATION_SCOPES = [
   "read:inventory",
   "read:contacts",
   "read:production",
+  "agent:read",
+  "agent:write",
 ] as const;
 export type IntegrationScope = (typeof INTEGRATION_SCOPES)[number];
+
+// Los conectores ERP legacy y los tokens sin scopes explícitos siguen siendo de
+// SOLO LECTURA: los alcances del agente nunca se otorgan por defecto.
+export const DEFAULT_TOKEN_SCOPES: IntegrationScope[] = [
+  "read:finance",
+  "read:inventory",
+  "read:contacts",
+  "read:production",
+];
+
+// Los tokens con agent:write deben expirar: máximo 90 días, fecha obligatoria.
+export const WRITE_SCOPE_MAX_DAYS = 90;
 
 export const ERP_PROFILES = ["generic", "siigo", "alegra", "odoo", "zoho"] as const;
 export type ErpProfile = (typeof ERP_PROFILES)[number];
@@ -49,18 +65,20 @@ export interface ResolvedExportToken {
   scopes: IntegrationScope[];
   profile: ErpProfile;
   expiresAt: string | null;
+  /** Usuario delegante dueño del token (created_by); las escrituras del agente heredan su RBAC. */
+  userId: string | null;
 }
 
 export function normalizeTokenScopes(input: unknown): IntegrationScope[] {
   if (!Array.isArray(input) || input.length === 0) {
-    return [...INTEGRATION_SCOPES];
+    return [...DEFAULT_TOKEN_SCOPES];
   }
   const valid = input
     .map((item) => (typeof item === "string" ? item.trim() : ""))
     .filter((item): item is IntegrationScope =>
       (INTEGRATION_SCOPES as readonly string[]).includes(item),
     );
-  return valid.length > 0 ? Array.from(new Set(valid)) : [...INTEGRATION_SCOPES];
+  return valid.length > 0 ? Array.from(new Set(valid)) : [...DEFAULT_TOKEN_SCOPES];
 }
 
 export function normalizeErpProfile(input: unknown): ErpProfile {
@@ -134,6 +152,25 @@ export async function issueExportToken(options: {
     }
   }
 
+  // Un token con agent:write puede registrar datos en la granja: expiración
+  // obligatoria y acotada (máx. 90 días) para limitar la ventana de riesgo.
+  if (scopes.includes("agent:write")) {
+    if (!expiresAt) {
+      throw new Error(
+        `Los tokens con alcance agent:write requieren fecha de expiración obligatoria (máximo ${WRITE_SCOPE_MAX_DAYS} días).`,
+      );
+    }
+    const maxDate = new Date(Date.now() + WRITE_SCOPE_MAX_DAYS * 24 * 60 * 60 * 1000 + 60_000);
+    if (expiresAt.getTime() > maxDate.getTime()) {
+      throw new Error(
+        `La expiración de un token con agent:write no puede superar ${WRITE_SCOPE_MAX_DAYS} días.`,
+      );
+    }
+    if (expiresAt.getTime() <= Date.now()) {
+      throw new Error("La fecha de expiración debe ser futura.");
+    }
+  }
+
   // Por defecto mantiene el comportamiento de un único token activo (rotar = revocar + emitir),
   // salvo que el usuario cree un conector adicional explícitamente con `replacePrevious: false`.
   if (options.replacePrevious !== false) {
@@ -194,6 +231,7 @@ export async function resolveExportToken(token: string): Promise<ResolvedExportT
       scopes: exportTokens.scopes,
       profile: exportTokens.profile,
       expiresAt: exportTokens.expiresAt,
+      createdBy: exportTokens.createdBy,
     })
     .from(exportTokens)
     .where(and(eq(exportTokens.tokenHash, hashExportToken(clean)), isNull(exportTokens.revokedAt)))
@@ -216,6 +254,7 @@ export async function resolveExportToken(token: string): Promise<ResolvedExportT
     scopes: normalizeTokenScopes(row.scopes),
     profile: normalizeErpProfile(row.profile),
     expiresAt: row.expiresAt ? row.expiresAt.toISOString() : null,
+    userId: row.createdBy ?? null,
   };
 }
 

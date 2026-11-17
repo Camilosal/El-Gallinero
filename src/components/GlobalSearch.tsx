@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { Search } from "lucide-react";
 import { AppIcon } from "@/components/AppIcon";
 import { searchNavigation, type SearchEntry } from "@/lib/navigation";
+import { FEATURE_FLAG_CATALOG } from "@/lib/onboarding";
 import { useOnboardingState } from "@/lib/useOnboardingState";
 
 interface GlobalSearchProps {
@@ -313,6 +314,12 @@ function SearchResultRow({
             </span>
           )}
         </span>
+        {entry.lockedByFlag && (
+          <span className="block truncate text-[11px] text-amber-700">
+            {FEATURE_FLAG_CATALOG.find((flag) => flag.key === entry.lockedByFlag)?.autoTriggerDescription ??
+              "Se desbloquea al crecer la operación de la granja."}
+          </span>
+        )}
         <span className="flex items-center gap-1.5 truncate text-xs text-slate-500">
           <AppIcon icon={entry.groupIcon} className="w-3 h-3 text-slate-400 shrink-0" />
           <span className="truncate">{entry.group}</span>

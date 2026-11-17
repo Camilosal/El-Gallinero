@@ -7,7 +7,7 @@ import { APP_DEVELOPER } from "@/lib/branding";
 import { SITE_NAME, SITE_URL } from "@/lib/seo";
 
 export const metadata: Metadata = {
-  title: "El Corral · Software libre para granjas avícolas",
+  title: "IwaGranja · Software libre para granjas avícolas",
   description:
     "Gestión de granja sin señal: huevos, alimento, sanidad, trazabilidad QR y finanzas por especie. Código abierto, en producción en Ibagué, Colombia.",
   authors: [{ name: APP_DEVELOPER.name, url: APP_DEVELOPER.url }],
@@ -33,7 +33,7 @@ export const metadata: Metadata = {
   appleWebApp: {
     capable: true,
     statusBarStyle: "default",
-    title: "El Corral",
+    title: "IwaGranja",
   },
 };
 

@@ -5,8 +5,23 @@ import { deleteTransactionsAndUnpaidAccounts, syncCreditReceivable } from "@/lib
 import { lockAndReadManureStock } from "@/lib/manure-stock";
 import { resolveDimensions } from "@/lib/analytics-dimensions";
 import { assertDateNotClosed } from "@/lib/sanitary-locks";
+import type { TransactionTaxColumns } from "@/lib/analytics/payroll-tax-supplies";
 
 type DbTransaction = Parameters<Parameters<typeof db.transaction>[0]>[0];
+
+export function suggestCarbonKg(formulaRatio: string, manureKg: number, mortalityKg: number): number {
+  const m = Math.max(0, Number(manureKg) || 0);
+  const mort = Math.max(0, Number(mortalityKg) || 0);
+  if (formulaRatio === "3:1:1") {
+    // 3 partes cama/gallinaza : 1 mortalidad : 1 material carbonoso
+    return Number((m > 0 ? m / 3 : mort).toFixed(2));
+  }
+  if (formulaRatio === "7:2:2") {
+    // 7 partes cama/gallinaza : 2 mortalidad : 2 material carbonoso
+    return Number((m > 0 ? (m * 2) / 7 : mort).toFixed(2));
+  }
+  return Number(((m + mort) * 0.3).toFixed(2));
+}
 
 export interface ManureSaleInput {
   date: string;
@@ -20,6 +35,7 @@ export interface ManureSaleInput {
   batchId?: string | null;
   isCredit?: boolean;
   dueDate?: string | null;
+  taxColumns?: TransactionTaxColumns;
 }
 
 export async function createManureSale(tx: DbTransaction, input: ManureSaleInput) {
@@ -58,6 +74,7 @@ export async function createManureSale(tx: DbTransaction, input: ManureSaleInput
     description: `Venta de gallinaza (${input.quantityKg} kg)${input.buyer ? ` a ${input.buyer}` : ""}`,
     counterparty: input.buyer || null,
     amount: totalAmount,
+    ...(input.taxColumns || {}),
     quantity: input.quantityKg.toFixed(2),
     unitPrice: input.pricePerKg.toFixed(2),
     unit: "kg",
@@ -73,7 +90,7 @@ export async function createManureSale(tx: DbTransaction, input: ManureSaleInput
   if (input.isCredit) {
     await syncCreditReceivable(tx, {
       transactionId: txRow.id,
-      totalAmount,
+      totalAmount: input.taxColumns?.netSettlementAmount ?? totalAmount,
       isCredit: true,
       dueDate: input.dueDate || null,
       buyer: input.buyer || null,

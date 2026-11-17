@@ -20,6 +20,7 @@ import {
 } from "lucide-react";
 import { HeroActionLink, HeroBanner } from "@/components/HeroBanner";
 import BatchQrSheetModal from "@/components/BatchQrSheetModal";
+import AdoptionKpiPanel from "@/components/AdoptionKpiPanel";
 import { apiFetch } from "@/lib/fetch";
 import { exportDay1StarterCsvTemplate } from "@/lib/onboarding";
 import type {
@@ -357,6 +358,21 @@ export default function KitCampoRuta2Page() {
                 </div>
               </div>
             </div>
+          </section>
+
+          {/* Marcha Blanca en vivo: KPIs de adopción como criterio del Acta Semana 4 */}
+          <section className="bg-white rounded-2xl border border-slate-200 shadow-sm p-5 sm:p-6 space-y-4">
+            <div>
+              <h2 className="text-lg font-bold text-slate-900 flex items-center gap-2">
+                <ClipboardCheck className="w-5 h-5 text-emerald-700" />
+                Marcha Blanca en vivo · KPIs de Adopción
+              </h2>
+              <p className="text-xs sm:text-sm text-slate-600">
+                Criterios medibles del Acta de Entrega (Semana 4): captura &lt; 2 min, adherencia ≥ 85% y sanidad al día.{" "}
+                <Link href="/analisis/adopcion" className="font-semibold text-emerald-800 underline">Ver tablero completo</Link>
+              </p>
+            </div>
+            <AdoptionKpiPanel compact />
           </section>
 
           {/* Kit Estándar de Materiales de Campo (Sección 7) */}

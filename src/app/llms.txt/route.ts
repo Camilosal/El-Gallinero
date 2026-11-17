@@ -17,19 +17,22 @@ export function GET() {
   );
 
   const content = [
-    "# El Corral — Iwagé Granja",
+    "# IwaGranja — gestión de granjas multiespecie",
     "",
     "> Software web y PWA offline-first de código abierto para gestionar granjas avícolas y multiespecie (gallinas ponedoras, pollos de engorde, codornices, patos, conejos y cuyes) en Colombia.",
     "",
     "En producción en el gallinero piloto de Iwagé Granja (vereda Ambalá, Ibagué, Tolima, Colombia). Desarrollado por Camilo Saldarriaga (https://camilosaldarriaga.com) dentro del ecosistema Iwagé (https://iwage.co).",
     "",
     "## Documentación y soporte",
+    `- [Centro de recursos](${SITE_URL}/recursos): artículos, herramientas y novedades del proyecto`,
+    `- [Plantilla P1 de seguridad y autonomía alimentaria](${SITE_URL}/recursos/herramientas/p1): prototipo interactivo para personalizar una ficha y un plan preliminar de proyecto`,
     `- [Manual de uso completo (8 módulos y 2 secciones base)](${SITE_URL}/guia): guía ilustrada paso a paso con capturas reales`,
     `- [Ayuda y preguntas frecuentes](${SITE_URL}/ayuda): pagos por ciclo, modo offline, exportación y normativa`,
     `- [Contacto y soporte](${SITE_URL}/contacto): soporte técnico, implementación y canal PQR (respuesta en 1 día hábil)`,
     ...guideLines,
     "",
     "## Producto y propuesta",
+    `- [Funcionalidades de IwaGranja](${SITE_URL}/funcionalidades): recorrido por los módulos operativos, automatizaciones y capacidades de campo`,
     `- [Inicio y vitrina interactiva](${SITE_URL}/#modulos): módulos esenciales, estándares ICA / NTC 1240 y asistente Gina`,
     `- [Realidad del campo](${SITE_URL}/realidad-campo): problemas reales del galpón y cómo se resuelven`,
     `- [Planes y precios](${SITE_URL}/planes): plan gratuito Semilla y planes por ciclo sin cobros automáticos`,

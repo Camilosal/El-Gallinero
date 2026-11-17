@@ -7,7 +7,7 @@ import { buildPageMetadata, ENTITY_IDS } from "@/lib/seo";
 
 export const dynamic = "force-dynamic";
 
-const TITLE = "Contacto, soporte e implementación · El Corral";
+const TITLE = "Contacto, soporte e implementación · IwaGranja";
 const DESCRIPTION =
   "Escríbenos para soporte técnico, implementación Llave en Mano o consultas de datos personales y retracto. Respondemos en 1 día hábil.";
 
@@ -16,7 +16,7 @@ export const metadata: Metadata = buildPageMetadata({
   description: DESCRIPTION,
   path: "/contacto",
   ogImage: "/images/guia/asistente-ia.webp",
-  ogImageAlt: "Canales de contacto y soporte técnico de El Corral",
+  ogImageAlt: "Canales de contacto y soporte técnico de IwaGranja",
 });
 
 export default function ContactoPage() {
@@ -32,7 +32,7 @@ export default function ContactoPage() {
 
   const contactPointNode = {
     "@type": "ContactPoint",
-    "@id": "https://gallinero.iwage.co/contacto#contactpoint",
+    "@id": "https://app.iwage.co/contacto#contactpoint",
     contactType: "customer support",
     email: email || "gallinero@iwage.co",
     telephone: phone,
@@ -44,7 +44,7 @@ export default function ContactoPage() {
   return (
     <PublicPageShell
       title="Contacto"
-      intro={`Escríbenos por soporte, para implementar El Corral en tu finca o por temas de datos personales. Respondemos en ${RESPONSE_TIME}.`}
+      intro={`Escríbenos por soporte, para implementar IwaGranja en tu finca o por temas de datos personales. Respondemos en ${RESPONSE_TIME}.`}
       path="/contacto"
       description={DESCRIPTION}
       pageType="ContactPage"

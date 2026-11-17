@@ -20,10 +20,12 @@ import {
   type FeedInventoryLike,
   type FlockLike,
   type LocationLike,
+  type BiologicalMarketPrices,
 } from "@/lib/analytics/biological-valuation";
 import type { SupplyWarehouseLike } from "@/lib/analytics/payroll-tax-supplies";
 import { syncMarketPricesSnapshot } from "@/lib/external-sources/wave1-territory-weather-market";
 import { computeUniformityStats } from "@/lib/zootechnics";
+import { loadSpeciesValuationPriceMaps } from "@/lib/species-db";
 
 export interface LoadedFarmBiologicalContext {
   locations: LocationLike[];
@@ -32,7 +34,7 @@ export interface LoadedFarmBiologicalContext {
   supplyRows: SupplyWarehouseLike[];
   batches: BroilerBatchLike[];
   flocks: FlockLike[];
-  marketOverrides: ReturnType<typeof buildMarketPriceOverridesFromSipsa>;
+  marketOverrides: BiologicalMarketPrices;
 }
 
 /**
@@ -55,7 +57,7 @@ export async function loadFarmBiologicalContext(options?: {
   } = options || {};
   const today = referenceDate || new Date().toISOString().slice(0, 10);
 
-  const [locRows, assetRows, feedInvRows, supplyInvRows, batchRows, henRows, roosterRows, recentWeights, marketSnap] =
+  const [locRows, assetRows, feedInvRows, supplyInvRows, batchRows, henRows, roosterRows, recentWeights, marketSnap, masterPrices] =
     await Promise.all([
       db
         .select({
@@ -112,6 +114,13 @@ export async function loadFarmBiologicalContext(options?: {
         .orderBy(desc(weightLogs.date))
         .limit(80),
       syncMarketPricesSnapshot().catch(() => null),
+      loadSpeciesValuationPriceMaps().catch(() => ({
+        meatKgCopBySpecies: {},
+        eggUnitCopBySpecies: {},
+        initialUnitCostCopBySpecies: {},
+        pointOfLayValueCopBySpecies: {},
+        breederUnitValueCopBySpecies: {},
+      })),
     ]);
 
   const latestWeightByBatch = new Map<string, { weightG: number; cvPct: number | null }>();
@@ -276,7 +285,16 @@ export async function loadFarmBiologicalContext(options?: {
     supplyRows,
     batches,
     flocks,
-    marketOverrides: buildMarketPriceOverridesFromSipsa(marketSnap?.payload),
+    marketOverrides: (() => {
+      const sipsa = buildMarketPriceOverridesFromSipsa(marketSnap?.payload);
+      return {
+        meatKgCopBySpecies: { ...sipsa.meatKgCopBySpecies, ...masterPrices.meatKgCopBySpecies },
+        eggUnitCopBySpecies: { ...sipsa.eggUnitCopBySpecies, ...masterPrices.eggUnitCopBySpecies },
+        initialUnitCostCopBySpecies: masterPrices.initialUnitCostCopBySpecies,
+        pointOfLayValueCopBySpecies: masterPrices.pointOfLayValueCopBySpecies,
+        breederUnitValueCopBySpecies: masterPrices.breederUnitValueCopBySpecies,
+      };
+    })(),
   };
 }
 

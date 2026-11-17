@@ -13,6 +13,7 @@ import {
   users,
 } from "@/db/schema";
 import { DEFAULT_FARM_ID, runWithFarmContext } from "@/db/tenant-context";
+import { canManagePlatformTenants } from "@/lib/superadmin-tenants";
 
 const mockedSessionUser = vi.hoisted(() => ({
   current: {
@@ -49,7 +50,6 @@ vi.mock("@/lib/auth", async (importOriginal) => {
 });
 
 import {
-  canManagePlatformTenants,
   GET as getSuperAdminFarms,
   PATCH as patchSuperAdminFarms,
   POST as postSuperAdminFarms,

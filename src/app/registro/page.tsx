@@ -176,7 +176,7 @@ export default function RegistroPage() {
             className="mx-auto mb-3 rounded-2xl bg-[#faf6ec] p-1.5 border border-earth-200 shadow-sm"
           />
           <p className="text-xs font-bold uppercase tracking-wider text-emerald-700">
-            Iwagé Granja · Plan Semilla
+            IwaGranja · Plan Semilla
           </p>
           <h1 className="text-2xl font-bold text-slate-900 mt-1">
             {createdAccount
@@ -402,7 +402,7 @@ export default function RegistroPage() {
         <div className="mt-6 text-center space-y-1.5">
           <div className="inline-flex items-center gap-1.5 text-xs text-slate-500">
             <Leaf className="w-3.5 h-3.5" />
-            <span>Iwagé Granja · Estándar ICA / NTC 1240</span>
+            <span>IwaGranja · Estándar ICA / NTC 1240</span>
           </div>
           <DeveloperCredit variant="inline" className="justify-center" />
           <LegalLinksBar className="pt-1" />

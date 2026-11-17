@@ -102,7 +102,7 @@ describe("SEO + GEO skill compliance", () => {
     expect(response.headers.get("Content-Type")).toContain("text/plain");
 
     const body = await response.text();
-    expect(body).toContain("# El Corral");
+    expect(body).toContain("# IwaGranja");
     expect(body).toContain("https://iwage.co");
     expect(body).toContain("https://camilosaldarriaga.com");
 
@@ -127,7 +127,7 @@ describe("SEO + GEO skill compliance", () => {
   it("buildPageMetadata genera canónica propia, OG es_CO, Twitter card y omite alternates cuando noindex=true", () => {
     const publicMeta = buildPageMetadata({
       title: "Guía práctica de prueba",
-      description: "Descripción verificada para El Corral en Colombia.",
+      description: "Descripción verificada para IwaGranja en Colombia.",
       path: "/guia/",
       ogImage: "/images/guia/inicio-dashboard.webp",
     });
@@ -154,7 +154,7 @@ describe("SEO + GEO skill compliance", () => {
   it("buildJsonLd arma @graph conectado con Person, Organization, WebSite, WebPage, SoftwareApplication y FAQPage", () => {
     const graphDoc = buildJsonLd({
       path: "/",
-      title: "El Corral",
+      title: "IwaGranja",
       description: "Software avícola offline-first",
       breadcrumbs: [{ name: "Inicio", path: "/" }],
       extraNodes: [

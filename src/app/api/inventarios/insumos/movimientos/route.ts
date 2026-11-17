@@ -3,12 +3,18 @@ import { supplyMovements, supplyInventory } from "@/db/schema";
 import { eq, desc, sql, and } from "drizzle-orm";
 import { NextRequest, NextResponse } from "next/server";
 import { withApiHandler, safeParseJson } from "@/lib/api-handler";
+import { requirePermission } from "@/lib/rbac-server";
 import { resolveDimensions } from "@/lib/analytics-dimensions";
-import { computeWeightedAverageUnitCost } from "@/lib/analytics/payroll-tax-supplies";
+import {
+  computeUnitCostAfterRemovingStockEntry,
+  computeWeightedAverageUnitCost,
+} from "@/lib/analytics/payroll-tax-supplies";
 
 export const dynamic = "force-dynamic";
 
 export const GET = withApiHandler(async () => {
+  const denied = await requirePermission("finance:write");
+  if (denied) return denied;
   const movements = await db
     .select({
       id: supplyMovements.id,
@@ -31,6 +37,8 @@ export const GET = withApiHandler(async () => {
 });
 
 export const POST = withApiHandler(async (req: NextRequest) => {
+  const denied = await requirePermission("finance:write");
+  if (denied) return denied;
   const body = await safeParseJson(req);
   if (!body || typeof body !== "object") return NextResponse.json({ error: "Cuerpo inválido" }, { status: 400 });
   const { supplyId, quantity, isEntry, movementType, date, notes } = body;
@@ -133,6 +141,8 @@ export const POST = withApiHandler(async (req: NextRequest) => {
 });
 
 export const DELETE = withApiHandler(async (req: NextRequest) => {
+  const denied = await requirePermission("finance:write");
+  if (denied) return denied;
   const { searchParams } = new URL(req.url);
   const id = searchParams.get("id");
   if (!id) return NextResponse.json({ error: "ID requerido" }, { status: 400 });
@@ -160,10 +170,18 @@ export const DELETE = withApiHandler(async (req: NextRequest) => {
       throw new Error("No se puede eliminar una entrada de insumo que ya fue consumida");
     }
     if (movement.isEntry) {
+      const currentStock = Number(supply.currentStock);
+      const nextCostPerUnit = computeUnitCostAfterRemovingStockEntry(
+        currentStock,
+        Number(supply.costPerUnit),
+        qty,
+        Number(movement.unitCost ?? supply.costPerUnit),
+      );
       await tx
         .update(supplyInventory)
         .set({
           currentStock: sql`(${supplyInventory.currentStock}::numeric - ${qty})`,
+          costPerUnit: nextCostPerUnit.toFixed(2),
           updatedAt: new Date(),
         })
         .where(eq(supplyInventory.id, movement.supplyId));

@@ -11,6 +11,10 @@ const SESSION_COOKIE = "galli_session";
 const PUBLIC_PREFIXES = [
   "/api/auth/",
   "/api/v1/integrations/",
+  // API v1 de herramientas del agente: valida token de integración o sesión dentro de la ruta.
+  "/api/v1/agent/",
+  // Confirmar/cancelar acciones pendientes: acepta sesión o token agent:write (agente externo).
+  "/api/asistente/acciones/",
   "/lote/",
   "/guia/",
   "/manual/",
@@ -35,11 +39,18 @@ const PUBLIC_EXACT = [
   "/login/recuperar",
   "/registro",
   "/api/health",
+  // This endpoint validates its own Bearer CRON_SECRET before doing any work.
+  "/api/cron/fuentes-externas",
+  "/api/cron/agente-proactivo",
+  // Telegram valida su propio header X-Telegram-Bot-Api-Secret-Token.
+  "/api/telegram/webhook",
   "/api/contacto",
   "/api/busqueda/sugerir",
   "/api/billing/webhook",
   // Exportación: valida cookie de sesión o token de solo lectura dentro de la ruta.
   "/api/export",
+  // Servidor MCP: valida el token de integración (Bearer) dentro de la ruta.
+  "/api/mcp",
   "/guia",
   "/manual",
   "/sitemap.xml",

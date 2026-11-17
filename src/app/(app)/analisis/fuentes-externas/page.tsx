@@ -68,48 +68,23 @@ interface WeatherPayload {
 }
 
 interface MarketPricesPayload {
+  schemaVersion: number;
   regionDepartment: string;
   coverageScope: "local" | "regional" | "nacional";
   coverageLabel: string;
   periodLabel: string;
   trmCopPerUsd: number;
   trmDate: string;
-  eggs: {
-    jumboUnitCop: number;
-    aaaUnitCop: number;
-    aaUnitCop: number;
-    aUnitCop: number;
-    bUnitCop: number;
-    aaTray30Cop: number;
-    quailEggUnitCop: number;
-  };
-  meat: {
-    polloCanalKgCop: number;
-    polloPieKgCop: number;
-    gallinaDescarteUnitCop: number;
-    patoCanalKgCop: number;
-    conejoCanalKgCop: number;
-    cuyPieUnitCop: number;
-    cuyCanalKgCop: number;
-  };
-  feed: {
-    maizAmarilloKgCop: number;
-    tortaSoyaKgCop: number;
-    concentrado40KgBagCop: number;
-    concentradoKgCop: number;
-  };
-  selectedZonePrices?: {
-    eggAaCopUnit: number;
-    eggACopUnit: number;
-    broilerLiveCopKg: number;
-    broilerCarcassCopKg: number;
-    cullHenCopUnit: number;
-    rabbitCopKg: number;
-    quailEggCopUnit: number;
-    cornYellowCopKg: number;
-    soybeanMealCopKg: number;
-    balancedFeed40KgCop: number;
-  };
+  sourceStatus: { sipsa: string; trm: string };
+  sipsaSampleRows: Array<{
+    recordId: string;
+    productCode: string;
+    product: string;
+    city: string;
+    capturedAt: string;
+    averagePriceCop: number;
+    unit: string | null;
+  }>;
   note: string;
 }
 
@@ -169,8 +144,10 @@ interface ExternalControlState {
   taxContext: {
     year: number;
     uvtCop: number;
-    retentionPurchases27UvtCop: number;
-    retentionAgro92UvtCop: number;
+    reteComprasThresholdUvt: number;
+    reteAgroThresholdUvt: number;
+    retentionPurchasesThresholdCop: number;
+    retentionAgroThresholdCop: number;
     finagroIbrEaPct: number;
     finagroLines: Array<{ segment: string; rateNote: string; termNote: string }>;
     nextHoliday: ColombianHoliday | null;
@@ -273,6 +250,7 @@ export default function FuentesExternasControlPage() {
 
   const weather = snapshotsByKey.get("open_meteo")?.payload as WeatherPayload | undefined;
   const market = snapshotsByKey.get("dane_sipsa_trm")?.payload as MarketPricesPayload | undefined;
+  const icaSourceLive = snapshotsByKey.get("ica_vademecum_alerts")?.status === "ok";
   const upcomingHolidays = useMemo(() => {
     const today = new Date().toISOString().slice(0, 10);
     return (state?.colombianHolidays || []).filter((h) => h.date >= today).slice(0, 5);
@@ -284,11 +262,11 @@ export default function FuentesExternasControlPage() {
         theme="analisis"
         icon={<Globe className="w-4 h-4 text-emerald-200" />}
         title="Clima, Mercado y Entorno Operativo"
-        description="Anticipe olas de calor y cambios térmicos que reducen el consumo de alimento o la postura, compare sus precios de venta frente al mercado mayorista de su región, consulte alertas sanitarias vigentes del ICA y planifique turnos en días festivos con datos sincronizados automáticamente para la ubicación de su granja."
+        description="Consulte el clima, observaciones de precios oficiales por ciudad y referencias locales. Cada valor se conserva con su fuente y fecha; los datos sin equivalencia comprobada no se convierten en precios maestros ni costos operativos."
         help={[
           "• Clima e ITH en galpón: alerta si la temperatura y humedad pueden causar estrés calórico o riesgo de frío, ajustando la predicción de alimento y condiciones de bodega NTC 1240.",
-          "• Precios regionales y concentrado: toma los valores de la plaza más cercana a su municipio; si su zona no tiene plaza directa, calcula automáticamente el promedio regional o nacional del último periodo disponible.",
-          "• Vigilancia ICA, calendario y sensores: prioriza las alertas sanitarias de su departamento, verifica festivos para programación de personal e integra lecturas ambientales de galpón.",
+          "• SIPSA y TRM: muestra los datos publicados por el servicio del DANE y la TRM de la Superintendencia Financiera; no extrapola precios ni modifica catálogos automáticamente.",
+          "• Sanidad, calendario y sensores: las referencias ICA y tributarias locales aún requieren validación directa de su entidad; las lecturas de galpón sí provienen de sensores o del puente climático.",
         ].join("\n")}
         actions={
           <>
@@ -420,6 +398,7 @@ export default function FuentesExternasControlPage() {
                     <tr key={item.sourceKey}>
                       <td className="py-2 pr-3">
                         <p className="font-semibold text-slate-800">{item.label}</p>
+                        {item.providerName && <p className="text-[11px] text-slate-500">{item.providerName}</p>}
                         {item.summary && <p className="text-[11px] text-slate-500 line-clamp-1">{item.summary}</p>}
                       </td>
                       <td className="py-2 pr-3 whitespace-nowrap font-medium text-slate-700">{item.periodLabel}</td>
@@ -549,53 +528,64 @@ export default function FuentesExternasControlPage() {
               </div>
               <div className="flex items-center gap-2">
                 <CoverageBadge scope={market?.coverageScope || state.activeZone.coverageScope} />
-                <Button
-                  className="px-3 py-1.5 text-xs"
-                  variant="secondary"
-                  disabled={busyAction !== null}
-                  onClick={() =>
-                    runAction(
-                      "apply_market_prices",
-                      { action: "apply_market_prices", overwriteCustom: false },
-                      "Precios de referencia y costo base de concentrado aplicados al catálogo de especies.",
-                    )
-                  }
-                >
-                  {busyAction === "apply_market_prices" ? "Aplicando..." : "Aplicar al catálogo de especies"}
-                </Button>
+                <Badge color={market?.sourceStatus?.sipsa === "ok" ? "green" : "yellow"}>
+                  DANE SIPSA: {market?.sourceStatus?.sipsa === "ok" ? "actualizado" : "referencia pendiente"}
+                </Badge>
               </div>
             </div>
 
             {market ? (
               <div className="space-y-3">
-                <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-5 gap-3">
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                   <div className="rounded-lg border border-slate-200 p-3">
-                    <p className="text-xs text-slate-500">Huevo AA (unidad / cubeta)</p>
-                    <p className="text-lg font-bold text-slate-900">{formatCop(market.eggs.aaUnitCop)}</p>
-                    <p className="text-[11px] text-slate-500">Cubeta x30: {formatCop(market.eggs.aaTray30Cop)}</p>
+                    <p className="text-xs text-slate-500">TRM certificada por SFC</p>
+                    <p className="text-lg font-bold text-slate-900">{market.trmCopPerUsd > 0 ? formatCop(market.trmCopPerUsd) : "—"}</p>
+                    <p className="text-[11px] text-slate-500">Fecha: {market.trmDate || "sin dato vigente"}</p>
                   </div>
                   <div className="rounded-lg border border-slate-200 p-3">
-                    <p className="text-xs text-slate-500">Pollo en canal / pie (kg)</p>
-                    <p className="text-lg font-bold text-slate-900">{formatCop(market.meat.polloCanalKgCop)}</p>
-                    <p className="text-[11px] text-slate-500">En pie: {formatCop(market.meat.polloPieKgCop)} / kg</p>
+                    <p className="text-xs text-slate-500">Observaciones SIPSA disponibles</p>
+                    <p className="text-lg font-bold text-slate-900">{market.sipsaSampleRows.length}</p>
+                    <p className="text-[11px] text-slate-500">
+                      {market.sipsaSampleRows.some((row) => row.unit)
+                        ? "El anexo diario DANE informa valores en COP/kg"
+                        : "La unidad no se informa en el servicio web"}
+                    </p>
                   </div>
                   <div className="rounded-lg border border-slate-200 p-3">
-                    <p className="text-xs text-slate-500">Concentrado (bulto 40 kg)</p>
-                    <p className="text-lg font-bold text-slate-900">{formatCop(market.feed.concentrado40KgBagCop)}</p>
-                    <p className="text-[11px] text-slate-500">{formatCop(market.feed.concentradoKgCop)} / kg</p>
-                  </div>
-                  <div className="rounded-lg border border-slate-200 p-3">
-                    <p className="text-xs text-slate-500">Maíz amarillo / Soya (kg)</p>
-                    <p className="text-lg font-bold text-slate-900">{formatCop(market.feed.maizAmarilloKgCop)}</p>
-                    <p className="text-[11px] text-slate-500">Soya: {formatCop(market.feed.tortaSoyaKgCop)} / kg</p>
-                  </div>
-                  <div className="rounded-lg border border-slate-200 p-3">
-                    <p className="text-xs text-slate-500">TRM vigente Colombia</p>
-                    <p className="text-lg font-bold text-slate-900">{formatCop(market.trmCopPerUsd)}</p>
-                    <p className="text-[11px] text-slate-500">Fecha: {market.trmDate}</p>
+                    <p className="text-xs text-slate-500">Cobertura</p>
+                    <p className="text-sm font-semibold text-slate-900">{market.coverageLabel}</p>
+                    <p className="text-[11px] text-slate-500">Actualización SIPSA: {market.periodLabel}</p>
                   </div>
                 </div>
                 <p className="text-xs text-slate-600">{market.note}</p>
+                {market.sipsaSampleRows.length > 0 ? (
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-xs">
+                      <thead>
+                        <tr className="border-b border-slate-200 text-left text-slate-500">
+                          <th className="py-2 pr-3">Producto</th>
+                          <th className="py-2 pr-3">Ciudad</th>
+                          <th className="py-2 pr-3">Fecha</th>
+                          <th className="py-2 pr-3 text-right">Valor informado</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-slate-100">
+                        {market.sipsaSampleRows.slice(0, 12).map((row) => (
+                          <tr key={row.recordId}>
+                            <td className="py-2 pr-3 font-medium text-slate-900">{row.product}</td>
+                            <td className="py-2 pr-3 text-slate-600">{row.city}</td>
+                            <td className="py-2 pr-3 text-slate-600">{row.capturedAt.slice(0, 10)}</td>
+                            <td className="py-2 pr-3 text-right">
+                              {formatCop(row.averagePriceCop)} <span className="text-slate-500">{row.unit || "(unidad no informada)"}</span>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                ) : (
+                  <p className="text-xs text-slate-500">El servicio oficial no devolvió observaciones SIPSA utilizables.</p>
+                )}
               </div>
             ) : (
               <p className="text-xs text-slate-500">Sin datos de precios cargados.</p>
@@ -613,9 +603,17 @@ export default function FuentesExternasControlPage() {
                     Vigilancia epidemiológica regional ICA
                   </h3>
                 </div>
-                <Badge color="yellow">{state.epidemiologicalAlerts.length} activas</Badge>
+                <Badge color={icaSourceLive ? "green" : "yellow"}>
+                  {state.epidemiologicalAlerts.length} {icaSourceLive ? "verificadas" : "referencias locales"}
+                </Badge>
               </div>
               <p className="text-xs text-slate-500 mb-3">{state.activeZone.icaCoverageLabel}</p>
+              {!icaSourceLive && (
+                <p className="text-xs text-amber-800 bg-amber-50 rounded-lg p-2 mb-3">
+                  Catálogo local sin conexión automática a ICA. Confirme cualquier alerta vigente en el
+                  {" "}<a className="underline font-semibold" href="https://www.ica.gov.co/areas/pecuaria/servicios/epidemiologia-veterinaria" target="_blank" rel="noreferrer">boletín epidemiológico oficial</a>.
+                </p>
+              )}
               <div className="space-y-2.5">
                 {state.epidemiologicalAlerts.map((alert) => (
                   <div key={alert.id} className="rounded-lg border border-slate-200 p-3 text-xs space-y-1">
@@ -648,21 +646,24 @@ export default function FuentesExternasControlPage() {
                 <div className="flex items-center gap-2 mb-3">
                   <Landmark className="w-5 h-5 text-blue-700" />
                   <h3 className="text-base font-bold text-slate-900">
-                    Calendario oficial, topes DIAN y referencia Finagro ({state.taxContext.year})
+                    Festivos de referencia y parámetros fiscales/financieros ({state.taxContext.year})
                   </h3>
                 </div>
                 <div className="grid grid-cols-2 gap-3 mb-3 text-xs">
                   <div className="rounded-lg border border-slate-200 p-2.5">
-                    <p className="text-slate-500">UVT vigente / Tope agro (92 UVT)</p>
+                    <p className="text-slate-500">UVT configurada / Tope agro ({state.taxContext.reteAgroThresholdUvt} UVT)</p>
                     <p className="font-bold text-slate-900">
-                      {formatCop(state.taxContext.uvtCop)} · {formatCop(state.taxContext.retentionAgro92UvtCop)}
+                      {formatCop(state.taxContext.uvtCop)} · {formatCop(state.taxContext.retentionAgroThresholdCop)}
                     </p>
                   </div>
                   <div className="rounded-lg border border-slate-200 p-2.5">
-                    <p className="text-slate-500">Tasa referencia Finagro IBR</p>
+                    <p className="text-slate-500">Tasa guardada en Datos Maestros</p>
                     <p className="font-bold text-slate-900">{state.taxContext.finagroIbrEaPct}% E.A.</p>
                   </div>
                 </div>
+                <p className="text-[11px] text-slate-500 mb-3">
+                  La UVT, los topes y la tasa se leen de Datos Maestros; esta pantalla aún no los actualiza directamente desde DIAN o Finagro. Los festivos se contrastan con un proveedor no oficial y la regla legal local.
+                </p>
                 <p className="text-xs font-semibold text-slate-700 mb-1.5">Próximos festivos oficiales en Colombia</p>
                 <div className="flex flex-wrap gap-1.5">
                   {upcomingHolidays.map((h) => (

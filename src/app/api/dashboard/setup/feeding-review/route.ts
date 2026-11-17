@@ -1,24 +1,12 @@
 import { and, eq } from "drizzle-orm";
 import { NextResponse } from "next/server";
 import { db } from "@/db";
-import { getCurrentFarmId } from "@/db/tenant-context";
 import { appSettings, catalogos, feedInventory, feedPrograms } from "@/db/schema";
 import { withApiHandler } from "@/lib/api-handler";
 import { FEEDING_PROGRAMS_REVIEW_KEY } from "@/lib/onboarding";
+import { markFeedingProgramsReviewed } from "@/lib/feeding/review";
 
 export const dynamic = "force-dynamic";
-
-export async function markFeedingProgramsReviewed(farmId = getCurrentFarmId()): Promise<string> {
-  const reviewedAt = new Date().toISOString();
-  await db
-    .insert(appSettings)
-    .values({ farmId, key: FEEDING_PROGRAMS_REVIEW_KEY, value: reviewedAt })
-    .onConflictDoUpdate({
-      target: [appSettings.farmId, appSettings.key],
-      set: { value: reviewedAt, updatedAt: new Date() },
-    });
-  return reviewedAt;
-}
 
 export const GET = withApiHandler(async () => {
   const [settingRows, programRows] = await Promise.all([

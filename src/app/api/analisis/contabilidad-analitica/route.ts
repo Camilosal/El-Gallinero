@@ -7,8 +7,6 @@ import { classifyNtc1240Caliber, computeAnalyticalAccounting } from "@/lib/analy
 
 export const dynamic = "force-dynamic";
 
-export { classifyNtc1240Caliber };
-
 export const GET = withApiHandler(async (req: NextRequest) => {
   const { searchParams } = new URL(req.url);
   const today = todayColombiaIso();

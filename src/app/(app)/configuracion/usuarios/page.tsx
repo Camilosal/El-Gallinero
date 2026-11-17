@@ -49,7 +49,7 @@ function buildWelcomeMessage(u: { name: string; username: string; role: AppRole 
   const roleLabel = ROLE_LABELS[u.role] || u.role;
   const roleInfo = ASSIGNABLE_ROLES.find((r) => r.value === u.role)?.hint || "Operación en granja";
   const lines = [
-    `Hola ${u.name}, ya tienes acceso a Iwagé Granja.`,
+    `Hola ${u.name}, ya tienes acceso a IwaGranja.`,
     `• Ingreso: ${origin}/login`,
     `• Usuario: ${u.username}`,
     ...(tempPassword ? [`• Contraseña temporal: ${tempPassword} (cámbiala o guárdala)`] : ["• Contraseña: la asignada por administración"]),

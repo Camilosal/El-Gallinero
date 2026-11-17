@@ -34,7 +34,7 @@
 }
 
 /* ============================================================
-   Landing page — El Corral
+   Landing page — IwaGranja
    ============================================================ */
 :root {
   /* Prefer local system fallbacks so builds do not need to fetch Google Fonts. */
@@ -195,7 +195,7 @@
   max-height: 0; overflow: hidden; opacity: 0;
   transition: max-height 0.3s ease, opacity 0.25s ease;
 }
-.land-mobile-menu.open { max-height: 320px; opacity: 1; }
+.land-mobile-menu.open { max-height: min(84vh, 760px); opacity: 1; overflow-y: auto; }
 .land-mobile-nav {
   display: flex; flex-direction: column; padding: 12px 28px 20px;
 }

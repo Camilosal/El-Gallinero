@@ -4,6 +4,8 @@ import { isBatchPresent, isHenPresent, isRoosterPresent } from "@/lib/animal-sta
 import type { LlmToolDefinition } from "./llm";
 import { searchFarmKnowledge } from "./knowledge";
 import { jevRerankCandidates } from "./jev-routing";
+import { searchNavigation } from "@/lib/navigation";
+import { FEATURE_FLAG_CATALOG } from "@/lib/onboarding";
 
 /**
  * Herramientas del asistente.
@@ -2933,7 +2935,7 @@ const registrarCierreDiario: AgentTool = {
 const consultarConocimiento: AgentTool = {
   name: "consultar_conocimiento",
   description:
-    "Busca en el manual operativo completo de El Corral (43 guías reales de pantallas/flujos) y normas técnicas " +
+    "Busca en el manual operativo completo de IwaGranja (43 guías reales de pantallas/flujos) y normas técnicas " +
     "colombianas (NTC 1240, Res. ICA 3651/8452, retiro vacunal, ITH/NH3, compostaje AGROSAVIA 3:1:1/7:2:2, ciclos cuy/conejo).",
   parameters: {
     type: "object",
@@ -3757,6 +3759,504 @@ const registrarPagoCuenta: AgentTool = {
   },
 };
 
+// ─── Herramientas de armonización (Bloque B1: dominios faltantes del producto) ───
+
+const consultarPersonalNomina: AgentTool = {
+  name: "consultar_personal_nomina",
+  description:
+    "Consulta el personal registrado de la granja (perfiles, tarifas, contratos, seguridad social) y el resumen de nómina del mes. " +
+    "Opcionalmente incluye las liquidaciones/pagos recientes. Úsala para '¿cuánto le debo a Juan?', '¿quién trabaja en la granja?' o '¿cuánto va de nómina este mes?'.",
+  parameters: {
+    type: "object",
+    properties: {
+      incluir_liquidaciones: { type: "boolean", description: "Si es true, incluye las liquidaciones de los últimos días. Por defecto false." },
+      dias: { type: "number", description: "Ventana de días hacia atrás para las liquidaciones (por defecto 30, máximo 365)." },
+    },
+    additionalProperties: false,
+  },
+  kind: "read",
+  requiresConfirmation: false,
+  async execute(args, ctx) {
+    const data = await ctx.api.get<any>("/api/finanzas/personal");
+    const profiles = asArray<any>(data.profiles);
+    const result: Record<string, unknown> = {
+      personal: profiles.map((p) => ({
+        id: p.id,
+        nombre: p.fullName,
+        documento: p.documentId || null,
+        tipo: p.workerKind === "productor" ? "productor (trabajo propio)" : "apoyo",
+        contrato: p.contractType,
+        periodoPago: p.payPeriod,
+        tarifaBaseCOP: Number(p.baseRateCop || 0),
+        seguridadSocial: Boolean(p.applySocialSecurity),
+        auxilioTransporte: Boolean(p.includeTransportAllowance),
+        rol: p.roleLabel || null,
+        especiePorDefecto: p.defaultSpecies || null,
+        activo: p.isActive !== false,
+      })),
+      resumenMes: data.monthSummary ?? null,
+      nota: "Los valores de nómina incluyen prestaciones y deducciones de ley solo cuando el perfil tiene seguridad social activa. Esto es información operativa, no asesoría contable ni laboral.",
+    };
+    if (args.incluir_liquidaciones === true) {
+      const days = Math.min(365, Math.max(1, Number(args.dias) || 30));
+      const to = todayISO();
+      const from = new Date(Date.now() - days * 86_400_000).toISOString().slice(0, 10);
+      const liq = await ctx.api.get<any>(`/api/finanzas/personal/liquidaciones?from=${from}&to=${to}`);
+      result.liquidaciones = asArray<any>(liq.entries).slice(0, 60).map((e) => ({
+        fecha: e.date,
+        persona: e.staffName,
+        unidades: Number(e.unitsWorked || 0),
+        brutoCOP: Number(e.grossPayCop || 0),
+        netoCOP: Number(e.netPayableCop || 0),
+        costoEmpleadorCOP: Number(e.totalEmployerCostCop || 0),
+        estado: e.paymentStatus,
+        modo: e.accountingMode === "imputed_economic" ? "imputado (económico)" : "efectivo",
+        lugar: e.locationName || null,
+      }));
+    }
+    return truncate(result);
+  },
+};
+
+const registrarPagoPersonal: AgentTool = {
+  name: "registrar_pago_personal",
+  description:
+    "Registra una liquidación/pago de personal (jornal, salario o trabajo propio imputado) con prestaciones e impuestos de ley. " +
+    "Requiere confirmación humana. Resuelve a la persona por nombre; si hay ambigüedad, pide el nombre completo.",
+  parameters: {
+    type: "object",
+    properties: {
+      persona: { type: "string", description: "Nombre completo (o parte única) de la persona registrada, o su UUID." },
+      fecha: { type: "string", description: "YYYY-MM-DD; por defecto hoy." },
+      unidades: { type: "number", description: "Días/horas/semanas/quincenas/meses trabajados según el periodo de pago del perfil. Por defecto 1." },
+      bonificaciones: { type: "number", description: "Bonificaciones o extras en COP (por defecto 0)." },
+      modo: { type: "string", enum: ["pagado", "imputado", "credito"], description: "pagado = egreso real ya pagado; imputado = costo económico del trabajo propio sin salida de caja; credito = queda como cuenta por pagar. Por defecto pagado." },
+      vencimiento: { type: "string", description: "YYYY-MM-DD de vencimiento si modo=credito." },
+      especie: { type: "string", description: "Especie a la que se imputa el costo (gallina, pollo, cuy, ...). Opcional." },
+      lugar: { type: "string", description: "Nombre del lugar de manejo donde se imputa el costo. Opcional." },
+      notas: { type: "string" },
+    },
+    required: ["persona"],
+    additionalProperties: false,
+  },
+  kind: "write",
+  requiresConfirmation: true,
+  async prepare(args, ctx) {
+    const data = await ctx.api.get<any>("/api/finanzas/personal");
+    const profiles = asArray<any>(data.profiles).filter((p) => p.isActive !== false);
+    const needle = normalizeLookup(args.persona);
+    if (!needle) throw new Error("Indica el nombre de la persona a pagar.");
+    let staff = profiles.find((p) => p.id === String(args.persona).trim());
+    if (!staff) {
+      const matches = profiles.filter((p) => normalizeLookup(p.fullName).includes(needle));
+      if (matches.length === 0) {
+        throw new Error(`No encontré personal activo llamado "${String(args.persona).trim()}". Registrados: ${profiles.map((p) => p.fullName).join(", ") || "ninguno"}. Primero crea el perfil en Finanzas → Personal y Nómina.`);
+      }
+      if (matches.length > 1) {
+        throw new Error(`"${String(args.persona).trim()}" coincide con ${matches.length} personas: ${matches.map((p) => p.fullName).join(", ")}. Indica el nombre completo.`);
+      }
+      staff = matches[0];
+    }
+    const date = normalizeDate(args.fecha);
+    const units = asNumber(args.unidades ?? 1, "unidades", { min: 0.01 });
+    const bonuses = asNumber(args.bonificaciones ?? 0, "bonificaciones", { min: 0 });
+    const modo = args.modo === "imputado" ? "imputado" : args.modo === "credito" ? "credito" : "pagado";
+    if (modo === "credito" && args.vencimiento) normalizeDate(args.vencimiento);
+    let locationId: string | null = null;
+    if (args.lugar) {
+      locationId = (await resolveFarmLocation(ctx, args.lugar)).id;
+    }
+    const estimated = units * Number(staff.baseRateCop || 0) + bonuses;
+    return {
+      args: {
+        staffId: staff.id,
+        date,
+        unitsWorked: units,
+        bonusesCop: bonuses,
+        accountingMode: modo === "imputado" ? "imputed_economic" : "cash_expense",
+        isCredit: modo === "credito",
+        dueDate: modo === "credito" && args.vencimiento ? normalizeDate(args.vencimiento) : undefined,
+        species: args.especie ? String(args.especie) : undefined,
+        locationId: locationId ?? undefined,
+        notes: args.notas ? String(args.notas) : undefined,
+      },
+      summary:
+        `Registrar ${modo === "imputado" ? "costo imputado de trabajo propio" : modo === "credito" ? "pago a crédito (cuenta por pagar)" : "pago"} a "${staff.fullName}": ` +
+        `${units} ${staff.payPeriod}(s) × ${formatCop(Number(staff.baseRateCop || 0))}${bonuses > 0 ? ` + ${formatCop(bonuses)} de bonificaciones` : ""} ≈ ${formatCop(estimated)} bruto estimado el ${formatDateEs(date)}. ` +
+        `La liquidación final calcula prestaciones, auxilio de transporte y deducciones de ley según el perfil.`,
+    };
+  },
+  async execute(args, ctx) {
+    return ctx.api.post("/api/finanzas/personal/liquidaciones", args);
+  },
+};
+
+const registrarPresupuesto: AgentTool = {
+  name: "registrar_presupuesto",
+  description:
+    "Crea un presupuesto formal con rubros y metas mensuales para un período (complementa consultar_presupuestos). Requiere confirmación humana.",
+  parameters: {
+    type: "object",
+    properties: {
+      nombre: { type: "string", description: "Nombre del presupuesto, p. ej. 'Presupuesto 2027'." },
+      desde: { type: "string", description: "Inicio del período YYYY-MM-DD." },
+      hasta: { type: "string", description: "Fin del período YYYY-MM-DD." },
+      tipo: { type: "string", enum: ["ingreso", "egreso", "mixto"], description: "Por defecto mixto." },
+      rubros: {
+        type: "array",
+        description: "Rubros del presupuesto (al menos uno).",
+        items: {
+          type: "object",
+          properties: {
+            categoria: { type: "string", description: "Categoría real de las transacciones, p. ej. alimento, medicamentos, ventas_huevos." },
+            meta_mensual: { type: "number", description: "Meta mensual en COP (>= 0)." },
+            unidad: { type: "string" },
+            notas: { type: "string" },
+          },
+          required: ["categoria", "meta_mensual"],
+          additionalProperties: false,
+        },
+      },
+    },
+    required: ["nombre", "desde", "hasta", "rubros"],
+    additionalProperties: false,
+  },
+  kind: "write",
+  requiresConfirmation: true,
+  async prepare(args, ctx) {
+    void ctx;
+    const name = String(args.nombre || "").trim();
+    if (name.length < 2) throw new Error("El nombre del presupuesto es requerido.");
+    const periodStart = normalizeDate(args.desde);
+    const periodEnd = normalizeDate(args.hasta);
+    if (periodStart > periodEnd) throw new Error("La fecha inicial no puede ser posterior a la final.");
+    const type = ["ingreso", "egreso", "mixto"].includes(String(args.tipo)) ? String(args.tipo) : "mixto";
+    const rubros = Array.isArray(args.rubros) ? args.rubros : [];
+    if (rubros.length === 0) throw new Error("Agrega al menos un rubro con categoría y meta mensual.");
+    const items = rubros.map((item: any, idx: number) => {
+      const category = String(item?.categoria || "").trim();
+      if (!category) throw new Error(`El rubro ${idx + 1} no tiene categoría.`);
+      const target = asNumber(item?.meta_mensual, `meta_mensual del rubro ${idx + 1}`, { min: 0 });
+      return {
+        category,
+        monthlyTarget: target,
+        unit: item?.unidad ? String(item.unidad) : null,
+        notes: item?.notas ? String(item.notas) : null,
+      };
+    });
+    const totalMonthly = items.reduce((sum, item) => sum + item.monthlyTarget, 0);
+    return {
+      args: { name, periodStart, periodEnd, type, items },
+      summary: `Crear presupuesto "${name}" (${type}) del ${formatDateEs(periodStart)} al ${formatDateEs(periodEnd)} con ${items.length} rubro(s) y meta mensual total de ${formatCop(totalMonthly)}.`,
+    };
+  },
+  async execute(args, ctx) {
+    return ctx.api.post("/api/presupuestos", args);
+  },
+};
+
+const EXTERNAL_SOURCE_KEYS: Record<string, string> = {
+  clima: "open_meteo",
+  mercado: "dane_sipsa_trm",
+  impuestos: "colombia_tax_holidays",
+  sanidad_ica: "ica_vademecum_alerts",
+  hidro_ideam: "ideam_hydro_alerts",
+  macro_banrep: "banrep_sdmx",
+};
+
+const consultarFuentesExternas: AgentTool = {
+  name: "consultar_fuentes_externas",
+  description:
+    "Consulta el entorno externo de la granja: clima Open-Meteo/ITH, precios mayoristas SIPSA y TRM, contexto tributario DIAN (UVT, festivos), " +
+    "alertas epidemiológicas ICA, alertas hidrológicas IDEAM y series macro Banrep. Solo lectura. " +
+    "Úsala para '¿va a hacer calor?', '¿a cómo está el mercado?', '¿qué alertas del ICA hay?' o contexto de estrés térmico.",
+  parameters: {
+    type: "object",
+    properties: {
+      fuentes: {
+        type: "array",
+        items: { type: "string", enum: ["clima", "mercado", "impuestos", "sanidad_ica", "hidro_ideam", "macro_banrep"] },
+        description: "Subconjunto de fuentes a consultar; por defecto todas.",
+      },
+    },
+    additionalProperties: false,
+  },
+  kind: "read",
+  requiresConfirmation: false,
+  async execute(args, ctx) {
+    const state = await ctx.api.get<any>("/api/configuracion/fuentes-externas");
+    const requested: string[] = Array.isArray(args.fuentes) && args.fuentes.length > 0
+      ? args.fuentes.filter((key: unknown) => typeof key === "string" && key in EXTERNAL_SOURCE_KEYS)
+      : Object.keys(EXTERNAL_SOURCE_KEYS);
+    const snapshots = asArray<any>(state.snapshots);
+    const today = todayISO();
+    const result: Record<string, unknown> = {
+      zona: state.activeZone
+        ? {
+          municipio: state.activeZone.city,
+          departamento: state.activeZone.department,
+          pisoTermico: state.activeZone.thermalFloor,
+          altitudMetros: state.activeZone.altitudeMeters,
+          cobertura: state.activeZone.coverageLabel,
+        }
+        : null,
+      fuentes: requested.map((key) => {
+        const snap = snapshots.find((s) => s.sourceKey === EXTERNAL_SOURCE_KEYS[key] || s.key === EXTERNAL_SOURCE_KEYS[key]);
+        return {
+          fuente: key,
+          resumen: snap?.summary ?? "Sin datos consultados todavía para esta fuente.",
+          actualizado: snap?.fetchedAt ?? null,
+          vencido: snap?.isExpired ?? null,
+          cobertura: snap?.coverageLabel ?? null,
+        };
+      }),
+      nota: "Datos de fuentes públicas (Open-Meteo, DANE/SIPSA, Banrep, ICA, IDEAM, DIAN). Son contexto de decisión, no pronósticos certificados ni asesoría financiera o veterinaria; revisa siempre la fecha de actualización y la cobertura geográfica.",
+    };
+    if (requested.includes("impuestos") && state.taxContext) {
+      result.contextoTributario = {
+        anio: state.taxContext.year,
+        uvtCOP: state.taxContext.uvtCop,
+        umbralRetencionComprasCOP: state.taxContext.retentionPurchasesThresholdCop,
+        umbralRetencionAgroCOP: state.taxContext.retentionAgroThresholdCop,
+        proximosFestivos: asArray<any>(state.colombianHolidays).filter((h) => String(h.date || h) >= today).slice(0, 4),
+      };
+    }
+    if (requested.includes("sanidad_ica")) {
+      result.alertasEpidemiologicasICA = truncate(asArray<any>(state.epidemiologicalAlerts).slice(0, 5), 3000);
+    }
+    if (requested.includes("hidro_ideam")) {
+      result.alertasHidrologicasIDEAM = truncate(asArray<any>(state.ideamHydroAlerts?.alerts).slice(0, 5), 3000);
+    }
+    return truncate(result);
+  },
+};
+
+const consultarPlanParvada: AgentTool = {
+  name: "consultar_plan_parvada",
+  description:
+    "Consulta el plan de parvada: diagnóstico en vivo (postura, edad, alimento, reemplazos), proyección semanal y planes con avance frente a la meta. " +
+    "Úsala para '¿cómo va el plan de postura?', '¿cuándo toca reemplazar gallinas?' o '¿cuántos huevos se proyectan?'.",
+  parameters: { type: "object", properties: {}, additionalProperties: false },
+  kind: "read",
+  requiresConfirmation: false,
+  async execute(_args, ctx) {
+    const data = await ctx.api.get<any>("/api/produccion/plan-parvada");
+    return truncate({
+      diagnosticoEnVivo: data.live ?? null,
+      planes: data.plans ?? [],
+      proyeccionSemanal: data.projection ?? null,
+      nota: "La proyección usa la edad real de cada gallina y los estándares del catálogo; es una estimación biológica, no una garantía de postura.",
+    });
+  },
+};
+
+const consultarKpisAdopcion: AgentTool = {
+  name: "consultar_kpis_adopcion",
+  description:
+    "Consulta los KPIs de adopción del Plan Maestro (arranque Día 1, velocidad de captura, adherencia semanal, racha, integridad sanitaria y centros de costo). " +
+    "Solo para propietario/administrador/gerente; el agente debe rechazarla con mensaje claro para roles operativos.",
+  parameters: { type: "object", properties: {}, additionalProperties: false },
+  kind: "read",
+  requiresConfirmation: false,
+  async execute(_args, ctx) {
+    const me = await ctx.api.get<any>("/api/auth/me");
+    const role = String(me?.role || "");
+    if (!["admin", "propietario", "superadmin", "gerente"].includes(role)) {
+      return {
+        rechazado: true,
+        mensaje: "Los KPIs de adopción y hábitos de la granja solo los consulta el propietario o administrador. Pídele a quien administra la granja que revise /analisis/adopcion.",
+      };
+    }
+    const kpis = await ctx.api.get<any>("/api/analisis/kpis-adopcion");
+    return {
+      ...kpis,
+      metas: {
+        arranqueDia1: "menos de 10 minutos",
+        capturaEnGalpon: "mediana menor a 120 segundos",
+        adherenciaSemanal: ">= 85% desde la semana 3",
+        racha: "7 días seguidos con actividad",
+        integridadSanitaria: ">= 90% y cero despachos que violen tiempos de retiro",
+        visibilidadFinanciera: "al menos 1 centro de costo activo",
+      },
+      tablero: "/analisis/adopcion",
+    };
+  },
+};
+
+const registrarPerdidaHuevos: AgentTool = {
+  name: "registrar_perdida_huevos",
+  description:
+    "Registra pérdida de huevos (rotos, descartados, dañados) descontando del inventario PEPS por calibre. " +
+    "Escritura rutinaria de producción: se ejecuta automáticamente como las demás capturas de campo.",
+  parameters: {
+    type: "object",
+    properties: {
+      cantidad: { type: "number", description: "Unidades de huevo perdidas (entero >= 1)." },
+      razon: { type: "string", description: "Razón de la pérdida: rotos, descartados, daño, consumo no registrado, etc." },
+      fecha: { type: "string", description: "YYYY-MM-DD; por defecto hoy." },
+      calibre: { type: "string", description: "Calibre NTC 1240 afectado (jumbo, aaa, aa, a, b, c). Opcional: sin calibre descuenta del pool general." },
+      notas: { type: "string" },
+    },
+    required: ["cantidad", "razon"],
+    additionalProperties: false,
+  },
+  kind: "write",
+  requiresConfirmation: false,
+  async execute(args, ctx) {
+    const quantity = asNumber(args.cantidad, "cantidad", { min: 1, integer: true });
+    const reason = String(args.razon || "").trim();
+    if (!reason) throw new Error("Indica la razón de la pérdida (rotos, descartados, ...).");
+    const date = normalizeDate(args.fecha);
+    const result = await ctx.api.post("/api/perdidas-huevos", {
+      date,
+      quantity,
+      size: args.calibre ? String(args.calibre).trim() : null,
+      reason,
+      notes: args.notas ? String(args.notas) : null,
+    });
+    return { ...(result as object), nota: "La pérdida descuenta del inventario de huevos (PEPS por calibre cuando se indica)." };
+  },
+};
+
+const consultarAdjuntos: AgentTool = {
+  name: "consultar_adjuntos",
+  description:
+    "Consulta los adjuntos/documentos de la granja (facturas OCR, PDF de normas, fotos) filtrables por entidad y categoría. " +
+    "Devuelve metadatos y el texto ya extraído por OCR; nunca inventes contenido de documentos no leídos.",
+  parameters: {
+    type: "object",
+    properties: {
+      entidad_tipo: { type: "string", description: "Tipo de entidad (p. ej. transaccion, norma, animal, lugar)." },
+      entidad_id: { type: "string", description: "UUID de la entidad dueña del documento." },
+      categoria: { type: "string", description: "Categoría del adjunto (p. ej. factura, norma)." },
+      buscar: { type: "string", description: "Texto a buscar en el nombre de archivo o notas." },
+      limite: { type: "number", description: "Máximo de resultados (por defecto 20, tope 50)." },
+    },
+    additionalProperties: false,
+  },
+  kind: "read",
+  requiresConfirmation: false,
+  async execute(args, ctx) {
+    const params = new URLSearchParams({ metaOnly: "1" });
+    if (args.entidad_tipo) params.set("entityType", String(args.entidad_tipo));
+    if (args.entidad_id) params.set("entityId", String(args.entidad_id));
+    if (args.categoria) params.set("category", String(args.categoria));
+    let rows = asArray<any>(await ctx.api.get(`/api/adjuntos?${params.toString()}`));
+    if (args.buscar) {
+      const needle = normalizeLookup(args.buscar);
+      rows = rows.filter((row) =>
+        normalizeLookup(row.fileName).includes(needle) || normalizeLookup(row.notes).includes(needle),
+      );
+    }
+    const limit = Math.min(50, Math.max(1, Number(args.limite) || 20));
+    return {
+      total: rows.length,
+      adjuntos: rows.slice(0, limit).map((row) => ({
+        id: row.id,
+        entidad: `${row.entityType}:${row.entityId}`,
+        categoria: row.category,
+        archivo: row.fileName,
+        tipoMime: row.mimeType,
+        tamanoKB: row.sizeBytes ? Math.round(Number(row.sizeBytes) / 1024) : null,
+        fecha: row.createdAt,
+        textoExtraido: row.extractedText ? String(row.extractedText).slice(0, 1500) : null,
+        datosExtraidos: row.extractedData ?? null,
+        notas: row.notes || null,
+      })),
+      nota: "Solo se reporta texto OCR ya extraído. Si textoExtraido es null, el documento no tiene transcripción disponible: no inventes su contenido; ofrece abrir el adjunto en la app.",
+    };
+  },
+};
+
+const consultarKitCampo: AgentTool = {
+  name: "consultar_kit_campo",
+  description:
+    "Consulta el estado de la implementación llave en mano (Ruta 2): avance de las 4 semanas, criterios del acta de entrega y entregables PDF disponibles " +
+    "(mapa de zonificación, guía rápida de galpón, POE de compostaje, acta Semana 4). Solo lectura.",
+  parameters: { type: "object", properties: {}, additionalProperties: false },
+  kind: "read",
+  requiresConfirmation: false,
+  async execute(_args, ctx) {
+    let data: any;
+    try {
+      data = await ctx.api.get<any>("/api/operaciones/entregables-ruta2?tipo=acta-entrega&format=json");
+    } catch (error) {
+      if (error instanceof InternalApiError && (error.status === 401 || error.status === 403)) {
+        return {
+          rechazado: true,
+          mensaje: "El estado completo del kit de campo y el acta de entrega los consulta el propietario o administrador (o el veterinario). Revisa /configuracion/kit-campo con ese rol.",
+        };
+      }
+      throw error;
+    }
+    return truncate({
+      granja: data.farm ?? null,
+      semanas: data.roadmap ?? [],
+      actaEntrega: data.handoverAct ?? null,
+      entregablesPdf: [
+        { tipo: "zonificacion", descripcion: "Mapa de zonificación biosegura", href: "/api/operaciones/entregables-ruta2?tipo=zonificacion" },
+        { tipo: "guia-galpon", descripcion: "Guía rápida de galpón", href: "/api/operaciones/entregables-ruta2?tipo=guia-galpon" },
+        { tipo: "compostaje-poe", descripcion: "POE de compostaje térmico", href: "/api/operaciones/entregables-ruta2?tipo=compostaje-poe" },
+        { tipo: "acta-entrega", descripcion: "Acta de entrega Semana 4", href: "/api/operaciones/entregables-ruta2?tipo=acta-entrega" },
+      ],
+      nota: "El acta de la Semana 4 (marcha blanca) se firma con los KPIs de adopción en vivo: captura < 2 min, adherencia >= 85% y sanidad al día. Tablero: /analisis/adopcion.",
+    });
+  },
+};
+
+// ─── Navegación y deep-links ───
+
+const navegarApp: AgentTool = {
+  name: "navegar_app",
+  description:
+    "Busca pantallas, módulos y guías de la aplicación por nombre o sinónimos de campo y devuelve los enlaces internos exactos (href) para incluirlos en la respuesta. " +
+    "Úsala siempre que vayas a remitir al usuario a una pantalla: nunca inventes rutas. Si un resultado viene bloqueado (lockedByFlag), explica el hito que lo desbloquea. Solo lectura.",
+  parameters: {
+    type: "object",
+    properties: {
+      consulta: {
+        type: "string",
+        description: "Qué pantalla o módulo busca el usuario, en palabras de campo (ej: 'linaje', 'plata del día', 'vacuna que toca').",
+      },
+    },
+    required: ["consulta"],
+    additionalProperties: false,
+  },
+  kind: "read",
+  requiresConfirmation: false,
+  async execute(args, ctx) {
+    const consulta = String(args.consulta || "").trim();
+    if (!consulta) {
+      return { error: "Indica qué pantalla o módulo quieres buscar." };
+    }
+    let flags: Record<string, boolean> | null = null;
+    try {
+      const state = await ctx.api.get<any>("/api/onboarding");
+      flags = (state?.flags ?? state?.config?.flags ?? null) as Record<string, boolean> | null;
+    } catch {
+      // Sin estado de onboarding disponible se buscan todas las pantallas sin marcar bloqueos.
+    }
+    const resultados = searchNavigation(consulta, 5, flags as any).map((entry) => ({
+      href: entry.href,
+      label: entry.label,
+      group: entry.group,
+      lockedByFlag: entry.lockedByFlag ?? null,
+      motivoDesbloqueo: entry.lockedByFlag
+        ? FEATURE_FLAG_CATALOG.find((flag) => flag.key === entry.lockedByFlag)?.autoTriggerDescription ??
+          "Se desbloquea al crecer la operación de la granja."
+        : null,
+    }));
+    return {
+      consulta,
+      resultados,
+      nota:
+        resultados.length === 0
+          ? "No hay coincidencias; sugiere revisar el menú lateral o reformular la búsqueda. No inventes rutas."
+          : "Incluye el href exacto como enlace en tu respuesta. Si lockedByFlag no es nulo, explica el hito de desbloqueo en lugar de prometer acceso inmediato.",
+    };
+  },
+};
+
 // ─── Registro de herramientas ───
 
 
@@ -3819,6 +4319,16 @@ export const AGENT_TOOLS: AgentTool[] = [
   registrarMovimientoInsumo,
   gestionarMantenimiento,
   registrarPagoCuenta,
+  consultarPersonalNomina,
+  registrarPagoPersonal,
+  registrarPresupuesto,
+  consultarFuentesExternas,
+  consultarPlanParvada,
+  consultarKpisAdopcion,
+  registrarPerdidaHuevos,
+  consultarAdjuntos,
+  consultarKitCampo,
+  navegarApp,
 ];
 
 const TOOL_MAP = new Map(AGENT_TOOLS.map((tool) => [tool.name, tool]));

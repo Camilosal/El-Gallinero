@@ -593,8 +593,8 @@ export async function computeAnalyticalAccounting(opts: ComputeAnalyticsOptions)
           taxPayload.uvtCop > 0
             ? round2((totalDirectCost + totalProratedCost) / taxPayload.uvtCop)
             : null,
-        agriculturalRetentionThresholdCop: taxPayload.retentionAgro92UvtCop,
-        purchasesRetentionThresholdCop: taxPayload.retentionPurchases27UvtCop,
+        agriculturalRetentionThresholdCop: taxPayload.retentionAgroThresholdCop,
+        purchasesRetentionThresholdCop: taxPayload.retentionPurchasesThresholdCop,
         finagroReferenceRateEaPct: taxPayload.finagroIbrEaPct,
         roiAboveFinagroRate:
           roiPercent !== null ? roiPercent >= taxPayload.finagroIbrEaPct : null,

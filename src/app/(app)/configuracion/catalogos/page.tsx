@@ -3,7 +3,7 @@
 import { useEffect, useState, useCallback, useMemo } from "react";
 import { ArrowLeft } from "lucide-react";
 import { AppIcon } from "@/components/AppIcon";
-import { PageHeader, HeroActionLink, Button, Card, Table, Badge, Modal, Input, Select, EmptyState } from "@/components/ui";
+import { PageHeader, HeroActionLink, Button, Card, Table, Badge, Modal, Input, Select, Textarea, EmptyState } from "@/components/ui";
 import { apiFetch } from "@/lib/fetch";
 import TableSearch from "@/components/TableSearch";
 import { matchesTextQuery } from "@/lib/text";
@@ -24,6 +24,7 @@ interface CatalogItem {
   id: string;
   category: string;
   value: string;
+  description: string | null;
   price: string | null;
   units: number | null;
   tipo: string | null;
@@ -47,6 +48,7 @@ const CATEGORY_GROUPS: { id: string; title: string }[] = [
   { id: "alimentacion", title: "Alimentación e insumos" },
   { id: "sanidad", title: "Sanidad y mantenimiento" },
   { id: "finanzas", title: "Finanzas" },
+  { id: "proyectos", title: "Proyectos y alianzas" },
 ];
 
 const CATEGORIES: CatalogCategoryDef[] = [
@@ -72,6 +74,15 @@ const CATEGORIES: CatalogCategoryDef[] = [
   // Finanzas
   { key: "categoria_ingreso", label: "Categorías de ingreso", icon: "incoming", group: "finanzas" },
   { key: "categoria_egreso", label: "Categorías de egreso", icon: "outgoing", group: "finanzas" },
+  // Proyectos y alianzas
+  { key: "proyecto_proposito", label: "Propósitos de proyecto", icon: "target", group: "proyectos" },
+  { key: "beneficiario_arquetipo", label: "Perfiles de beneficiarios", icon: "users", group: "proyectos" },
+  { key: "enfoque_transversal", label: "Enfoques transversales", icon: "users", group: "proyectos" },
+  { key: "ruta_implementacion", label: "Rutas de implementación", icon: "arrow-right", group: "proyectos" },
+  { key: "alcance_proyecto", label: "Alcances del proyecto", icon: "boxes", group: "proyectos" },
+  { key: "componente_gallinero", label: "Componentes de El Gallinero", icon: "folder", group: "proyectos" },
+  { key: "medicion_proyecto", label: "Medición del proyecto", icon: "chart", group: "proyectos" },
+  { key: "continuidad_proyecto", label: "Continuidad y sostenibilidad", icon: "refresh", group: "proyectos" },
 ];
 
 const CATEGORIES_WITH_TIPO_TEXT = new Set([
@@ -80,22 +91,25 @@ const CATEGORIES_WITH_TIPO_TEXT = new Set([
   "tipo_ave",
 ]);
 
-function ListasTab() {
+function ListasTab({ groupFilter }: { groupFilter?: string }) {
   const router = useRouter();
   const searchParams = useSearchParams();
   const requestedCategory = searchParams.get("category");
-  const isLegacyContactCat = requestedCategory === "comprador" || requestedCategory === "proveedor";
+  const categoryDefs = groupFilter ? CATEGORIES.filter((item) => item.group === groupFilter) : CATEGORIES;
+  const fallbackCategory = categoryDefs[0]?.key || "raza";
+  const isLegacyContactCat = !groupFilter && (requestedCategory === "comprador" || requestedCategory === "proveedor");
 
   const [items, setItems] = useState<CatalogItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [activeCat, setActiveCat] = useState(() =>
-    requestedCategory && CATEGORIES.some((item) => item.key === requestedCategory)
+    requestedCategory && categoryDefs.some((item) => item.key === requestedCategory)
       ? requestedCategory
-      : "raza",
+      : fallbackCategory,
   );
   const [modalOpen, setModalOpen] = useState(false);
   const [editing, setEditing] = useState<CatalogItem | null>(null);
   const [value, setValue] = useState("");
+  const [description, setDescription] = useState("");
   const [price, setPrice] = useState("");
   const [units, setUnits] = useState("");
   const [tipo, setTipo] = useState("");
@@ -109,7 +123,7 @@ function ListasTab() {
     setActiveCat(key);
     setSearch("");
     const params = new URLSearchParams(searchParams.toString());
-    params.set("tab", "listas");
+    params.set("tab", groupFilter === "proyectos" ? "proyectos" : "listas");
     params.set("category", key);
     router.replace(`/configuracion/catalogos?${params.toString()}`, { scroll: false });
   };
@@ -134,6 +148,7 @@ function ListasTab() {
     return filtered.filter((item) =>
       matchesTextQuery(search, [
         item.value,
+        item.description,
         item.tipo,
         item.price,
         item.units,
@@ -146,6 +161,7 @@ function ListasTab() {
   const openNew = () => {
     setEditing(null);
     setValue("");
+    setDescription("");
     setPrice("");
     setUnits("");
     setTipo(activeCat === "raza" ? "gallina" : "");
@@ -161,6 +177,7 @@ function ListasTab() {
   const openEdit = (item: CatalogItem) => {
     setEditing(item);
     setValue(item.value);
+    setDescription(item.description || "");
     setPrice(item.price || "");
     setUnits(item.units != null ? String(item.units) : "");
     setTipo(activeCat === "raza" ? item.tipo || "gallina" : item.tipo || "");
@@ -184,8 +201,8 @@ function ListasTab() {
     }
     const method = editing ? "PUT" : "POST";
     const body = editing
-      ? { id: editing.id, value: v, price, units, tipo, minWeeks, maxWeeks, expectedEggsPerHen }
-      : { category: activeCat, value: v, price, units, tipo, minWeeks, maxWeeks, expectedEggsPerHen };
+      ? { id: editing.id, value: v, description: description.trim() || null, price, units, tipo, minWeeks, maxWeeks, expectedEggsPerHen }
+      : { category: activeCat, value: v, description: description.trim() || null, price, units, tipo, minWeeks, maxWeeks, expectedEggsPerHen };
 
     const res = await apiFetch("/api/configuracion/catalogos", {
       method,
@@ -232,18 +249,31 @@ function ListasTab() {
     CATEGORIES_WITH_TIPO_TEXT.has(activeCat);
 
   const tableHeaders =
-    activeCat === "etapa_crecimiento"
+    activeDef?.group === "proyectos"
+      ? ["Nombre", "Definición / uso en el proyecto", "Orden", "Estado", ""]
+      : activeCat === "etapa_crecimiento"
       ? ["Etapa", "Especie", "Sem. Mín", "Sem. Máx", "Huevos/día", "Estado", ""]
       : showTipoCol
         ? [activeCat === "raza" ? "Raza" : "Valor", activeCat === "raza" ? "Especie" : "Tipo", "Precio", "Unidades", "Orden", "Estado", ""]
         : ["Valor", "Precio", "Unidades", "Orden", "Estado", ""];
+  const visibleGroups = groupFilter
+    ? CATEGORY_GROUPS.filter((group) => group.id === groupFilter)
+    : CATEGORY_GROUPS;
 
   return (
     <div className="space-y-5">
+      {groupFilter === "proyectos" && (
+        <Card>
+          <h2 className="font-semibold text-slate-800">Variables para formular proyectos y alianzas</h2>
+          <p className="mt-1 text-sm text-slate-600">
+            Organiza propósitos, perfiles, enfoques, rutas, alcances, componentes, medición y continuidad. Son catálogos editables para adaptar cada propuesta al proyecto y territorio; no representan por sí solos una iniciativa ni una población observada.
+          </p>
+        </Card>
+      )}
       <Card>
         <div className="space-y-4">
-          {CATEGORY_GROUPS.map((group) => {
-            const groupCats = CATEGORIES.filter((c) => c.group === group.id);
+          {visibleGroups.map((group) => {
+            const groupCats = categoryDefs.filter((c) => c.group === group.id);
             return (
               <div key={group.id}>
                 <p className="font-mono text-[11px] font-bold uppercase tracking-wider text-slate-500 mb-2">
@@ -313,7 +343,14 @@ function ListasTab() {
                 {searched.map((item) => (
                   <tr key={item.id} className="hover:bg-slate-50">
                     <td className="px-4 py-3 font-medium">{item.value}</td>
-                    {activeCat === "etapa_crecimiento" ? (
+                    {activeDef?.group === "proyectos" ? (
+                      <>
+                        <td className="px-4 py-3 text-sm text-slate-600 whitespace-pre-line max-w-2xl">
+                          {item.description || "—"}
+                        </td>
+                        <td className="px-4 py-3 text-sm text-slate-400">{item.sortOrder}</td>
+                      </>
+                    ) : activeCat === "etapa_crecimiento" ? (
                       <>
                         <td className="px-4 py-3 text-sm">
                           {MANAGED_SPECIES.find((s) => s.value === item.tipo)?.label || item.tipo || "General"}
@@ -377,6 +414,18 @@ function ListasTab() {
             autoFocus
             help="El texto que aparecerá en el campo de selección del catálogo"
           />
+          {activeDef?.group === "proyectos" && (
+            <Textarea
+              label="Definición y ficha breve"
+              value={description}
+              onChange={(e) => setDescription(e.target.value)}
+              placeholder="Describe el propósito, perfil, ruta, alcance, medición o continuidad según el catálogo."
+              help={activeCat === "beneficiario_arquetipo"
+                ? "Incluye historia y rutina, propósito de vida, dolores, necesidades, expectativas, emociones y acceso a TIC. Adapta los datos al proyecto y territorio."
+                : "Registra criterios de uso, población o condiciones relevantes para formular el proyecto."}
+              rows={6}
+            />
+          )}
           <Input
             label={
               activeCat === "tamano_huevo"
@@ -493,8 +542,12 @@ function ListasTab() {
 
 const TABS = [
   { key: "parametros", label: "Datos de la granja", icon: "settings" },
-  { key: "especies", label: "Especies", icon: "paw-print" },
+  { key: "precios", label: "Costos y precios", icon: "banknote" },
+  { key: "impuestos", label: "Impuestos y retenciones", icon: "receipt" },
+  { key: "personal", label: "Personal y nómina", icon: "users" },
+  { key: "especies", label: "Producción por especie", icon: "paw-print" },
   { key: "listas", label: "Listas maestras", icon: "folder" },
+  { key: "proyectos", label: "Proyectos y alianzas", icon: "book-open" },
   { key: "vacunas", label: "Vacunas", icon: "vaccine" },
   { key: "pesos", label: "Estándares de peso", icon: "scale" },
   { key: "gallinaza", label: "Factores de gallinaza", icon: "sprout" },
@@ -523,7 +576,8 @@ export default function CatalogosPage() {
     const params = new URLSearchParams(searchParams.toString());
     params.set("tab", key);
     params.delete("nuevo");
-    if (key !== "listas") params.delete("category");
+    if (key === "proyectos") params.set("category", "proyecto_proposito");
+    else params.delete("category");
     if (key !== "fuentes") params.delete("table");
     router.replace(`/configuracion/catalogos?${params.toString()}`, { scroll: false });
   };
@@ -532,7 +586,7 @@ export default function CatalogosPage() {
     <div className="space-y-6">
       <PageHeader
         title="Catálogos y Datos Maestros"
-        description="Ajuste en un solo lugar las reglas que guían el día a día de su granja: metas de postura y peso, planes de vacunación, raciones por especie, factores de aprovechamiento, normas, estándares y guías con adjuntos, y las tablas oficiales sincronizadas de municipios, precios de referencia, medicamentos ICA y festivos."
+        description="Gestione los datos maestros de la granja y organice variables para proyectos y alianzas que integren El Gallinero."
         help="Cada tabla que configure aquí se aplica de inmediato en la operación: calcula cuánto concentrado repartir por galpón, bloquea ventas cuando hay retiro sanitario vigente, clasifica los huevos por calibre, compara sus márgenes frente al mercado regional y organiza turnos de trabajo en días festivos."
         actions={
           <HeroActionLink href="/configuracion" tone="glass">
@@ -559,9 +613,26 @@ export default function CatalogosPage() {
         ))}
       </div>
 
-      {effectiveTab === "parametros" && <ParametrosTab />}
+      {effectiveTab === "parametros" && (
+        <ParametrosTab
+          excludeGroups={["Costos y precios", "Impuestos y retenciones", "Costos laborales y nómina"]}
+        />
+      )}
+      {effectiveTab === "precios" && (
+        <div className="space-y-5">
+          <ParametrosTab group="Costos y precios" title="Precios generales y valoración" description="Referencias de precios y costos que se aplican a los cálculos nuevos. El precio final de venta se puede ajustar al registrar la operación." />
+          <EspeciesTab mode="prices" />
+        </div>
+      )}
+      {effectiveTab === "impuestos" && (
+        <ParametrosTab group="Impuestos y retenciones" title="Impuestos y retenciones" description="Define las tasas y umbrales vigentes que se guardan en cada operación nueva. Los registros anteriores conservan las tasas con las que fueron creados." />
+      )}
+      {effectiveTab === "personal" && (
+        <ParametrosTab group="Costos laborales y nómina" title="Costos laborales y nómina" description="Revisa las fuentes oficiales y gestiona los valores de nómina que se aplican a liquidaciones nuevas. Las tarifas particulares por trabajador se administran en Personal." />
+      )}
       {effectiveTab === "especies" && <EspeciesTab />}
       {effectiveTab === "listas" && <ListasTab />}
+      {effectiveTab === "proyectos" && <ListasTab groupFilter="proyectos" />}
       {effectiveTab === "vacunas" && <VacunasTab />}
       {effectiveTab === "pesos" && <PesosTab />}
       {effectiveTab === "gallinaza" && <GallinazaTab />}

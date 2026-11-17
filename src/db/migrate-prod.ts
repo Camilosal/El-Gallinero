@@ -10,11 +10,29 @@ import { Pool, type PoolClient } from "pg";
 export const BASELINE_MIGRATION_FILE = "drizzle/0000_baseline.sql";
 export const CORE_RLS_MIGRATION_FILE = "drizzle/0001_roles_constraints_and_rls.sql";
 export const PAYROLL_TAX_SUPPLIES_MIGRATION_FILE = "drizzle/0002_personal_impuestos_insumos.sql";
+export const STAFF_DOCUMENT_UNIQUENESS_MIGRATION_FILE = "drizzle/0003_staff_document_unique.sql";
+export const PAYROLL_MASTER_SNAPSHOTS_MIGRATION_FILE = "drizzle/0004_payroll_master_snapshots.sql";
+export const SPECIES_VALUATION_PRICES_MIGRATION_FILE = "drizzle/0005_species_valuation_prices.sql";
+export const EXTERNAL_SOURCE_OBSERVATIONS_MIGRATION_FILE = "drizzle/0006_external_source_observations.sql";
+export const AI_ACTIONS_ORIGIN_MIGRATION_FILE = "drizzle/0007_ai_actions_origin.sql";
+export const AGENT_BRIEFINGS_MIGRATION_FILE = "drizzle/0008_agent_briefings.sql";
+export const TELEGRAM_CHATS_MIGRATION_FILE = "drizzle/0009_telegram_chats.sql";
+export const AI_ACTIONS_CHAT_ID_MIGRATION_FILE = "drizzle/0010_ai_actions_chat_id.sql";
+export const AI_ACTIONS_TOKEN_ID_MIGRATION_FILE = "drizzle/0011_ai_actions_token_id.sql";
 
 export const ORDERED_MIGRATION_SCRIPTS = [
   BASELINE_MIGRATION_FILE,
   CORE_RLS_MIGRATION_FILE,
   PAYROLL_TAX_SUPPLIES_MIGRATION_FILE,
+  STAFF_DOCUMENT_UNIQUENESS_MIGRATION_FILE,
+  PAYROLL_MASTER_SNAPSHOTS_MIGRATION_FILE,
+  SPECIES_VALUATION_PRICES_MIGRATION_FILE,
+  EXTERNAL_SOURCE_OBSERVATIONS_MIGRATION_FILE,
+  AI_ACTIONS_ORIGIN_MIGRATION_FILE,
+  AGENT_BRIEFINGS_MIGRATION_FILE,
+  TELEGRAM_CHATS_MIGRATION_FILE,
+  AI_ACTIONS_CHAT_ID_MIGRATION_FILE,
+  AI_ACTIONS_TOKEN_ID_MIGRATION_FILE,
 ] as const;
 
 export function getOrderedMigrationScripts(rootDir = process.cwd()): string[] {

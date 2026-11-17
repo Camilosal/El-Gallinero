@@ -1,4 +1,4 @@
-# El Corral — Core Abierto Multi-Especie
+# IwaGranja — Core Abierto Multi-Especie
 
 **Infraestructura Digital Offline-First para la Gestión Zootécnica, Sanitaria y Financiera de Granjas de Aves y Especies Menores en Latinoamérica.**
 
@@ -9,7 +9,7 @@
 
 ---
 
-**El Corral** consolida en este repositorio el **Core Abierto Operativo (Community Edition)** de la plataforma desarrollada por **[Camilo Saldarriaga](https://camilosaldarriaga.com)**: una aplicación web progresiva (*offline-first*) diseñada para granjas familiares, productores medianos, asistentes técnicos y proyectos rurales multi-especie.
+**IwaGranja** consolida en este repositorio el **Core Abierto Operativo (Community Edition)** de la plataforma desarrollada por **[Camilo Saldarriaga](https://camilosaldarriaga.com)**: una aplicación web progresiva (*offline-first*) diseñada para granjas familiares, productores medianos, asistentes técnicos y proyectos rurales multi-especie.
 
 Toda operación productiva, sanitaria o de mantenimiento alimenta automáticamente las finanzas e inventarios (FIFO/PEPS) con trazabilidad completa a su origen.
 
@@ -19,7 +19,7 @@ Toda operación productiva, sanitaria o de mantenimiento alimenta automáticamen
 
 No necesitas instalar servidores ni saber programación para empezar en tu granja o formular un proyecto institucional:
 
-1. **Pequeños y Medianos Productores (en la nube o en campo):** Prueba la instancia en producción en **[gallinero.iwage.co](https://gallinero.iwage.co)** o conoce el proyecto en **[camilosaldarriaga.com](https://camilosaldarriaga.com)**. Arranca en menos de 5 minutos con el **Asistente inicial de 3 pasos** sin historial atrasado y opera incluso sin internet desde tu celular.
+1. **Pequeños y Medianos Productores (en la nube o en campo):** Prueba la instancia en producción en **[app.iwage.co](https://app.iwage.co)** o conoce el proyecto en **[camilosaldarriaga.com](https://camilosaldarriaga.com)**. Arranca en menos de 5 minutos con el **Asistente inicial de 3 pasos** sin historial atrasado y opera incluso sin internet desde tu celular.
 2. **Granjas Comerciales (Implementación Llave en Mano):** Para operación multi-galpón o multi-especie con kits físicos de placas QR resistentes al lavado, ajuste zootécnico inicial y soporte técnico, solicita acompañamiento en **[camilosaldarriaga.com](https://camilosaldarriaga.com)**.
 3. **ONGs, Cooperativas, Fundaciones y Agencias de Cooperación:** Este repositorio es software libre certificado bajo **GNU AGPLv3** con madurez verificable (**TRL 8–9**), sin bloqueo de proveedor (*vendor lock-in*) y alineado con los principios de **Bienes Públicos Digitales (DPGA)**. Para cohortes de **50 a 500+ predios**, **Torre de Control Multi-Predio (M&E)**, WhatsApp Cloud API o despliegues soberanos Docker bajo contrato B2B2C, consulta [COMMERCIAL-LICENSE.md](COMMERCIAL-LICENSE.md) y [docs/estrategia-open-core.md](docs/estrategia-open-core.md).
 4. **Investigadores, Zootecnistas y Desarrolladores AgroTech:** Revisa [CONTRIBUTING.md](CONTRIBUTING.md) para aportar curvas genéticas, ajustes por altitud o adaptaciones normativas locales (ICA/NTC en Colombia, SENASA Perú, AGROCALIDAD Ecuador, SENASICA México, entre otros).
@@ -232,6 +232,6 @@ npm run e2e         # Pruebas E2E con Playwright
 ## Autoría y Contacto
 
 Desarrollado por **Camilo Saldarriaga** · **[https://camilosaldarriaga.com](https://camilosaldarriaga.com)**  
-Instancia de referencia: **[https://gallinero.iwage.co](https://gallinero.iwage.co)**
+Instancia de referencia: **[https://app.iwage.co](https://app.iwage.co)**
 
 El uso, bifurcación o despliegue autoalojado bajo **GNU AGPLv3** debe conservar visibles los créditos de autoría originaria y el enlace al repositorio fuente.

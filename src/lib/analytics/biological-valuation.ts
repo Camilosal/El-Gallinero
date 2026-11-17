@@ -1,8 +1,4 @@
-import {
-  getSpeciesParams,
-  MARKET_PRICE_PER_EGG,
-  MARKET_PRICE_PER_KG,
-} from "@/lib/species-params";
+import { getSpeciesParams } from "@/lib/species-params";
 import { getStandardCurve, interpolateStandard } from "@/lib/standard-curves";
 import { calibrateTargetForEnvironment } from "@/lib/zootechnics";
 
@@ -255,30 +251,6 @@ const CULL_WEEKS: Record<string, number> = {
   pato: 78,
   conejo: 130,
   cuy: 110,
-};
-
-const POINT_OF_LAY_VALUE_COP: Record<string, number> = {
-  gallina: 29000,
-  codorniz: 8500,
-  pato: 48000,
-};
-
-const INITIAL_CHICK_UNIT_COP: Record<string, number> = {
-  pollo: 2800,
-  gallina: 4500,
-  codorniz: 1800,
-  pato: 7500,
-  conejo: 25000,
-  cuy: 22000,
-};
-
-const BREEDER_UNIT_VALUE_COP: Record<string, number> = {
-  gallina: 35000,
-  codorniz: 10000,
-  pato: 65000,
-  conejo: 85000,
-  cuy: 55000,
-  pollo: 35000,
 };
 
 function round2(n: number): number {
@@ -600,14 +572,19 @@ function evaluateMeatAlerts(params: {
  * - Breeding stock is valued as fixed genetic capital.
  * - Locations with active sanitaryEmptyUntil trigger pausa_sanitaria mode.
  */
+export interface BiologicalMarketPrices {
+  meatKgCopBySpecies?: Partial<Record<string, number>>;
+  eggUnitCopBySpecies?: Partial<Record<string, number>>;
+  initialUnitCostCopBySpecies?: Partial<Record<string, number>>;
+  pointOfLayValueCopBySpecies?: Partial<Record<string, number>>;
+  breederUnitValueCopBySpecies?: Partial<Record<string, number>>;
+}
+
 export function evaluateBiologicalPortfolio(input: {
   flocks: FlockLike[];
   broilerBatches: BroilerBatchLike[];
   locations?: LocationLike[];
-  marketPrices?: {
-    meatKgCopBySpecies?: Partial<Record<string, number>>;
-    eggUnitCopBySpecies?: Partial<Record<string, number>>;
-  };
+  marketPrices?: BiologicalMarketPrices;
   referenceDate?: string;
 }): BiologicalPortfolioSummary {
   const referenceDate = input.referenceDate || new Date().toISOString().slice(0, 10);
@@ -615,6 +592,18 @@ export function evaluateBiologicalPortfolio(input: {
 
   const units: BiologicalUnitValuation[] = [];
   const alerts: BiologicalAlert[] = [];
+  const addMissingMasterPriceAlert = (id: string, species: string, name: string, missing: string[]) => {
+    if (missing.length === 0) return;
+    alerts.push({
+      id: `${id}-missing-master-price`,
+      species,
+      entityName: name,
+      severity: "warning",
+      title: `Faltan precios maestros para valorar "${name}"`,
+      detail: `No hay ${missing.join(" y ")} configurado(s) en Catálogos. La valoración que requiere ese dato queda en cero o puede subestimar el activo.`,
+      recommendedAction: "Completa los valores vigentes y sus unidades en Catálogos > Especies antes de usar esta valoración financiera.",
+    });
+  };
 
   for (const batch of input.broilerBatches) {
     if (batch.status !== "activo" || Number(batch.currentCount || 0) <= 0) continue;
@@ -647,11 +636,13 @@ export function evaluateBiologicalPortfolio(input: {
         : estimateCalibratedWeightKg(species, batch.breed, cycleWeeks, cycleWeeks, cal.factor);
 
     const pricePerKgLive =
-      input.marketPrices?.meatKgCopBySpecies?.[species] ??
-      MARKET_PRICE_PER_KG[species] ??
-      7200;
+      input.marketPrices?.meatKgCopBySpecies?.[species] ?? 0;
 
-    const defaultChickUnit = INITIAL_CHICK_UNIT_COP[species] ?? 2800;
+    const defaultChickUnit = input.marketPrices?.initialUnitCostCopBySpecies?.[species] ?? 0;
+    addMissingMasterPriceAlert(batch.id, species, batch.batchCode, [
+      ...(pricePerKgLive > 0 ? [] : ["precio maestro por kg en canal"]),
+      ...(Number(batch.chickCostTotal || 0) > 0 || defaultChickUnit > 0 ? [] : ["costo inicial por animal"]),
+    ]);
     const investedBaseCop =
       Number(batch.chickCostTotal || 0) > 0
         ? Number(batch.chickCostTotal)
@@ -718,7 +709,7 @@ export function evaluateBiologicalPortfolio(input: {
     const purpose = normalizePurpose(flock.purpose, species);
     const loc = flock.locationId ? locationMap.get(flock.locationId) : undefined;
     const cal = calibrateTargetForEnvironment(species, loc?.altitudeMeters ?? null, loc?.floorType ?? null);
-    const speciesParams = getSpeciesParams(species);
+    const defaultChickUnit = input.marketPrices?.initialUnitCostCopBySpecies?.[species] ?? 0;
 
     const daysSinceEntry = flock.entryDate ? diffDaysElapsed(flock.entryDate, referenceDate) : 0;
     const ageWeeks = round2((Number(flock.ageWeeks || 0) || 0) + daysSinceEntry / 7);
@@ -726,13 +717,17 @@ export function evaluateBiologicalPortfolio(input: {
     const investedBaseCop =
       Number(flock.acquisitionCost || 0) > 0
         ? Number(flock.acquisitionCost)
-        : flock.initialCount * (INITIAL_CHICK_UNIT_COP[species] ?? 4500);
+        : flock.initialCount * defaultChickUnit;
 
     if (purpose === "postura_huevo") {
       const pointOfLayW = POINT_OF_LAY_WEEKS[species] ?? 18;
       const cullW = CULL_WEEKS[species] ?? 100;
-      const pointOfLayUnitVal = POINT_OF_LAY_VALUE_COP[species] ?? 29000;
-      const startUnitCost = flock.initialCount > 0 ? investedBaseCop / flock.initialCount : (INITIAL_CHICK_UNIT_COP[species] ?? 4500);
+      const pointOfLayUnitVal = input.marketPrices?.pointOfLayValueCopBySpecies?.[species] ?? 0;
+      const startUnitCost = flock.initialCount > 0 ? investedBaseCop / flock.initialCount : defaultChickUnit;
+      addMissingMasterPriceAlert(flock.id, species, flock.name, [
+        ...(pointOfLayUnitVal > 0 ? [] : ["valor unitario de postura"]),
+        ...(Number(flock.acquisitionCost || 0) > 0 || defaultChickUnit > 0 ? [] : ["costo inicial por animal"]),
+      ]);
 
       let valuationStage: BiologicalUnitValuation["valuationStage"];
       let valuationStageLabel: string;
@@ -802,7 +797,11 @@ export function evaluateBiologicalPortfolio(input: {
         weightDeviationPct: null,
       });
     } else if (purpose === "pie_cria") {
-      const unitValue = BREEDER_UNIT_VALUE_COP[species] ?? 55000;
+      const unitValue = input.marketPrices?.breederUnitValueCopBySpecies?.[species] ?? 0;
+      addMissingMasterPriceAlert(flock.id, species, flock.name, [
+        ...(unitValue > 0 || Number(flock.acquisitionCost || 0) > 0 ? [] : ["valor unitario de pie de cría"]),
+        ...(Number(flock.acquisitionCost || 0) > 0 || defaultChickUnit > 0 ? [] : ["costo inicial por animal"]),
+      ]);
       const biologicalValueCop = round2(flock.currentCount * Math.max(unitValue, flock.initialCount > 0 ? investedBaseCop / flock.initialCount : unitValue));
       units.push({
         id: flock.id,
@@ -845,9 +844,12 @@ export function evaluateBiologicalPortfolio(input: {
           ? round2(((avgWeightKg - targetWeightKg) / targetWeightKg) * 100)
           : null;
       const cycleProgress = clamp(ageDays / cycleDays, 0, 1);
-      const pricePerKgLive =
-        input.marketPrices?.meatKgCopBySpecies?.[species] ?? MARKET_PRICE_PER_KG[species] ?? 7200;
-      const chickUnit = flock.initialCount > 0 ? investedBaseCop / flock.initialCount : (INITIAL_CHICK_UNIT_COP[species] ?? 3000);
+      const pricePerKgLive = input.marketPrices?.meatKgCopBySpecies?.[species] ?? 0;
+      addMissingMasterPriceAlert(flock.id, species, flock.name, [
+        ...(pricePerKgLive > 0 ? [] : ["precio maestro por kg en canal"]),
+        ...(Number(flock.acquisitionCost || 0) > 0 || defaultChickUnit > 0 ? [] : ["costo inicial por animal"]),
+      ]);
+      const chickUnit = flock.initialCount > 0 ? investedBaseCop / flock.initialCount : (input.marketPrices?.initialUnitCostCopBySpecies?.[species] ?? 0);
       const bioUnit = chickUnit * (1 - cycleProgress) + avgWeightKg * pricePerKgLive;
       const biologicalValueCop = round2(flock.currentCount * bioUnit);
       const projectedHarvestValueCop = round2(
@@ -1123,8 +1125,3 @@ export function buildMarketPriceOverridesFromSipsa(sipsa?: {
   }
   return { meatKgCopBySpecies, eggUnitCopBySpecies };
 }
-
-export const BIOLOGICAL_MARKET_REFERENCE = {
-  meatKg: MARKET_PRICE_PER_KG,
-  eggUnit: MARKET_PRICE_PER_EGG,
-};

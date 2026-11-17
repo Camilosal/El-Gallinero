@@ -1,7 +1,7 @@
 export const APP_BRAND = {
   name: "IwaGranja",
   slogan: "Tu granja, todo bajo control.",
-  subtitle: "Iwagé Granja · Sistema de Gestión Agropecuaria",
+  subtitle: "Sistema de gestión agropecuaria",
   horizontalLogoSrc: "/logo-iwagranja-horizontal.webp",
   squareLogoSrc: "/logo-iwagranja.webp",
   markSrc: "/logo-iwagranja-mark.webp",

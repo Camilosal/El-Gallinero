@@ -15,6 +15,7 @@ export function PublicPageShell({
   pageType = "WebPage",
   breadcrumbs,
   extraJsonLdNodes,
+  headerAction,
   children,
 }: {
   title: string;
@@ -24,8 +25,12 @@ export function PublicPageShell({
   pageType?: WebPageKind;
   breadcrumbs?: BreadcrumbItem[];
   extraJsonLdNodes?: Record<string, unknown>[];
+  headerAction?: { href: string; label: string } | null;
   children: React.ReactNode;
 }) {
+  const resolvedHeaderAction = headerAction === undefined
+    ? { href: "/registro", label: "Crear granja gratis" }
+    : headerAction;
   const resolvedBreadcrumbs: BreadcrumbItem[] | undefined = breadcrumbs
     ? breadcrumbs
     : path
@@ -56,9 +61,16 @@ export function PublicPageShell({
             <ArrowLeft className="w-4 h-4 text-slate-500" aria-hidden="true" />
             <BrandLogo variant="horizontal" height={38} className="h-8 sm:h-[38px] w-auto" />
           </Link>
-          <Link href="/registro" className="rounded-full bg-emerald-700 px-4 py-2 text-xs font-semibold text-white hover:bg-emerald-800">
-            Crear granja gratis
-          </Link>
+          {resolvedHeaderAction && (
+            <Link
+              href={resolvedHeaderAction.href}
+              className={headerAction === undefined
+                ? "rounded-full bg-emerald-700 px-4 py-2 text-xs font-semibold text-white hover:bg-emerald-800"
+                : "rounded-full border border-slate-200 bg-white px-4 py-2 text-xs font-semibold text-slate-700 hover:border-emerald-700 hover:text-emerald-900"}
+            >
+              {resolvedHeaderAction.label}
+            </Link>
+          )}
         </div>
       </header>
       <main className="flex-1 max-w-[1080px] w-full mx-auto px-4 sm:px-7 py-8 sm:py-12">

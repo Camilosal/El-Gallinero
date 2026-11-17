@@ -18,6 +18,8 @@ import {
   syncCreditReceivable,
 } from "@/lib/financial-records";
 import { assertDateNotClosed, assertNoActiveWithdrawal } from "@/lib/sanitary-locks";
+import { resolveManagedTransactionTaxColumns } from "@/lib/analytics/payroll-tax-supplies";
+import { getTaxAndPayrollConfig } from "@/lib/settings";
 
 export const dynamic = "force-dynamic";
 
@@ -73,11 +75,16 @@ function validateSaleValues(body: Record<string, any>, qty: number, priceMode: s
 export const GET = withApiHandler(async () => {
   const data = await db.select().from(chickenSales).orderBy(desc(chickenSales.date)).limit(100);
   if (data.length === 0) return NextResponse.json([]);
-  const creditMetaMap = await getCreditMetaBySourceIds("venta_ave", data.map((sale) => sale.id));
+  const [creditMetaMap, taxRows] = await Promise.all([
+    getCreditMetaBySourceIds("venta_ave", data.map((sale) => sale.id)),
+    db.select().from(transactions).where(and(eq(transactions.sourceType, "venta_ave"), inArray(transactions.sourceId, data.map((sale) => sale.id)))),
+  ]);
+  const taxBySale = new Map(taxRows.map((row) => [row.sourceId, row]));
 
   const enriched = await Promise.all(
     data.map(async (record) => {
       const creditMeta = creditMetaMap.get(record.id);
+      const tax = taxBySale.get(record.id);
       const [hen] = record.henId
         ? await db.select().from(hens).where(eq(hens.id, record.henId))
         : [undefined];
@@ -89,6 +96,11 @@ export const GET = withApiHandler(async () => {
         : [undefined];
       return {
         ...record,
+        ivaRate: tax?.ivaRate ?? null,
+        reteFuenteRate: tax?.reteFuenteRate ?? null,
+        icaRate: tax?.icaRate ?? null,
+        otherDeductionsAmount: tax?.otherDeductionsAmount ?? null,
+        taxNotes: tax?.taxNotes ?? null,
         transactionId: creditMeta?.transactionId || null,
         isCredit: creditMeta?.isCredit ?? false,
         dueDate: creditMeta?.dueDate || null,
@@ -145,6 +157,8 @@ export const POST = withApiHandler(async (req: NextRequest) => {
   const totalAmount = priceMode === "por_kg" && weightKg
     ? (pricePerUnit * weightKg).toFixed(2)
     : (pricePerUnit * qty).toFixed(2);
+  const taxConfig = await getTaxAndPayrollConfig();
+  const taxResolved = resolveManagedTransactionTaxColumns(body, totalAmount, taxConfig, "agro");
 
   const created = await db.transaction(async (tx) => {
     if (body.henId) {
@@ -211,7 +225,8 @@ export const POST = withApiHandler(async (req: NextRequest) => {
       type: "ingreso",
       category: isMammal ? "Venta de animales" : "Venta de aves",
       description: `Venta de ${qty} ${birdLabel}${weightDesc}${body.buyer ? ` a ${body.buyer}` : ""}`,
-      amount: totalAmount,
+      amount: taxResolved.amount,
+      ...taxResolved.columns,
       quantity: String(qty),
       unitPrice: String(pricePerUnit),
       unit: priceMode === "por_kg" ? "kg" : "animales",
@@ -223,7 +238,7 @@ export const POST = withApiHandler(async (req: NextRequest) => {
     if (body.isCredit) {
       await syncCreditReceivable(tx, {
         transactionId: transaction.id,
-        totalAmount,
+        totalAmount: taxResolved.columns.netSettlementAmount ?? totalAmount,
         isCredit: true,
         dueDate: body.dueDate || null,
         buyer: body.buyer || null,
@@ -280,7 +295,6 @@ export const PUT = withApiHandler(async (req: NextRequest) => {
   const totalAmount = priceMode === "por_kg" && weightKg
     ? (pricePerUnit * weightKg).toFixed(2)
     : (pricePerUnit * qty).toFixed(2);
-
   let updated;
   try {
     updated = await db.transaction(async (tx) => {
@@ -386,6 +400,8 @@ export const PUT = withApiHandler(async (req: NextRequest) => {
         eq(transactions.sourceType, "venta_ave"),
         eq(transactions.sourceId, body.id),
       ));
+      const taxConfig = await getTaxAndPayrollConfig();
+      const taxResolved = resolveManagedTransactionTaxColumns(body, totalAmount, taxConfig, "agro", existingTx);
       const birdLabel = body.birdType.replace(/_/g, " ");
       const weightDesc = weightKg ? ` (${weightKg} kg)` : "";
       const transactionValues = {
@@ -395,7 +411,8 @@ export const PUT = withApiHandler(async (req: NextRequest) => {
         category: isMammal ? "Venta de animales" : "Venta de aves",
         description: `Venta de ${qty} ${birdLabel}${weightDesc}${body.buyer ? ` a ${body.buyer}` : ""}`,
         counterparty: body.buyer || null,
-        amount: totalAmount,
+        amount: taxResolved.amount,
+        ...taxResolved.columns,
         quantity: String(qty),
         unitPrice: String(pricePerUnit),
         unit: priceMode === "por_kg" ? "kg" : "animales",
@@ -410,7 +427,7 @@ export const PUT = withApiHandler(async (req: NextRequest) => {
 
       await syncCreditReceivable(tx, {
         transactionId: transaction.id,
-        totalAmount,
+        totalAmount: taxResolved.columns.netSettlementAmount ?? totalAmount,
         isCredit: Boolean(body.isCredit),
         dueDate: body.dueDate,
         buyer: body.buyer || null,

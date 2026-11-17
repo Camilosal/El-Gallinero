@@ -2,6 +2,7 @@
 
 import type { LucideIcon } from "lucide-react";
 import {
+  Activity,
   AlertTriangle,
   ArrowDownToLine,
   ArrowLeftRight,
@@ -180,6 +181,7 @@ const ICON_MAP: Record<string, LucideIcon> = {
   "trend-up": TrendingUp,
   "trend-down": TrendingDown,
   target: Target,
+  activity: Activity,
 
   package: Package,
   "package-open": PackageOpen,

@@ -5,7 +5,7 @@ import sitemap from "@/app/sitemap";
 import { BITACORA_ARTICLES } from "@/lib/bitacora-content";
 import { guides } from "@/lib/guide-data";
 import { CYCLE_PLANS_SHOWCASE } from "@/lib/landing-showcase";
-import { buildPageMetadata, resolveOgImageDimensions } from "@/lib/seo";
+import { buildPageMetadata, resolveOgImageDimensions, STATIC_ROUTE_LAST_MODIFIED } from "@/lib/seo";
 
 function readImageDimensions(relPublicPath: string): { width: number; height: number } {
   const fullPath = path.join(process.cwd(), "public", relPublicPath.replace(/^\//, ""));
@@ -25,17 +25,16 @@ function readImageDimensions(relPublicPath: string): { width: number; height: nu
 }
 
 describe("SEO-01 y SEO-02 — Sitemap granular y dimensiones OG reales", () => {
-  it("sitemap cubre las 70 rutas públicas sin duplicados ni rutas privadas", () => {
+  it("sitemap cubre todas las rutas públicas sin duplicados ni rutas privadas", () => {
     const entries = sitemap();
     const expectedCount =
-      13 + CYCLE_PLANS_SHOWCASE.length + BITACORA_ARTICLES.length + guides.length;
-    expect(expectedCount).toBe(70);
+      Object.keys(STATIC_ROUTE_LAST_MODIFIED).length + CYCLE_PLANS_SHOWCASE.length + BITACORA_ARTICLES.length + guides.length;
     expect(entries.length).toBe(expectedCount);
 
     const urls = entries.map((e) => e.url);
     expect(new Set(urls).size).toBe(expectedCount);
     for (const url of urls) {
-      expect(url.startsWith("https://gallinero.iwage.co")).toBe(true);
+      expect(url.startsWith("https://app.iwage.co")).toBe(true);
       expect(url).not.toMatch(/\/(dashboard|api|login)(\/|$)/);
     }
 

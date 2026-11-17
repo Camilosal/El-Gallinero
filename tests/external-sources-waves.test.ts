@@ -61,7 +61,7 @@ async function withRole<T>(
   }
 }
 
-describe("Integración de Fuentes Externas Offline-First (Olas 1, 2 y 3)", () => {
+describe("Integración de Fuentes Externas Offline-First (Olas 1 a 5 y catálogos manuales)", () => {
   const createdHealthIds: string[] = [];
   const createdSensorIds: string[] = [];
   const createdLocationIds: string[] = [];
@@ -97,7 +97,7 @@ describe("Integración de Fuentes Externas Offline-First (Olas 1, 2 y 3)", () =>
     );
   });
 
-  it("API /api/configuracion/fuentes-externas inicializa los 7 conectores y soporta ?section=vademecum", async () => {
+  it("API /api/configuracion/fuentes-externas inicializa fuentes conectadas y soporta ?section=vademecum", async () => {
     const vadRes = await fuentesGET(
       mockRequest("http://localhost/api/configuracion/fuentes-externas?section=vademecum"),
     );
@@ -112,14 +112,23 @@ describe("Integración de Fuentes Externas Offline-First (Olas 1, 2 y 3)", () =>
     expect(fullRes.status).toBe(200);
     const fullJson = await parseJson(fullRes);
     expect(Array.isArray(fullJson.snapshots)).toBe(true);
-    expect(fullJson.snapshots.length).toBe(7);
+    expect(fullJson.snapshots.length).toBeGreaterThanOrEqual(6);
+    expect(fullJson.snapshots.some((snapshot: { sourceKey: string }) => snapshot.sourceKey === "ideam_hydro_alerts")).toBe(true);
+    expect(fullJson.banrepSeriesCatalog.map((series: { flowId: string }) => series.flowId)).toContain("DF_IBR");
+    expect(fullJson.selectedBanrepFlowIds).toContain("DF_IBR");
+    const scheduledKeys = fullJson.syncSchedule.map((item: { sourceKey: string }) => item.sourceKey);
+    expect(scheduledKeys).toContain("ideam_hydro_alerts");
+    expect(scheduledKeys).not.toContain("ica_vademecum_alerts");
+    expect(scheduledKeys).not.toContain("standards_normative_feed");
+    expect(scheduledKeys).not.toContain("iot_telemetry_bridge");
+    expect(fullJson.ideamHydroAlerts.datasetId).toBe("h4gs-wsmg");
     expect(fullJson.divipolaCatalog.length).toBeGreaterThanOrEqual(25);
     expect(fullJson.nutritionTables.length).toBeGreaterThanOrEqual(6);
     expect(fullJson.colombianHolidays.length).toBeGreaterThanOrEqual(17);
     expect(fullJson.taxContext?.uvtCop).toBeGreaterThan(40000);
 
     const dbSnapshots = await db.select().from(externalDataSnapshots);
-    expect(dbSnapshots.length).toBeGreaterThanOrEqual(7);
+    expect(dbSnapshots.length).toBeGreaterThanOrEqual(6);
   });
 
   it("Ola 1: DIVIPOLA, clima Open-Meteo/ITH, predicción de ración, curvas, alertas y precios SIPSA/TRM", async () => {
@@ -149,10 +158,9 @@ describe("Integración de Fuentes Externas Offline-First (Olas 1, 2 y 3)", () =>
           body: { action: "apply_market_prices", overwriteCustom: false },
         }),
       );
-      expect(marketRes.status).toBe(200);
+      expect(marketRes.status).toBe(409);
       const marketJson = await parseJson(marketRes);
-      expect(marketJson.ok).toBe(true);
-      expect(marketJson.result.trmCopPerUsd).toBeGreaterThan(3000);
+      expect(marketJson.code).toBe("manual_master_update_required");
 
       const predRes = await prediccionGET(
         mockRequest("http://localhost/api/produccion/alimentacion/prediccion?days=14"),
@@ -373,7 +381,7 @@ describe("Integración de Fuentes Externas Offline-First (Olas 1, 2 y 3)", () =>
       expect(autoRes.status).toBe(200);
       const autoJson = await parseJson(autoRes);
       expect(Array.isArray(autoJson.syncSchedule)).toBe(true);
-      expect(autoJson.syncSchedule.length).toBe(7);
+      expect(autoJson.syncSchedule.length).toBe(8);
       expect(autoJson.autoRefreshedKeys).toContain("open_meteo");
 
       // 5. PUT /api/configuracion/parametros cambiando ciudad -> autocompleta DANE/depto y actualiza zona activa

@@ -56,7 +56,7 @@ export function GuideIndexView({ basePath }: GuideIndexViewProps) {
       <HeroBanner
         theme="guia"
         icon={<BookOpen className="h-3.5 w-3.5 text-amber-200" aria-hidden="true" />}
-        eyebrow="Centro de aprendizaje · El Corral"
+        eyebrow="Centro de aprendizaje · IwaGranja"
         title="Guía completa de uso del sistema"
         description="Recorre cada pantalla con capturas reales, pasos claros y flujos de trabajo alineados con tu barra lateral, escáner QR, modo offline e interfaz actual."
         badge={

@@ -5,6 +5,7 @@ import crypto from "node:crypto";
 import { db } from "@/db";
 import { appSettings, catalogos, farms, farmSubscriptions, feedInventory, feedPrograms, sessions, users } from "@/db/schema";
 import { runWithFarmContext } from "@/db/tenant-context";
+import { resolveMaxUsersFromPlan } from "@/lib/subscription";
 import * as authMod from "@/lib/auth";
 import { proxy } from "@/proxy";
 import { POST as registerFarm } from "@/app/api/auth/register/route";
@@ -12,7 +13,6 @@ import {
   GET as listUsers,
   PATCH as patchUser,
   POST as createUser,
-  resolveMaxUsersFromPlan,
 } from "@/app/api/configuracion/usuarios/route";
 
 describe("Day 0 Registration (/registro) & Farm User/Role Management", () => {

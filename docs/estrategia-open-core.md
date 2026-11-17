@@ -1,6 +1,6 @@
 # Estrategia Open-Core, Licenciamiento Dual y Gobernanza
 
-Este documento formaliza en el repositorio la estrategia de **Código Base Abierto (Open-Core)** de la plataforma **El Corral** para ecosistemas multi-especie (gallinas ponedoras, pollos de engorde, codornices, patos, conejos y cuyes/curíes).
+Este documento formaliza en el repositorio la estrategia de **Código Base Abierto (Open-Core)** de la plataforma **IwaGranja** para ecosistemas multi-especie (gallinas ponedoras, pollos de engorde, codornices, patos, conejos y cuyes/curíes).
 
 ## 1. Propósito Estratégico
 

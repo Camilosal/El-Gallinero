@@ -1,6 +1,6 @@
 /**
- * Parámetros productivos de referencia por especie
- * Valores adaptados al contexto colombiano (micro-granja, precios COP 2024-2026)
+ * Parámetros biológicos de referencia por especie.
+ * Costos y precios se administran desde Catálogos y no se inicializan con tarifas fijas.
  */
 
 export interface SpeciesProductionParams {
@@ -14,6 +14,9 @@ export interface SpeciesProductionParams {
   carcassYieldPercent: number;
   dailyFeedGPerHead: number;
   feedCostPerKgCOP: number;
+  initialUnitCostCOP?: number;
+  pointOfLayUnitValueCOP?: number;
+  breederUnitValueCOP?: number;
   feedConversionRatio: number;
   marketPriceKgCanalCOP: number;
   marketPriceEggUnitCOP?: number;
@@ -33,9 +36,9 @@ export const SPECIES_PARAMS: SpeciesProductionParams[] = [
     targetWeightKg: 2.5,
     carcassYieldPercent: 72,
     dailyFeedGPerHead: 120,
-    feedCostPerKgCOP: 2800,
+    feedCostPerKgCOP: 0,
     feedConversionRatio: 1.9,
-    marketPriceKgCanalCOP: 14000,
+    marketPriceKgCanalCOP: 0,
     systemType: "piso",
     notes: "Pollo de engorde comercial. Alta eficiencia alimenticia. Listo a las 6-7 semanas.",
   },
@@ -49,9 +52,9 @@ export const SPECIES_PARAMS: SpeciesProductionParams[] = [
     targetWeightKg: 2.0,
     carcassYieldPercent: 68,
     dailyFeedGPerHead: 90,
-    feedCostPerKgCOP: 2600,
+    feedCostPerKgCOP: 0,
     feedConversionRatio: 2.8,
-    marketPriceKgCanalCOP: 18000,
+    marketPriceKgCanalCOP: 0,
     systemType: "pastoreo",
     notes: "Pollo criollo. Ciclo más largo pero mayor precio por kg canal en mercados locales.",
   },
@@ -65,10 +68,9 @@ export const SPECIES_PARAMS: SpeciesProductionParams[] = [
     targetWeightKg: 0.16,
     carcassYieldPercent: 65,
     dailyFeedGPerHead: 25,
-    feedCostPerKgCOP: 3000,
+    feedCostPerKgCOP: 0,
     feedConversionRatio: 2.7,
-    marketPriceKgCanalCOP: 32000,
-    marketPriceEggUnitCOP: 300,
+    marketPriceKgCanalCOP: 0,
     eggsPerDayPerFemale: 0.9,
     systemType: "baterias",
     notes: "Codorniz de doble propósito (huevo y carne). Alta densidad, poco espacio. Huevo desde semana 6-7.",
@@ -83,9 +85,9 @@ export const SPECIES_PARAMS: SpeciesProductionParams[] = [
     targetWeightKg: 3.0,
     carcassYieldPercent: 70,
     dailyFeedGPerHead: 200,
-    feedCostPerKgCOP: 2700,
+    feedCostPerKgCOP: 0,
     feedConversionRatio: 2.6,
-    marketPriceKgCanalCOP: 24000,
+    marketPriceKgCanalCOP: 0,
     systemType: "piso",
     notes: "Pato de engorde comercial. Crecimiento rápido, listo en 7-8 semanas.",
   },
@@ -99,9 +101,9 @@ export const SPECIES_PARAMS: SpeciesProductionParams[] = [
     targetWeightKg: 3.2,
     carcassYieldPercent: 73,
     dailyFeedGPerHead: 180,
-    feedCostPerKgCOP: 2600,
+    feedCostPerKgCOP: 0,
     feedConversionRatio: 3.0,
-    marketPriceKgCanalCOP: 26000,
+    marketPriceKgCanalCOP: 0,
     systemType: "pastoreo",
     notes: "Pato criollo. Ciclo más largo, mejor adaptación a condiciones locales. Carne muy apreciada.",
   },
@@ -115,9 +117,9 @@ export const SPECIES_PARAMS: SpeciesProductionParams[] = [
     targetWeightKg: 2.6,
     carcassYieldPercent: 73,
     dailyFeedGPerHead: 118,
-    feedCostPerKgCOP: 2800,
+    feedCostPerKgCOP: 0,
     feedConversionRatio: 1.78,
-    marketPriceKgCanalCOP: 14000,
+    marketPriceKgCanalCOP: 0,
     systemType: "piso",
     notes: "Pollo de engorde Ross 308 de rápida conversión alimenticia y rendimiento de pechuga.",
   },
@@ -131,9 +133,9 @@ export const SPECIES_PARAMS: SpeciesProductionParams[] = [
     targetWeightKg: 2.4,
     carcassYieldPercent: 55,
     dailyFeedGPerHead: 130,
-    feedCostPerKgCOP: 2500,
+    feedCostPerKgCOP: 0,
     feedConversionRatio: 3.0,
-    marketPriceKgCanalCOP: 28000,
+    marketPriceKgCanalCOP: 0,
     systemType: "jaulas",
     notes: "Conejo de engorde. Alto valor proteico, bajo costo de alimentación relativo. Ciclo ~70-85 días.",
   },
@@ -147,9 +149,9 @@ export const SPECIES_PARAMS: SpeciesProductionParams[] = [
     targetWeightKg: 1.1,
     carcassYieldPercent: 68,
     dailyFeedGPerHead: 55,
-    feedCostPerKgCOP: 2700,
+    feedCostPerKgCOP: 0,
     feedConversionRatio: 3.1,
-    marketPriceKgCanalCOP: 36000,
+    marketPriceKgCanalCOP: 0,
     systemType: "pozas",
     notes: "Cuy mejorado de engorde (líneas Perú/Andina). Dieta mixta de forraje oreado + concentrado con Vitamina C.",
   },
@@ -163,9 +165,9 @@ export const SPECIES_PARAMS: SpeciesProductionParams[] = [
     targetWeightKg: 0.85,
     carcassYieldPercent: 64,
     dailyFeedGPerHead: 45,
-    feedCostPerKgCOP: 2400,
+    feedCostPerKgCOP: 0,
     feedConversionRatio: 3.6,
-    marketPriceKgCanalCOP: 32000,
+    marketPriceKgCanalCOP: 0,
     systemType: "pozas",
     notes: "Cuy criollo rústico. Ciclo más lento pero muy adaptable en altura.",
   },
@@ -179,15 +181,25 @@ export const SPECIES_PARAMS: SpeciesProductionParams[] = [
     targetWeightKg: 1.98,
     carcassYieldPercent: 66,
     dailyFeedGPerHead: 112,
-    feedCostPerKgCOP: 2700,
+    feedCostPerKgCOP: 0,
     feedConversionRatio: 2.05,
-    marketPriceKgCanalCOP: 12000,
-    marketPriceEggUnitCOP: 550,
+    marketPriceKgCanalCOP: 0,
     eggsPerDayPerFemale: 0.92,
     systemType: "piso",
     notes: "Ponedora semipesada Hy-Line Brown (levante/pre-postura sem 15–18, postura hasta semana 100).",
   },
 ];
+
+/** Datos biológicos de respaldo sin precios ni costos; los valores económicos vienen del catálogo. */
+export const SPECIES_BIOLOGY_FALLBACKS: SpeciesProductionParams[] = SPECIES_PARAMS.map((item) => ({
+  ...item,
+  feedCostPerKgCOP: 0,
+  initialUnitCostCOP: undefined,
+  pointOfLayUnitValueCOP: undefined,
+  breederUnitValueCOP: undefined,
+  marketPriceKgCanalCOP: 0,
+  marketPriceEggUnitCOP: undefined,
+}));
 
 export const MASTER_SPECIES_BIOLOGY = {
   gallina: {
@@ -298,22 +310,6 @@ export function calcularRentabilidadLote(
     roiDias,
   };
 }
-
-/** Precio mercado por kg canal según especie (COP) */
-export const MARKET_PRICE_PER_KG: Record<string, number> = {
-  gallina: 10000,
-  pollo: 14000,
-  codorniz: 32000,
-  pato: 24000,
-  conejo: 28000,
-};
-
-/** Precio mercado por huevo según especie (COP) */
-export const MARKET_PRICE_PER_EGG: Record<string, number> = {
-  gallina: 600,
-  codorniz: 300,
-  pato: 800,
-};
 
 /** Icono de especie */
 export const SPECIES_ICON: Record<string, string> = {

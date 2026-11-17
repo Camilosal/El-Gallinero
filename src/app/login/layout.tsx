@@ -3,9 +3,9 @@ import type { ReactNode } from "react";
 import { buildPageMetadata } from "@/lib/seo";
 
 export const metadata: Metadata = buildPageMetadata({
-  title: "Iniciar sesión en tu granja · El Corral",
+  title: "Iniciar sesión en tu granja · IwaGranja",
   description:
-    "Ingresa a tu cuenta de El Corral para gestionar lotes, postura NTC 1240, alimento, sanidad ICA y finanzas de tu granja mixta.",
+    "Ingresa a tu cuenta de IwaGranja para gestionar lotes, postura NTC 1240, alimento, sanidad ICA y finanzas de tu granja mixta.",
   path: "/login",
   noindex: true,
 });

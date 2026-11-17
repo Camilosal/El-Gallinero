@@ -73,6 +73,18 @@ export const PLAN_CATALOG: Record<Exclude<BillingPlanCode, "FREEMIUM_SEMILLA">, 
   },
 };
 
+export function resolveMaxUsersFromPlan(
+  planCode: string | null | undefined,
+  explicitMax: number | null | undefined,
+): number {
+  if (explicitMax != null && explicitMax > 0) return explicitMax;
+  if (planCode && planCode in PLAN_CATALOG) {
+    return PLAN_CATALOG[planCode as keyof typeof PLAN_CATALOG].maxUsers;
+  }
+  if (planCode === "COMERCIAL_MEDIANO") return PLAN_CATALOG.MEDIANO_MENSUAL.maxUsers;
+  return 2;
+}
+
 export interface FarmSubscriptionStatus {
   farmId: string;
   farmName: string;
@@ -112,7 +124,7 @@ function getWompiSecrets() {
     checkoutBaseUrl: process.env.WOMPI_CHECKOUT_URL || "https://checkout.wompi.co/p/",
     redirectUrl:
       process.env.WOMPI_REDIRECT_URL ||
-      "https://gallinero.iwage.co/configuracion/plan?payment=return",
+      "https://app.iwage.co/configuracion/plan?payment=return",
     sandbox: !process.env.WOMPI_PUBLIC_KEY || process.env.WOMPI_PUBLIC_KEY.startsWith("pub_test_"),
   };
 }

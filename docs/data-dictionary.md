@@ -1,6 +1,6 @@
-# Diccionario de datos — El Corral
+# Diccionario de datos — IwaGranja
 
-> Modelo PostgreSQL de la aplicación de gestión avícola multi-especie **El Corral**.
+> Modelo PostgreSQL de la aplicación de gestión avícola multi-especie **IwaGranja**.
 > Documento generado a partir del esquema real de producción el **14 de noviembre de 2026**.
 
 **Alcance.** 66 tablas de negocio y 893 columnas, más la tabla técnica `schema_migrations` (3 columnas). Se describen propósito, campos, tipos, claves, relaciones, enumeraciones, reglas de negocio, funciones que las usan y campos derivados.
@@ -2396,4 +2396,4 @@ ORDER BY table_name, ordinal_position;
 
 ---
 
-*Documento mantenido por el equipo de El Corral. Última verificación del esquema: 14 de noviembre de 2026 (66 tablas, 893 columnas).*
+*Documento mantenido por el equipo de IwaGranja. Última verificación del esquema: 14 de noviembre de 2026 (66 tablas, 893 columnas).*

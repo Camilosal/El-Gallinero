@@ -30,14 +30,14 @@ export async function generateMetadata({
   const { slug } = await params;
   const plan = getCyclePlanBySlug(slug);
   if (!plan) {
-    return { title: "Plan no encontrado · El Corral" };
+    return { title: "Plan no encontrado · IwaGranja" };
   }
   return buildPageMetadata({
     title: fitSeoTitle(`${plan.name} (${plan.priceLabel})`),
     description: fitSeoDescription(plan.detailSummary),
     path: `/planes/${plan.slug}`,
     ogImage: "/images/guia/finanzas-presupuestos.webp",
-    ogImageAlt: `${plan.name} de El Corral`,
+    ogImageAlt: `${plan.name} de IwaGranja`,
   });
 }
 

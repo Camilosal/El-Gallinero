@@ -103,12 +103,14 @@ export const PUT = withApiHandler(async (req: NextRequest) => {
         }
       }
 
-      await Promise.allSettled([
-        syncDivipolaSnapshot({ forceRefresh: true }),
-        syncWeatherSnapshot({ forceRefresh: true }),
-        syncMarketPricesSnapshot({ forceRefresh: true }),
-        syncIcaVademecumAndAlertsSnapshot({ forceRefresh: true }),
-      ]);
+      if (current["external.sync_enabled"] === "true") {
+        await Promise.allSettled([
+          syncDivipolaSnapshot({ forceRefresh: true }),
+          syncWeatherSnapshot({ forceRefresh: true }),
+          syncMarketPricesSnapshot({ forceRefresh: true }),
+          syncIcaVademecumAndAlertsSnapshot({ forceRefresh: true }),
+        ]);
+      }
     }
 
     return NextResponse.json(await getSettingsForApi());

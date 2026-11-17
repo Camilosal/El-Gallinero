@@ -7,7 +7,7 @@ import NormativeCatalogBrowser, {
   type NewNormativeItemInput,
 } from "@/components/NormativeCatalogBrowser";
 import { apiFetch } from "@/lib/fetch";
-import type { NormativeCatalogItem, NormativeCatalogMeta } from "@/lib/normative-catalog";
+import type { NormativeCatalogItem, NormativeCatalogMeta, NormativeVerificationStatus } from "@/lib/normative-catalog";
 
 export default function NormasGuiasTab() {
   const [meta, setMeta] = useState<NormativeCatalogMeta | null>(null);
@@ -150,6 +150,31 @@ export default function NormasGuiasTab() {
     [applyPostCatalogResponse],
   );
 
+  const handleReviewCustomItem = useCallback(
+    async (id: string, status: NormativeVerificationStatus, note: string) => {
+      setBusy(true);
+      setNotice(null);
+      try {
+        const res = await apiFetch("/api/configuracion/fuentes-externas", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ action: "review_normative_item", id, status, note }),
+        });
+        const json = await res.json();
+        if (!res.ok) throw new Error(json?.error || "No se pudo registrar la revisión.");
+        await applyPostCatalogResponse(json);
+        setNotice({ type: "ok", text: "Revisión guardada con estado, fecha y responsable." });
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : "Error registrando la revisión.";
+        setNotice({ type: "error", text: msg });
+        throw new Error(msg);
+      } finally {
+        setBusy(false);
+      }
+    },
+    [applyPostCatalogResponse],
+  );
+
   if (loading && items.length === 0) {
     return (
       <Card>
@@ -199,6 +224,7 @@ export default function NormasGuiasTab() {
         defaultExpanded={true}
         onAddCustomItem={handleAddCustomItem}
         onDeleteCustomItem={handleDeleteCustomItem}
+        onReviewCustomItem={handleReviewCustomItem}
       />
     </div>
   );

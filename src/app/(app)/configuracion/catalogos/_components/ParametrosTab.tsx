@@ -5,6 +5,7 @@ import { Settings } from "lucide-react";
 import { Button, Card, EmptyState, Input, Select, Textarea } from "@/components/ui";
 import TableSearch from "@/components/TableSearch";
 import { apiFetch } from "@/lib/fetch";
+import { invalidateMasterSettingsCache } from "@/lib/use-master-settings";
 import { matchesTextQuery } from "@/lib/text";
 import {
   COLOMBIA_DEPARTMENTS,
@@ -29,9 +30,23 @@ interface SettingItem {
   inputType?: "text" | "date" | "email" | "tel";
   multiline?: boolean;
   setupRequired?: boolean;
+  sourceLabel?: string;
+  sourceUrl?: string;
+  effectiveFrom?: string;
+  reviewRequired?: boolean;
 }
 
-export default function ParametrosTab() {
+export default function ParametrosTab({
+  group,
+  excludeGroups = [],
+  title = "Parámetros y datos de la granja",
+  description = "Completa primero los datos generales de la granja y el responsable. Luego podrás editar esta información y los parámetros de cálculo desde aquí.",
+}: {
+  group?: string;
+  excludeGroups?: string[];
+  title?: string;
+  description?: string;
+}) {
   const [items, setItems] = useState<SettingItem[]>([]);
   const [values, setValues] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState(true);
@@ -56,7 +71,7 @@ export default function ParametrosTab() {
 
   const filteredItems = useMemo(
     () =>
-      items.filter((item) =>
+      items.filter((item) => (!group || item.group === group) && !excludeGroups.includes(item.group)).filter((item) =>
         matchesTextQuery(search, [
           item.label,
           item.description,
@@ -66,7 +81,12 @@ export default function ParametrosTab() {
           item.unit,
         ]),
       ),
-    [items, search, values],
+    [items, search, values, group, excludeGroups],
+  );
+
+  const scopedItems = useMemo(
+    () => items.filter((item) => (!group || item.group === group) && !excludeGroups.includes(item.group)),
+    [items, group, excludeGroups],
   );
 
   const grouped = useMemo(() => {
@@ -84,7 +104,7 @@ export default function ParametrosTab() {
     setError("");
     setMessage("");
     try {
-      const updates = items.map((item) => ({ key: item.key, value: values[item.key] ?? item.value }));
+      const updates = scopedItems.map((item) => ({ key: item.key, value: values[item.key] ?? item.value }));
       const res = await apiFetch("/api/configuracion/parametros", {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
@@ -97,7 +117,8 @@ export default function ParametrosTab() {
       }
       setItems(data);
       setValues(Object.fromEntries((data as SettingItem[]).map((item) => [item.key, item.value])));
-      setMessage("Datos de la granja guardados. Clima, precios de referencia y vigilancia de la zona fueron actualizados.");
+      invalidateMasterSettingsCache();
+      setMessage(group ? `${group} guardados.` : "Cambios guardados.");
     } finally {
       setSaving(false);
     }
@@ -133,10 +154,10 @@ export default function ParametrosTab() {
           <div>
             <h3 className="font-semibold text-slate-700 flex items-center gap-2">
               <Settings className="w-4 h-4 text-slate-500" aria-hidden="true" />
-              Parámetros y datos de la granja
+              {title}
             </h3>
             <p className="text-xs text-slate-500 mt-1">
-              Completa primero los datos generales de la granja y el responsable. Luego podrás editar esta información y los parámetros de cálculo desde aquí.
+              {description}
             </p>
           </div>
           <Button onClick={save} disabled={saving}>{saving ? "Guardando..." : "Guardar cambios"}</Button>
@@ -302,6 +323,17 @@ export default function ParametrosTab() {
                 <p className="text-[11px] text-slate-400 mt-2">
                   Clave: <code>{item.key}</code> · Valor por defecto: <code>{item.default}</code>
                 </p>
+                {item.sourceUrl ? (
+                  <p className="mt-2 text-[11px] text-slate-600">
+                    Fuente: <a className="font-medium text-emerald-700 underline" href={item.sourceUrl} target="_blank" rel="noreferrer">{item.sourceLabel || "Consultar fuente oficial"}</a>
+                    {item.effectiveFrom ? ` · Vigente desde ${item.effectiveFrom}` : ""}
+                  </p>
+                ) : null}
+                {item.reviewRequired ? (
+                  <p className="mt-2 rounded-md bg-amber-50 px-2.5 py-2 text-[11px] text-amber-900">
+                    Dato normativo: verifica la fuente y su vigencia antes de guardar. El valor aprobado se usará en operaciones nuevas.
+                  </p>
+                ) : null}
               </div>
               );
             })}

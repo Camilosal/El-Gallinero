@@ -1,12 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
-import { loadSpeciesParams } from "@/lib/species-db";
+import { loadSpeciesMasterParams, loadSpeciesParams } from "@/lib/species-db";
 import { calcularRentabilidadLote } from "@/lib/species-params";
 import { withApiHandler } from "@/lib/api-handler";
 
 /**
  * GET /api/especies/params
- * Parámetros productivos por especie. Se leen de Catálogos (params_especie)
- * y, si no hay datos, se usa la referencia estática como respaldo.
+ * Parámetros productivos por especie. Se leen de Catálogos (params_especie);
+ * el respaldo biológico omite precios y costos si el catálogo no está disponible.
  *
  * GET /api/especies/params?species=conejo&quantity=20&acquisition=50000&autoconsumo=5&excedente=15
  */
@@ -19,6 +19,10 @@ export const GET = withApiHandler(async (req: NextRequest) => {
   const acquisitionCost = Number(searchParams.get("acquisition") || "0");
   const headsAutoconsumo = Number(searchParams.get("autoconsumo") || "0");
   const headsExcedente = searchParams.get("excedente") ? Number(searchParams.get("excedente")) : undefined;
+
+  if (searchParams.get("masterOnly") === "true") {
+    return NextResponse.json(await loadSpeciesMasterParams(species));
+  }
 
   const params = await loadSpeciesParams(species);
 

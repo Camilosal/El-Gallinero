@@ -10,7 +10,7 @@ import {
 } from "@/lib/bitacora-content";
 import { buildPageMetadata } from "@/lib/seo";
 
-const TITLE = "Bitácora de campo · El Corral · Iwagé Granja";
+const TITLE = "Bitácora de campo · IwaGranja";
 const DESCRIPTION =
   "Guías prácticas de avicultura y granjas mixtas: costo por huevo, tiempos de retiro, NTC 1240, operación sin señal y compostaje de gallinaza.";
 
@@ -19,7 +19,7 @@ export const metadata: Metadata = buildPageMetadata({
   description: DESCRIPTION,
   path: "/bitacora",
   ogImage: "/images/guia/finanzas-balance.webp",
-  ogImageAlt: "Bitácora técnica de campo de El Corral",
+  ogImageAlt: "Bitácora técnica de campo de IwaGranja",
 });
 
 export default function BitacoraPage() {
@@ -30,6 +30,10 @@ export default function BitacoraPage() {
       path="/bitacora"
       description={DESCRIPTION}
       pageType="CollectionPage"
+      breadcrumbs={[
+        { name: "Recursos", path: "/recursos" },
+        { name: "Artículos y bitácoras", path: "/bitacora" },
+      ]}
     >
       <div className="mb-6 flex flex-col gap-3 rounded-2xl border border-emerald-200 bg-emerald-50/70 p-4 sm:flex-row sm:items-center sm:justify-between">
         <p className="text-sm font-medium text-emerald-950">{BITACORA_CADENCE_NOTE}</p>
