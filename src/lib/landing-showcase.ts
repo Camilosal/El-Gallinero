@@ -243,7 +243,7 @@ export const SHOWCASE_TABS: ShowcaseTabItem[] = [
     eyebrow: "Ayuda cercana en campo",
     title: "Habla o escribe a Gina; la app ordena los datos por ti",
     description:
-      "Pregúntale a Gina (nuestra gallina asistente con gafas) cuántos huevos o animales tienes, qué vacunas se acercan o cómo va el mes. Si dictas un movimiento o envías foto de factura, lo estructura y te pide confirmar antes de guardar.",
+      "Pregúntale a Gina (nuestra gallina asistente con gafas) cuántos huevos o animales tienes, qué vacunas se acercan o cómo va el mes. Dicta un movimiento o envía foto de factura y lo estructura para tu confirmación; también puedes hablarle por Telegram y recibir cada mañana un briefing proactivo con los hallazgos de tu granja.",
     routeLabel: "app.iwage.co · Gina",
     screenshot: "/images/guia/asistente-ia.webp",
     screenshotAlt:
@@ -254,10 +254,12 @@ export const SHOWCASE_TABS: ShowcaseTabItem[] = [
       "Buscador global Ctrl+K para saltar al instante a cualquier módulo, guía o creación rápida",
     highlights: [
       "Funciona por texto, dictado en vivo o nota de audio guardada cuando no hay señal.",
-      "Consulta datos de aves, conejos, cuyes, bodega, vacunas y cuentas.",
-      "Nunca registra ventas o gastos sin tu confirmación expresa.",
+      "Briefing diario proactivo con hallazgos de la granja, en la app, por push o por Telegram.",
+      "Canal Telegram bidireccional: notas de voz, botones Confirmar/Cancelar y parte diario con /parte.",
+      "API de herramientas y servidor MCP para agentes externos con tokens de alcance limitado.",
+      "Nunca registra ventas o gastos sin tu confirmación expresa, desde ningún canal.",
     ],
-    tags: ["Dictado por voz", "Consultas al instante", "Confirmación segura"],
+    tags: ["Dictado por voz", "Briefing proactivo", "Telegram", "API · MCP"],
     simulationKind: "ai-voice",
   },
   {
@@ -502,6 +504,7 @@ export const AI_AUTOMATION_PILLARS: AiAutomationPillar[] = [
     highlights: [
       "Dictado en vivo o nota de audio sin internet.",
       "Confirmación obligatoria en ventas y pagos.",
+      "Briefing diario proactivo, también por Telegram.",
     ],
   },
   {
