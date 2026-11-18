@@ -20,7 +20,7 @@ const PILLARS = [
     code: "01 · TRANSPARENCIA",
     title: "Fórmulas y reglas auditables",
     detail:
-      "Puedes revisar cómo se calcula la conversión alimenticia (FCR), el punto de equilibrio por especie, la salida PEPS de cubetas NTC 1240 y los bloqueos por tiempo de retiro sanitario.",
+      "Puedes revisar cómo se calcula la conversión alimenticia (FCR), el punto de equilibrio por especie, la salida PEPS de cubetas NTC 1240 y los bloqueos por tiempo de retiro sanitario. También la capa agéntica: las herramientas del asistente, la API v1 y el servidor MCP comparten un mismo ejecutor con piso duro de confirmación para escrituras sensibles.",
   },
   {
     code: "02 · SOBERANÍA",
@@ -57,7 +57,7 @@ const CONTRIBUTE_WAYS = [
     role: "Desarrolladores y diseñadores",
     action: "Envía Issues y Pull Requests",
     summary:
-      "Stack moderno en Next.js (App Router), TypeScript, Drizzle ORM, PostgreSQL y Tailwind CSS, listo para levantar en local con pruebas automatizadas.",
+      "Stack moderno en Next.js (App Router), TypeScript, Drizzle ORM, PostgreSQL y Tailwind CSS, listo para levantar en local con pruebas automatizadas. Puedes aportar herramientas al agente o conectar clientes vía API v1 y MCP.",
     href: "https://github.com/Camilosal/El-Gallinero",
     cta: "Ir al repositorio en GitHub ↗",
     external: true,
@@ -183,6 +183,12 @@ export default function OpenSourcePage() {
               className="inline-flex items-center gap-2 rounded-lg border border-slate-300 bg-white px-4 py-2.5 text-sm font-semibold text-slate-800 hover:bg-slate-50"
             >
               Probar granja en la nube →
+            </Link>
+            <Link
+              href="/guia/integraciones-erp-agentes"
+              className="inline-flex items-center gap-2 rounded-lg border border-slate-300 bg-white px-4 py-2.5 text-sm font-semibold text-slate-800 hover:bg-slate-50"
+            >
+              Guía de API v1 y MCP →
             </Link>
           </div>
         </section>

@@ -519,9 +519,9 @@ export const POST = withApiHandler(async (req: NextRequest) => {
             : {}),
       }).returning();
 
-      const creditTotalStr = (
-        taxResolved.columns.netSettlementAmount ?? presentationAmount
-      );
+      // La deuda se registra por el valor bruto de la factura; las retenciones
+      // e ICA quedan como snapshot tributario en la transacción, no reducen la CxC/CxP.
+      const creditTotalStr = presentationAmount;
 
       if (body.isCredit) {
         if ((body.type || "egreso") === "egreso") {
@@ -583,7 +583,7 @@ export const POST = withApiHandler(async (req: NextRequest) => {
       ...(isCapexCategory ? { sourceType: "capex" } : {}),
     }).returning();
 
-    const legacyCreditStr = taxResolved.columns.netSettlementAmount ?? taxResolved.amount;
+    const legacyCreditStr = taxResolved.amount;
 
     if (body.isCredit) {
       if ((body.type || "egreso") === "egreso") {

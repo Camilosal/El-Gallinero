@@ -345,6 +345,38 @@ describe("C3 · Telegram como canal bidireccional del agente", () => {
     expect(lastSendMessage()?.body.text).toContain("✅");
   });
 
+  it("acción pendiente creada por otro canal (MCP/API) confirmada por callback de Telegram estampa chat_id y origin telegram", async () => {
+    await linkChat(chatD, ownerUserId);
+    hoisted.llmQueue.push(
+      {
+        role: "assistant",
+        content: null,
+        tool_calls: [toolCall("registrar_venta_huevos", { items: [{ tamano: "A", cantidad: 12, precio_unitario: 500 }], comprador: "Tienda C3 cross" })],
+      },
+      { role: "assistant", content: "Venta pendiente.", tool_calls: [] },
+    );
+    await msg(chatD, "Vende 12 huevos A a 500");
+    const [action] = await runWithFarmContext(farmId, () =>
+      db.select().from(aiActions).where(and(eq(aiActions.userId, ownerUserId), eq(aiActions.status, "pending"))).limit(1),
+    );
+    expect(action.toolName).toBe("registrar_venta_huevos");
+
+    // Simula que la acción la propuso un agente externo (API v1 / MCP): sin chat_id
+    // y con origin external_agent. El callback de Telegram debe completar la auditoría.
+    await runWithFarmContext(farmId, () =>
+      db.update(aiActions).set({ chatId: null, origin: "external_agent" }).where(eq(aiActions.id, action.id)),
+    );
+
+    const confirmed = await callback(chatD, `confirm:${action.id}`);
+    expect(confirmed.action).toBe("confirmada");
+    const [executed] = await runWithFarmContext(farmId, () =>
+      db.select().from(aiActions).where(eq(aiActions.id, action.id)).limit(1),
+    );
+    expect(executed.status).toBe("executed");
+    expect(executed.origin).toBe("telegram");
+    expect(executed.chatId).toBe(chatD);
+  });
+
   it("callback de otro chat → 403 y la acción sigue pendiente; cancelar desde el chat dueño sí funciona", async () => {
     await linkChat(chatB, operarioUserId);
     hoisted.llmQueue.push(

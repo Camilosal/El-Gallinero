@@ -153,7 +153,7 @@ export const PUT = withApiHandler(async (req: NextRequest) => {
 
     await syncCreditReceivable(tx, {
       transactionId: currentTx.id,
-      totalAmount: taxResolved.columns.netSettlementAmount ?? totalAmount,
+      totalAmount,
       isCredit: Boolean(body.isCredit),
       dueDate: body.dueDate,
       buyer: body.buyer || null,

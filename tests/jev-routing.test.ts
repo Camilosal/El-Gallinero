@@ -191,6 +191,21 @@ describe("enrutamiento opcional y re-ranking con TypeSafe Jev", () => {
     expect(disabled).toBeNull();
   });
 
+  it("navegar_app sobrevive el enrutamiento en cualquier dominio (deep-links transversales)", async () => {
+    const withNav = [...sampleTools, tool("navegar_app")];
+    for (const domain of ["finanzas", "animales", "lugares_mantenimiento"] as const) {
+      const fetcher = vi.fn(async () =>
+        jevAnswer({
+          intent: { type: "choice", choice: domain, probabilities: { [domain]: 0.96 } },
+          is_one_clear_request: { type: "noul", noul: 0.95 },
+        }),
+      );
+      const result = await routeAgentTools("consulta", withNav, env, fetcher as typeof fetch);
+      expect(result.mode).toBe("routed");
+      expect(result.tools.map((item) => item.function.name)).toContain("navegar_app");
+    }
+  });
+
   it("cubre el 100 % de AGENT_TOOLS: dominio Jev o extra transversal inyectada por routeAgentTools", () => {
     // navegar_app se inyecta siempre como extra transversal (deep-links exactos en cualquier dominio).
     const transversalExtras = new Set(["navegar_app"]);

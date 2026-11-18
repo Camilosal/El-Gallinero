@@ -90,7 +90,7 @@ export async function createManureSale(tx: DbTransaction, input: ManureSaleInput
   if (input.isCredit) {
     await syncCreditReceivable(tx, {
       transactionId: txRow.id,
-      totalAmount: input.taxColumns?.netSettlementAmount ?? totalAmount,
+      totalAmount,
       isCredit: true,
       dueDate: input.dueDate || null,
       buyer: input.buyer || null,

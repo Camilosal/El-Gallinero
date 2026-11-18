@@ -211,6 +211,16 @@ const ALL_SOURCE_KEYS: ExternalSourceKey[] = [
   "colombia_tax_holidays",
 ];
 
+// Fuentes con sincronización manual (sync_source) además del ciclo automático:
+// el catálogo normativo versionado, el vademécum ICA y el puente IoT se refrescan
+// bajo demanda desde la UI aunque no entren en el auto-sync por vencimiento.
+const SYNCABLE_SOURCE_KEYS: ExternalSourceKey[] = [
+  ...ALL_SOURCE_KEYS,
+  "standards_normative_feed",
+  "ica_vademecum_alerts",
+  "iot_telemetry_bridge",
+];
+
 const ZONE_DEPENDENT_KEYS = new Set<ExternalSourceKey>([
   "divipola_dane",
   "open_meteo",
@@ -418,9 +428,9 @@ async function ensureMissingOrRefresh(forceRefresh = false): Promise<{
     listExternalSnapshots(),
     getSettings(),
   ]);
-  if (!forceRefresh && settings["external.sync_enabled"] !== "true") {
-    return { refreshedKeys: [] };
-  }
+  // El auto-sync por vencimiento sana snapshots expirados aunque el toggle
+  // external.sync_enabled esté apagado: cada conector respeta ese toggle antes
+  // de tocar la red y cae al último dato válido/estimado si está desactivado.
   const byKey = new Map(existing.map((s) => [s.sourceKey as ExternalSourceKey, s]));
   const keysToSync: ExternalSourceKey[] = [];
 
@@ -699,7 +709,7 @@ export const POST = withApiHandler(async (req: NextRequest) => {
 
   if (action === "sync_source") {
     const sourceKey = String(body.sourceKey || "") as ExternalSourceKey;
-    if (!ALL_SOURCE_KEYS.includes(sourceKey)) {
+    if (!SYNCABLE_SOURCE_KEYS.includes(sourceKey)) {
       return NextResponse.json({ error: "Fuente externa no válida" }, { status: 400 });
     }
     const updated = await syncSingleSource(sourceKey, true);

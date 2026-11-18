@@ -324,10 +324,13 @@ export default function AssistantWidget() {
     };
   }, [isOnline]);
 
-  useEffect(() => {
-    if (!open || !briefingMessage) return;
+  // Inyecta el briefing una sola vez al abrir el widget con conversación vacía
+  // (ajuste en render, patrón React; evita setState síncrono dentro de un effect).
+  const [injectedBriefingId, setInjectedBriefingId] = useState<string | null>(null);
+  if (open && briefingMessage && injectedBriefingId !== briefingMessage.id) {
+    setInjectedBriefingId(briefingMessage.id);
     setMessages((prev) => (prev.length === 0 ? [briefingMessage] : prev));
-  }, [open, briefingMessage]);
+  }
 
   const loadConversation = useCallback(async (id: string) => {
     const res = await apiFetch(`/api/asistente/conversaciones/${id}`);

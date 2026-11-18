@@ -215,6 +215,7 @@ const ITEM_KEYWORDS: Record<string, string[]> = {
   "/finanzas": ["finanzas", "dinero", "plata", "balance", "costos", "ganancia real", "caja", "patrimonio"],
   "/finanzas/ventas": ["ventas", "vender", "ingresos", "facturacion", "clientes", "pedidos", "huevos", "carne", "animales", "aves", "cuy", "conejo", "gallinaza", "subproductos", "plata", "dinero", "plata del dia", "la plata del dia"],
   "/finanzas/egresos": ["egresos", "gastos", "compras", "pagos", "costos", "proveedores", "plata", "dinero", "salidas", "equipos", "bultos", "bodega", "capex", "factura del concentrado", "factura concentrado", "factura"],
+  "/finanzas/personal": ["personal", "nomina", "nómina", "jornal", "salario", "sueldo", "empleados", "trabajadores", "operario", "prestaciones", "seguridad social", "arl", "auxilio de transporte", "liquidacion", "pagarle a juan", "trabajo propio", "imputado", "jornaleros"],
   "/finanzas/finanzas": ["balance", "finanzas", "utilidad", "resultado", "ganancia real", "flujo", "caja", "ingresos", "egresos", "plata", "dinero en caja vs ganancia"],
   "/finanzas/presupuestos": ["presupuesto", "presupuestos", "planificacion", "gastos", "metas", "dinero"],
   "/finanzas/cuentas": ["cuentas", "bancos", "caja", "saldos", "pagos", "credito", "deudas", "dinero"],

@@ -75,12 +75,16 @@ export default function BriefingInboxCard() {
   const [loaded, setLoaded] = useState(false);
 
   useEffect(() => {
-    const cached = readCache();
-    if (cached) {
-      setBriefings(cached.briefings || []);
-      setUnreadCount(cached.unreadCount || 0);
-    }
     let cancelled = false;
+    // El caché se lee en un microtask para no encadenar renders síncronos en el commit.
+    void Promise.resolve().then(() => {
+      if (cancelled) return;
+      const cached = readCache();
+      if (cached) {
+        setBriefings(cached.briefings || []);
+        setUnreadCount(cached.unreadCount || 0);
+      }
+    });
     apiFetch("/api/asistente/briefings?limit=5")
       .then((res) => (res.ok ? res.json() : null))
       .then((data) => {

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import { ArrowLeft, ArrowRight, Save } from "lucide-react";
 import { Button, Card, Select } from "@/components/ui";
 import TableSearch from "@/components/TableSearch";
@@ -52,8 +52,18 @@ export default function SipsaProductMappingPanel({
   const [search, setSearch] = useState("");
   const [page, setPage] = useState(0);
 
-  useEffect(() => setDraft(mappings), [mappings]);
-  useEffect(() => setPage(0), [search]);
+  // Ajuste en render (patrón React) en lugar de effects con setState síncrono:
+  // el borrador sigue al prop de mappings y la paginación se reinicia al buscar.
+  const [prevMappings, setPrevMappings] = useState(mappings);
+  if (mappings !== prevMappings) {
+    setPrevMappings(mappings);
+    setDraft(mappings);
+  }
+  const [prevSearch, setPrevSearch] = useState(search);
+  if (search !== prevSearch) {
+    setPrevSearch(search);
+    setPage(0);
+  }
 
   const products = useMemo(() => {
     const byKey = new Map<string, ProductOption>();

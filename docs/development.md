@@ -287,6 +287,32 @@ Revise cuidadosamente los mensajes de error - suelen indicar exactamente qué es
 - [Documentación de Vitest](https://vitest.dev/guide/)
 - [React Testing Library](https://testing-library.com/docs/react-testing-library/intro/)
 
+## Arquitectura del agente (Gina) y canales
+
+Todo el comportamiento del agente vive en `src/lib/agent/`. Un solo ejecutor sirve a todos los canales (widget de la app, voz, Telegram, API v1 y MCP):
+
+| Pieza | Archivo | Responsabilidad |
+|---|---|---|
+| Herramientas | `tools.ts` | Catálogo `AGENT_TOOLS` (`AgentTool`: `name`, `description`, `parameters` JSON-Schema, `kind` read/write, `requiresConfirmation`, `prepare` puro + `execute`). Las consultas leen vía `InternalApiClient` con la sesión del usuario; nunca acceden a la base como superusuario. |
+| Ejecutor | `runtime.ts` | `runAgentTurn` (conversación), `handleToolCall` (prepare → confirmación efectiva → pendiente/auto → execute), `confirmAction`/`cancelAction`, `executeToolExternal` (API v1/MCP como usuario delegante). |
+| Enrutamiento Jev | `jev-routing.ts`, `jev-capabilities.ts` | Dominios de capacidad (`JevDomain`) y mapa `TOOL_ROUTES` dominio → herramientas; decide qué herramientas se ofrecen al modelo en cada turno. |
+| Delegación | `delegation.ts` | `HARD_FLOOR_TOOL_NAMES` (piso duro no delegable), política por granja en `assistant.delegation_policy.v1` y `effectiveRequiresConfirmation` = piso duro \|\| política ≠ auto. |
+| Memoria y conocimiento | `memory.ts`, `knowledge.ts` | Memoria persistente por usuario (`agent_memories`) y corpus de conocimiento derivado de `guide-data.ts` (`consultar_conocimiento`). |
+| Proactivo | `proactive.ts` | Briefings diario/anomalía idempotentes (`agent_briefings`), generados por `/api/cron/agente-proactivo` y entregados en inbox, push y Telegram. |
+| Telegram | `telegram-channel.ts` | Webhook bidireccional: pairing de un solo uso, notas de voz, tarjetas Confirmar/Cancelar, `/parte`; auditoría `origin: telegram` + `chat_id`. |
+| API externa | `external-api.ts`, `ephemeral-session.ts` | `withExternalAgentAuth` (token → scopes → rate limit 60/min → usuario delegante) y sesiones efímeras de 15 min para ejecutar como el usuario sin rotar sus sesiones reales. |
+| MCP | `mcp.ts` + `src/app/api/mcp/route.ts` | Adaptador JSON-RPC 2.0 (initialize, tools/list, tools/call) que delega en las rutas de la API v1: una sola puerta, sin lógica duplicada. |
+| Prompt y contexto | `prompt.ts`, `situational.ts`, `config.ts`, `llm.ts`, `stt.ts` | System prompt con corpus y reglas de confirmación, contexto situacional de la granja, proveedores LLM/STT configurables por env. |
+
+### Cómo agregar una herramienta nueva (obligatorio en este orden)
+
+1. **Definir el `AgentTool`** en `src/lib/agent/tools.ts` y registrarlo en `AGENT_TOOLS`. Escrituras sensibles: `kind: "write"` + `requiresConfirmation: true`; separa `prepare` (puro, construye el resumen y valida) de `execute` (efecto real vía API interna con la sesión del usuario).
+2. **Enrutarla en Jev:** agrega el nombre de la herramienta al dominio correspondiente en `TOOL_ROUTES` (`jev-routing.ts`). Si no pertenece a ningún dominio, declárala transversal de forma explícita; la prueba de armonización falla ante herramientas sin dominio.
+3. **Respetar el piso duro:** si la herramienta toca dinero, ventas, pagos, cierres, animales o lugares, agrégala a `HARD_FLOOR_TOOL_NAMES` en `delegation.ts`. El piso duro es inviolable desde UI, voz, Telegram, API v1 y MCP; ninguna política puede volverla auto-ejecutable.
+4. **Gating coherente:** si la herramienta opera un módulo progresivo, debe rechazar con explicación de hito cuando el módulo está bloqueado para la escala de la granja (igual que el menú y el buscador).
+5. **Prueba obligatoria en `tests/`:** consulta con datos, escritura pendiente de confirmación (no ejecutada), confirmación/cancelación y auditoría de origen. Usa la base `el_gallinero_test` (nunca la de producción) y los patrones de mock de `tests/integrations-api.test.ts` / `tests/agent-mcp.test.ts`.
+6. **Documentar:** guía en `guide-data.ts` si es funcionalidad de usuario, y la ficha correspondiente en `docs/features.md` / diccionario de datos si crea tablas o claves nuevas. La API v1 y el MCP exponen la herramienta automáticamente desde `AGENT_TOOLS` (manifiesto filtrado por scope `agent:read`/`agent:write`).
+
 ## Preguntas Frecuentes
 
 ### ¿Cómo contribuyo con una nueva característica?

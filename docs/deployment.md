@@ -40,6 +40,8 @@ Todas las variables de entorno requeridas y opcionales están documentadas en [`
 - **Arranque y admin inicial:** `AUTO_MIGRATE_ON_BOOT`, `PORT`, `ADMIN_USERNAME`, `ADMIN_PASSWORD`, `ADMIN_NAME`.
 - **Asistente Gina (opcional):** `ASSISTANT_AI_*`, `ASSISTANT_STT_*`, `ASSISTANT_VISION_*` (o `DEEPSEEK_API_KEY`, `OPENAI_API_KEY`, `GEMINI_API_KEY`) y `ASSISTANT_INTERNAL_BASE_URL`.
 - **Correo, alertas y pagos (opcional):** `SMTP_*`, `NOTIFY_EMAIL`, `TELEGRAM_BOT_TOKEN`, `TELEGRAM_CHAT_ID`, `WOMPI_*`.
+- **Canal Telegram bidireccional (opcional):** `TELEGRAM_WEBHOOK_SECRET` (secreto del webhook, header `X-Telegram-Bot-Api-Secret-Token`) y `APP_URL` (URL pública para el webhook y los deep-links). Sin ellos, el bot sigue enviando alertas salientes pero no recibe mensajes.
+- **Cron del agente proactivo:** `CRON_SECRET` (compartido con el scheduler de fuentes externas) y `AGENT_PROACTIVE_HOUR_BOGOTA` (hora del briefing diario, por defecto 6).
 - **IoT, analítica y datos legales (opcional):** `SENSOR_WEBHOOK_TOKEN`, `NEXT_PUBLIC_SWETRIX_*`, `LEGAL_*`.
 
 > Asegúrate de definir un `.env` o `.env.local` propio en cada entorno para no heredar variables globales no deseadas del servidor.
@@ -101,3 +103,28 @@ Consideraciones operativas:
      -H "Content-Type: application/json" \
      -d '{"jsonrpc":"2.0","id":1,"method":"tools/list"}'
    ```
+
+## Canal Telegram bidireccional (Gina)
+
+El bot envía alertas y el parte diario, y además recibe consultas, notas de voz y confirmaciones de acciones pendientes.
+
+1. **Crear el bot** con @BotFather y definir en el entorno: `TELEGRAM_BOT_TOKEN`, `TELEGRAM_WEBHOOK_SECRET` (cadena aleatoria larga) y `APP_URL` (URL pública HTTPS de la app). `TELEGRAM_CHAT_ID` sigue siendo opcional para alertas salientes heredadas.
+2. **Registrar el webhook** con el secret_token (una sola vez por entorno):
+
+   ```bash
+   TELEGRAM_BOT_TOKEN=... TELEGRAM_WEBHOOK_SECRET=... APP_URL=https://app.iwage.co \
+     node scripts/telegram-setup.mjs
+   # Para volver a modo getUpdates en desarrollo:
+   node scripts/telegram-setup.mjs --delete
+   ```
+
+   El webhook apunta a `POST /api/telegram/webhook` y la app valida el header `X-Telegram-Bot-Api-Secret-Token` contra `TELEGRAM_WEBHOOK_SECRET`; sin secreto configurado el webhook rechaza todo.
+3. **Vincular el chat del usuario:** en la app (Configuración → Módulos → Canal Telegram) se genera un código de pairing de un solo uso que dura 10 minutos; el usuario lo envía al bot con `/start CODIGO`. El chat queda en `telegram_chats`, hereda el rol y permisos de ese usuario, y puede cortarse con `/desvincular` o revocarse desde la app.
+4. **Confirmaciones y auditoría:** las escrituras sensibles llegan como tarjeta con botones Confirmar/Cancelar; al confirmar se ejecutan con el mismo ejecutor del agente y quedan en `ai_actions` con `origin: telegram` y `chat_id`. El piso duro aplica igual que en la app.
+
+## Cron del agente proactivo y schedulers
+
+- **Briefing diario:** el servicio `agent-proactivo-scheduler` de `docker-compose.yml` ejecuta `scripts/agent-proactive-scheduler.mjs`, que dispara una vez al día (06:00 America/Bogota por defecto, configurable con `AGENT_PROACTIVE_HOUR_BOGOTA`) contra `POST /api/cron/agente-proactivo` autenticado con `CRON_SECRET`. Genera briefings idempotentes por granja/día/tipo (`agent_briefings`) y los entrega en inbox, push y chats de Telegram vinculados.
+- **Fuentes externas:** el servicio `external-sources-scheduler` ejecuta `scripts/external-sources-scheduler.mjs` contra `/api/cron/fuentes-externas` con el mismo `CRON_SECRET` e intervalo `EXTERNAL_SOURCES_SYNC_INTERVAL_MINUTES` (60 por defecto).
+- **Sin Docker:** cualquier cron del sistema puede invocar los mismos endpoints con el header de autorización del `CRON_SECRET`; sin `CRON_SECRET` los schedulers se desactivan sin error.
+- Los crons respetan el gating de módulos: un briefing nunca recomienda rutas bloqueadas para la escala de la granja.

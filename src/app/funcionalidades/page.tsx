@@ -7,7 +7,7 @@ import { buildPageMetadata } from "@/lib/seo";
 
 const TITLE = "Funcionalidades de IwaGranja · Gestión para granjas mixtas";
 const DESCRIPTION =
-  "Consulta las funcionalidades de IwaGranja por área: animales, producción, inventarios, sanidad, alimentación, finanzas, planeación, análisis y trabajo en campo.";
+  "Funcionalidades de IwaGranja por área: producción, sanidad, finanzas, trabajo sin señal, asistente Gina con voz y Telegram, y API/MCP para agentes de IA.";
 
 export const metadata: Metadata = buildPageMetadata({
   title: TITLE,
@@ -56,7 +56,7 @@ const MODULES = [
   {
     title: "Análisis, reportes y exportación",
     summary: "Consulta indicadores y prepara datos para revisión o uso en otros sistemas.",
-    features: ["Indicadores productivos y financieros", "Curvas de referencia y análisis", "Reportes descargables", "Exportación de datos y conectores"],
+    features: ["Indicadores productivos y financieros", "Curvas de referencia y análisis", "Reportes descargables", "Exportación, API de herramientas del agente y servidor MCP"],
   },
 ] as const;
 
@@ -75,7 +75,7 @@ const PLATFORM_TOOLS = [
   },
   {
     title: "Copias y conectores",
-    summary: "Consulta opciones de respaldo, exportación e integración con otras herramientas.",
+    summary: "Respaldo y exportación de datos, tokens con scopes para ERP y agentes de IA, y canal bidireccional de Telegram.",
   },
 ] as const;
 

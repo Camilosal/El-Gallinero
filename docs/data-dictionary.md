@@ -37,14 +37,14 @@ Cada tabla se documenta con una ficha que contiene el propósito, el módulo de 
 | **G. Gallinaza y compostaje** | 5 | Estimación, ajustes, venta y compostaje del abono. El inventario se calcula por movimientos, igual que el alimento.<br>[`manure_factors`](#manure_factors), [`manure_production`](#manure_production), [`manure_adjustments`](#manure_adjustments), [`manure_sales`](#manure_sales), [`composting_piles`](#composting_piles) |
 | **H. Sacrificio, carne y ventas en pie** | 5 | Faena, rendimiento canal, venta de carne o de animales vivos y valorización del autoconsumo familiar.<br>[`slaughter`](#slaughter), [`meat_sales`](#meat_sales), [`meat_losses`](#meat_losses), [`chicken_sales`](#chicken_sales), [`autoconsumo_logs`](#autoconsumo_logs) |
 | **I. Ventas de huevos** | 2 | Cabecera y detalle de las ventas de huevo por calibre, con lote PEPS, presentación y comprador.<br>[`egg_sales`](#egg_sales), [`egg_sales_items`](#egg_sales_items) |
-| **J. Finanzas** | 10 | Libro de ingresos y egresos, categorías, presupuestos, flujo de caja, cartera, prorrateo de costos y cierre diario auditable.<br>[`transactions`](#transactions), [`financial_categories`](#financial_categories), [`budgets`](#budgets), [`budget_items`](#budget_items), [`cashflow_projections`](#cashflow_projections), [`accounts_receivable`](#accounts_receivable), [`accounts_payable`](#accounts_payable), [`payments`](#payments), [`cost_allocations`](#cost_allocations), [`daily_closures`](#daily_closures) |
+| **J. Finanzas** | 12 | Libro de ingresos y egresos, categorías, presupuestos, flujo de caja, cartera, prorrateo de costos, cierre diario auditable y personal/nómina con prestaciones de ley.<br>[`transactions`](#transactions), [`financial_categories`](#financial_categories), [`budgets`](#budgets), [`budget_items`](#budget_items), [`cashflow_projections`](#cashflow_projections), [`accounts_receivable`](#accounts_receivable), [`accounts_payable`](#accounts_payable), [`payments`](#payments), [`cost_allocations`](#cost_allocations), [`daily_closures`](#daily_closures), [`staff_profiles`](#staff_profiles), [`payroll_entries`](#payroll_entries) |
 | **K. Insumos y compras** | 3 | Existencias de insumos no alimenticios, sus movimientos y los atajos de compra frecuente.<br>[`supply_inventory`](#supply_inventory), [`supply_movements`](#supply_movements), [`purchase_products`](#purchase_products) |
 | **L. Planeación, reproducción y peso** | 5 | Plan de parvada, hitos semanales, curvas de peso, pesajes de campo y ciclo reproductivo de conejos y cuyes.<br>[`flock_plans`](#flock_plans), [`flock_plan_milestones`](#flock_plan_milestones), [`breed_weight_standards`](#breed_weight_standards), [`weight_logs`](#weight_logs), [`reproduction_events`](#reproduction_events) |
-| **M. Operación, IoT y catálogos** | 4 | Telemetría, datos maestros polimórficos, directorio comercial y parámetros clave-valor de la granja.<br>[`sensor_readings`](#sensor_readings), [`catalogos`](#catalogos), [`contacts`](#contacts), [`app_settings`](#app_settings) |
-| **N. Asistente de IA** | 4 | Conversaciones, mensajes, acciones propuestas con confirmación humana y memoria persistente del asistente.<br>[`ai_conversations`](#ai_conversations), [`ai_messages`](#ai_messages), [`ai_actions`](#ai_actions), [`agent_memories`](#agent_memories) |
+| **M. Operación, IoT y catálogos** | 6 | Telemetría, datos maestros polimórficos, directorio comercial, parámetros clave-valor de la granja y fuentes externas oficiales (DANE, SIPSA, IDEAM, Banrep).<br>[`sensor_readings`](#sensor_readings), [`catalogos`](#catalogos), [`contacts`](#contacts), [`app_settings`](#app_settings), [`external_data_snapshots`](#external_data_snapshots), [`external_source_observations`](#external_source_observations) |
+| **N. Asistente de IA** | 6 | Conversaciones, mensajes, acciones propuestas con confirmación humana, memoria persistente, briefings proactivos y chats de Telegram vinculados.<br>[`ai_conversations`](#ai_conversations), [`ai_messages`](#ai_messages), [`ai_actions`](#ai_actions), [`agent_memories`](#agent_memories), [`agent_briefings`](#agent_briefings), [`telegram_chats`](#telegram_chats) |
 | **O. Adjuntos y offline** | 2 | Evidencia documental polimórfica e idempotencia de las mutaciones que llegan desde el modo offline.<br>[`attachments`](#attachments), [`offline_mutation_receipts`](#offline_mutation_receipts) |
 
-Total: **66 tablas** agrupadas en 15 dominios funcionales.
+Total: **72 tablas de dominio** agrupadas en 15 dominios funcionales, más la tabla de infraestructura `schema_migrations` (registro de migraciones aplicadas).
 
 ## Índice alfabético de tablas
 
@@ -52,6 +52,7 @@ Total: **66 tablas** agrupadas en 15 dominios funcionales.
 |---|---|---|
 | [`accounts_payable`](#accounts_payable) | J. Finanzas | Obligaciones pendientes con proveedores por compras a crédito, con vencimiento y estado. |
 | [`accounts_receivable`](#accounts_receivable) | J. Finanzas | Saldos pendientes de clientes por ventas a crédito, con vencimiento y estado de cobro. |
+| [`agent_briefings`](#agent_briefings) | N. Asistente de IA | Briefings proactivos del agente (diario y de anomalía), idempotentes por granja/día/tipo, con narrativa y estado de lectura. |
 | [`agent_memories`](#agent_memories) | N. Asistente de IA | Memoria persistente por usuario: hechos, preferencias y decisiones relevantes para personalizar respuestas. |
 | [`ai_actions`](#ai_actions) | N. Asistente de IA | Cola de acciones que el asistente propone y que requieren confirmación humana antes de ejecutarse; deja auditoría completa. |
 | [`ai_conversations`](#ai_conversations) | N. Asistente de IA | Hilos de conversación con el asistente de IA, con resumen incremental para no reenviar todo el historial. |
@@ -79,7 +80,9 @@ Total: **66 tablas** agrupadas en 15 dominios funcionales.
 | [`egg_production_details`](#egg_production_details) | D. Huevos e incubación | Desglose de la recolección por calibre o tamaño de huevo (AAA, AA, A, B, jumbo, etc.). |
 | [`egg_sales`](#egg_sales) | I. Ventas de huevos | Cabecera de la venta de huevos por especie, ubicación y lote PEPS, con comprador y presentación. |
 | [`egg_sales_items`](#egg_sales_items) | I. Ventas de huevos | Líneas de una venta cuando se venden varios tamaños con precios distintos. |
-| [`export_tokens`](#export_tokens) | A. Identidad, granjas y SaaS | Credenciales de solo lectura para que dashboards externos descarguen CSV/XLSX sin usar la contraseña de un usuario. |
+| [`export_tokens`](#export_tokens) | A. Identidad, granjas y SaaS | Credenciales de integración con scopes: ERP de solo lectura y agentes de IA (`agent:read`/`agent:write`), sin usar la contraseña de un usuario. |
+| [`external_data_snapshots`](#external_data_snapshots) | M. Operación, IoT y catálogos | Último estado válido de cada fuente externa oficial (DANE, SIPSA, IDEAM, Banrep) con modo de sincronización y vencimiento. |
+| [`external_source_observations`](#external_source_observations) | M. Operación, IoT y catálogos | Serie histórica idempotente de observaciones externas por proveedor y periodo; no reemplaza los datos maestros. |
 | [`farm_assets`](#farm_assets) | B. Ubicaciones, activos y mantenimiento | Inventario de equipos, herramientas, estructuras y vehículos, con costo, garantía, ubicación y estado. |
 | [`farm_locations`](#farm_locations) | B. Ubicaciones, activos y mantenimiento | Jerarquía física del predio (galpones, corrales, potreros, bodegas, cuarentena). |
 | [`farm_subscriptions`](#farm_subscriptions) | A. Identidad, granjas y SaaS | Plan SaaS contratado y límites operativos: lotes activos, usuarios y periodo de facturación. |
@@ -103,6 +106,7 @@ Total: **66 tablas** agrupadas en 15 dominios funcionales.
 | [`mortality_records`](#mortality_records) | C. Animales | Bajas de animales con causa, cantidad y vínculo al evento sanitario que las explica. |
 | [`offline_mutation_receipts`](#offline_mutation_receipts) | O. Adjuntos y offline | Idempotencia de las mutaciones enviadas desde el modo offline: evita duplicar registros cuando el cliente reintenta una sincronización. |
 | [`payments`](#payments) | J. Finanzas | Aplicación de pagos o abonos a una cuenta por cobrar o por pagar. |
+| [`payroll_entries`](#payroll_entries) | J. Finanzas | Liquidaciones de nómina por trabajador y periodo, con prestaciones, deducciones, retefuente y foto de las tarifas maestras vigentes. |
 | [`purchase_products`](#purchase_products) | K. Insumos y compras | Atajos para registrar egresos recurrentes con su presentación, unidad, categoría y último precio. |
 | [`reproduction_events`](#reproduction_events) | L. Planeación, reproducción y peso | Ciclo reproductivo de mamíferos menores: empadre, palpación, nidal, parto, destete y diagnóstico, con genealogía y métricas de camada. |
 | [`roosters`](#roosters) | C. Animales | Ficha individual de los gallos usados para reproducción y equilibrio de parvada. |
@@ -110,8 +114,10 @@ Total: **66 tablas** agrupadas en 15 dominios funcionales.
 | [`sensor_readings`](#sensor_readings) | M. Operación, IoT y catálogos | Telemetría de sensores ambientales y básculas: temperatura, humedad, índice de temperatura-humedad (ITH), amoniaco, agua y peso. |
 | [`sessions`](#sessions) | A. Identidad, granjas y SaaS | Sesiones activas del navegador. |
 | [`slaughter`](#slaughter) | H. Sacrificio, carne y ventas en pie | Faena de animales con peso vivo, peso en canal, rendimiento, destino y valorización del autoconsumo. |
+| [`staff_profiles`](#staff_profiles) | J. Finanzas | Personal de la granja (productor propio o apoyo): contrato, tarifa base, seguridad social y auxilio de transporte. |
 | [`supply_inventory`](#supply_inventory) | K. Insumos y compras | Existencias de insumos no alimenticios: medicamentos, desinfectantes, empaques, herramientas menores y consumibles. |
 | [`supply_movements`](#supply_movements) | K. Insumos y compras | Entradas y salidas de insumos, vinculadas al evento sanitario o de mantenimiento que las consume. |
+| [`telegram_chats`](#telegram_chats) | N. Asistente de IA | Chats de Telegram vinculados a usuarios de la granja para el canal bidireccional del agente (voz, confirmaciones y partes). |
 | [`transactions`](#transactions) | J. Finanzas | Libro único de ingresos y egresos de la granja. |
 | [`users`](#users) | A. Identidad, granjas y SaaS | Cuentas que acceden al sistema. |
 | [`vaccination_templates`](#vaccination_templates) | F. Sanidad y bioseguridad | Catálogo global de vacunas y tratamientos sugeridos por especie, raza y semana de vida. |
@@ -236,25 +242,30 @@ El tenant raíz, las cuentas que acceden al sistema, las sesiones, el plan contr
 
 ### export_tokens
 
-**Propósito.** Credenciales de solo lectura para que dashboards externos descarguen CSV/XLSX sin usar la contraseña de un usuario.
+**Propósito.** Credenciales de integración para sistemas externos: dashboards y ERP de solo lectura (CSV/XLSX) y agentes de IA (API v1 de herramientas y MCP), sin usar la contraseña de un usuario.
 
-**Módulo.** Análisis → Exportar datos y API `/api/export`
+**Módulo.** Exportar → Conectores · API `/api/export`, `/api/v1/integrations/*`, `/api/v1/agent/tools` y `/api/mcp`
 
 | Campo | Tipo | Nulo | Por defecto | Clave | Descripción |
 |---|---|---|---|---|---|
 | `id` | uuid | NO | gen_random_uuid() | PK | Identificador único del registro (UUID). |
 | `farm_id` | uuid | NO | — | FK → `farms.id` | Granja propietaria del registro. Es la llave del aislamiento multi-granja (RLS). |
-| `name` | varchar(120) | NO | Dashboard externo | — | Nombre de la integración (por ejemplo «Power BI»). |
-| `token_hash` | varchar(64) | NO | — | — | SHA-256 del token. El token en claro nunca se almacena. |
+| `name` | varchar(120) | NO | Dashboard externo | — | Nombre de la integración (por ejemplo «Power BI» o «Cliente MCP Claude»). |
+| `token_hash` | varchar(64) | NO | — | UNIQUE | SHA-256 del token. El token en claro nunca se almacena. |
 | `token_prefix` | varchar(24) | NO | — | — | Primeros caracteres del token para poder identificarlo sin revelarlo. |
-| `created_by` | uuid | SÍ | — | FK → `users.id` | Usuario que generó el token (FK `users`). |
+| `scopes` | jsonb | NO | ["read:finance","read:inventory","read:contacts","read:production"] | — | Alcances del token: `read:finance`, `read:inventory`, `read:contacts`, `read:production`, `agent:read`, `agent:write`. |
+| `profile` | varchar(30) | NO | generic | — | Perfil de conector ERP (siigo, alegra, odoo, zoho, generic). |
+| `expires_at` | timestamp | SÍ | — | — | Expiración del token. Obligatoria y ≤ 90 días cuando incluye `agent:write`. |
+| `created_by` | uuid | SÍ | — | FK → `users.id` | Usuario delegante que generó el token; las escrituras externas se ejecutan como este usuario (FK `users`). |
 | `last_used_at` | timestamp | SÍ | — | — | Última vez que el token se usó correctamente. |
 | `revoked_at` | timestamp | SÍ | — | — | Fecha de revocación; nulo mientras está activo. |
 | `created_at` | timestamp | NO | now() | — | Fecha y hora de creación. |
 
 **Reglas y relaciones**
 
-- Generar un token nuevo revoca el anterior; la aplicación mantiene un solo token activo por granja.
+- Pueden coexistir varios tokens activos por granja (`replacePrevious` decide si se revocan los anteriores); revocar corta de inmediato ERP, API v1 y MCP.
+- Los tokens legacy sin scopes explícitos conservan el paquete de solo lectura; nunca ganan `agent:write` por defecto.
+- `agent:write` exige `expires_at` futura y a máximo 90 días (validado en `issueExportToken` y en la ruta HTTP).
 - La tabla no tiene RLS a propósito: el token debe resolver la granja antes de abrir el contexto tenant; todas las consultas filtran `farm_id` de forma explícita.
 
 ## B. Ubicaciones, activos y mantenimiento
@@ -1254,6 +1265,16 @@ Libro de ingresos y egresos, categorías, presupuestos, flujo de caja, cartera, 
 | `species` | varchar(20) | SÍ | — | — | Dimensión analítica: especie. |
 | `location_id` | uuid | SÍ | — | FK → `farm_locations.id` | Dimensión analítica: ubicación (FK `farm_locations`). |
 | `batch_id` | uuid | SÍ | — | FK → `broiler_batches.id` | Dimensión analítica: lote (FK `broiler_batches`). |
+| `subtotal_amount` | numeric(12,2) | SÍ | — | — | Base gravable antes de impuestos y deducciones (migración 0002). |
+| `iva_rate` | numeric(6,2) | SÍ | — | — | Tarifa de IVA aplicada (%). |
+| `iva_amount` | numeric(12,2) | SÍ | — | — | Valor de IVA en COP. |
+| `rete_fuente_rate` | numeric(6,2) | SÍ | — | — | Tarifa de retefuente aplicada (%). |
+| `rete_fuente_amount` | numeric(12,2) | SÍ | — | — | Valor de retefuente en COP. |
+| `ica_rate` | numeric(6,2) | SÍ | — | — | Tarifa de ICA municipal aplicada (%). |
+| `ica_amount` | numeric(12,2) | SÍ | — | — | Valor de ICA en COP. |
+| `other_deductions_amount` | numeric(12,2) | SÍ | — | — | Otras deducciones acordadas en COP. |
+| `net_settlement_amount` | numeric(12,2) | SÍ | — | — | Neto liquidado tras impuestos y deducciones. |
+| `tax_notes` | text | SÍ | — | — | Notas fiscales del movimiento. |
 | `farm_id` | uuid | NO | current_farm_id() | — | Granja propietaria del registro. Es la llave del aislamiento multi-granja (RLS). |
 
 **Reglas y relaciones**
@@ -1481,6 +1502,85 @@ Libro de ingresos y egresos, categorías, presupuestos, flujo de caja, cartera, 
 - Solo los roles con `closure:reopen` pueden reabrir, y queda auditado con usuario, fecha y motivo.
 - Solo existe un cierre por granja y fecha (índice único).
 
+### staff_profiles
+
+**Propósito.** Personal de la granja: productor propio (trabajo imputado) o apoyo contratado, con su contrato, tarifa base y parámetros de seguridad social de ley.
+
+**Módulo.** Finanzas → Personal y Nómina (`/finanzas/personal`) · migraciones 0002–0004
+
+| Campo | Tipo | Nulo | Por defecto | Clave | Descripción |
+|---|---|---|---|---|---|
+| `id` | uuid | NO | gen_random_uuid() | PK | Identificador único del registro (UUID). |
+| `full_name` | varchar(150) | NO | — | — | Nombre completo del trabajador. |
+| `document_id` | varchar(40) | SÍ | — | UNIQUE por granja | Documento de identidad (único por granja cuando se diligencia, migración 0003). |
+| `worker_kind` | varchar(30) | NO | apoyo | — | `productor` (trabajo propio imputado) o `apoyo` (contratado). |
+| `contract_type` | varchar(40) | NO | jornal | — | Tipo de contrato: jornal, salario, obra labor, etc. |
+| `pay_period` | varchar(20) | NO | dia | — | Periodicidad de pago: día, semana, quincena, mes. |
+| `base_rate_cop` | numeric(12,2) | NO | — | — | Tarifa base en COP por periodo. |
+| `role_label` | varchar(100) | SÍ | — | — | Oficio o rol en la granja (galponero, administrador…). |
+| `default_species` | varchar(20) | SÍ | — | — | Especie a la que se imputa su trabajo por defecto. |
+| `default_location_id` | uuid | SÍ | — | FK → `farm_locations.id` | Lugar de manejo habitual (FK `farm_locations`). |
+| `apply_social_security` | boolean | NO | false | — | Si se calculan prestaciones y seguridad social de ley. |
+| `employer_burden_pct` | numeric(6,2) | NO | 0 | — | Carga prestacional del empleador (%). |
+| `worker_deduction_pct` | numeric(6,2) | NO | 0 | — | Deducciones al trabajador (salud/pensión, %). |
+| `arl_risk_rate_pct` | numeric(6,3) | NO | 0.522 | — | Tarifa ARL según clase de riesgo (%). |
+| `include_transport_allowance` | boolean | NO | false | — | Si incluye auxilio de transporte (migración 0004). |
+| `is_active` | boolean | NO | true | — | Si el perfil sigue vigente para liquidar. |
+| `notes` | text | SÍ | — | — | Notas libres. |
+| `created_at` | timestamp | NO | now() | — | Fecha y hora de creación. |
+| `updated_at` | timestamp | NO | now() | — | Fecha y hora de la última modificación. |
+| `farm_id` | uuid | NO | current_farm_id() | — | Granja propietaria del registro. Es la llave del aislamiento multi-granja (RLS). |
+
+**Reglas y relaciones**
+
+- RLS `tenant_isolation_policy` por `farm_id` (FORCE ROW LEVEL SECURITY).
+- Un perfil inactivo conserva su histórico de liquidaciones; no se ofrece en nuevas.
+- El trabajo `productor` se imputa como costo sin salida real de caja (ver `payroll_entries.accounting_mode`).
+
+### payroll_entries
+
+**Propósito.** Liquidaciones de nómina por trabajador y periodo: bruto, prestaciones, deducciones, retefuente, auxilio de transporte y neto, con foto de las tarifas maestras vigentes al momento de liquidar.
+
+**Módulo.** Finanzas → Personal y Nómina · migraciones 0002 y 0004
+
+| Campo | Tipo | Nulo | Por defecto | Clave | Descripción |
+|---|---|---|---|---|---|
+| `id` | uuid | NO | gen_random_uuid() | PK | Identificador único del registro (UUID). |
+| `staff_id` | uuid | NO | — | FK → `staff_profiles.id` | Trabajador liquidado (FK `staff_profiles`, ON DELETE RESTRICT). |
+| `date` | date | NO | — | — | Fecha de la liquidación. |
+| `period_from` | date | SÍ | — | — | Inicio del periodo liquidado. |
+| `period_to` | date | SÍ | — | — | Fin del periodo liquidado. |
+| `units_worked` | numeric(10,2) | NO | 1 | — | Unidades trabajadas (jornales, días, meses…). |
+| `unit_rate_cop` | numeric(12,2) | NO | — | — | Tarifa unitaria aplicada (foto de la tarifa al liquidar). |
+| `gross_pay_cop` | numeric(12,2) | NO | — | — | Devengado bruto en COP. |
+| `bonuses_cop` | numeric(12,2) | NO | 0 | — | Bonificaciones en COP. |
+| `transport_allowance_cop` | numeric(12,2) | NO | 0 | — | Auxilio de transporte aplicado (migración 0004). |
+| `employer_burden_cop` | numeric(12,2) | NO | 0 | — | Prestaciones a cargo del empleador en COP. |
+| `worker_deductions_cop` | numeric(12,2) | NO | 0 | — | Deducciones al trabajador en COP. |
+| `rete_fuente_cop` | numeric(12,2) | NO | 0 | — | Retención en la fuente en COP. |
+| `net_payable_cop` | numeric(12,2) | NO | — | — | Neto a pagar al trabajador. |
+| `total_employer_cost_cop` | numeric(12,2) | NO | — | — | Costo total para la granja (neto + cargas). |
+| `employer_burden_pct` | numeric(6,2) | NO | 0 | — | Foto del % prestacional usado (migración 0004). |
+| `worker_deduction_pct` | numeric(6,2) | NO | 0 | — | Foto del % de deducciones usado (migración 0004). |
+| `rete_fuente_rate_pct` | numeric(6,2) | NO | 0 | — | Foto de la tarifa de retefuente usada (migración 0004). |
+| `accounting_mode` | varchar(30) | NO | cash_expense | — | `cash_expense` (sale de caja) o `imputed_economic` (trabajo propio imputado). |
+| `payment_status` | varchar(20) | NO | pagado | — | Estado de pago: pagado o pendiente. |
+| `due_date` | date | SÍ | — | — | Vencimiento si quedó pendiente. |
+| `species` | varchar(20) | SÍ | — | — | Dimensión analítica: especie. |
+| `location_id` | uuid | SÍ | — | FK → `farm_locations.id` | Dimensión analítica: ubicación (FK `farm_locations`). |
+| `proration_basis` | varchar(30) | SÍ | — | — | Base de prorrateo cuando el costo es compartido. |
+| `linked_transaction_id` | uuid | SÍ | — | FK → `transactions.id` | Egreso de caja generado (FK `transactions`). |
+| `linked_allocation_id` | uuid | SÍ | — | FK → `cost_allocations.id` | Prorrateo analítico generado (FK `cost_allocations`). |
+| `notes` | text | SÍ | — | — | Notas libres. |
+| `created_at` | timestamp | NO | now() | — | Fecha y hora de creación. |
+| `farm_id` | uuid | NO | current_farm_id() | — | Granja propietaria del registro. Es la llave del aislamiento multi-granja (RLS). |
+
+**Reglas y relaciones**
+
+- RLS `tenant_isolation_policy` por `farm_id` (FORCE ROW LEVEL SECURITY).
+- Los porcentajes y tarifas se congelan en la liquidación (snapshots maestros, migración 0004): cambiar la tarifa del perfil no altera liquidaciones pasadas.
+- `cash_expense` genera transacción de egreso; `imputed_economic` genera costo analítico sin movimiento de caja.
+
 ## K. Insumos y compras
 
 Existencias de insumos no alimenticios, sus movimientos y los atajos de compra frecuente.
@@ -1528,11 +1628,15 @@ Existencias de insumos no alimenticios, sus movimientos y los atajos de compra f
 | `maintenance_id` | uuid | SÍ | — | FK → `maintenance.id` | Mantenimiento que consumió el insumo (FK `maintenance`). |
 | `notes` | text | SÍ | — | — | Notas libres del usuario. |
 | `created_at` | timestamp | NO | now() | — | Fecha y hora de creación. |
+| `species` | varchar(20) | SÍ | — | — | Dimensión analítica del consumo: especie (migración 0002, devengo por consumo). |
+| `location_id` | uuid | SÍ | — | FK → `farm_locations.id` | Ubicación donde se consumió el insumo (FK `farm_locations`). |
+| `unit_cost` | numeric(10,2) | SÍ | — | — | Costo unitario del insumo al momento del movimiento (COP). |
 | `farm_id` | uuid | NO | current_farm_id() | — | Granja propietaria del registro. Es la llave del aislamiento multi-granja (RLS). |
 
 **Reglas y relaciones**
 
 - Una salida puede vincularse a un evento sanitario o a un mantenimiento para dejar trazabilidad del consumo.
+- El consumo con `species`/`location_id`/`unit_cost` alimenta el devengo por especie de la contabilidad analítica.
 
 ### purchase_products
 
@@ -1771,6 +1875,9 @@ Telemetría, datos maestros polimórficos, directorio comercial y parámetros cl
 | `system_type` | varchar(50) | SÍ | — | — | Sistema productivo: piso, jaula, pastoreo, baterías. |
 | `description` | text | SÍ | — | — | Descripción libre del registro. |
 | `egg_price` | numeric(10,2) | SÍ | — | — | Precio de referencia por huevo. |
+| `initial_unit_cost_cop` | numeric(12,2) | SÍ | — | — | Costo unitario inicial del animal (pollita/incubación), por especie (migración 0005). |
+| `point_of_lay_unit_value_cop` | numeric(12,2) | SÍ | — | — | Valor unitario de la ave en punto de postura, por especie (migración 0005). |
+| `breeder_unit_value_cop` | numeric(12,2) | SÍ | — | — | Valor unitario del animal de pie de cría, por especie (migración 0005). |
 | `farm_id` | uuid | NO | current_farm_id() | — | Granja propietaria del registro. Es la llave del aislamiento multi-granja (RLS). |
 
 **Reglas y relaciones**
@@ -1778,6 +1885,7 @@ Telemetría, datos maestros polimórficos, directorio comercial y parámetros cl
 - La combinación granja + categoría + valor es única.
 - Es la fuente de los selectores de raza, etapa, presentación y parámetros por especie.
 - Los registros inactivos no se ofrecen en formularios nuevos, pero se conservan para históricos.
+- Los precios de valorización por especie nacen en NULL: cada granja debe ingresar un precio vigente respaldado; no se siembran valores ilustrativos como si fueran maestros.
 
 ### contacts
 
@@ -1838,10 +1946,73 @@ Telemetría, datos maestros polimórficos, directorio comercial y parámetros cl
 - La combinación granja + clave es única.
 - Las claves y sus valores por defecto están definidas en `src/lib/settings.ts`.
 - Los cambios quedan auditados con usuario y fecha.
+- Claves recientes de la ola de cierre (nov-2026):
+  - `assistant.delegation_policy.v1` — política de delegación del agente por herramienta (`confirm` o `auto`); el piso duro de acciones sensibles siempre queda en `confirm`.
+  - `telemetry.adoption_metrics` — telemetría de adopción: duración del onboarding, muestras de duración de captura (incluye offline) y marcas de uso para los KPIs de `/analisis/adopcion`.
+  - `telegram.pairing.v1.<código>` — códigos de vinculación de un chat de Telegram con un usuario (TTL 10 minutos, un solo uso; se envían al bot con `/start CODIGO`).
+  - `telegram.conversations.v1` — mapa chat → conversación del agente para el historial del canal Telegram.
+  - `agent.api_conversations.v1` — mapa token/usuario → conversación de la API v1 y MCP (`token:<id>` o `session:<userId>`).
+  - `external.sync_enabled` — habilitación de la sincronización automática de fuentes externas.
+
+### external_data_snapshots
+
+**Propósito.** Último estado válido de cada fuente externa oficial (DANE, SIPSA, IDEAM, Banrep) por ámbito: conserva el dato vigente aunque la fuente falle, con modo de sincronización y vencimiento.
+
+**Módulo.** Análisis → Fuentes Externas (`/analisis/fuentes-externas`) · scheduler `scripts/external-sources-scheduler.mjs`
+
+| Campo | Tipo | Nulo | Por defecto | Clave | Descripción |
+|---|---|---|---|---|---|
+| `id` | uuid | NO | gen_random_uuid() | PK | Identificador único del registro (UUID). |
+| `source_key` | varchar(60) | NO | — | — | Identificador de la fuente (dane-index, sipsa, ideam-alerts, banrep-sdmx…). |
+| `wave` | integer | NO | 1 | — | Ola del plan de fuentes externas a la que pertenece el conector. |
+| `status` | varchar(20) | NO | ok | — | `ok`, `fallback`, `error` o `manual`. |
+| `sync_mode` | varchar(20) | NO | auto | — | `auto` (scheduler) o `manual` (importación CSV del usuario). |
+| `provider_name` | varchar(120) | NO | — | — | Nombre del proveedor oficial del dato. |
+| `source_url` | varchar(500) | SÍ | — | — | URL de origen del dato. |
+| `scope_key` | varchar(120) | NO | global | — | Ámbito del snapshot (global o por serie/region). |
+| `payload` | jsonb | NO | {} | — | Datos vigentes de la fuente (JSON). |
+| `summary` | text | SÍ | — | — | Resumen legible del estado de la fuente. |
+| `fetched_at` | timestamp | NO | now() | — | Momento de la última obtención exitosa. |
+| `expires_at` | timestamp | SÍ | — | — | Vencimiento tras el cual el dato se marca desactualizado. |
+| `last_error` | text | SÍ | — | — | Último error de sincronización, si lo hubo. |
+| `updated_at` | timestamp | NO | now() | — | Fecha y hora de la última modificación. |
+| `farm_id` | uuid | NO | current_farm_id() | — | Granja propietaria del registro. Es la llave del aislamiento multi-granja (RLS). |
+
+**Reglas y relaciones**
+
+- Única por granja + fuente + ámbito (`external_data_snapshots_farm_source_scope_idx`).
+- Si una fuente falla, se conserva el último dato válido con `status: fallback` y se reintenta en el siguiente ciclo.
+
+### external_source_observations
+
+**Propósito.** Serie histórica idempotente de observaciones externas por proveedor y periodo (migración 0006). Los valores externos se guardan como observaciones y **no reemplazan automáticamente los datos maestros**.
+
+**Módulo.** Análisis → Fuentes Externas · conectores DANE/SIPSA/IDEAM/Banrep
+
+| Campo | Tipo | Nulo | Por defecto | Clave | Descripción |
+|---|---|---|---|---|---|
+| `id` | uuid | NO | gen_random_uuid() | PK | Identificador único del registro (UUID). |
+| `source_key` | varchar(60) | NO | — | — | Identificador de la fuente oficial. |
+| `observation_key` | varchar(200) | NO | — | — | Clave de la observación (serie + periodo + dimensión). |
+| `observed_at` | timestamp | NO | — | — | Fecha del dato observado (no de la ingesta). |
+| `value` | numeric(18,6) | NO | — | — | Valor numérico observado. |
+| `unit` | varchar(60) | SÍ | — | — | Unidad del valor (COP, %, índice…). |
+| `provider_name` | varchar(120) | NO | — | — | Nombre del proveedor oficial. |
+| `source_url` | varchar(500) | SÍ | — | — | URL de origen. |
+| `dimensions` | jsonb | NO | {} | — | Dimensiones de la observación (región, producto, periodo…). |
+| `metadata` | jsonb | NO | {} | — | Metadatos del conector (versión, hash del archivo…). |
+| `ingested_at` | timestamp | NO | now() | — | Momento de la ingesta. |
+| `farm_id` | uuid | NO | current_farm_id() | — | Granja propietaria del registro. Es la llave del aislamiento multi-granja (RLS). |
+
+**Reglas y relaciones**
+
+- Única por granja + fuente + clave de observación: reimportar el mismo periodo actualiza sin duplicar.
+- RLS `tenant_isolation_policy` por `farm_id` (FORCE ROW LEVEL SECURITY) + GRANT a `gallinero_tenant_role`.
+- El usuario decide si promueve una observación a dato maestro desde Fuentes Externas.
 
 ## N. Asistente de IA
 
-Conversaciones, mensajes, acciones propuestas con confirmación humana y memoria persistente del asistente.
+Conversaciones, mensajes, acciones propuestas con confirmación humana, memoria persistente, briefings proactivos y el canal bidireccional de Telegram.
 
 ### ai_conversations
 
@@ -1904,6 +2075,9 @@ Conversaciones, mensajes, acciones propuestas con confirmación humana y memoria
 | `args` | jsonb | NO | — | — | Argumentos de la acción (JSON). |
 | `summary` | text | NO | — | — | Resumen legible para el usuario. |
 | `status` | varchar(20) | NO | pending | — | `pending`, `executed`, `failed` o `cancelled`. |
+| `origin` | varchar(30) | NO | assistant | — | Canal que originó la acción: `assistant`, `delegated_auto`, `telegram`, `external_agent` o `human_confirmed` (migración 0007). |
+| `chat_id` | bigint | SÍ | — | — | Chat de Telegram que originó la acción, si aplica (migración 0010). |
+| `token_id` | uuid | SÍ | — | — | Token de integración que originó la acción vía API v1 o MCP (migración 0011; referencia lógica a `export_tokens.id`). |
 | `result` | jsonb | SÍ | — | — | Resultado de la ejecución (JSON). |
 | `error` | text | SÍ | — | — | Mensaje de error si falló. |
 | `created_at` | timestamp | NO | now() | — | Fecha y hora de creación. |
@@ -1912,8 +2086,9 @@ Conversaciones, mensajes, acciones propuestas con confirmación humana y memoria
 
 **Reglas y relaciones**
 
-- Ninguna acción se ejecuta sin confirmación explícita del usuario.
-- Toda acción queda auditada con usuario, herramienta, argumentos y resultado.
+- Ninguna acción sensible se ejecuta sin confirmación explícita del usuario, desde ningún canal (app, voz, Telegram, API v1 o MCP): es el piso duro, no configurable.
+- Las herramientas rutinarias pueden auto-ejecutarse solo si el usuario las delegó en `assistant.delegation_policy.v1`; quedan como `delegated_auto`.
+- Toda acción queda auditada con usuario, herramienta, argumentos, resultado y origen (`origin` + `chat_id`/`token_id` según el canal).
 
 ### agent_memories
 
@@ -1942,6 +2117,52 @@ Conversaciones, mensajes, acciones propuestas con confirmación humana y memoria
 
 - Es única por granja, usuario, categoría y clave temática.
 - Las memorias de baja importancia pueden desactivarse sin borrarlas.
+
+### agent_briefings
+
+**Propósito.** Briefings proactivos del agente (migración 0008): parte diario con hallazgos de la granja y alertas de anomalía, generados por el cron del agente proactivo y entregados en inbox, push y Telegram.
+
+**Módulo.** Asistente IA → Briefings · cron `/api/cron/agente-proactivo`
+
+| Campo | Tipo | Nulo | Por defecto | Clave | Descripción |
+|---|---|---|---|---|---|
+| `id` | uuid | NO | gen_random_uuid() | PK | Identificador único del registro (UUID). |
+| `briefing_date` | date | NO | — | — | Fecha del briefing. |
+| `kind` | varchar(20) | NO | diario | — | `diario` o `anomalia` (CHECK). |
+| `payload` | jsonb | NO | {} | — | Hallazgos estructurados (KPIs, alertas, recomendaciones con deep-links). |
+| `narrative` | text | NO | '' | — | Narrativa legible del briefing (lista para push/Telegram). |
+| `read_at` | timestamp | SÍ | — | — | Momento en que el usuario lo leyó en la app. |
+| `created_at` | timestamp | NO | now() | — | Fecha y hora de creación. |
+| `farm_id` | uuid | NO | current_farm_id() | — | Granja propietaria del registro. Es la llave del aislamiento multi-granja (RLS). |
+
+**Reglas y relaciones**
+
+- Idempotente: única por granja + fecha + tipo (`agent_briefings_farm_date_kind_idx`); el cron puede reintentar sin duplicar.
+- RLS `tenant_isolation_policy` por `farm_id` (FORCE ROW LEVEL SECURITY) + GRANT a `gallinero_tenant_role`.
+- Las recomendaciones respetan el gating de módulos: nunca sugieren rutas bloqueadas para la escala de la granja.
+
+### telegram_chats
+
+**Propósito.** Chats de Telegram vinculados a usuarios de la granja (migración 0009): habilitan el canal bidireccional del agente (consultas, notas de voz, confirmaciones con botones y parte diario `/parte`).
+
+**Módulo.** Configuración → Módulos → Canal Telegram · `/api/telegram/vincular` y `/api/telegram/webhook`
+
+| Campo | Tipo | Nulo | Por defecto | Clave | Descripción |
+|---|---|---|---|---|---|
+| `id` | uuid | NO | gen_random_uuid() | PK | Identificador único del registro (UUID). |
+| `chat_id` | bigint | NO | — | UNIQUE | Identificador del chat de Telegram (único global). |
+| `user_id` | uuid | NO | — | FK → `users.id` | Usuario delegante al que responde el agente en ese chat (FK `users`, cascada). |
+| `status` | varchar(20) | NO | activo | — | `activo` o `revocado` (CHECK). |
+| `linked_at` | timestamp | NO | now() | — | Momento de la vinculación con el código de pairing. |
+| `last_seen_at` | timestamp | NO | now() | — | Último mensaje recibido del chat. |
+| `farm_id` | uuid | NO | current_farm_id() | — | Granja propietaria del registro. Es la llave del aislamiento multi-granja (RLS). |
+
+**Reglas y relaciones**
+
+- La vinculación exige un código de pairing de un solo uso (`telegram.pairing.v1.*` en `app_settings`) generado por el usuario en la app.
+- Un chat revocado deja de recibir partes y no puede ejecutar acciones; el webhook lo rechaza.
+- Las acciones originadas en el chat quedan en `ai_actions` con `origin: telegram` y `chat_id`.
+- RLS `tenant_isolation_policy` por `farm_id` (FORCE ROW LEVEL SECURITY).
 
 ## O. Adjuntos y offline
 
@@ -2290,9 +2511,14 @@ Mapa de las librerías de dominio y las rutas de la aplicación hacia las tablas
 | Gallinaza (`lib/manure*.ts`) | Estimación diaria, ajustes, stock y ventas. | `manure_factors`, `manure_production`, `manure_adjustments`, `manure_sales` |
 | Sanidad (`lib/sanitary-locks.ts`, `lib/vaccination-*.ts`, calendario) | Calendario, vacunación automática y bloqueos por retiro. | `health_control`, `sanitary_calendar`, `vaccination_templates`, `biosecurity_logs`, `supply_movements` |
 | Finanzas (`lib/financial-records.ts`, `lib/analytics/contabilidad-analitica.ts`) | Ingresos/egresos automáticos, cartera y prorrateo. | `transactions`, `accounts_receivable`, `accounts_payable`, `payments`, `cost_allocations`, `budgets`, `financial_categories` |
+| Personal y nómina (`lib/analytics/payroll-tax-supplies*.ts`, `api/finanzas/personal`) | Perfiles, liquidaciones con prestaciones de ley, impuestos en transacciones y devengo de insumos. | `staff_profiles`, `payroll_entries`, `transactions`, `supply_movements`, `cost_allocations` |
+| Fuentes externas (`lib/external-sources/*`, `api/analisis/fuentes-externas`, scheduler) | Conectores DANE/SIPSA/IDEAM/Banrep, snapshots y serie de observaciones. | `external_data_snapshots`, `external_source_observations`, `app_settings` |
 | Cierre diario (`lib/inventory-locks.ts`, `api/operaciones/cierre-diario`) | Congela el día y guarda la foto de indicadores. | `daily_closures` y todas las tablas operativas con `date` |
 | Exportación (`lib/export/*`, `api/export`) | Catálogo de datasets, CSV/XLSX y autenticación por token. | `export_tokens` y consultas de solo lectura sobre todo el modelo |
 | Asistente IA (`lib/agent/*`, `api/asistente/*`) | Conversación, herramientas, acciones con confirmación y memoria. | `ai_conversations`, `ai_messages`, `ai_actions`, `agent_memories` |
+| Agente proactivo y canales (`lib/agent/proactive.ts`, `lib/agent/telegram-channel.ts`, `api/cron/agente-proactivo`, `api/telegram/*`) | Briefings diarios/anomalía, entrega push/Telegram y canal bidireccional con pairing. | `agent_briefings`, `telegram_chats`, `ai_actions`, `app_settings` |
+| API v1 de herramientas y MCP (`lib/agent/external-api.ts`, `lib/agent/mcp.ts`, `api/v1/agent/*`, `api/mcp`) | Ejecución externa como usuario delegante, scopes, rate limit y auditoría por token. | `export_tokens`, `ai_actions`, `ai_conversations`, `app_settings` |
+| KPIs de adopción (`api/analisis/kpis-adopcion`, `/analisis/adopcion`) | Telemetría de captura y onboarding para los 5 KPIs del Plan Maestro. | `app_settings` (`telemetry.adoption_metrics`), `ai_actions`, `offline_mutation_receipts` |
 | Offline (`lib/offline/*`, `api/sync/*`) | Réplica local, cola de mutaciones e idempotencia. | `offline_mutation_receipts`, `attachments` |
 | Adjuntos (`lib/attachments-shared.ts`) | Carga, compresión, OCR y vínculo polimórfico. | `attachments` |
 | Peso y curvas (`lib/breed-standards*.ts`, `lib/standard-curves.ts`) | Estándares por raza, desviaciones y uniformidad. | `breed_weight_standards`, `weight_logs` |
@@ -2358,7 +2584,7 @@ La base tiene **188 índices** (incluidas las claves primarias y únicas) y **93
 
 ## Operación y mantenimiento del esquema
 
-- **Migraciones.** Viven en [`scripts/`](../scripts/) como SQL numerado o descriptivo y se aplican con `psql`. `schema_migrations` guarda `filename`, `checksum` y `applied_at` de las migraciones aplicadas.
+- **Migraciones.** Viven en [`drizzle/`](../drizzle/) como SQL numerado (`0000_baseline.sql` … `0011_ai_actions_token_id.sql`) y se aplican con `npm run db:migrate` (`src/db/migrate-prod.ts`), que descubre los archivos en orden y registra `filename`, `checksum` y `applied_at` en `schema_migrations`. Serie reciente: 0002 personal/impuestos/insumos · 0003 documento único de personal · 0004 snapshots maestros de nómina · 0005 precios de valorización por especie · 0006 observaciones de fuentes externas · 0007 origen de `ai_actions` · 0008 `agent_briefings` · 0009 `telegram_chats` · 0010 `ai_actions.chat_id` · 0011 `ai_actions.token_id`.
 - **Fuente en código.** [`src/db/schema.ts`](../src/db/schema.ts) define tablas, enums, índices y checks con Drizzle. La base es la fuente de verdad para tipos efectivos; el código debe reflejarla.
 - **RLS.** Las políticas usan `app.current_farm_id`; el rol de aplicación es `gallinero_tenant_role`. Las tablas nuevas deben crearse con `farm_id`, política RLS y `GRANT` para ese rol.
 - **Respaldo.** Antes de una migración estructural se toma un respaldo de la base y se verifica el conteo de tablas y columnas.
@@ -2380,7 +2606,7 @@ ORDER BY table_name, ordinal_position;
 
 **Checklist al agregar una tabla o columna:**
 
-1. Crear la migración en `scripts/` y aplicarla.
+1. Crear la migración numerada en `drizzle/` y registrarla en `src/db/migrate-prod.ts`.
 2. Actualizar `src/db/schema.ts` con la tabla, enums, índices y checks.
 3. Agregar `farm_id` con `current_farm_id()`, política RLS y `GRANT` al rol tenant.
 4. Documentar la tabla en este diccionario: propósito, módulo, campos y reglas.
@@ -2396,4 +2622,4 @@ ORDER BY table_name, ordinal_position;
 
 ---
 
-*Documento mantenido por el equipo de IwaGranja. Última verificación del esquema: 14 de noviembre de 2026 (66 tablas, 893 columnas).*
+*Documento mantenido por el equipo de IwaGranja. Última verificación del esquema: 17 de noviembre de 2026 contra `el_gallinero_test` (73 tablas: 72 de dominio con ficha + `schema_migrations`; 1013 columnas).*

@@ -8,14 +8,14 @@ export const DEFAULT_OG_IMAGE = `${SITE_URL}/images/guia/inicio-dashboard.webp`;
 
 /** Rutas públicas estáticas del sitio comercial con su fecha real de última actualización (sitemap). */
 export const STATIC_ROUTE_LAST_MODIFIED: Record<string, string> = {
-  "": "2026-11-15",
+  "": "2026-11-17",
   "/funcionalidades": "2026-11-17",
   "/recursos": "2026-11-17",
   "/recursos/herramientas/p1": "2026-11-17",
   "/registro": "2026-11-14",
-  "/guia": "2026-11-15",
+  "/guia": "2026-11-17",
   "/ayuda": "2026-11-14",
-  "/open-source": "2026-11-14",
+  "/open-source": "2026-11-17",
   "/realidad-campo": "2026-11-15",
   "/planes": "2026-11-14",
   "/nosotros": "2026-11-14",

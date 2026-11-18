@@ -198,7 +198,7 @@ export const POST = withApiHandler(async (req: NextRequest) => {
     if (body.isCredit) {
       await syncCreditReceivable(tx, {
         transactionId: txRow.id,
-        totalAmount: taxResolved.columns.netSettlementAmount ?? grandTotal.toFixed(2),
+        totalAmount: grandTotal.toFixed(2),
         isCredit: true,
         dueDate: body.dueDate || null,
         buyer: body.buyer || null,
@@ -321,7 +321,7 @@ export const PUT = withApiHandler(async (req: NextRequest) => {
     if (currentTx) {
       await syncCreditReceivable(tx, {
         transactionId: currentTx.id,
-        totalAmount: taxResolved.columns.netSettlementAmount ?? grandTotal.toFixed(2),
+        totalAmount: grandTotal.toFixed(2),
         isCredit: Boolean(body.isCredit),
         dueDate: body.dueDate,
         buyer: body.buyer || null,

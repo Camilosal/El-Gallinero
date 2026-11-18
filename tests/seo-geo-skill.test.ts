@@ -8,6 +8,7 @@ import { BITACORA_ARTICLES } from "@/lib/bitacora-content";
 import { guides } from "@/lib/guide-data";
 import { CYCLE_PLANS_SHOWCASE } from "@/lib/landing-showcase";
 import { getPrivacidad } from "@/lib/legal-content";
+import { APP_ROUTE_PREFIXES } from "@/lib/app-routes";
 import {
   ENTITY_IDS,
   SITE_URL,
@@ -56,6 +57,10 @@ describe("SEO + GEO skill compliance", () => {
       expect(disallow).toContain("/api/");
       expect(disallow).toContain("/dashboard");
       expect(disallow).toContain("/login");
+      // Ninguna ruta privada de la app (inicio, configuracion, etc.) queda abierta a rastreadores.
+      for (const prefix of APP_ROUTE_PREFIXES) {
+        expect(disallow).toContain(prefix);
+      }
     }
   });
 
@@ -94,6 +99,13 @@ describe("SEO + GEO skill compliance", () => {
     expect(urls.some((u) => u.includes("/login"))).toBe(false);
     expect(urls.some((u) => u.includes("/dashboard"))).toBe(false);
     expect(urls.some((u) => u.includes("/api/"))).toBe(false);
+    // F3: ninguna ruta privada de la app (p. ej. /inicio, /configuracion/*) en el sitemap.
+    for (const url of urls) {
+      const path = url.slice(SITE_URL.length);
+      for (const prefix of APP_ROUTE_PREFIXES) {
+        expect(path === prefix || path.startsWith(`${prefix}/`)).toBe(false);
+      }
+    }
   });
 
   it("GET /llms.txt responde 200 text/plain con índice completo del sitio y ecosistema", async () => {
@@ -115,6 +127,26 @@ describe("SEO + GEO skill compliance", () => {
     for (const plan of CYCLE_PLANS_SHOWCASE) {
       expect(body).toContain(`${SITE_URL}/planes/${plan.slug}`);
     }
+  });
+
+  it("llms.txt describe las capacidades agénticas (API v1, MCP, briefing proactivo, Telegram) con datos verificables", async () => {
+    const body = await getLlmsTxt().text();
+    expect(body).toContain("## Capacidades agénticas e integraciones");
+    expect(body).toContain("/api/v1/agent/tools");
+    expect(body).toContain("/api/mcp");
+    expect(body).toContain("JSON-RPC 2.0");
+    expect(body).toContain("agent:read");
+    expect(body).toContain("agent:write");
+    expect(body).toContain("90 días");
+    expect(body).toContain("Telegram");
+    expect(body.toLowerCase()).toContain("briefing");
+    expect(body).toContain("piso duro");
+    expect(body).toContain("external_agent");
+    expect(body).toContain(`${SITE_URL}/guia/asistente-avanzado`);
+    expect(body).toContain(`${SITE_URL}/guia/integraciones-erp-agentes`);
+    // No expone rutas privadas de la app como enlaces navegables del índice.
+    expect(body).not.toContain(`${SITE_URL}/inicio`);
+    expect(body).not.toContain(`${SITE_URL}/configuracion`);
   });
 
   it("proxy permite acceso público sin sesión a /llms.txt", async () => {

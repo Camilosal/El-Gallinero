@@ -381,7 +381,9 @@ describe("Integración de Fuentes Externas Offline-First (Olas 1 a 5 y catálogo
       expect(autoRes.status).toBe(200);
       const autoJson = await parseJson(autoRes);
       expect(Array.isArray(autoJson.syncSchedule)).toBe(true);
-      expect(autoJson.syncSchedule.length).toBe(8);
+      // 9 fuentes automáticas tras la ola de índices/GEIH/Banrep/IDEAM (el catálogo
+      // normativo, vademécum e IoT quedan como sync manual, fuera del calendario).
+      expect(autoJson.syncSchedule.length).toBe(9);
       expect(autoJson.autoRefreshedKeys).toContain("open_meteo");
 
       // 5. PUT /api/configuracion/parametros cambiando ciudad -> autocompleta DANE/depto y actualiza zona activa
@@ -518,6 +520,12 @@ describe("Integración de Fuentes Externas Offline-First (Olas 1 a 5 y catálogo
     expect(directAttachJson.entityType).toBe("normative_doc");
     expect(directAttachJson.entityId).toBe("norm-ntc-1240");
 
+    // Se declara fuera del try para poder limpiar la norma propia en el finally
+    // aunque el test falle a mitad: si quedara residuo en normative.custom_items_json,
+    // la prueba del catálogo interactivo (que exige sourceUrl https) fallaría en la
+    // siguiente corrida contra el mismo DB de test.
+    let createdNormId: string | null = null;
+
     try {
       const listDirectRes = await adjuntosGET(
         mockRequest("http://localhost/api/adjuntos?entityType=normative_doc&entityId=norm-ntc-1240"),
@@ -570,8 +578,10 @@ describe("Integración de Fuentes Externas Offline-First (Olas 1 a 5 y catálogo
       expect(addNormRes.status).toBe(200);
       const addNormJson = await parseJson(addNormRes);
       expect(addNormJson.ok).toBe(true);
-      const createdNormId = addNormJson.item?.id as string;
+      const createdNormIdLocal = addNormJson.item?.id as string;
+      createdNormId = createdNormIdLocal || null;
       expect(createdNormId).toBeTruthy();
+      if (!createdNormId) throw new Error("No se creó el identificador de la norma personalizada.");
 
       // Confirmar que la referencia personalizada aparece en ?section=normas
       const sectionRes = await fuentesGET(
@@ -615,6 +625,16 @@ describe("Integración de Fuentes Externas Offline-First (Olas 1 a 5 y catálogo
           method: "DELETE",
         }),
       );
+      // Limpieza garantizada de la norma propia aunque el test haya fallado a mitad,
+      // para no dejar residuo en normative.custom_items_json entre corridas.
+      if (createdNormId) {
+        await fuentesPOST(
+          mockRequest("http://localhost/api/configuracion/fuentes-externas", {
+            method: "POST",
+            body: { action: "delete_normative_item", id: createdNormId },
+          }),
+        ).catch(() => null);
+      }
     }
   });
 });

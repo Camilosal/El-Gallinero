@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 import { Bot, Lock, RotateCcw, ShieldCheck, Zap } from "lucide-react";
 import { Badge, Card } from "@/components/ui";
 
@@ -32,24 +32,27 @@ export default function DelegationPolicyPanel() {
   const [savingKey, setSavingKey] = useState<string | null>(null);
   const [feedback, setFeedback] = useState<{ type: "ok" | "err"; text: string } | null>(null);
 
-  const load = useCallback(async () => {
-    setLoading(true);
-    setError(null);
-    try {
-      const res = await fetch("/api/asistente/delegacion", { cache: "no-store" });
-      const body = await res.json().catch(() => null);
-      if (!res.ok) throw new Error(body?.error || "No se pudo cargar la política de delegación");
-      setData(body as DelegationResponse);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Error cargando la política");
-    } finally {
-      setLoading(false);
-    }
-  }, []);
-
   useEffect(() => {
-    void load();
-  }, [load]);
+    let cancelled = false;
+    fetch("/api/asistente/delegacion", { cache: "no-store" })
+      .then(async (res) => {
+        const body = await res.json().catch(() => null);
+        if (!res.ok) throw new Error(body?.error || "No se pudo cargar la política de delegación");
+        return body as DelegationResponse;
+      })
+      .then((body) => {
+        if (!cancelled) setData(body);
+      })
+      .catch((err) => {
+        if (!cancelled) setError(err instanceof Error ? err.message : "Error cargando la política");
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   const putPolicy = async (payload: Record<string, unknown>, key: string, okText: string) => {
     setSavingKey(key);

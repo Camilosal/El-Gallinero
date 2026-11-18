@@ -27,20 +27,28 @@ export default function TelegramChannelPanel() {
   const [error, setError] = useState("");
 
   const refresh = useCallback(async () => {
-    try {
-      const res = await apiFetch("/api/telegram/vincular");
-      if (!res.ok) return;
-      const data = await res.json();
-      setConfigured(Boolean(data.configured));
-      setChats(data.chats || []);
-    } catch {
-      setConfigured(false);
-    }
+    const res = await apiFetch("/api/telegram/vincular").catch(() => null);
+    const data = res && res.ok ? await res.json().catch(() => null) : null;
+    setConfigured(Boolean(data?.configured));
+    setChats(data?.chats || []);
   }, []);
 
   useEffect(() => {
-    void refresh();
-  }, [refresh]);
+    let cancelled = false;
+    apiFetch("/api/telegram/vincular")
+      .then((res) => (res.ok ? res.json() : null))
+      .then((data) => {
+        if (cancelled) return;
+        setConfigured(Boolean(data?.configured));
+        setChats(data?.chats || []);
+      })
+      .catch(() => {
+        if (!cancelled) setConfigured(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   const handleGenerate = async () => {
     setBusy(true);

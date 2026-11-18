@@ -36,6 +36,8 @@ describe("SEO-01 y SEO-02 — Sitemap granular y dimensiones OG reales", () => {
     for (const url of urls) {
       expect(url.startsWith("https://app.iwage.co")).toBe(true);
       expect(url).not.toMatch(/\/(dashboard|api|login)(\/|$)/);
+      // F3: ninguna ruta privada de la app (/inicio, /configuracion/*, ...) en el sitemap.
+      expect(url).not.toMatch(/\/(inicio|configuracion|exportar|analisis)(\/|$)/);
     }
 
     const uniqueDates = new Set(

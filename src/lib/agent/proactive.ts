@@ -14,6 +14,7 @@ import { getSettings } from "@/lib/settings";
 import { addDaysIso, todayColombiaIso } from "@/lib/date-validation";
 import { getFeedInventoryProjection } from "@/lib/feeding/inventory";
 import { getProgressiveOnboardingState } from "@/lib/onboarding-server";
+import { isHrefEnabledByFlags, type FeatureFlagKey } from "@/lib/onboarding";
 import { getLiveSituationalSnapshot } from "./situational";
 import { getAgentConfig } from "./config";
 import { callLlm } from "./llm";
@@ -62,6 +63,17 @@ const MAX_FINDINGS_PEQUENO = 3;
 
 function sortFindings(findings: BriefingFinding[]): BriefingFinding[] {
   return [...findings].sort((a, b) => SEVERITY_ORDER[a.severity] - SEVERITY_ORDER[b.severity]);
+}
+
+/**
+ * Gating coherente (G1): un briefing nunca recomienda rutas bloqueadas para la
+ * escala de la granja. Los hallazgos sin href (puramente narrativos) se conservan.
+ */
+export function filterBriefingFindingsByFlags(
+  findings: BriefingFinding[],
+  flags: Partial<Record<FeatureFlagKey, boolean>> | null | undefined,
+): BriefingFinding[] {
+  return findings.filter((finding) => !finding.href || isHrefEnabledByFlags(finding.href, flags));
 }
 
 /** Mortalidad de hoy vs. media móvil de los 7 días previos (umbral configurable). */
@@ -356,7 +368,11 @@ export async function buildDailyBriefing(options?: {
   ]);
   const scale: "PEQUENO" | "MEDIANO" = onboarding?.config?.scale === "MEDIANO" ? "MEDIANO" : "PEQUENO";
   const maxFindings = scale === "PEQUENO" ? MAX_FINDINGS_PEQUENO : MAX_FINDINGS_MEDIANO;
-  const findings = sortFindings([...(options?.extraFindings ?? []), ...allFindings]).slice(0, maxFindings);
+  const unlockedFindings = filterBriefingFindingsByFlags(
+    [...(options?.extraFindings ?? []), ...allFindings],
+    onboarding?.config?.flags ?? null,
+  );
+  const findings = sortFindings(unlockedFindings).slice(0, maxFindings);
 
   const llmNarrative = options?.narrate === false ? null : await narrateWithLlm(findings, todayIso, scale);
   const narrative = llmNarrative ?? renderTemplateNarrative(findings, todayIso, scale);

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState, useSyncExternalStore } from "react";
 import { Bell, BellOff, BellRing } from "lucide-react";
 import { Button, Card } from "@/components/ui";
 
@@ -12,24 +12,26 @@ import { Button, Card } from "@/components/ui";
 
 type PermissionState = "unsupported" | "default" | "granted" | "denied";
 
-export default function PushNotificationsPanel() {
-  const [permission, setPermission] = useState<PermissionState>("default");
-  const [requesting, setRequesting] = useState(false);
+// El permiso de Notification es un store externo del navegador: se lee con
+// useSyncExternalStore (snapshot de servidor "default" para hidratación estable).
+const subscribeNoop = () => () => {};
+function getPermissionSnapshot(): PermissionState {
+  if (typeof window === "undefined" || !("Notification" in window)) return "unsupported";
+  return Notification.permission as PermissionState;
+}
 
-  useEffect(() => {
-    if (typeof window === "undefined" || !("Notification" in window)) {
-      setPermission("unsupported");
-      return;
-    }
-    setPermission(Notification.permission as PermissionState);
-  }, []);
+export default function PushNotificationsPanel() {
+  const snapshot = useSyncExternalStore(subscribeNoop, getPermissionSnapshot, () => "default" as PermissionState);
+  const [requested, setRequested] = useState<PermissionState | null>(null);
+  const permission = requested ?? snapshot;
+  const [requesting, setRequesting] = useState(false);
 
   const handleActivate = async () => {
     if (!("Notification" in window)) return;
     setRequesting(true);
     try {
       const result = await Notification.requestPermission();
-      setPermission(result as PermissionState);
+      setRequested(result as PermissionState);
     } finally {
       setRequesting(false);
     }

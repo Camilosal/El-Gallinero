@@ -367,6 +367,11 @@ async function handleCallbackQuery(update: TelegramUpdate): Promise<ChannelResul
       return { status: 200, handled: true, action: "ya_procesada" };
     }
 
+    // C3 paso 8: toda acción resuelta por el teclado inline de Telegram queda
+    // auditada con el chat que la confirmó/canceló. confirmAction fija origin
+    // "telegram"; aquí se estampa chat_id (la ruta de texto libre lo hace aparte).
+    await db.update(aiActions).set({ chatId: chat.chatId }).where(eq(aiActions.id, actionId));
+
     const user = await getLinkedUser(chat.userId);
     if (verb === "cancel") {
       await cancelAction({ userId: chat.userId, actionId, reason: "Cancelada desde Telegram" });
