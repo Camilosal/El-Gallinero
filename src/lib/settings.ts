@@ -2,6 +2,10 @@ import { db } from "@/db";
 import { getCurrentFarmId } from "@/db/tenant-context";
 import { appSettings } from "@/db/schema";
 import { eq } from "drizzle-orm";
+import {
+  DEFAULT_OWNER_LABOR_SPECIES_RULES,
+  ownerLaborSpeciesSettingKeys,
+} from "@/lib/analytics/owner-labor-estimator";
 
 /**
  * Parámetros globales de cálculo, editables desde Catálogos y Datos Maestros.
@@ -32,6 +36,74 @@ export interface SettingDef {
   effectiveFrom?: string;
   reviewRequired?: boolean;
 }
+
+const OWNER_LABOR_ESTIMATOR_SETTING_DEFS: SettingDef[] = [
+  {
+    key: "payroll.owner_labor.minutes_per_installation_per_care_day",
+    label: "Minutos por instalación atendida",
+    description: "Minutos de rutina por cada lugar productivo atendido en un día. Es un supuesto editable para estimar dedicación, no un estándar técnico o laboral.",
+    group: "Costos laborales y nómina",
+    type: "number",
+    default: "6",
+    unit: "minutos/día",
+    min: 0,
+    max: 1440,
+    step: 1,
+  },
+  {
+    key: "payroll.owner_labor.cleaning_minutes_per_installation_per_week",
+    label: "Minutos de limpieza por instalación",
+    description: "Tiempo semanal de limpieza y revisión por lugar productivo. Ajusta según sistema, manejo y distribución del trabajo.",
+    group: "Costos laborales y nómina",
+    type: "number",
+    default: "20",
+    unit: "minutos/semana",
+    min: 0,
+    max: 10080,
+    step: 1,
+  },
+  {
+    key: "payroll.owner_labor.coordination_minutes_per_week",
+    label: "Minutos semanales de registro y coordinación",
+    description: "Tiempo para registrar producción, compras, ventas y coordinar apoyos. Se suma una vez por semana, no por animal.",
+    group: "Costos laborales y nómina",
+    type: "number",
+    default: "30",
+    unit: "minutos/semana",
+    min: 0,
+    max: 10080,
+    step: 1,
+  },
+  ...DEFAULT_OWNER_LABOR_SPECIES_RULES.flatMap((rule) => {
+    const keys = ownerLaborSpeciesSettingKeys(rule.species);
+    return [
+      {
+        key: keys.animalsPerGroup,
+        label: `${rule.label}: individuos por grupo de manejo`,
+        description: "Tamaño del grupo usado para aproximar el tiempo de rutina. No representa capacidad de alojamiento ni recomendación sanitaria.",
+        group: "Costos laborales y nómina",
+        type: "integer" as const,
+        default: String(rule.animalsPerGroup),
+        unit: "individuos",
+        min: 1,
+        max: 100000,
+        step: 1,
+      },
+      {
+        key: keys.minutesPerGroupPerCareDay,
+        label: `${rule.label}: minutos de rutina por grupo`,
+        description: "Minutos por grupo en cada día de cuidado. Es un punto de partida editable que debe ajustarse con el tiempo observado en la granja.",
+        group: "Costos laborales y nómina",
+        type: "number" as const,
+        default: String(rule.minutesPerGroupPerCareDay),
+        unit: "minutos/grupo/día",
+        min: 0,
+        max: 1440,
+        step: 0.5,
+      },
+    ];
+  }),
+];
 
 export const SETTING_DEFS: SettingDef[] = [
   {
@@ -783,6 +855,22 @@ export const SETTING_DEFS: SettingDef[] = [
     step: 0.25,
   },
   {
+    key: "payroll.ordinary_hours_per_month",
+    label: "Horas ordinarias mensuales de referencia",
+    description: "Se usa para convertir el costo mensual de un empleo al SMLMV en tarifa horaria. La referencia vigente es 210 horas al mes para una jornada máxima de 42 horas semanales distribuida en seis días; puedes ajustar este parámetro.",
+    group: "Costos laborales y nómina",
+    type: "integer",
+    default: "210",
+    unit: "horas/mes",
+    min: 1,
+    max: 400,
+    step: 1,
+    sourceLabel: "Ley 2101 de 2021 · jornada máxima de 42 horas desde el 15 de julio de 2026",
+    sourceUrl: "https://www.funcionpublica.gov.co/eva/gestornormativo/norma.php?i=166506",
+    effectiveFrom: "2026-07-15",
+    reviewRequired: true,
+  },
+  {
     key: "payroll.weeks_per_month",
     label: "Semanas base por mes para nómina",
     description: "Factor configurable para convertir tarifas mensuales y semanales.",
@@ -833,11 +921,12 @@ export const SETTING_DEFS: SettingDef[] = [
   {
     key: "payroll.include_imputed_owner_labor",
     label: "Incluir trabajo propio no retirado en punto de equilibrio",
-    description: "Cuando está activo, el valor del jornal/trabajo propio del pequeño productor entra en costos unitarios aunque no haya retiro en caja.",
+    description: "Cuando está activo, las liquidaciones de trabajo propio guardadas como costo económico se incluyen en el punto de equilibrio. El estimador solo prepara una propuesta: requiere revisión y confirmación, y no genera una salida de caja.",
     group: "Costos laborales y nómina",
     type: "boolean",
     default: "true",
   },
+  ...OWNER_LABOR_ESTIMATOR_SETTING_DEFS,
   {
     key: "normative.custom_items_json",
     label: "Normas y guías personalizadas",
@@ -1135,6 +1224,11 @@ export async function getTaxAndPayrollConfig() {
     employerBurdenPct,
     workerDeductionPct,
     includeImputedOwnerLabor,
+    ordinaryHoursPerMonth,
+    ownerLaborMinutesPerInstallationPerCareDay,
+    ownerLaborCleaningMinutesPerInstallationPerWeek,
+    ownerLaborCoordinationMinutesPerWeek,
+    ownerLaborSpeciesRuleValues,
   ] = await Promise.all([
     getNumberSetting("external.tax_uvt_cop"),
     getNumberSetting("tax.iva_default_pct"),
@@ -1157,7 +1251,34 @@ export async function getTaxAndPayrollConfig() {
     getNumberSetting("payroll.employer_burden_pct"),
     getNumberSetting("payroll.worker_deduction_pct"),
     getBooleanSetting("payroll.include_imputed_owner_labor"),
+    getNumberSetting("payroll.ordinary_hours_per_month"),
+    getNumberSetting("payroll.owner_labor.minutes_per_installation_per_care_day"),
+    getNumberSetting("payroll.owner_labor.cleaning_minutes_per_installation_per_week"),
+    getNumberSetting("payroll.owner_labor.coordination_minutes_per_week"),
+    Promise.all(
+      DEFAULT_OWNER_LABOR_SPECIES_RULES.flatMap((rule) => {
+        const keys = ownerLaborSpeciesSettingKeys(rule.species);
+        return [
+          getNumberSetting(keys.animalsPerGroup),
+          getNumberSetting(keys.minutesPerGroupPerCareDay),
+        ];
+      }),
+    ),
   ]);
+
+  const ownerLaborSpeciesRules = DEFAULT_OWNER_LABOR_SPECIES_RULES.map((rule, index) => ({
+    ...rule,
+    animalsPerGroup: ownerLaborSpeciesRuleValues[index * 2] ?? rule.animalsPerGroup,
+    minutesPerGroupPerCareDay: ownerLaborSpeciesRuleValues[index * 2 + 1] ?? rule.minutesPerGroupPerCareDay,
+  }));
+
+  const safeOrdinaryHoursPerMonth = Math.max(1, ordinaryHoursPerMonth);
+  const ownerReferenceHourlyRateCop = Math.round(
+    (
+      smlmvCop * (1 + employerBurdenPct / 100)
+      + transportAllowanceCop
+    ) / safeOrdinaryHoursPerMonth,
+  );
 
   return {
     uvtCop,
@@ -1182,6 +1303,15 @@ export async function getTaxAndPayrollConfig() {
     employerBurdenPct,
     workerDeductionPct,
     includeImputedOwnerLabor,
+    ordinaryHoursPerMonth: safeOrdinaryHoursPerMonth,
+    ownerReferenceHourlyRateCop,
+    ownerLabor: {
+      minutesPerInstallationPerCareDay: ownerLaborMinutesPerInstallationPerCareDay,
+      cleaningMinutesPerInstallationPerWeek: ownerLaborCleaningMinutesPerInstallationPerWeek,
+      coordinationMinutesPerWeek: ownerLaborCoordinationMinutesPerWeek,
+      weeksPerMonth,
+      speciesRules: ownerLaborSpeciesRules,
+    },
   };
 }
 

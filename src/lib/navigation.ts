@@ -94,7 +94,7 @@ export const navigationGroups: MenuGroup[] = [
     keywords: ["planeacion", "planificacion", "calendario", "rutina", "rutinas", "cumplimiento", "soberania", "autoconsumo", "seguridad alimentaria", "familia", "huerta", "plan parvada", "proyeccion"],
     items: [
       { href: "/planeacion/calendario", label: "Calendario y Rutinas", icon: "calendar" },
-      { href: "/planeacion/proyectos/p1", label: "Plantilla de proyecto P1", icon: "book-open" },
+      { href: "/planeacion/proyectos/p1", label: "Diseño de Proyectos Rurales con Producción Animal", icon: "book-open" },
       { href: "/produccion/plan-parvada", label: "Plan de Parvada", icon: "clipboard" },
       { href: "/soberania", label: "Soberanía Alimentaria", icon: "home" },
     ],
@@ -221,7 +221,7 @@ const ITEM_KEYWORDS: Record<string, string[]> = {
   "/finanzas/cuentas": ["cuentas", "bancos", "caja", "saldos", "pagos", "credito", "deudas", "dinero"],
   "/contactos": ["clientes", "proveedores", "contactos", "compradores", "telefono", "whatsapp", "direccion", "ciudad", "credito", "directorio"],
   "/planeacion/calendario": ["calendario", "rutina", "rutinas", "tareas", "hoy", "horizonte", "cumplimiento", "autoajustable", "vencimientos", "agenda"],
-  "/planeacion/proyectos/p1": ["plantilla", "proyecto", "seguridad alimentaria", "autonomia alimentaria", "formulacion", "aliado", "IwaGranja"],
+  "/planeacion/proyectos/p1": ["diseño de proyectos rurales", "produccion animal", "pequena escala", "formulador", "proyectos", "plantilla", "seguridad alimentaria", "autonomia alimentaria", "formulacion", "aliado", "IwaGranja"],
   "/produccion?tab=animales": ["animales", "aves", "gallinas", "gallos", "pollos", "codornices", "patos", "conejos", "cuyes", "cuy", "inventario animal", "lotes"],
   "/analisis": ["analisis", "reportes", "metricas", "estadisticas"],
   "/analisis/kpis": ["kpis", "indicadores", "metricas", "metas", "rendimiento", "produccion", "eficiencia", "epef", "cv%", "uniformidad", "parejo", "haa", "gdm", "fcr", "conversion", "ventana de sacrificio", "cosecha", "capex", "roi", "retorno equipos", "valor de animales", "patrimonio"],

@@ -16,6 +16,7 @@ import {
 import { BrandLogo } from "@/components/BrandLogo";
 import { DeveloperCredit } from "@/components/DeveloperCredit";
 import { LegalLinksBar } from "@/components/LegalLinksBar";
+import { PublicNavigation } from "@/components/PublicNavigation";
 import { trackAnalyticsEvent } from "@/components/AnalyticsTracker";
 
 function fallbackCopyText(text: string): boolean {
@@ -167,7 +168,9 @@ export default function RegistroPage() {
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-earth-100 via-earth-50 to-amber-50 p-4">
+    <div className="flex min-h-screen flex-col bg-gradient-to-br from-earth-100 via-earth-50 to-amber-50">
+      <PublicNavigation sticky={false} action={null} />
+      <main className="flex flex-1 items-center justify-center p-4">
       <div className="w-full max-w-md bg-white rounded-2xl shadow-xl border border-earth-200 p-6 sm:p-8">
         <div className="text-center mb-6">
           <BrandLogo
@@ -408,6 +411,7 @@ export default function RegistroPage() {
           <LegalLinksBar className="pt-1" />
         </div>
       </div>
+      </main>
     </div>
   );
 }

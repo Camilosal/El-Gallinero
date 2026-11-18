@@ -23,8 +23,7 @@ import {
   WifiOff,
   Bird,
 } from "lucide-react";
-import MobileNav from "@/components/MobileNav";
-import LandingDesktopNav from "@/components/LandingDesktopNav";
+import { PublicNavigation } from "@/components/PublicNavigation";
 import ScrollReveal from "@/components/ScrollReveal";
 import { BrandLogo } from "@/components/BrandLogo";
 import { LandingShowcase } from "@/components/LandingShowcase";
@@ -153,43 +152,7 @@ export default function HomePage() {
       <JsonLd data={jsonLd} />
 
       <ScrollReveal>
-        <nav className="land-nav" aria-label="Navegación principal">
-          <div className="land-wrap flex items-center justify-between gap-4 py-2.5 sm:py-3">
-            <Link
-              href="#top"
-              aria-label="IwaGranja — Inicio"
-              className="inline-flex items-center shrink-0"
-            >
-              <BrandLogo
-                variant="horizontal"
-                height={42}
-                priority
-                className="h-9 sm:h-[42px] w-auto"
-              />
-            </Link>
-
-            <div className="hidden md:flex items-center gap-4">
-              <LandingDesktopNav />
-            </div>
-
-            <div className="flex items-center gap-2">
-              <Link
-                href="/login"
-                className="hidden sm:inline-flex items-center rounded-full border border-[var(--line)] bg-[var(--paper)] px-3.5 py-2 text-xs font-semibold text-[var(--ink)] hover:border-[var(--forest)] transition"
-              >
-                Entrar
-              </Link>
-              <Link
-                href="/registro"
-                className="hidden sm:inline-flex items-center gap-1.5 rounded-full bg-[var(--forest)] px-4 py-2 text-xs font-semibold text-white hover:bg-[var(--forest-deep)] transition"
-              >
-                Crear granja gratis
-                <ArrowRight className="w-3.5 h-3.5" />
-              </Link>
-              <MobileNav />
-            </div>
-          </div>
-        </nav>
+        <PublicNavigation brandHref="#top" />
 
         <header className="land-hero relative overflow-hidden bg-[var(--forest-deep)] text-[#f5efe2]">
           <Image

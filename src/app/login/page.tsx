@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { ArrowLeft, Leaf } from "lucide-react";
+import { Leaf } from "lucide-react";
 import { BrandLogo } from "@/components/BrandLogo";
 import { HeroFrame } from "@/components/HeroFrame";
 import { DeveloperCredit } from "@/components/DeveloperCredit";
@@ -41,18 +41,7 @@ export default function LoginPage() {
   };
 
   return (
-    <div className="min-h-screen flex flex-col bg-gradient-to-br from-earth-50 via-white to-earth-100">
-      {/* Header */}
-      <div className="p-4">
-        <Link
-          href="/"
-          className="inline-flex items-center gap-2 text-earth-600 hover:text-earth-700 transition-colors font-medium"
-        >
-          <ArrowLeft className="w-4 h-4" />
-          Volver al inicio
-        </Link>
-      </div>
-
+    <div className="flex min-h-[calc(100dvh-74px)] flex-col bg-gradient-to-br from-earth-50 via-white to-earth-100">
       {/* Main Content */}
       <div className="flex-1 flex items-center justify-center px-4 pb-12">
         <div className="w-full max-w-md">

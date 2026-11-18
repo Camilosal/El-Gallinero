@@ -45,14 +45,14 @@ const MENUS: { id: string; label: string; columns: MenuColumn[]; width: string }
       {
         title: "Aprender y consultar",
         links: [
-          { href: "/recursos#articulos", label: "Artículos y bitácoras", description: "Notas técnicas, guías y documentación." },
-          { href: "/recursos#herramientas", label: "Herramientas y calculadoras", description: "Plantillas y recursos operativos." },
+          { href: "/bitacora", label: "Artículos y bitácoras", description: "Notas técnicas, guías y documentación." },
+          { href: "/recursos/herramientas", label: "Herramientas y calculadoras", description: "Plantillas y recursos operativos." },
         ],
       },
       {
         title: "Seguir el proyecto",
         links: [
-          { href: "/recursos#novedades", label: "Noticias y novedades", description: "Actualizaciones, alianzas y aprendizajes." },
+          { href: "/recursos/novedades", label: "Noticias y novedades", description: "Actualizaciones, alianzas y aprendizajes publicados." },
           { href: "/recursos", label: "Centro de recursos", description: "Ver los tres grupos en una sola página." },
         ],
       },

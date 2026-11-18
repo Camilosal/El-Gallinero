@@ -2676,7 +2676,7 @@ export const guides: Guide[] = [
       {
         type: "note",
         title: "Ejemplo: conectar un cliente MCP (Claude u otro)",
-        text: 'Apunta tu cliente MCP al servidor de la granja con un token que tenga scopes agent. En Claude Desktop o cualquier cliente compatible con Streamable HTTP: { "mcpServers": { "iwagranja": { "type": "streamable-http", "url": "https://<dominio>/api/mcp", "headers": { "Authorization": "Bearer glli_exp_TU_TOKEN" } } } }. El cliente hace initialize, tools/list y tools/call sobre las mismas herramientas de Gina. Las ventas y demás acciones sensibles llegan como pendientes con actionId: se confirman con el mismo token en POST /api/asistente/acciones/{actionId}/confirmar o desde la app. Los tokens con agent:write vencen obligatoriamente en máximo 90 días.',
+        text: "En Claude web o Claude Desktop, agrega un conector remoto desde Customize → Connectors → Add custom connector. Usa https://app.iwage.co/api/mcp, selecciona No sign in y añade el encabezado Authorization con el valor Bearer <TOKEN>. Luego conecta el conector y habilítalo en la conversación. En planes Team/Enterprise, un propietario debe agregarlo primero en Organization settings → Connectors. Para otros clientes compatibles con Streamable HTTP, configura esa misma URL y el encabezado Bearer según el formato del cliente; Claude usa Connectors para servidores remotos, no claude_desktop_config.json. El cliente hace initialize, tools/list y tools/call sobre las herramientas de Gina. Las acciones sensibles llegan como pendientes con actionId y se confirman con el mismo token o desde la app. Los tokens con agent:write vencen obligatoriamente en máximo 90 días.",
       },
       {
         type: "warning",

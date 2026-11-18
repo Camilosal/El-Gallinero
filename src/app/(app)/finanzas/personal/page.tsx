@@ -35,6 +35,13 @@ import { todayColombiaIso } from "@/lib/date-validation";
 import { useOnboardingState } from "@/lib/useOnboardingState";
 import { useActionQuery } from "@/lib/useActionQuery";
 import { calculateTransportAllowanceCop, computePayrollLiquidation } from "@/lib/analytics/payroll-tax-supplies";
+import OwnerLaborEstimator from "@/components/OwnerLaborEstimator";
+import {
+  DEFAULT_OWNER_LABOR_ESTIMATOR_SETTINGS,
+  type OwnerLaborEstimatorSettings,
+  type OwnerLaborSpeciesKey,
+  type OwnerLaborWorkloadEstimate,
+} from "@/lib/analytics/owner-labor-estimator";
 
 interface StaffProfile {
   id: string;
@@ -94,9 +101,36 @@ interface TaxConfigSummary {
   transportAllowanceMaxSmlmv: number;
   daysPerMonth: number;
   hoursPerDay: number;
+  ordinaryHoursPerMonth: number;
+  ownerReferenceHourlyRateCop: number;
   weeksPerMonth: number;
   quincenasPerMonth: number;
   includeImputedOwnerLabor: boolean;
+  ownerLabor: OwnerLaborEstimatorSettings;
+}
+
+interface FarmLocationOption {
+  id: string;
+  name: string;
+  type?: string;
+  status?: string;
+  operationalStatus?: string;
+  allowedSpecies?: string[];
+  animals?: number;
+}
+
+const OWNER_CARE_LOCATION_TYPES = new Set(["corral", "jaula", "galpon", "potrero", "jardin", "patio"]);
+
+function emptyOwnerLaborCounts(): Partial<Record<OwnerLaborSpeciesKey, number>> {
+  return {
+    gallina: 0,
+    gallo: 0,
+    pollo: 0,
+    codorniz: 0,
+    pato: 0,
+    conejo: 0,
+    cuy: 0,
+  };
 }
 
 const fmt = (v: number | string) => `$${Math.round(Number(v || 0)).toLocaleString("es-CO")}`;
@@ -114,6 +148,7 @@ const PRORATION_LABELS: Record<string, string> = {
   biomass: "Repartir por biomasa (kg)",
   feed_kg: "Repartir por consumo de alimento",
   area_m2: "Repartir por área (m²)",
+  manual: "Prorrateo por tiempo estimado",
 };
 
 export default function PersonalPage() {
@@ -132,7 +167,8 @@ function PersonalPageInner() {
 
   const [profiles, setProfiles] = useState<StaffProfile[]>([]);
   const [entries, setEntries] = useState<PayrollEntry[]>([]);
-  const [locations, setLocations] = useState<Array<{ id: string; name: string }>>([]);
+  const [locations, setLocations] = useState<FarmLocationOption[]>([]);
+  const [animalCounts, setAnimalCounts] = useState<Partial<Record<OwnerLaborSpeciesKey, number>>>(emptyOwnerLaborCounts);
   const [taxConfig, setTaxConfig] = useState<TaxConfigSummary | null>(null);
   const [monthSummary, setMonthSummary] = useState({
     ownerImputedMonthCop: 0,
@@ -147,6 +183,8 @@ function PersonalPageInner() {
   const [staffError, setStaffError] = useState("");
 
   const [liqModalOpen, setLiqModalOpen] = useState(false);
+  const [isEstimatedOwnerLabor, setIsEstimatedOwnerLabor] = useState(false);
+  const [ownerLaborAllocationHours, setOwnerLaborAllocationHours] = useState<Partial<Record<OwnerLaborSpeciesKey, number>>>({});
   const [liqError, setLiqError] = useState("");
   const [savingLiquidation, setSavingLiquidation] = useState(false);
   const savingLiquidationRef = useRef(false);
@@ -172,6 +210,8 @@ function PersonalPageInner() {
   const [liqForm, setLiqForm] = useState({
     staffId: "",
     date: todayColombiaIso(),
+    periodFrom: "",
+    periodTo: "",
     unitsWorked: "1",
     unitRateCop: "",
     bonusesCop: "0",
@@ -193,17 +233,36 @@ function PersonalPageInner() {
     try {
       const today = todayColombiaIso();
       const yearStart = `${today.slice(0, 4)}-01-01`;
-      const [staffRes, liqRes, locRes] = await Promise.all([
+      const [staffRes, liqRes, locRes, inventoryRes] = await Promise.all([
         apiFetch("/api/finanzas/personal").then((r) => r.json()),
         apiFetch(`/api/finanzas/personal/liquidaciones?from=${yearStart}&to=${today}`).then((r) => r.json()),
         apiFetch("/api/ubicaciones?active=true").then((r) => r.json()),
+        apiFetch("/api/inventarios/animales").then((r) => r.json()),
       ]);
-      const profList: StaffProfile[] = Array.isArray(staffRes?.profiles) ? staffRes.profiles : [];
+      let profList: StaffProfile[] = Array.isArray(staffRes?.profiles) ? staffRes.profiles : [];
+      if (!profList.some((profile) => profile.workerKind === "productor" && profile.isActive)) {
+        const defaultProducerRes = await apiFetch("/api/finanzas/personal/default-producer", { method: "POST" });
+        if (defaultProducerRes.ok) {
+          const defaultProducerData = await defaultProducerRes.json().catch(() => null);
+          const defaultProducer = defaultProducerData?.profile as StaffProfile | undefined;
+          if (defaultProducer && !profList.some((profile) => profile.id === defaultProducer.id)) {
+            profList = [...profList, defaultProducer];
+          }
+        }
+      }
       setProfiles(profList);
       if (staffRes?.taxConfig) setTaxConfig(staffRes.taxConfig);
       if (staffRes?.monthSummary) setMonthSummary(staffRes.monthSummary);
       setEntries(Array.isArray(liqRes?.entries) ? liqRes.entries : []);
       setLocations(Array.isArray(locRes) ? locRes : []);
+      const nextAnimalCounts = emptyOwnerLaborCounts();
+      if (Array.isArray(inventoryRes?.species)) {
+        for (const row of inventoryRes.species) {
+          const key = String(row?.species || "") as OwnerLaborSpeciesKey;
+          if (key in nextAnimalCounts) nextAnimalCounts[key] = Math.max(0, Number(row?.count || 0));
+        }
+      }
+      setAnimalCounts(nextAnimalCounts);
     } finally {
       setLoading(false);
     }
@@ -214,21 +273,30 @@ function PersonalPageInner() {
   }, [load]);
 
   const openNewStaff = useCallback(
-    (presetKind?: "productor" | "apoyo") => {
+    (presetKind?: "productor" | "apoyo", hourlyOwnerEstimateProfile = false) => {
       setEditingStaff(null);
       setStaffError("");
       const kind = presetKind || (profiles.some((p) => p.workerKind === "productor") ? "apoyo" : "productor");
       setStaffForm({
-        fullName: kind === "productor" ? "Mi trabajo (Productor)" : "",
+        fullName: kind === "productor"
+          ? hourlyOwnerEstimateProfile
+            ? "Trabajo propio · valoración horaria"
+            : "Mi trabajo (Productor)"
+          : "",
         documentId: "",
         workerKind: kind,
         contractType: kind === "productor" ? "propio" : isMediano ? "salario_fijo" : "jornal",
-        payPeriod: kind === "apoyo" && isMediano ? "mes" : "dia",
-        baseRateCop:
-          kind === "apoyo" && isMediano
+        payPeriod: kind === "productor" ? "hora" : isMediano ? "mes" : "dia",
+        baseRateCop: kind === "productor"
+          ? String(taxConfig?.ownerReferenceHourlyRateCop ?? "")
+          : isMediano
             ? String(taxConfig?.smlmvCop ?? "")
             : String(taxConfig?.dailySmlmvCop ?? ""),
-        roleLabel: kind === "productor" ? "Propietario / Productor" : "Galponero / Apoyo",
+        roleLabel: kind === "productor"
+          ? hourlyOwnerEstimateProfile
+            ? "Trabajo propio · valoración económica"
+            : "Propietario / Productor"
+          : "Galponero / Apoyo",
         defaultSpecies: "",
         defaultLocationId: "",
         applySocialSecurity: kind === "apoyo" && isMediano,
@@ -255,7 +323,7 @@ function PersonalPageInner() {
       roleLabel: p.roleLabel || "",
       defaultSpecies: p.defaultSpecies || "",
       defaultLocationId: p.defaultLocationId || "",
-      applySocialSecurity: p.applySocialSecurity,
+      applySocialSecurity: p.workerKind === "productor" && p.payPeriod === "hora" ? false : p.applySocialSecurity,
       includeTransportAllowance: p.includeTransportAllowance,
       employerBurdenPct: String(taxConfig?.employerBurdenPct ?? ""),
       workerDeductionPct: String(taxConfig?.workerDeductionPct ?? ""),
@@ -266,6 +334,7 @@ function PersonalPageInner() {
 
   const openLiquidationFor = useCallback(
     (staff?: StaffProfile) => {
+      setIsEstimatedOwnerLabor(false);
       setLiqError("");
       liquidationMutationIdRef.current = null;
       const target = staff || profiles.find((p) => p.isActive) || profiles[0];
@@ -277,6 +346,8 @@ function PersonalPageInner() {
       setLiqForm({
         staffId: target.id,
         date: todayColombiaIso(),
+        periodFrom: "",
+        periodTo: "",
         unitsWorked: "1",
         unitRateCop: target.baseRateCop,
         bonusesCop: "0",
@@ -383,6 +454,15 @@ function PersonalPageInner() {
   const saveLiquidation = async () => {
     if (savingLiquidationRef.current) return;
     setLiqError("");
+    const ownerAllocationRows = Object.entries(ownerLaborAllocationHours)
+      .filter(([, hours]) => Number(hours || 0) > 0);
+    const ownerAllocationHoursTotal = ownerAllocationRows.reduce((sum, [, hours]) => sum + Number(hours || 0), 0);
+    const ownerLaborAllocations = isEstimatedOwnerLabor && ownerAllocationHoursTotal > 0
+      ? ownerAllocationRows.map(([species, hours]) => ({
+          species,
+          percentage: Number(((Number(hours) / ownerAllocationHoursTotal) * 100).toFixed(4)),
+        }))
+      : undefined;
     savingLiquidationRef.current = true;
     setSavingLiquidation(true);
     liquidationMutationIdRef.current ||= crypto.randomUUID();
@@ -405,6 +485,8 @@ function PersonalPageInner() {
           species: liqForm.species || null,
           locationId: liqForm.locationId || null,
           prorationBasis: liqForm.prorationBasis || null,
+          ownerLaborAllocations,
+          ownerLaborEstimate: isEstimatedOwnerLabor,
         }),
       });
     } catch (err) {
@@ -447,6 +529,56 @@ function PersonalPageInner() {
 
   const ownerProfiles = profiles.filter((p) => p.workerKind === "productor" && p.isActive);
   const supportProfiles = profiles.filter((p) => p.workerKind === "apoyo");
+  const ownerHourlyProfile = ownerProfiles.find((profile) => profile.payPeriod === "hora") || null;
+  const activeCareLocations = locations.filter((location) => {
+    if (location.status === "inactiva" || location.operationalStatus === "fuera_servicio") return false;
+    if (location.type && OWNER_CARE_LOCATION_TYPES.has(location.type)) return true;
+    return location.type === "otro" && Boolean(location.allowedSpecies?.length);
+  }).length;
+  const activeAnimalCount = Object.values(animalCounts).reduce((sum, count) => sum + Number(count || 0), 0);
+  const initialCareLocations = activeCareLocations || (activeAnimalCount > 0 ? 1 : 0);
+  const ownerLaborSettings = taxConfig?.ownerLabor || DEFAULT_OWNER_LABOR_ESTIMATOR_SETTINGS;
+
+  const configureOwnerHourlyRate = () => {
+    openNewStaff("productor", ownerProfiles.length > 0);
+  };
+
+  const prepareEstimatedOwnerLiquidation = (estimate: OwnerLaborWorkloadEstimate) => {
+    if (!ownerHourlyProfile) {
+      configureOwnerHourlyRate();
+      return;
+    }
+    setIsEstimatedOwnerLabor(true);
+    setLiqError("");
+    liquidationMutationIdRef.current = null;
+    setOwnerLaborAllocationHours(estimate.speciesHoursPerMonth);
+    const today = todayColombiaIso();
+    const [year, month] = today.split("-").map(Number);
+    const periodFrom = `${today.slice(0, 7)}-01`;
+    const lastDay = new Date(year, month, 0).getDate();
+    const periodTo = `${today.slice(0, 7)}-${String(lastDay).padStart(2, "0")}`;
+    setLiqForm({
+      staffId: ownerHourlyProfile.id,
+      date: periodFrom,
+      periodFrom,
+      periodTo,
+      unitsWorked: String(estimate.ownerHoursPerMonth),
+      unitRateCop: ownerHourlyProfile.baseRateCop,
+      bonusesCop: "0",
+      accountingMode: "imputed_economic",
+      isCredit: false,
+      dueDate: "",
+      applySocialSecurity: false,
+      employerBurdenPct: "0",
+      workerDeductionPct: "0",
+      reteFuenteRatePct: "0",
+      species: "",
+      locationId: "",
+      prorationBasis: Object.values(estimate.speciesHoursPerMonth).some((hours) => hours > 0) ? "manual" : "",
+      notes: "Estimación mensual de trabajo propio según instalaciones, inventario por especie y tiempos de referencia. Revisar antes de confirmar.",
+    });
+    setLiqModalOpen(true);
+  };
 
   return (
     <div className="space-y-6">
@@ -455,13 +587,17 @@ function PersonalPageInner() {
         description={
           isMediano
             ? "Gestiona personal de apoyo, jornales, seguridad social, retenciones y reparto entre especies o galpones."
-            : "Crea el hábito de valorar tu trabajo diario en los costos reales, sin distorsionar la caja cuando aún no retiras sueldo."
+            : "Registra los pagos reales y estima el tiempo que sí dedicas a la granja. El trabajo propio no se presume como una jornada completa."
         }
+        help={`• Nómina y jornales contratados se calculan con la tarifa y condiciones de cada perfil.\n• El estimador de trabajo propio usa instalaciones, cantidades por especie, días de cuidado y participación del productor.\n• La tarifa horaria inicial equivale a una hora de SMMLV más el costo patronal y el auxilio de transporte configurados; puedes ajustarla a las condiciones reales de tu territorio.\n• La estimación no se registra sola: al confirmarla queda como costo económico, sin salida de caja.\n• Si está activado «Incluir trabajo propio en punto de equilibrio», el costo confirmado entra al análisis unitario; revisa y calibra los minutos de referencia en Catálogos.`}
         actions={
           <div className="flex flex-wrap gap-2">
-            <HeroActionButton tone="solid" onClick={() => openLiquidationFor(ownerProfiles[0])}>
+            <HeroActionButton
+              tone="solid"
+              onClick={() => ownerHourlyProfile ? openLiquidationFor(ownerHourlyProfile) : configureOwnerHourlyRate()}
+            >
               <Plus className="w-4 h-4" />
-              <span>{ownerProfiles.length > 0 ? "Registrar mi jornal" : "Configurar mi trabajo"}</span>
+              <span>{ownerHourlyProfile ? "Registrar horas propias" : ownerProfiles.length > 0 ? "Configurar tarifa por hora" : "Configurar mi trabajo"}</span>
             </HeroActionButton>
             <HeroActionButton tone="glass" onClick={() => openNewStaff("apoyo")}>
               <UserPlus className="w-4 h-4" />
@@ -479,12 +615,12 @@ function PersonalPageInner() {
           <div className="space-y-1">
             <p className="text-xs font-bold uppercase tracking-wider text-emerald-800 flex items-center gap-1.5">
               <Sparkles className="w-4 h-4" />
-              <span>{isMediano ? "Modo Mediano: Nómina, Aportes y Prorrateo" : "Modo Pequeño: Págate tu propio trabajo"}</span>
+              <span>{isMediano ? "Modo Mediano: Nómina, Aportes y Prorrateo" : "Modo Pequeño: Valora el tiempo que sí trabajas"}</span>
             </p>
             <p className="text-sm text-slate-700 max-w-3xl">
               {isMediano
                 ? `Referencias configuradas: SMLMV ${fmt(taxConfig?.smlmvCop ?? 0)} · Auxilio ${fmt(taxConfig?.transportAllowanceCop ?? 0)} · Aporte empleador ${taxConfig?.employerBurdenPct ?? 0}% · Deducción trabajador ${taxConfig?.workerDeductionPct ?? 0}%.`
-                : `Aunque todavía no retires efectivo del bolsillo, registrar tu tarifa diaria (${fmt(taxConfig?.dailySmlmvCop ?? 0)}/día según el SMLMV configurado) suma tu esfuerzo al costo real por huevo y por kilo. Cuando sí te pagues, conviértelo en retiro de caja con un clic.`}
+                : "El cálculo parte de las tareas y animales que atiendes. Solo registra horas y una tarifa por hora cuando quieras valorar ese aporte; un costo imputado no es un pago ni una obligación de retirar un salario mensual."}
             </p>
           </div>
           <Badge color={taxConfig?.includeImputedOwnerLabor ? "green" : "gray"}>
@@ -494,6 +630,17 @@ function PersonalPageInner() {
           </Badge>
         </div>
       </Card>
+
+      <OwnerLaborEstimator
+        dataLoaded={!loading}
+        initialInstallations={initialCareLocations}
+        initialAnimalCounts={animalCounts}
+        settings={ownerLaborSettings}
+        ownerHourlyRateCop={ownerHourlyProfile ? Number(ownerHourlyProfile.baseRateCop) : null}
+        includeInBreakEven={Boolean(taxConfig?.includeImputedOwnerLabor)}
+        onConfigureHourlyRate={configureOwnerHourlyRate}
+        onUseEstimate={prepareEstimatedOwnerLiquidation}
+      />
 
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
         <StatCard
@@ -547,7 +694,7 @@ function PersonalPageInner() {
         ) : profiles.length === 0 ? (
           <EmptyState
             icon="users"
-            message="Aún no registras tu tarifa diaria ni personal de apoyo. Empieza creando tu perfil de productor en 20 segundos."
+            message="Aún no registras tu trabajo propio ni personal de apoyo. Empieza con una tarifa horaria de referencia que tú defines."
           />
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
@@ -756,6 +903,7 @@ function PersonalPageInner() {
                   ...staffForm,
                   workerKind: kind,
                   contractType: kind === "productor" ? "propio" : "jornal",
+                  applySocialSecurity: kind === "productor" && staffForm.payPeriod === "hora" ? false : staffForm.applySocialSecurity,
                   includeTransportAllowance: kind === "apoyo" ? staffForm.includeTransportAllowance : false,
                 });
               }}
@@ -784,7 +932,16 @@ function PersonalPageInner() {
             <Select
               label="Periodo tarifa"
               value={staffForm.payPeriod}
-              onChange={(e) => setStaffForm({ ...staffForm, payPeriod: e.target.value as StaffProfile["payPeriod"] })}
+              onChange={(e) => {
+                const payPeriod = e.target.value as StaffProfile["payPeriod"];
+                setStaffForm({
+                  ...staffForm,
+                  payPeriod,
+                  applySocialSecurity: staffForm.workerKind === "productor" && payPeriod === "hora"
+                    ? false
+                    : staffForm.applySocialSecurity,
+                });
+              }}
             >
               <option value="dia">Día / jornal</option>
               <option value="hora">Hora</option>
@@ -795,7 +952,12 @@ function PersonalPageInner() {
           </div>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <Input
-              label="Tarifa base (COP)"
+              label={staffForm.workerKind === "productor" && staffForm.payPeriod === "hora"
+                ? "Tarifa horaria de referencia (COP/h)"
+                : `Tarifa base (COP/${staffForm.payPeriod})`}
+              help={staffForm.workerKind === "productor" && staffForm.payPeriod === "hora"
+                ? `Referencia inicial: (SMLMV + ${taxConfig?.employerBurdenPct ?? 0}% de costo patronal + auxilio de transporte configurado) ÷ ${taxConfig?.ordinaryHoursPerMonth ?? 210} horas. Puedes modificarla por territorio. La valoración no crea un pago y las horas se confirman por periodo.`
+                : undefined}
               type="number"
               min="1"
               step="100"
@@ -840,10 +1002,13 @@ function PersonalPageInner() {
               <input
                 type="checkbox"
                 checked={staffForm.applySocialSecurity}
+                disabled={staffForm.workerKind === "productor" && staffForm.payPeriod === "hora"}
                 onChange={(e) => setStaffForm({ ...staffForm, applySocialSecurity: e.target.checked })}
                 className="rounded border-slate-300"
               />
-              <span>Aplicar seguridad social, prestaciones y deducciones por defecto</span>
+              <span>{staffForm.workerKind === "productor" && staffForm.payPeriod === "hora"
+                ? "La tarifa de referencia ya incluye los costos patronales configurados"
+                : "Aplicar seguridad social, prestaciones y deducciones por defecto"}</span>
             </label>
             {staffForm.applySocialSecurity && (
               <div className="grid grid-cols-2 gap-3">
@@ -899,18 +1064,25 @@ function PersonalPageInner() {
       <Modal
         open={liqModalOpen}
         onClose={() => setLiqModalOpen(false)}
-        title="Registrar jornal, sueldo propio o nómina"
+        title={isEstimatedOwnerLabor ? "Revisar estimación del trabajo propio" : "Registrar jornal, sueldo propio o nómina"}
       >
         <div className="space-y-4">
           {liqError && <p className="text-sm text-red-600 bg-red-50 p-3 rounded-lg">{liqError}</p>}
+          {isEstimatedOwnerLabor && (
+            <div className="rounded-xl border border-sky-200 bg-sky-50 p-3 text-xs leading-relaxed text-sky-950">
+              <p className="font-semibold">Periodo estimado: {liqForm.periodFrom} a {liqForm.periodTo}</p>
+              <p className="mt-1">Las horas se reparten entre especies según el tiempo calculado. Al guardar, queda un costo económico; no crea egreso ni cuenta por pagar.</p>
+            </div>
+          )}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <Select
               label="Persona"
               value={liqForm.staffId}
+              disabled={isEstimatedOwnerLabor}
               onChange={(e) => onSelectLiquidationStaff(e.target.value)}
             >
               {profiles
-                .filter((p) => p.isActive)
+                .filter((p) => p.isActive && (!isEstimatedOwnerLabor || (p.workerKind === "productor" && p.payPeriod === "hora")))
                 .map((p) => (
                   <option key={p.id} value={p.id}>
                     {p.fullName} ({fmt(p.baseRateCop)}/{p.payPeriod})
@@ -927,7 +1099,7 @@ function PersonalPageInner() {
 
           <div className="grid grid-cols-3 gap-3">
             <Input
-              label="Unidades (días/h/mes)"
+              label={isEstimatedOwnerLabor ? "Horas estimadas del mes" : `Unidades (${profiles.find((p) => p.id === liqForm.staffId)?.payPeriod || "días/h/mes"})`}
               type="number"
               step="0.25"
               min="0.1"
@@ -948,6 +1120,7 @@ function PersonalPageInner() {
               step="100"
               min="0"
               value={liqForm.bonusesCop}
+              disabled={isEstimatedOwnerLabor}
               onChange={(e) => setLiqForm({ ...liqForm, bonusesCop: e.target.value })}
             />
           </div>
@@ -957,6 +1130,7 @@ function PersonalPageInner() {
             <Select
               label="Modo contable"
               value={liqForm.accountingMode}
+              disabled={isEstimatedOwnerLabor}
               onChange={(e) =>
                 setLiqForm({
                   ...liqForm,

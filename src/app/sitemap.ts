@@ -10,8 +10,8 @@ export default function sitemap(): MetadataRoute.Sitemap {
   const entries: MetadataRoute.Sitemap = staticRoutes.map((route) => ({
     url: `${SITE_URL}${route}`,
     lastModified: new Date(STATIC_ROUTE_LAST_MODIFIED[route]),
-    changeFrequency: route === "" || route === "/funcionalidades" || route === "/recursos" || route === "/bitacora" || route === "/guia" ? "weekly" : "monthly",
-    priority: route === "" ? 1 : route === "/registro" || route === "/funcionalidades" || route === "/recursos" || route === "/bitacora" || route === "/guia" ? 0.9 : 0.7,
+    changeFrequency: ["", "/funcionalidades", "/recursos", "/recursos/herramientas", "/recursos/novedades", "/bitacora", "/guia"].includes(route) ? "weekly" : "monthly",
+    priority: route === "" ? 1 : ["/registro", "/funcionalidades", "/recursos", "/recursos/herramientas", "/recursos/novedades", "/bitacora", "/guia"].includes(route) ? 0.9 : 0.7,
   }));
 
   for (const plan of CYCLE_PLANS_SHOWCASE) {

@@ -29,8 +29,8 @@ const opciones = [
   {
     href: "/planeacion/proyectos/p1",
     icon: "book-open",
-    label: "Plantilla de proyecto P1",
-    desc: "Explora y personaliza una ficha inicial para proyectos de seguridad y autonomía alimentaria, con un plan preliminar y medición diferenciada.",
+    label: "Diseño de Proyectos Rurales con Producción Animal",
+    desc: "Adapta siete modelos de intervención donde la producción animal aporta a alimentación, medios de vida, salud productiva, mercados y sostenibilidad.",
   },
 ];
 
@@ -44,8 +44,8 @@ export default function PlaneacionPage() {
     <div>
       <PageHeader
         title="Planeación y Soberanía"
-        description="Calendario maestro con rutinas auto-ajustables, proyección de parvada y soberanía alimentaria del hogar."
-        help="Este grupo unifica la programación operativa y la planificación a mediano y largo plazo de tu granja:\n\n• Calendario Maestro y Rutinas: centraliza tareas diarias auto-ajustables en Inicio, eventos de sanidad, incubación, reproducción, lotes, compostaje y vencimientos financieros, con seguimiento de cumplidos vs. incumplidos.\n• Plan de Parvada: proyección de postura, alimento y reemplazo basada en la edad real de tus gallinas.\n• Soberanía Alimentaria: seguimiento de lo que produces y consumes en casa (huevos y carne multiespecie), con cálculo de ahorro económico versus mercado."
+        description="Calendario y rutinas de la granja, proyección de parvada, soberanía alimentaria y diseño de proyectos rurales con producción animal."
+        help="Este grupo unifica la programación operativa y la planificación a mediano y largo plazo de tu granja:\n\n• Calendario Maestro y Rutinas: centraliza tareas diarias auto-ajustables en Inicio, eventos de sanidad, incubación, reproducción, lotes, compostaje y vencimientos financieros, con seguimiento de cumplidos vs. incumplidos.\n• Plan de Parvada: proyección de postura, alimento y reemplazo basada en la edad real de tus gallinas.\n• Soberanía Alimentaria: seguimiento de lo que produces y consumes en casa (huevos y carne multiespecie), con cálculo de ahorro económico versus mercado.\n• Diseño de Proyectos Rurales con Producción Animal: organiza fichas iniciales con siete modelos por propósito, un plan de implementación y medición diferenciada."
       />
 
       <TableSearch

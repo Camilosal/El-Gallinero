@@ -32,6 +32,7 @@ Cierre de Rutas 1 y 2 + armonización transversal del agente, la navegación y l
 - **Gating del briefing proactivo:** los hallazgos con rutas bloqueadas para la escala de la granja se filtran antes de narrar y entregar (PEQUENO nunca recibe recomendaciones de módulos no desbloqueados).
 - **Descubribilidad de `/finanzas/personal`:** sinónimos de campo (nómina, jornal, salario, prestaciones…) agregados al buscador global; la matriz de armonización de G1 queda sin huecos.
 - **Auditoría de confirmaciones remotas por Telegram:** las acciones pendientes creadas por otro canal (API v1 / MCP) y confirmadas con el teclado inline de Telegram quedaban con `origin: telegram` pero `chat_id` en null. Ahora el callback estampa el chat que resuelve la acción (confirmación y cancelación), completando la trazabilidad exigida por C3 paso 8. Detectado en el ensayo técnico B.2; cubierto por prueba de regresión.
+- **Aislamiento de la suite de fuentes externas (tests):** la norma personalizada creada en `external-sources-waves.test.ts` se limpiaba solo dentro del `try`; si la prueba fallaba a mitad (p. ej. timeout), el residuo en `normative.custom_items_json` contaminaba la siguiente corrida contra el mismo DB de test. La limpieza ahora va en el `finally`; verificado con dos corridas consecutivas en verde.
 
 ## [1.1.0] - 2026-11-13
 

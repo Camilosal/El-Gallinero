@@ -48,9 +48,9 @@ export default function MobileNav() {
           <details className="border-b border-[var(--line)]">
             <summary className={SUMMARY_CLASS}>Recursos <ChevronDown className="h-4 w-4" /></summary>
             <div className="space-y-0.5 pb-2 pl-3">
-              <Link href="/recursos#articulos" onClick={close} className={GROUP_LINK_CLASS}>Artículos y bitácoras</Link>
-              <Link href="/recursos#herramientas" onClick={close} className={GROUP_LINK_CLASS}>Herramientas y calculadoras</Link>
-              <Link href="/recursos#novedades" onClick={close} className={GROUP_LINK_CLASS}>Noticias y novedades</Link>
+              <Link href="/bitacora" onClick={close} className={GROUP_LINK_CLASS}>Artículos y bitácoras</Link>
+              <Link href="/recursos/herramientas" onClick={close} className={GROUP_LINK_CLASS}>Herramientas y calculadoras</Link>
+              <Link href="/recursos/novedades" onClick={close} className={GROUP_LINK_CLASS}>Noticias y novedades</Link>
               <Link href="/recursos" onClick={close} className={GROUP_LINK_CLASS}>Ver todos los recursos</Link>
             </div>
           </details>

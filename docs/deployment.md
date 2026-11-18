@@ -44,7 +44,7 @@ Todas las variables de entorno requeridas y opcionales están documentadas en [`
 - **Cron del agente proactivo:** `CRON_SECRET` (compartido con el scheduler de fuentes externas) y `AGENT_PROACTIVE_HOUR_BOGOTA` (hora del briefing diario, por defecto 6).
 - **IoT, analítica y datos legales (opcional):** `SENSOR_WEBHOOK_TOKEN`, `NEXT_PUBLIC_SWETRIX_*`, `LEGAL_*`.
 
-> Asegúrate de definir un `.env` o `.env.local` propio en cada entorno para no heredar variables globales no deseadas del servidor.
+> **Qué archivo carga cada entorno:** Next.js local suele usar `.env.local`. Docker Compose, si no recibe `--env-file`, carga `.env` junto a los archivos Compose; no carga `.env.local` automáticamente. El comando documentado de staging sí pasa `--env-file .env.staging`, así que staging toma ese archivo. `.env.example` es solo una plantilla. Mantén secretos separados por entorno y no copies los de staging a producción.
 
 ## Datos de demostración (solo desarrollo / staging)
 
@@ -82,24 +82,15 @@ Consideraciones operativas:
 2. **Confirmación humana intacta:** las escrituras sensibles (ventas, gastos, cierres, pagos, etc.) devuelven `202` con `actionId` y solo se ejecutan tras `POST /api/asistente/acciones/{id}/confirmar` con el mismo token o desde la app. El piso duro no es configurable ni por MCP.
 3. **Rate limit y auditoría:** 60 solicitudes/minuto por token (en memoria, por instancia). Toda acción queda en `ai_actions` con `origin: external_agent` y `token_id`.
 4. **Sin configuración extra:** no requiere variables de entorno nuevas; usa la misma base de datos y el mismo puerto de la app. Las rutas se auto-autentican (no necesitan sesión de navegador).
-5. **Ejemplo de cliente MCP** (Claude Desktop u otro cliente Streamable HTTP):
+5. **Preparar el token:** en **Exportar → Conectores**, crea un token con `agent:read` para consultas. Añade `agent:write` solo si necesitas que el agente proponga registros; esas acciones sensibles siguen requiriendo confirmación y el token vence en máximo 90 días.
+6. **Claude (servidor remoto):** en `Customize → Connectors`, selecciona `Add custom connector`, agrega la URL `https://app.iwage.co/api/mcp` y continúa. Como el servidor usa un token fijo y no OAuth, elige `No sign in`; en `Request headers`, añade `Authorization` con el valor `Bearer <TOKEN>`. Después conecta el conector y habilítalo en la conversación desde `+ → Connectors`. En planes Team/Enterprise, primero debe agregarlo un propietario desde `Organization settings → Connectors`. Para MCP remoto, Claude Desktop se configura desde Connectors; `claude_desktop_config.json` corresponde a servidores locales.
 
-   ```json
-   {
-     "mcpServers": {
-       "iwagranja": {
-         "type": "streamable-http",
-         "url": "https://<dominio>/api/mcp",
-         "headers": { "Authorization": "Bearer glli_exp_TU_TOKEN" }
-       }
-     }
-   }
-   ```
+   En **otros clientes**, usa el transporte Streamable HTTP, la URL `https://app.iwage.co/api/mcp` y el encabezado `Authorization: Bearer <TOKEN>`. La forma de configurar ese encabezado depende del cliente. Si solo admite OAuth y no permite encabezados fijos, no podrá autenticarse con esta implementación.
 
    Verificación rápida sin cliente MCP:
 
    ```bash
-   curl -s https://<dominio>/api/mcp -H "Authorization: Bearer glli_exp_TU_TOKEN" \
+   curl -s https://app.iwage.co/api/mcp -H "Authorization: Bearer glli_exp_TU_TOKEN" \
      -H "Content-Type: application/json" \
      -d '{"jsonrpc":"2.0","id":1,"method":"tools/list"}'
    ```
@@ -108,7 +99,7 @@ Consideraciones operativas:
 
 El bot envía alertas y el parte diario, y además recibe consultas, notas de voz y confirmaciones de acciones pendientes.
 
-1. **Crear el bot** con @BotFather y definir en el entorno: `TELEGRAM_BOT_TOKEN`, `TELEGRAM_WEBHOOK_SECRET` (cadena aleatoria larga) y `APP_URL` (URL pública HTTPS de la app). `TELEGRAM_CHAT_ID` sigue siendo opcional para alertas salientes heredadas.
+1. **Crear el bot** con @BotFather y definir en el entorno: `TELEGRAM_BOT_TOKEN`, `TELEGRAM_BOT_USERNAME` (usuario público sin `@`, para el QR), `TELEGRAM_WEBHOOK_SECRET` (cadena aleatoria larga) y `APP_URL` (URL pública HTTPS de la app). `TELEGRAM_CHAT_ID` sigue siendo opcional para alertas salientes heredadas.
 2. **Registrar el webhook** con el secret_token (una sola vez por entorno):
 
    ```bash
@@ -119,7 +110,7 @@ El bot envía alertas y el parte diario, y además recibe consultas, notas de vo
    ```
 
    El webhook apunta a `POST /api/telegram/webhook` y la app valida el header `X-Telegram-Bot-Api-Secret-Token` contra `TELEGRAM_WEBHOOK_SECRET`; sin secreto configurado el webhook rechaza todo.
-3. **Vincular el chat del usuario:** en la app (Configuración → Módulos → Canal Telegram) se genera un código de pairing de un solo uso que dura 10 minutos; el usuario lo envía al bot con `/start CODIGO`. El chat queda en `telegram_chats`, hereda el rol y permisos de ese usuario, y puede cortarse con `/desvincular` o revocarse desde la app.
+3. **Vincular el chat del usuario:** en la app (Configuración → Módulos → Canal Telegram) se genera un QR dinámico con un enlace `https://t.me/<bot>?start=<codigo>`. Al escanearlo, Telegram abre el chat privado y el usuario debe pulsar **Iniciar**; el código de pairing se consume una sola vez y dura 10 minutos. Como alternativa, puede enviar `/start CODIGO` manualmente. El chat queda en `telegram_chats`, hereda el rol y permisos de ese usuario, y puede cortarse con `/desvincular` o revocarse desde la app.
 4. **Confirmaciones y auditoría:** las escrituras sensibles llegan como tarjeta con botones Confirmar/Cancelar; al confirmar se ejecutan con el mismo ejecutor del agente y quedan en `ai_actions` con `origin: telegram` y `chat_id`. El piso duro aplica igual que en la app.
 
 ## Cron del agente proactivo y schedulers

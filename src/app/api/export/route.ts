@@ -1,15 +1,22 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getSessionUser } from "@/lib/auth";
 import { runWithFarmContext } from "@/db/tenant-context";
+import { hasIntegrationScope } from "@/lib/export/auth";
 import { buildXlsxBytes, rowsToCsv } from "@/lib/export/xlsx";
 import type { CellValue } from "@/lib/export/xlsx";
 import {
   EXPORT_DATASETS,
+  EXPORT_BACKUP_ID,
+  EXPORT_TABLE_PREFIX,
   EXPORT_MAX_RANGE_DAYS,
   EXPORT_MAX_ROWS,
   EXPORT_PACKAGE_DATASETS,
   EXPORT_PACKAGE_ID,
   getExportDataset,
+  getExportRequiredScopes,
+  getBackupExportTableCatalog,
+  loadBackupTableExport,
+  loadCompleteFarmBackup,
   loadExportDataset,
   loadExportPackage,
   resolveExportRange,
@@ -24,6 +31,7 @@ export const dynamic = "force-dynamic";
 interface ExportActor {
   farmId: string;
   via: "session" | "token";
+  scopes: string[];
 }
 
 /**
@@ -41,14 +49,14 @@ async function resolveActor(req: NextRequest): Promise<ExportActor | NextRespons
         { status: 401 },
       );
     }
-    return { farmId: resolved.farmId, via: "token" };
+    return { farmId: resolved.farmId, via: "token", scopes: resolved.scopes };
   }
 
   const user = await getSessionUser();
   if (!user) {
     return NextResponse.json({ error: "No autenticado" }, { status: 401 });
   }
-  return { farmId: user.farmId, via: "session" };
+  return { farmId: user.farmId, via: "session", scopes: [] };
 }
 
 function catalogResponse() {
@@ -59,10 +67,18 @@ function catalogResponse() {
     maxRangeDays: EXPORT_MAX_RANGE_DAYS,
     package: {
       id: EXPORT_PACKAGE_ID,
-      label: "Paquete operativo completo (XLSX)",
-      description: "Un libro Excel con una hoja por cada dataset del modelo de operación.",
+      label: "Libro de análisis operativo (XLSX)",
+      description: "Libro Excel con resumen y hojas analíticas operativas seleccionadas.",
       datasets: EXPORT_PACKAGE_DATASETS,
       formats: ["xlsx"],
+    },
+    backup: {
+      id: EXPORT_BACKUP_ID,
+      label: "Respaldo de datos de la granja (JSON)",
+      description: "Incluye todas las tablas actuales asociadas a la granja, módulos nuevos, configuración, nómina, adjuntos y datos de Gina/Telegram, además de plantillas sanitarias y estándares de peso compartidos. Omite credenciales, sesiones, tokens de conector, facturación del servicio y recibos técnicos de sincronización.",
+      format: "json",
+      requiredScope: "read:backup",
+      tables: getBackupExportTableCatalog(),
     },
     datasets: EXPORT_DATASETS.map((dataset) => ({
       id: dataset.id,
@@ -73,6 +89,7 @@ function catalogResponse() {
       usesRange: dataset.usesRange,
       formats: [...dataset.formats, "json"],
       columns: dataset.headers,
+      requiredScopes: getExportRequiredScopes(dataset.id),
     })),
   });
 }
@@ -122,7 +139,12 @@ export async function GET(req: NextRequest) {
       return catalogResponse();
     }
 
-    if (datasetId !== EXPORT_PACKAGE_ID && !getExportDataset(datasetId)) {
+    if (
+      datasetId !== EXPORT_PACKAGE_ID &&
+      datasetId !== EXPORT_BACKUP_ID &&
+      !getExportDataset(datasetId) &&
+      !getBackupExportTableCatalog().some((table) => table.id === datasetId)
+    ) {
       return NextResponse.json(
         {
           error: `Dataset desconocido: ${datasetId}`,
@@ -145,6 +167,90 @@ export async function GET(req: NextRequest) {
       );
     }
 
+    if (actor.via === "token") {
+      const requiredScopes = getExportRequiredScopes(datasetId);
+      const hasBackupScope = hasIntegrationScope(actor.scopes, "read:backup");
+      const authorized = hasBackupScope || requiredScopes.every((scope) => actor.scopes.includes(scope));
+      if (!authorized) {
+        return NextResponse.json(
+          {
+            error: "El token no tiene los alcances necesarios para consultar este conjunto de datos.",
+            requiredScopes,
+            grantedScopes: actor.scopes,
+          },
+          { status: 403 },
+        );
+      }
+    }
+
+    if (datasetId === EXPORT_BACKUP_ID) {
+      if (format !== "json") {
+        return NextResponse.json(
+          { error: "El respaldo completo solo está disponible en formato JSON (format=json)." },
+          { status: 400 },
+        );
+      }
+      const backup = await runWithFarmContext(actor.farmId, loadCompleteFarmBackup);
+      const dateStamp = new Date().toISOString().slice(0, 10);
+      return NextResponse.json(backup, {
+        status: 200,
+        headers: {
+          "Cache-Control": "no-store",
+          "Content-Disposition": `attachment; filename="iwagranja-respaldo-${dateStamp}.json"`,
+          "X-Export-Dataset": EXPORT_BACKUP_ID,
+          "X-Export-Auth": actor.via,
+        },
+      });
+    }
+
+    if (datasetId.startsWith(EXPORT_TABLE_PREFIX)) {
+      if (format !== "json") {
+        return NextResponse.json(
+          { error: "La exportación de tablas del respaldo solo está disponible en formato JSON." },
+          { status: 400 },
+        );
+      }
+      const updatedSinceRaw = (searchParams.get("updated_since") || "").trim();
+      const updatedSinceMatch = updatedSinceRaw.match(/^(\d{4}-\d{2}-\d{2})/);
+      if (updatedSinceRaw && !updatedSinceMatch) {
+        return NextResponse.json(
+          { error: "Parámetro updated_since inválido. Usa formato YYYY-MM-DD o ISO-8601." },
+          { status: 400 },
+        );
+      }
+      const limitRaw = Number(searchParams.get("limit") || "500");
+      const limit = Number.isFinite(limitRaw) && limitRaw > 0 ? Math.min(1000, Math.floor(limitRaw)) : 500;
+      const cursorRaw = Number(searchParams.get("cursor") || "0");
+      const cursor = Number.isFinite(cursorRaw) && cursorRaw >= 0 ? Math.floor(cursorRaw) : 0;
+      let tableExport;
+      try {
+        tableExport = await runWithFarmContext(actor.farmId, () =>
+          loadBackupTableExport(datasetId, {
+            limit,
+            cursor,
+            updatedSince: updatedSinceMatch?.[1] ?? null,
+          }),
+        );
+      } catch (error) {
+        if (error instanceof Error && error.message.includes("no tiene updatedAt")) {
+          return NextResponse.json({ error: error.message }, { status: 400 });
+        }
+        throw error;
+      }
+      if (!tableExport) {
+        return NextResponse.json({ error: `Tabla exportable desconocida: ${datasetId}` }, { status: 400 });
+      }
+      return NextResponse.json(tableExport, {
+        status: 200,
+        headers: {
+          "Cache-Control": "no-store",
+          "X-Export-Dataset": datasetId,
+          "X-Export-Auth": actor.via,
+          "X-Export-Rows": String(tableExport.count),
+        },
+      });
+    }
+
     const rangeResult = resolveExportRange(searchParams.get("from"), searchParams.get("to"));
     if (!rangeResult.ok) {
       return NextResponse.json({ error: rangeResult.error }, { status: 400 });
@@ -155,7 +261,7 @@ export async function GET(req: NextRequest) {
       return NextResponse.json(
         {
           error:
-            "El paquete operativo completo solo está disponible en Excel (format=xlsx). Para CSV o JSON descarga cada dataset por separado.",
+            "El libro de análisis operativo solo está disponible en Excel (format=xlsx). Para CSV o JSON descarga cada dataset por separado.",
         },
         { status: 400 },
       );

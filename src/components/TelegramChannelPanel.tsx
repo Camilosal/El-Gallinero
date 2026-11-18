@@ -1,7 +1,9 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { Link2, Send, Unlink } from "lucide-react";
+import Image from "next/image";
+import QRCode from "qrcode";
+import { Link2, QrCode, Send, Unlink } from "lucide-react";
 import { Badge, Button, Card } from "@/components/ui";
 import { apiFetch } from "@/lib/fetch";
 
@@ -19,40 +21,78 @@ interface TelegramChatRow {
   lastSeenAt: string;
 }
 
+interface PairingState {
+  code: string;
+  expiresAt: string;
+  deepLink: string | null;
+  qrDataUrl: string | null;
+  previousChats: Record<string, string>;
+}
+
 export default function TelegramChannelPanel() {
   const [configured, setConfigured] = useState<boolean | null>(null);
+  const [botUsername, setBotUsername] = useState<string | null>(null);
   const [chats, setChats] = useState<TelegramChatRow[]>([]);
-  const [pairing, setPairing] = useState<{ code: string; expiresAt: string } | null>(null);
+  const [pairing, setPairing] = useState<PairingState | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
+  const [connectionNotice, setConnectionNotice] = useState("");
 
-  const refresh = useCallback(async () => {
+  const loadStatus = useCallback(async () => {
     const res = await apiFetch("/api/telegram/vincular").catch(() => null);
     const data = res && res.ok ? await res.json().catch(() => null) : null;
+    if (!data) return null;
     setConfigured(Boolean(data?.configured));
+    setBotUsername(data?.botUsername || null);
     setChats(data?.chats || []);
+    return (data?.chats || []) as TelegramChatRow[];
   }, []);
+
+  const refresh = useCallback(async () => {
+    await loadStatus();
+  }, [loadStatus]);
 
   useEffect(() => {
     let cancelled = false;
-    apiFetch("/api/telegram/vincular")
-      .then((res) => (res.ok ? res.json() : null))
-      .then((data) => {
-        if (cancelled) return;
-        setConfigured(Boolean(data?.configured));
-        setChats(data?.chats || []);
-      })
-      .catch(() => {
-        if (!cancelled) setConfigured(false);
-      });
+    void loadStatus().then((data) => {
+      if (!cancelled && !data) setConfigured(false);
+    });
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [loadStatus]);
+
+  useEffect(() => {
+    if (!pairing) return;
+    let cancelled = false;
+    const checkPairing = async () => {
+      const currentChats = await loadStatus();
+      if (cancelled || !currentChats) return;
+      const newlyLinked = currentChats.some((chat) => {
+        const currentVersion = `${chat.status}:${chat.linkedAt}`;
+        return chat.status === "activo" && pairing.previousChats[chat.id] !== currentVersion;
+      });
+      if (newlyLinked) {
+        setPairing(null);
+        setError("");
+        setConnectionNotice("¡Telegram quedó vinculado a tu cuenta!");
+      } else if (Date.now() >= new Date(pairing.expiresAt).getTime()) {
+        setPairing(null);
+        setError("El código expiró. Genera uno nuevo para volver a intentarlo.");
+      }
+    };
+    void checkPairing();
+    const timer = window.setInterval(() => void checkPairing(), 3000);
+    return () => {
+      cancelled = true;
+      window.clearInterval(timer);
+    };
+  }, [pairing, loadStatus]);
 
   const handleGenerate = async () => {
     setBusy(true);
     setError("");
+    setConnectionNotice("");
     try {
       const res = await apiFetch("/api/telegram/vincular", { method: "POST" });
       const data = await res.json().catch(() => null);
@@ -60,7 +100,20 @@ export default function TelegramChannelPanel() {
         setError(data?.error || "No se pudo generar el código.");
         return;
       }
-      setPairing({ code: data.code, expiresAt: data.expiresAt });
+      const username = data.botUsername || botUsername;
+      const deepLink = username ? `https://t.me/${username}?start=${encodeURIComponent(data.code)}` : null;
+      let qrDataUrl: string | null = null;
+      if (deepLink) {
+        try {
+          qrDataUrl = await QRCode.toDataURL(deepLink, { width: 320, margin: 2 });
+        } catch {
+          setError("No pude generar la imagen QR; puedes vincularlo usando el comando mostrado.");
+        }
+      }
+      const previousChats = Object.fromEntries(
+        chats.map((chat) => [chat.id, `${chat.status}:${chat.linkedAt}`]),
+      );
+      setPairing({ code: data.code, expiresAt: data.expiresAt, deepLink, qrDataUrl, previousChats });
     } finally {
       setBusy(false);
     }
@@ -111,10 +164,20 @@ export default function TelegramChannelPanel() {
 
           {configured && (
             <div className="mt-3 space-y-3">
+              {!botUsername && (
+                <p className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800">
+                  Para habilitar el QR, el administrador debe configurar <code>TELEGRAM_BOT_USERNAME</code> con el
+                  usuario público del bot, sin @. Mientras tanto puedes usar el comando de vinculación manual.
+                </p>
+              )}
               <div className="flex flex-wrap items-center gap-2">
                 <Button onClick={() => void handleGenerate()} disabled={busy} className="text-sm">
-                  <Link2 className="mr-1.5 h-3.5 w-3.5" aria-hidden="true" />
-                  {busy ? "Generando..." : "Generar código de vinculación"}
+                  {botUsername ? (
+                    <QrCode className="mr-1.5 h-3.5 w-3.5" aria-hidden="true" />
+                  ) : (
+                    <Link2 className="mr-1.5 h-3.5 w-3.5" aria-hidden="true" />
+                  )}
+                  {busy ? "Preparando..." : botUsername ? "Generar QR de conexión" : "Generar código de vinculación"}
                 </Button>
                 {pairing && (
                   <span className="rounded-lg border border-sky-200 bg-sky-50 px-3 py-1.5 font-mono text-sm font-bold text-sky-900">
@@ -124,11 +187,22 @@ export default function TelegramChannelPanel() {
               </div>
               {pairing && (
                 <p className="text-[11px] text-slate-500">
-                  Envía <span className="font-mono font-semibold">/start {pairing.code}</span> al bot de la granja en
-                  Telegram. El código dura 10 minutos y es de un solo uso (expira{" "}
+                  {pairing.deepLink ? (
+                    <>Escanea el QR con tu teléfono o <a className="font-semibold text-sky-700 underline" href={pairing.deepLink} target="_blank" rel="noreferrer">abre el bot en Telegram</a>; luego pulsa Iniciar. También puedes enviar </>
+                  ) : (
+                    <>Envía </>
+                  )}
+                  <span className="font-mono font-semibold">/start {pairing.code}</span> al bot. El código dura 10 minutos y es de un solo uso (expira{" "}
                   {new Date(pairing.expiresAt).toLocaleTimeString("es-CO", { hour: "2-digit", minute: "2-digit" })}).
                 </p>
               )}
+              {pairing?.qrDataUrl && (
+                <div className="flex flex-col items-center rounded-xl border border-sky-100 bg-white p-4 sm:w-fit">
+                  <Image src={pairing.qrDataUrl} alt="QR para vincular Telegram" width={240} height={240} unoptimized />
+                  <p className="mt-2 text-center text-xs text-slate-600">Escanéalo con tu teléfono y pulsa Iniciar en Telegram.</p>
+                </div>
+              )}
+              {connectionNotice && <p role="status" className="text-xs font-semibold text-emerald-700">{connectionNotice}</p>}
               {error && <p className="text-xs font-semibold text-red-700">{error}</p>}
 
               {chats.length > 0 ? (

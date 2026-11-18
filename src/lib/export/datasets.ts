@@ -3,8 +3,10 @@
 // /api/export lo serializa a CSV o XLSX reutilizando src/lib/export/xlsx.ts.
 // Todas las consultas corren dentro del contexto de granja (RLS por farm_id).
 
-import { and, asc, desc, gte, inArray, lte, sql } from "drizzle-orm";
+import { and, asc, desc, eq, getTableColumns, getTableName, gte, inArray, lte, sql } from "drizzle-orm";
 import { db } from "@/db";
+import * as farmSchema from "@/db/schema";
+import { getCurrentFarmId } from "@/db/tenant-context";
 import {
   broilerBatches,
   dailyClosures,
@@ -1204,8 +1206,10 @@ export const EXPORT_DATASETS: ExportDataset[] = [
   },
 ];
 
-/** Paquete multi-hoja para XLSX con todo el modelo de operación. */
+/** Paquete multi-hoja analítico para XLSX; el respaldo completo se ofrece aparte. */
 export const EXPORT_PACKAGE_ID = "paquete-operativo";
+export const EXPORT_BACKUP_ID = "respaldo-completo";
+export const EXPORT_TABLE_PREFIX = "tabla:";
 
 export const EXPORT_PACKAGE_DATASETS: string[] = [
   "resumen-diario",
@@ -1229,6 +1233,22 @@ export const EXPORT_PACKAGE_DATASETS: string[] = [
 
 export function getExportDataset(id: string): ExportDataset | null {
   return EXPORT_DATASETS.find((dataset) => dataset.id === id) ?? null;
+}
+
+export function getExportRequiredScopes(datasetId: string): string[] {
+  if (datasetId === EXPORT_BACKUP_ID) return ["read:backup"];
+  if (datasetId.startsWith(EXPORT_TABLE_PREFIX)) return ["read:backup"];
+  if (datasetId === EXPORT_PACKAGE_ID) {
+    return Array.from(new Set(EXPORT_PACKAGE_DATASETS.flatMap((id) => getExportRequiredScopes(id))));
+  }
+  const dataset = getExportDataset(datasetId);
+  if (!dataset) return [];
+  if (dataset.id === "resumen-diario") return ["read:finance", "read:production"];
+  if (dataset.id === "cierres") return ["read:production"];
+  if (dataset.category === "finanzas") return ["read:finance"];
+  if (dataset.category === "inventario") return ["read:inventory"];
+  if (dataset.category === "operacion") return ["read:finance", "read:production"];
+  return ["read:production"];
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -1309,5 +1329,227 @@ export async function loadExportPackage(range: ExportRange): Promise<ExportSheet
     sheets.push(await loadExportDataset(id, range));
   }
   return sheets;
+}
+
+const BACKUP_EXCLUDED_TABLES = [
+  "billing_payments",
+  "export_tokens",
+  "farm_subscriptions",
+  "offline_mutation_receipts",
+  "sessions",
+  "users",
+] as const;
+
+const BACKUP_EXCLUDED_FIELDS = [
+  "users.password_hash",
+  "users.recovery_code_hash",
+  "users.recovery_code_issued_at",
+  "sessions.token_hash",
+  "export_tokens.token_hash",
+] as const;
+
+const BACKUP_PAGE_SIZE = 2_000;
+
+type BackupTableScope = "farm" | "shared_reference";
+
+interface BackupTableDefinition {
+  name: string;
+  scope: BackupTableScope;
+  table: Parameters<typeof getTableColumns>[0];
+  columns: string[];
+  updatedSinceColumn: string | null;
+}
+
+const SHARED_REFERENCE_TABLES = [
+  farmSchema.vaccinationTemplates,
+  farmSchema.breedWeightStandards,
+] as const;
+
+function backupExportTableDefinitions(): BackupTableDefinition[] {
+  const tables = Object.values(farmSchema).flatMap((value) => {
+    if (!value || typeof value !== "object") return [];
+    try {
+      const table = value as Parameters<typeof getTableColumns>[0];
+      const columns = getTableColumns(table) as Record<string, unknown>;
+      const name = getTableName(table);
+      if (!columns.farmId || (BACKUP_EXCLUDED_TABLES as readonly string[]).includes(name)) {
+        return [];
+      }
+      return [{ name, scope: "farm" as const, table, columns: Object.keys(columns) }];
+    } catch {
+      return [];
+    }
+  });
+  const sharedTables = SHARED_REFERENCE_TABLES.map((table) => ({
+    name: getTableName(table),
+    scope: "shared_reference" as const,
+    table,
+    columns: Object.keys(getTableColumns(table)),
+  }));
+  return [...tables, ...sharedTables]
+    .map((table) => ({
+      ...table,
+      updatedSinceColumn: table.columns.includes("updatedAt") ? "updatedAt" : null,
+    }))
+    .sort((left, right) => left.name.localeCompare(right.name));
+}
+
+export function getBackupExportTableCatalog() {
+  return backupExportTableDefinitions().map(({ name, scope, columns, updatedSinceColumn }) => ({
+    id: `${EXPORT_TABLE_PREFIX}${name}`,
+    name,
+    scope,
+    columns,
+    updatedSinceColumn,
+  }));
+}
+
+function getBackupExportTable(datasetId: string): BackupTableDefinition | null {
+  if (!datasetId.startsWith(EXPORT_TABLE_PREFIX)) return null;
+  const tableName = datasetId.slice(EXPORT_TABLE_PREFIX.length);
+  return backupExportTableDefinitions().find((table) => table.name === tableName) ?? null;
+}
+
+async function readAllTableRows(table: Parameters<typeof getTableColumns>[0]) {
+  const rows: Record<string, unknown>[] = [];
+  let offset = 0;
+  const dynamicTable = table as unknown as Record<string, never>;
+  while (true) {
+    const page = await db
+      .select()
+      .from(table as never)
+      .orderBy(asc(dynamicTable.id))
+      .limit(BACKUP_PAGE_SIZE)
+      .offset(offset);
+    rows.push(...(page as Record<string, unknown>[]));
+    if (page.length < BACKUP_PAGE_SIZE) break;
+    offset += page.length;
+  }
+  return rows;
+}
+
+function redactSecretSettings(tableName: string, row: Record<string, unknown>) {
+  if (tableName !== "app_settings" || typeof row.key !== "string") return row;
+  if (!/(secret|token|password|credential|api[_-]?key|authorization)/i.test(row.key)) return row;
+  return { ...row, value: "[REDACTED]" };
+}
+
+/**
+ * Respaldo JSON de todas las tablas ligadas a farmId en el esquema actual.
+ * Se excluyen secretos de autenticación, sesiones, tokens de conector,
+ * registros técnicos de sincronización y facturación del servicio.
+ */
+export async function loadCompleteFarmBackup() {
+  const farmId = getCurrentFarmId();
+  const [farmRows, userRows] = await Promise.all([
+    db
+      .select({
+        id: farmSchema.farms.id,
+        slug: farmSchema.farms.slug,
+        name: farmSchema.farms.name,
+        deploymentMode: farmSchema.farms.deploymentMode,
+        ownerUserId: farmSchema.farms.ownerUserId,
+        qrSource: farmSchema.farms.qrSource,
+        allyCode: farmSchema.farms.allyCode,
+        planCode: farmSchema.farms.planCode,
+        trialEndsAt: farmSchema.farms.trialEndsAt,
+        createdAt: farmSchema.farms.createdAt,
+        updatedAt: farmSchema.farms.updatedAt,
+      })
+      .from(farmSchema.farms)
+      .where(eq(farmSchema.farms.id, farmId))
+      .limit(1),
+    db
+      .select({
+        id: farmSchema.users.id,
+        username: farmSchema.users.username,
+        name: farmSchema.users.name,
+        role: farmSchema.users.role,
+        createdAt: farmSchema.users.createdAt,
+      })
+      .from(farmSchema.users)
+      .where(eq(farmSchema.users.farmId, farmId)),
+  ]);
+
+  const tableData: Record<string, {
+    scope: "farm" | "shared_reference";
+    columns: string[];
+    recordCount: number;
+    records: Record<string, unknown>[];
+  }> = {};
+  for (const table of backupExportTableDefinitions()) {
+    const rawRows = await readAllTableRows(table.table);
+    const records = rawRows.map((row) => redactSecretSettings(table.name, row));
+    tableData[table.name] = {
+      scope: table.scope,
+      columns: table.columns,
+      recordCount: records.length,
+      records,
+    };
+  }
+
+  return {
+    object: "iwagranja_farm_backup",
+    version: 1,
+    generatedAt: new Date().toISOString(),
+    farmId,
+    farm: farmRows[0] ?? null,
+    farmUsers: userRows,
+    tables: tableData,
+    includedTables: Object.entries(tableData).map(([name, data]) => ({
+      name,
+      scope: data.scope,
+      recordCount: data.recordCount,
+      columns: data.columns,
+    })),
+    excludedTables: [...BACKUP_EXCLUDED_TABLES],
+    excludedFields: [...BACKUP_EXCLUDED_FIELDS],
+    sanitizedUserFields: ["id", "username", "name", "role", "createdAt"],
+    redactedSettingValues: "app_settings.value is replaced with [REDACTED] when the key suggests a secret or credential.",
+  };
+}
+
+export async function loadBackupTableExport(
+  datasetId: string,
+  options: { limit: number; cursor: number; updatedSince?: string | null },
+) {
+  const tableDefinition = getBackupExportTable(datasetId);
+  if (!tableDefinition) return null;
+  if (options.updatedSince && !tableDefinition.updatedSinceColumn) {
+    throw new Error(`La tabla ${tableDefinition.name} no tiene updatedAt para filtrar updated_since; recórrela por páginas.`);
+  }
+
+  const table = tableDefinition.table as unknown as Record<string, never>;
+  let query = db.select().from(tableDefinition.table as never);
+  if (options.updatedSince && tableDefinition.updatedSinceColumn) {
+    query = query.where(gte(table[tableDefinition.updatedSinceColumn], options.updatedSince)) as typeof query;
+  }
+  const page = await query
+    .orderBy(asc(table.id))
+    .limit(options.limit + 1)
+    .offset(options.cursor);
+  const hasMore = page.length > options.limit;
+  const records = (page.slice(0, options.limit) as Record<string, unknown>[])
+    .map((row) => redactSecretSettings(tableDefinition.name, row));
+  const nextCursor = hasMore ? String(options.cursor + records.length) : null;
+
+  return {
+    object: "export_records",
+    version: 1,
+    dataset: datasetId,
+    table: tableDefinition.name,
+    scope: tableDefinition.scope,
+    farmId: getCurrentFarmId(),
+    updatedSince: options.updatedSince ?? null,
+    changeTrackingColumn: tableDefinition.updatedSinceColumn,
+    count: records.length,
+    limit: options.limit,
+    cursor: String(options.cursor),
+    nextCursor,
+    hasMore,
+    columns: tableDefinition.columns,
+    records,
+    syncedAt: new Date().toISOString(),
+  };
 }
 

@@ -628,7 +628,7 @@ export default function CatalogosPage() {
         <ParametrosTab group="Impuestos y retenciones" title="Impuestos y retenciones" description="Define las tasas y umbrales vigentes que se guardan en cada operación nueva. Los registros anteriores conservan las tasas con las que fueron creados." />
       )}
       {effectiveTab === "personal" && (
-        <ParametrosTab group="Costos laborales y nómina" title="Costos laborales y nómina" description="Revisa las fuentes oficiales y gestiona los valores de nómina que se aplican a liquidaciones nuevas. Las tarifas particulares por trabajador se administran en Personal." />
+        <ParametrosTab group="Costos laborales y nómina" title="Costos laborales y nómina" description="Revisa fuentes y valores para liquidaciones nuevas, y calibra los minutos de cuidado, limpieza, registro y tamaño de los grupos usados para estimar el trabajo propio. Esos tiempos son supuestos por granja, no estándares laborales. Las tarifas particulares se administran en Personal." />
       )}
       {effectiveTab === "especies" && <EspeciesTab />}
       {effectiveTab === "listas" && <ListasTab />}

@@ -17,18 +17,14 @@ import { clearOfflineCryptoKey } from "@/lib/offline/crypto";
 import {
   BarChart3,
   BookOpen,
-  Bug,
-  Check,
   ChevronLeft,
   ChevronRight,
-  Copy,
   ExternalLink,
   LogOut,
   Menu,
   QrCode,
   X,
 } from "lucide-react";
-import { openBugReportModal } from "@/lib/bug-report";
 
 const STORAGE_KEY = "sidebar-expanded-groups";
 const COLLAPSED_KEY = "sidebar-collapsed";
@@ -50,7 +46,6 @@ export default function Sidebar() {
   const [collapsed, setCollapsed] = useState(false);
   const [settingsLoaded, setSettingsLoaded] = useState(false);
   const [farmMeta, setFarmMeta] = useState<ActiveFarmMeta | null>(null);
-  const [copiedFarmId, setCopiedFarmId] = useState(false);
   const query = searchParams.toString();
   const locationKey = query ? `${pathname}?${query}` : pathname;
   const mobileOpen = mobileOpenAt === locationKey;
@@ -69,7 +64,7 @@ export default function Sidebar() {
         if (stored) {
           const parsed: unknown = JSON.parse(stored);
           if (Array.isArray(parsed) && parsed.every((value): value is string => typeof value === "string")) {
-            groups = parsed;
+            groups = parsed.length > 0 ? [parsed[parsed.length - 1]] : [];
           }
         }
       } catch {
@@ -93,29 +88,21 @@ export default function Sidebar() {
   useEffect(() => {
     if (!settingsLoaded) return;
     const allGroups = [...visibleGroups, CONFIGURACION_MENU_GROUP];
-    const activeIds = allGroups
-      .filter(
-        (group) =>
-          pathname === group.indexHref ||
-          pathname.startsWith(`${group.indexHref}/`) ||
-          group.items.some((item) => {
-            const [itemPath] = item.href.split("?");
-            return pathname === itemPath || (itemPath !== "/" && pathname.startsWith(`${itemPath}/`));
-          }),
-      )
-      .map((g) => g.id);
-    if (activeIds.length === 0) return;
+    const activeGroup = allGroups
+      .map((group) => {
+        const matchingPaths = [group.indexHref, ...group.items.map((item) => item.href.split("?")[0])]
+          .filter((path) => pathname === path || (path !== "/" && pathname.startsWith(`${path}/`)));
+        return {
+          id: group.id,
+          score: matchingPaths.length > 0 ? Math.max(...matchingPaths.map((path) => path.length)) : 0,
+        };
+      })
+      .filter((group) => group.score > 0)
+      .sort((a, b) => b.score - a.score)[0];
+    if (!activeGroup) return;
     queueMicrotask(() => {
       setExpandedGroups((prev) => {
-        let changed = false;
-        const next = new Set(prev);
-        for (const id of activeIds) {
-          if (!next.has(id)) {
-            next.add(id);
-            changed = true;
-          }
-        }
-        return changed ? next : prev;
+        return prev.size === 1 && prev.has(activeGroup.id) ? prev : new Set([activeGroup.id]);
       });
     });
   }, [locationKey, pathname, settingsLoaded, visibleGroups]);
@@ -142,13 +129,7 @@ export default function Sidebar() {
 
   const toggleGroup = (groupId: string) => {
     setExpandedGroups((prev) => {
-      const next = new Set(prev);
-      if (next.has(groupId)) {
-        next.delete(groupId);
-      } else {
-        next.add(groupId);
-      }
-      return next;
+      return prev.has(groupId) ? new Set() : new Set([groupId]);
     });
   };
 
@@ -192,17 +173,6 @@ export default function Sidebar() {
       active = false;
     };
   }, []);
-
-  const copyFarmId = async () => {
-    if (!farmMeta?.farmId) return;
-    try {
-      await navigator.clipboard.writeText(farmMeta.farmId);
-      setCopiedFarmId(true);
-      window.setTimeout(() => setCopiedFarmId(false), 1800);
-    } catch {
-      // Clipboard API unavailable
-    }
-  };
 
   const logout = async () => {
     clearOfflineCryptoKey(true);
@@ -360,49 +330,8 @@ export default function Sidebar() {
           </div>
         </nav>
 
-        {/* Footer: FarmID + guide/logout + bug report in clean block */}
+        {/* Footer: guide, logout and developer credit */}
         <div className={`border-t border-green-700 space-y-2 ${collapsed ? "p-2" : "p-3.5"}`}>
-          {farmMeta?.farmId && (
-            collapsed ? (
-              <button
-                type="button"
-                onClick={copyFarmId}
-                className="w-full px-1 py-1 rounded bg-green-950/70 border border-green-700/80 text-[9px] font-mono text-green-200 hover:text-white hover:bg-green-800 transition-colors"
-                title={copiedFarmId ? "FarmID copiado" : `FarmID: ${farmMeta.farmId} (clic para copiar)`}
-                aria-label={`Copiar FarmID ${farmMeta.farmId}`}
-                data-testid="sidebar-farm-id"
-              >
-                {copiedFarmId ? "OK" : "ID"}
-              </button>
-            ) : (
-              <div className="flex items-start justify-between gap-2 rounded-lg bg-green-950/60 border border-green-700/70 px-2.5 py-1.5">
-                <div className="min-w-0">
-                  {farmMeta.farmName && (
-                    <p className="text-[11px] font-medium text-green-100 truncate">
-                      {farmMeta.farmName}
-                    </p>
-                  )}
-                  <p
-                    className="text-[10px] leading-tight font-mono text-green-200 break-all"
-                    title={farmMeta.farmId}
-                    data-testid="sidebar-farm-id"
-                  >
-                    FarmID: {farmMeta.farmId}
-                  </p>
-                </div>
-                <button
-                  type="button"
-                  onClick={copyFarmId}
-                  className="p-1 rounded text-green-300 hover:text-white hover:bg-green-800/70 transition-colors shrink-0"
-                  title={copiedFarmId ? "FarmID copiado" : "Copiar FarmID"}
-                  aria-label="Copiar FarmID"
-                >
-                  {copiedFarmId ? <Check className="w-3.5 h-3.5 text-emerald-300" /> : <Copy className="w-3.5 h-3.5" />}
-                </button>
-              </div>
-            )
-          )}
-
           <div className={collapsed ? "flex flex-col gap-1.5" : "grid grid-cols-2 gap-1.5"}>
             <a
               href="/guia"
@@ -435,17 +364,6 @@ export default function Sidebar() {
               {!collapsed && <span className="truncate">Cerrar sesión</span>}
             </button>
           </div>
-          <button
-            type="button"
-            onClick={() => openBugReportModal({ triggerSource: "sidebar" })}
-            className={`w-full py-1.5 rounded-lg text-xs font-medium transition-colors flex items-center justify-center gap-2 bg-rose-950/60 hover:bg-rose-900/80 text-rose-100 border border-rose-800/50 ${collapsed ? "px-1" : "px-3"
-              }`}
-            title={collapsed ? "Reportar falla" : "Reportar falla con origen etiquetado"}
-            aria-label="Reportar falla"
-          >
-            <Bug className="w-3.5 h-3.5 shrink-0 text-rose-200" aria-hidden="true" />
-            {!collapsed && <span className="flex-1 text-left text-[11px]">Reportar falla</span>}
-          </button>
           <DeveloperCredit variant="sidebar" collapsed={collapsed} />
         </div>
       </aside>

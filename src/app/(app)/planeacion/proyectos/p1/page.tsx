@@ -1,5 +1,5 @@
-import { P1ProjectTemplateMock } from "@/components/project-templates/P1ProjectTemplateMock";
+import { ProjectFormulator } from "@/components/project-templates/ProjectFormulator";
 
 export default function P1ProjectTemplatePage() {
-  return <P1ProjectTemplateMock />;
+  return <ProjectFormulator />;
 }

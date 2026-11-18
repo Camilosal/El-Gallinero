@@ -4,6 +4,12 @@ import { db } from "@/db";
 import { farms } from "@/db/schema";
 import { withIntegrationContext } from "@/lib/integrations/auth-guard";
 import { ERP_PROFILES, INTEGRATION_SCOPES } from "@/lib/export/auth";
+import {
+  EXPORT_BACKUP_ID,
+  EXPORT_DATASETS,
+  EXPORT_PACKAGE_ID,
+  getExportRequiredScopes,
+} from "@/lib/export/datasets";
 import { ERP_PROFILE_METADATA } from "@/lib/integrations/profiles";
 
 export const dynamic = "force-dynamic";
@@ -82,10 +88,38 @@ export async function GET(req: NextRequest) {
             {
               id: "export-json",
               method: "GET",
-              path: "/api/export?dataset=resumen-diario&format=json",
-              requiredScope: "any",
+              path: "/api/export?dataset={dataset}&format=json",
+              requiredScope: "según dataset",
               queryParams: ["dataset", "format=json", "from", "to", "updated_since", "limit", "cursor"],
-              description: "Exportación incremental JSON de los 17 datasets operativos.",
+              description:
+                `Exportación JSON incremental de los ${EXPORT_DATASETS.length} datasets analíticos publicados. ` +
+                "Cada dataset exige el alcance indicado en requiredScopes del catálogo /api/export.",
+              catalogPath: "/api/export",
+              packageId: EXPORT_PACKAGE_ID,
+              datasets: EXPORT_DATASETS.map((dataset) => ({
+                id: dataset.id,
+                label: dataset.label,
+                requiredScopes: getExportRequiredScopes(dataset.id),
+              })),
+            },
+            {
+              id: "farm-backup-json",
+              method: "GET",
+              path: `/api/export?dataset=${EXPORT_BACKUP_ID}&format=json`,
+              requiredScope: "read:backup",
+              queryParams: [],
+              description:
+                "Respaldo completo JSON de las tablas de la granja, incluidos los módulos y servicios incorporados después del conector. No usa paginación incremental.",
+            },
+            {
+              id: "farm-table-json",
+              method: "GET",
+              path: "/api/export?dataset=tabla:{table}&format=json",
+              requiredScope: "read:backup",
+              queryParams: ["limit", "cursor", "updated_since"],
+              catalogPath: "/api/export (backup.tables)",
+              description:
+                "Consulta paginada por tabla para sincronizar los módulos actuales y los nuevos que se modelen con farmId. El catálogo informa las columnas y qué tablas admiten updated_since mediante updatedAt.",
             },
             {
               id: "agent-tools",

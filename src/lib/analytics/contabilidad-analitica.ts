@@ -157,6 +157,7 @@ export async function computeAnalyticalAccounting(opts: ComputeAnalyticsOptions)
   const hasFeedConsumptionBasis = filteredFeedConsumptions.length > 0 && totalAccruedFeedCost > 0;
 
   const locNames = new Map(locations.map((l) => [l.id, l.name]));
+  const allocationsById = new Map(allocationRows.map((allocation) => [allocation.id, allocation]));
   const allocatedTxIds = new Set(
     allocationRows.map((a) => a.sourceTransactionId).filter((id): id is string => Boolean(id)),
   );
@@ -310,6 +311,39 @@ export async function computeAnalyticalAccounting(opts: ComputeAnalyticsOptions)
   if (payrollSuppliesCtx.taxConfig.includeImputedOwnerLabor) {
     for (const pe of payrollSuppliesCtx.payrollEntries) {
       if (pe.accountingMode !== "imputed_economic") continue;
+      const linkedAllocation = pe.linkedAllocationId ? allocationsById.get(pe.linkedAllocationId) : null;
+      if (linkedAllocation?.allocations?.length) {
+        const matchingAllocations = linkedAllocation.allocations.filter((allocation) => {
+          if (speciesFilter && allocation.species !== speciesFilter) return false;
+          if (locationIdFilter && allocation.locationId !== locationIdFilter) return false;
+          return true;
+        });
+        for (const allocation of matchingAllocations) {
+          const amount = Math.max(0, Number(allocation.amount || 0));
+          if (amount <= 0) continue;
+          totalImputedOwnerLabor += amount;
+          const spKey = allocation.species || UNASSIGNED;
+          const locKey = allocation.locationId || UNASSIGNED;
+          const spBucket = ensureBucket(bySpeciesMap, spKey, speciesName(spKey));
+          const locBucket = ensureBucket(
+            byLocationMap,
+            locKey,
+            allocation.locationId ? locNames.get(allocation.locationId) || "Lugar" : "Sin asignar",
+          );
+          spBucket.imputedLaborCost += amount;
+          locBucket.imputedLaborCost += amount;
+
+          if (allocation.species && ["gallina", "gallo", "codorniz", "pato"].includes(allocation.species)) {
+            layerImputedOwnerLabor += amount;
+          } else if (allocation.species && ["pollo", "conejo", "cuy"].includes(allocation.species)) {
+            meatImputedOwnerLabor += amount;
+          } else {
+            unassignedImputedOwnerLabor += amount;
+          }
+        }
+        continue;
+      }
+
       const amt = Math.max(0, Number(pe.totalEmployerCostCop || 0));
       if (amt <= 0) continue;
       totalImputedOwnerLabor += amt;
@@ -324,7 +358,7 @@ export async function computeAnalyticalAccounting(opts: ComputeAnalyticsOptions)
       spBucket.imputedLaborCost += amt;
       locBucket.imputedLaborCost += amt;
 
-      if (pe.species && ["gallina", "codorniz", "pato"].includes(pe.species)) {
+      if (pe.species && ["gallina", "gallo", "codorniz", "pato"].includes(pe.species)) {
         layerImputedOwnerLabor += amt;
       } else if (pe.species && ["pollo", "conejo", "cuy"].includes(pe.species)) {
         meatImputedOwnerLabor += amt;

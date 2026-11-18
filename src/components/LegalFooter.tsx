@@ -30,9 +30,14 @@ export function LegalFooter({ className = "" }: { className?: string }) {
               {l.label}
             </Link>
           ))}
+          <Link href="/funcionalidades" className={FOOTER_LINK_CLASS}>Funcionalidades</Link>
           <Link href="/realidad-campo" className={FOOTER_LINK_CLASS}>Realidad del campo</Link>
           <Link href="/planes" className={FOOTER_LINK_CLASS}>Planes</Link>
-          <Link href="/bitacora" className={FOOTER_LINK_CLASS}>Bitácora</Link>
+          <Link href="/recursos" className={FOOTER_LINK_CLASS}>Recursos</Link>
+          <Link href="/bitacora" className={FOOTER_LINK_CLASS}>Artículos y bitácoras</Link>
+          <Link href="/recursos/herramientas" className={FOOTER_LINK_CLASS}>Herramientas y calculadoras</Link>
+          <Link href="/recursos/novedades" className={FOOTER_LINK_CLASS}>Noticias y novedades</Link>
+          <Link href="/guia" className={FOOTER_LINK_CLASS}>Guía de uso</Link>
           <Link href="/open-source" className={FOOTER_LINK_CLASS}>Open Source</Link>
           <Link href="/ayuda" className={FOOTER_LINK_CLASS}>Ayuda</Link>
           <Link href="/contacto" className={FOOTER_LINK_CLASS}>Contacto</Link>

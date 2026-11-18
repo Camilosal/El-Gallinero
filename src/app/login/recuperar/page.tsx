@@ -45,7 +45,7 @@ export default function RecoverAccessPage() {
   };
 
   return (
-    <main className="flex min-h-screen items-center justify-center bg-earth-50 px-4 py-10">
+    <main className="flex min-h-[calc(100dvh-74px)] items-center justify-center bg-earth-50 px-4 py-10">
       <div className="w-full max-w-md space-y-5">
         <HeroFrame
           theme="guia"

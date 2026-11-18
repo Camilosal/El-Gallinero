@@ -26,6 +26,7 @@ type IntegrationScope =
   | "read:inventory"
   | "read:contacts"
   | "read:production"
+  | "read:backup"
   | "agent:read"
   | "agent:write";
 
@@ -36,7 +37,7 @@ interface ExportDatasetInfo {
   category: "operacion" | "produccion" | "sanidad" | "finanzas" | "inventario" | "infraestructura";
   granularity: string;
   usesRange: boolean;
-  formats: ("csv" | "xlsx")[];
+  formats: ("csv" | "xlsx" | "json")[];
   columns: string[];
 }
 
@@ -44,6 +45,14 @@ interface ExportCatalog {
   maxRowsPerDataset: number;
   maxRangeDays: number;
   package: { id: string; label: string; description: string; formats: string[]; datasets: string[] };
+  backup: {
+    id: string;
+    label: string;
+    description: string;
+    format: "json";
+    requiredScope: "read:backup";
+    tables: { id: string; name: string; scope: string; columns: string[]; updatedSinceColumn: string | null }[];
+  };
   datasets: ExportDatasetInfo[];
 }
 
@@ -71,6 +80,7 @@ const SCOPE_LABELS: Record<IntegrationScope, string> = {
   "read:inventory": "Inventarios y kardex",
   "read:contacts": "Terceros (clientes/proveedores)",
   "read:production": "Centros de costo y producción",
+  "read:backup": "Respaldo completo de la granja",
   "agent:read": "Agente externo: consultar",
   "agent:write": "Agente externo: registrar datos",
 };
@@ -277,6 +287,36 @@ export default function ExportarDatosPage() {
       loadTokens();
     } catch (err) {
       setError(err instanceof Error ? err.message : "No se pudo descargar el archivo");
+    } finally {
+      setBusy(null);
+    }
+  };
+
+  const downloadBackup = async () => {
+    const datasetId = catalog?.backup.id ?? "respaldo-completo";
+    setBusy(`${datasetId}-json`);
+    setError("");
+    setMessage("");
+    try {
+      const res = await fetch(`/api/export?dataset=${datasetId}&format=json`, { credentials: "include" });
+      if (!res.ok) {
+        const payload = await res.json().catch(() => ({}));
+        throw new Error(payload.error || `No se pudo generar el respaldo (${res.status})`);
+      }
+      const blob = await res.blob();
+      const filename = filenameFrom(res.headers.get("Content-Disposition"), `iwagranja-respaldo-${today}.json`);
+      const objectUrl = URL.createObjectURL(blob);
+      const anchor = document.createElement("a");
+      anchor.href = objectUrl;
+      anchor.download = filename;
+      document.body.appendChild(anchor);
+      anchor.click();
+      anchor.remove();
+      URL.revokeObjectURL(objectUrl);
+      setMessage(`Respaldo completo de la granja: descarga lista (${filename}).`);
+      loadTokens();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "No se pudo descargar el respaldo");
     } finally {
       setBusy(null);
     }
@@ -546,32 +586,64 @@ export default function ExportarDatosPage() {
             )}
           </Card>
 
-          {/* Paquete completo */}
+          {/* Libro de análisis */}
           <Card className="border-emerald-200 bg-gradient-to-br from-emerald-50/70 to-white">
             <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
               <div className="space-y-1.5">
                 <div className="flex items-center gap-2">
                   <Badge color="green">Recomendado</Badge>
                   <span className="text-xs font-medium text-slate-500">
-                    {catalog ? catalog.package.datasets.length : 17} hojas incluidas
+                    {catalog ? catalog.package.datasets.length : "—"} hojas analíticas
                   </span>
                 </div>
                 <h2 className="text-lg font-bold text-slate-800">
-                  {catalog?.package.label || "Paquete operativo completo (Excel .xlsx)"}
+                  {catalog?.package.label || "Libro de análisis operativo (Excel .xlsx)"}
                 </h2>
                 <p className="text-sm text-slate-600 max-w-2xl">
                   {catalog?.package.description ||
-                    "Un solo archivo Excel con el resumen diario y cada tabla operativa en su propia hoja, listo para Power BI, Looker Studio o análisis en Excel."}
+                    "Un libro Excel con el resumen y una selección de hojas operativas para análisis en Excel, Power BI o Looker Studio. No reemplaza el respaldo íntegro de datos."}
                 </p>
               </div>
               <Button
                 variant="primary"
-                onClick={() => download("paquete-operativo", "xlsx", "Paquete operativo completo")}
+                onClick={() => download("paquete-operativo", "xlsx", "Libro de análisis operativo")}
                 disabled={busy !== null || !rangeValid}
                 className="inline-flex items-center gap-2 shrink-0"
               >
                 <Download className="w-4 h-4" />
-                {busy === "paquete-operativo-xlsx" ? "Generando Excel..." : "Descargar paquete (.xlsx)"}
+                {busy === "paquete-operativo-xlsx" ? "Generando Excel..." : "Descargar libro (.xlsx)"}
+              </Button>
+            </div>
+          </Card>
+
+          <Card className="border-blue-200 bg-gradient-to-br from-blue-50/70 to-white">
+            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+              <div className="space-y-1.5">
+                <div className="flex items-center gap-2">
+                  <Badge color="blue">Respaldo íntegro</Badge>
+                  <span className="text-xs font-medium text-slate-500">JSON · todas las tablas de la granja</span>
+                </div>
+                <h2 className="text-lg font-bold text-slate-800">
+                  {catalog?.backup.label || "Respaldo de datos de la granja (JSON)"}
+                </h2>
+                <p className="text-sm text-slate-600 max-w-3xl">
+                  {catalog?.backup.description ||
+                    "Incluye los registros y configuraciones de los módulos actuales, también Personal y Nómina, reproducción, bioseguridad, compostaje, adjuntos, Gina y Telegram. Omite contraseñas, sesiones, secretos de conexión y datos de facturación del servicio."}
+                </p>
+                <p className="text-xs text-slate-500">
+                  {catalog?.backup.tables.length ?? "—"} tablas disponibles para consultas JSON paginadas. El catálogo
+                  indica qué tablas admiten updated_since por updatedAt; las demás se recorren completas por páginas.
+                  El respaldo completo puede ser grande si hay muchos adjuntos.
+                </p>
+              </div>
+              <Button
+                variant="primary"
+                onClick={downloadBackup}
+                disabled={busy !== null}
+                className="inline-flex items-center gap-2 shrink-0"
+              >
+                <Download className="w-4 h-4" />
+                {busy === "respaldo-completo-json" ? "Generando respaldo..." : "Descargar respaldo (.json)"}
               </Button>
             </div>
           </Card>
@@ -747,10 +819,19 @@ curl -H "X-Export-Token: $TOKEN" \\
 curl -H "X-Export-Token: $TOKEN" \\
   "https://app.iwage.co/api/export?dataset=finanzas&format=json&updated_since=2026-11-01&limit=200"
 
-# Paquete completo en Excel
+# Libro de análisis en Excel
 curl -H "X-Export-Token: $TOKEN" \\
   "https://app.iwage.co/api/export?dataset=paquete-operativo&format=xlsx" \\
-  -o gallinero.xlsx`}
+  -o gallinero.xlsx
+
+# Respaldo íntegro de datos de la granja (requiere read:backup)
+curl -H "X-Export-Token: $TOKEN" \\
+  "https://app.iwage.co/api/export?dataset=respaldo-completo&format=json" \\
+  -o iwagranja-respaldo.json
+
+# Tabla de nómina paginada (requiere read:backup); repite con nextCursor
+curl -H "X-Export-Token: $TOKEN" \\
+  "https://app.iwage.co/api/export?dataset=tabla:payroll_entries&format=json&limit=100&cursor=0"`}
                     </pre>
                   </div>
                 </details>
@@ -1018,6 +1099,15 @@ curl -H "X-Export-Token: $TOKEN" \\
                   );
                 })}
               </div>
+              {tokenScopes.includes("read:backup") && (
+                <div className="mt-3 rounded-xl border border-amber-300 bg-amber-50 px-3.5 py-2.5 text-xs text-amber-900">
+                  <p className="font-semibold">Este alcance permite descargar todos los datos de la granja.</p>
+                  <p className="mt-1">
+                    Puede incluir nómina, información operativa y archivos adjuntos. Las contraseñas, sesiones y secretos
+                    de conexión se omiten. Comparte el token solo con un sistema de confianza.
+                  </p>
+                </div>
+              )}
               {hasWriteScope && (
                 <div className="mt-3 rounded-xl border border-amber-300 bg-amber-50 px-3.5 py-2.5 text-xs text-amber-900">
                   <p className="font-semibold">

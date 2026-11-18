@@ -24,6 +24,7 @@ export const INTEGRATION_SCOPES = [
   "read:inventory",
   "read:contacts",
   "read:production",
+  "read:backup",
   "agent:read",
   "agent:write",
 ] as const;

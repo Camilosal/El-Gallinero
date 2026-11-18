@@ -10,6 +10,11 @@ import { createPairingCode } from "@/lib/agent/telegram-channel";
 export const dynamic = "force-dynamic";
 
 // C3: vinculación de chats de Telegram al usuario de la sesión.
+function getTelegramBotUsername(): string | null {
+  const username = (process.env.TELEGRAM_BOT_USERNAME || "").trim().replace(/^@/, "");
+  return /^[A-Za-z0-9_]{5,32}$/.test(username) ? username : null;
+}
+
 export const GET = withApiHandler(async () => {
   const user = await getSessionUser();
   if (!user) return NextResponse.json({ error: "No autenticado" }, { status: 401 });
@@ -25,7 +30,7 @@ export const GET = withApiHandler(async () => {
     .from(telegramChats)
     .where(eq(telegramChats.userId, user.id));
 
-  return NextResponse.json({ configured: isTelegramConfigured(), chats });
+  return NextResponse.json({ configured: isTelegramConfigured(), botUsername: getTelegramBotUsername(), chats });
 });
 
 export const POST = withApiHandler(async () => {
@@ -39,7 +44,7 @@ export const POST = withApiHandler(async () => {
   }
 
   const pairing = await createPairingCode(user.id, user.farmId);
-  return NextResponse.json({ ...pairing, ttlMinutes: 10 });
+  return NextResponse.json({ ...pairing, botUsername: getTelegramBotUsername(), ttlMinutes: 10 });
 });
 
 export const DELETE = withApiHandler(async (req: NextRequest) => {

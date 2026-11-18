@@ -25,7 +25,7 @@ export function GET() {
     "",
     "## Documentación y soporte",
     `- [Centro de recursos](${SITE_URL}/recursos): artículos, herramientas y novedades del proyecto`,
-    `- [Plantilla P1 de seguridad y autonomía alimentaria](${SITE_URL}/recursos/herramientas/p1): prototipo interactivo para personalizar una ficha y un plan preliminar de proyecto`,
+    `- [Diseño de Proyectos Rurales con Producción Animal](${SITE_URL}/recursos/herramientas/p1): herramienta interactiva con siete modelos por propósito para integrar producción de pequeña escala en intervenciones rurales`,
     `- [Manual de uso completo (8 módulos y 2 secciones base)](${SITE_URL}/guia): guía ilustrada paso a paso con capturas reales`,
     `- [Ayuda y preguntas frecuentes](${SITE_URL}/ayuda): pagos por ciclo, modo offline, exportación y normativa`,
     `- [Contacto y soporte](${SITE_URL}/contacto): soporte técnico, implementación y canal PQR (respuesta en 1 día hábil)`,

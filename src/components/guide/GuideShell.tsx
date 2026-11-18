@@ -17,6 +17,7 @@ import { AppIcon } from "@/components/AppIcon";
 import { BrandLogo } from "@/components/BrandLogo";
 import { GuideSearchModal } from "@/components/guide/GuideSearchModal";
 import { DeveloperCredit } from "@/components/DeveloperCredit";
+import { PublicNavigation } from "@/components/PublicNavigation";
 import { guideModules, guides } from "@/lib/guide-data";
 
 interface GuideShellProps {
@@ -188,7 +189,9 @@ export function GuideShell({ children, basePath, isStandalone }: GuideShellProps
   );
 
   return (
-    <div className="min-h-[100dvh] bg-slate-50 text-slate-900">
+    <>
+      {isStandalone && <PublicNavigation sticky={false} />}
+      <div className="min-h-[100dvh] bg-slate-50 text-slate-900">
       {/* Cabecera fija moderna del manual */}
       <header className="sticky top-0 z-30 border-b border-slate-200/90 bg-white/95 backdrop-blur-md">
         <div className="mx-auto flex h-16 max-w-[1440px] items-center justify-between gap-3 px-4 sm:px-6">
@@ -300,7 +303,8 @@ export function GuideShell({ children, basePath, isStandalone }: GuideShellProps
       </div>
 
       <GuideSearchModal open={searchOpen} onClose={() => setSearchOpen(false)} basePath={basePath} />
-    </div>
+      </div>
+    </>
   );
 }
 

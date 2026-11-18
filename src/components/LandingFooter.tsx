@@ -18,9 +18,9 @@ const FOOTER_GROUPS = [
     links: [
       { href: "/planes", label: "Planes" },
       { href: "/recursos", label: "Centro de recursos" },
-      { href: "/recursos#articulos", label: "Artículos y bitácoras" },
-      { href: "/recursos#herramientas", label: "Herramientas y calculadoras" },
-      { href: "/recursos#novedades", label: "Noticias y novedades" },
+      { href: "/bitacora", label: "Artículos y bitácoras" },
+      { href: "/recursos/herramientas", label: "Herramientas y calculadoras" },
+      { href: "/recursos/novedades", label: "Noticias y novedades" },
     ],
   },
   {

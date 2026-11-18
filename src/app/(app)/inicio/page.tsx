@@ -11,6 +11,7 @@ import {
   ChevronRight,
   CircleDollarSign,
   ClipboardCheck,
+  Copy,
   Egg,
   HeartHandshake,
   Home,
@@ -111,6 +112,8 @@ interface DashboardData {
   supplyAlerts: number;
 }
 
+const ACTIVE_FARM_META_STORAGE_KEY = "galli-active-farm-meta";
+
 interface AttentionItem {
   id: string;
   message: string;
@@ -153,7 +156,55 @@ export default function Dashboard() {
   const [syncingExternal, setSyncingExternal] = useState(false);
   const [externalZoneLabel, setExternalZoneLabel] = useState<string | null>(null);
   const [externalSyncNotice, setExternalSyncNotice] = useState<{ ok: boolean; text: string } | null>(null);
+  const [farmId, setFarmId] = useState<string | null>(null);
+  const [farmIdCopied, setFarmIdCopied] = useState(false);
   const { state: onboardingState, flags: onboardingFlags, patchOnboarding, refresh: refreshOnboarding } = useOnboardingState();
+
+  useEffect(() => {
+    let active = true;
+    try {
+      const cached = localStorage.getItem(ACTIVE_FARM_META_STORAGE_KEY);
+      if (cached) {
+        const parsed = JSON.parse(cached) as { farmId?: string };
+        if (parsed?.farmId) setFarmId(String(parsed.farmId));
+      }
+    } catch {
+      // La página puede mostrar el identificador después de consultar la sesión.
+    }
+
+    apiFetch("/api/auth/me")
+      .then((res) => (res.ok ? res.json() : null))
+      .then((data) => {
+        if (!active || !data?.farmId) return;
+        const farmMeta = {
+          farmId: String(data.farmId),
+          farmName: data.farmName ?? null,
+          farmSlug: data.farmSlug ?? null,
+        };
+        setFarmId(farmMeta.farmId);
+        try {
+          localStorage.setItem(ACTIVE_FARM_META_STORAGE_KEY, JSON.stringify(farmMeta));
+        } catch {
+          // El valor de la sesión sigue disponible aunque no se pueda guardar en caché.
+        }
+      })
+      .catch(() => undefined);
+
+    return () => {
+      active = false;
+    };
+  }, []);
+
+  const copyFarmId = async () => {
+    if (!farmId) return;
+    try {
+      await navigator.clipboard.writeText(farmId);
+      setFarmIdCopied(true);
+      window.setTimeout(() => setFarmIdCopied(false), 1800);
+    } catch {
+      // Clipboard API unavailable
+    }
+  };
 
   const loadHomeData = useCallback(() => {
     apiFetch("/api/dashboard")
@@ -527,6 +578,19 @@ export default function Dashboard() {
         className="mb-4"
         icon={<Home className="w-3.5 h-3.5 text-amber-200" aria-hidden="true" />}
         title={onboardingState?.farmProfile?.name || "Panel principal"}
+        metadata={farmId ? (
+          <button
+            type="button"
+            onClick={() => void copyFarmId()}
+            className="inline-flex max-w-full items-center gap-1.5 text-left font-mono text-[10px] text-white/70 transition-colors hover:text-white/90"
+            title={farmIdCopied ? "FarmID copiado" : "Copiar FarmID"}
+            aria-label="Copiar FarmID"
+            data-testid="home-farm-id"
+          >
+            <span className="break-all">FarmID: {farmId}</span>
+            {farmIdCopied ? <Check className="h-3 w-3 shrink-0" aria-hidden="true" /> : <Copy className="h-3 w-3 shrink-0" aria-hidden="true" />}
+          </button>
+        ) : undefined}
         description={
           isMediano
             ? "Modo Mediano / Tecnificado · Control completo con analítica por especie, calibres NTC 1240, presupuestos y auditoría"

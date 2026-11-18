@@ -46,6 +46,7 @@ function renderHelpBody(text: string) {
 export interface HeroBannerProps {
   theme?: HeroThemeKey;
   title: ReactNode;
+  metadata?: ReactNode;
   description?: ReactNode;
   eyebrow?: string;
   icon?: string | ReactNode;
@@ -67,6 +68,7 @@ export interface HeroBannerProps {
 export function HeroBanner({
   theme,
   title,
+  metadata,
   description,
   eyebrow,
   icon,
@@ -106,6 +108,7 @@ export function HeroBanner({
       <HeroFrame
         theme={resolvedTheme}
         title={title}
+        metadata={metadata}
         description={description}
         eyebrow={eyebrow}
         icon={icon}

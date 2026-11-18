@@ -1,11 +1,11 @@
 import type { Metadata } from "next";
 import { PublicPageShell } from "@/components/LegalPage";
-import { P1ProjectTemplateMock } from "@/components/project-templates/P1ProjectTemplateMock";
+import { ProjectFormulator } from "@/components/project-templates/ProjectFormulator";
 import { buildPageMetadata } from "@/lib/seo";
 
-const TITLE = "Plantilla P1: seguridad y autonomía alimentaria · IwaGranja";
+const TITLE = "Diseño de Proyectos Rurales con Producción Animal · IwaGranja";
 const DESCRIPTION =
-  "Personaliza una ficha inicial para formular proyectos de seguridad y autonomía alimentaria. Organiza población, componentes, plan de implementación y medición.";
+  "Adapta siete modelos de proyecto para integrar producción animal de pequeña escala en objetivos de alimentación, medios de vida, capacidades productivas, mercados y sostenibilidad rural.";
 
 export const metadata: Metadata = buildPageMetadata({
   title: TITLE,
@@ -16,13 +16,13 @@ export const metadata: Metadata = buildPageMetadata({
 export default function P1PublicTemplatePage() {
   return (
     <PublicPageShell
-      title="Plantilla P1 · Seguridad y autonomía alimentaria"
-      intro="Parte del cambio que busca el proyecto, ajusta la ficha al territorio y prepara un plan preliminar para conversar con un posible aliado."
+      title="Diseño de Proyectos Rurales con Producción Animal"
+      intro="Elige el propósito principal de la intervención, parte de un modelo preconfigurado y adapta la ficha al territorio para conversar con un posible aliado."
       path="/recursos/herramientas/p1"
       description={DESCRIPTION}
       headerAction={{ href: "/recursos", label: "Todos los recursos" }}
     >
-      <P1ProjectTemplateMock surface="public" />
+      <ProjectFormulator surface="public" />
     </PublicPageShell>
   );
 }

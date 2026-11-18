@@ -17,6 +17,7 @@ import { calculateTransportAllowanceCop, computePayrollLiquidation } from "@/lib
 import {
   computeSuggestedProrationWeights,
   distributeAmountByWeights,
+  formatProrationSpeciesLabel,
   VALID_PRORATION_BASES,
 } from "@/lib/analytics/proration";
 import { deleteTransactionsAndUnpaidAccounts } from "@/lib/financial-records";
@@ -95,6 +96,7 @@ export const POST = withApiHandler(async (req: NextRequest) => {
   const accountingMode =
     body.accountingMode === "imputed_economic" ? "imputed_economic" : "cash_expense";
   const isCredit = accountingMode === "cash_expense" && Boolean(body.isCredit);
+  const isOwnerLaborEstimate = body.ownerLaborEstimate === true;
   if (isCredit && body.dueDate && !isDateOnly(body.dueDate)) {
     return NextResponse.json({ error: "Fecha de vencimiento inválida" }, { status: 400 });
   }
@@ -112,6 +114,12 @@ export const POST = withApiHandler(async (req: NextRequest) => {
 
   const [staff] = await db.select().from(staffProfiles).where(eq(staffProfiles.id, staffId));
   if (!staff) return NextResponse.json({ error: "Perfil de personal no encontrado" }, { status: 404 });
+  if (isOwnerLaborEstimate && (accountingMode !== "imputed_economic" || staff.workerKind !== "productor")) {
+    return NextResponse.json({ error: "La estimación solo aplica al trabajo propio como costo económico" }, { status: 400 });
+  }
+  if (isOwnerLaborEstimate && bonusesCop > 0) {
+    return NextResponse.json({ error: "La estimación de trabajo propio no admite bonificaciones" }, { status: 400 });
+  }
 
   const taxConfig = await getTaxAndPayrollConfig();
   const unitRateCop = Number(staff.baseRateCop);
@@ -119,13 +127,17 @@ export const POST = withApiHandler(async (req: NextRequest) => {
     return NextResponse.json({ error: "Tarifa inválida" }, { status: 400 });
   }
 
-  const applySocialSecurity = Boolean(staff.applySocialSecurity);
+  const ownerReferenceRateIncludesEmployerLoad =
+    staff.workerKind === "productor" && staff.contractType === "propio" && staff.payPeriod === "hora";
+  const applySocialSecurity = isOwnerLaborEstimate || ownerReferenceRateIncludesEmployerLoad
+    ? false
+    : Boolean(staff.applySocialSecurity);
   const employerBurdenPct = applySocialSecurity ? taxConfig.employerBurdenPct : 0;
   const workerDeductionPct = applySocialSecurity ? taxConfig.workerDeductionPct : 0;
   const reteFuenteRatePct = staff.contractType === "prestacion_servicios" ? taxConfig.reteServiciosPct : 0;
   const reteFuenteFixedCop = null;
   const transportAllowanceCop = calculateTransportAllowanceCop({
-    eligible: staff.includeTransportAllowance,
+    eligible: !isOwnerLaborEstimate && staff.includeTransportAllowance,
     workerKind: staff.workerKind,
     contractType: staff.contractType,
     payPeriod: staff.payPeriod,
@@ -172,8 +184,47 @@ export const POST = withApiHandler(async (req: NextRequest) => {
     return NextResponse.json({ error: "El total de la liquidación debe ser mayor a 0" }, { status: 400 });
   }
 
-  const effectiveSpecies = species ?? staff.defaultSpecies ?? null;
-  const effectiveLocationId = locationId ?? staff.defaultLocationId ?? null;
+  let ownerLaborAllocations: ReturnType<typeof distributeAmountByWeights> = [];
+  if (body.ownerLaborAllocations !== undefined) {
+    if (accountingMode !== "imputed_economic" || staff.workerKind !== "productor") {
+      return NextResponse.json({ error: "El prorrateo por especie solo aplica al trabajo propio imputado" }, { status: 400 });
+    }
+    if (!Array.isArray(body.ownerLaborAllocations) || body.ownerLaborAllocations.length === 0) {
+      return NextResponse.json({ error: "Incluye al menos una especie para prorratear el trabajo propio" }, { status: 400 });
+    }
+    if (species || locationId) {
+      return NextResponse.json({ error: "Elige prorrateo por especies o asignación directa a un lugar, no ambos" }, { status: 400 });
+    }
+
+    const weightBySpecies = new Map<string, number>();
+    for (const item of body.ownerLaborAllocations) {
+      const normalizedSpecies = normalizeFeedingSpecies(String(item?.species || ""));
+      const percentage = Number(item?.percentage);
+      if (!normalizedSpecies || !Number.isFinite(percentage) || percentage <= 0 || percentage > 100) {
+        return NextResponse.json({ error: "La distribución contiene una especie o porcentaje inválido" }, { status: 400 });
+      }
+      weightBySpecies.set(normalizedSpecies, (weightBySpecies.get(normalizedSpecies) || 0) + percentage);
+    }
+
+    const percentageSum = Array.from(weightBySpecies.values()).reduce((sum, value) => sum + value, 0);
+    if (Math.abs(percentageSum - 100) > 0.1) {
+      return NextResponse.json({ error: `Los porcentajes de trabajo propio deben sumar 100% (actual: ${percentageSum.toFixed(2)}%)` }, { status: 400 });
+    }
+
+    ownerLaborAllocations = distributeAmountByWeights(
+      liq.totalEmployerCostCop,
+      Array.from(weightBySpecies.entries()).map(([allocatedSpecies, weight]) => ({
+        species: allocatedSpecies,
+        locationId: null,
+        batchId: null,
+        label: formatProrationSpeciesLabel(allocatedSpecies),
+        weight,
+      })),
+    );
+  }
+
+  const effectiveSpecies = isOwnerLaborEstimate ? null : species ?? staff.defaultSpecies ?? null;
+  const effectiveLocationId = isOwnerLaborEstimate ? null : locationId ?? staff.defaultLocationId ?? null;
 
   const created = await db.transaction(async (tx) => {
     let linkedTransactionId: string | null = null;
@@ -247,6 +298,25 @@ export const POST = withApiHandler(async (req: NextRequest) => {
           linkedAllocationId = alloc.id;
         }
       }
+    }
+
+    if (accountingMode === "imputed_economic" && ownerLaborAllocations.length > 0) {
+      const [allocation] = await tx
+        .insert(costAllocations)
+        .values({
+          date: body.date,
+          title: `Prorrateo de trabajo propio: ${staff.fullName}`,
+          sourceTransactionId: null,
+          expenseCategory: "Mano de obra propia",
+          totalAmount: liq.totalEmployerCostCop.toFixed(2),
+          basis: "manual",
+          allocations: ownerLaborAllocations,
+          periodFrom: isDateOnly(body.periodFrom) ? body.periodFrom : null,
+          periodTo: isDateOnly(body.periodTo) ? body.periodTo : null,
+          notes: "Distribución calculada a partir de las horas estimadas por especie y confirmada por el productor.",
+        })
+        .returning();
+      linkedAllocationId = allocation.id;
     }
 
     const [entry] = await tx
@@ -349,6 +419,13 @@ export const PATCH = withApiHandler(async (req: NextRequest) => {
         dueDate: isDateOnly(body.dueDate) ? body.dueDate : null,
         status: "pendiente",
       });
+    }
+
+    if (entry.linkedAllocationId) {
+      await tx
+        .update(costAllocations)
+        .set({ sourceTransactionId: createdTx.id, date: txDate })
+        .where(eq(costAllocations.id, entry.linkedAllocationId));
     }
 
     const [nextEntry] = await tx

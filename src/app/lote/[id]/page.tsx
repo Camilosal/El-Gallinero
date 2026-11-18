@@ -7,6 +7,7 @@ import { notFound } from "next/navigation";
 import { daysSince } from "@/lib/manure";
 import { isUuid } from "@/lib/ids";
 import { HeroFrame } from "@/components/HeroFrame";
+import { PublicNavigation } from "@/components/PublicNavigation";
 
 export const metadata = {
   title: "Trazabilidad de lote | IwaGranja",
@@ -57,6 +58,7 @@ export default async function LoteTraceabilityPage({ params }: Props) {
 
   return (
     <div className="bg-gray-50 min-h-screen">
+      <PublicNavigation sticky={false} />
       <div className="max-w-2xl mx-auto px-4 py-8">
         {/* Header */}
         <HeroFrame

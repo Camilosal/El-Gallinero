@@ -170,7 +170,7 @@ export default function BriefingInboxCard() {
         )}
       </div>
 
-      {latest.narrative?.trim() && (
+      {findings.length === 0 && latest.narrative?.trim() && (
         <p className="mt-3 whitespace-pre-line text-sm text-slate-800">{latest.narrative.trim()}</p>
       )}
 

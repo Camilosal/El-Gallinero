@@ -64,6 +64,7 @@ export function HeroActionAnchor({
 export interface HeroFrameProps {
   theme: HeroThemeKey;
   title: ReactNode;
+  metadata?: ReactNode;
   description?: ReactNode;
   eyebrow?: string;
   icon?: string | ReactNode;
@@ -82,6 +83,7 @@ export interface HeroFrameProps {
 export function HeroFrame({
   theme,
   title,
+  metadata,
   description,
   eyebrow,
   icon,
@@ -153,6 +155,12 @@ export function HeroFrame({
           >
             {title}
           </h1>
+
+          {metadata && (
+            <div className="mt-1 text-[10px] leading-tight text-white/70">
+              {metadata}
+            </div>
+          )}
 
           {description && (
             <p className="mt-1.5 text-sm sm:text-[15px] text-emerald-50/90 leading-relaxed max-w-xl">

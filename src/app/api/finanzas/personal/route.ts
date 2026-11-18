@@ -14,6 +14,18 @@ const VALID_WORKER_KINDS = new Set(["productor", "apoyo"]);
 const VALID_CONTRACT_TYPES = new Set(["propio", "jornal", "salario_fijo", "prestacion_servicios"]);
 const VALID_PAY_PERIODS = new Set(["hora", "dia", "semana", "quincena", "mes"]);
 
+async function countOtherActiveProducers(excludeId: string) {
+  const [{ cnt }] = await db
+    .select({ cnt: sql<number>`count(*)::int` })
+    .from(staffProfiles)
+    .where(and(
+      eq(staffProfiles.workerKind, "productor"),
+      eq(staffProfiles.isActive, true),
+      ne(staffProfiles.id, excludeId),
+    ));
+  return Number(cnt || 0);
+}
+
 export const GET = withApiHandler(async () => {
   const denied = await requirePermission("finance:write");
   if (denied) return denied;
@@ -98,7 +110,9 @@ export const POST = withApiHandler(async (req: NextRequest) => {
   }
 
   const taxConfig = await getTaxAndPayrollConfig();
-  const applySocialSecurity = Boolean(body.applySocialSecurity);
+  const applySocialSecurity = workerKind === "productor" && payPeriod === "hora"
+    ? false
+    : Boolean(body.applySocialSecurity);
   const includeTransportAllowance =
     Boolean(body.includeTransportAllowance) && workerKind === "apoyo" && contractType !== "prestacion_servicios";
   const employerBurdenPct = applySocialSecurity
@@ -162,14 +176,24 @@ export const PUT = withApiHandler(async (req: NextRequest) => {
     return NextResponse.json({ error: "La tarifa base debe ser mayor a 0" }, { status: 400 });
   }
 
-  const applySocialSecurity =
-    body.applySocialSecurity !== undefined ? Boolean(body.applySocialSecurity) : existing.applySocialSecurity;
   const workerKind = body.workerKind && VALID_WORKER_KINDS.has(String(body.workerKind))
     ? String(body.workerKind)
     : existing.workerKind;
+  const payPeriod = body.payPeriod && VALID_PAY_PERIODS.has(String(body.payPeriod))
+    ? String(body.payPeriod)
+    : existing.payPeriod;
+  const applySocialSecurity = workerKind === "productor" && payPeriod === "hora"
+    ? false
+    : body.applySocialSecurity !== undefined ? Boolean(body.applySocialSecurity) : existing.applySocialSecurity;
   const contractType = body.contractType && VALID_CONTRACT_TYPES.has(String(body.contractType))
     ? String(body.contractType)
     : existing.contractType;
+  const isActive = body.isActive !== undefined ? Boolean(body.isActive) : existing.isActive;
+  if (existing.workerKind === "productor" && existing.isActive && (!isActive || workerKind !== "productor")) {
+    if (await countOtherActiveProducers(existing.id) === 0) {
+      return NextResponse.json({ error: "La granja debe conservar al menos un perfil activo de productor" }, { status: 409 });
+    }
+  }
   const includeTransportAllowance =
     body.includeTransportAllowance !== undefined
       ? Boolean(body.includeTransportAllowance)
@@ -193,7 +217,7 @@ export const PUT = withApiHandler(async (req: NextRequest) => {
       documentId: nextDocumentId,
       workerKind,
       contractType,
-      payPeriod: body.payPeriod && VALID_PAY_PERIODS.has(String(body.payPeriod)) ? String(body.payPeriod) : existing.payPeriod,
+      payPeriod,
       baseRateCop: baseRateCop.toFixed(2),
       roleLabel: body.roleLabel !== undefined ? (String(body.roleLabel || "").trim() || null) : existing.roleLabel,
       defaultSpecies,
@@ -207,7 +231,7 @@ export const PUT = withApiHandler(async (req: NextRequest) => {
         ? taxConfig.workerDeductionPct.toFixed(2)
         : "0.00",
       arlRiskRatePct: Math.max(0, Math.min(10, Number(body.arlRiskRatePct ?? existing.arlRiskRatePct))).toFixed(3),
-      isActive: body.isActive !== undefined ? Boolean(body.isActive) : existing.isActive,
+      isActive,
       notes: body.notes !== undefined ? (String(body.notes || "").trim() || null) : existing.notes,
       updatedAt: new Date(),
     })
@@ -224,6 +248,12 @@ export const DELETE = withApiHandler(async (req: NextRequest) => {
   const { searchParams } = new URL(req.url);
   const id = searchParams.get("id");
   if (!id) return NextResponse.json({ error: "ID requerido" }, { status: 400 });
+
+  const [profile] = await db.select().from(staffProfiles).where(eq(staffProfiles.id, id));
+  if (!profile) return NextResponse.json({ error: "Perfil no encontrado" }, { status: 404 });
+  if (profile.workerKind === "productor" && profile.isActive && await countOtherActiveProducers(profile.id) === 0) {
+    return NextResponse.json({ error: "La granja debe conservar al menos un perfil activo de productor" }, { status: 409 });
+  }
 
   const [{ cnt }] = await db
     .select({ cnt: sql<number>`count(*)::int` })

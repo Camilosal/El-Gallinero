@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import type { ReactNode } from "react";
+import { PublicNavigation } from "@/components/PublicNavigation";
 import { buildPageMetadata } from "@/lib/seo";
 
 export const metadata: Metadata = buildPageMetadata({
@@ -11,5 +12,10 @@ export const metadata: Metadata = buildPageMetadata({
 });
 
 export default function LoginLayout({ children }: { children: ReactNode }) {
-  return children;
+  return (
+    <div className="flex min-h-screen flex-col">
+      <PublicNavigation sticky={false} />
+      <div className="flex-1">{children}</div>
+    </div>
+  );
 }

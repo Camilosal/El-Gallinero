@@ -162,6 +162,7 @@
   backdrop-filter: blur(8px);
   border-bottom: 1px solid var(--line);
 }
+.land-nav.land-nav-static { position: relative; top: auto; }
 .land-nav .land-wrap { display: flex; align-items: center; justify-content: space-between; padding: 16px 28px; }
 .land-brandmark { display: flex; align-items: center; gap: 10px; font-family: var(--font-fraunces, 'Fraunces'), serif; font-weight: 600; font-size: 17px; }
 .land-brandmark .dot { width: 9px; height: 9px; border-radius: 50%; background: var(--amber); box-shadow: 0 0 0 3px rgba(184, 132, 44, 0.18); }
@@ -189,7 +190,7 @@
 /* Mobile menu overlay */
 .land-mobile-menu {
   display: none; /* hidden on desktop */
-  position: fixed; top: 57px; right: 0; left: 0; z-index: 39;
+  position: fixed; top: 69px; right: 0; left: 0; z-index: 39;
   background: rgba(250, 244, 231, 0.97); backdrop-filter: blur(12px);
   border-bottom: 1px solid var(--line);
   max-height: 0; overflow: hidden; opacity: 0;
@@ -212,7 +213,7 @@
 }
 
 /* Mobile breakpoint: show hamburger, hide desktop links */
-@media (max-width: 768px) {
+@media (max-width: 767px) {
   .land-navlinks { display: none; }
   .land-hamburger { display: flex; }
   .land-mobile-menu { display: block; }
