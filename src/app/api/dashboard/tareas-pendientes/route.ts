@@ -6,6 +6,8 @@ import {
 import { eq, and, sql, inArray, asc, desc, ne } from "drizzle-orm";
 import { NextResponse } from "next/server";
 import { withApiHandler } from "@/lib/api-handler";
+import { getSessionUser } from "@/lib/auth";
+import { canPerformAction } from "@/lib/rbac";
 import { ageInWeeks, stageForAge } from "@/lib/lifecycle";
 import { isHenPresent, isRoosterPresent, isBatchPresent } from "@/lib/animal-status";
 import { loadSpeciesParams } from "@/lib/species-db";
@@ -161,6 +163,11 @@ export const GET = withApiHandler(async () => {
     || presentBatches.some((batch) => hasFeedingProgram(batch.species, ageInWeeks(batch.startDate, referenceDate)));
   const sanitaryEvent = pendingSanitary[0] || null;
   const lastFeed = lastFeedRows[0] || null;
+  const user = await getSessionUser();
+  const canSeeSanitaryDetails = canPerformAction(user?.role, "sanitary:write");
+  const canSeeOperationsDetails = canPerformAction(user?.role, "operations:manage");
+  const canSeeSalesPrices = canPerformAction(user?.role, "sales:read");
+  const canSeeProductionDetails = canPerformAction(user?.role, "production:write");
 
   return NextResponse.json({
     eggApplicable,
@@ -182,7 +189,7 @@ export const GET = withApiHandler(async () => {
       sanitaryConfigured: (sanitaryCount[0]?.total || 0) > 0 && Boolean(sanitaryReview[0]?.value),
       feedingProgramsValidated: programRows.length > 0 && Boolean(feedingReview[0]?.value),
     },
-    pendingSanitary: sanitaryEvent ? {
+    pendingSanitary: canSeeSanitaryDetails && sanitaryEvent ? {
       id: sanitaryEvent.id,
       name: sanitaryEvent.name,
       type: sanitaryEvent.type,
@@ -192,7 +199,7 @@ export const GET = withApiHandler(async () => {
       dueDate: sanitaryEvent.nextDueDate,
       isOverdue: sanitaryEvent.nextDueDate < today,
     } : null,
-    pendingSanitaryList: pendingSanitary.map((ev) => ({
+    pendingSanitaryList: canSeeSanitaryDetails ? pendingSanitary.map((ev) => ({
       id: ev.id,
       name: ev.name,
       type: ev.type,
@@ -201,8 +208,12 @@ export const GET = withApiHandler(async () => {
       frequencyDays: ev.frequencyDays,
       dueDate: ev.nextDueDate,
       isOverdue: ev.nextDueDate < today,
-    })),
-    maintenanceDue: maintenanceDue.map((task) => ({ ...task, isOverdue: task.scheduledDate < today })),
+    })) : [],
+    maintenanceDue: canSeeOperationsDetails ? maintenanceDue.map(({ cost, ...task }) => ({
+      ...task,
+      ...(canPerformAction(user?.role, "finance:read") ? { cost } : {}),
+      isOverdue: task.scheduledDate < today,
+    })) : [],
     maintenanceDueCount: maintenanceDueCount[0]?.total || 0,
     assetsNeedAttention: assetsNeedAttention[0]?.total || 0,
     lastEggRecord: lastEgg ? {
@@ -212,10 +223,10 @@ export const GET = withApiHandler(async () => {
       totalCollected: lastEgg.totalCollected,
       broken: lastEgg.broken,
       forIncubation: lastEgg.forIncubation,
-      referenceUnitPrice: lastEgg.referenceUnitPrice,
+      ...(canSeeSalesPrices ? { referenceUnitPrice: lastEgg.referenceUnitPrice } : {}),
       details: lastEggDetails,
     } : null,
-    lastFeedRecord: lastFeed ? {
+    lastFeedRecord: canSeeProductionDetails && lastFeed ? {
       feedId: lastFeed.feedId,
       feedName: lastFeed.feedName,
       feedUnit: lastFeed.feedUnit,

@@ -681,7 +681,7 @@ export const GET = withApiHandler(async (req: NextRequest) => {
 
 /** POST /api/configuracion/fuentes-externas */
 export const POST = withApiHandler(async (req: NextRequest) => {
-  const denied = await requirePermission("config:write");
+  const denied = await requirePermission("integrations:manage");
   if (denied) return denied;
 
   const body = await safeParseJson(req);

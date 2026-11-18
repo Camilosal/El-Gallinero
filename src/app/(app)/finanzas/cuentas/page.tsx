@@ -17,6 +17,8 @@ import { findContactByName, useContacts } from "@/lib/useContacts";
 import { apiFetch } from "@/lib/fetch";
 import TableSearch from "@/components/TableSearch";
 import { matchesTextQuery } from "@/lib/text";
+import { canPerformAction } from "@/lib/rbac";
+import { useAppRole } from "@/lib/useAppRole";
 
 interface ReceivableAccount {
   id: string;
@@ -74,7 +76,18 @@ export default function CuentasPage() {
 
 function CuentasInner() {
   const searchParams = useSearchParams();
-  const [tab, setTab] = useState<"cobrar" | "pagar">("cobrar");
+  const role = useAppRole();
+  const canCollect = canPerformAction(role, "sales:write");
+  const canViewPayables = canPerformAction(role, "finance:read");
+  const canPay = canPerformAction(role, "finance:write");
+  const requestedTab = searchParams.get("tab") === "pagar" && canViewPayables ? "pagar" : "cobrar";
+  const [tabOverride, setTabOverride] = useState<"cobrar" | "pagar" | null>(null);
+  const [lastSyncedTab, setLastSyncedTab] = useState(requestedTab);
+  if (requestedTab !== lastSyncedTab) {
+    setLastSyncedTab(requestedTab);
+    setTabOverride(null);
+  }
+  const tab = tabOverride ?? requestedTab;
   const [receivables, setReceivables] = useState<ReceivableAccount[]>([]);
   const [payables, setPayables] = useState<PayableAccount[]>([]);
   const [payments, setPayments] = useState<Payment[]>([]);
@@ -95,14 +108,14 @@ function CuentasInner() {
   const load = useCallback(async () => {
     const [recRes, payRes, paymRes] = await Promise.all([
       apiFetch("/api/cuentas-cobrar"),
-      apiFetch("/api/cuentas-pagar"),
+      canViewPayables ? apiFetch("/api/cuentas-pagar") : Promise.resolve(null),
       apiFetch("/api/pagos"),
     ]);
     if (recRes.ok) setReceivables(await recRes.json());
-    if (payRes.ok) setPayables(await payRes.json());
+    if (payRes?.ok) setPayables(await payRes.json());
     if (paymRes.ok) setPayments(await paymRes.json());
     setLoading(false);
-  }, []);
+  }, [canViewPayables]);
 
   useEffect(() => { void Promise.resolve().then(load); }, [load]);
 
@@ -261,25 +274,25 @@ function CuentasInner() {
 
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-2.5 sm:gap-4">
         <StatCard icon="incoming" label="Por cobrar" value={fmt(totalPendingCobrar)} color="green" />
-        <StatCard icon="outgoing" label="Por pagar" value={fmt(totalPendingPagar)} color="red" />
+        {canViewPayables && <StatCard icon="outgoing" label="Por pagar" value={fmt(totalPendingPagar)} color="red" />}
         <StatCard icon="warning" label="Vencidas (cobrar)" value={String(overdueCobrar)} color="yellow" />
-        <StatCard icon="warning" label="Vencidas (pagar)" value={String(overduePagar)} color="purple" />
+        {canViewPayables && <StatCard icon="warning" label="Vencidas (pagar)" value={String(overduePagar)} color="purple" />}
       </div>
 
       {/* Tab selector */}
       <div className="flex gap-2">
         <button
-          onClick={() => setTab("cobrar")}
+          onClick={() => setTabOverride("cobrar")}
           className={`px-4 py-2 rounded-lg font-medium text-sm transition-colors ${tab === "cobrar" ? "bg-green-600 text-white" : "bg-slate-200 text-slate-700 hover:bg-slate-300"}`}
         >
           Por Cobrar ({receivables.length})
         </button>
-        <button
-          onClick={() => setTab("pagar")}
+        {canViewPayables && <button
+          onClick={() => setTabOverride("pagar")}
           className={`px-4 py-2 rounded-lg font-medium text-sm transition-colors ${tab === "pagar" ? "bg-red-600 text-white" : "bg-slate-200 text-slate-700 hover:bg-slate-300"}`}
         >
           Por Pagar ({payables.length})
-        </button>
+        </button>}
       </div>
 
       {loading ? (
@@ -358,7 +371,7 @@ function CuentasInner() {
                 <td className="px-4 py-3">{statusBadge(a.status)}</td>
                 <td className="px-4 py-3">
                   <div className="flex flex-col items-start gap-1">
-                    {a.status !== "pagado" && (
+                    {a.status !== "pagado" && (tab === "cobrar" ? canCollect : canPay) && (
                       <button
                         onClick={() => openPayment(a.id, tab, Number(a.pendingAmount))}
                         className="text-green-600 hover:underline text-xs font-medium"
@@ -425,7 +438,7 @@ function CuentasInner() {
                 <td className="px-4 py-3 text-sm text-slate-500">{p.reference || "—"}</td>
                 <td className="px-4 py-3 text-sm text-slate-500 max-w-[150px] truncate">{p.notes || "—"}</td>
                 <td className="px-4 py-3">
-                  <button onClick={() => removePayment(p.id)} className="text-red-600 hover:underline text-xs">Revertir</button>
+                  {canPay && <button onClick={() => removePayment(p.id)} className="text-red-600 hover:underline text-xs">Revertir</button>}
                 </td>
               </tr>
             ))}
@@ -460,7 +473,7 @@ function CuentasInner() {
                   Cobro · {a.buyer} · Pendiente {fmt(Number(a.pendingAmount))}
                 </option>
               ))}
-              {payables.filter((a) => a.status !== "pagado").map((a) => (
+              {canPay && payables.filter((a) => a.status !== "pagado").map((a) => (
                 <option key={`p-${a.id}`} value={`pagar|${a.id}`}>
                   Pago · {a.supplier} · Pendiente {fmt(Number(a.pendingAmount))}
                 </option>

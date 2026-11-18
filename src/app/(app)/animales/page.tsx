@@ -10,6 +10,8 @@ import { apiFetch } from "@/lib/fetch";
 import { matchesTextQuery } from "@/lib/text";
 import { isHrefEnabledByFlags } from "@/lib/onboarding";
 import { useOnboardingState } from "@/lib/useOnboardingState";
+import { canAccessAppRoute, canPerformAction } from "@/lib/rbac";
+import { useAppRole } from "@/lib/useAppRole";
 
 interface AnimalGroup {
   key: string;
@@ -20,8 +22,8 @@ interface AnimalGroup {
   count: number;
   avgWeightKg: number;
   totalWeightKg: number;
-  pricePerKg: number;
-  estimatedValue: number;
+  pricePerKg: number | null;
+  estimatedValue: number | null;
   weightEstimated: boolean;
   source: "hen" | "rooster" | "batch";
   locationName: string | null;
@@ -46,7 +48,7 @@ interface AnimalSpecies {
   isBird: boolean;
   count: number;
   totalWeightKg: number;
-  estimatedValue: number;
+  estimatedValue: number | null;
 }
 
 interface AnimalInventory {
@@ -60,7 +62,7 @@ interface AnimalInventory {
     activeRoosters: number;
     activeBatches: number;
     totalWeightKg: number;
-    totalValue: number;
+    totalValue: number | null;
   };
   species: AnimalSpecies[];
   groups: AnimalGroup[];
@@ -120,6 +122,9 @@ export default function AnimalesPage() {
   const [targetByAnimal, setTargetByAnimal] = useState<Record<string, string>>({});
   const [assigningId, setAssigningId] = useState("");
   const [assignmentError, setAssignmentError] = useState("");
+  const role = useAppRole();
+  const canSeeFinancials = canPerformAction(role, "finance:read");
+  const canManageAnimals = canPerformAction(role, "animal:manage");
 
   const loadInventory = useCallback(async () => {
     try {
@@ -201,7 +206,7 @@ export default function AnimalesPage() {
   );
   const visibleQuickLinks = useMemo(() => {
     const enabled = quickLinks.filter((l) => {
-      if (!isHrefEnabledByFlags(l.href, flags)) return false;
+      if (!isHrefEnabledByFlags(l.href, flags) || !canAccessAppRoute(role, l.href)) return false;
       if (config?.scale === "PEQUENO" && l.href === "/produccion?tab=reproduccion" && !hasMammals) {
         return false;
       }
@@ -211,7 +216,7 @@ export default function AnimalesPage() {
       return true;
     });
     return search.trim() ? enabled.filter((l) => matchesTextQuery(search, [l.label, l.desc])) : enabled;
-  }, [config?.scale, flags, hasMammals, hasWeightFocus, search]);
+  }, [config?.scale, flags, hasMammals, hasWeightFocus, role, search]);
   const visibleUnassigned = useMemo(
     () =>
       search.trim()
@@ -227,11 +232,11 @@ export default function AnimalesPage() {
         title="Inventario de Animales"
         description="Inventario y seguimiento unificado de gallinas, gallos, pollos, codornices, patos, conejos y cuyes."
         help="Aquí ves los animales activos en la granja separados por especie, junto con accesos directos a Adquisiciones, Gestión de Animales, Lugares de manejo, Reproducción (conejos y cuyes), Control de peso y biometría, Incubación y Mortalidad. El inventario excluye animales vendidos, faenados o fallecidos."
-        actions={
-          <HeroActionLink href="/produccion/adquisiciones" tone="solid">
-            + Registrar ingreso
-          </HeroActionLink>
-        }
+        actions={canAccessAppRoute(role, "/produccion/adquisiciones") ? (
+            <HeroActionLink href="/produccion/adquisiciones" tone="solid">
+              + Registrar ingreso
+            </HeroActionLink>
+          ) : undefined}
       />
 
       {loading ? (
@@ -252,11 +257,11 @@ export default function AnimalesPage() {
             totalCount={data.groups.filter((group) => groupMatchesAnimalFilter(group, speciesFilter)).length}
           />
 
-          <div className="grid grid-cols-2 gap-2.5 sm:gap-4 lg:grid-cols-4">
+          <div className={`grid grid-cols-2 gap-2.5 sm:gap-4 ${canSeeFinancials ? "lg:grid-cols-4" : "lg:grid-cols-3"}`}>
             <StatCard icon="paw-print" label="Animales en inventario" value={data.summary.totalAnimals} color="green" />
             <StatCard icon="hen" label="Aves" value={data.summary.totalBirds} color="yellow" />
             <StatCard icon="rabbit" label="No aves" value={data.summary.totalNonBirds} color="blue" />
-            <StatCard icon="money" label="Valor estimado" value={fmtMoney(inventoryValue)} color="purple" />
+            {canSeeFinancials && <StatCard icon="money" label="Valor estimado" value={fmtMoney(inventoryValue)} color="purple" />}
           </div>
 
           <Card>
@@ -322,14 +327,14 @@ export default function AnimalesPage() {
                     <p className="mt-2 text-2xl font-bold text-slate-900">{species.count}</p>
                     <p className="text-sm text-slate-600">{species.label}</p>
                     <p className="mt-1 text-xs text-slate-500">{fmtKg(species.totalWeightKg)}</p>
-                    <p className="text-xs font-semibold text-green-700">{fmtMoney(species.estimatedValue)}</p>
+                    {canSeeFinancials && <p className="text-xs font-semibold text-green-700">{fmtMoney(species.estimatedValue ?? 0)}</p>}
                   </Card>
                 ))}
               </div>
             </div>
           )}
 
-          {visibleUnassigned.length > 0 && (
+          {canManageAnimals && visibleUnassigned.length > 0 && (
             <Card className="border-amber-200 bg-amber-50/60">
               <div className="mb-3 flex flex-wrap items-start justify-between gap-2">
                 <div>
@@ -413,7 +418,7 @@ export default function AnimalesPage() {
                   "Cantidad",
                   "Peso prom.",
                   "Peso total",
-                  "Valor estimado",
+                  ...(canSeeFinancials ? ["Valor estimado"] : []),
                 ]}
               >
                 {groups.map((group) => (
@@ -438,17 +443,17 @@ export default function AnimalesPage() {
                       )}
                     </td>
                     <td className="px-4 py-3 text-sm">{fmtKg(group.totalWeightKg)}</td>
-                    <td className="px-4 py-3 font-semibold text-green-700">
-                      {fmtMoney(group.estimatedValue)}
-                    </td>
+                    {canSeeFinancials && <td className="px-4 py-3 font-semibold text-green-700">
+                      {fmtMoney(group.estimatedValue ?? 0)}
+                    </td>}
                   </tr>
                 ))}
               </Table>
             )}
 
-            <p className="mt-3 text-xs text-slate-500">
+            {canSeeFinancials && <p className="mt-3 text-xs text-slate-500">
               El valor usa el precio de Catálogos y el peso real cuando existe; si no, el peso objetivo de la especie.
-            </p>
+            </p>}
           </Card>
 
           {data.byPurpose.length > 0 && (

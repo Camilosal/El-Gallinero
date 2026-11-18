@@ -366,7 +366,7 @@ export const POST = withApiHandler(async (req: NextRequest) => {
 });
 
 export const PATCH = withApiHandler(async (req: NextRequest) => {
-  const denied = await requirePermission("config:write");
+  const denied = await requirePermission("operations:manage");
   if (denied) return denied;
 
   const body = await safeParseJson(req);

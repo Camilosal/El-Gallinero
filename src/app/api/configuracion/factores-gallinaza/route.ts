@@ -87,7 +87,7 @@ export const GET = withApiHandler(async () => {
 });
 
 export const PUT = withApiHandler(async (req: NextRequest) => {
-  const denied = await requirePermission("config:write");
+  const denied = await requirePermission("catalogs:write");
   if (denied) return denied;
   const body = await safeParseJson(req);
   if (!body.id) return NextResponse.json({ error: "ID requerido" }, { status: 400 });

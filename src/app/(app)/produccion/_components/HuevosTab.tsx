@@ -22,6 +22,8 @@ import MicroInsightCard from "@/components/MicroInsightCard";
 import FeatureGateBanner from "@/components/FeatureGateBanner";
 import { useOnboardingState } from "@/lib/useOnboardingState";
 import { buildEggMicroInsight, type MicroInsightPayload } from "@/lib/micro-insights";
+import { canPerformAction } from "@/lib/rbac";
+import { useAppRole } from "@/lib/useAppRole";
 
 interface EggDetail {
   size: string;
@@ -84,6 +86,8 @@ const stageColors: Record<string, string> = {
 export default function HuevosPage() {
   const searchParams = useSearchParams();
   const { priceEgg } = useSpeciesCatalog();
+  const role = useAppRole();
+  const canSetReferencePrice = canPerformAction(role, "sales:write");
   const { locations } = useFarmLocations();
   const [records, setRecords] = useState<EggRecord[]>([]);
   const [stageData, setStageData] = useState<StageEggData[]>([]);
@@ -1094,9 +1098,11 @@ export default function HuevosPage() {
               />
               <Input
                 label="Precio ref. ($/ud COP)"
+                help={canSetReferencePrice ? undefined : "Se usa el precio vigente de Catálogos; solo perfiles con permiso comercial pueden ajustarlo."}
                 type="number"
                 value={form.referenceUnitPrice}
                 onChange={(e) => setForm({ ...form, referenceUnitPrice: e.target.value })}
+                disabled={!canSetReferencePrice}
               />
             </div>
 

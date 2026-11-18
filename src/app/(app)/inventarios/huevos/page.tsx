@@ -6,6 +6,8 @@ import { PageHeader, Card, Table, Badge, StatCard, EmptyState } from "@/componen
 import { apiFetch } from "@/lib/fetch";
 import TableSearch from "@/components/TableSearch";
 import { matchesTextQuery } from "@/lib/text";
+import { canPerformAction } from "@/lib/rbac";
+import { useAppRole } from "@/lib/useAppRole";
 
 interface EggLot {
   id: string;
@@ -29,7 +31,7 @@ interface SizeSummary {
   sold: number;
   lost: number;
   available: number;
-  value: number;
+  value: number | null;
 }
 
 interface InventoryData {
@@ -44,7 +46,7 @@ interface InventoryData {
   lots: EggLot[];
   aging: { label: string; count: number }[];
   oldestLot: EggLot | null;
-  estimatedValue: number;
+  estimatedValue: number | null;
   storageAlerts?: Array<{
     id: string;
     lotCode: string | null;
@@ -56,6 +58,9 @@ interface InventoryData {
 }
 
 export default function InventarioPage() {
+  const role = useAppRole();
+  const canSeeFinancials = canPerformAction(role, "finance:read");
+  const canSeeSalesPrices = canPerformAction(role, "sales:read");
   const [data, setData] = useState<InventoryData | null>(null);
   const [loading, setLoading] = useState(true);
   const [summarySearch, setSummarySearch] = useState("");
@@ -115,14 +120,14 @@ export default function InventarioPage() {
       <PageHeader
         title="Inventario de Huevos"
         description="Cruce entre producción, ventas y disponibilidad por tamaño, con consumo PEPS (primero lo más antiguo)"
-        help="Muestra el stock de huevos disponible cruzando producción y ventas. Usa consumo PEPS (Primero en Entrar, Primero en Salir): se consume primero lo más antiguo para evitar mermas. Los lotes muestran cuántos huevos quedan por tamaño y su edad en días. El resumen indica total producido, vendido, disponible y valor estimado."
+        help="Muestra el stock de huevos disponible cruzando producción y ventas. Usa consumo PEPS (Primero en Entrar, Primero en Salir): se consume primero lo más antiguo para evitar mermas. Los lotes muestran cuántos huevos quedan por tamaño y su edad en días."
       />
 
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-2.5 sm:gap-4 mb-6">
+      <div className={`grid grid-cols-2 gap-2.5 sm:gap-4 mb-6 ${canSeeFinancials ? "lg:grid-cols-4" : "lg:grid-cols-3"}`}>
         <StatCard icon="egg" label="Huevos buenos producidos" value={data?.summary.produced ?? 0} color="blue" />
         <StatCard icon="money" label="Huevos Vendidos" value={data?.summary.sold ?? 0} color="purple" />
         <StatCard icon="package" label="Disponibles" value={data?.summary.available ?? 0} color="green" />
-        <StatCard icon="clock" label="Valor Estimado" value={`$${(data?.estimatedValue ?? 0).toLocaleString()}`} color="yellow" />
+        {canSeeFinancials && <StatCard icon="clock" label="Valor Estimado" value={`$${(data?.estimatedValue ?? 0).toLocaleString()}`} color="yellow" />}
       </div>
       {(data?.summary.lost ?? 0) > 0 && (
         <div className="mb-6">
@@ -198,7 +203,7 @@ export default function InventarioPage() {
             <TableSearch
               value={summarySearch}
               onChange={setSummarySearch}
-              placeholder="Buscar por tamaño o valor..."
+              placeholder="Buscar por tamaño o cantidad..."
               resultCount={filteredSizes.length}
               totalCount={data.summary.sizes.length}
               className="mb-4"
@@ -213,17 +218,17 @@ export default function InventarioPage() {
                 }
               />
             ) : (
-            <Table headers={["Tamaño", "Precio", "Producido", "Apto venta", "Vendido", "Perdido", "Disponible", "Valor"]}>
+            <Table headers={["Tamaño", ...(canSeeSalesPrices ? ["Precio"] : []), "Producido", "Apto venta", "Vendido", "Perdido", "Disponible", ...(canSeeFinancials ? ["Valor"] : [])]}>
               {filteredSizes.map((s) => (
                 <tr key={s.size} className="hover:bg-slate-50">
                   <td className="px-4 py-3"><Badge color="green">{s.size}</Badge></td>
-                  <td className="px-4 py-3">{s.price != null ? `$${s.price.toLocaleString()}` : "—"}</td>
+                  {canSeeSalesPrices && <td className="px-4 py-3">{s.price != null ? `$${s.price.toLocaleString()}` : "—"}</td>}
                   <td className="px-4 py-3">{s.produced}</td>
                   <td className="px-4 py-3">{s.saleableProduced}</td>
                   <td className="px-4 py-3">{s.sold}</td>
                   <td className="px-4 py-3 text-red-600">{s.lost}</td>
                   <td className="px-4 py-3 font-bold text-green-600">{s.available}</td>
-                  <td className="px-4 py-3">${s.value.toLocaleString()}</td>
+                  {canSeeFinancials && <td className="px-4 py-3">${(s.value ?? 0).toLocaleString()}</td>}
                 </tr>
               ))}
             </Table>

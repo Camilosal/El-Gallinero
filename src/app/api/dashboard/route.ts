@@ -10,6 +10,8 @@ import { computeManureInventory, computeEggInventory } from "@/lib/inventory";
 import { computeAnimalInventory } from "@/lib/animal-inventory";
 import { getFlockRules } from "@/lib/settings";
 import { withApiHandler, safeParseJson } from "@/lib/api-handler";
+import { getSessionUser } from "@/lib/auth";
+import { canPerformAction } from "@/lib/rbac";
 import { computeThreeLayerFinancials } from "@/lib/analytics/biological-valuation";
 import {
   computeAssetsDepreciationSummary,
@@ -410,7 +412,7 @@ export const GET = withApiHandler(async () => {
       alerts: biologicalSummary.alerts.slice(0, 4),
     };
 
-    return NextResponse.json({
+    const dashboardData = {
       hens: {
         total: henSummary.registered,
         active: henSummary.present,
@@ -487,6 +489,52 @@ export const GET = withApiHandler(async () => {
       sanitaryAlerts: sanitaryAlerts[0]?.count || 0,
       supplyAlerts: supplyAlerts[0]?.count || 0,
       operatingContext,
+    };
+
+    const user = await getSessionUser();
+    const canReadSales = canPerformAction(user?.role, "sales:read");
+    const canReadFinanceSummary = canPerformAction(user?.role, "finance_summary:read")
+      || canPerformAction(user?.role, "finance:read");
+    const canReadFinanceDetails = canPerformAction(user?.role, "finance:read");
+    const canReadInventory = canPerformAction(user?.role, "inventory:read");
+    const {
+      sales: salesSummary,
+      finance: financeSummary,
+      operatingContext: financialContext,
+      stockProjection: inventoryProjection,
+      animals: animalSummary,
+      species: speciesSummary,
+      fcr: performanceSummary,
+      manure: manureSummary,
+      ...publicDashboardData
+    } = dashboardData;
+
+    const safeAnimalSummary = canReadFinanceDetails
+      ? animalSummary
+      : { ...animalSummary, totalValue: 0 };
+    const safeSpeciesSummary = canReadFinanceDetails
+      ? speciesSummary
+      : speciesSummary.map(({ estimatedValue, ...species }) => ({ ...species, estimatedValue: 0 }));
+    const safePerformanceSummary = canReadSales
+      ? performanceSummary
+      : { ...performanceSummary, totalMeatRevenue: "0" };
+    const safeManureSummary = canReadSales
+      ? manureSummary
+      : {
+        ...manureSummary,
+        salesLast30d: { ...manureSummary.salesLast30d, totalRevenue: "0" },
+      };
+
+    return NextResponse.json({
+      ...publicDashboardData,
+      animals: safeAnimalSummary,
+      species: safeSpeciesSummary,
+      fcr: safePerformanceSummary,
+      manure: safeManureSummary,
+      ...(canReadSales ? { sales: salesSummary } : {}),
+      finance: canReadFinanceSummary ? financeSummary : { income: "0", expenses: "0", profit: "0" },
+      ...(canReadFinanceDetails ? { operatingContext: financialContext } : {}),
+      stockProjection: canReadInventory ? inventoryProjection : [],
     });
   } catch (error) {
     console.error("Dashboard error:", error);

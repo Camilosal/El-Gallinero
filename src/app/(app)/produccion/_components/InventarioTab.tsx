@@ -6,6 +6,8 @@ import { AlertTriangle, Egg, Package, Sprout, Wheat, Wrench } from "lucide-react
 import { Card, Badge, EmptyState } from "@/components/ui";
 import { AppIcon } from "@/components/AppIcon";
 import { apiFetch } from "@/lib/fetch";
+import { canPerformAction } from "@/lib/rbac";
+import { useAppRole } from "@/lib/useAppRole";
 
 // ─── Types ───
 interface EggInventory {
@@ -17,7 +19,7 @@ interface EggInventory {
     sizes: { size: string; price: number | null; available: number; produced: number; sold: number }[];
   };
   aging: { label: string; count: number }[];
-  estimatedValue: number;
+    estimatedValue: number | null;
 }
 
 interface MeatInventory {
@@ -54,7 +56,7 @@ interface BalanceData {
     totalHensActive: number;
     totalEggsAvailable: number;
     totalManureKg: number;
-    totalValue: number;
+    totalValue: number | null;
     totalSupplies: number;
     lowStockSupplies: number;
     totalMeatKg: number;
@@ -64,6 +66,9 @@ interface BalanceData {
 }
 
 export default function InventarioTab() {
+  const role = useAppRole();
+  const canSeeFinancials = canPerformAction(role, "finance:read");
+  const canSeeSalesPrices = canPerformAction(role, "sales:read");
   const [eggData, setEggData] = useState<EggInventory | null>(null);
   const [meatData, setMeatData] = useState<MeatInventory | null>(null);
   const [manureData, setManureData] = useState<ManureInventory | null>(null);
@@ -126,9 +131,9 @@ export default function InventarioTab() {
           <Link href="/inventarios/huevos" className="text-xs px-3 py-1.5 bg-yellow-50 text-yellow-700 rounded-lg hover:bg-yellow-100 transition-colors">
             Detalle Huevos →
           </Link>
-          <Link href="/inventarios/balance" className="text-xs px-3 py-1.5 bg-blue-50 text-blue-700 rounded-lg hover:bg-blue-100 transition-colors">
+          {canSeeFinancials && <Link href="/inventarios/balance" className="text-xs px-3 py-1.5 bg-blue-50 text-blue-700 rounded-lg hover:bg-blue-100 transition-colors">
             Balance Completo →
-          </Link>
+          </Link>}
         </div>
       </div>
 
@@ -175,7 +180,7 @@ export default function InventarioTab() {
           value={balanceData?.summary.totalSupplies ?? 0}
           alert={balanceData?.summary.lowStockSupplies ?? 0}
         />
-        <MiniStat icon="money" label="Valor total" value={`$${(balanceData?.summary.totalValue ?? 0).toLocaleString()}`} />
+        {canSeeFinancials && <MiniStat icon="money" label="Valor total" value={`$${(balanceData?.summary.totalValue ?? 0).toLocaleString()}`} />}
       </div>
 
       {/* Detailed sections */}
@@ -197,7 +202,7 @@ export default function InventarioTab() {
                     <Badge color="green">{s.size}</Badge>
                     <span className="text-sm font-medium">{s.available} disp.</span>
                   </div>
-                  {s.price != null && (
+                  {canSeeSalesPrices && s.price != null && (
                     <span className="text-xs text-slate-500">${s.price.toLocaleString()}/und</span>
                   )}
                 </div>
@@ -208,7 +213,7 @@ export default function InventarioTab() {
                   <span>{expiringEggs} huevos por vencer (&gt;21 días)</span>
                 </p>
               )}
-              <p className="text-xs text-slate-400 mt-1">Valor estimado: ${eggData.estimatedValue.toLocaleString()}</p>
+              {canSeeFinancials && <p className="text-xs text-slate-400 mt-1">Valor estimado: ${(eggData.estimatedValue ?? 0).toLocaleString()}</p>}
             </div>
           ) : (
             <EmptyState icon="egg" message="Sin huevos en inventario" />

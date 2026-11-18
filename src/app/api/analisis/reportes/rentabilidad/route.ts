@@ -3,6 +3,8 @@ import { farmLocations, feedInventory, feedMovements, transactions } from "@/db/
 import { eq, gte, lte, and } from "drizzle-orm";
 import { NextRequest, NextResponse } from "next/server";
 import { withApiHandler } from "@/lib/api-handler";
+import { getSessionUser } from "@/lib/auth";
+import { isReadOnlyRole } from "@/lib/rbac";
 import { isDateOnly } from "@/lib/date-validation";
 import { normalizeFeedingSpecies } from "@/lib/species";
 import { computeThreeLayerFinancials } from "@/lib/analytics/biological-valuation";
@@ -71,6 +73,7 @@ function toDimensionLines(map: Map<string, { label: string; revenue: number; cos
  * lugar se agrupan en "sin_asignar" para que el total siempre cuadre.
  */
 export const GET = withApiHandler(async (req: NextRequest) => {
+  const directivo = isReadOnlyRole((await getSessionUser())?.role);
   const { searchParams } = new URL(req.url);
   const from = searchParams.get("from") || new Date(new Date().getFullYear(), 0, 1).toISOString().split("T")[0];
   const to = searchParams.get("to") || new Date().toISOString().split("T")[0];
@@ -210,13 +213,15 @@ export const GET = withApiHandler(async (req: NextRequest) => {
     totalRevenue: money(totalRevenue),
     totalCost: money(totalCost),
     totalProfit: money(totalRevenue - totalCost),
-    operatingContext: {
-      ...threeLayer,
-      lifecycleMode: biologicalSummary.lifecycleMode,
-      lifecycleLabel: biologicalSummary.lifecycleLabel,
-      capexRecoveryPct: assetsSummary.capexRecoveryPct,
-      alertsCount: biologicalSummary.alerts.length,
-    },
+    ...(!directivo ? {
+      operatingContext: {
+        ...threeLayer,
+        lifecycleMode: biologicalSummary.lifecycleMode,
+        lifecycleLabel: biologicalSummary.lifecycleLabel,
+        capexRecoveryPct: assetsSummary.capexRecoveryPct,
+        alertsCount: biologicalSummary.alerts.length,
+      },
+    } : {}),
   });
 });
 

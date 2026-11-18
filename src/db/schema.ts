@@ -584,7 +584,7 @@ export const users = pgTable("users", {
   recoveryCodeHash: varchar("recovery_code_hash", { length: 64 }),
   recoveryCodeIssuedAt: timestamp("recovery_code_issued_at"),
   name: varchar("name", { length: 200 }).notNull(),
-  role: varchar("role", { length: 50 }).default("admin").notNull(),
+  role: varchar("role", { length: 50 }).default("operario").notNull(),
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 

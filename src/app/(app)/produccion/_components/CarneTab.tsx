@@ -15,6 +15,8 @@ import {
   SPECIES_LABEL,
 } from "@/lib/species-params";
 import { useSpeciesCatalog } from "@/lib/use-species-params";
+import { canPerformAction } from "@/lib/rbac";
+import { useAppRole } from "@/lib/useAppRole";
 import { useActionQuery } from "@/lib/useActionQuery";
 import FarmLocationSelect from "@/components/FarmLocationSelect";
 
@@ -69,6 +71,8 @@ const destinationLabels: Record<string, string> = {
 export default function CarneTab() {
   const searchParams = useSearchParams();
   const { getParams, priceKg } = useSpeciesCatalog();
+  const role = useAppRole();
+  const canSetReferencePrice = canPerformAction(role, "sales:write");
   const [records, setRecords] = useState<SlaughterRecord[]>([]);
   const [hens, setHens] = useState<Hen[]>([]);
   const [roosters, setRoosters] = useState<Rooster[]>([]);
@@ -707,10 +711,11 @@ export default function CarneTab() {
             />
             <Input
               label="Precio ref. mercado ($/kg COP)"
-              help="Precio local de venta para valorar el ahorro de casa."
+              help={canSetReferencePrice ? "Precio local de venta para valorar el ahorro de casa." : "Se usa el precio vigente de Catálogos; solo perfiles con permiso comercial pueden ajustarlo."}
               type="number"
               value={form.marketReferencePricePerKg}
               onChange={(e) => setForm({ ...form, marketReferencePricePerKg: e.target.value })}
+              disabled={!canSetReferencePrice}
             />
           </div>
 

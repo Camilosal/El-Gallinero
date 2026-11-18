@@ -53,7 +53,7 @@ export const GET = withApiHandler(async (req: NextRequest) => {
 });
 
 export const POST = withApiHandler(async (req: NextRequest) => {
-  const denied = await requirePermission("finance:write");
+  const denied = await requirePermission("sales:write");
   if (denied) return denied;
   const body = await safeParseJson(req);
   if (!body || typeof body !== "object") return NextResponse.json({ error: "Cuerpo inválido" }, { status: 400 });
@@ -135,7 +135,7 @@ export const POST = withApiHandler(async (req: NextRequest) => {
 });
 
 export const PUT = withApiHandler(async (req: NextRequest) => {
-  const denied = await requirePermission("finance:write");
+  const denied = await requirePermission("sales:write");
   if (denied) return denied;
   const body = await safeParseJson(req);
   if (!body || typeof body !== "object") return NextResponse.json({ error: "Cuerpo inválido" }, { status: 400 });
@@ -230,7 +230,7 @@ export const PUT = withApiHandler(async (req: NextRequest) => {
 });
 
 export const DELETE = withApiHandler(async (req: NextRequest) => {
-  const denied = await requirePermission("finance:write");
+  const denied = await requirePermission("sales:write");
   if (denied) return denied;
   const { searchParams } = new URL(req.url);
   const id = searchParams.get("id");

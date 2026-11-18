@@ -14,14 +14,13 @@ import {
 export const dynamic = "force-dynamic";
 
 // B3: solo propietario/administrador puede cambiar la política de delegación.
-// El gerente tiene config:write para otros ajustes, pero no para delegar escrituras.
 function canEditDelegation(role: string | null | undefined): boolean {
   const normalized = normalizeRole(role || "");
   return normalized === "admin" || normalized === "propietario";
 }
 
 export const GET = withApiHandler(async () => {
-  const denied = await requirePermission("config:write");
+  const denied = await requirePermission("assistant:manage");
   if (denied) return denied;
 
   const user = await getSessionUser();

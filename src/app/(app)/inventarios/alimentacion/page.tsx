@@ -6,6 +6,8 @@ import {
 } from "@/components/ui";
 import { getFeedInventoryProjection } from "@/lib/feeding/inventory";
 import { AlimentacionInventoryClient } from "./_components/AlimentacionInventoryClient";
+import { getSessionUser } from "@/lib/auth";
+import { canPerformAction } from "@/lib/rbac";
 
 export const dynamic = "force-dynamic";
 
@@ -24,6 +26,8 @@ export default async function AlimentacionInventoryPage({
   const params = await searchParams;
   const period = resolvePeriod(params.days);
   const query = (params.q ?? "").trim();
+  const user = await getSessionUser();
+  const canSeeFinancials = canPerformAction(user?.role, "finance:read");
   const allItems = await getFeedInventoryProjection(period);
 
   const items = allItems.map((f) => ({
@@ -34,12 +38,12 @@ export default async function AlimentacionInventoryPage({
     currentStock: Number(f.currentStock),
     minStock: Number(f.minStock),
     daysRemaining: f.daysRemaining,
-    costPerUnit: Number(f.costPerUnit),
-    estimatedValue: f.estimatedValue,
+    costPerUnit: canSeeFinancials ? Number(f.costPerUnit) : null,
+    estimatedValue: canSeeFinancials ? f.estimatedValue : null,
     isLow: f.isLow,
   }));
 
-  const totalValue = allItems.reduce((sum, f) => sum + f.estimatedValue, 0);
+  const totalValue = canSeeFinancials ? allItems.reduce((sum, f) => sum + f.estimatedValue, 0) : 0;
   const lowCount = allItems.filter((f) => f.isLow).length;
   const totalStock = allItems.reduce(
     (sum, f) => sum + Number(f.currentStock),
@@ -50,8 +54,8 @@ export default async function AlimentacionInventoryPage({
     <div>
       <PageHeader
         title="Inventario de Alimentación"
-        description="Stock actual, valor y proyección de días de alimento"
-        help="Vista consolidada del inventario de alimentos. Muestra stock actual vs mínimo, valor estimado y días restantes proyectados según consumo reciente. Los alimentos en rojo tienen stock bajo (≤ 7 días). Puedes registrar consumos y compras en Producción → Alimentación."
+        description="Stock actual y proyección de días de alimento"
+        help="Vista consolidada del inventario de alimentos. Muestra stock actual vs mínimo y días restantes proyectados según consumo reciente. Los alimentos en rojo tienen stock bajo (≤ 7 días)."
         actions={
           <form
             action="/inventarios/alimentacion"
@@ -83,13 +87,13 @@ export default async function AlimentacionInventoryPage({
         }
       />
 
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-2.5 sm:gap-4 mb-6 sm:mb-8">
-        <StatCard
+      <div className={`grid grid-cols-2 gap-2.5 sm:gap-4 mb-6 sm:mb-8 ${canSeeFinancials ? "lg:grid-cols-4" : "lg:grid-cols-3"}`}>
+        {canSeeFinancials && <StatCard
           icon="money"
           label="Valor Total"
           value={`$${Math.round(totalValue).toLocaleString()}`}
           color="green"
-        />
+        />}
         <StatCard
           icon="package"
           label="Stock Total"
@@ -111,7 +115,7 @@ export default async function AlimentacionInventoryPage({
       </div>
 
       <Card>
-        <AlimentacionInventoryClient items={items} initialQuery={query} />
+        <AlimentacionInventoryClient items={items} initialQuery={query} canSeeFinancials={canSeeFinancials} />
       </Card>
     </div>
   );

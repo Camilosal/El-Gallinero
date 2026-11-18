@@ -37,7 +37,7 @@ export function canManagePlatformTenants(
   const effectiveHomeFarmId = user.homeFarmId || user.farmId;
   if (effectiveHomeFarmId !== DEFAULT_FARM_ID) return false;
   const rawRole = String(user.role || "").trim().toLowerCase();
-  if (rawRole === "admin") return true;
+  if (rawRole === "admin" || rawRole === "superadmin") return true;
   if (String(user.username || "").trim().toLowerCase() === "admin") return true;
   return normalizeRole(user.role) === "propietario";
 }

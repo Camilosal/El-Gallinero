@@ -9,6 +9,8 @@ import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip, Legend } from "recha
 import { apiFetch } from "@/lib/fetch";
 import TableSearch from "@/components/TableSearch";
 import { matchesTextQuery } from "@/lib/text";
+import { canPerformAction } from "@/lib/rbac";
+import { useAppRole } from "@/lib/useAppRole";
 import { feedCategoryLabel, isPurchasedFeedCategory } from "@/lib/feed-classification";
 
 interface FoodItem {
@@ -143,6 +145,8 @@ const fmtMoney = (n: number) => `$${Math.round(n).toLocaleString()}`;
 const fmtKg = (n: number) => `${Math.round(n).toLocaleString()} kg`;
 
 export default function BalancePage() {
+  const role = useAppRole();
+  const canSeeFinancials = canPerformAction(role, "finance:read");
   const [data, setData] = useState<ConsolidatedData | null>(null);
   const [loading, setLoading] = useState(true);
   const [period, setPeriod] = useState(30);
@@ -257,6 +261,14 @@ export default function BalancePage() {
       ]),
     );
   }, [data, meatSearch]);
+
+  if (!canSeeFinancials) {
+    return (
+      <Card>
+        <EmptyState icon="shield" message="Este balance completo está disponible para los perfiles con acceso financiero." />
+      </Card>
+    );
+  }
 
   return (
     <div>

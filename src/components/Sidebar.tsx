@@ -6,11 +6,13 @@ import { useState, useEffect } from "react";
 import { AppIcon } from "@/components/AppIcon";
 import {
   CONFIGURACION_MENU_GROUP,
+  filterMenuGroupForRole,
   filterNavigationGroups,
-  navigationGroups,
   type MenuGroup,
 } from "@/lib/navigation";
 import { useOnboardingState } from "@/lib/useOnboardingState";
+import { clearCachedAppRole, useAppRole } from "@/lib/useAppRole";
+import { canAccessAppRoute } from "@/lib/rbac";
 import { BrandLogo } from "@/components/BrandLogo";
 import { DeveloperCredit } from "@/components/DeveloperCredit";
 import { clearOfflineCryptoKey } from "@/lib/offline/crypto";
@@ -51,7 +53,9 @@ export default function Sidebar() {
   const mobileOpen = mobileOpenAt === locationKey;
   const setMobileOpen = (open: boolean) => setMobileOpenAt(open ? locationKey : null);
   const { flags } = useOnboardingState();
-  const visibleGroups = flags ? filterNavigationGroups(flags) : navigationGroups;
+  const role = useAppRole();
+  const visibleGroups = filterNavigationGroups(flags, role);
+  const visibleConfigGroup = filterMenuGroupForRole(CONFIGURACION_MENU_GROUP, role);
 
   useEffect(() => {
     let active = true;
@@ -87,7 +91,7 @@ export default function Sidebar() {
 
   useEffect(() => {
     if (!settingsLoaded) return;
-    const allGroups = [...visibleGroups, CONFIGURACION_MENU_GROUP];
+    const allGroups = [...visibleGroups, ...(visibleConfigGroup ? [visibleConfigGroup] : [])];
     const activeGroup = allGroups
       .map((group) => {
         const matchingPaths = [group.indexHref, ...group.items.map((item) => item.href.split("?")[0])]
@@ -105,7 +109,7 @@ export default function Sidebar() {
         return prev.size === 1 && prev.has(activeGroup.id) ? prev : new Set([activeGroup.id]);
       });
     });
-  }, [locationKey, pathname, settingsLoaded, visibleGroups]);
+  }, [locationKey, pathname, settingsLoaded, visibleConfigGroup, visibleGroups]);
 
   useEffect(() => {
     if (!settingsLoaded) return;
@@ -181,6 +185,7 @@ export default function Sidebar() {
     } catch {
       // Ignore storage clear errors
     }
+    clearCachedAppRole();
     await fetch("/api/auth/logout", { method: "POST" });
     router.push("/login");
     router.refresh();
@@ -289,7 +294,7 @@ export default function Sidebar() {
           </Link>
 
           {/* QR Scanner */}
-          <Link
+          {canAccessAppRoute(role, "/escanear") && <Link
             href="/escanear"
             className={`flex items-center gap-3 py-3 text-sm transition-all hover:bg-green-800 ${collapsed ? "justify-center px-2" : "px-5"
               } ${pathname === "/escanear" || pathname.startsWith("/escanear")
@@ -300,7 +305,7 @@ export default function Sidebar() {
           >
             <QrCode className="w-4 h-4 flex-shrink-0 text-green-200" />
             {!collapsed && <span>Escanear</span>}
-          </Link>
+          </Link>}
 
           {/* Progressive navigation groups (single-codebase feature flags) */}
           {visibleGroups.map((group) => (
@@ -317,17 +322,19 @@ export default function Sidebar() {
           ))}
 
           {/* Configuración unificada dentro del mismo árbol de navegación */}
-          <div className="mt-2 pt-2 border-t border-green-800/80">
-            <GroupItem
-              group={CONFIGURACION_MENU_GROUP}
-              pathname={pathname}
-              expandedGroups={expandedGroups}
-              toggleGroup={toggleGroup}
-              isItemActive={isItemActive}
-              isGroupActive={isGroupActive}
-              collapsed={collapsed}
-            />
-          </div>
+          {visibleConfigGroup && (
+            <div className="mt-2 pt-2 border-t border-green-800/80">
+              <GroupItem
+                group={visibleConfigGroup}
+                pathname={pathname}
+                expandedGroups={expandedGroups}
+                toggleGroup={toggleGroup}
+                isItemActive={isItemActive}
+                isGroupActive={isGroupActive}
+                collapsed={collapsed}
+              />
+            </div>
+          )}
         </nav>
 
         {/* Footer: guide, logout and developer credit */}

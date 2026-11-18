@@ -22,7 +22,7 @@ export const GET = withApiHandler(async () => {
 
 export const PUT = withApiHandler(async (req: NextRequest) => {
   const forbidden = await requirePermission(
-    "config:write",
+    "integrations:manage",
     "Tu rol no puede modificar la configuración de conectores ERP",
   );
   if (forbidden) return forbidden;

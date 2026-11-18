@@ -166,7 +166,7 @@ El tenant raíz, las cuentas que acceden al sistema, las sesiones, el plan contr
 | `username` | varchar(100) | NO | — | — | Nombre de usuario, único en toda la instancia. |
 | `password_hash` | varchar(255) | NO | — | — | Hash de la contraseña (nunca se guarda en claro). |
 | `name` | varchar(200) | NO | — | — | Nombre visible de la persona. |
-| `role` | varchar(50) | NO | admin | — | Rol RBAC: `admin`, `propietario`, `gerente`, `veterinario` u `operario`. |
+| `role` | varchar(50) | NO | admin | — | Rol RBAC: `admin` (administrador de plataforma, no asignable), `propietario`, `gerente`, `veterinario`, `operario`, `comercial`, `financiero` o `directivo`. |
 | `created_at` | timestamp | NO | now() | — | Fecha y hora de creación. |
 | `recovery_code_hash` | varchar(64) | SÍ | — | — | Hash del código de recuperación de administrador. |
 | `recovery_code_issued_at` | timestamp | SÍ | — | — | Fecha de emisión del código de recuperación. |
@@ -174,7 +174,8 @@ El tenant raíz, las cuentas que acceden al sistema, las sesiones, el plan contr
 
 **Reglas y relaciones**
 
-- El rol define los permisos `finance:write`, `sanitary:write`, `closure:close`, `closure:reopen`, `config:write`, `production:write` y `biosecurity:write`.
+- El rol se resuelve en la matriz de permisos de `src/lib/rbac.ts`. Gerencia solo puede delegar perfiles cuyo conjunto de permisos no supere el suyo; propietario administra todos los perfiles asignables.
+- Ventas y finanzas se autorizan por separado. Directivo solo consulta el tablero y análisis agregados; las respuestas de inventario ocultan costos cuando el rol no tiene lectura financiera.
 - `username` es único global; el inicio de sesión valida además que el usuario pertenezca a la granja activa.
 
 ### sessions

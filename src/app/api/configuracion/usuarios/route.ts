@@ -6,14 +6,22 @@ import { DEFAULT_FARM_ID, getCurrentFarmId } from "@/db/tenant-context";
 import { safeParseJson, withApiHandler } from "@/lib/api-handler";
 import { getSessionUser, hashPassword } from "@/lib/auth";
 import { requirePermission } from "@/lib/rbac-server";
-import { ROLE_LABELS, type AppRole } from "@/lib/rbac";
+import { canDelegateRole, ROLE_LABELS, type AppRole } from "@/lib/rbac";
 import { PLAN_CATALOG, resolveMaxUsersFromPlan } from "@/lib/subscription";
 
 export const dynamic = "force-dynamic";
 
 // "admin" es un rol de plataforma reservado a la granja base y se crea por CLI.
 // La gestión de usuarios de una granja nunca debe poder emitirlo.
-const ALLOWED_ROLES = new Set<AppRole>(["propietario", "gerente", "veterinario", "operario"]);
+const ALLOWED_ROLES = new Set<AppRole>([
+  "propietario",
+  "gerente",
+  "veterinario",
+  "operario",
+  "comercial",
+  "financiero",
+  "directivo",
+]);
 
 async function resolveFarmContext() {
   const sessionUser = await getSessionUser();
@@ -32,7 +40,7 @@ async function resolveFarmContext() {
 }
 
 export const GET = withApiHandler(async () => {
-  const denied = await requirePermission("config:write");
+  const denied = await requirePermission("users:manage");
   if (denied) return denied;
 
   const { farmId, planCode, maxUsers } = await resolveFarmContext();
@@ -59,7 +67,7 @@ export const GET = withApiHandler(async () => {
 });
 
 export const POST = withApiHandler(async (req: NextRequest) => {
-  const denied = await requirePermission("config:write");
+  const denied = await requirePermission("users:manage");
   if (denied) return denied;
 
   const body = await safeParseJson(req);
@@ -85,7 +93,10 @@ export const POST = withApiHandler(async (req: NextRequest) => {
     return NextResponse.json({ error: "Rol inválido" }, { status: 400 });
   }
 
-  const { farmId, planCode, maxUsers } = await resolveFarmContext();
+  const { farmId, planCode, maxUsers, sessionUser } = await resolveFarmContext();
+  if (!canDelegateRole(sessionUser?.role, role)) {
+    return NextResponse.json({ error: "No puedes asignar un rol con permisos superiores a los tuyos" }, { status: 403 });
+  }
   const currentUsers = await db
     .select({ id: users.id })
     .from(users)
@@ -135,7 +146,7 @@ export const POST = withApiHandler(async (req: NextRequest) => {
 });
 
 export const PATCH = withApiHandler(async (req: NextRequest) => {
-  const denied = await requirePermission("config:write");
+  const denied = await requirePermission("users:manage");
   if (denied) return denied;
 
   const body = await safeParseJson(req);
@@ -143,7 +154,7 @@ export const PATCH = withApiHandler(async (req: NextRequest) => {
     return NextResponse.json({ error: "ID de usuario requerido" }, { status: 400 });
   }
 
-  const { farmId } = await resolveFarmContext();
+  const { farmId, sessionUser } = await resolveFarmContext();
   const [target] = await db
     .select()
     .from(users)
@@ -156,6 +167,9 @@ export const PATCH = withApiHandler(async (req: NextRequest) => {
   const nextRole = body.role ? (String(body.role).trim().toLowerCase() as AppRole) : (target.role as AppRole);
   if (!ALLOWED_ROLES.has(nextRole)) {
     return NextResponse.json({ error: "Rol inválido" }, { status: 400 });
+  }
+  if (!canDelegateRole(sessionUser?.role, target.role) || !canDelegateRole(sessionUser?.role, nextRole)) {
+    return NextResponse.json({ error: "No puedes modificar una cuenta con permisos superiores ni asignar un rol superior al tuyo" }, { status: 403 });
   }
 
   const nextName = typeof body.name === "string" ? body.name.trim() : "";
@@ -192,7 +206,7 @@ export const PATCH = withApiHandler(async (req: NextRequest) => {
 });
 
 export const DELETE = withApiHandler(async (req: NextRequest) => {
-  const denied = await requirePermission("config:write");
+  const denied = await requirePermission("users:manage");
   if (denied) return denied;
 
   const id = new URL(req.url).searchParams.get("id");
@@ -213,6 +227,9 @@ export const DELETE = withApiHandler(async (req: NextRequest) => {
   const target = farmUsers.find((u) => u.id === id);
   if (!target) {
     return NextResponse.json({ error: "Usuario no encontrado en esta granja" }, { status: 404 });
+  }
+  if (!canDelegateRole(sessionUser?.role, target.role)) {
+    return NextResponse.json({ error: "No puedes eliminar una cuenta con permisos superiores a los tuyos" }, { status: 403 });
   }
 
   const owners = farmUsers.filter((u) => u.role === "propietario" || u.role === "admin");

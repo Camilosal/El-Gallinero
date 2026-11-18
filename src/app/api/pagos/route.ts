@@ -4,6 +4,8 @@ import { payments, accountsReceivable, accountsPayable } from "@/db/schema";
 import { eq, desc, sql } from "drizzle-orm";
 import { NextRequest, NextResponse } from "next/server";
 import { withApiHandler, safeParseJson } from "@/lib/api-handler";
+import { getSessionUser } from "@/lib/auth";
+import { canPerformAction } from "@/lib/rbac";
 
 export const dynamic = "force-dynamic";
 
@@ -14,7 +16,11 @@ export const GET = withApiHandler(async () => {
     .from(payments)
     .orderBy(desc(payments.createdAt));
 
-  return NextResponse.json(allPayments);
+  const user = await getSessionUser();
+  const visiblePayments = canPerformAction(user?.role, "finance:read")
+    ? allPayments
+    : allPayments.filter((payment) => payment.type === "cobro");
+  return NextResponse.json(visiblePayments);
 });
 
 export const POST = withApiHandler(async (req: NextRequest) => {

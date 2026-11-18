@@ -7,6 +7,8 @@ import { AppIcon } from "@/components/AppIcon";
 import { searchNavigation, type SearchEntry } from "@/lib/navigation";
 import { FEATURE_FLAG_CATALOG } from "@/lib/onboarding";
 import { useOnboardingState } from "@/lib/useOnboardingState";
+import { canAccessAppRoute } from "@/lib/rbac";
+import { useAppRole } from "@/lib/useAppRole";
 
 interface GlobalSearchProps {
   collapsed?: boolean;
@@ -25,13 +27,14 @@ export default function GlobalSearch({
   const [activeIndex, setActiveIndex] = useState(0);
   const inputRef = useRef<HTMLInputElement>(null);
   const { flags } = useOnboardingState();
+  const role = useAppRole();
 
   const [smartSuggestions, setSmartSuggestions] = useState<
     Array<{ id: string; title: string; summary: string; href: string; group?: string }>
   >([]);
   const [smartLoading, setSmartLoading] = useState(false);
 
-  const results = useMemo(() => searchNavigation(query, 12, flags), [query, flags]);
+  const results = useMemo(() => searchNavigation(query, 12, flags, role), [query, flags, role]);
 
   useEffect(() => {
     const trimmed = query.trim();
@@ -77,7 +80,9 @@ export default function GlobalSearch({
   }, [open, query, results.length, flags]);
 
   const visibleSmartSuggestions =
-    open && results.length === 0 && query.trim().length >= 4 ? smartSuggestions : [];
+    open && results.length === 0 && query.trim().length >= 4
+      ? smartSuggestions.filter((suggestion) => canAccessAppRoute(role, suggestion.href))
+      : [];
   const openSearch = useCallback(() => {
     setQuery("");
     setActiveIndex(0);

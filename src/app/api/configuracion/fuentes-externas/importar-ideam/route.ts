@@ -11,7 +11,7 @@ const MAX_UPLOAD_BYTES = 8_000_000;
 const IDEAM_CSV_URL = "https://bart.ideam.gov.co/ospa/DatosAbiertos/Alertas_Hidrologicas/alertas_hidrologicas.csv";
 
 export const POST = withApiHandler(async (req: NextRequest) => {
-  const denied = await requirePermission("config:write");
+  const denied = await requirePermission("integrations:manage");
   if (denied) return denied;
 
   const body = await safeParseJson(req);

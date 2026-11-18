@@ -19,17 +19,19 @@ export interface FeedInventoryRow {
   currentStock: number;
   minStock: number;
   daysRemaining: number | null;
-  costPerUnit: number;
-  estimatedValue: number;
+  costPerUnit: number | null;
+  estimatedValue: number | null;
   isLow: boolean;
 }
 
 export function AlimentacionInventoryClient({
   items,
   initialQuery = "",
+  canSeeFinancials,
 }: {
   items: FeedInventoryRow[];
   initialQuery?: string;
+  canSeeFinancials: boolean;
 }) {
   const [search, setSearch] = useState(initialQuery);
 
@@ -79,8 +81,7 @@ export function AlimentacionInventoryClient({
             "Stock",
             "Mínimo",
             "Días Rest.",
-            "Costo/Unidad",
-            "Valor Estimado",
+            ...(canSeeFinancials ? ["Costo/Unidad", "Valor Estimado"] : []),
           ]}
         >
           {filtered.map((f) => (
@@ -131,12 +132,12 @@ export function AlimentacionInventoryClient({
                   <span className="text-slate-400">∞</span>
                 )}
               </td>
-              <td className="px-4 py-3">
-                ${Number(f.costPerUnit).toLocaleString()}
-              </td>
-              <td className="px-4 py-3 font-semibold text-blue-600">
-                ${Math.round(f.estimatedValue).toLocaleString()}
-              </td>
+              {canSeeFinancials && <td className="px-4 py-3">
+                ${Number(f.costPerUnit ?? 0).toLocaleString()}
+              </td>}
+              {canSeeFinancials && <td className="px-4 py-3 font-semibold text-blue-600">
+                ${Math.round(f.estimatedValue ?? 0).toLocaleString()}
+              </td>}
             </tr>
           ))}
         </Table>

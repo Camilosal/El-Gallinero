@@ -13,7 +13,7 @@ export const dynamic = "force-dynamic";
  */
 export const POST = withApiHandler(async () => {
   const forbidden = await requirePermission(
-    "production:write",
+    "catalogs:write",
     "Tu rol no puede inicializar planes de alimentación",
   );
   if (forbidden) return forbidden;

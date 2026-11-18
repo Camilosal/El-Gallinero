@@ -5,6 +5,8 @@ import { PageHeader, HeroActionLink, Card, Table, StatCard, EmptyState } from "@
 import { apiFetch } from "@/lib/fetch";
 import TableSearch from "@/components/TableSearch";
 import { matchesTextQuery } from "@/lib/text";
+import { canAccessAppRoute, canPerformAction } from "@/lib/rbac";
+import { useAppRole } from "@/lib/useAppRole";
 
 interface InventoryData {
   summary: {
@@ -15,13 +17,15 @@ interface InventoryData {
     value: number;
   };
   productionHistory: { date: string; kgProduced: number; source: string }[];
-  salesHistory: { date: string; quantityKg: number; totalAmount: number }[];
+  salesHistory: { date: string; quantityKg: number; totalAmount: number | null }[];
   estimatedDailyKg: number;
 }
 
 const dateFmt = (d: string) => new Date(d + "T12:00:00").toLocaleDateString("es", { day: "2-digit", month: "short", year: "numeric" });
 
 export default function InventarioGallinazaPage() {
+  const role = useAppRole();
+  const canSeeSales = canPerformAction(role, "sales:read");
   const [data, setData] = useState<InventoryData | null>(null);
   const [loading, setLoading] = useState(true);
   const [productionSearch, setProductionSearch] = useState("");
@@ -67,8 +71,8 @@ export default function InventarioGallinazaPage() {
         help="Controla el inventario de gallinaza (abono orgánico). La producción se estima automáticamente según el número de aves y los factores configurados en Catálogos. Se pueden hacer ajustes manuales y registrar ventas desde Producción de Gallinaza."
         actions={
           <>
-            <HeroActionLink href="/configuracion/catalogos?tab=gallinaza" tone="glass">Factores en Catálogos</HeroActionLink>
-            <HeroActionLink href="/produccion?tab=gallinaza" tone="solid">Producción y Ajustes</HeroActionLink>
+            {canAccessAppRoute(role, "/configuracion/catalogos") && <HeroActionLink href="/configuracion/catalogos?tab=gallinaza" tone="glass">Factores en Catálogos</HeroActionLink>}
+            {canAccessAppRoute(role, "/produccion?tab=gallinaza") && <HeroActionLink href="/produccion?tab=gallinaza" tone="solid">Producción y Ajustes</HeroActionLink>}
           </>
         }
       />
@@ -147,12 +151,12 @@ export default function InventarioGallinazaPage() {
                 }
               />
             ) : (
-              <Table headers={["Fecha", "Kg Vendidos", "Total"]}>
+            <Table headers={["Fecha", "Kg Vendidos", ...(canSeeSales ? ["Total"] : [])]}>
                 {filteredSales.map((s, i) => (
                   <tr key={i} className="hover:bg-slate-50">
                     <td className="px-4 py-3">{dateFmt(s.date)}</td>
                     <td className="px-4 py-3 font-medium">{s.quantityKg.toFixed(1)} kg</td>
-                    <td className="px-4 py-3 text-green-600 font-bold">${s.totalAmount.toLocaleString()}</td>
+                    {canSeeSales && <td className="px-4 py-3 text-green-600 font-bold">${(s.totalAmount ?? 0).toLocaleString()}</td>}
                   </tr>
                 ))}
               </Table>

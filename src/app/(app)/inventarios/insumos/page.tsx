@@ -10,6 +10,8 @@ import TableSearch from "@/components/TableSearch";
 import { matchesTextQuery } from "@/lib/text";
 import { useSearchParams } from "next/navigation";
 import { useActionQuery } from "@/lib/useActionQuery";
+import { canPerformAction } from "@/lib/rbac";
+import { useAppRole } from "@/lib/useAppRole";
 
 interface Supply {
   id: string;
@@ -18,7 +20,7 @@ interface Supply {
   unit: string;
   currentStock: string;
   minStock: string;
-  costPerUnit: string;
+  costPerUnit: string | null;
   supplier: string | null;
   expiryDate: string | null;
 }
@@ -42,6 +44,9 @@ const movementTypes = ["compra", "donacion", "ajuste", "consumo", "merma", "otro
 const fmt = (n: number) => `$${Math.round(n).toLocaleString()}`;
 
 export default function InsumosPage() {
+  const role = useAppRole();
+  const canSeeFinancials = canPerformAction(role, "finance:read");
+  const canManageInventory = canPerformAction(role, "finance:write");
   const searchParams = useSearchParams();
   const { values: catalogSupplyCategories } = useCatalog("categoria_insumo", supplyCategories);
   const effectiveSupplyCategories = catalogSupplyCategories.length > 0 ? catalogSupplyCategories : supplyCategories;
@@ -76,8 +81,8 @@ export default function InsumosPage() {
 
   useEffect(() => { void Promise.resolve().then(load); }, [load]);
   useActionQuery(searchParams.get("nuevo"), {
-    insumo: () => { supplyMutationIdRef.current = null; setEditingId(null); setForm({ name: "", category: supplyCategories[0], unit: "unidades", currentStock: "", minStock: "", costPerUnit: "", supplier: "", expiryDate: "" }); setError(""); setSupplyModalOpen(true); },
-    movimiento: () => { movementMutationIdRef.current = null; setMovForm({ supplyId: "", quantity: "", isEntry: true, movementType: movementTypes[0], date: new Date().toISOString().split("T")[0], notes: "" }); setMovError(""); setMovementModalOpen(true); },
+    insumo: () => { if (!canManageInventory) return; supplyMutationIdRef.current = null; setEditingId(null); setForm({ name: "", category: supplyCategories[0], unit: "unidades", currentStock: "", minStock: "", costPerUnit: "", supplier: "", expiryDate: "" }); setError(""); setSupplyModalOpen(true); },
+    movimiento: () => { if (!canManageInventory) return; movementMutationIdRef.current = null; setMovForm({ supplyId: "", quantity: "", isEntry: true, movementType: movementTypes[0], date: new Date().toISOString().split("T")[0], notes: "" }); setMovError(""); setMovementModalOpen(true); },
   });
 
   const lowStockItems = supplies.filter((s) => Number(s.currentStock) <= Number(s.minStock));
@@ -205,18 +210,18 @@ export default function InsumosPage() {
       <PageHeader
         title="Insumos"
         description="Inventario de insumos no alimenticios y sus movimientos"
-        help="Gestiona el inventario de insumos no alimenticios (medicamentos, vacunas, productos de limpieza, equipos, etc.). Registra entradas y salidas por movimiento. Cada insumo tiene stock mínimo para alertas de reabastecimiento, costo unitario y proveedor. Los movimientos registran fecha, cantidad, tipo y notas."
+        help="Consulta existencias, vencimientos y movimientos de insumos no alimenticios. Los costos y proveedores solo aparecen para Finanzas; los permisos de edición dependen del perfil."
         actions={
           <>
-            <HeroActionButton tone="glass" onClick={() => { movementMutationIdRef.current = null; setMovForm({ supplyId: supplies[0]?.id || "", quantity: "", isEntry: true, movementType: movementTypes[0], date: new Date().toISOString().split("T")[0], notes: "" }); setMovError(""); setMovementModalOpen(true); }}>Registrar Movimiento</HeroActionButton>
-            <HeroActionButton tone="solid" onClick={() => { supplyMutationIdRef.current = null; setEditingId(null); setForm({ name: "", category: supplyCategories[0], unit: "unidades", currentStock: "", minStock: "", costPerUnit: "", supplier: "", expiryDate: "" }); setError(""); setSupplyModalOpen(true); }}>+ Nuevo Insumo</HeroActionButton>
+            {canManageInventory && <HeroActionButton tone="glass" onClick={() => { movementMutationIdRef.current = null; setMovForm({ supplyId: supplies[0]?.id || "", quantity: "", isEntry: true, movementType: movementTypes[0], date: new Date().toISOString().split("T")[0], notes: "" }); setMovError(""); setMovementModalOpen(true); }}>Registrar Movimiento</HeroActionButton>}
+            {canManageInventory && <HeroActionButton tone="solid" onClick={() => { supplyMutationIdRef.current = null; setEditingId(null); setForm({ name: "", category: supplyCategories[0], unit: "unidades", currentStock: "", minStock: "", costPerUnit: "", supplier: "", expiryDate: "" }); setError(""); setSupplyModalOpen(true); }}>+ Nuevo Insumo</HeroActionButton>}
           </>
         }
       />
 
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-2.5 sm:gap-4">
+      <div className={`grid grid-cols-2 gap-2.5 sm:gap-4 ${canSeeFinancials ? "lg:grid-cols-4" : "lg:grid-cols-3"}`}>
         <StatCard icon="wrench" label="Total insumos" value={String(supplies.length)} color="blue" />
-        <StatCard icon="money" label="Valor inventario" value={fmt(totalValue)} color="green" />
+        {canSeeFinancials && <StatCard icon="money" label="Valor inventario" value={fmt(totalValue)} color="green" />}
         <StatCard icon="warning" label="Stock bajo" value={String(lowStockItems.length)} color="red" />
         <StatCard icon="clipboard" label="Movimientos" value={String(movements.length)} color="purple" />
       </div>
@@ -245,7 +250,7 @@ export default function InsumosPage() {
         <TableSearch
           value={supplySearch}
           onChange={setSupplySearch}
-          placeholder="Buscar por nombre, categoría o proveedor..."
+          placeholder={canSeeFinancials ? "Buscar por nombre, categoría o proveedor..." : "Buscar por nombre o categoría..."}
           resultCount={filteredSupplies.length}
           totalCount={supplies.length}
           className="mb-4"
@@ -262,7 +267,7 @@ export default function InsumosPage() {
             }
           />
         ) : (
-          <Table headers={["Nombre", "Categoría", "Stock", "Mínimo", "Unidad", "Costo Unit.", "Proveedor", "Acciones"]}>
+          <Table headers={["Nombre", "Categoría", "Stock", "Mínimo", "Unidad", ...(canSeeFinancials ? ["Costo Unit.", "Proveedor"] : []), ...(canManageInventory ? ["Acciones"] : [])]}>
             {filteredSupplies.map((s) => (
               <tr key={s.id} className="hover:bg-slate-50">
                 <td className="px-4 py-3 text-sm font-medium">{s.name}</td>
@@ -274,20 +279,20 @@ export default function InsumosPage() {
                 </td>
                 <td className="px-4 py-3 text-sm text-slate-500">{s.minStock}</td>
                 <td className="px-4 py-3 text-sm">{s.unit}</td>
-                <td className="px-4 py-3 text-sm">{fmt(Number(s.costPerUnit))}</td>
-                <td className="px-4 py-3 text-sm text-slate-500">{s.supplier || "—"}</td>
-                <td className="px-4 py-3">
+                {canSeeFinancials && <td className="px-4 py-3 text-sm">{fmt(Number(s.costPerUnit))}</td>}
+                {canSeeFinancials && <td className="px-4 py-3 text-sm text-slate-500">{s.supplier || "—"}</td>}
+                {canManageInventory && <td className="px-4 py-3">
                   <div className="flex gap-2">
                     <button onClick={() => {
                       supplyMutationIdRef.current = null;
                       setEditingId(s.id);
-                      setForm({ name: s.name, category: s.category, unit: s.unit, currentStock: s.currentStock, minStock: s.minStock, costPerUnit: s.costPerUnit, supplier: s.supplier || "", expiryDate: s.expiryDate || "" });
+                      setForm({ name: s.name, category: s.category, unit: s.unit, currentStock: s.currentStock, minStock: s.minStock, costPerUnit: s.costPerUnit || "", supplier: s.supplier || "", expiryDate: s.expiryDate || "" });
                       setError("");
                       setSupplyModalOpen(true);
                     }} className="text-blue-600 hover:underline text-xs">Editar</button>
                     <button onClick={() => removeSupply(s.id)} className="text-red-600 hover:underline text-xs">Eliminar</button>
                   </div>
-                </td>
+                </td>}
               </tr>
             ))}
           </Table>
@@ -314,7 +319,7 @@ export default function InsumosPage() {
             }
           />
         ) : (
-          <Table headers={["Fecha", "Insumo", "Tipo", "Motivo", "Cantidad", "Notas", "Acciones"]}>
+          <Table headers={["Fecha", "Insumo", "Tipo", "Motivo", "Cantidad", "Notas", ...(canManageInventory ? ["Acciones"] : [])]}>
             {filteredMovements.map((m) => (
               <tr key={m.id} className="hover:bg-slate-50">
                 <td className="px-4 py-3 text-sm">{m.date}</td>
@@ -327,20 +332,20 @@ export default function InsumosPage() {
                 <td className="px-4 py-3 text-sm">{m.movementType}</td>
                 <td className="px-4 py-3 text-sm font-medium">{m.quantity} {m.supplyUnit || ""}</td>
                 <td className="px-4 py-3 text-sm text-slate-500 max-w-[150px] truncate">{m.notes || "—"}</td>
-                <td className="px-4 py-3">
+                {canManageInventory && <td className="px-4 py-3">
                   {m.healthControlId ? (
                     <span className="text-xs text-slate-500">Gestionar desde Sanidad</span>
                   ) : (
                     <button onClick={() => removeMovement(m.id)} className="text-red-600 hover:underline text-xs">Eliminar</button>
                   )}
-                </td>
+                </td>}
               </tr>
             ))}
           </Table>
         )}
       </Card>
 
-      <Modal open={supplyModalOpen} onClose={() => { setSupplyModalOpen(false); setEditingId(null); }} title={editingId ? "Editar Insumo" : "Nuevo Insumo"}>
+      {canManageInventory && <Modal open={supplyModalOpen} onClose={() => { setSupplyModalOpen(false); setEditingId(null); }} title={editingId ? "Editar Insumo" : "Nuevo Insumo"}>
         <div className="space-y-4">
           {error && <p className="text-sm text-red-600 bg-red-50 p-3 rounded-lg">{error}</p>}
           <Input label="Nombre" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} placeholder="Ej: Vacuna Newcastle" required help="Nombre descriptivo del insumo" />
@@ -366,9 +371,9 @@ export default function InsumosPage() {
             <Button variant="secondary" onClick={() => setSupplyModalOpen(false)}>Cancelar</Button>
           </div>
         </div>
-      </Modal>
+      </Modal>}
 
-      <Modal open={movementModalOpen} onClose={() => setMovementModalOpen(false)} title="Registrar Movimiento">
+      {canManageInventory && <Modal open={movementModalOpen} onClose={() => setMovementModalOpen(false)} title="Registrar Movimiento">
         <div className="space-y-4">
           {movError && <p className="text-sm text-red-600 bg-red-50 p-3 rounded-lg">{movError}</p>}
           <Select label="Insumo" value={movForm.supplyId} onChange={(e) => setMovForm({ ...movForm, supplyId: e.target.value })} help="Selecciona el insumo al que aplica el movimiento">
@@ -390,7 +395,7 @@ export default function InsumosPage() {
             <Button variant="secondary" onClick={() => setMovementModalOpen(false)}>Cancelar</Button>
           </div>
         </div>
-      </Modal>
+      </Modal>}
     </div>
   );
 }

@@ -22,10 +22,12 @@ import { Tooltip } from "@/components/ui";
 import {
   PERMISSION_LABELS,
   ROLE_LABELS,
+  canDelegateRole,
   getPermissionsForRole,
   type AppRole,
   type RbacPermission,
 } from "@/lib/rbac";
+import { useAppRole } from "@/lib/useAppRole";
 
 interface FarmUserRow {
   id: string;
@@ -36,10 +38,13 @@ interface FarmUserRow {
 }
 
 const ASSIGNABLE_ROLES: { value: AppRole; label: string; hint: string }[] = [
-  { value: "operario", label: "Operario de Galpón", hint: "Captura huevos, mortalidad, ración y bioseguridad en campo" },
-  { value: "veterinario", label: "Veterinario / Zootecnista", hint: "Registra sanidad, vacunas, pesos y producción" },
-  { value: "gerente", label: "Gerente", hint: "Acceso operativo, cierre diario, finanzas y usuarios" },
-  { value: "propietario", label: "Propietario", hint: "Control total de la granja y reapertura de cierres" },
+  { value: "operario", label: "Operario de Granja", hint: "Registra producción diaria, pesajes y bioseguridad; no edita finanzas ni catálogos." },
+  { value: "veterinario", label: "Veterinario / Zootecnista", hint: "Registra tratamientos, vacunas, bioseguridad y pesajes; consulta insumos." },
+  { value: "comercial", label: "Comercial / Ventas", hint: "Gestiona clientes, ventas y cobros; consulta existencias sin ver nómina ni costos." },
+  { value: "financiero", label: "Finanzas / Nómina", hint: "Gestiona gastos, compras, pagos, nómina, costos maestros e informes financieros." },
+  { value: "gerente", label: "Gerente", hint: "Supervisa operación, gestiona el equipo y cierra la jornada; no reabre cierres." },
+  { value: "directivo", label: "Directivo · Solo consulta", hint: "Consulta tablero e indicadores agregados; no crea ni modifica registros." },
+  { value: "propietario", label: "Propietario", hint: "Control total de la granja, catálogos y reapertura auditada de cierres." },
 ];
 
 const ALL_PERMISSIONS = Object.keys(PERMISSION_LABELS) as RbacPermission[];
@@ -60,6 +65,8 @@ function buildWelcomeMessage(u: { name: string; username: string; role: AppRole 
 }
 
 export default function UsuariosConfiguracionPage() {
+  const actorRole = useAppRole();
+  const availableRoles = ASSIGNABLE_ROLES.filter((item) => canDelegateRole(actorRole, item.value));
   const [usersList, setUsersList] = useState<FarmUserRow[]>([]);
   const [maxUsers, setMaxUsers] = useState(2);
   const [planCode, setPlanCode] = useState("FREEMIUM_SEMILLA");
@@ -286,7 +293,7 @@ export default function UsuariosConfiguracionPage() {
         theme="guia"
         icon={<Users className="w-4 h-4 text-amber-200" aria-hidden="true" />}
         title="Usuarios y Roles de la Granja"
-        description="Da acceso seguro a tu operario de galpón, veterinario o socio sin compartir contraseñas ni usar comandos."
+        description="Asigna accesos por función: operación, sanidad, ventas, finanzas, gerencia o consulta directiva."
         badge={
           <span className="inline-flex items-center gap-1 rounded-full border border-white/25 bg-white/15 px-2.5 py-0.5 text-[11px] font-medium text-emerald-50">
             Cupo: {usersList.length} / {maxUsers} ({planCode})
@@ -406,14 +413,14 @@ export default function UsuariosConfiguracionPage() {
             <div>
               <div className="flex items-center gap-1 mb-1">
                 <label className="block text-sm font-semibold text-slate-800">Rol en la finca</label>
-                <Tooltip text="Define qué puede ver o editar (ej. operario solo registra diario; administrador controla todo)." />
+                <Tooltip text="Asigna solo el alcance que requiere: captura, ventas, finanzas, gestión, sanidad o consulta." />
               </div>
               <select
                 value={role}
                 onChange={(e) => setRole(e.target.value as AppRole)}
                 className="w-full min-h-[48px] px-3.5 rounded-xl border border-slate-400 text-base text-slate-900 bg-white"
               >
-                {ASSIGNABLE_ROLES.map((item) => (
+                {availableRoles.map((item) => (
                   <option key={item.value} value={item.value}>
                     {item.label}
                   </option>
@@ -447,7 +454,9 @@ export default function UsuariosConfiguracionPage() {
           <p className="text-sm text-slate-500 py-4">Cargando cuentas...</p>
         ) : (
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-            {usersList.map((u) => (
+            {usersList.map((u) => {
+              const canManageThisUser = canDelegateRole(actorRole, u.role);
+              return (
               <div
                 key={u.id}
                 className="rounded-xl border border-slate-200 p-4 flex flex-col justify-between gap-3 bg-slate-50/60"
@@ -466,19 +475,19 @@ export default function UsuariosConfiguracionPage() {
                 </div>
 
                 <div className="flex flex-wrap items-center gap-2 pt-1">
-                  <select
+                  {canManageThisUser && <select
                     aria-label={`Cambiar rol de ${u.name}`}
                     value={u.role}
                     onChange={(e) => handleChangeRole(u.id, e.target.value as AppRole)}
                     className="flex-1 min-w-[160px] min-h-[48px] px-3 rounded-xl border border-slate-300 bg-white text-sm font-medium text-slate-900"
                   >
-                    {ASSIGNABLE_ROLES.map((item) => (
+                    {availableRoles.map((item) => (
                       <option key={item.value} value={item.value}>
                         {item.label}
                       </option>
                     ))}
-                  </select>
-                  <button
+                  </select>}
+                  {canManageThisUser && <button
                     type="button"
                     onClick={() => openEditModal(u)}
                     aria-label={`Editar o restablecer clave de ${u.name}`}
@@ -487,7 +496,7 @@ export default function UsuariosConfiguracionPage() {
                   >
                     <Pencil className="w-4 h-4" />
                     Editar
-                  </button>
+                  </button>}
                   <button
                     type="button"
                     onClick={() => copyWelcomeMessage(u)}
@@ -498,17 +507,18 @@ export default function UsuariosConfiguracionPage() {
                     {copiedId === u.id ? <Check className="w-4 h-4" /> : <Copy className="w-4 h-4" />}
                     {copiedId === u.id ? "Copiado" : "WhatsApp"}
                   </button>
-                  <button
+                  {canManageThisUser && <button
                     type="button"
                     onClick={() => handleDeleteUser(u.id, u.name)}
                     aria-label={`Eliminar ${u.name}`}
                     className="min-h-[48px] min-w-[48px] px-3 rounded-xl border border-red-200 bg-white text-red-700 hover:bg-red-50 flex items-center justify-center"
                   >
                     <Trash2 className="w-4 h-4" />
-                  </button>
+                  </button>}
                 </div>
               </div>
-            ))}
+              );
+            })}
           </div>
         )}
       </div>
@@ -526,8 +536,8 @@ export default function UsuariosConfiguracionPage() {
               <KeyRound className="w-5 h-5 text-emerald-700" />
               Matriz de permisos por rol
             </h2>
-            <p className="text-xs text-slate-600 mt-0.5">
-              Verifica qué puede registrar y aprobar cada rol. Solo el Propietario puede reabrir un cierre diario auditado.
+              <p className="text-xs text-slate-600 mt-0.5">
+              Ventas y finanzas están separadas. Directivo es de solo consulta. Solo el Propietario puede reabrir un cierre diario auditado.
             </p>
           </div>
           {showMatrix ? (
@@ -543,7 +553,7 @@ export default function UsuariosConfiguracionPage() {
               <thead>
                 <tr className="border-b border-slate-200 bg-slate-50">
                   <th className="py-2.5 px-3 font-bold text-slate-800">Acción en campo / oficina</th>
-                  {ASSIGNABLE_ROLES.map((item) => (
+                {availableRoles.map((item) => (
                     <th key={item.value} className="py-2.5 px-3 font-bold text-slate-800 text-center whitespace-nowrap">
                       {ROLE_LABELS[item.value]}
                     </th>

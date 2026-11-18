@@ -10,6 +10,8 @@ import { openQuickCapture, type QuickCaptureMode } from "@/lib/quick-capture-eve
 import { OPEN_ASSISTANT_VOICE_EVENT } from "@/lib/offline/voiceNotes";
 import { isHrefEnabledByFlags } from "@/lib/onboarding";
 import { useOnboardingState } from "@/lib/useOnboardingState";
+import { canAccessAppRoute, canPerformAction, isReadOnlyRole } from "@/lib/rbac";
+import { useAppRole } from "@/lib/useAppRole";
 
 interface ExpressAction {
   id: string;
@@ -86,6 +88,7 @@ export default function QuickCreateMenu() {
   const dialogRef = useRef<HTMLElement>(null);
   const wasOpenRef = useRef(false);
   const { flags } = useOnboardingState();
+  const role = useAppRole();
 
   useEffect(() => {
     if (!open) {
@@ -134,20 +137,28 @@ export default function QuickCreateMenu() {
     return EXPRESS_ACTIONS.filter((item) =>
       matchesTextQuery(trimmedQuery, [item.label, item.description, ...item.keywords]),
     );
-  }, [query]);
+  }, [query]).filter((item) => {
+    if (item.id === "express-gasto") return canPerformAction(role, "finance:write");
+    if (item.id === "express-venta") return canPerformAction(role, "sales:write");
+    if (item.id === "express-voz") return !isReadOnlyRole(role);
+    return canPerformAction(role, "production:write");
+  });
 
   const visibleGroups = useMemo(() => {
     const trimmedQuery = query.trim();
     return CREATE_ACTION_GROUPS.map((group) => ({
       ...group,
       actions: group.actions.filter((action) => {
+        if (!canAccessAppRoute(role, action.href)) return false;
         if (!trimmedQuery && flags && !isHrefEnabledByFlags(action.href, flags)) {
           return false;
         }
         return matchesTextQuery(trimmedQuery, [group.label, action.label, action.description, ...(action.keywords ?? [])]);
       }),
     })).filter((group) => group.actions.length > 0);
-  }, [query, flags]);
+  }, [query, flags, role]);
+
+  const hasCreateItems = visibleExpress.length > 0 || visibleGroups.some((group) => group.actions.length > 0);
 
   const close = () => {
     setOpen(false);
@@ -167,7 +178,7 @@ export default function QuickCreateMenu() {
 
   return (
     <>
-      <button
+      {hasCreateItems && <button
         ref={triggerRef}
         type="button"
         onClick={() => setOpen(true)}
@@ -177,7 +188,7 @@ export default function QuickCreateMenu() {
       >
         <Plus className="w-4 h-4 shrink-0" strokeWidth={2.5} aria-hidden="true" />
         <span>Crear</span>
-      </button>
+      </button>}
 
       {open && (
         <div

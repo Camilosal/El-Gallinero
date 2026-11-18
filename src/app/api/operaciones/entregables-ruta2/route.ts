@@ -73,14 +73,8 @@ export const GET = withApiHandler(async (req: NextRequest) => {
 
   const sessionUser = await getSessionUser();
   const normalizedRole = normalizeRole(sessionUser?.role);
-  if (
-    tipo === "acta-entrega" &&
-    !canPerformAction(normalizedRole, "config:write") &&
-    normalizedRole !== "veterinario"
-  ) {
-    return forbiddenResponse(
-      "Solo propietario, gerente o veterinario pueden generar el Acta de Entrega Semana 4.",
-    );
+  if (!canPerformAction(normalizedRole, "operations:manage") && normalizedRole !== "veterinario") {
+    return forbiddenResponse("Solo propietario, gerente o veterinario pueden generar entregables de implementación.");
   }
 
   const today = todayColombiaIso();

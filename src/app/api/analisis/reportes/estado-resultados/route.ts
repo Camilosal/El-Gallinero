@@ -3,6 +3,8 @@ import { feedInventory, feedMovements, transactions } from "@/db/schema";
 import { eq, gte, lte, and } from "drizzle-orm";
 import { NextRequest, NextResponse } from "next/server";
 import { withApiHandler } from "@/lib/api-handler";
+import { getSessionUser } from "@/lib/auth";
+import { isReadOnlyRole } from "@/lib/rbac";
 import { normalizeFeedingSpecies } from "@/lib/species";
 import {
   classifyTransactionNature,
@@ -20,6 +22,7 @@ import { loadPeriodPayrollAndSupplies } from "@/lib/analytics/payroll-tax-suppli
 export const dynamic = "force-dynamic";
 
 export const GET = withApiHandler(async (req: NextRequest) => {
+  const directivo = isReadOnlyRole((await getSessionUser())?.role);
   const { searchParams } = new URL(req.url);
   const from = searchParams.get("from") || new Date(new Date().getFullYear(), 0, 1).toISOString().split("T")[0];
   const to = searchParams.get("to") || new Date().toISOString().split("T")[0];
@@ -143,15 +146,17 @@ export const GET = withApiHandler(async (req: NextRequest) => {
       total: parseFloat(totalExpenses.toFixed(2)),
     },
     netProfit,
-    operatingContext: {
-      ...threeLayer,
-      taxAndDeductions,
-      capexExcludedCop: parseFloat(capexExcluded.toFixed(2)),
-      lifecycleMode: biologicalSummary.lifecycleMode,
-      lifecycleLabel: biologicalSummary.lifecycleLabel,
-      capexRecoveryPct: assetsSummary.capexRecoveryPct,
-      alertsCount: biologicalSummary.alerts.length,
-    },
+    ...(!directivo ? {
+      operatingContext: {
+        ...threeLayer,
+        taxAndDeductions,
+        capexExcludedCop: parseFloat(capexExcluded.toFixed(2)),
+        lifecycleMode: biologicalSummary.lifecycleMode,
+        lifecycleLabel: biologicalSummary.lifecycleLabel,
+        capexRecoveryPct: assetsSummary.capexRecoveryPct,
+        alertsCount: biologicalSummary.alerts.length,
+      },
+    } : {}),
     transactionCount: txs.length,
   });
 });

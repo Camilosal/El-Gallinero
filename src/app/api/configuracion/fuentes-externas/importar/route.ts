@@ -17,7 +17,7 @@ const MAX_ROWS_PER_IMPORT = 50_000;
 const ALLOWED_IMPORT_TYPES: OfficialCsvImportType[] = ["sipsa_i", "ipc", "ipp"];
 
 export const POST = withApiHandler(async (req: NextRequest) => {
-  const denied = await requirePermission("config:write");
+  const denied = await requirePermission("integrations:manage");
   if (denied) return denied;
 
   const body = await safeParseJson(req);

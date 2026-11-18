@@ -8,13 +8,15 @@ import { apiFetch } from "@/lib/fetch";
 import TableSearch from "@/components/TableSearch";
 import { matchesTextQuery } from "@/lib/text";
 import { SPECIES_ICON, SPECIES_LABEL } from "@/lib/species-params";
+import { canAccessAppRoute, canPerformAction } from "@/lib/rbac";
+import { useAppRole } from "@/lib/useAppRole";
 
 interface MeatSpeciesSummary {
   species: string;
   producedKg: number;
   availableKg: number;
-  estimatedPriceKg: number;
-  estimatedValue: number;
+  estimatedPriceKg: number | null;
+  estimatedValue: number | null;
 }
 
 interface MeatLot {
@@ -38,12 +40,12 @@ interface InventoryData {
     sold: number;
     lost: number;
     available: number;
-    value: number;
+    value: number | null;
     bySpecies?: MeatSpeciesSummary[];
   };
   lots: MeatLot[];
   oldestLot: MeatLot | null;
-  estimatedValue: number;
+  estimatedValue: number | null;
 }
 
 const birdTypeLabels: Record<string, string> = {
@@ -57,6 +59,9 @@ const birdTypeLabels: Record<string, string> = {
 };
 
 export default function InventarioCarnePage() {
+  const role = useAppRole();
+  const canSeeFinancials = canPerformAction(role, "finance:read");
+  const canSeeSalesPrices = canPerformAction(role, "sales:read");
   const [data, setData] = useState<InventoryData | null>(null);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
@@ -100,18 +105,18 @@ export default function InventarioCarnePage() {
         help="Inventario de carne disponible proveniente de faenas. Se muestra lo producido, vendido, perdido y disponible por especie y lote. Los precios de valoración se basan en el mercado local por kg canal."
         actions={
           <>
-            <HeroActionLink href="/produccion/sacrificio" tone="glass">Registrar Faena</HeroActionLink>
-            <HeroActionLink href="/finanzas/ventas?tab=carne" tone="solid">+ Registrar Venta de Carne</HeroActionLink>
+            {canAccessAppRoute(role, "/produccion/sacrificio") && <HeroActionLink href="/produccion/sacrificio" tone="glass">Registrar Faena</HeroActionLink>}
+            {canAccessAppRoute(role, "/finanzas/ventas") && <HeroActionLink href="/finanzas/ventas?tab=carne" tone="solid">+ Registrar Venta de Carne</HeroActionLink>}
           </>
         }
       />
 
       {/* StatCards Principales */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-2.5 sm:gap-4 mb-6">
+      <div className={`grid grid-cols-2 gap-2.5 sm:gap-4 mb-6 ${canSeeFinancials ? "lg:grid-cols-4" : "lg:grid-cols-3"}`}>
         <StatCard icon="beef" label="Producido Total (kg)" value={(data?.summary.produced ?? 0).toFixed(1)} color="green" />
         <StatCard icon="money" label="Vendido Total (kg)" value={(data?.summary.sold ?? 0).toFixed(1)} color="blue" />
         <StatCard icon="package" label="Disponible en Frío (kg)" value={(data?.summary.available ?? 0).toFixed(1)} color="yellow" />
-        <StatCard icon="banknote" label="Valor Estimado Stock" value={`$${Math.round(data?.estimatedValue ?? 0).toLocaleString("es-CO")}`} color="purple" />
+        {canSeeFinancials && <StatCard icon="banknote" label="Valor Estimado Stock" value={`$${Math.round(data?.estimatedValue ?? 0).toLocaleString("es-CO")}`} color="purple" />}
       </div>
 
       {/* Desglose por Especie */}
@@ -119,7 +124,7 @@ export default function InventarioCarnePage() {
         <Card className="mb-6">
           <h3 className="font-semibold text-slate-700 mb-3 flex items-center gap-2">
             <Tag className="w-4 h-4 text-slate-500" aria-hidden="true" />
-            <span>Disponibilidad y Valoración por Especie</span>
+            <span>{canSeeFinancials ? "Disponibilidad y Valoración por Especie" : "Disponibilidad por Especie"}</span>
           </h3>
           <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
             {data.summary.bySpecies.map((spData) => {
@@ -132,14 +137,14 @@ export default function InventarioCarnePage() {
                       <AppIcon icon={icon} className="w-4 h-4 text-slate-600 shrink-0" />
                       <span>{label}</span>
                     </span>
-                    <span className="text-[11px] text-slate-500">${spData.estimatedPriceKg.toLocaleString("es-CO")}/kg</span>
+                    {canSeeSalesPrices && <span className="text-[11px] text-slate-500">${(spData.estimatedPriceKg ?? 0).toLocaleString("es-CO")}/kg</span>}
                   </div>
                   <div className="text-xl font-bold text-emerald-700">
                     {spData.availableKg.toFixed(1)} <span className="text-xs text-slate-500 font-normal">kg disp.</span>
                   </div>
-                  <div className="text-xs text-slate-500 mt-1">
-                    Valor: ${spData.estimatedValue.toLocaleString("es-CO")}
-                  </div>
+                  {canSeeFinancials && <div className="text-xs text-slate-500 mt-1">
+                    Valor: ${(spData.estimatedValue ?? 0).toLocaleString("es-CO")}
+                  </div>}
                 </div>
               );
             })}

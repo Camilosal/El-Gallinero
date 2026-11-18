@@ -4,7 +4,7 @@ import { requirePermission } from "@/lib/rbac-server";
 import { suggestOnboardingFromTextWithJev } from "@/lib/agent/jev-capabilities";
 
 export const POST = withApiHandler(async (req: NextRequest) => {
-  const denied = await requirePermission("config:write");
+  const denied = await requirePermission("settings:manage");
   if (denied) return denied;
 
   const body = await safeParseJson(req);

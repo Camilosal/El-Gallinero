@@ -2588,10 +2588,10 @@ export const guides: Guide[] = [
     module: "configuracion",
     icon: "shield",
     summary:
-      "Invita a trabajadores y familiares con el rol justo en lenguaje de granja: quién registra el día a día, quién vende o paga, quién cierra el día y quién administra la granja; cupos por plan y recuperación de acceso.",
+      "Invita al equipo con accesos separados para operación, sanidad, ventas, finanzas, gerencia y consulta directiva; cupos por plan y recuperación de acceso.",
     estimatedMinutes: 3,
     updatedAt: "2026-11-17",
-    tags: ["usuarios", "roles", "permisos", "propietario", "administrador", "gerente", "veterinario", "operario", "cupos", "invitar", "recuperar acceso", "contrasena"],
+    tags: ["usuarios", "roles", "permisos", "propietario", "administrador", "gerente", "veterinario", "operario", "comercial", "financiero", "directivo", "cupos", "invitar", "recuperar acceso", "contrasena"],
     relatedHrefs: [
       { href: "/configuracion/usuarios", label: "Usuarios de la Granja" },
       { href: "/configuracion", label: "Panel Configuración" },
@@ -2600,7 +2600,7 @@ export const guides: Guide[] = [
     sections: [
       {
         type: "intro",
-        text: "Cada persona que entra a la app tiene un rol que define qué puede hacer. En palabras de granja: el operario registra lo que pasa en el galpón (huevos, mortalidad, alimento, peso); el veterinario cuida la sanidad; el gerente o administrador vende, paga y cierra el día; el propietario administra todo, incluidos usuarios, plan y configuración. Cada granja tiene sus propios usuarios y nadie ve datos de otra granja.",
+        text: "Cada persona que entra tiene un rol ajustado a su trabajo. El operario registra producción y bioseguridad; el veterinario lleva sanidad y mediciones; el perfil Comercial gestiona clientes, ventas y cobros; Finanzas administra pagos, nómina, costos e impuestos; Gerencia coordina la operación, cierra la jornada y asigna perfiles de alcance igual o menor; Directivo consulta el tablero y los informes agregados. El Propietario administra todo. El Administrador de plataforma es una cuenta protegida y no se asigna desde la granja. Cada granja conserva sus datos aislados.",
       },
       {
         type: "screenshot",
@@ -2608,7 +2608,7 @@ export const guides: Guide[] = [
         image: "/images/guia/configuracion-panel.webp",
         alt: "Panel de configuración con acceso a la gestión de usuarios y roles de la granja",
         caption:
-          "Solo el propietario o administrador crea usuarios, asigna roles y restablece accesos; los cupos dependen del plan activo.",
+          "Propietario y Gerencia pueden gestionar el equipo según sus permisos. Gerencia no puede crear propietarios ni asignar perfiles de Finanzas; los cupos dependen del plan activo.",
         badge: "Aislamiento por granja",
         targetHref: "/configuracion/usuarios",
         targetLabel: "Administrar Usuarios",
@@ -2619,6 +2619,7 @@ export const guides: Guide[] = [
         items: [
           "En Configuración → Usuarios, crea la cuenta con nombre, correo y rol; el sistema valida que no excedas los cupos de tu plan.",
           "Asigna el rol mínimo necesario: quien solo registra en galpón no necesita permisos de venta ni de cierre diario.",
+          "Ventas y Finanzas están separadas: Comercial puede cobrar a clientes, pero no registrar pagos a proveedores ni consultar nómina o costos. Directivo es de solo lectura.",
           "Si alguien olvida su contraseña, usa la recuperación de acceso desde el login (correo de restablecimiento) o el administrador la restablece desde Usuarios.",
           "Al salir una persona de la granja, desactiva su usuario: el historial de lo que registró se conserva intacto para auditoría.",
         ],

@@ -13,6 +13,8 @@ import { matchesTextQuery } from "@/lib/text";
 import { useActionQuery } from "@/lib/useActionQuery";
 import FeatureGateBanner from "@/components/FeatureGateBanner";
 import { useOnboardingState } from "@/lib/useOnboardingState";
+import { canPerformAction } from "@/lib/rbac";
+import { useAppRole } from "@/lib/useAppRole";
 
 interface OperatingContext {
   operatingIncomeCop: number;
@@ -252,6 +254,11 @@ export default function ReportesPage() {
 
 function ReportesPageInner() {
   const searchParams = useSearchParams();
+  const role = useAppRole();
+  const canReadFinance = canPerformAction(role, "finance:read");
+  const canWriteFinance = canPerformAction(role, "finance:write");
+  const canExportReports = canPerformAction(role, "export:read");
+  const canGenerateActa = role === "veterinario" || canPerformAction(role, "operations:manage");
   const { isFlagEnabled } = useOnboardingState();
   const prorrateoEnabled = isFlagEnabled("centros_costo_prorrateo");
   const formalReportsEnabled = isFlagEnabled("reportes_dian_roi_credito");
@@ -260,11 +267,12 @@ function ReportesPageInner() {
     requestedTab === "pl" || requestedTab === "rent" || requestedTab === "dim" || requestedTab === "analitica"
       ? requestedTab
       : null;
-  const [tab, setTab] = useState<"pl" | "rent" | "dim" | "analitica">(validRequestedTab ?? "pl");
-  const [lastSyncedTab, setLastSyncedTab] = useState<string | null>(validRequestedTab);
-  if (validRequestedTab && validRequestedTab !== lastSyncedTab) {
-    setLastSyncedTab(validRequestedTab);
-    setTab(validRequestedTab);
+  const requestedTabAllowed = validRequestedTab === "analitica" && !canReadFinance ? null : validRequestedTab;
+  const [tab, setTab] = useState<"pl" | "rent" | "dim" | "analitica">(requestedTabAllowed ?? "pl");
+  const [lastSyncedTab, setLastSyncedTab] = useState<string | null>(requestedTabAllowed);
+  if (requestedTabAllowed && requestedTabAllowed !== lastSyncedTab) {
+    setLastSyncedTab(requestedTabAllowed);
+    setTab(requestedTabAllowed);
   }
   const [from, setFrom] = useState(new Date(new Date().getFullYear(), 0, 1).toISOString().split("T")[0]);
   const [to, setTo] = useState(new Date().toISOString().split("T")[0]);
@@ -295,6 +303,12 @@ function ReportesPageInner() {
   const [prError, setPrError] = useState("");
 
   const load = useCallback(() => {
+    if (tab === "analitica" && !canReadFinance) {
+      setAnalitica(null);
+      setProrrateo(null);
+      setLoading(false);
+      return;
+    }
     setLoading(true);
     const promises: Promise<void>[] = [];
     const dimQs = `from=${from}&to=${to}${species ? `&species=${species}` : ""}${locationId ? `&locationId=${locationId}` : ""}`;
@@ -329,7 +343,7 @@ function ReportesPageInner() {
       );
     }
     Promise.all(promises).finally(() => setLoading(false));
-  }, [tab, from, to, species, locationId, includeProrated]);
+  }, [tab, from, to, species, locationId, includeProrated, canReadFinance]);
 
   useEffect(() => {
     apiFetch("/api/ubicaciones?active=true")
@@ -339,10 +353,11 @@ function ReportesPageInner() {
   }, []);
 
   const openProrrateoModal = useCallback(() => {
+    if (!canWriteFinance) return;
     setTab("analitica");
     setPrError("");
     setPrModalOpen(true);
-  }, []);
+  }, [canWriteFinance]);
 
   useActionQuery(searchParams.get("nuevo"), {
     "1": openProrrateoModal,
@@ -423,11 +438,11 @@ ${netText}`);
         description="Estado de resultados, prorrateo por especie/lugar, márgenes NTC 1240, ROI y exportación"
         actions={
           <div className="flex flex-wrap gap-2 print:hidden">
-            <HeroActionButton tone="glass" onClick={() => exportFile("csv")}>
+            {canExportReports && <HeroActionButton tone="glass" onClick={() => exportFile("csv")}>
               <Download className="w-3.5 h-3.5" />
               <span>CSV</span>
-            </HeroActionButton>
-            {formalReportsEnabled && (
+            </HeroActionButton>}
+            {canExportReports && formalReportsEnabled && (
               <HeroActionButton tone="glass" onClick={() => exportFile("xlsx")}>
                 <FileSpreadsheet className="w-3.5 h-3.5" />
                 <span>Excel (.xlsx)</span>
@@ -437,21 +452,21 @@ ${netText}`);
               <Printer className="w-3.5 h-3.5" />
               <span>PDF / Imprimir</span>
             </HeroActionButton>
-            <HeroActionButton
+            {canGenerateActa && <HeroActionButton
               tone="glass"
               onClick={() => window.open("/api/operaciones/entregables-ruta2?tipo=acta-entrega&format=pdf", "_blank")}
             >
               <FileText className="w-3.5 h-3.5" />
               <span>Acta Semana 4 / Equilibrio (PDF)</span>
-            </HeroActionButton>
+            </HeroActionButton>}
             <HeroActionButton tone="glass" onClick={shareWhatsApp}>
               <MessageCircle className="w-3.5 h-3.5" />
               <span>WhatsApp</span>
             </HeroActionButton>
-            <HeroActionLink href="/exportar" tone="solid">
+            {canExportReports && <HeroActionLink href="/exportar" tone="solid">
               <PlugZap className="w-3.5 h-3.5" />
               <span>Exportación / ERP</span>
-            </HeroActionLink>
+            </HeroActionLink>}
           </div>
         }
       />
@@ -471,7 +486,7 @@ ${netText}`);
             <Button variant={tab === "pl" ? "primary" : "secondary"} className="px-3 py-1.5 text-xs" onClick={() => setTab("pl")}>Estado de Resultados</Button>
             <Button variant={tab === "rent" ? "primary" : "secondary"} className="px-3 py-1.5 text-xs" onClick={() => setTab("rent")}>Por Producto</Button>
             <Button variant={tab === "dim" ? "primary" : "secondary"} className="px-3 py-1.5 text-xs" onClick={() => setTab("dim")}>Por Especie y Lugar</Button>
-            <Button variant={tab === "analitica" ? "primary" : "secondary"} className="px-3 py-1.5 text-xs" onClick={() => setTab("analitica")}>Analítica, Unitarios y ROI{!prorrateoEnabled ? " · Avanzado" : ""}</Button>
+            {canReadFinance && <Button variant={tab === "analitica" ? "primary" : "secondary"} className="px-3 py-1.5 text-xs" onClick={() => setTab("analitica")}>Analítica, Unitarios y ROI{!prorrateoEnabled ? " · Avanzado" : ""}</Button>}
           </div>
           <div className="flex flex-wrap gap-3 items-end">
             <Input label="Desde" type="date" value={from} onChange={(e) => setFrom(e.target.value)} />
@@ -701,9 +716,9 @@ ${netText}`);
               <input type="checkbox" checked={includeProrated} onChange={(e) => setIncludeProrated(e.target.checked)} className="rounded border-slate-300" />
               Incluir costos indirectos prorrateados ({analitica.proratedRulesCount} reglas)
             </label>
-            <Button className="px-3 py-1.5 text-xs" onClick={() => setPrModalOpen(true)}>
+            {canWriteFinance && <Button className="px-3 py-1.5 text-xs" onClick={() => setPrModalOpen(true)}>
               <Plus className="w-4 h-4 mr-1 inline" /> Nuevo prorrateo de costo
-            </Button>
+            </Button>}
           </div>
 
           {analitica.biologicalPortfolio && (
@@ -946,7 +961,7 @@ ${netText}`);
               {prorrateo.allocations.length === 0 ? (
                 <EmptyState icon="scale" message="Aún no hay costos compartidos prorrateados en este rango" />
               ) : (
-                <Table headers={["Fecha", "Concepto", "Criterio", "Total", "Distribución", "Acción"]}>
+                <Table headers={["Fecha", "Concepto", "Criterio", "Total", "Distribución", ...(canWriteFinance ? ["Acción"] : [])]}>
                   {prorrateo.allocations.map((a) => (
                     <tr key={a.id} className="hover:bg-slate-50">
                       <td className="px-3 py-2 text-sm">{a.date}</td>
@@ -956,11 +971,11 @@ ${netText}`);
                       <td className="px-3 py-2 text-xs text-slate-600">
                         {a.allocations.map((it) => `${it.label || it.species || "Lugar"}: ${it.percentage}% (${fmt(it.amount)})`).join(" · ")}
                       </td>
-                      <td className="px-3 py-2 text-sm">
+                      {canWriteFinance && <td className="px-3 py-2 text-sm">
                         <button onClick={() => deleteProrrateo(a.id)} className="text-red-600 hover:text-red-800" title="Eliminar">
                           <Trash2 className="w-4 h-4" />
                         </button>
-                      </td>
+                      </td>}
                     </tr>
                   ))}
                 </Table>
@@ -972,7 +987,7 @@ ${netText}`);
         </FeatureGateBanner>
       ) : null}
 
-      <Modal open={prModalOpen} onClose={() => setPrModalOpen(false)} title="Prorratear Costo Compartido">
+      {canWriteFinance && <Modal open={prModalOpen} onClose={() => setPrModalOpen(false)} title="Prorratear Costo Compartido">
         <div className="space-y-4">
           {prError && <p className="text-sm text-red-600 bg-red-50 p-2 rounded">{prError}</p>}
           {prorrateo && prorrateo.unallocatedTransactions.filter((t) => !t.alreadyAllocated).length > 0 && (
@@ -1012,7 +1027,7 @@ ${netText}`);
             <Button onClick={saveProrrateo}>Aplicar Prorrateo</Button>
           </div>
         </div>
-      </Modal>
+      </Modal>}
     </div>
   );
 }

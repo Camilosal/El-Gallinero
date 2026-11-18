@@ -10,6 +10,8 @@ import { apiFetch } from "@/lib/fetch";
 import { matchesTextQuery } from "@/lib/text";
 import { isHrefEnabledByFlags } from "@/lib/onboarding";
 import { useOnboardingState } from "@/lib/useOnboardingState";
+import { canAccessAppRoute, canPerformAction } from "@/lib/rbac";
+import { useAppRole } from "@/lib/useAppRole";
 
 interface Feed {
   id: string;
@@ -18,7 +20,7 @@ interface Feed {
   unit: string;
   currentStock: string;
   minStock: string;
-  costPerUnit: string;
+  costPerUnit: string | null;
   supplier: string | null;
 }
 
@@ -29,7 +31,7 @@ interface Supply {
   unit: string;
   currentStock: string;
   minStock: string;
-  costPerUnit: string;
+  costPerUnit: string | null;
   supplier: string | null;
 }
 
@@ -106,6 +108,8 @@ function normalizeList<T>(data: unknown): T[] {
 }
 
 export default function AlmacenPage() {
+  const role = useAppRole();
+  const canSeeFinancials = canPerformAction(role, "finance:read");
   const [feeds, setFeeds] = useState<Feed[]>([]);
   const [supplies, setSupplies] = useState<Supply[]>([]);
   const [maintenance, setMaintenance] = useState<MaintenanceSummary | null>(null);
@@ -156,8 +160,8 @@ export default function AlmacenPage() {
   const totalAlerts = lowFeeds.length + lowSupplies.length;
 
   const enabledQuickLinks = useMemo(
-    () => quickLinks.filter((l) => isHrefEnabledByFlags(l.href, flags)),
-    [flags],
+    () => quickLinks.filter((l) => isHrefEnabledByFlags(l.href, flags) && canAccessAppRoute(role, l.href)),
+    [flags, role],
   );
   const filteredQuickLinks = useMemo(
     () => (search.trim() ? enabledQuickLinks.filter((l) => matchesTextQuery(search, [l.label, l.desc])) : enabledQuickLinks),
@@ -189,12 +193,12 @@ export default function AlmacenPage() {
         help="Este espacio reúne los recursos operativos, instalaciones y procesos de soporte diarios de la granja:\n\n• Gestión de alimentación e Inventario de alimentos: stock en bultos de 40 kg, dieta combinada (%MS/%PC/Vit. C), programas y predicción.\n• Insumos: medicamentos, vacunas, empaques y materiales.\n• Activos y equipos / Mantenimiento: hojas de vida, garantías y tareas periódicas.\n• Compostaje: pilas 3:1:1 y 7:2:2 con monitoreo de temperatura y volteos.\n• Cierre Diario y Sensores: conciliación auditable al cierre de jornada y lecturas IoT (ITH, NH3, T°/HR, báscula)."
         actions={
           <>
-            <HeroActionLink href="/inventarios/insumos" tone="glass">
+            {canAccessAppRoute(role, "/inventarios/insumos") && <HeroActionLink href="/inventarios/insumos" tone="glass">
               Gestionar insumos
-            </HeroActionLink>
-            <HeroActionLink href="/produccion?tab=alimentacion" tone="solid">
+            </HeroActionLink>}
+            {canAccessAppRoute(role, "/produccion?tab=alimentacion") && <HeroActionLink href="/produccion?tab=alimentacion" tone="solid">
               Gestionar alimentación
-            </HeroActionLink>
+            </HeroActionLink>}
           </>
         }
       />
@@ -215,9 +219,9 @@ export default function AlmacenPage() {
             totalCount={quickLinks.length + feeds.length + supplies.length}
           />
 
-          <div className={`grid grid-cols-2 gap-2.5 sm:gap-4 ${showEnterpriseMaintenance ? "lg:grid-cols-5" : "lg:grid-cols-4"}`}>
-            <StatCard icon="wheat" label="Valor en alimentos" value={fmtMoney(feedValue)} color="blue" />
-            <StatCard icon="package-open" label="Valor en insumos" value={fmtMoney(supplyValue)} color="purple" />
+          <div className={`grid grid-cols-2 gap-2.5 sm:gap-4 ${canSeeFinancials ? (showEnterpriseMaintenance ? "lg:grid-cols-5" : "lg:grid-cols-4") : (showEnterpriseMaintenance ? "lg:grid-cols-3" : "lg:grid-cols-2")}`}>
+            {canSeeFinancials && <StatCard icon="wheat" label="Valor en alimentos" value={fmtMoney(feedValue)} color="blue" />}
+            {canSeeFinancials && <StatCard icon="package-open" label="Valor en insumos" value={fmtMoney(supplyValue)} color="purple" />}
             <StatCard
               icon="warning"
               label="Alimentos con stock bajo"
@@ -351,7 +355,7 @@ export default function AlmacenPage() {
                           <p className={`text-sm font-bold ${isLow ? "text-red-600" : "text-green-700"}`}>
                             {fmtNumber(Number(feed.currentStock))} {feed.unit}
                           </p>
-                          <p className="text-xs text-slate-500">{fmtMoney(Number(feed.currentStock) * Number(feed.costPerUnit))}</p>
+                          {canSeeFinancials && <p className="text-xs text-slate-500">{fmtMoney(Number(feed.currentStock) * Number(feed.costPerUnit))}</p>}
                         </div>
                       </div>
                     );
@@ -393,7 +397,7 @@ export default function AlmacenPage() {
                           <p className={`text-sm font-bold ${isLow ? "text-red-600" : "text-green-700"}`}>
                             {fmtNumber(Number(supply.currentStock))} {supply.unit}
                           </p>
-                          <p className="text-xs text-slate-500">{fmtMoney(Number(supply.currentStock) * Number(supply.costPerUnit))}</p>
+                          {canSeeFinancials && <p className="text-xs text-slate-500">{fmtMoney(Number(supply.currentStock) * Number(supply.costPerUnit))}</p>}
                         </div>
                       </div>
                     );

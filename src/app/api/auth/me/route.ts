@@ -4,6 +4,7 @@ import { db } from "@/db";
 import { farms } from "@/db/schema";
 import { getSessionUser } from "@/lib/auth";
 import { withErrorHandler } from "@/lib/api-handler";
+import { getPermissionsForRole } from "@/lib/rbac";
 
 export const dynamic = "force-dynamic";
 
@@ -29,5 +30,10 @@ export const GET = withErrorHandler(async () => {
     // Non-fatal: still return session user even if farm metadata lookup fails
   }
 
-  return NextResponse.json({ ...user, farmName, farmSlug });
+  return NextResponse.json({
+    ...user,
+    farmName,
+    farmSlug,
+    permissions: getPermissionsForRole(user.role),
+  });
 });

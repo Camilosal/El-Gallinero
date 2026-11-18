@@ -34,7 +34,7 @@ export const GET = withApiHandler(async () => {
 /** Genera (rota) o revoca tokens de exportación/integración. Requiere permiso de configuración. */
 export const POST = withApiHandler(async (req: NextRequest) => {
   const forbidden = await requirePermission(
-    "config:write",
+    "settings:manage",
     "Tu rol no puede administrar tokens de exportación",
   );
   if (forbidden) return forbidden;

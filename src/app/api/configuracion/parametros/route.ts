@@ -20,7 +20,7 @@ export const GET = withApiHandler(async () => {
 
 /** PUT /api/configuracion/parametros — actualiza uno o varios parámetros. */
 export const PUT = withApiHandler(async (req: NextRequest) => {
-  const denied = await requirePermission("config:write");
+  const denied = await requirePermission("catalogs:write");
   if (denied) return denied;
   const body = await safeParseJson(req);
   const updates = Array.isArray(body.updates)

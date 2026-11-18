@@ -3,6 +3,8 @@ import { db } from "@/db";
 import { feedInventory, feedMovements, transactions } from "@/db/schema";
 import { sql, eq, and, gte, lte } from "drizzle-orm";
 import { withApiHandler } from "@/lib/api-handler";
+import { getSessionUser } from "@/lib/auth";
+import { canPerformAction } from "@/lib/rbac";
 import { computeThreeLayerFinancials } from "@/lib/analytics/biological-valuation";
 import {
   computeAssetsDepreciationSummary,
@@ -84,7 +86,7 @@ export const GET = withApiHandler(async () => {
       biologicalSummary,
     });
 
-    return NextResponse.json({
+    const summary = {
       ingresosMes: Number(ingresosMes.toFixed(2)),
       egresosMes: Number(egresosMes.toFixed(2)),
       balanceMes: Number(balanceMes.toFixed(2)),
@@ -97,7 +99,18 @@ export const GET = withApiHandler(async () => {
         lifecycleDescription: biologicalSummary.lifecycleDescription,
         alertsCount: biologicalSummary.alerts.length,
       },
-    });
+    };
+
+    const user = await getSessionUser();
+    if (!canPerformAction(user?.role, "finance:read")) {
+      return NextResponse.json({
+        ingresosMes: summary.ingresosMes,
+        egresosMes: summary.egresosMes,
+        balanceMes: summary.balanceMes,
+        totalTransacciones: summary.totalTransacciones,
+      });
+    }
+    return NextResponse.json(summary);
   } catch (error) {
     console.error("Error en resumen finanzas:", error);
     return NextResponse.json(

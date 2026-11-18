@@ -33,7 +33,9 @@ import OnboardingWizardModal from "@/components/OnboardingWizardModal";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, LineChart, Line, Legend } from "recharts";
 import { apiFetch } from "@/lib/fetch";
 import { FEATURE_FLAG_BY_KEY, PROGRESSIVE_UNLOCKABLE_KEYS } from "@/lib/onboarding";
+import { canAccessAppRoute, canPerformAction } from "@/lib/rbac";
 import { useOnboardingState } from "@/lib/useOnboardingState";
+import { useAppRole } from "@/lib/useAppRole";
 import { OPEN_ONBOARDING_WIZARD_EVENT, openQuickCapture, QUICK_CAPTURE_SAVED_EVENT } from "@/lib/quick-capture-events";
 
 interface StageData {
@@ -144,6 +146,13 @@ interface TareasPendientes {
 }
 
 export default function Dashboard() {
+  const role = useAppRole();
+  const isExecutive = role === "directivo";
+  const canSeeFinanceSummary = canPerformAction(role, "finance_summary:read")
+    || canPerformAction(role, "finance:read");
+  const canSeeInventory = canPerformAction(role, "inventory:read");
+  const canManageSetup = canPerformAction(role, "settings:manage");
+  const canManageIntegrations = canPerformAction(role, "integrations:manage");
   const [data, setData] = useState<DashboardData | null>(null);
   const [loading, setLoading] = useState(true);
   const [showAllAttention, setShowAllAttention] = useState(false);
@@ -162,16 +171,6 @@ export default function Dashboard() {
 
   useEffect(() => {
     let active = true;
-    try {
-      const cached = localStorage.getItem(ACTIVE_FARM_META_STORAGE_KEY);
-      if (cached) {
-        const parsed = JSON.parse(cached) as { farmId?: string };
-        if (parsed?.farmId) setFarmId(String(parsed.farmId));
-      }
-    } catch {
-      // La página puede mostrar el identificador después de consultar la sesión.
-    }
-
     apiFetch("/api/auth/me")
       .then((res) => (res.ok ? res.json() : null))
       .then((data) => {
@@ -216,7 +215,7 @@ export default function Dashboard() {
       .catch(console.error)
       .finally(() => setLoading(false));
     apiFetch("/api/dashboard/tareas-pendientes")
-      .then((r) => r.json())
+      .then((r) => (r.ok ? r.json() : null))
       .then(setTareas)
       .catch(() => { });
     void refreshOnboarding();
@@ -434,16 +433,18 @@ export default function Dashboard() {
     });
   }
 
-  const visibleAttention = showAllAttention ? attentionItems : attentionItems.slice(0, 4);
+  const roleVisibleAttention = attentionItems.filter((item) => canAccessAppRoute(role, item.href));
+  const visibleAttention = showAllAttention ? roleVisibleAttention : roleVisibleAttention.slice(0, 4);
 
   // ─── Onboarding contextual (solo cuando aplica) ───
   const showWizardCta = Boolean(
+    canManageSetup &&
     onboardingState &&
     !onboardingState.config.onboardingCompleted &&
     !onboardingState.config.wizardDismissed &&
     !onboardingState.metrics.hasExistingOperation,
   );
-  const recentAutoTriggers = onboardingState
+  const recentAutoTriggers = canManageSetup && onboardingState
     ? onboardingState.history
       .filter(
         (h) =>
@@ -549,7 +550,11 @@ export default function Dashboard() {
         visible: true,
       },
     ];
-  const visibleShortcuts = quickShortcuts.filter((s) => s.visible);
+  const visibleShortcuts = quickShortcuts.filter((shortcut) => {
+    if (!shortcut.visible) return false;
+    if (shortcut.onClick) return shortcut.id === "sale" && canPerformAction(role, "sales:write");
+    return canAccessAppRoute(role, shortcut.href);
+  });
 
   const animalCount = data.totalAnimals ?? data.hens.active;
   const animalHint =
@@ -559,7 +564,7 @@ export default function Dashboard() {
         ? `${data.species.filter((s) => s.count > 0).length} especies`
         : "Inventario vivo";
 
-  const hasExternalCard = Boolean(externalSyncNotice || externalZoneLabel);
+  const hasExternalCard = canManageIntegrations && Boolean(externalSyncNotice || externalZoneLabel);
   const hasSecondaryBannerCard = showWizardCta || recentAutoTriggers.length > 0;
   const topStripGridCols =
     hasExternalCard && hasSecondaryBannerCard
@@ -611,21 +616,21 @@ export default function Dashboard() {
         }
         actions={
           <>
-            <HeroActionButton
+            {canManageIntegrations && <HeroActionButton
               tone="glass"
               onClick={handleManualExternalSync}
               disabled={syncingExternal}
             >
               <RefreshCw className={`w-3.5 h-3.5 ${syncingExternal ? "animate-spin" : ""}`} aria-hidden="true" />
               <span>{syncingExternal ? "Sincronizando..." : "Sincronizar fuentes externas"}</span>
-            </HeroActionButton>
-            <HeroActionButton
+            </HeroActionButton>}
+            {canManageSetup && <HeroActionButton
               tone={showWizardCta ? "accent" : "glass"}
               onClick={() => setWizardOpen(true)}
             >
               <Wand2 className="w-3.5 h-3.5" aria-hidden="true" />
               <span>Asistente inicial</span>
-            </HeroActionButton>
+            </HeroActionButton>}
           </>
         }
         helpTitle="Cómo funciona este inicio"
@@ -633,7 +638,7 @@ export default function Dashboard() {
       />
 
       {/* C2: inbox del agente proactivo (briefing del día con no-leídos) */}
-      <BriefingInboxCard />
+      {!isExecutive && canManageSetup && <BriefingInboxCard />}
 
       {/* Mensaje conductual y tarjetas adjuntas debajo del hero en una sola fila */}
       <div className={`mb-5 grid grid-cols-1 ${topStripGridCols} gap-3 items-stretch`}>
@@ -735,13 +740,13 @@ export default function Dashboard() {
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-2.5 sm:gap-3">
           <SummaryTile label="Animales activos" value={animalCount} detail={animalHint} />
           <SummaryTile label="Huevos por día" value={data.eggs.avgDaily} detail="Promedio diario" />
-          <SummaryTile
+          {canSeeInventory && <SummaryTile
             label="Días de alimento"
             value={minFeedDays === Infinity ? "Sin dato" : `${minFeedDays} d`}
             detail={criticalFeeds.length > 0 ? "Stock crítico — reponer" : "En bodega"}
             tone={criticalFeeds.length > 0 ? "danger" : "neutral"}
-          />
-          <SummaryTile
+          />}
+          {canSeeFinanceSummary && <SummaryTile
             label={
               data.operatingContext &&
               (data.operatingContext.lifecycleMode === "cria_levante" ||
@@ -773,24 +778,24 @@ export default function Dashboard() {
                   ? "danger"
                   : "positive"
             }
-          />
+          />}
         </div>
       </section>
 
       {/* Avisos prioritarios consolidados (solo visible cuando hay novedades) */}
-      {attentionItems.length > 0 && (
+      {visibleAttention.length > 0 && (
         <section className="mb-6 rounded-2xl border border-amber-200/80 bg-amber-50/50 overflow-hidden shadow-xs" aria-label="Requiere atención">
           <div className="flex items-center justify-between gap-2 border-b border-amber-200/70 bg-amber-100/50 px-4 py-2.5">
             <h2 className="text-xs font-bold uppercase tracking-wide text-slate-700">
-              Requiere atención ({attentionItems.length})
+              Requiere atención ({roleVisibleAttention.length})
             </h2>
-            {attentionItems.length > 4 && (
+            {roleVisibleAttention.length > 4 && (
               <button
                 type="button"
                 onClick={() => setShowAllAttention((v) => !v)}
                 className="text-xs font-semibold text-slate-600 hover:text-slate-900"
               >
-                {showAllAttention ? "Ver menos" : `Ver todos (${attentionItems.length})`}
+                {showAllAttention ? "Ver menos" : `Ver todos (${roleVisibleAttention.length})`}
               </button>
             )}
           </div>
@@ -816,7 +821,9 @@ export default function Dashboard() {
       )}
 
       {/* Paso 1: Tareas de hoy (Rutina auto-ajustable con verificación real) */}
-      <RoutineDayButtons onOpenQuickSale={() => openQuickCapture({ mode: "venta" })} />
+      {canAccessAppRoute(role, "/planeacion/calendario") && <RoutineDayButtons onOpenQuickSale={
+        canPerformAction(role, "sales:write") ? () => openQuickCapture({ mode: "venta" }) : undefined
+      } />}
 
       {/* Accesos directos enmarcados */}
       <section className="mb-6 rounded-2xl border border-slate-200/90 bg-slate-50/85 p-4 sm:p-5 shadow-xs" aria-labelledby="shortcuts-heading">
@@ -926,7 +933,7 @@ export default function Dashboard() {
                 )}
               </Card>
 
-              <Card>
+              {canSeeInventory && <Card>
                 <h3 className="font-semibold text-slate-800 mb-3 flex items-center gap-2 text-sm">
                   <Package className="w-4 h-4 text-slate-600" aria-hidden="true" />
                   <span>Alimento en bodega</span>
@@ -954,7 +961,7 @@ export default function Dashboard() {
                 ) : (
                   <p className="text-center text-slate-400 py-4 text-sm">Sin programas registrados</p>
                 )}
-              </Card>
+              </Card>}
             </div>
 
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
@@ -985,7 +992,7 @@ export default function Dashboard() {
                 )}
               </Card>
 
-              <Card>
+              {canSeeFinanceSummary && <Card>
                 <h3 className="font-semibold text-slate-800 mb-3 flex items-center gap-2 text-sm">
                   <Banknote className="w-4 h-4 text-slate-600" aria-hidden="true" />
                   <span>Finanzas (últimos 30 días)</span>
@@ -1030,7 +1037,7 @@ export default function Dashboard() {
                     </div>
                   )}
                 </div>
-              </Card>
+              </Card>}
             </div>
 
             {data.feedChartData.length > 0 && (
@@ -1084,7 +1091,7 @@ export default function Dashboard() {
       </section>
 
       {/* Configuración pendiente + acceso rápido al asistente guiado */}
-      {!showWizardCta && completedVisibleSetupSteps < visibleSetupTrackerSteps.length && (
+      {canManageSetup && !showWizardCta && completedVisibleSetupSteps < visibleSetupTrackerSteps.length && (
         <section className="mb-4 rounded-2xl border border-emerald-200/80 bg-white overflow-hidden shadow-xs" aria-labelledby="setup-title">
           <div className="flex flex-wrap items-center justify-between gap-2 px-4 py-3 bg-emerald-50/40">
             <button

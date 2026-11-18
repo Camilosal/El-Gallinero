@@ -1,5 +1,6 @@
 import { normalizeText } from "./text";
 import { CREATE_ACTION_GROUPS } from "./create-actions";
+import { canAccessAppRoute, type AppRole } from "./rbac";
 import {
   getGateFlagForHref,
   isHrefEnabledByFlags,
@@ -354,14 +355,31 @@ export interface SearchEntry {
 
 export function filterNavigationGroups(
   flags?: Partial<Record<FeatureFlagKey, boolean>> | null,
+  role?: AppRole | null,
 ): MenuGroup[] {
-  if (!flags) return navigationGroups;
-  return navigationGroups
+  const byFlags = !flags
+    ? navigationGroups
+    : navigationGroups
     .map((group) => ({
       ...group,
       items: group.items.filter((item) => isHrefEnabledByFlags(item.href, flags)),
     }))
     .filter((group) => group.items.length > 0 || isHrefEnabledByFlags(group.indexHref, flags));
+
+  if (!role) return byFlags;
+  return byFlags
+    .map((group) => filterMenuGroupForRole(group, role))
+    .filter((group): group is MenuGroup => Boolean(group));
+}
+
+export function filterMenuGroupForRole(group: MenuGroup, role: AppRole): MenuGroup | null {
+  const items = group.items.filter((item) => canAccessAppRoute(role, item.href));
+  if (!items.length && !canAccessAppRoute(role, group.indexHref)) return null;
+  return {
+    ...group,
+    indexHref: canAccessAppRoute(role, group.indexHref) ? group.indexHref : items[0]?.href || group.indexHref,
+    items,
+  };
 }
 
 function buildSearchEntries(): SearchEntry[] {
@@ -526,12 +544,14 @@ export function searchNavigation(
   query: string,
   limit = 12,
   flags?: Partial<Record<FeatureFlagKey, boolean>> | null,
+  role?: AppRole | null,
 ): SearchEntry[] {
   const normalized = normalizeText(query);
 
   if (!normalized) {
     return DEFAULT_HREFS
       .filter((href) => isHrefEnabledByFlags(href, flags))
+      .filter((href) => !role || canAccessAppRoute(role, href))
       .map((href) => searchEntries.find((entry) => entry.href === href))
       .filter((entry): entry is SearchEntry => Boolean(entry));
   }
@@ -539,6 +559,7 @@ export function searchNavigation(
   const tokens = normalized.split(" ").filter(Boolean);
 
   return searchEntries
+    .filter((entry) => !role || canAccessAppRoute(role, entry.href))
     .map((entry) => ({ entry, score: scoreEntry(entry, tokens, normalized) }))
     .filter(({ score }) => score > 0)
     .sort((a, b) => {

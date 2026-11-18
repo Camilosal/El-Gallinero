@@ -16,12 +16,20 @@ import { todayColombiaIso } from "@/lib/date-validation";
 import { getProgressiveOnboardingState } from "@/lib/onboarding-server";
 import { loadSpeciesParams } from "@/lib/species-db";
 import { getStandardCurves, type CurveSpecies } from "@/lib/standard-curves";
+import { getSessionUser } from "@/lib/auth";
+import { canPerformAction } from "@/lib/rbac";
 
 export const dynamic = "force-dynamic";
 
 const CURVE_SPECIES: CurveSpecies[] = ["gallina", "pollo", "codorniz", "pato", "conejo", "cuy"];
 
 export const GET = withApiHandler(async () => {
+  const user = await getSessionUser();
+  const canSeeCosts = canPerformAction(user?.role, "finance:read");
+  const canUseFarmOperations =
+    canPerformAction(user?.role, "production:write") ||
+    canPerformAction(user?.role, "animal_metrics:write") ||
+    canPerformAction(user?.role, "sanitary:write");
   const today = todayColombiaIso();
 
   const [
@@ -82,16 +90,22 @@ export const GET = withApiHandler(async () => {
   const standardCurves = Object.fromEntries(
     CURVE_SPECIES.map((sp) => [sp, getStandardCurves(sp)]),
   );
+  const visibleFeeds = canSeeCosts
+    ? feeds
+    : feeds.map((feed) => ({ ...feed, costPerUnit: null, supplier: null }));
+  const visibleSupplies = canSeeCosts
+    ? supplies
+    : supplies.map((supply) => ({ ...supply, costPerUnit: null, supplier: null }));
 
   return NextResponse.json({
     locations,
-    activeBatches,
-    henCount: henCountRows[0]?.count ?? 0,
-    roosterCount: roosterCountRows[0]?.count ?? 0,
-    feedInventory: feeds,
-    supplyInventory: supplies,
-    activeWithdrawals,
-    standardCurves,
+    activeBatches: canUseFarmOperations ? activeBatches : [],
+    henCount: canUseFarmOperations ? henCountRows[0]?.count ?? 0 : 0,
+    roosterCount: canUseFarmOperations ? roosterCountRows[0]?.count ?? 0 : 0,
+    feedInventory: visibleFeeds,
+    supplyInventory: visibleSupplies,
+    activeWithdrawals: canUseFarmOperations ? activeWithdrawals : [],
+    standardCurves: canUseFarmOperations ? standardCurves : {},
     speciesParams,
     onboardingState,
     syncedAt: new Date().toISOString(),

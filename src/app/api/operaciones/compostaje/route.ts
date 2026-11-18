@@ -69,7 +69,7 @@ export const GET = withApiHandler(async () => {
 });
 
 export const POST = withApiHandler(async (req: NextRequest) => {
-  const denied = await requirePermission("production:write");
+  const denied = await requirePermission("biosecurity:write");
   if (denied) return denied;
 
   const body = await safeParseJson(req);
@@ -141,7 +141,7 @@ export const POST = withApiHandler(async (req: NextRequest) => {
 });
 
 export const PUT = withApiHandler(async (req: NextRequest) => {
-  const denied = await requirePermission("production:write");
+  const denied = await requirePermission("biosecurity:write");
   if (denied) return denied;
 
   const body = await safeParseJson(req);

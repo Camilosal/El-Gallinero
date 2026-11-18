@@ -13,7 +13,7 @@ import {
 export const dynamic = "force-dynamic";
 
 export const GET = withApiHandler(async () => {
-  const denied = await requirePermission("finance:write");
+  const denied = await requirePermission("inventory:read");
   if (denied) return denied;
   const movements = await db
     .select({
