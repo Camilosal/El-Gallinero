@@ -216,6 +216,6 @@ npm run e2e         # Pruebas E2E con Playwright
 ## Autoría y Contacto
 
 Desarrollado por **Camilo Saldarriaga** · **[https://camilosaldarriaga.com](https://camilosaldarriaga.com)**  
-Instancia de referencia: **[https://gallinero.iwage.co](https://gallinero.iwage.co)**
+Instancia de referencia: **[https://app.iwage.co](https://app.iwage.co)**
 
 El uso, bifurcación o despliegue autoalojado bajo **GNU AGPLv3** debe conservar visibles los créditos de autoría originaria y el enlace al repositorio fuente.
