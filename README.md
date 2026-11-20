@@ -1,4 +1,4 @@
-# El Gallinero — Core Abierto Multi-Especie
+# Granja Iwa — Core Abierto Multi-Especie
 
 **Infraestructura Digital Offline-First para la Gestión Zootécnica, Sanitaria y Financiera de Granjas de Aves y Especies Menores en Latinoamérica.**
 
