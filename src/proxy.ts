@@ -40,6 +40,7 @@ const PUBLIC_EXACT = [
   "/registro",
   "/api/health",
   "/api/pricing/offer",
+  "/api/pricing/matrix",
   "/api/pricing/quote",
   // This endpoint validates its own Bearer CRON_SECRET before doing any work.
   "/api/cron/fuentes-externas",
