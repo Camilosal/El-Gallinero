@@ -35,8 +35,8 @@ export function getTerminos(): LegalDocument {
       {
         title: "3. Planes, precios e IVA",
         paragraphs: [
-          "La aplicación ofrece el nivel Gratis y una calculadora para conocer el costo de los planes Productor y Agregador. El resultado identifica la versión de la política comercial y resume cantidades, plazo, materiales y servicios seleccionados.",
-          "El cálculo muestra el valor del período y las condiciones comerciales disponibles. A la fecha de esta versión, el checkout de los nuevos planes no está habilitado; el cálculo no constituye contrato, factura, autorización de cobro ni cambio de suscripción.",
+          "La oferta incluye Gratis y Productor para granjas, y Organización y A la medida para proyectos. La página de planes presenta las prestaciones, cantidades, plazos y condiciones comerciales vigentes.",
+          "Para Productor, revisas el resumen de tu suscripción y aceptas las condiciones antes de continuar al checkout de Wompi cuando esté habilitado. La compra se registra con la política comercial vigente y el plan se activa al confirmarse el pago. Organización y A la medida requieren validación institucional y no abren un checkout individual.",
           "Los costos se expresan en pesos colombianos (COP). Según la política comercial vigente, no se cobra IVA; el checkout muestra y envía a pago el total final del plan. Los costos logísticos extraordinarios se confirman antes de contratar.",
           "Las suscripciones pagadas anteriores conservan las condiciones aceptadas al contratarlas; esta página no modifica sus derechos, pagos ni vigencia.",
         ],
@@ -44,15 +44,16 @@ export function getTerminos(): LegalDocument {
       {
         title: "4. Renovación y vencimiento",
         paragraphs: [
-          "La calculadora no renueva, cancela ni activa suscripciones y no inicia cobros. No hay renovación automática de los nuevos planes.",
+          "La revisión del costo no inicia un cobro. Para renovar Productor, vuelves a seleccionar las condiciones, revisas el total y aceptas expresamente antes de pagar. No hay renovación automática.",
           "Las cuentas con una suscripción anterior mantienen el plazo y las condiciones aceptadas al contratarla. Cuando vence, se aplican los límites vigentes del nivel Gratis; los registros históricos se conservan.",
+          "El beneficio de continuidad del 5% aplica a los plazos elegibles una vez verificado el FarmID de Productor o el contrato institucional de Organización. Se calcula después de los descuentos por cantidad y permanencia y no se acumula entre renovaciones.",
           "Antes de ofrecer una renovación o un nuevo servicio pagado, se informarán el plazo, los cupos, el valor total y las condiciones aplicables para su aceptación expresa.",
         ],
       },
       {
         title: "5. Pagos",
         paragraphs: [
-          "Productor puede contratarse desde el checkout de Wompi cuando la pasarela está configurada en el servidor. La suscripción se activa al confirmar el pago. Agregador requiere validación institucional antes de habilitar beneficiarios. IwaGranja no almacena datos de tarjetas ni de cuentas bancarias.",
+          "Productor puede contratarse desde el checkout de Wompi cuando la pasarela está configurada en el servidor. La suscripción se activa al confirmar el pago. Organización requiere validar el proyecto y habilitar el control de beneficiarios antes de contratar. IwaGranja no almacena datos de tarjetas ni de cuentas bancarias.",
         ],
       },
       {
@@ -126,7 +127,7 @@ export function getRetracto(): LegalDocument {
       {
         title: "4. Cambios de plan",
         paragraphs: [
-          "El cálculo actual no modifica una suscripción ni inicia renovaciones. Los cambios o nuevos servicios requieren condiciones aceptadas expresamente.",
+          "El cálculo del precio no modifica por sí solo una suscripción. Los cambios o nuevas suscripciones requieren revisar las condiciones vigentes y aceptarlas expresamente antes del pago.",
         ],
       },
       {
@@ -214,7 +215,7 @@ export interface FaqItem {
 export const FAQS: FaqItem[] = [
   {
     q: "¿Cómo calculo el costo o contrato un plan?",
-    a: "En Planes compara Gratis y Productor para tu granja, u Organización y A la medida para un proyecto. La calculadora muestra el costo según usuarios o beneficiarios y duración; también puedes revisar las condiciones de continuidad para renovaciones elegibles. Organización requiere validar el contrato anterior cuando se solicita continuidad.",
+    a: "En Planes compara Gratis y Productor para tu granja, u Organización y A la medida para un proyecto. Configura personas y plazo, revisa el resumen y las condiciones, y continúa al checkout para pagar Productor cuando Wompi esté habilitado. La suscripción se activa al confirmarse el pago. Para el 5% de continuidad se verifica el FarmID de Productor o el contrato de Organización. Organización requiere validación institucional antes de contratar.",
     image: { src: "/images/guia/configuracion-panel.webp", alt: "Estado del plan y límites de uso de la granja" },
   },
   {

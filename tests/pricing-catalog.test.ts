@@ -150,7 +150,7 @@ describe("catálogo comercial, cálculo de planes y permisos de la aplicación",
     expect(ginaQuota?.availability.detail).not.toMatch(/migración|base de datos|servidor|API/i);
     expect(catalog.auditNotes.join(" ")).toContain("una plaza de usuario");
     expect(catalog.auditNotes.join(" ")).toContain("por especie");
-    expect(catalog.auditNotes.join(" ")).toContain("preparada pero aún no aplicada");
+    expect(catalog.auditNotes.join(" ")).toContain("canal servidor a servidor con Reservas");
     expect(typeof catalog.contractingFlowAvailable).toBe("boolean");
   });
 

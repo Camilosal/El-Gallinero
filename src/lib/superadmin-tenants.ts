@@ -1,24 +1,15 @@
 import { DEFAULT_FARM_ID } from "@/db/tenant-context";
 import { normalizeRole } from "@/lib/rbac";
-import { PLAN_CATALOG } from "@/lib/subscription";
 
 export const SUPERADMIN_PLAN_OPTIONS = [
   {
     code: "FREEMIUM_SEMILLA",
-    name: "Gratis (1 lote activo por especie)",
+    name: "Gratis",
     durationDays: 30,
     amountCop: 0,
     maxUsers: 1,
     maxActiveBatches: 1 as number | null,
   },
-  ...Object.values(PLAN_CATALOG).map((plan) => ({
-    code: plan.code,
-    name: plan.name,
-    durationDays: plan.durationDays,
-    amountCop: plan.amountCop,
-    maxUsers: plan.maxUsers,
-    maxActiveBatches: null as number | null,
-  })),
 ];
 
 export function canManagePlatformTenants(

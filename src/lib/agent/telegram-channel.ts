@@ -4,6 +4,8 @@ import { db } from "@/db";
 import { aiActions, appSettings, telegramChats, users } from "@/db/schema";
 import { runWithFarmContext } from "@/db/tenant-context";
 import { todayColombiaIso } from "@/lib/date-validation";
+import { getFarmSubscriptionStatus } from "@/lib/subscription";
+import { finishGinaUsage, reserveGinaUsage, type GinaModality } from "@/lib/pricing/gina-quota";
 import {
   answerCallbackQuery,
   confirmationKeyboard,
@@ -39,7 +41,7 @@ export interface TelegramUpdate {
     chat: { id: number };
     from?: { id: number; first_name?: string };
     text?: string;
-    voice?: { file_id: string; mime_type?: string };
+    voice?: { file_id: string; mime_type?: string; duration?: number };
   };
   callback_query?: {
     id: string;
@@ -166,6 +168,10 @@ interface LinkedChat {
   linkedAt: Date;
 }
 
+function finishTelegramGinaUsage(chat: LinkedChat, eventId: string, consumed: boolean): Promise<void> {
+  return runWithFarmContext(chat.farmId, () => finishGinaUsage(eventId, consumed));
+}
+
 async function findChat(chatId: number): Promise<LinkedChat | null> {
   const [row] = await db.select().from(telegramChats).where(eq(telegramChats.chatId, chatId)).limit(1);
   return row || null;
@@ -218,7 +224,11 @@ async function storeConversation(chat: LinkedChat, conversationId: string) {
 
 // ─── Puente al agente ───
 
-async function runTelegramAgentTurn(chat: LinkedChat, text: string): Promise<void> {
+async function runTelegramAgentTurn(
+  chat: LinkedChat,
+  text: string,
+  quotaOptions: { requestId?: string; modality?: GinaModality; skipQuota?: boolean } = {},
+): Promise<void> {
   await sendTelegramChatAction(chat.chatId, "typing");
   if (!isAgentConfigured()) {
     await sendTelegramMessage(
@@ -236,7 +246,27 @@ async function runTelegramAgentTurn(chat: LinkedChat, text: string): Promise<voi
     }
     const conversationId = await readStoredConversation(chat);
     const turnStart = new Date(Date.now() - 5_000);
+    let reservationEventId: string | null = null;
     try {
+      if (!quotaOptions.skipQuota) {
+        const subscription = await getFarmSubscriptionStatus(chat.farmId);
+        const reservation = await reserveGinaUsage({
+          farmId: chat.farmId,
+          userId: chat.userId,
+          entitlements: subscription.entitlements,
+          modality: quotaOptions.modality || "message",
+          requestId: quotaOptions.requestId,
+          requestFingerprint: `${conversationId || ""}\0${text}`,
+        });
+        if (!reservation.allowed) {
+          if (reservation.code !== "GINA_REQUEST_IN_PROGRESS" && reservation.code !== "GINA_REQUEST_ALREADY_PROCESSED") {
+            await sendTelegramMessage(chat.chatId, escapeTelegramHtml(reservation.error));
+          }
+          return;
+        }
+        reservationEventId = reservation.eventId;
+      }
+
       const result = await withEphemeralSession(chat.userId, chat.farmId, (cookie) =>
         runAgentTurn({
           userId: chat.userId,
@@ -248,6 +278,10 @@ async function runTelegramAgentTurn(chat: LinkedChat, text: string): Promise<voi
           origin: "telegram",
         }),
       );
+      if (reservationEventId) {
+        await finishGinaUsage(reservationEventId, true);
+        reservationEventId = null;
+      }
       await storeConversation(chat, result.conversationId);
 
       // Auditoría C3: toda acción del turno queda con origin telegram + chat_id.
@@ -274,6 +308,7 @@ async function runTelegramAgentTurn(chat: LinkedChat, text: string): Promise<voi
         );
       }
     } catch (error) {
+      if (reservationEventId) await finishGinaUsage(reservationEventId, false).catch(() => undefined);
       const message =
         error instanceof AgentNotConfiguredError
           ? "🤖 Gina no está configurada en este servidor. Habla con el administrador."
@@ -407,35 +442,89 @@ async function handleCallbackQuery(update: TelegramUpdate): Promise<ChannelResul
 
 // ─── Voz ───
 
-async function handleVoice(chat: LinkedChat, fileId: string): Promise<void> {
+async function handleVoice(chat: LinkedChat, fileId: string, durationSeconds: number | undefined, requestId: string): Promise<void> {
   await sendTelegramChatAction(chat.chatId, "typing");
-  const filePath = await getTelegramFilePath(fileId);
-  if (!filePath) {
-    await sendTelegramMessage(chat.chatId, "⚠️ No pude descargar tu nota de voz. Intenta de nuevo o escríbeme el texto.");
+  if (!isAgentConfigured()) {
+    await sendTelegramMessage(chat.chatId, "🤖 Gina no está disponible en este momento. Intenta más tarde o escríbeme desde la app.");
     return;
   }
-  const audio = await downloadTelegramVoice(filePath);
-  if (!audio) {
-    await sendTelegramMessage(chat.chatId, "⚠️ No pude descargar tu nota de voz. Intenta de nuevo o escríbeme el texto.");
+  const duration = Number(durationSeconds);
+  if (!Number.isFinite(duration) || duration <= 0) {
+    await sendTelegramMessage(chat.chatId, "⚠️ No pude validar la duración de tu nota de voz. Intenta enviarla de nuevo o escríbeme el texto.");
     return;
   }
-  const stt = await transcribeAudioBlob(audio);
-  if (!stt.configured) {
-    await sendTelegramMessage(
-      chat.chatId,
-      "🎙️ Recibí tu nota de voz, pero la transcripción automática no está configurada en este servidor. Escríbeme el texto y lo registro igual.",
-    );
-    return;
+
+  let reservationEventId: string | null = null;
+  try {
+    const subscription = await runWithFarmContext(chat.farmId, async () => getFarmSubscriptionStatus(chat.farmId));
+    const maxAudioSeconds = subscription.entitlements.gina.maxAudioSeconds;
+    if (Math.ceil(duration) > maxAudioSeconds) {
+      await sendTelegramMessage(
+        chat.chatId,
+        `🎙️ Tu plan permite notas de voz de hasta ${maxAudioSeconds} segundos. Recórtala o envíame el mensaje por escrito.`,
+      );
+      return;
+    }
+
+    const reservation = await runWithFarmContext(chat.farmId, async () => reserveGinaUsage({
+      farmId: chat.farmId,
+      userId: chat.userId,
+      entitlements: subscription.entitlements,
+      modality: "audio",
+      requestId,
+      requestFingerprint: fileId,
+    }));
+    if (!reservation.allowed) {
+      if (reservation.code !== "GINA_REQUEST_IN_PROGRESS" && reservation.code !== "GINA_REQUEST_ALREADY_PROCESSED") {
+        await sendTelegramMessage(chat.chatId, escapeTelegramHtml(reservation.error));
+      }
+      return;
+    }
+    reservationEventId = reservation.eventId;
+
+    const filePath = await getTelegramFilePath(fileId);
+    if (!filePath) {
+      await finishTelegramGinaUsage(chat, reservationEventId, false);
+      reservationEventId = null;
+      await sendTelegramMessage(chat.chatId, "⚠️ No pude descargar tu nota de voz. Intenta de nuevo o escríbeme el texto.");
+      return;
+    }
+    const audio = await downloadTelegramVoice(filePath);
+    if (!audio) {
+      await finishTelegramGinaUsage(chat, reservationEventId, false);
+      reservationEventId = null;
+      await sendTelegramMessage(chat.chatId, "⚠️ No pude descargar tu nota de voz. Intenta de nuevo o escríbeme el texto.");
+      return;
+    }
+
+    const stt = await transcribeAudioBlob(audio);
+    if (!stt.configured || stt.error) {
+      await finishTelegramGinaUsage(chat, reservationEventId, false);
+      reservationEventId = null;
+      if (!stt.configured) {
+        await sendTelegramMessage(
+          chat.chatId,
+          "🎙️ Recibí tu nota de voz, pero no pude transcribirla ahora. Escríbeme el texto y lo registro igual.",
+        );
+      } else {
+        await sendTelegramMessage(chat.chatId, `⚠️ ${escapeTelegramHtml(stt.error || "No pude transcribir el audio.")}`);
+      }
+      return;
+    }
+
+    // La transcripción exitosa consume un audio y una consulta, igual que en la app.
+    await finishTelegramGinaUsage(chat, reservationEventId, true);
+    reservationEventId = null;
+    if (!stt.text?.trim()) {
+      await sendTelegramMessage(chat.chatId, "🎙️ No alcancé a entender la nota de voz. ¿Me la repites o me escribes el texto?");
+      return;
+    }
+    await runTelegramAgentTurn(chat, stt.text.trim(), { skipQuota: true });
+  } catch (error) {
+    if (reservationEventId) await finishTelegramGinaUsage(chat, reservationEventId, false).catch(() => undefined);
+    const message = error instanceof Error ? error.message : "No pude procesar tu nota de voz.";
+    await sendTelegramMessage(chat.chatId, `⚠️ ${escapeTelegramHtml(message)}`);
   }
-  if (stt.error) {
-    await sendTelegramMessage(chat.chatId, `⚠️ ${escapeTelegramHtml(stt.error)}`);
-    return;
-  }
-  if (!stt.text?.trim()) {
-    await sendTelegramMessage(chat.chatId, "🎙️ No alcancé a entender la nota de voz. ¿Me la repites o me escribes el texto?");
-    return;
-  }
-  await runTelegramAgentTurn(chat, stt.text.trim());
 }
 
 // ─── Entrada principal ───
@@ -504,8 +593,9 @@ export async function processTelegramUpdate(update: TelegramUpdate): Promise<Cha
     return { status: 200, handled: true, action: `comando_${commandMatch[1].toLowerCase()}` };
   }
 
+  const requestId = `telegram:${update.update_id ?? `${chatId}:${message.message_id}`}`;
   if (message.voice?.file_id) {
-    await handleVoice(chat, message.voice.file_id);
+    await handleVoice(chat, message.voice.file_id, message.voice.duration, requestId);
     return { status: 200, handled: true, action: "voz" };
   }
 
@@ -515,6 +605,6 @@ export async function processTelegramUpdate(update: TelegramUpdate): Promise<Cha
     return { status: 200, handled: true, action: "comando_desconocido" };
   }
 
-  await runTelegramAgentTurn(chat, text);
+  await runTelegramAgentTurn(chat, text, { requestId });
   return { status: 200, handled: true, action: "agente" };
 }

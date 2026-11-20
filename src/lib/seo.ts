@@ -300,7 +300,7 @@ export function buildSoftwareNode(): Record<string, unknown> {
       price: "0",
       priceCurrency: "COP",
       description:
-        "Calcula el costo del plan Productor o Agregador según usuarios, beneficiarios, plazo y servicios seleccionados",
+        "Compara Gratis y Productor para granjas y Organización o A la medida para proyectos; Productor permite iniciar el checkout cuando Wompi está habilitado",
     },
     creator: { "@id": ENTITY_IDS.organization },
     author: { "@id": ENTITY_IDS.person },

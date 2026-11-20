@@ -30,7 +30,7 @@ export function GET() {
     `- [Funcionalidades de IwaGranja](${SITE_URL}/funcionalidades): recorrido por los módulos operativos, automatizaciones y capacidades de campo`,
     `- [Inicio y vitrina interactiva](${SITE_URL}/#modulos): módulos esenciales, estándares ICA / NTC 1240 y asistente Gina`,
     `- [Realidad del campo](${SITE_URL}/realidad-campo): problemas reales del galpón y cómo se resuelven`,
-    `- [Planes y precios](${SITE_URL}/planes): calculadora del costo de los planes Productor y Agregador; el resultado es informativo y no genera un cobro ni un contrato`,
+    `- [Planes y precios](${SITE_URL}/planes): compara Gratis, Productor, Organización y A la medida; Productor abre el checkout cuando Wompi está habilitado y Organización requiere validación institucional`,
     `- [Crear granja gratis](${SITE_URL}/registro): arranque Día 1 en 3 minutos`,
     `- [Nosotros](${SITE_URL}/nosotros): historia en Ibagué, Tolima y relación con Iwagé`,
     "",

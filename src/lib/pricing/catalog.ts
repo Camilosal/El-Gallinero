@@ -13,16 +13,21 @@ import type {
 
 type PublicOfferData = Omit<PublicPricingOffer, "catalog">;
 
-function isWompiCheckoutConfigured(): boolean {
+function isReservationsCheckoutConfigured(): boolean {
   const environment = process.env.WOMPI_ENVIRONMENT?.trim().toLowerCase();
   const environmentMatchesApp = process.env.NODE_ENV === "production"
     ? environment === "production"
     : environment === "sandbox";
-  const hasKeys = Boolean(process.env.WOMPI_PUBLIC_KEY?.trim() && process.env.WOMPI_INTEGRITY_SECRET);
-  const rawUrl = process.env.WOMPI_CHECKOUT_URL?.trim() || "https://checkout.wompi.co/p/";
+  const hasServerCredentials = Boolean(
+    process.env.RESERVAS_PAYMENT_INTENTS_URL?.trim() &&
+    process.env.RESERVAS_PAYMENT_API_SECRET?.trim() &&
+    process.env.RESERVAS_PAYMENT_RESULT_SECRET?.trim(),
+  );
   try {
-    const url = new URL(rawUrl);
-    return Boolean(hasKeys && environmentMatchesApp && url.protocol === "https:" && url.hostname === "checkout.wompi.co");
+    const url = new URL(process.env.RESERVAS_PAYMENT_INTENTS_URL?.trim() || "");
+    const localHttp = url.protocol === "http:" && ["localhost", "127.0.0.1"].includes(url.hostname);
+    const secureTransport = url.protocol === "https:" || (process.env.NODE_ENV !== "production" && localHttp);
+    return Boolean(hasServerCredentials && environmentMatchesApp && secureTransport && !url.username && !url.password);
   } catch {
     return false;
   }
@@ -108,7 +113,7 @@ function progressiveFeatureBenefits(): PricingCatalogBenefit[] {
 
 export function buildPublicPricingCatalog(offer: PublicOfferData): PricingCatalog {
   const taxPolicyAllowsCheckout = !offer.taxPolicy.ivaCharged && offer.taxPolicy.amountCop === 0;
-  const wompiCheckoutConfigured = isWompiCheckoutConfigured() && taxPolicyAllowsCheckout;
+  const reservationsCheckoutConfigured = isReservationsCheckoutConfigured() && taxPolicyAllowsCheckout;
   const monthlyGinaFree = `${offer.free.gina.queriesPerUser} consultas, ${offer.free.gina.audiosPerUser} audios y ${offer.free.gina.attachmentsPerUser} adjuntos por usuario/mes`;
   const monthlyGinaPaid = `${offer.producer.gina.queriesPerUser} consultas, ${offer.producer.gina.audiosPerUser} audios y ${offer.producer.gina.attachmentsPerUser} adjuntos por usuario/mes`;
   const freeMax = `${offer.free.users} usuario, ${offer.free.locations} localización y hasta ${offer.free.activeBatchesPerSpecies} lote activo por especie, según política v2.3`;
@@ -298,12 +303,12 @@ export function buildPublicPricingCatalog(offer: PublicOfferData): PricingCatalo
       exclusions: ["La renovación no se cobra automáticamente.", "Logística fuera del punto estándar, visitas e integraciones se confirman antes de contratar."],
       addOns: ["Productor permite continuar al pago en línea. Organización se activa con acompañamiento del equipo."],
       availability: availability(
-        wompiCheckoutConfigured ? "operational" : "policy_only",
-        wompiCheckoutConfigured ? "Pago en línea disponible" : "Pago en línea sujeto a disponibilidad",
-        wompiCheckoutConfigured
-          ? "Puedes revisar las condiciones y realizar el pago en línea. Tu suscripción se activa al confirmarse el pago."
+        reservationsCheckoutConfigured ? "operational" : "policy_only",
+        reservationsCheckoutConfigured ? "Pago en línea disponible" : "Pago en línea sujeto a disponibilidad",
+        reservationsCheckoutConfigured
+          ? "Puedes revisar las condiciones y continuar al pago centralizado. Tu suscripción se activa al confirmarse el resultado."
           : "Antes de pagar, te confirmaremos la disponibilidad del pago en línea. Organización se coordina con el equipo.",
-        ["/planes", "/api/billing/checkout", "/api/billing/webhook"],
+        ["/planes", "/api/billing/checkout", "/api/billing/reservas", "/api/pagos/intentos"],
       ),
     }),
   ];
@@ -313,15 +318,15 @@ export function buildPublicPricingCatalog(offer: PublicOfferData): PricingCatalo
     policyVersion: offer.policyVersion,
     planEntitlementsConnected: true,
     permissionModel: "Los roles controlan el acceso de cada persona a los módulos. El plan contratado determina cupos de usuarios, ubicaciones activas, lotes por especie y consumo mensual de Gina; estos límites se aplican en servidor. Las banderas progresivas siguen gobernando la habilitación gradual del producto.",
-    contractingFlowAvailable: wompiCheckoutConfigured,
+    contractingFlowAvailable: reservationsCheckoutConfigured,
     categories: CATEGORIES,
     benefits,
     auditNotes: [
-      wompiCheckoutConfigured
-        ? "El checkout de Productor recalcula el total en el servidor, guarda la aceptación de términos con la referencia de pago y activa el plan tras la confirmación del webhook."
-        : "El flujo de checkout de Productor está implementado, pero necesita claves de Wompi configuradas en el servidor antes de abrir pagos.",
+      reservationsCheckoutConfigured
+        ? "El checkout de Productor recalcula el total en IwaGranja, crea el intento en Reservas y espera la confirmación firmada antes de activar el plan."
+        : "El checkout de Productor requiere que el canal servidor a servidor con Reservas esté configurado antes de abrir pagos.",
       "Las nuevas altas Gratis usan un usuario y los límites de la política; las cuentas actuales no se migraron ni se modificaron. El registro nuevo aplica una plaza de usuario y la app limita ubicaciones activas y lotes por especie.",
-      "Los cupos de Gina se integraron en chat, voz y adjuntos; su registro persistente depende de la migración 0013, preparada pero aún no aplicada. Los registros ordinarios de granja no se bloquean al agotarse un cupo.",
+      "Los cupos de Gina se controlan en chat, voz y adjuntos y su consumo se registra por persona y mes. Los registros ordinarios de la granja no se bloquean al agotarse un cupo.",
       "Organización distingue beneficiarios de usuarios, pero la app no tiene padrón de beneficiarios ni acceso multipredio; no permite checkout hasta habilitar esos alcances.",
       "La política incluye Torre de Control y M&E en Organización, pero el módulo no se encontró operativo; no se ofrece como capacidad disponible.",
       "Tratamiento tributario aplicado desde la política versionada " + offer.taxPolicy.version + ": " + offer.taxPolicy.publicLabel,

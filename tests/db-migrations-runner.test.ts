@@ -15,14 +15,47 @@ describe("Automated Migration Runner & Normative Pack Version", () => {
     const schemaCheck = await pool.query<{ table_name: string }>(`
       SELECT table_name FROM information_schema.tables
       WHERE table_schema = 'public'
-        AND table_name IN ('schema_migrations', 'farms', 'farm_subscriptions', 'billing_payments', 'external_source_observations')
+        AND table_name IN ('schema_migrations', 'farms', 'farm_subscriptions', 'billing_payments', 'farm_subscription_events', 'external_source_observations')
     `);
     expect(schemaCheck.rows.map((r) => r.table_name).sort()).toEqual([
       "billing_payments",
       "external_source_observations",
+      "farm_subscription_events",
       "farm_subscriptions",
       "farms",
       "schema_migrations",
+    ]);
+
+    const subscriptionEventSecurity = await pool.query<{
+      relrowsecurity: boolean;
+      relforcerowsecurity: boolean;
+      can_update: boolean;
+      can_delete: boolean;
+      can_truncate: boolean;
+    }>(`
+      SELECT c.relrowsecurity, c.relforcerowsecurity,
+        has_table_privilege('gallinero_tenant_role', 'farm_subscription_events', 'UPDATE') AS can_update,
+        has_table_privilege('gallinero_tenant_role', 'farm_subscription_events', 'DELETE') AS can_delete,
+        has_table_privilege('gallinero_tenant_role', 'farm_subscription_events', 'TRUNCATE') AS can_truncate
+      FROM pg_class c
+      WHERE c.oid = 'farm_subscription_events'::regclass
+    `);
+    expect(subscriptionEventSecurity.rows[0]).toEqual({
+      relrowsecurity: true,
+      relforcerowsecurity: true,
+      can_update: false,
+      can_delete: false,
+      can_truncate: false,
+    });
+
+    const subscriptionEventTriggers = await pool.query<{ tgname: string }>(`
+      SELECT tgname FROM pg_trigger
+      WHERE tgrelid = 'farm_subscription_events'::regclass AND NOT tgisinternal
+      ORDER BY tgname
+    `);
+    expect(subscriptionEventTriggers.rows.map(({ tgname }) => tgname)).toEqual([
+      "farm_subscription_events_no_truncate",
+      "farm_subscription_events_no_update_delete",
     ]);
 
     const salesCols = await pool.query<{ column_name: string }>(`

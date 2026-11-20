@@ -190,9 +190,6 @@ export default function SuperAdminGranjasPage() {
   const [newMunicipality, setNewMunicipality] = useState("");
   const [newScale, setNewScale] = useState<"PEQUENO" | "MEDIANO">("PEQUENO");
   const [newPlanCode, setNewPlanCode] = useState("FREEMIUM_SEMILLA");
-  const [newStatus, setNewStatus] = useState<"trial" | "active">("trial");
-  const [newDurationDays, setNewDurationDays] = useState(30);
-  const [newMaxUsers, setNewMaxUsers] = useState(2);
   const [newDeploymentMode, setNewDeploymentMode] = useState("saas");
   const [newAllyCode, setNewAllyCode] = useState("");
   const [newQrSource, setNewQrSource] = useState("");
@@ -224,7 +221,7 @@ export default function SuperAdminGranjasPage() {
   const [editMaxUsers, setEditMaxUsers] = useState(2);
   const [editMaxActiveBatches, setEditMaxActiveBatches] = useState<string>("");
   const [editPeriodEndDate, setEditPeriodEndDate] = useState("");
-  const [editExtendDays, setEditExtendDays] = useState<number>(0);
+  const [editExtendMonths, setEditExtendMonths] = useState<number>(0);
   const [editRegisterPayment, setEditRegisterPayment] = useState(false);
   const [editPaymentAmount, setEditPaymentAmount] = useState<number>(0);
   const [editPaymentMethod, setEditPaymentMethod] = useState("transferencia");
@@ -351,15 +348,6 @@ export default function SuperAdminGranjasPage() {
 
   const handlePlanChangeInCreate = (code: string) => {
     setNewPlanCode(code);
-    const meta = plansByCode.get(code);
-    if (meta) {
-      setNewDurationDays(meta.durationDays);
-      setNewMaxUsers(meta.maxUsers);
-      setNewStatus(code === "FREEMIUM_SEMILLA" ? "trial" : "active");
-      if (code === "MEDIANO_MENSUAL") {
-        setNewScale("MEDIANO");
-      }
-    }
   };
 
   const openEditModal = (farm: TenantFarmItem) => {
@@ -387,7 +375,7 @@ export default function SuperAdminGranjasPage() {
         ? farm.subscription.currentPeriodEnd.slice(0, 10)
         : "",
     );
-    setEditExtendDays(0);
+    setEditExtendMonths(0);
     setEditRegisterPayment(false);
     setEditOwnerNewPassword("");
     setEditIssueRecoveryCode(false);
@@ -408,9 +396,25 @@ export default function SuperAdminGranjasPage() {
       if (code !== "FREEMIUM_SEMILLA") {
         setEditStatus("active");
       }
-      if (code === "MEDIANO_MENSUAL") {
-        setEditScale("MEDIANO");
-      }
+    } else if (editingFarm && code === editingFarm.subscription.planCode) {
+      setEditMaxUsers(editingFarm.subscription.maxUsers);
+      setEditMaxActiveBatches(
+        editingFarm.subscription.maxActiveBatches === null
+          ? ""
+          : String(editingFarm.subscription.maxActiveBatches),
+      );
+      setEditPeriodEndDate(
+        editingFarm.subscription.currentPeriodEnd
+          ? editingFarm.subscription.currentPeriodEnd.slice(0, 10)
+          : "",
+      );
+      setEditExtendMonths(0);
+      setEditRegisterPayment(false);
+      setEditStatus(
+        ["trial", "active", "grace", "expired"].includes(editingFarm.subscription.rawStatus)
+          ? editingFarm.subscription.rawStatus
+          : "active",
+      );
     }
   };
 
@@ -426,9 +430,6 @@ export default function SuperAdminGranjasPage() {
           municipality: newMunicipality,
           scale: newScale,
           planCode: newPlanCode,
-          status: newStatus,
-          durationDays: Number(newDurationDays),
-          maxUsers: Number(newMaxUsers),
           deploymentMode: newDeploymentMode,
           allyCode: newAllyCode,
           qrSource: newQrSource,
@@ -497,8 +498,8 @@ export default function SuperAdminGranjasPage() {
         issueRecoveryCode: editIssueRecoveryCode,
       };
 
-      if (editExtendDays !== 0) {
-        payload.extendDays = editExtendDays;
+      if (editExtendMonths !== 0) {
+        payload.extendMonths = editExtendMonths;
       } else if (editPeriodEndDate) {
         payload.currentPeriodEnd = `${editPeriodEndDate}T23:59:59.000Z`;
       }
@@ -628,6 +629,10 @@ export default function SuperAdminGranjasPage() {
             <HeroActionLink href="/configuracion" tone="glass">
               <ArrowLeft className="w-4 h-4" />
               <span>Volver a Configuración</span>
+            </HeroActionLink>
+            <HeroActionLink href="/configuracion/granjas/conciliacion" tone="glass">
+              <CreditCard className="w-4 h-4" />
+              <span>Revisar pagos</span>
             </HeroActionLink>
             <HeroActionButton
               tone="glass"
@@ -1201,40 +1206,18 @@ export default function SuperAdminGranjasPage() {
                     </option>
                   ))}
                 </Select>
+                <p className="mt-1.5 text-xs text-slate-500">
+                  Las cuentas nuevas empiezan en Gratis. Para contratar Productor, el titular continúa desde Planes y el plan se activa al confirmarse el pago.
+                </p>
               </FormField>
             </div>
 
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-              <FormField label="Estado Suscripción">
-                <Select
-                  value={newStatus}
-                  onChange={(e) =>
-                    setNewStatus(e.target.value as "trial" | "active")
-                  }
-                >
-                  <option value="trial">En Prueba (Trial)</option>
-                  <option value="active">Activa (Pagada)</option>
-                </Select>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <FormField label="Vigencia del plan">
+                <Input value="Sin vencimiento" readOnly aria-readonly="true" />
               </FormField>
-
-              <FormField label="Vigencia (Días)">
-                <Input
-                  type="number"
-                  min={1}
-                  max={3650}
-                  value={newDurationDays}
-                  onChange={(e) => setNewDurationDays(Number(e.target.value))}
-                />
-              </FormField>
-
-              <FormField label="Cupo Máx. Usuarios">
-                <Input
-                  type="number"
-                  min={1}
-                  max={200}
-                  value={newMaxUsers}
-                  onChange={(e) => setNewMaxUsers(Number(e.target.value))}
-                />
+              <FormField label="Usuarios incluidos">
+                <Input type="number" value={1} readOnly aria-readonly="true" />
               </FormField>
             </div>
 
@@ -1403,6 +1386,11 @@ export default function SuperAdminGranjasPage() {
                   value={editPlanCode}
                   onChange={(e) => handlePlanChangeInEdit(e.target.value)}
                 >
+                  {editingFarm && !(data?.plans || []).some((p) => p.code === editingFarm.subscription.planCode) && (
+                    <option value={editingFarm.subscription.planCode}>
+                      Mantener suscripción actual: {editingFarm.subscription.planName}
+                    </option>
+                  )}
                   {(data?.plans || []).map((p) => (
                     <option key={p.code} value={p.code}>
                       {p.name} ({formatCop(p.amountCop)})
@@ -1415,13 +1403,19 @@ export default function SuperAdminGranjasPage() {
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
               <FormField label="Estado Suscripción">
                 <Select
-                  value={editStatus}
+                  value={editPlanCode === "FREEMIUM_SEMILLA" ? "freemium" : editStatus}
                   onChange={(e) => setEditStatus(e.target.value)}
                 >
+                  {editPlanCode === "FREEMIUM_SEMILLA" ? (
+                    <option value="freemium">Gratis · sin vencimiento</option>
+                  ) : (
+                    <>
                   <option value="trial">En Prueba (Trial)</option>
                   <option value="active">Activa (Al día)</option>
                   <option value="grace">Período de Gracia</option>
                   <option value="expired">Vencida</option>
+                    </>
+                  )}
                 </Select>
               </FormField>
 
@@ -1429,8 +1423,9 @@ export default function SuperAdminGranjasPage() {
                 <Input
                   type="number"
                   min={1}
-                  max={200}
+                  max={25}
                   value={editMaxUsers}
+                  readOnly={editPlanCode === "FREEMIUM_SEMILLA"}
                   onChange={(e) => setEditMaxUsers(Number(e.target.value))}
                 />
               </FormField>
@@ -1440,6 +1435,7 @@ export default function SuperAdminGranjasPage() {
                   type="number"
                   min={1}
                   value={editMaxActiveBatches}
+                  readOnly={editPlanCode === "FREEMIUM_SEMILLA"}
                   onChange={(e) => setEditMaxActiveBatches(e.target.value)}
                   placeholder="Ilimitado"
                 />
@@ -1447,6 +1443,7 @@ export default function SuperAdminGranjasPage() {
             </div>
 
             {/* Control de Vencimiento y Extensión Rápida */}
+            {editPlanCode !== "FREEMIUM_SEMILLA" && (
             <div className="bg-slate-50 rounded-2xl p-3.5 border border-slate-200 space-y-3">
               <div className="flex items-center justify-between gap-2 flex-wrap">
                 <span className="text-xs font-bold uppercase text-slate-700">
@@ -1462,20 +1459,20 @@ export default function SuperAdminGranjasPage() {
 
               <div className="flex flex-wrap gap-2">
                 {[
-                  { days: 30, label: "+30 días (1 mes)" },
-                  { days: 60, label: "+60 días (1 ciclo)" },
-                  { days: 180, label: "+180 días (Semestral)" },
-                  { days: 365, label: "+365 días (1 año)" },
+                  { months: 3, label: "+3 meses" },
+                  { months: 6, label: "+6 meses" },
+                  { months: 12, label: "+12 meses" },
+                  { months: 18, label: "+18 meses" },
                 ].map((btn) => (
                   <button
-                    key={btn.days}
+                    key={btn.months}
                     type="button"
                     onClick={() =>
-                      setEditExtendDays(
-                        editExtendDays === btn.days ? 0 : btn.days,
+                      setEditExtendMonths(
+                        editExtendMonths === btn.months ? 0 : btn.months,
                       )
                     }
-                    className={`min-h-[42px] px-3 py-1.5 rounded-xl text-xs font-bold border transition-colors ${editExtendDays === btn.days
+                    className={`min-h-[42px] px-3 py-1.5 rounded-xl text-xs font-bold border transition-colors ${editExtendMonths === btn.months
                       ? "bg-emerald-700 text-white border-emerald-700"
                       : "bg-white text-slate-800 border-slate-300 hover:bg-slate-100"
                       }`}
@@ -1485,9 +1482,9 @@ export default function SuperAdminGranjasPage() {
                 ))}
               </div>
 
-              {editExtendDays > 0 ? (
+              {editExtendMonths > 0 ? (
                 <p className="text-xs font-semibold text-emerald-800">
-                  Se sumarán +{editExtendDays} días a partir de la fecha de
+                  Se sumarán {editExtendMonths} meses calendario a partir de la fecha de
                   vencimiento vigente (o desde hoy si ya estaba vencida).
                 </p>
               ) : (
@@ -1500,6 +1497,7 @@ export default function SuperAdminGranjasPage() {
                 </FormField>
               )}
             </div>
+            )}
 
             {/* Atribución Comercial y Despliegue */}
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
@@ -1532,6 +1530,7 @@ export default function SuperAdminGranjasPage() {
             </div>
 
             {/* Registro de Pago Manual */}
+            {editPlanCode !== "FREEMIUM_SEMILLA" && (
             <div className="bg-emerald-50/70 rounded-2xl p-3.5 border border-emerald-200 space-y-3">
               <label className="flex items-center gap-2.5 text-xs sm:text-sm font-bold text-emerald-950 cursor-pointer">
                 <input
@@ -1577,6 +1576,7 @@ export default function SuperAdminGranjasPage() {
                 </div>
               )}
             </div>
+            )}
 
             {/* Seguridad del Titular */}
             <div className="bg-amber-50/70 rounded-2xl p-3.5 border border-amber-200 space-y-3">

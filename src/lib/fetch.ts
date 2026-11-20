@@ -1,7 +1,7 @@
 import { getCachedRecords, setCachedRecords } from "./offline/db";
 import { syncManager } from "./offline/syncManager";
 
-const NON_CACHEABLE_GET_PREFIXES = ["/api/health", "/api/auth/login", "/api/auth/logout", "/api/auth/register"];
+const NON_CACHEABLE_GET_PREFIXES = ["/api/health", "/api/auth/login", "/api/auth/logout", "/api/auth/register", "/api/asistente/cuota", "/api/billing/", "/api/superadmin/"];
 const NON_QUEUEABLE_MUTATION_PREFIXES = [
   "/api/auth/",
   "/api/asistente",
