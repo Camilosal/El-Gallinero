@@ -162,7 +162,7 @@ export function getApiPermission(
   if (pathname === "/api/export/token") return "settings:manage";
   if (pathname === "/api/export") return "export:read";
   if (pathname === "/api/asistente/delegacion") return "assistant:manage";
-  if (pathname === "/api/billing/checkout") return "settings:manage";
+  if (pathname === "/api/billing/checkout" || pathname === "/api/billing/renewal/verify") return "settings:manage";
 
   if (pathname === "/api/sanidad/bioseguridad") return verb === "DELETE" ? "sanitary:write" : "biosecurity:write";
   if (startsWithPath(pathname, "/api/sanidad") || startsWithPath(pathname, "/api/calendario-sanitario")) return "sanitary:write";

@@ -6,7 +6,6 @@ import { GET as getLlmsTxt } from "@/app/llms.txt/route";
 import { proxy } from "@/proxy";
 import { BITACORA_ARTICLES } from "@/lib/bitacora-content";
 import { guides } from "@/lib/guide-data";
-import { CYCLE_PLANS_SHOWCASE } from "@/lib/landing-showcase";
 import { getPrivacidad } from "@/lib/legal-content";
 import { APP_ROUTE_PREFIXES } from "@/lib/app-routes";
 import {
@@ -92,9 +91,8 @@ describe("SEO + GEO skill compliance", () => {
     for (const article of BITACORA_ARTICLES) {
       expect(urls).toContain(`${SITE_URL}/bitacora/${article.slug}`);
     }
-    for (const plan of CYCLE_PLANS_SHOWCASE) {
-      expect(urls).toContain(`${SITE_URL}/planes/${plan.slug}`);
-    }
+    expect(urls).toContain(`${SITE_URL}/planes`);
+    expect(urls.some((url) => /\/planes\/(semilla|ciclo-60d|semestral-ponedora|mediano-mensual)$/.test(url))).toBe(false);
 
     expect(urls.some((u) => u.includes("/login"))).toBe(false);
     expect(urls.some((u) => u.includes("/dashboard"))).toBe(false);
@@ -124,9 +122,8 @@ describe("SEO + GEO skill compliance", () => {
     for (const article of BITACORA_ARTICLES) {
       expect(body).toContain(`${SITE_URL}/bitacora/${article.slug}`);
     }
-    for (const plan of CYCLE_PLANS_SHOWCASE) {
-      expect(body).toContain(`${SITE_URL}/planes/${plan.slug}`);
-    }
+    expect(body).toContain(`${SITE_URL}/planes`);
+    expect(body).not.toContain(`${SITE_URL}/planes/ciclo-60d`);
   });
 
   it("llms.txt describe las capacidades agénticas (API v1, MCP, briefing proactivo, Telegram) con datos verificables", async () => {
@@ -191,7 +188,7 @@ describe("SEO + GEO skill compliance", () => {
       breadcrumbs: [{ name: "Inicio", path: "/" }],
       extraNodes: [
         buildSoftwareNode(),
-        buildFaqNode(canonicalUrlFor("/"), [{ q: "¿Es gratis?", a: "Sí, plan Semilla." }]),
+        buildFaqNode(canonicalUrlFor("/"), [{ q: "¿Es gratis?", a: "Sí, existe un plan Gratis." }]),
       ],
     });
 

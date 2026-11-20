@@ -31,7 +31,11 @@ export default function LoginPage() {
         setError(data.error || "Error al iniciar sesión");
         return;
       }
-      router.push("/inicio");
+      const requestedPath = new URLSearchParams(window.location.search).get("next");
+      const nextPath = requestedPath?.startsWith("/") && !requestedPath.startsWith("//")
+        ? requestedPath
+        : "/inicio";
+      router.push(nextPath);
       router.refresh();
     } catch {
       setError("Error de conexión");

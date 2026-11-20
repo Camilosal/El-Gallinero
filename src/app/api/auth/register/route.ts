@@ -104,7 +104,6 @@ export const POST = withApiHandler(async (req: NextRequest) => {
   }
 
   const now = new Date();
-  const trialEndsAt = new Date(now.getTime() + 30 * 86400000);
   const passwordHash = await hashPassword(password);
   const recoveryCode = generateRecoveryCode();
   const recoveryCodeHash = sha256(recoveryCode);
@@ -120,7 +119,7 @@ export const POST = withApiHandler(async (req: NextRequest) => {
         qrSource,
         allyCode,
         planCode: "FREEMIUM_SEMILLA",
-        trialEndsAt,
+        trialEndsAt: null,
       })
       .returning();
 
@@ -151,11 +150,11 @@ export const POST = withApiHandler(async (req: NextRequest) => {
     await tx.insert(farmSubscriptions).values({
       farmId: farm.id,
       planCode: "FREEMIUM_SEMILLA",
-      status: "trial",
+      status: "freemium",
       maxActiveBatches: 1,
-      maxUsers: 2,
+      maxUsers: 1,
       currentPeriodStart: now,
-      currentPeriodEnd: trialEndsAt,
+      currentPeriodEnd: null,
     });
 
     const initialConfig = {

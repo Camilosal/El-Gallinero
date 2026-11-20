@@ -119,7 +119,7 @@ export default function AttachmentPanel({
     try {
       const res = await apiFetch("/api/asistente/ocr", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: { "Content-Type": "application/json", "X-Gina-Request-Id": crypto.randomUUID() },
         body: JSON.stringify({
           mode: ocrMode,
           dataUrl: params.dataUrl || "",

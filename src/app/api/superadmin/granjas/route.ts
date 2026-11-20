@@ -76,10 +76,10 @@ function resolvePlanMetadata(planCode: string) {
   }
   return {
     code: "FREEMIUM_SEMILLA",
-    name: "Freemium Semilla",
+    name: "Gratis",
     durationDays: 30,
     amountCop: 0,
-    maxUsers: 2,
+    maxUsers: 1,
     maxActiveBatches: 1 as number | null,
   };
 }

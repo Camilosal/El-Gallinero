@@ -1,4 +1,4 @@
-import { LEGAL, PLAN_PROMISES, RESPONSE_TIME, SIC_LABEL, SIC_URL } from "@/lib/legal";
+import { LEGAL, RESPONSE_TIME, SIC_LABEL, SIC_URL } from "@/lib/legal";
 
 export interface LegalSection {
   title: string;
@@ -35,22 +35,24 @@ export function getTerminos(): LegalDocument {
       {
         title: "3. Planes, precios e IVA",
         paragraphs: [
-          "Hay un plan gratuito Semilla (30 días completos y luego 1 lote activo) y planes pagos por ciclo: Ciclo Engorde 60 días, Semestral 180 días (con opción anual) y Escala Mediano con cobro mensual de 30 días.",
-          `${PLAN_PROMISES.pricesCop} ${LEGAL.ivaNote}. El valor vigente de cada plan es el que se muestra en la página de planes y en el momento del pago.`,
+          "La aplicación ofrece el nivel Gratis y una calculadora para conocer el costo de los planes Productor y Agregador. El resultado identifica la versión de la política comercial y resume cantidades, plazo, materiales y servicios seleccionados.",
+          "El cálculo muestra el valor del período y las condiciones comerciales disponibles. A la fecha de esta versión, el checkout de los nuevos planes no está habilitado; el cálculo no constituye contrato, factura, autorización de cobro ni cambio de suscripción.",
+          "Los costos se expresan en pesos colombianos (COP). Según la política comercial vigente, no se cobra IVA; el checkout muestra y envía a pago el total final del plan. Los costos logísticos extraordinarios se confirman antes de contratar.",
+          "Las suscripciones pagadas anteriores conservan las condiciones aceptadas al contratarlas; esta página no modifica sus derechos, pagos ni vigencia.",
         ],
       },
       {
         title: "4. Renovación y vencimiento",
         paragraphs: [
-          `${PLAN_PROMISES.noAutoCharge} Cada ciclo se paga de forma voluntaria y por adelantado con Nequi, Daviplata o PSE a través de Wompi; solo se renueva cuando tú lo decides.`,
-          PLAN_PROMISES.expiry,
-          "Al vencer el ciclo, la cuenta pasa al plan gratuito Semilla: puedes consultar tu historial, cerrar y vender tu lote en curso y mantener 1 lote activo. Para abrir más lotes o usar las funciones del plan pago debes renovar.",
+          "La calculadora no renueva, cancela ni activa suscripciones y no inicia cobros. No hay renovación automática de los nuevos planes.",
+          "Las cuentas con una suscripción anterior mantienen el plazo y las condiciones aceptadas al contratarla. Cuando vence, se aplican los límites vigentes del nivel Gratis; los registros históricos se conservan.",
+          "Antes de ofrecer una renovación o un nuevo servicio pagado, se informarán el plazo, los cupos, el valor total y las condiciones aplicables para su aceptación expresa.",
         ],
       },
       {
         title: "5. Pagos",
         paragraphs: [
-          "Los pagos los procesa Wompi. No almacenamos datos de tu tarjeta ni de tu cuenta bancaria. El plan se activa cuando Wompi confirma la transacción como aprobada.",
+          "Productor puede contratarse desde el checkout de Wompi cuando la pasarela está configurada en el servidor. La suscripción se activa al confirmar el pago. Agregador requiere validación institucional antes de habilitar beneficiarios. IwaGranja no almacena datos de tarjetas ni de cuentas bancarias.",
         ],
       },
       {
@@ -100,7 +102,7 @@ export function getRetracto(): LegalDocument {
     slug: "retracto",
     title: "Política de retracto, cambios y reembolsos",
     intro:
-      "Cómo pedir el retracto o un reembolso de un ciclo pagado, en qué plazo y por qué canal.",
+      "Cómo pedir el retracto o un reembolso de un ciclo pagado, en qué plazo y por qué canal. El cálculo actual no genera pagos; estas condiciones aplican a pagos históricos y a los contratos que indiquen expresamente su aplicación.",
     sections: [
       {
         title: "1. Derecho de retracto",
@@ -124,7 +126,7 @@ export function getRetracto(): LegalDocument {
       {
         title: "4. Cambios de plan",
         paragraphs: [
-          "Puedes cambiar de plan al renovar. No hay cobros automáticos ni permanencia, por lo que nada se renueva sin tu pago.",
+          "El cálculo actual no modifica una suscripción ni inicia renovaciones. Los cambios o nuevos servicios requieren condiciones aceptadas expresamente.",
         ],
       },
       {
@@ -153,13 +155,13 @@ export function getPrivacidad(): LegalDocument {
       {
         title: "2. Datos que recolectamos",
         paragraphs: [
-          "Nombre, usuario, celular o correo, contraseña (guardada cifrada), nombre y ubicación de la granja, y los registros productivos, sanitarios y comerciales que tú ingresas. Los pagos los procesa Wompi; no guardamos datos de tarjetas.",
+          "Nombre, usuario, celular o correo, contraseña (guardada cifrada), nombre y ubicación de la granja, y los registros productivos, sanitarios y comerciales que tú ingresas. Si se procesa un pago de una suscripción, Wompi gestiona la transacción; no guardamos datos de tarjetas.",
         ],
       },
       {
         title: "3. Finalidades",
         paragraphs: [
-          "Crear y operar tu cuenta, prestar el servicio, procesar pagos, darte soporte, enviarte avisos del servicio (por ejemplo, vencimiento de un ciclo) y mejorar la plataforma con estadísticas agregadas.",
+          "Crear y operar tu cuenta, prestar el servicio, gestionar pagos asociados a contratos vigentes o históricos, darte soporte, enviarte avisos del servicio y mejorar la plataforma con estadísticas agregadas.",
         ],
       },
       {
@@ -211,18 +213,18 @@ export interface FaqItem {
 
 export const FAQS: FaqItem[] = [
   {
-    q: "¿Cómo pago un ciclo?",
-    a: "Entras a Configuración, luego a Plan y pagos, eliges el plan y el medio: Nequi, Daviplata o PSE. El pago lo procesa Wompi en su página segura. Cuando Wompi confirma la transacción, tu plan se activa. No necesitas tarjeta de crédito ni guardamos tus datos bancarios.",
-    image: { src: "/images/guia/configuracion-panel.webp", alt: "Configuración de plan y pagos de la granja" },
+    q: "¿Cómo calculo el costo o contrato un plan?",
+    a: "En Planes compara Gratis y Productor para tu granja, u Organización y A la medida para un proyecto. La calculadora muestra el costo según usuarios o beneficiarios y duración; también puedes revisar las condiciones de continuidad para renovaciones elegibles. Organización requiere validar el contrato anterior cuando se solicita continuidad.",
+    image: { src: "/images/guia/configuracion-panel.webp", alt: "Estado del plan y límites de uso de la granja" },
   },
   {
     q: "¿Me cobran automáticamente cada mes?",
-    a: PLAN_PROMISES.noAutoCharge + " Cada ciclo lo pagas tú, cuando quieras, y por adelantado. Si no pagas, simplemente no se renueva y tu cuenta sigue en el plan gratuito.",
+    a: "No. Los planes pagados se prepagan por el período elegido y no se renuevan automáticamente. El pago requiere aceptar las condiciones en el checkout.",
     image: { src: "/images/guia/finanzas-presupuestos.webp", alt: "Control de presupuestos y pagos por ciclo sin cobros automáticos" },
   },
   {
     q: "¿Qué pasa cuando vence mi ciclo?",
-    a: "Tu cuenta pasa al plan gratuito Semilla. " + PLAN_PROMISES.expiry + " Para abrir más lotes o recuperar las funciones del plan pago solo tienes que renovar.",
+    a: "Las suscripciones anteriores vencidas pasan al nivel Gratis y se aplican sus cupos. El historial se conserva. Calcular el costo de un plan nuevo no cambia ni renueva una cuenta.",
     image: { src: "/images/guia/animales-resumen.webp", alt: "Resumen de lotes e historial siempre visible en tu granja" },
   },
   {
@@ -237,7 +239,7 @@ export const FAQS: FaqItem[] = [
   },
   {
     q: "¿Qué incluye el plan gratuito?",
-    a: "30 días con todas las funciones y, después, 1 lote activo gratis de forma permanente. Siempre puedes consultar tu historial y cerrar o vender el lote en curso. No pedimos tarjeta para empezar.",
+    a: "Gratis incluye un usuario, una localización activa y hasta un lote activo por especie. Gina tiene 10 consultas, 2 audios y 2 adjuntos por usuario al mes; cada audio o adjunto consume además una consulta. Los módulos disponibles dependen del rol y de la habilitación progresiva. No incluye kit físico.",
     image: { src: "/images/guia/inicio-dashboard.webp", alt: "Tablero de inicio" },
   },
   {
@@ -259,6 +261,26 @@ export const FAQS: FaqItem[] = [
     q: "¿Cómo pido un reembolso o ejerzo el retracto?",
     a: "Escríbenos desde la página de contacto con el nombre de tu granja y la referencia del pago. Respondemos en 1 día hábil. Los plazos y condiciones están en la política de retracto y reembolsos.",
     image: { src: "/images/guia/finanzas-cuentas.webp", alt: "Historial de cuentas, pagos y soporte al productor" },
+  },
+  {
+    q: "¿Qué especies puedo registrar?",
+    a: "IwaGranja permite gestionar gallinas ponedoras, pollos de engorde, codornices, patos, conejos y curíes. Las opciones disponibles dependen del módulo y del tipo de registro.",
+    image: { src: "/images/guia/animales-resumen.webp", alt: "Gestión de distintas especies animales en la granja" },
+  },
+  {
+    q: "¿Puedo registrar de dónde vienen mis animales?",
+    a: "Sí. Puedes llevar el ingreso y la procedencia de los animales para conservar la trazabilidad desde su adquisición. La información genética registrada depende de los datos disponibles para el animal o el lote.",
+    image: { src: "/images/guia/adquisiciones-genetica.webp", alt: "Registro de adquisición y procedencia de los animales" },
+  },
+  {
+    q: "¿Puedo organizar los animales por corral, jaula o galpón?",
+    a: "Sí. Los lugares de manejo permiten organizar registros por espacios de la finca, como corrales, jaulas, galpones o potreros, y consultar el desempeño con mayor detalle.",
+    image: { src: "/images/guia/ubicaciones-lista.webp", alt: "Lugares de manejo y ubicación dentro de la finca" },
+  },
+  {
+    q: "¿Los registros propuestos por Gina se guardan solos?",
+    a: "No. Gina puede ayudarte a preparar un registro o responder una consulta. Revisa los datos y confirma las acciones antes de guardarlas, especialmente cuando cambian inventarios, ventas o movimientos.",
+    image: { src: "/images/guia/asistente-ia.webp", alt: "Gina ayuda a preparar registros para revisión" },
   },
 ];
 

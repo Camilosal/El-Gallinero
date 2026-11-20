@@ -631,17 +631,12 @@
   }
 }
 
-.land-standards {
-  background: var(--cream);
-  border-bottom: 1px solid var(--line);
-}
-
 .land-adoption {
   background: linear-gradient(180deg, var(--cream-2) 0%, var(--cream) 100%);
   border-bottom: 1px solid var(--line);
 }
 
-/* ---------- LANDING V2: HERO VIEWER, QUICK CAPTURE, NORMS, CLOSING ---------- */
+/* ---------- LANDING V2: HERO VIEWER, QUICK CAPTURE, CLOSING ---------- */
 .land-hero-showcase {
   position: relative;
   min-width: 0;
@@ -777,6 +772,203 @@
   background: var(--forest);
 }
 
+/* ---------- LANDING: SPECIES RADAR, GROWTH STORY, PLAN CARDS ---------- */
+.land-floating-facts {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: 0.65rem;
+  list-style: none;
+}
+.land-floating-fact {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.55rem;
+  max-width: 100%;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: var(--cream);
+  padding: 0.65rem 0.95rem;
+  color: var(--ink);
+  font-size: 0.78rem;
+  line-height: 1.45;
+  box-shadow: 0 5px 16px -13px rgba(19, 42, 30, 0.45);
+}
+.land-floating-fact strong { color: var(--forest); }
+
+.land-animal-radar {
+  min-height: 320px;
+  display: grid;
+  grid-template-rows: auto 1fr auto;
+  overflow: hidden;
+  padding: 1.1rem clamp(1rem, 4vw, 2rem) 0.9rem;
+  color: #e6f4e8;
+  background: radial-gradient(ellipse at center, #1d563e 0%, #123a2a 54%, #0c2d21 100%);
+}
+.land-animal-radar-copy,
+.land-animal-radar-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  font-size: 0.67rem;
+}
+.land-animal-radar-copy strong { font-size: 0.85rem; color: #fff; }
+.land-animal-radar-copy > span:last-child { color: #bad0c1; }
+.land-animal-radar-status,
+.land-animal-radar-footer > span { display: inline-flex; align-items: center; gap: 0.4rem; }
+.land-animal-radar-status { color: #ead298; }
+.land-animal-radar-status i,
+.land-radar-online-dot {
+  width: 0.45rem;
+  height: 0.45rem;
+  border-radius: 50%;
+  background: #96d68b;
+  box-shadow: 0 0 0 3px rgba(150, 214, 139, 0.13);
+}
+.land-animal-radar-screen {
+  position: relative;
+  width: min(100%, 370px);
+  aspect-ratio: 1;
+  justify-self: center;
+  align-self: center;
+  max-height: 265px;
+  margin: 0.5rem auto;
+  overflow: hidden;
+  border: 1px solid rgba(164, 210, 174, 0.26);
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(92, 151, 112, 0.17), rgba(11, 46, 33, 0.18) 67%, rgba(7, 38, 27, 0.55));
+}
+.land-radar-ring,
+.land-radar-cross,
+.land-radar-sweep,
+.land-radar-center { position: absolute; pointer-events: none; }
+.land-radar-ring { inset: 12%; border: 1px solid rgba(173, 222, 182, 0.23); border-radius: 50%; }
+.land-radar-ring-middle { inset: 27%; }
+.land-radar-ring-inner { inset: 42%; }
+.land-radar-cross { background: rgba(173, 222, 182, 0.17); }
+.land-radar-cross-x { top: 50%; left: 9%; right: 9%; height: 1px; }
+.land-radar-cross-y { top: 9%; bottom: 9%; left: 50%; width: 1px; }
+.land-radar-sweep {
+  inset: 10%;
+  border-radius: 50%;
+  background: conic-gradient(from 5deg, transparent 0deg 292deg, rgba(142, 220, 150, 0.02) 318deg, rgba(142, 220, 150, 0.3) 360deg);
+}
+.land-radar-center { top: 50%; left: 50%; width: 0.42rem; height: 0.42rem; transform: translate(-50%, -50%); border: 2px solid #ddedcf; border-radius: 50%; background: #77c980; }
+.land-radar-animal {
+  position: absolute;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.34rem;
+  padding: 0.3rem 0.48rem;
+  border: 1px solid rgba(213, 233, 211, 0.34);
+  border-radius: 999px;
+  background: rgba(11, 43, 31, 0.9);
+  color: #f6f3e8;
+  font-size: 0.62rem;
+  line-height: 1;
+  white-space: nowrap;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+}
+.land-radar-animal i { font-size: 0.9rem; font-style: normal; }
+.land-radar-gallina { top: 7%; left: 37%; }
+.land-radar-pollo { top: 29%; left: 3%; }
+.land-radar-pato { top: 36%; right: 2%; }
+.land-radar-curi { bottom: 14%; left: 11%; }
+.land-radar-conejo { right: 8%; bottom: 12%; }
+.land-animal-radar-footer { color: #c5d9c8; }
+
+.land-lifecycle {
+  min-height: 290px;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 1.15rem;
+  padding: clamp(1rem, 4vw, 1.75rem);
+  background: radial-gradient(ellipse at 50% 45%, #fffefb, #f7f0df);
+  text-align: center;
+}
+.land-lifecycle-kicker { margin: 0; color: var(--forest); font-size: 0.74rem; font-weight: 800; letter-spacing: 0.12em; text-transform: uppercase; }
+.land-lifecycle-track { display: flex; align-items: center; justify-content: space-between; gap: 0.35rem; }
+.land-lifecycle-step { position: relative; display: flex; flex: 1 1 0; flex-direction: column; align-items: center; gap: 0.55rem; min-width: 0; }
+.land-lifecycle-illustration {
+  width: clamp(3.4rem, 10vw, 5.2rem);
+  height: clamp(3.4rem, 10vw, 5.2rem);
+  display: grid;
+  place-items: center;
+  border: 1px solid rgba(31, 61, 44, 0.12);
+  border-radius: 1.1rem;
+  background: rgba(255,255,255,0.83);
+  box-shadow: 0 8px 18px -13px rgba(19,42,30,0.55);
+}
+.land-lifecycle-illustration span { font-size: clamp(2rem, 6vw, 3rem); line-height: 1; }
+.land-lifecycle-label,
+.land-lifecycle-eggs > span { color: var(--forest); font-size: clamp(0.56rem, 1.8vw, 0.72rem); font-weight: 700; }
+.land-lifecycle-arrow { width: clamp(1rem, 4vw, 1.65rem); height: 1.3rem; flex: 0 0 auto; color: var(--moss); }
+.land-lifecycle-eggs { display: flex; align-items: center; justify-content: center; gap: 0.1rem; flex: 0 0 3.9rem; flex-wrap: wrap; }
+.land-lifecycle-egg { width: 1.35rem; height: 1.35rem; color: var(--amber-deep); fill: #efcf90; }
+.land-lifecycle-egg-second { margin-top: 0.5rem; transform: rotate(18deg); }
+.land-lifecycle-eggs > span { width: 100%; }
+.land-lifecycle-caption { margin: 0; color: var(--moss); font-size: 0.72rem; }
+
+.land-plan-switch { display: flex; width: fit-content; max-width: 100%; margin: 0 auto 1.4rem; padding: 0.3rem; border-radius: 999px; background: #e8eee5; }
+.land-plan-switch button { display: inline-flex; min-height: 2.7rem; align-items: center; justify-content: center; gap: 0.5rem; border: 0; border-radius: 999px; background: transparent; padding: 0.55rem 1.1rem; color: #536b5d; font-size: 0.83rem; font-weight: 700; cursor: pointer; transition: background-color 0.2s ease, color 0.2s ease, box-shadow 0.2s ease; }
+.land-plan-switch button[aria-pressed="true"] { background: #fff; color: var(--forest); box-shadow: 0 3px 12px rgba(19,42,30,0.12); }
+.land-plan-switch button:focus-visible,
+.land-plan-action:focus-visible,
+.land-gallery-accordion summary:focus-visible { outline: 3px solid #d0a25f; outline-offset: 3px; }
+.land-plan-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 1.2rem; }
+.land-plan-card { min-width: 0; padding: clamp(1.25rem, 3vw, 2rem); border: 1px solid var(--line); border-radius: 1.35rem; background: white; box-shadow: 0 12px 25px -24px rgba(19,42,30,0.48); }
+.land-plan-card-featured { border-color: #b7cfba; background: #fbfcf7; }
+.land-plan-eyebrow { margin: 0; color: var(--amber-deep); font-size: 0.65rem; font-weight: 800; letter-spacing: 0.13em; text-transform: uppercase; }
+.land-plan-badge { border-radius: 999px; background: #e2eddf; padding: 0.35rem 0.6rem; color: var(--forest); font-size: 0.57rem; font-weight: 800; letter-spacing: 0.04em; text-transform: uppercase; }
+.land-plan-title { margin: 0.65rem 0 0; color: var(--forest-deep); font-family: var(--font-fraunces, Georgia, serif); font-size: clamp(1.55rem, 3vw, 2rem); font-weight: 600; }
+.land-plan-description { min-height: 2.8rem; margin: 0.35rem 0 1.4rem; color: var(--moss); font-size: 0.88rem; line-height: 1.55; }
+.land-plan-price { display: flex; flex-wrap: wrap; align-items: baseline; gap: 0.42rem; min-height: 3rem; margin-bottom: 1rem; color: var(--forest-deep); }
+.land-plan-price strong { font-size: clamp(1.85rem, 4vw, 2.35rem); letter-spacing: -0.05em; line-height: 1; }
+.land-plan-price span { color: var(--moss); font-size: 0.72rem; }
+.land-plan-action { display: flex; min-height: 2.8rem; align-items: center; justify-content: center; gap: 0.5rem; border: 1px solid #bed0c0; border-radius: 0.8rem; color: var(--forest); font-size: 0.84rem; font-weight: 750; text-decoration: none; transition: background-color 0.2s ease, transform 0.2s ease; }
+.land-plan-action:hover { background: #eff4ee; transform: translateY(-1px); }
+.land-plan-action-primary { border-color: #d9af75; background: #dfb779; color: #1d2c20; }
+.land-plan-action-primary:hover { background: #e8c38f; }
+.land-plan-highlights { display: grid; gap: 0.65rem; margin: 1.15rem 0 0; padding: 1.05rem 0 0; border-top: 1px solid var(--line); list-style: none; color: #394c3f; font-size: 0.78rem; line-height: 1.45; }
+.land-plan-highlights li { display: flex; align-items: flex-start; gap: 0.55rem; }
+.land-plan-highlights svg { flex: 0 0 auto; color: #4b8b67; }
+.land-plan-note { max-width: 820px; margin: 1.2rem auto 0; color: var(--moss); font-size: 0.73rem; line-height: 1.5; text-align: center; }
+.land-gallery-accordion > summary { list-style: none; }
+.land-gallery-accordion > summary::-webkit-details-marker { display: none; }
+.land-gallery-chevron { transition: transform 0.2s ease; }
+.land-gallery-accordion[open] .land-gallery-chevron { transform: rotate(180deg); }
+
+@keyframes landRadarSweep { to { transform: rotate(360deg); } }
+@keyframes landRadarPing { 0%, 100% { box-shadow: 0 0 0 0 rgba(150,214,139,0.38); } 55% { box-shadow: 0 0 0 0.6rem rgba(150,214,139,0); } }
+@keyframes landLifecyclePulse { 0%, 8% { transform: translateY(0) scale(1); box-shadow: 0 8px 18px -13px rgba(19,42,30,0.55); } 18%, 28% { transform: translateY(-4px) scale(1.055); box-shadow: 0 13px 20px -12px rgba(19,42,30,0.32); } 38%, 100% { transform: translateY(0) scale(1); box-shadow: 0 8px 18px -13px rgba(19,42,30,0.55); } }
+@media (prefers-reduced-motion: no-preference) {
+  .land-radar-sweep { animation: landRadarSweep 8s linear infinite; transform-origin: center; }
+  .land-radar-center { animation: landRadarPing 2.7s ease-out infinite; }
+  .land-lifecycle-illustration { animation: landLifecyclePulse 7s ease-in-out infinite; }
+  .land-lifecycle-grow { animation-delay: 1.7s; }
+  .land-lifecycle-hen { animation-delay: 3.4s; }
+  .land-lifecycle-egg { animation: landLifecyclePulse 7s ease-in-out infinite; animation-delay: 5.1s; }
+}
+@media (max-width: 700px) {
+  .land-plan-grid { grid-template-columns: minmax(0, 1fr); }
+  .land-plan-switch { width: 100%; }
+  .land-plan-switch button { flex: 1 1 0; padding-inline: 0.65rem; font-size: 0.74rem; }
+  .land-floating-fact { width: 100%; border-radius: 0.85rem; }
+  .land-animal-radar { min-height: 290px; padding-inline: 0.75rem; }
+  .land-animal-radar-copy { flex-wrap: wrap; justify-content: center; }
+  .land-lifecycle-track { gap: 0.1rem; }
+  .land-lifecycle-eggs { flex-basis: 2.9rem; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .land-radar-sweep,
+  .land-radar-center,
+  .land-lifecycle-illustration,
+  .land-lifecycle-egg { animation: none !important; }
+}
+
 .land-animated-card {
   position: relative;
   overflow: hidden;
@@ -841,6 +1033,149 @@
 }
 
 /* ---------- GUIDE READER & DIALOG SCROLL CONTAINMENT ---------- */
+.pricing-review-dialog {
+  width: min(94vw, 36rem);
+  max-width: none;
+  max-height: min(92dvh, 56rem);
+  margin: auto;
+  overflow: auto;
+  padding: 0;
+  border: 1px solid #e2e8df;
+  border-radius: 1.35rem;
+  background: #ffffff;
+  color: #26372d;
+  box-shadow: 0 25px 65px -20px rgba(15, 42, 29, 0.42);
+}
+
+.pricing-review-dialog::backdrop {
+  background: rgba(17, 42, 31, 0.74);
+  backdrop-filter: blur(2px);
+}
+
+.pricing-review-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1.25rem;
+  padding: 1.35rem 1.55rem 1.1rem;
+  border-bottom: 1px solid #e2e8df;
+}
+
+.pricing-review-header > div > p {
+  margin: 0;
+  color: #578464;
+  font-size: 0.65rem;
+  font-weight: 850;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+}
+
+.pricing-review-header h2 {
+  margin: 0.45rem 0 0;
+  color: #183f31;
+  font-family: var(--font-fraunces, Georgia, serif);
+  font-size: clamp(1.65rem, 6vw, 2rem);
+  font-weight: 500;
+  line-height: 1.15;
+}
+
+.pricing-review-close {
+  display: inline-grid;
+  width: 2.2rem;
+  height: 2.2rem;
+  flex: 0 0 auto;
+  place-items: center;
+  border: 0;
+  border-radius: 0.65rem;
+  background: #f1f5ef;
+  color: #668071;
+  font-size: 1.45rem;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.pricing-review-close:hover { background: #e5eee3; color: #183f31; }
+.pricing-review-close:focus-visible,
+.pricing-review-copy:focus-visible,
+.pricing-review-continue:focus-visible { outline: 3px solid #d0a25f; outline-offset: 3px; }
+
+.pricing-review-content { padding: 1.25rem 1.55rem 1.45rem; }
+.pricing-review-summary {
+  margin: 0.85rem 0 0;
+  padding: 0.7rem 0.95rem;
+  border: 1px solid #d9e4d6;
+  border-radius: 0.9rem;
+  background: #fafcf8;
+}
+
+.pricing-review-summary > div {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 0.42rem 0;
+  font-size: 0.76rem;
+}
+
+.pricing-review-summary dt { color: #536257; }
+.pricing-review-summary dd { margin: 0; color: #26372d; font-weight: 700; text-align: right; }
+.pricing-review-summary .pricing-review-savings dd { color: #397657; }
+.pricing-review-summary .pricing-review-total {
+  margin-top: 0.35rem;
+  padding-top: 0.85rem;
+  border-top: 1px solid #d9e4d6;
+  color: #397657;
+  font-size: 0.82rem;
+  font-weight: 800;
+}
+.pricing-review-summary .pricing-review-total dd { color: #265e37; font-size: 0.95rem; }
+
+.pricing-review-conditions { margin-top: 1.15rem; }
+.pricing-review-conditions h3 { margin: 0; color: #26372d; font-size: 0.76rem; font-weight: 800; }
+.pricing-review-conditions > p { margin: 0.4rem 0 0.8rem; color: #718078; font-size: 0.68rem; line-height: 1.55; }
+.pricing-review-detail { display: grid; grid-template-columns: 6.2rem 1fr; gap: 0.5rem; padding: 0.45rem 0; border-top: 1px solid #edf0e9; font-size: 0.67rem; line-height: 1.5; }
+.pricing-review-detail strong { color: #536257; }
+.pricing-review-detail span { color: #718078; }
+
+.pricing-review-acceptance {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.6rem;
+  margin-top: 1rem;
+  padding: 0.85rem;
+  border-radius: 0.8rem;
+  background: #f2f6ef;
+  color: #536257;
+  font-size: 0.67rem;
+  line-height: 1.55;
+  cursor: pointer;
+}
+.pricing-review-acceptance input { width: 1rem; height: 1rem; flex: 0 0 auto; margin-top: 0.1rem; accent-color: #397657; }
+.pricing-review-acceptance a { color: #183f31; font-weight: 700; text-decoration: underline; text-underline-offset: 2px; }
+.pricing-review-error { margin: 0.75rem 0 0; color: #983f31; font-size: 0.72rem; line-height: 1.5; }
+.pricing-review-error a { color: inherit; text-decoration: underline; text-underline-offset: 2px; }
+
+.pricing-review-actions { display: grid; grid-template-columns: 1fr 1fr; gap: 0.65rem; margin-top: 1.05rem; }
+.pricing-review-copy,
+.pricing-review-continue {
+  display: inline-flex;
+  min-height: 2.8rem;
+  align-items: center;
+  justify-content: center;
+  gap: 0.45rem;
+  border-radius: 0.75rem;
+  padding: 0.55rem 0.8rem;
+  font-size: 0.72rem;
+  font-weight: 800;
+  cursor: pointer;
+}
+.pricing-review-copy { border: 1px solid #c8d6ca; background: #ffffff; color: #183f31; }
+.pricing-review-copy:hover { background: #f3f6f1; }
+.pricing-review-continue { border: 1px solid #183f31; background: #183f31; color: #ffffff; }
+.pricing-review-continue:hover:not(:disabled) { background: #24543d; }
+.pricing-review-continue:disabled { border-color: #8da197; background: #8da197; cursor: not-allowed; opacity: 0.82; }
+.pricing-review-copy-status { min-height: 1rem; margin: 0.45rem 0 0; color: #718078; font-size: 0.62rem; text-align: center; }
+
 dialog:modal {
   overscroll-behavior: contain;
 }
@@ -872,6 +1207,14 @@ dialog::backdrop {
   overscroll-behavior: contain;
 }
 
+@media (max-width: 520px) {
+  .pricing-review-header { padding: 1.15rem 1.1rem 0.95rem; }
+  .pricing-review-content { padding: 1rem 1.1rem 1.1rem; }
+  .pricing-review-summary { padding-inline: 0.7rem; }
+  .pricing-review-summary > div { font-size: 0.7rem; }
+  .pricing-review-actions { grid-template-columns: 1fr; }
+}
+
 .visually-hidden {
   position: absolute;
   clip-path: inset(50%);
@@ -888,28 +1231,7 @@ dialog::backdrop {
   border-color: #b91c1c;
 }
 
-/* ---------- SECTOR STANDARDS CAROUSEL & MODULES ACCORDION ---------- */
-.land-standards-track {
-  display: flex;
-  overflow-x: auto;
-  scroll-snap-type: x mandatory;
-  gap: 16px;
-  scrollbar-width: none;
-}
-.land-standards-track::-webkit-scrollbar {
-  display: none;
-}
-.land-standards-slide {
-  flex: 0 0 100%;
-  scroll-snap-align: start;
-  scroll-snap-stop: always;
-}
-@media (prefers-reduced-motion: no-preference) {
-  .land-standards-track {
-    scroll-behavior: smooth;
-  }
-}
-
+/* ---------- MODULES ACCORDION ---------- */
 .land-accordion {
   interpolate-size: allow-keywords;
 }

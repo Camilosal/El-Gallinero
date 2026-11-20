@@ -5,10 +5,10 @@ import { PLAN_CATALOG } from "@/lib/subscription";
 export const SUPERADMIN_PLAN_OPTIONS = [
   {
     code: "FREEMIUM_SEMILLA",
-    name: "Freemium Semilla (1 lote activo)",
+    name: "Gratis (1 lote activo por especie)",
     durationDays: 30,
     amountCop: 0,
-    maxUsers: 2,
+    maxUsers: 1,
     maxActiveBatches: 1 as number | null,
   },
   ...Object.values(PLAN_CATALOG).map((plan) => ({

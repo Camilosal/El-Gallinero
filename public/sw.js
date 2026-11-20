@@ -1,5 +1,9 @@
-const CACHE_VERSION = 'v12';
+const CACHE_VERSION = 'v13';
 const APP_CACHE = `gallinero-app-${CACHE_VERSION}`;
+const IS_DEVELOPMENT_ORIGIN =
+  self.location.hostname === 'localhost' ||
+  self.location.hostname === '127.0.0.1' ||
+  Boolean(self.location.port);
 const PRECACHE = [
   '/',
   '/login',
@@ -77,6 +81,10 @@ self.addEventListener('fetch', (e) => {
 
   const url = new URL(request.url);
   if (url.origin !== self.location.origin) return;
+
+  // Turbopack reuses development chunk URLs while replacing their factories.
+  // Never serve or store those mutable assets through the offline cache.
+  if (IS_DEVELOPMENT_ORIGIN && url.pathname.startsWith('/_next/')) return;
 
   // Los datos de la API se gestionan de forma estructurada e idempotente en IndexedDB.
   if (url.pathname.startsWith('/api/')) return;

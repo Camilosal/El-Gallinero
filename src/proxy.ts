@@ -39,6 +39,8 @@ const PUBLIC_EXACT = [
   "/login/recuperar",
   "/registro",
   "/api/health",
+  "/api/pricing/offer",
+  "/api/pricing/quote",
   // This endpoint validates its own Bearer CRON_SECRET before doing any work.
   "/api/cron/fuentes-externas",
   "/api/cron/agente-proactivo",

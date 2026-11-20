@@ -15,7 +15,7 @@ const secciones = [
   { href: "/configuracion/kit-campo", label: "Kit de Campo y Entrega Llave en Mano", icon: "qrcode", desc: "Cronograma vivo de 4 semanas, plancha QR plastificable en lote, mapa ICA y Acta Semana 4 PDF" },
   { href: "/configuracion/usuarios", label: "Usuarios y Roles de la Granja", icon: "users", desc: "Crea accesos para operario de galpón, veterinario o gerente sin usar consola técnica" },
   { href: "/configuracion/granjas", label: "Panel Super-Admin de Granjas (Tenants)", icon: "shield", desc: "Administra fincas registradas, planes, vencimientos, cupos de usuarios, altas Llave en Mano y soporte multi-granja" },
-  { href: "/configuracion/plan", label: "Plan por Ciclo y Pagos (Nequi / PSE)", icon: "credit-card", desc: "Renueva por cosecha de 60 días o plan semestral/anual mediante Nequi, Daviplata o PSE" },
+  { href: "/configuracion/plan", label: "Plan y límites de uso", icon: "credit-card", desc: "Consulta el nivel comercial, los cupos y calcula el costo de otros planes" },
   { href: "/configuracion/modulos", label: "Onboarding Progresivo, Escala y Módulos", icon: "sparkles", desc: "Perfil Pequeño vs Mediano, auto-triggers de crecimiento, Feature Flags y Asistente Día 1 sin historial" },
   { href: "/configuracion/catalogos", label: "Catálogos y datos de la granja", icon: "folder", desc: "Parámetros, especies, listas maestras, vacunas, pesos, gallinaza, nutrición, contactos y tablas maestras externas (DIVIPOLA, SIPSA, ICA, festivos)" },
   { href: "/configuracion/catalogos?tab=normas", label: "Normas, Estándares y Guías Aplicables", icon: "book-open", desc: "Resoluciones ICA, NTC 1240, guías técnicas y protocolos propios con consulta directa a Gina y adjuntos PDF o fotográficos" },

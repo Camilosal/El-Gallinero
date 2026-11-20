@@ -8,6 +8,7 @@ import { isDateOnly } from "@/lib/date-validation";
 import { withApiHandler, safeParseJson } from "@/lib/api-handler";
 import { and, desc, eq, gte, inArray, sql } from "drizzle-orm";
 import { NextRequest, NextResponse } from "next/server";
+import { assertCanCreateFarmLocation } from "@/lib/subscription";
 
 export const dynamic = "force-dynamic";
 
@@ -232,11 +233,16 @@ export const POST = withApiHandler(async (req: NextRequest) => {
       const [parent] = await db.select({ id: farmLocations.id }).from(farmLocations).where(eq(farmLocations.id, values.parentLocationId));
       if (!parent) return NextResponse.json({ error: "El lugar superior no existe" }, { status: 400 });
     }
-    const [created] = await db.transaction(async (tx) => {
+    const outcome = await db.transaction(async (tx) => {
+      const quota = await assertCanCreateFarmLocation(tx);
+      if (!quota.allowed) return { quota };
       const code = await nextLocationCode(tx);
-      return tx.insert(farmLocations).values({ ...values, code }).returning();
+      return { created: await tx.insert(farmLocations).values({ ...values, code }).returning() };
     });
-    return NextResponse.json(created, { status: 201 });
+    if ("quota" in outcome && outcome.quota) {
+      return NextResponse.json({ error: outcome.quota.error, code: outcome.quota.code, limit: outcome.quota.limit, activeCount: outcome.quota.activeCount }, { status: 402 });
+    }
+    return NextResponse.json(outcome.created[0], { status: 201 });
   } catch (error) {
     return NextResponse.json({ error: error instanceof Error ? error.message : "No se pudo guardar el lugar" }, { status: 400 });
   }
@@ -256,10 +262,24 @@ export const PUT = withApiHandler(async (req: NextRequest) => {
       ) SELECT EXISTS(SELECT 1 FROM descendants WHERE id = ${values.parentLocationId}) AS invalid`)).rows[0];
       if (childCheck?.invalid) return NextResponse.json({ error: "La jerarquía produciría una relación circular" }, { status: 400 });
     }
-    const [updated] = await db.update(farmLocations).set({ ...values, updatedAt: new Date() })
-      .where(eq(farmLocations.id, String(body.id))).returning();
-    if (!updated) return NextResponse.json({ error: "Lugar no encontrado" }, { status: 404 });
-    return NextResponse.json(updated);
+    const outcome = await db.transaction(async (tx) => {
+      const [current] = await tx.select({ id: farmLocations.id, status: farmLocations.status })
+        .from(farmLocations).where(eq(farmLocations.id, String(body.id))).for("update");
+      if (!current) return { notFound: true as const };
+      if (current.status !== "activa" && values.status === "activa") {
+        const quota = await assertCanCreateFarmLocation(tx);
+        if (!quota.allowed) return { quota };
+      }
+      const [updated] = await tx.update(farmLocations).set({ ...values, updatedAt: new Date() })
+        .where(eq(farmLocations.id, String(body.id))).returning();
+      return { updated };
+    });
+    if ("notFound" in outcome) return NextResponse.json({ error: "Lugar no encontrado" }, { status: 404 });
+    if ("quota" in outcome && outcome.quota) {
+      return NextResponse.json({ error: outcome.quota.error, code: outcome.quota.code, limit: outcome.quota.limit, activeCount: outcome.quota.activeCount }, { status: 402 });
+    }
+    if (!outcome.updated) return NextResponse.json({ error: "Lugar no encontrado" }, { status: 404 });
+    return NextResponse.json(outcome.updated);
   } catch (error) {
     return NextResponse.json({ error: error instanceof Error ? error.message : "No se pudo actualizar el lugar" }, { status: 400 });
   }

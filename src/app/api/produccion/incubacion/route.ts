@@ -6,9 +6,10 @@ import { isAvailableForExit } from "@/lib/lifecycle";
 import { HEN_PRESENT_STATUSES } from "@/lib/animal-status";
 import { assignMales, requiredRoosters } from "@/lib/flock";
 import { getFlockRules, getIncubationRulesForSpecies } from "@/lib/settings";
-import { withApiHandler, safeParseJson } from "@/lib/api-handler";
+import { ApiHttpError, withApiHandler, safeParseJson } from "@/lib/api-handler";
 import { addDaysIso } from "@/lib/date-validation";
 import { assertDateNotClosed, assertLocationEntryAllowed } from "@/lib/sanitary-locks";
+import { assertCanCreateActiveBatch, lockActiveBatchQuota } from "@/lib/subscription";
 
 export const dynamic = "force-dynamic";
 
@@ -234,6 +235,13 @@ export const PUT = withApiHandler(async (req: NextRequest) => {
     }
 
     if (nextIsComplete && !wasAlreadyComplete) {
+      const speciesForBatch = before.species || "gallina";
+      const mayCreateBatch = speciesForBatch === "gallina"
+        ? Number(malesHatched) > 0
+        : eggsHatched > 0;
+      if (mayCreateBatch) {
+        await lockActiveBatchQuota(tx, speciesForBatch === "gallina" ? "pollo" : speciesForBatch);
+      }
       if (before.henId || Number(femalesHatched) > 0) {
         await tx.execute(sql`LOCK TABLE ${hens} IN EXCLUSIVE MODE`);
       }
@@ -266,6 +274,15 @@ export const PUT = withApiHandler(async (req: NextRequest) => {
       const originNote = `Cría propia por incubación ${updated.id}`;
 
       if (sp !== "gallina" && eggsHatched > 0) {
+        const quota = await assertCanCreateActiveBatch(sp, undefined, tx);
+        if (!quota.allowed) {
+          throw new ApiHttpError(402, quota.error || "El plan alcanzó el cupo de lotes activos por especie.", {
+            code: quota.code,
+            planName: quota.planName,
+            activeCount: quota.activeCount,
+            limit: quota.limit,
+          });
+        }
         const destLocationId = updated.locationId || null;
         if (destLocationId) {
           await assertLocationEntryAllowed(tx, { locationId: destLocationId, species: sp, date: today, lock: true });
@@ -436,6 +453,15 @@ export const PUT = withApiHandler(async (req: NextRequest) => {
         }
 
         if (assignedBatchQuantity > 0) {
+          const quota = await assertCanCreateActiveBatch("pollo", undefined, tx);
+          if (!quota.allowed) {
+            throw new ApiHttpError(402, quota.error || "El plan alcanzó el cupo de lotes activos por especie.", {
+              code: quota.code,
+              planName: quota.planName,
+              activeCount: quota.activeCount,
+              limit: quota.limit,
+            });
+          }
           const [acquisition] = await tx.insert(birdAcquisitions).values({
             date: today,
             acquisitionType: "cria_propia",

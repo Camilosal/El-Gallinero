@@ -138,7 +138,7 @@ const STATUS_BADGE: Record<
     className: "bg-red-100 text-red-900 border-red-300",
   },
   freemium: {
-    label: "Freemium Semilla",
+    label: "Gratis",
     className: "bg-slate-100 text-slate-800 border-slate-300",
   },
 };
@@ -785,7 +785,7 @@ export default function SuperAdminGranjasPage() {
 
           <div className="bg-amber-50/70 rounded-2xl border border-amber-200 p-4 shadow-sm">
             <p className="text-xs font-semibold text-amber-800 uppercase">
-              En Prueba / Semilla
+              En Prueba / Gratis
             </p>
             <p className="text-2xl sm:text-3xl font-black text-amber-900 mt-1">
               {data.summary.trialFarms + data.summary.freemiumFarms}
@@ -837,7 +837,7 @@ export default function SuperAdminGranjasPage() {
             { id: "ACTIVE", label: "Activas (Pagas)" },
             { id: "TRIAL", label: "En Prueba (Trial)" },
             { id: "EXPIRED", label: "Vencidas" },
-            { id: "FREEMIUM", label: "Freemium" },
+            { id: "FREEMIUM", label: "Gratis" },
             { id: "MEDIANO", label: "Escala Mediano Productor" },
           ].map((tab) => (
             <button

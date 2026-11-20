@@ -21,6 +21,12 @@ interface TelegramChatRow {
   lastSeenAt: string;
 }
 
+interface TelegramStatusData {
+  configured: boolean;
+  botUsername: string | null;
+  chats: TelegramChatRow[];
+}
+
 interface PairingState {
   code: string;
   expiresAt: string;
@@ -38,15 +44,28 @@ export default function TelegramChannelPanel() {
   const [error, setError] = useState("");
   const [connectionNotice, setConnectionNotice] = useState("");
 
-  const loadStatus = useCallback(async () => {
+  const fetchStatus = useCallback(async (): Promise<TelegramStatusData | null> => {
     const res = await apiFetch("/api/telegram/vincular").catch(() => null);
     const data = res && res.ok ? await res.json().catch(() => null) : null;
     if (!data) return null;
-    setConfigured(Boolean(data?.configured));
-    setBotUsername(data?.botUsername || null);
-    setChats(data?.chats || []);
-    return (data?.chats || []) as TelegramChatRow[];
+    return {
+      configured: Boolean(data.configured),
+      botUsername: data.botUsername || null,
+      chats: Array.isArray(data.chats) ? (data.chats as TelegramChatRow[]) : [],
+    };
   }, []);
+
+  const applyStatus = useCallback((data: TelegramStatusData) => {
+    setConfigured(data.configured);
+    setBotUsername(data.botUsername);
+    setChats(data.chats);
+  }, []);
+
+  const loadStatus = useCallback(async () => {
+    const data = await fetchStatus();
+    if (data) applyStatus(data);
+    return data;
+  }, [applyStatus, fetchStatus]);
 
   const refresh = useCallback(async () => {
     await loadStatus();
@@ -54,21 +73,23 @@ export default function TelegramChannelPanel() {
 
   useEffect(() => {
     let cancelled = false;
-    void loadStatus().then((data) => {
-      if (!cancelled && !data) setConfigured(false);
+    void fetchStatus().then((data) => {
+      if (cancelled) return;
+      if (data) applyStatus(data);
+      else setConfigured(false);
     });
     return () => {
       cancelled = true;
     };
-  }, [loadStatus]);
+  }, [applyStatus, fetchStatus]);
 
   useEffect(() => {
     if (!pairing) return;
     let cancelled = false;
     const checkPairing = async () => {
-      const currentChats = await loadStatus();
-      if (cancelled || !currentChats) return;
-      const newlyLinked = currentChats.some((chat) => {
+      const currentStatus = await loadStatus();
+      if (cancelled || !currentStatus) return;
+      const newlyLinked = currentStatus.chats.some((chat) => {
         const currentVersion = `${chat.status}:${chat.linkedAt}`;
         return chat.status === "activo" && pairing.previousChats[chat.id] !== currentVersion;
       });

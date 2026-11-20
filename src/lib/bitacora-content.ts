@@ -38,6 +38,7 @@ export interface BitacoraArticle {
     src: string;
     alt: string;
   };
+  sources?: Array<{ institution: string; title: string; url: string }>;
   sections: BitacoraSection[];
 }
 
@@ -404,6 +405,136 @@ export const BITACORA_ARTICLES: BitacoraArticle[] = [
         paragraphs: [
           "Cuando dejas de ver el estiércol y las camas como basura y los mides en pesos por kilogramo producido, descubres que la gallinaza bien sanitizada cubre gastos mensuales recurrentes de cal, desinfectantes, energía o mantenimiento menor del galpón, cerrando el ciclo económico y ambiental de la granja.",
           "Incluso si toda la enmienda orgánica se queda en tus propios potreros, árboles frutales o huerta casera, contabilizar esos kilogramos como insumo producido en finca reduce la compra externa de fertilizantes sintéticos, mejora la retención de humedad del suelo y documenta la gestión ambiental exigida en visitas técnicas.",
+        ],
+      },
+    ],
+  },
+  {
+    slug: "normas-y-guias-granja-mixta",
+    title: "Normas y guías para una granja mixta: qué revisar por especie",
+    subtitle: "Un mapa de fuentes oficiales y técnicas para consultar avicultura, patos, codornices, conejos, cuyes y bienestar animal en Colombia.",
+    publishedAt: "2026-11-20",
+    reviewedAt: "2026-11-20",
+    readingMinutes: 7,
+    category: "Normativa y bienestar animal",
+    topics: ["normativa", "ica", "bienestar-animal", "granja-mixta", "trazabilidad"],
+    species: ["gallina", "pollo", "codorniz", "pato", "conejo", "cuy"],
+    relatedSlugs: ["tiempos-de-retiro-medicamentos-veterinarios", "clasificacion-de-huevo-ntc-1240", "compostaje-de-gallinaza"],
+    relatedNormIds: [],
+    relatedGuideSlug: "control-sanitario",
+    summary: "En una finca con varias especies no se debe asumir que una sola resolución o certificación aplica por igual a todos los animales. Esta guía organiza referencias oficiales para saber dónde consultar y qué confirmar antes de tomar decisiones.",
+    realFarmData: {
+      label: "Alcance y fuentes de esta guía",
+      kind: "referencia_normativa",
+      fact: "Síntesis editorial de documentos y páginas oficiales del ICA, MinAgricultura, INVIMA, AGROSAVIA, ICONTEC, FINAGRO y DIAN. Sirve como punto de partida para consultar el texto vigente; no acredita cumplimiento ni reemplaza una visita o concepto profesional.",
+      observationPeriod: "Fuentes consultadas el 20 de noviembre de 2026",
+      contextAndSample: "Referencias colombianas sobre producción animal, registro de predios, bienestar, residuos, movilización, calidad de huevo y finanzas del sector.",
+      unitAndMethod: "Lectura de páginas y documentos oficiales enlazados en esta guía; se separan por autoridad, especie y alcance declarado.",
+      sourceRef: "ICA · MinAgricultura · INVIMA · AGROSAVIA · ICONTEC · FINAGRO · DIAN",
+      reviewedBy: "Edición IwaGranja",
+      reviewedAt: "2026-11-20",
+      limitations: "La aplicabilidad depende de la especie, actividad, escala, territorio y versión vigente. Confirma cada requisito con la autoridad competente y un profesional cuando corresponda.",
+    },
+    image: {
+      src: "/images/guia/sanidad-control.webp",
+      alt: "Vista de control sanitario que ilustra los registros de manejo de una granja",
+    },
+    sources: [
+      { institution: "ICA", title: "Resoluciones ICA de 2014: resoluciones 3650, 3651 y 3652", url: "https://www.ica.gov.co/normatividad/normas-ica/resoluciones-oficinas-nacionales/2014" },
+      { institution: "ICA", title: "Resolución 3651 de 2014", url: "https://www.ica.gov.co/normatividad/normas-ica/resoluciones-oficinas-nacionales/2014/2014r3651" },
+      { institution: "ICA", title: "Registro Sanitario de Predio Pecuario (RSPP)", url: "https://www.ica.gov.co/areas/pecuaria/registro-de-predios-ante-el-ica.aspx" },
+      { institution: "ICA", title: "Resolución 12486 de 2023", url: "https://www.ica.gov.co/normatividad/normas-ica/resoluciones-oficinas-nacionales/2023/2023r00012486" },
+      { institution: "ICA", title: "Resolución 094488 de 2021: derogatoria de la Resolución 30292 de 2017", url: "https://www.ica.gov.co/getattachment/119779d0-fb98-4a98-83a0-871bcf7eae02/2021R94488.aspx" },
+      { institution: "ICA", title: "Recomendaciones para el uso responsable de medicamentos veterinarios", url: "https://www.ica.gov.co/noticias/ica-recomienda-buen-uso-medicamentos-veterinarios" },
+      { institution: "ICA", title: "Programa Nacional de Vigilancia de Resistencia Antimicrobiana (PRAMSAC)", url: "https://www.ica.gov.co/areas/pecuaria/servicios/inocuidad-en-las-cadenas-agroalimentarias.aspx" },
+      { institution: "ICA", title: "Resolución 8940 de 2024: requisitos para expedir la GSMI", url: "https://www.ica.gov.co/normatividad/normas-ica/resoluciones-oficinas-nacionales/2024/2024r00008940" },
+      { institution: "Ministerio de Agricultura", title: "Resolución 204 de 2022: bienestar animal en aves de producción", url: "https://www.minagricultura.gov.co/Normatividad/Resoluciones/RESOLUCI%C3%93N%20NO.%20000204%20DE%202022.pdf" },
+      { institution: "Ministerio de Agricultura", title: "Resolución 205 de 2022: bienestar animal en conejos y cuyes", url: "https://www.minagricultura.gov.co/Normatividad/Resoluciones/RESOLUCI%C3%93N%20NO.%20000205%20DE%202022.pdf" },
+      { institution: "ICA", title: "Resolución 16409 de 2024: bienestar animal", url: "https://www.ica.gov.co/getattachment/Areas/Pecuaria/Servicios/Inocuidad-en-las-Cadenas-Agroalimentarias/Bienestar-Animal/Res-00016409-de-2024-BA.pdf.aspx?lang=es-CO" },
+      { institution: "ICA", title: "Resolución 8452 de 2025", url: "https://www.ica.gov.co/areas/pecuaria/servicios/inocuidad-en-las-cadenas-agroalimentarias/documentos/2025/resolucion-00008452-del-01-de-julio-2025.aspx" },
+      { institution: "INVIMA", title: "Programas nacionales de vigilancia de residuos en alimentos", url: "https://www.invima.gov.co/node/39" },
+      { institution: "AGROSAVIA", title: "Guía de uso prudente de antimicrobianos en la producción avícola", url: "https://editorial.agrosavia.co/index.php/publicaciones/catalog/download/102/88/865?inline=1" },
+      { institution: "ICONTEC", title: "Catálogo oficial para consultar la edición vigente de la NTC 1240", url: "https://tienda.icontec.org/" },
+      { institution: "FINAGRO", title: "Preguntas frecuentes sobre crédito agropecuario", url: "https://www.finagro.com.co/atencion-servicios-ciudadania/informacion-al-ciudadano/sac-sistema-atencion-al-consumidor-financiero/preguntas-frecuentes" },
+      { institution: "DIAN", title: "Responsabilidades tributarias y aduaneras en el RUT", url: "https://www.dian.gov.co/impuestos/RUT/Paginas/Responsabilidades-y-Usuarios-Aduaneros.aspx" },
+    ],
+    sections: [
+      {
+        heading: "1. Empieza por identificar especie, actividad y escala",
+        paragraphs: [
+          "Antes de buscar una norma, define qué especies manejas y para qué: postura, engorde, reproducción, levante, venta de animales, huevo o carne. Las reglas y guías pueden cambiar entre especies y actividades; que una finca tenga gallinas no significa que las mismas referencias cubran automáticamente patos, codornices, conejos o cuyes.",
+          "Distingue una obligación legal de una guía técnica, una norma técnica y un esquema de certificación. Una herramienta digital puede ayudarte a conservar fechas y soportes, pero registrar datos no equivale a cumplir ni certificarse.",
+        ],
+      },
+      {
+        heading: "2. Gallinas y pollos: consulta las resoluciones avícolas del ICA",
+        paragraphs: [
+          "El ICA publica las resoluciones 3650, 3651 y 3652 de 2014 sobre registro y comercialización de material genético aviar, granjas avícolas bioseguras de postura y levante, y granjas de pollo de engorde, respectivamente. Revisa el documento que corresponda a tu actividad y confirma con el ICA si aplica a la escala y operación concretas de tu predio.",
+          "La guía de control sanitario debe acompañarse de registros de procedencia, vacunación, tratamientos y retiro, además del manejo de mortalidad. Los requisitos cambian; conserva el enlace oficial y consulta la versión vigente antes de preparar una visita o solicitar certificación.",
+          "La antigua Resolución ICA 30292 de 2017 trataba medidas sanitarias para Newcastle notificable; fue derogada por la Resolución 094488 de 2021. No corresponde a una norma de compostaje ni debe presentarse como vigente. Para brotes o sospechas, consulta las instrucciones actuales del ICA.",
+        ],
+      },
+      {
+        heading: "3. Patos y codornices: verifica el alcance para aves de producción",
+        paragraphs: [
+          "La Resolución 204 de 2022 del Ministerio de Agricultura presenta lineamientos de bienestar animal para aves de producción e incluye especies distintas de gallinas y pollos. Revisa su texto y anexos para identificar las condiciones específicas de la especie y del sistema productivo que manejas.",
+          "No uses una curva de postura de gallina ni una clasificación de huevo de gallina como referencia automática para patos o codornices. Selecciona estándares y parámetros biológicos de la especie correspondiente.",
+        ],
+      },
+      {
+        heading: "4. Conejos y cuyes: consulta la guía específica",
+        paragraphs: [
+          "La Resolución 205 de 2022 del Ministerio de Agricultura aborda bienestar animal en producción de conejos y cuyes. Allí puedes revisar orientaciones para alojamiento, manejo, alimentación, salud y transporte; confirma el alcance de cada disposición para tu actividad.",
+          "Para estos mamíferos, documentar origen, lote, lugar de manejo, movimientos y controles sanitarios ayuda a mantener trazabilidad. Las recomendaciones de aves no sustituyen las condiciones propias de la cunicultura o cuyicultura.",
+        ],
+      },
+      {
+        heading: "5. Registro del predio y bienestar animal",
+        paragraphs: [
+          "El ICA explica el Registro Sanitario de Predio Pecuario (RSPP) y publica la Resolución 12486 de 2023 sobre registro de predios para especies como cuyes y conejos. Revisa qué registro, autorización o certificación corresponde a tu actividad y tramítalo ante la autoridad; guardar información en una app no completa el trámite.",
+          "Para bienestar animal, consulta la Resolución 16409 de 2024 junto con la modificación parcial expedida mediante la Resolución 8452 de 2025. Verifica los manuales y requisitos que la autoridad relaciona para cada especie y no presentes una autoevaluación de la app como certificación oficial.",
+        ],
+      },
+      {
+        heading: "6. Huevo de gallina y NTC 1240",
+        paragraphs: [
+          "Si clasificas huevo de gallina por peso o calidad, consulta en ICONTEC la edición vigente de la NTC 1240 y confirma su alcance antes de usar rangos en etiquetas, contratos o material comercial. Esta referencia es específica para huevo de gallina; no se debe extender automáticamente al huevo de pato o codorniz.",
+          "En la práctica, guarda el pesaje, el lote de procedencia, la fecha de recolección y los descartes junto al registro de producción. Así puedes explicar cómo se obtuvo una clasificación y mantener la trazabilidad del producto.",
+        ],
+      },
+      {
+        heading: "7. Medicamentos, tiempos de retiro y residuos",
+        paragraphs: [
+          "El ICA recomienda usar medicamentos veterinarios registrados, seguir el rotulado aprobado y conservar el registro del tratamiento, incluido el tiempo de retiro cuando aparezca en la etiqueta. La fecha depende del producto y su uso: no la reemplaces con una cifra genérica ni la calcules solo con la duración del tratamiento.",
+          "El ICA y el INVIMA realizan vigilancia de residuos y contaminantes en alimentos de origen animal. PRAMSAC es un programa nacional de vigilancia de resistencia a los antimicrobianos en la cadena agroalimentaria; no es una tabla general de tiempos de retiro ni una certificación de la granja.",
+          "IwaGranja puede ayudarte a registrar fechas y mostrar una alerta de retiro; esa alerta no es un análisis de laboratorio ni garantiza que un alimento esté libre de residuos. Confirma la etiqueta y consulta a un profesional veterinario ante dudas.",
+        ],
+      },
+      {
+        heading: "8. Movilización de animales y GSMI",
+        paragraphs: [
+          "La GSMI es un documento oficial expedido por el ICA o por quien este autorice. La Resolución 8940 de 2024 unifica requisitos para su expedición; su aplicación depende de la especie y el tipo de movilización. Consulta la regla vigente del ICA antes de trasladar animales y no supongas que todas las especies de una granja mixta siguen el mismo requisito.",
+          "IwaGranja ayuda a documentar adquisiciones, movimientos y soportes que ingreses; el registro interno no emite ni reemplaza una GSMI. Conserva el documento oficial cuando aplique y relaciona origen, destino, fecha y cantidad movilizada.",
+        ],
+      },
+      {
+        heading: "9. Mortalidad, gallinaza y compostaje",
+        paragraphs: [
+          "AGROSAVIA publica guías técnicas de uso prudente de antimicrobianos y bioseguridad que describen el manejo, tratamiento y disposición de mortalidad avícola, incluido el compostaje. Tómalas como orientación técnica y consulta al ICA y a la autoridad ambiental sobre las condiciones aplicables en tu predio.",
+          "La Resolución 30292 de 2017 que aparecía asociada a este tema en algunos resúmenes oficiales era sobre Newcastle y fue derogada en 2021; no es una regla de compostaje. Registra el método, responsable y fecha de manejo, pero no asumas que un registro digital valida el proceso ni autoriza la disposición final.",
+        ],
+      },
+      {
+        heading: "10. Indicadores financieros, DIAN y crédito agropecuario",
+        paragraphs: [
+          "Los costos por especie, márgenes y reportes de IwaGranja son herramientas internas de gestión. No son certificaciones contables o tributarias de la DIAN, ni confirman que una operación cumpla todas las obligaciones fiscales; revisa tus responsabilidades con la DIAN o con un contador según tu caso.",
+          "FINAGRO informa que el crédito agropecuario se solicita mediante intermediarios financieros, que estudian y deciden cada solicitud. Los indicadores de la app pueden ayudarte a organizar cifras, pero no son una aprobación de crédito ni reemplazan los documentos que solicite la entidad financiera.",
+        ],
+      },
+      {
+        heading: "Una rutina simple para mantenerte al día",
+        paragraphs: [
+          "1) Lista las especies y actividades del predio. 2) Abre la fuente oficial enlazada y revisa su vigencia, anexos y ámbito de aplicación. 3) Registra responsables, fechas, lotes, lugares y soportes. 4) Si una venta, certificación o trámite depende de la interpretación normativa, confirma con el ICA, el Ministerio o un profesional competente.",
         ],
       },
     ],

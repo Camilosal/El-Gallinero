@@ -179,7 +179,7 @@ export default function RegistroPage() {
             className="mx-auto mb-3 rounded-2xl bg-[#faf6ec] p-1.5 border border-earth-200 shadow-sm"
           />
           <p className="text-xs font-bold uppercase tracking-wider text-emerald-700">
-            IwaGranja · Plan Semilla
+            IwaGranja · Plan Gratis
           </p>
           <h1 className="text-2xl font-bold text-slate-900 mt-1">
             {createdAccount
@@ -385,7 +385,7 @@ export default function RegistroPage() {
             <ul className="mt-5 space-y-1.5 text-xs text-slate-600">
               <li className="flex items-center gap-1.5">
                 <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
-                1 lote o unidad productiva gratis para siempre + 30 días de prueba completa
+                1 usuario, 1 localización y hasta 1 lote activo por especie · sin periodo de prueba
               </li>
               <li className="flex items-center gap-1.5">
                 <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600 shrink-0" />

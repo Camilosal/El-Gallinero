@@ -1,55 +1,54 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
-import { ArrowLeft, CalendarClock, CheckCircle2, CreditCard, ShieldCheck, Smartphone } from "lucide-react";
+import { useEffect, useState, type ReactNode } from "react";
+import Link from "next/link";
+import { ArrowLeft, Bird, Brain, CalendarClock, CheckCircle2, CreditCard, MapPin, ShieldCheck, Users } from "lucide-react";
 import { HeroActionLink, HeroBanner } from "@/components/HeroBanner";
-import { Badge, Button, Card } from "@/components/ui";
-import SubscriptionUpgradeModal from "@/components/SubscriptionUpgradeModal";
+import { Badge, Card } from "@/components/ui";
 import { apiFetch } from "@/lib/fetch";
-import type { BillingPlanDefinition, FarmSubscriptionStatus } from "@/lib/subscription";
+import type { FarmSubscriptionStatus } from "@/lib/subscription";
 
 const STATUS_BADGE: Record<FarmSubscriptionStatus["status"], { label: string; color: "green" | "blue" | "yellow" | "red" }> = {
-  active: { label: "Ciclo activo", color: "green" },
-  trial: { label: "Prueba Semilla 30 días", color: "blue" },
+  active: { label: "Plan activo", color: "green" },
+  trial: { label: "Prueba anterior", color: "blue" },
   grace: { label: "Período de gracia", color: "yellow" },
-  freemium: { label: "Freemium (1 lote activo)", color: "yellow" },
-  expired: { label: "Ciclo vencido (solo lectura/cierre)", color: "red" },
+  freemium: { label: "Gratis", color: "yellow" },
+  expired: { label: "Plan vencido", color: "red" },
 };
+
+const SPECIES_LABELS: Record<string, string> = {
+  pollo: "Pollos",
+  gallina: "Gallinas",
+  pato: "Patos",
+  codorniz: "Codornices",
+  conejo: "Conejos",
+  cuy: "Cuyes",
+};
+
+function formatDate(value: string): string {
+  return new Intl.DateTimeFormat("es-CO", { dateStyle: "medium" }).format(new Date(value));
+}
+
+function formatCop(value: number): string {
+  return `$${new Intl.NumberFormat("es-CO", { maximumFractionDigits: 0 }).format(value)} COP`;
+}
 
 export default function PlanSuscripcionPage() {
   const [subscription, setSubscription] = useState<FarmSubscriptionStatus | null>(null);
-  const [plans, setPlans] = useState<BillingPlanDefinition[]>([]);
   const [loading, setLoading] = useState(true);
-  const [modalOpen, setModalOpen] = useState(false);
-  const [paymentReturnInfo, setPaymentReturnInfo] = useState<{ txId: string | null } | null>(null);
-
-  const refreshBilling = useCallback(async () => {
-    const res = await apiFetch("/api/billing/checkout");
-    if (res.ok) {
-      const json = await res.json();
-      setSubscription(json.subscription || null);
-      setPlans(Array.isArray(json.plans) ? json.plans : []);
-    }
-    setLoading(false);
-  }, []);
+  const [loadError, setLoadError] = useState("");
 
   useEffect(() => {
     let active = true;
     void apiFetch("/api/billing/checkout")
       .then(async (res) => {
         if (!active) return;
-        if (typeof window !== "undefined") {
-          const params = new URLSearchParams(window.location.search);
-          if (params.get("payment") === "return" || params.get("id")) {
-            setPaymentReturnInfo({ txId: params.get("id") });
-          }
-        }
-        if (res.ok) {
-          const json = await res.json();
-          if (!active) return;
-          setSubscription(json.subscription || null);
-          setPlans(Array.isArray(json.plans) ? json.plans : []);
-        }
+        if (!res.ok) throw new Error("No se pudo cargar el estado actual del plan.");
+        const json = await res.json();
+        if (active) setSubscription(json.subscription || null);
+      })
+      .catch((error: unknown) => {
+        if (active) setLoadError(error instanceof Error ? error.message : "No se pudo cargar el plan.");
       })
       .finally(() => {
         if (active) setLoading(false);
@@ -59,15 +58,19 @@ export default function PlanSuscripcionPage() {
     };
   }, []);
 
-  const badge = subscription ? STATUS_BADGE[subscription.status] : STATUS_BADGE.trial;
+  const badge = subscription ? STATUS_BADGE[subscription.status] : null;
+  const batchLimit = subscription?.entitlements.maxActiveBatchesPerSpecies;
+  const locationLimit = subscription?.entitlements.maxActiveLocations;
+  const gina = subscription?.entitlements.gina;
+  const activeSpecies = Object.entries(subscription?.activeBatchesBySpecies || {}).filter(([, count]) => count > 0);
 
   return (
     <div className="space-y-6">
       <HeroBanner
         theme="finanzas"
-        icon={<CreditCard className="w-3.5 h-3.5 text-amber-200" aria-hidden="true" />}
-        title="Plan por Ciclo Productivo y Pagos"
-        description="Renueva por cosecha o semestre mediante Nequi, Daviplata o PSE. Nunca secuestramos tu histórico ni bloqueamos el cierre del lote actual."
+        icon={<CreditCard className="h-3.5 w-3.5 text-amber-200" aria-hidden="true" />}
+        title="Plan y límites de uso"
+        description="Consulta qué permite el plan de tu granja y calcula el costo de Productor o Agregador."
         actions={
           <HeroActionLink href="/configuracion" tone="glass">
             <ArrowLeft className="h-4 w-4" aria-hidden="true" />
@@ -76,182 +79,150 @@ export default function PlanSuscripcionPage() {
         }
       />
 
-      {paymentReturnInfo && (
-        <div
-          role="status"
-          className="rounded-xl border border-emerald-300 bg-emerald-50 p-4 text-sm text-emerald-950 flex flex-wrap items-center justify-between gap-3"
-        >
-          <div className="space-y-0.5">
-            <p className="font-bold">Regresaste desde el portal de pagos Wompi</p>
-            <p className="text-xs text-emerald-900">
-              {paymentReturnInfo.txId
-                ? `Transacción reportada (${paymentReturnInfo.txId}). `
-                : ""}
-              Apenas Wompi confirme el pago vía webhook, tu ciclo quedará activo automáticamente en esta pantalla.
-            </p>
-          </div>
-          <Button touchSize="field" variant="secondary" onClick={() => void refreshBilling()}>
-            Actualizar estado del plan
-          </Button>
-        </div>
-      )}
-
       {loading ? (
-        <Card className="p-6 text-sm text-slate-500">Cargando estado de suscripción...</Card>
-      ) : subscription ? (
+        <Card className="p-6 text-sm text-slate-500">Cargando el plan de la granja…</Card>
+      ) : loadError ? (
+        <div role="alert"><Card className="p-6 text-sm text-rose-700">{loadError}</Card></div>
+      ) : subscription && badge ? (
         <>
-          <Card className="p-5 sm:p-6 space-y-4">
+          <Card className="space-y-5 p-5 sm:p-6">
             <div className="flex flex-wrap items-start justify-between gap-4">
               <div>
-                <div className="flex items-center gap-2.5 flex-wrap">
+                <div className="flex flex-wrap items-center gap-2.5">
                   <h2 className="text-lg font-bold text-slate-900">{subscription.farmName}</h2>
                   <Badge color={badge.color}>{badge.label}</Badge>
                 </div>
-                <p className="text-sm text-slate-600 mt-1">
-                  Plan actual: <span className="font-semibold text-slate-900">{subscription.planCode}</span>
-                  {subscription.daysRemaining !== null && (
-                    <>
-                      {" · "}
-                      <span>{subscription.daysRemaining} días restantes</span>
-                    </>
-                  )}
+                <p className="mt-1 text-sm text-slate-600">
+                  Plan comercial: <span className="font-semibold text-slate-900">{subscription.planName}</span>
+                  {subscription.daysRemaining !== null && subscription.status !== "freemium" ? ` · ${subscription.daysRemaining} días restantes` : ""}
+                </p>
+                <p className="mt-1 text-xs text-slate-500">
+                  {subscription.currentPeriodEnd
+                    ? `Vigencia hasta ${formatDate(subscription.currentPeriodEnd)}`
+                    : "Sin fecha de vencimiento configurada"}
                 </p>
               </div>
-              <Button touchSize="field" onClick={() => setModalOpen(true)}>
-                Renovar / Cambiar ciclo
-              </Button>
+              <Link
+                href="/planes"
+                className="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl bg-emerald-700 px-4 py-2 text-sm font-semibold text-white hover:bg-emerald-800 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-700"
+              >
+                Explorar planes y calcular costo
+                <span aria-hidden="true">›</span>
+              </Link>
             </div>
 
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 pt-2 border-t border-slate-100">
-              <div className="rounded-lg bg-slate-50 p-3">
-                <p className="text-xs text-slate-500">Lotes activos</p>
-                <p className="text-lg font-bold text-slate-900">
-                  {subscription.activeBatchesCount}
-                  {subscription.maxActiveBatches !== null ? ` / ${subscription.maxActiveBatches}` : " (ilimitados)"}
-                </p>
-              </div>
-              <div className="rounded-lg bg-slate-50 p-3">
-                <p className="text-xs text-slate-500">Lotes cosechados</p>
-                <p className="text-lg font-bold text-slate-900">{subscription.closedBatchesCount}</p>
-              </div>
-              <div className="rounded-lg bg-slate-50 p-3">
-                <p className="text-xs text-slate-500">Límite usuarios</p>
-                <p className="text-lg font-bold text-slate-900">{subscription.maxUsers}</p>
-              </div>
-              <div className="rounded-lg bg-slate-50 p-3">
-                <p className="text-xs text-slate-500">Vigencia hasta</p>
-                <p className="text-sm font-bold text-slate-900 mt-1">
-                  {subscription.currentPeriodEnd ? subscription.currentPeriodEnd.slice(0, 10) : "Sin vencimiento"}
-                </p>
-              </div>
+            <div className="grid gap-3 border-t border-slate-100 pt-4 sm:grid-cols-2 lg:grid-cols-4">
+              <QuotaCard
+                icon={<Users className="h-4 w-4" aria-hidden="true" />}
+                label="Usuarios registrados"
+                value={`${subscription.maxUsers} ${subscription.maxUsers === 1 ? "usuario" : "usuarios"}`}
+                detail="El cupo del plan se aplica al agregar personas."
+              />
+              <QuotaCard
+                icon={<MapPin className="h-4 w-4" aria-hidden="true" />}
+                label="Localizaciones activas"
+                value={locationLimit === null ? "Sin tope del plan" : `${subscription.activeLocationsCount} / ${locationLimit}`}
+                detail={locationLimit === null ? "El plan no limita la cantidad." : "Las localizaciones inactivas no cuentan."}
+              />
+              <QuotaCard
+                icon={<Bird className="h-4 w-4" aria-hidden="true" />}
+                label="Lotes activos por especie"
+                value={batchLimit === null ? "Sin tope del plan" : `Hasta ${batchLimit} por especie`}
+                detail={activeSpecies.length
+                  ? activeSpecies.map(([species, count]) => `${SPECIES_LABELS[species] || species}: ${count}`).join(" · ")
+                  : "No hay lotes activos registrados."}
+              />
+              <QuotaCard
+                icon={<Brain className="h-4 w-4" aria-hidden="true" />}
+                label="Gina por usuario / mes"
+                value={gina ? `${gina.messagesPerMonth} consultas` : "No disponible"}
+                detail={gina
+                  ? `${gina.audiosPerMonth} audios (máx. ${gina.maxAudioSeconds}s) · ${gina.attachmentsPerMonth} adjuntos. Audio y adjunto consumen una consulta.`
+                  : "Consulta el catálogo comercial para ver los cupos."}
+              />
             </div>
-
-            {subscription.promptPostHarvestRenewal && (
-              <div className="rounded-xl border border-amber-200 bg-amber-50 p-3.5 text-sm text-amber-950 flex flex-wrap items-center justify-between gap-3">
-                <div className="flex items-center gap-2">
-                  <CalendarClock className="h-5 w-5 text-amber-700 shrink-0" aria-hidden="true" />
-                  <span>
-                    ¡Felicidades por completar tu cosecha! Activa un nuevo ciclo antes de ingresar tu próximo lote.
-                  </span>
-                </div>
-                <Button touchSize="field" variant="success" onClick={() => setModalOpen(true)}>
-                  Pagar ciclo ($45.000)
-                </Button>
-              </div>
-            )}
           </Card>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {plans.map((plan) => (
-              <Card key={plan.code} className="p-5 flex flex-col justify-between gap-4 border border-slate-200">
-                <div>
-                  <div className="flex items-center justify-between gap-2">
-                    <h3 className="text-base font-bold text-slate-900">{plan.name}</h3>
-                    <span className="text-xs font-semibold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-full">
-                      {plan.durationDays} días
-                    </span>
-                  </div>
-                  <p className="text-2xl font-extrabold text-slate-900 mt-2">
-                    ${plan.amountCop.toLocaleString("es-CO")}{" "}
-                    <span className="text-xs font-medium text-slate-500">COP</span>
-                  </p>
-                  <p className="text-xs text-slate-600 mt-1.5 leading-relaxed">{plan.tagline}</p>
-                  <ul className="mt-3 space-y-1 text-xs text-slate-700">
-                    <li className="flex items-center gap-1.5">
-                      <CheckCircle2 className="h-3.5 w-3.5 text-emerald-600" aria-hidden="true" />
-                      <span>Lotes simultáneos ilimitados y {plan.maxUsers} usuarios</span>
-                    </li>
-                    <li className="flex items-center gap-1.5">
-                      <Smartphone className="h-3.5 w-3.5 text-emerald-600" aria-hidden="true" />
-                      <span>Pago con Nequi, Daviplata o PSE sin tarjeta de crédito</span>
-                    </li>
-                  </ul>
-                </div>
-                <Button touchSize="field" variant="secondary" onClick={() => setModalOpen(true)}>
-                  Elegir {plan.name.split(" ")[0]}
-                </Button>
-              </Card>
-            ))}
-          </div>
-
-          <Card className="p-5 space-y-3">
+          <Card className="space-y-3 p-5">
             <div className="flex items-center gap-2">
               <ShieldCheck className="h-4 w-4 text-emerald-700" aria-hidden="true" />
-              <h3 className="text-sm font-bold text-slate-900">Historial de pagos recientes</h3>
+              <h3 className="text-sm font-bold text-slate-900">Cómo se aplican los controles</h3>
             </div>
-            {subscription.recentPayments.length === 0 ? (
-              <p className="text-xs text-slate-500">Aún no hay pagos registrados en esta granja.</p>
-            ) : (
+            <p className="text-sm leading-relaxed text-slate-700">
+              El <strong>rol</strong> de cada persona determina a qué módulos puede acceder. El <strong>plan comercial</strong> establece los cupos de usuarios, localizaciones, lotes activos por especie y uso mensual de Gina. Son controles separados: cambiar el plan no cambia los roles asignados.
+            </p>
+            {subscription.planKey === "aggregator" && (
+              <p className="rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900">
+                La app aún no dispone del padrón de beneficiarios ni de la administración multipredio. El cupo de beneficiarios y Torre de Control requieren esa implementación antes de poder aplicarse.
+              </p>
+            )}
+            <p className="text-xs text-slate-500">
+              Los cupos de Gina están definidos por la oferta. Su registro de consumo depende de que se aplique la actualización de base de datos correspondiente; hasta entonces, esta pantalla muestra los límites del plan y no un contador de consumo.
+            </p>
+          </Card>
+
+          {subscription.recentPayments.length > 0 && (
+            <Card className="space-y-3 p-5">
+              <div className="flex items-center gap-2">
+                <CalendarClock className="h-4 w-4 text-emerald-700" aria-hidden="true" />
+                <h3 className="text-sm font-bold text-slate-900">Historial de pagos</h3>
+              </div>
               <div className="overflow-x-auto">
                 <table className="w-full text-left text-xs">
                   <thead>
                     <tr className="border-b border-slate-200 text-slate-500">
+                      <th className="py-2 pr-3">Fecha</th>
                       <th className="py-2 pr-3">Referencia</th>
-                      <th className="py-2 pr-3">Plan</th>
                       <th className="py-2 pr-3">Método</th>
                       <th className="py-2 pr-3">Valor</th>
                       <th className="py-2">Estado</th>
                     </tr>
                   </thead>
                   <tbody>
-                    {subscription.recentPayments.map((p) => (
-                      <tr key={p.id} className="border-b border-slate-100">
-                        <td className="py-2 pr-3 font-mono">{p.externalReference}</td>
-                        <td className="py-2 pr-3">{p.planCode}</td>
-                        <td className="py-2 pr-3 uppercase">{p.method}</td>
-                        <td className="py-2 pr-3 font-semibold">${p.amountCop.toLocaleString("es-CO")}</td>
-                        <td className="py-2">
-                          <Badge
-                            color={
-                              p.status === "approved"
-                                ? "green"
-                                : p.status === "declined"
-                                  ? "red"
-                                  : "yellow"
-                            }
-                          >
-                            {p.status}
-                          </Badge>
-                        </td>
+                    {subscription.recentPayments.map((payment) => (
+                      <tr key={payment.id} className="border-b border-slate-100">
+                        <td className="py-2 pr-3">{formatDate(payment.createdAt)}</td>
+                        <td className="py-2 pr-3 font-mono">{payment.externalReference}</td>
+                        <td className="py-2 pr-3 uppercase">{payment.method}</td>
+                        <td className="py-2 pr-3 font-semibold">{formatCop(payment.amountCop)}</td>
+                        <td className="py-2"><Badge color={payment.status === "approved" ? "green" : payment.status === "declined" ? "red" : "yellow"}>{payment.status}</Badge></td>
                       </tr>
                     ))}
                   </tbody>
                 </table>
               </div>
-            )}
+            </Card>
+          )}
+
+          <Card className="flex flex-wrap items-center gap-3 border-emerald-200 bg-emerald-50 p-4 text-sm text-emerald-950">
+            <CheckCircle2 className="h-5 w-5 shrink-0 text-emerald-700" aria-hidden="true" />
+            <p className="min-w-0 flex-1">La página de planes permite calcular, guardar y descargar el costo según las opciones elegidas. La contratación y aceptación de condiciones todavía no se hacen desde la app.</p>
+            <Link href="/planes" className="font-semibold underline underline-offset-2">Abrir calculadora de planes</Link>
           </Card>
         </>
-      ) : null}
-
-      <SubscriptionUpgradeModal
-        open={modalOpen}
-        onClose={() => {
-          setModalOpen(false);
-          void refreshBilling();
-        }}
-        plans={plans}
-      />
+      ) : (
+        <Card className="p-6 text-sm text-slate-600">No se encontró una suscripción para esta granja.</Card>
+      )}
     </div>
   );
 }
 
+function QuotaCard({
+  icon,
+  label,
+  value,
+  detail,
+}: {
+  icon: ReactNode;
+  label: string;
+  value: string;
+  detail: string;
+}) {
+  return (
+    <div className="rounded-xl bg-slate-50 p-3.5">
+      <p className="flex items-center gap-1.5 text-xs text-slate-500">{icon}{label}</p>
+      <p className="mt-1 text-base font-bold text-slate-900">{value}</p>
+      <p className="mt-1 text-xs leading-relaxed text-slate-600">{detail}</p>
+    </div>
+  );
+}

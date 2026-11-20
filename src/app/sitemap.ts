@@ -1,7 +1,6 @@
 import type { MetadataRoute } from "next";
 import { BITACORA_ARTICLES } from "@/lib/bitacora-content";
 import { GUIDE_DEFAULT_UPDATED_AT, guides } from "@/lib/guide-data";
-import { CYCLE_PLANS_SHOWCASE } from "@/lib/landing-showcase";
 import { SITE_URL, STATIC_ROUTE_LAST_MODIFIED } from "@/lib/seo";
 
 export default function sitemap(): MetadataRoute.Sitemap {
@@ -13,15 +12,6 @@ export default function sitemap(): MetadataRoute.Sitemap {
     changeFrequency: ["", "/funcionalidades", "/recursos", "/recursos/herramientas", "/recursos/novedades", "/bitacora", "/guia"].includes(route) ? "weekly" : "monthly",
     priority: route === "" ? 1 : ["/registro", "/funcionalidades", "/recursos", "/recursos/herramientas", "/recursos/novedades", "/bitacora", "/guia"].includes(route) ? 0.9 : 0.7,
   }));
-
-  for (const plan of CYCLE_PLANS_SHOWCASE) {
-    entries.push({
-      url: `${SITE_URL}/planes/${plan.slug}`,
-      lastModified: new Date(plan.updatedAt),
-      changeFrequency: "monthly",
-      priority: 0.8,
-    });
-  }
 
   for (const article of BITACORA_ARTICLES) {
     entries.push({

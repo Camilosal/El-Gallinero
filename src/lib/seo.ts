@@ -19,7 +19,7 @@ export const STATIC_ROUTE_LAST_MODIFIED: Record<string, string> = {
   "/ayuda": "2026-11-18",
   "/open-source": "2026-11-18",
   "/realidad-campo": "2026-11-18",
-  "/planes": "2026-11-18",
+  "/planes": "2026-11-19",
   "/nosotros": "2026-11-18",
   "/contacto": "2026-11-18",
   "/bitacora": "2026-11-18",
@@ -300,7 +300,7 @@ export function buildSoftwareNode(): Record<string, unknown> {
       price: "0",
       priceCurrency: "COP",
       description:
-        "Plan Semilla gratuito con 1 lote activo; planes por ciclo de pago con Nequi, Daviplata y PSE",
+        "Calcula el costo del plan Productor o Agregador según usuarios, beneficiarios, plazo y servicios seleccionados",
     },
     creator: { "@id": ENTITY_IDS.organization },
     author: { "@id": ENTITY_IDS.person },

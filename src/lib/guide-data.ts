@@ -2527,14 +2527,14 @@ export const guides: Guide[] = [
   },
   {
     slug: "plan-y-pagos",
-    title: "Plan y pagos: ciclos, Wompi y qué pasa al vencer",
+    title: "Plan, límites de uso y costo",
     module: "configuracion",
     icon: "banknote",
     summary:
-      "Elige el plan de la granja desde el catálogo, paga por ciclo mensual, semestral o anual con Wompi (Nequi, Daviplata, PSE o tarjeta) y conoce la degradación suave a freemium al vencer, sin perder nunca tu historial.",
+      "Consulta los cupos del plan, entiende cómo se diferencian de los roles y calcula el costo del plan con la política comercial vigente.",
     estimatedMinutes: 3,
-    updatedAt: "2026-11-17",
-    tags: ["plan", "suscripcion", "pago", "wompi", "nequi", "daviplata", "pse", "ciclo", "semestral", "anual", "freemium", "vencimiento", "facturacion"],
+    updatedAt: "2026-11-19",
+    tags: ["plan", "suscripcion", "pago", "usuarios", "localizaciones", "lotes", "gina", "freemium", "cupos", "facturacion"],
     relatedHrefs: [
       { href: "/configuracion/plan", label: "Plan y Facturación" },
       { href: "/configuracion", label: "Panel Configuración" },
@@ -2543,41 +2543,41 @@ export const guides: Guide[] = [
     sections: [
       {
         type: "intro",
-        text: "En Configuración → Plan y facturación ves el plan activo de la granja, su fecha de corte y los cupos (usuarios, animales y funcionalidades). El catálogo de planes ofrece ciclos mensual, semestral y anual; los ciclos largos tienen descuento y todos se pagan en pesos colombianos a través de Wompi.",
+        text: "En Configuración → Plan y límites de uso ves el nivel comercial activo y los cupos de usuarios, localizaciones, lotes por especie y Gina. Los roles determinan a qué módulos puede acceder cada persona; el plan determina los cupos y límites de uso de la granja. Calcular el costo de otro plan no cambia los roles.",
       },
       {
         type: "screenshot",
-        title: "Estado del plan y facturación desde configuración",
+        title: "Estado del plan y cupos desde configuración",
         image: "/images/guia/configuracion-panel.webp",
         alt: "Panel de configuración de la granja con acceso a plan, facturación y usuarios",
         caption:
-          "Desde el panel de configuración controlas el plan vigente, el historial de pagos y los cupos de usuarios sin salir de la app.",
-        badge: "Pagos en COP",
+          "Desde configuración revisas el plan vigente y los cupos. El historial conserva pagos anteriores.",
+        badge: "Límites por plan",
         targetHref: "/configuracion/plan",
-        targetLabel: "Ver Plan y Facturación",
+        targetLabel: "Ver Plan y límites",
       },
       {
         type: "steps",
-        title: "Pagar o renovar el plan",
+        title: "Elegir y contratar un plan",
         items: [
-          "Abre Configuración → Plan y facturación y elige el plan y el ciclo (mensual, semestral o anual) que necesita tu operación.",
-          "Paga con Wompi: Nequi, Daviplata, PSE o tarjeta. La app registra la transacción y activa el plan al confirmarse el pago.",
-          "Revisa el historial de pagos y la fecha de corte; puedes cambiar de ciclo en la siguiente renovación.",
-          "Si el plan vence, la granja degrada suavemente a freemium: conservas TODO tu historial y los datos siguen visibles; solo se limitan las funcionalidades y cupos del plan pago hasta que renueves.",
+          "Abre Configuración → Plan y límites para revisar el nivel aplicado y los topes actuales.",
+          "En Planes, elige Mi granja o Agregadores y proyectos. Revisa Gratis, Productor, Agregador y A la medida.",
+          "Para Productor, indica usuarios y duración; revisa el total y las condiciones antes de continuar al pago. La suscripción se activa cuando el proveedor confirma el pago.",
+          "Agregador muestra un cálculo de referencia, pero el alta institucional requiere validar el padrón y los límites de beneficiarios antes de contratar.",
         ],
       },
       {
         type: "warning",
         title: "Importante",
         items: [
-          "Nunca se borra información al vencer un plan: la degradación es reversible y renovar restaura los cupos y módulos del plan.",
+          "El checkout de Productor se habilita cuando Wompi está configurado en el servidor. Agregador requiere implementar el padrón y el control de beneficiarios antes de abrir pagos.",
         ],
       },
       {
         type: "tip",
         title: "Consejo",
         items: [
-          "El ciclo anual conviene cuando la operación ya es estable; el mensual da flexibilidad mientras creces de escala Pequeño a Mediano.",
+          "Los beneficiarios son distintos de las cuentas de usuario. Confirma con IwaGranja cuándo estará habilitada la contratación de Agregador.",
         ],
       },
     ],

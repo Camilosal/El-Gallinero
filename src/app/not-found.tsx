@@ -22,7 +22,7 @@ export default function NotFoundPage() {
           {
             href: "/planes",
             title: "Planes y precios",
-            desc: "Plan gratuito Semilla y ciclos productivos en COP sin cobros automáticos.",
+            desc: "Plan Gratis para iniciar y cálculo de costos Productor o Agregador, sin cobros automáticos.",
           },
           {
             href: "/bitacora",

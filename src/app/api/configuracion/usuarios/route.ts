@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { and, asc, desc, eq } from "drizzle-orm";
+import { and, asc, desc, eq, sql } from "drizzle-orm";
 import { db } from "@/db";
 import { farmSubscriptions, farms, users } from "@/db/schema";
 import { DEFAULT_FARM_ID, getCurrentFarmId } from "@/db/tenant-context";
@@ -7,7 +7,7 @@ import { safeParseJson, withApiHandler } from "@/lib/api-handler";
 import { getSessionUser, hashPassword } from "@/lib/auth";
 import { requirePermission } from "@/lib/rbac-server";
 import { canDelegateRole, ROLE_LABELS, type AppRole } from "@/lib/rbac";
-import { PLAN_CATALOG, resolveMaxUsersFromPlan } from "@/lib/subscription";
+import { getFarmSubscriptionStatus } from "@/lib/subscription";
 
 export const dynamic = "force-dynamic";
 
@@ -35,15 +35,22 @@ async function resolveFarmContext() {
     .limit(1);
 
   const planCode = sub?.planCode || farm?.planCode || "FREEMIUM_SEMILLA";
-  const maxUsers = resolveMaxUsersFromPlan(planCode, sub?.maxUsers);
-  return { farmId, sessionUser, planCode, maxUsers };
+  const subscription = await getFarmSubscriptionStatus(farmId);
+  return {
+    farmId,
+    sessionUser,
+    planCode,
+    planKey: subscription.planKey,
+    planName: subscription.planName,
+    maxUsers: subscription.maxUsers,
+  };
 }
 
 export const GET = withApiHandler(async () => {
   const denied = await requirePermission("users:manage");
   if (denied) return denied;
 
-  const { farmId, planCode, maxUsers } = await resolveFarmContext();
+  const { farmId, planCode, planKey, planName, maxUsers } = await resolveFarmContext();
   const rows = await db
     .select({
       id: users.id,
@@ -60,6 +67,8 @@ export const GET = withApiHandler(async () => {
   return NextResponse.json({
     users: rows,
     planCode,
+    planKey,
+    planName,
     maxUsers,
     activeCount: rows.length,
     roleLabels: ROLE_LABELS,
@@ -93,56 +102,52 @@ export const POST = withApiHandler(async (req: NextRequest) => {
     return NextResponse.json({ error: "Rol inválido" }, { status: 400 });
   }
 
-  const { farmId, planCode, maxUsers, sessionUser } = await resolveFarmContext();
+  const { farmId, planCode, planName, maxUsers, sessionUser } = await resolveFarmContext();
   if (!canDelegateRole(sessionUser?.role, role)) {
     return NextResponse.json({ error: "No puedes asignar un rol con permisos superiores a los tuyos" }, { status: 403 });
   }
-  const currentUsers = await db
-    .select({ id: users.id })
-    .from(users)
-    .where(eq(users.farmId, farmId));
+  const passwordHash = await hashPassword(password);
+  const result = await db.transaction(async (tx) => {
+    await tx.execute(sql`SELECT pg_advisory_xact_lock(hashtext(${`user-seat-limit:${farmId}`}))`);
+    const [countRow] = await tx
+      .select({ count: sql<number>`count(*)::int` })
+      .from(users)
+      .where(eq(users.farmId, farmId));
+    const activeCount = Number(countRow?.count || 0);
+    if (activeCount >= maxUsers) return { limitReached: true as const, activeCount };
 
-  if (currentUsers.length >= maxUsers) {
+    const [created] = await tx
+      .insert(users)
+      .values({ farmId, username, passwordHash, name, role })
+      .onConflictDoNothing({ target: users.username })
+      .returning({
+        id: users.id,
+        farmId: users.farmId,
+        username: users.username,
+        name: users.name,
+        role: users.role,
+        createdAt: users.createdAt,
+      });
+    return created ? { created } : { usernameConflict: true as const };
+  });
+
+  if ("limitReached" in result) {
     return NextResponse.json(
       {
-        error: `Tu plan (${planCode}) permite hasta ${maxUsers} usuarios activos. Actualiza a Comercial Mediano (MEDIANO_MENSUAL) para habilitar hasta 15 usuarios.`,
+        error: `El plan ${planName} permite hasta ${maxUsers} usuario${maxUsers === 1 ? "" : "s"}. Consulta los planes de IwaGranja para ampliar el cupo.`,
         code: "USER_LIMIT_REACHED",
+        planName,
         maxUsers,
-        activeCount: currentUsers.length,
+        activeCount: result.activeCount,
       },
       { status: 403 },
     );
   }
-
-  const [conflict] = await db
-    .select({ id: users.id })
-    .from(users)
-    .where(eq(users.username, username))
-    .limit(1);
-  if (conflict) {
+  if ("usernameConflict" in result) {
     return NextResponse.json({ error: "Ese usuario ya existe en el sistema" }, { status: 409 });
   }
 
-  const passwordHash = await hashPassword(password);
-  const [created] = await db
-    .insert(users)
-    .values({
-      farmId,
-      username,
-      passwordHash,
-      name,
-      role,
-    })
-    .returning({
-      id: users.id,
-      farmId: users.farmId,
-      username: users.username,
-      name: users.name,
-      role: users.role,
-      createdAt: users.createdAt,
-    });
-
-  return NextResponse.json({ user: created }, { status: 201 });
+  return NextResponse.json({ user: result.created }, { status: 201 });
 });
 
 export const PATCH = withApiHandler(async (req: NextRequest) => {

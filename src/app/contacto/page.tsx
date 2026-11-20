@@ -19,7 +19,43 @@ export const metadata: Metadata = buildPageMetadata({
   ogImageAlt: "Canales de contacto y soporte técnico de IwaGranja",
 });
 
-export default function ContactoPage() {
+type ContactSearchParams = Record<string, string | string[] | undefined>;
+
+function firstParam(value: string | string[] | undefined): string {
+  return Array.isArray(value) ? value[0] ?? "" : value ?? "";
+}
+
+export default async function ContactoPage({
+  searchParams,
+}: {
+  searchParams: Promise<ContactSearchParams>;
+}) {
+  const params = await searchParams;
+  const farmId = firstParam(params.farmId).trim();
+  const farmName = firstParam(params.farmName).trim().slice(0, 160);
+  const beneficiaries = Number(firstParam(params.beneficiaries));
+  const months = Number(firstParam(params.months));
+  const amount = Number(firstParam(params.amount));
+  const isOrganizationRenewal =
+    firstParam(params.request) === "organization-renewal" &&
+    /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(farmId);
+  const initialOrganizationRenewal = isOrganizationRenewal
+    ? {
+        farm: farmName,
+        message: [
+          "Solicito renovar el contrato de Organización.",
+          `FarmID: ${farmId}`,
+          Number.isSafeInteger(beneficiaries) && beneficiaries >= 25
+            ? `Tamaño de cohorte solicitado: ${beneficiaries} beneficiarios.`
+            : "",
+          [3, 6, 12].includes(months) ? `Período solicitado: ${months} meses.` : "",
+          Number.isSafeInteger(amount) && amount >= 0
+            ? `Total estimado mostrado: $${new Intl.NumberFormat("es-CO").format(amount)} COP, sujeto a revisión del contrato.`
+            : "",
+        ].filter(Boolean).join("\n"),
+      }
+    : null;
+
   const email = LEGAL.email === PENDING ? "" : LEGAL.email;
   const whatsapp = LEGAL.whatsapp === PENDING ? "" : LEGAL.whatsapp;
   const rawDigits = whatsapp.replace(/\D/g, "");
@@ -85,7 +121,7 @@ export default function ContactoPage() {
           </div>
         </aside>
         <div className="lg:col-span-8">
-          <ContactForm email={email} whatsapp={whatsapp} />
+          <ContactForm email={email} whatsapp={whatsapp} initialOrganizationRenewal={initialOrganizationRenewal} />
         </div>
       </div>
     </PublicPageShell>

@@ -1,16 +1,16 @@
 import { describe, expect, it } from "vitest";
 import { DEFAULT_FARM_ID } from "@/db/tenant-context";
-import { resolveMaxUsersFromPlan } from "@/lib/subscription";
+import { getPlanEntitlements, resolveCommercialPlan } from "@/lib/pricing/entitlements";
 import { canManagePlatformTenants } from "@/lib/superadmin-tenants";
 import { computeIth, evaluateSensorAlert } from "@/lib/sensor-metrics";
 import { suggestCarbonKg } from "@/lib/manure-operations";
 
 describe("Lógica compartida por rutas API", () => {
-  it("resuelve cupos explícitos, planes vigentes, heredados y desconocidos", () => {
-    expect(resolveMaxUsersFromPlan("MEDIANO_MENSUAL", 20)).toBe(20);
-    expect(resolveMaxUsersFromPlan("CICLO_60D", null)).toBe(3);
-    expect(resolveMaxUsersFromPlan("COMERCIAL_MEDIANO", null)).toBe(15);
-    expect(resolveMaxUsersFromPlan("PLAN_DESCONOCIDO", null)).toBe(2);
+  it("resuelve cupos de plan por separado de los roles", () => {
+    expect(getPlanEntitlements(resolveCommercialPlan("MEDIANO_MENSUAL", true), 20).maxUserSeats).toBe(20);
+    expect(getPlanEntitlements(resolveCommercialPlan("CICLO_60D", true), 3).maxUserSeats).toBe(3);
+    expect(getPlanEntitlements(resolveCommercialPlan("COMERCIAL_MEDIANO", true), 15).maxUserSeats).toBe(15);
+    expect(getPlanEntitlements(resolveCommercialPlan("PLAN_DESCONOCIDO", false)).maxUserSeats).toBe(1);
   });
 
   it("limita la gestión global de granjas al tenant base", () => {

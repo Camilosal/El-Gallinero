@@ -5,7 +5,7 @@ import { buildJsonLd, buildPageMetadata, buildSoftwareNode } from "@/lib/seo";
 
 const TITLE = "Crear granja gratis en 3 minutos · IwaGranja";
 const DESCRIPTION =
-  "Crea tu espacio aislado de granja en IwaGranja: 30 días completos y 1 lote gratis permanente, sin tarjeta de crédito y con modo sin señal.";
+  "Crea tu granja con el plan Gratis de IwaGranja: 1 usuario, 1 localización y 1 lote activo por especie, sin tarjeta y con modo sin señal.";
 
 export const metadata: Metadata = buildPageMetadata({
   title: TITLE,

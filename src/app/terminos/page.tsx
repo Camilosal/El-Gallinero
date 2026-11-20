@@ -7,7 +7,7 @@ export const dynamic = "force-dynamic";
 
 const TITLE = "Términos y condiciones de uso · IwaGranja";
 const DESCRIPTION =
-  "Condiciones del servicio de IwaGranja en Colombia: planes en COP con IVA, renovación voluntaria sin cobros automáticos y propiedad de datos.";
+  "Condiciones del servicio de IwaGranja en Colombia: planes en COP, IVA no cobrado, sin cobros automáticos y propiedad de datos.";
 
 export const metadata: Metadata = buildPageMetadata({
   title: TITLE,

@@ -4,7 +4,6 @@ import { describe, expect, it } from "vitest";
 import sitemap from "@/app/sitemap";
 import { BITACORA_ARTICLES } from "@/lib/bitacora-content";
 import { guides } from "@/lib/guide-data";
-import { CYCLE_PLANS_SHOWCASE } from "@/lib/landing-showcase";
 import { buildPageMetadata, resolveOgImageDimensions, STATIC_ROUTE_LAST_MODIFIED } from "@/lib/seo";
 
 function readImageDimensions(relPublicPath: string): { width: number; height: number } {
@@ -28,7 +27,7 @@ describe("SEO-01 y SEO-02 — Sitemap granular y dimensiones OG reales", () => {
   it("sitemap cubre todas las rutas públicas sin duplicados ni rutas privadas", () => {
     const entries = sitemap();
     const expectedCount =
-      Object.keys(STATIC_ROUTE_LAST_MODIFIED).length + CYCLE_PLANS_SHOWCASE.length + BITACORA_ARTICLES.length + guides.length;
+      Object.keys(STATIC_ROUTE_LAST_MODIFIED).length + BITACORA_ARTICLES.length + guides.length;
     expect(entries.length).toBe(expectedCount);
 
     const urls = entries.map((e) => e.url);
@@ -39,6 +38,8 @@ describe("SEO-01 y SEO-02 — Sitemap granular y dimensiones OG reales", () => {
       // F3: ninguna ruta privada de la app (/inicio, /configuracion/*, ...) en el sitemap.
       expect(url).not.toMatch(/\/(inicio|configuracion|exportar|analisis)(\/|$)/);
     }
+    expect(urls).toContain("https://app.iwage.co/planes");
+    expect(urls.some((url) => /\/planes\/(semilla|ciclo-60d|semestral-ponedora|mediano-mensual)$/.test(url))).toBe(false);
 
     const uniqueDates = new Set(
       entries.map((e) =>

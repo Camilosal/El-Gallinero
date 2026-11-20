@@ -6,6 +6,20 @@ import { syncManager } from "@/lib/offline/syncManager";
 export default function PwaRegister() {
   useEffect(() => {
     if ("serviceWorker" in navigator) {
+      if (process.env.NODE_ENV !== "production") {
+        void navigator.serviceWorker.getRegistrations().then((registrations) =>
+          Promise.all(registrations.map((registration) => registration.unregister())),
+        ).catch(() => {});
+        void caches.keys().then((keys) =>
+          Promise.all(
+            keys
+              .filter((key) => key.startsWith("gallinero-"))
+              .map((key) => caches.delete(key)),
+          ),
+        ).catch(() => {});
+        return;
+      }
+
       navigator.serviceWorker
         .register("/sw.js", { updateViaCache: "none" })
         .then((registration) => {

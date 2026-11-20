@@ -5,7 +5,6 @@ import Image from "next/image";
 import {
   ArrowRight,
   BookOpen,
-  Check,
   CheckCircle2,
   ChevronDown,
   Clock,
@@ -27,9 +26,11 @@ import { PublicNavigation } from "@/components/PublicNavigation";
 import ScrollReveal from "@/components/ScrollReveal";
 import { BrandLogo } from "@/components/BrandLogo";
 import { LandingShowcase } from "@/components/LandingShowcase";
+import { LandingSubscriptionPlans } from "@/components/LandingSubscriptionPlans";
 import { LandingFooter } from "@/components/LandingFooter";
 import { ModulesAccordionShowcase } from "@/components/ModulesAccordionShowcase";
-import { SectorStandardsCarousel } from "@/components/SectorStandardsCarousel";
+import { AnimalRadar } from "@/components/landing/AnimalRadar";
+import { ChickenLifecycleAnimation } from "@/components/landing/ChickenLifecycleAnimation";
 import { JsonLd } from "@/components/JsonLd";
 import {
   buildFaqNode,
@@ -41,15 +42,14 @@ import {
 import {
   ADOPTION_HIGHLIGHTS,
   AI_AUTOMATION_PILLARS,
-  CYCLE_PLANS_SHOWCASE,
   EXTRA_LANDING_MODULES,
   LANDING_MODULES,
-  SECTOR_STANDARDS,
   type AdoptionHighlightItem,
 } from "@/lib/landing-showcase";
 import { APP_DEVELOPER } from "@/lib/branding";
 import { PLAN_PROMISES, priceNote } from "@/lib/legal";
 import { FAQS } from "@/lib/legal-content";
+import { getPublicPricingOffer } from "@/lib/pricing/quote";
 
 export const dynamic = "force-dynamic";
 
@@ -92,21 +92,25 @@ const HERO_DOCK_CARDS = [
 const HERO_FRAGMENTS = [
   {
     id: "campo",
+    icon: Egg,
     label: "Captura en galpón",
-    detail: "Huevos NTC 1240, alimento, mortalidad y ventas.",
+    detail: "Huevos por tamaño, alimento, mortalidad y ventas.",
   },
   {
     id: "informativa",
+    icon: TrendingUp,
     label: "Herramienta informativa",
     detail: "Curvas de crecimiento, FCR y alertas biológicas.",
   },
   {
     id: "sanidad",
-    label: "Normativa y retiros",
-    detail: "Calendario ICA, tiempos de retiro y compostaje.",
+    icon: ShieldCheck,
+    label: "Sanidad y bioseguridad",
+    detail: "Registros sanitarios, tiempos de retiro y alertas.",
   },
   {
     id: "utilidad",
+    icon: Wallet,
     label: "Cierre diario",
     detail: "Resumen de caja por especie listo para WhatsApp.",
   },
@@ -138,13 +142,14 @@ const iconDelayStyle = (delaySeconds: number): CSSProperties =>
   ({ ["--icon-delay" as string]: `${delaySeconds}s` }) as CSSProperties;
 
 export default function HomePage() {
+  const pricingOffer = getPublicPricingOffer();
   const jsonLd = buildJsonLd({
     path: "/",
     title: HOME_TITLE,
     description: HOME_DESCRIPTION,
     pageType: "WebPage",
     ogImage: "/images/guia/inicio-dashboard.webp",
-    extraNodes: [buildSoftwareNode(), buildFaqNode(SITE_URL, FAQS.slice(0, 6))],
+    extraNodes: [buildSoftwareNode(), buildFaqNode(SITE_URL, FAQS)],
   });
 
   return (
@@ -214,9 +219,9 @@ export default function HomePage() {
 
               <div className="lg:col-span-6">
                 <a
-                  href="#vitrina"
-                  aria-label="Explorar capturas reales de IwaGranja"
-                  className="block land-browser-frame overflow-hidden rounded-2xl border border-white/15 bg-[var(--paper)] shadow-2xl group"
+                  href="#modulos"
+                  aria-label="Explorar las especies que puedes gestionar en IwaGranja"
+                  className="block land-browser-frame overflow-hidden rounded-2xl border border-white/15 bg-[var(--paper)] shadow-2xl"
                 >
                   <div className="flex items-center justify-between gap-2 px-3.5 py-2.5 border-b border-[var(--line)] bg-[#f4ede0]">
                     <div className="flex items-center gap-1.5" aria-hidden="true">
@@ -225,22 +230,15 @@ export default function HomePage() {
                       <span className="w-2.5 h-2.5 rounded-full bg-[#4f775d]" />
                     </div>
                     <span className="font-mono text-[11px] text-[var(--moss)] truncate">
-                      app.iwage.co/inicio
+                      app.iwage.co/animales
                     </span>
                     <span className="font-mono text-[10px] font-semibold uppercase tracking-wider text-[var(--forest)]">
-                      Vista real
+                      Vista ilustrativa
                     </span>
                   </div>
 
                   <div className="relative bg-white overflow-hidden">
-                    <Image
-                      src="/images/guia/inicio-dashboard.webp"
-                      alt="Pantalla principal real de IwaGranja con tareas de hoy, alertas y accesos rápidos"
-                      width={1280}
-                      height={800}
-                      priority
-                      className="w-full h-auto block group-hover:scale-[1.01] transition-transform duration-300"
-                    />
+                    <AnimalRadar />
                   </div>
                 </a>
               </div>
@@ -279,24 +277,20 @@ export default function HomePage() {
         </header>
 
         <section
-          aria-label="Qué puedes consultar y registrar cada día"
-          className="border-b border-[var(--line)] bg-[var(--paper)] py-5 sm:py-6"
+          aria-label="Herramientas de registro y consulta"
+          className="border-b border-[var(--line)] bg-[var(--paper)] py-4 sm:py-5"
         >
-          <div className="land-wrap grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3.5">
-            {HERO_FRAGMENTS.map((frag) => (
-              <div
-                key={frag.id}
-                className="rounded-xl border border-[var(--line)] bg-[var(--cream)]/60 px-4 py-3"
-              >
-                <p className="font-mono text-[11px] font-semibold uppercase tracking-wider text-[var(--forest)]">
-                  {frag.label}
-                </p>
-                <p className="mt-1 text-xs sm:text-sm text-[var(--ink)] leading-snug">
-                  {frag.detail}
-                </p>
-              </div>
-            ))}
-          </div>
+          <ul className="land-wrap land-floating-facts">
+            {HERO_FRAGMENTS.map((frag) => {
+              const Icon = frag.icon;
+              return (
+                <li key={frag.id} className="land-floating-fact">
+                  <Icon className="h-4 w-4 shrink-0 text-[var(--forest)]" aria-hidden="true" />
+                  <span><strong>{frag.label}:</strong> {frag.detail}</span>
+                </li>
+              );
+            })}
+          </ul>
         </section>
 
         <LandingShowcase />
@@ -426,18 +420,11 @@ export default function HomePage() {
               <div className="lg:col-span-5 space-y-4">
                 <figure className="land-trace-frame overflow-hidden rounded-2xl border border-[var(--line)] bg-[var(--paper)] p-3 shadow-sm">
                   <div className="overflow-hidden rounded-xl border border-[var(--line)] bg-white">
-                    <Image
-                      src="/traceability-flow.png"
-                      alt="Flujo conectado entre nacimientos, galpones, postura, sanidad, alimento y trazabilidad comercial"
-                      width={1200}
-                      height={620}
-                      loading="lazy"
-                      className="w-full h-auto block"
-                    />
+                    <ChickenLifecycleAnimation />
                   </div>
                   <figcaption className="mt-3 text-xs text-[var(--moss)]">
                     <span className="font-medium text-[var(--ink)]">
-                      Trazabilidad de punta a punta entre lotes, bodega y ventas.
+                      Ciclo de crecimiento: nacimiento, etapa productiva y postura.
                     </span>
                   </figcaption>
                 </figure>
@@ -451,7 +438,16 @@ export default function HomePage() {
               </div>
             </div>
 
-            <SectorStandardsCarousel standards={SECTOR_STANDARDS} />
+            <aside className="mt-8 flex flex-col gap-3 rounded-2xl border border-[var(--line)] bg-[var(--paper)] p-5 sm:flex-row sm:items-center sm:justify-between sm:p-6">
+              <div>
+                <p className="font-mono text-[10px] font-bold uppercase tracking-[0.14em] text-[var(--forest)]">Guía para consulta</p>
+                <h3 className="mt-1 font-display text-lg font-bold text-[var(--ink)]">Normas y guías para una granja mixta</h3>
+                <p className="mt-1 max-w-2xl text-sm leading-relaxed text-[var(--moss)]">Revisa qué fuentes oficiales consultar según la especie y cómo distinguir una guía de una obligación o certificación.</p>
+              </div>
+              <Link href="/bitacora/normas-y-guias-granja-mixta" className="inline-flex min-h-10 shrink-0 items-center gap-2 font-semibold text-[var(--forest)] underline underline-offset-4">
+                Leer el artículo <ArrowRight className="h-4 w-4" aria-hidden="true" />
+              </Link>
+            </aside>
           </div>
         </section>
 
@@ -495,80 +491,16 @@ export default function HomePage() {
         >
           <div className="land-wrap">
             <div className="max-w-2xl mb-8">
-              <p className="land-eyebrow">4 · Planes por ciclo productivo</p>
+              <p className="land-eyebrow">4 · Planes y suscripciones</p>
               <h2 id="planes-heading" className="land-h2">
-                Paga por cosecha o usa 1 lote gratis
+                Elige cómo quieres crecer
               </h2>
               <p className="land-section-sub" style={{ marginBottom: 0 }}>
-                Sin tarjeta, sin permanencia y sin cobros automáticos. Eliges el
-                plan cuando tu ciclo lo pida.
+                Dos modalidades: para administrar tu granja o para acompañar una organización y sus proyectos.
               </p>
             </div>
 
-            <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
-              {CYCLE_PLANS_SHOWCASE.map((plan) => (
-                <article
-                  key={plan.id}
-                  className={`land-reveal rounded-2xl border p-4 sm:p-5 flex flex-col justify-between gap-4 ${
-                    plan.featured
-                      ? "border-[var(--forest)] bg-white shadow-sm"
-                      : "border-[var(--line)] bg-[var(--cream)]"
-                  }`}
-                >
-                  <div className="space-y-2.5">
-                    <div className="flex items-center justify-between gap-2">
-                      <span className="font-mono text-[10px] font-bold uppercase tracking-wider text-[var(--forest)]">
-                        {plan.badge}
-                      </span>
-                      <span className="font-mono text-[10px] text-[var(--moss)]">
-                        {plan.durationLabel}
-                      </span>
-                    </div>
-
-                    <div>
-                      <h3 className="font-display text-base sm:text-lg font-bold text-[var(--ink)]">
-                        {plan.name}
-                      </h3>
-                      <p className="font-display text-xl sm:text-2xl font-bold text-[var(--forest)] mt-1">
-                        {plan.priceLabel}
-                      </p>
-                    </div>
-
-                    <p className="text-xs sm:text-sm text-[var(--moss)] leading-relaxed">
-                      {plan.summary}
-                    </p>
-                  </div>
-
-                  <ul className="space-y-1.5 pt-3 border-t border-[var(--line)] text-xs text-[var(--ink)]">
-                    {plan.highlights.map((hl) => (
-                      <li key={hl} className="flex items-start gap-1.5 leading-snug">
-                        <Check className="w-3.5 h-3.5 text-[var(--forest)] shrink-0 mt-0.5" />
-                        <span>{hl}</span>
-                      </li>
-                    ))}
-                  </ul>
-                  <div className="mt-4 space-y-2">
-                    <Link
-                      href="/registro"
-                      className={`w-full inline-flex items-center justify-center gap-2 rounded-full px-4 py-2 text-xs font-semibold transition ${
-                        plan.featured
-                          ? "bg-[var(--forest)] text-white hover:bg-[var(--forest-deep)] shadow-sm"
-                          : "border border-[var(--line)] bg-[var(--paper)] text-[var(--ink)] hover:border-[var(--forest)] hover:bg-white/50"
-                      }`}
-                    >
-                      {plan.featured ? "Empezar ciclo" : "Unirme al plan"}
-                      <ArrowRight className="w-3 h-3" />
-                    </Link>
-                    <Link
-                      href={`/planes/${plan.slug}`}
-                      className="w-full inline-flex items-center justify-center text-xs font-semibold text-[var(--forest)] underline underline-offset-4 hover:text-[var(--forest-deep)] py-1"
-                    >
-                      Ver detalle del plan →
-                    </Link>
-                  </div>
-                </article>
-              ))}
-            </div>
+            <LandingSubscriptionPlans offer={pricingOffer} />
 
             <div className="land-guarantees mt-5 grid grid-cols-1 gap-3 rounded-xl border border-[var(--line)] bg-[var(--cream)] p-4 text-xs sm:text-sm md:grid-cols-2 md:gap-0 md:p-0">
               <div className="flex items-start gap-2.5 md:p-4">
@@ -592,7 +524,7 @@ export default function HomePage() {
                 />
                 <div>
                   <p className="font-semibold text-[var(--ink)]">
-                    Pago único por Nequi, Daviplata o PSE
+                    Período prepago, sin renovación automática
                   </p>
                   <p className="mt-1 text-[var(--moss)] leading-relaxed">
                     {PLAN_PROMISES.noAutoCharge}
@@ -602,7 +534,7 @@ export default function HomePage() {
             </div>
 
             <p className="mt-4 text-xs text-[var(--moss)]">
-              {priceNote()}{" "}
+              {priceNote()} Los costos logísticos extraordinarios se confirman antes de contratar.{" "}
               <Link href="/terminos" className="underline underline-offset-2">
                 Términos y condiciones
               </Link>{" "}
@@ -639,11 +571,10 @@ export default function HomePage() {
             </div>
 
             <div className="grid gap-3 md:grid-cols-2">
-              {FAQS.slice(0, 6).map((faq, idx) => (
+              {FAQS.map((faq) => (
                 <details
                   key={faq.q}
                   className="land-accordion rounded-xl border border-[var(--line)] bg-[var(--paper)]"
-                  open={idx < 2}
                 >
                   <summary className="flex cursor-pointer list-none items-center justify-between gap-3 px-4 py-3.5 text-sm font-semibold text-[var(--ink)] hover:bg-[#f4ede0] rounded-xl transition-colors">
                     <span>{faq.q}</span>
@@ -725,7 +656,7 @@ export default function HomePage() {
               </div>
 
               <p className="mt-3 text-xs text-[#c7cebb]">
-                30 días full · sin tarjeta · historial y exportación siempre disponibles
+                Plan Gratis · 1 usuario · 1 localización · sin tarjeta
               </p>
             </div>
           </div>

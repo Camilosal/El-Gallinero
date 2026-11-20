@@ -26,7 +26,7 @@ services:
     environment:
       DATABASE_URL: postgres://${POSTGRES_USER:-app}:${POSTGRES_PASSWORD:-app}@db:5432/${POSTGRES_DB:-app_db}
       PORT: ${PORT:-3000}
-      AUTO_MIGRATE_ON_BOOT: ${AUTO_MIGRATE_ON_BOOT:-true}
+      AUTO_MIGRATE_ON_BOOT: ${AUTO_MIGRATE_ON_BOOT:-false}
       ADMIN_USERNAME: ${ADMIN_USERNAME:-}
       ADMIN_PASSWORD: ${ADMIN_PASSWORD:-}
       ADMIN_NAME: ${ADMIN_NAME:-}
@@ -108,6 +108,6 @@ services:
       ADMIN_USERNAME: ${ADMIN_USERNAME:-}
       ADMIN_PASSWORD: ${ADMIN_PASSWORD:-}
       ADMIN_NAME: ${ADMIN_NAME:-}
-    command: ["npm", "run", "db:bootstrap"]
+    command: ["npm", "run", "db:migrate"]
 volumes:
   pgdata:

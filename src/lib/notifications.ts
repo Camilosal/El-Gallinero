@@ -388,7 +388,7 @@ export async function notifyNewFarmRegistration(params: {
       text: [
         `Hola ${params.ownerName},`,
         ``,
-        `Tu granja "${params.farmName}" quedó creada en ${LEGAL.marca} con 30 días de prueba completa del plan Semilla.`,
+        `Tu granja "${params.farmName}" quedó creada en ${LEGAL.marca} con el plan Gratis: 1 usuario, 1 localización y hasta 1 lote activo por especie.`,
         ``,
         `Usuario de acceso: ${params.username}`,
         `Código de recuperación de emergencia (guárdalo en un lugar seguro): ${params.recoveryCode}`,

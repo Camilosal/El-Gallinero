@@ -1,0 +1,6 @@
+services:
+  gallinero_app:
+    environment:
+      - AUTO_MIGRATE_ON_BOOT=false
+      - LEGAL_IVA_NOTE=IVA no cobrado
+      - WOMPI_REDIRECT_URL=https://app.iwage.co/configuracion/plan?payment=return

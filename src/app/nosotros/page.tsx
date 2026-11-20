@@ -75,7 +75,7 @@ export default function NosotrosPage() {
               href="/planes"
               className="font-semibold text-emerald-800 underline underline-offset-2"
             >
-              Ver planes por ciclo →
+              Calcular el costo del plan →
             </Link>
             <Link
               href="/bitacora"

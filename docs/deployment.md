@@ -23,14 +23,15 @@ ADMIN_USERNAME='admin' ADMIN_PASSWORD='elige-una-clave-segura-de-12-caracteres' 
 ## Actualización de una instancia existente
 
 1. Haz una copia de seguridad de PostgreSQL antes de desplegar cambios de esquema.
-2. Ejecuta `npm run db:bootstrap` (o `npm run db:migrate && npm run db:seed-config`).
-   - Si la base existente provenía de `drizzle-kit push` o de migraciones previas (`farms`, `users`, `catalogos`, `export_tokens` y `external_data_snapshots` ya existen sin `schema_migrations`), el runner adopta `drizzle/0000_baseline.sql` de forma segura sin intentar recrear tablas y luego aplica `drizzle/0001_roles_constraints_and_rls.sql` y cualquier migración futura de forma idempotente.
-3. En contenedores Docker:
-   - El `docker-compose.yml` de ejemplo habilita `AUTO_MIGRATE_ON_BOOT: "true"` para ejecutar `npm run db:bootstrap` automáticamente al iniciar.
-   - En despliegues con `AUTO_MIGRATE_ON_BOOT=false`, ejecuta explícitamente:
-     ```bash
-     docker compose --profile migrate run --rm migrate
-     ```
+2. En una base existente, ejecuta únicamente `npm run db:migrate`. No ejecutes `db:bootstrap` ni `db:seed-config` como parte de un despliegue normal: pueden incorporar valores iniciales a una granja que ya tiene configuración propia.
+   - Si la base provenía de `drizzle-kit push` o de migraciones previas (`farms`, `users`, `catalogos`, `export_tokens` y `external_data_snapshots` ya existen sin `schema_migrations`), el runner adopta `drizzle/0000_baseline.sql` sin recrear tablas y luego aplica las migraciones pendientes.
+3. En contenedores Docker, deja `AUTO_MIGRATE_ON_BOOT=false` en producción y ejecuta explícitamente:
+   ```bash
+   docker compose --profile migrate run --rm migrate
+   ```
+   El servicio `migrate` ejecuta solo `db:migrate`. Al arrancar, la aplicación no migra ni siembra datos.
+
+Usa `npm run db:bootstrap` solo para crear una instancia nueva o cuando hayas aprobado por separado la incorporación de configuración inicial. El parámetro `AUTO_MIGRATE_ON_BOOT=true` activa ese flujo completo y no debe usarse para desplegar sobre una granja personalizada.
 
 ## Variables de entorno
 

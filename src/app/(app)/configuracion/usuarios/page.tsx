@@ -68,8 +68,8 @@ export default function UsuariosConfiguracionPage() {
   const actorRole = useAppRole();
   const availableRoles = ASSIGNABLE_ROLES.filter((item) => canDelegateRole(actorRole, item.value));
   const [usersList, setUsersList] = useState<FarmUserRow[]>([]);
-  const [maxUsers, setMaxUsers] = useState(2);
-  const [planCode, setPlanCode] = useState("FREEMIUM_SEMILLA");
+  const [maxUsers, setMaxUsers] = useState(1);
+  const [planName, setPlanName] = useState("Gratis");
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
@@ -106,8 +106,8 @@ export default function UsuariosConfiguracionPage() {
         return;
       }
       setUsersList(data.users || []);
-      setMaxUsers(Number(data.maxUsers || 2));
-      setPlanCode(String(data.planCode || "FREEMIUM_SEMILLA"));
+      setMaxUsers(Number(data.maxUsers ?? 1));
+      setPlanName(String(data.planName || "Gratis"));
     } catch {
       setError("Error de conexión cargando usuarios");
     } finally {
@@ -126,8 +126,8 @@ export default function UsuariosConfiguracionPage() {
           return;
         }
         setUsersList(data.users || []);
-        setMaxUsers(Number(data.maxUsers || 2));
-        setPlanCode(String(data.planCode || "FREEMIUM_SEMILLA"));
+        setMaxUsers(Number(data.maxUsers ?? 1));
+        setPlanName(String(data.planName || "Gratis"));
       })
       .catch(() => {
         if (active) setError("Error de conexión cargando usuarios");
@@ -296,7 +296,7 @@ export default function UsuariosConfiguracionPage() {
         description="Asigna accesos por función: operación, sanidad, ventas, finanzas, gerencia o consulta directiva."
         badge={
           <span className="inline-flex items-center gap-1 rounded-full border border-white/25 bg-white/15 px-2.5 py-0.5 text-[11px] font-medium text-emerald-50">
-            Cupo: {usersList.length} / {maxUsers} ({planCode})
+            Cupo: {usersList.length} / {maxUsers} · {planName}
           </span>
         }
         actions={
@@ -351,10 +351,10 @@ export default function UsuariosConfiguracionPage() {
         {limitReached ? (
           <div className="p-4 rounded-xl border border-amber-300 bg-amber-50 text-sm text-amber-950 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
             <div>
-              Has alcanzado el límite de <strong>{maxUsers} usuarios activos</strong> de tu plan actual ({planCode}).
+              Has alcanzado el cupo de <strong>{maxUsers} usuario{maxUsers === 1 ? "" : "s"} activo{maxUsers === 1 ? "" : "s"}</strong> del plan {planName}.
             </div>
             <Link
-              href="/configuracion/plan"
+              href="/planes"
               className="inline-flex items-center justify-center min-h-[48px] px-4 rounded-xl bg-amber-600 text-white font-bold hover:bg-amber-700 shrink-0"
             >
               Ver opciones de plan

@@ -1162,6 +1162,30 @@ export const offlineMutationReceipts = pgTable("offline_mutation_receipts", {
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
+// ─── Consumo mensual idempotente de Gina por persona y granja ───
+export const ginaUsageEvents = pgTable("gina_usage_events", {
+  farmId: farmIdCol(),
+  id: uuid("id").defaultRandom().primaryKey(),
+  userId: uuid("user_id").references(() => users.id, { onDelete: "cascade" }).notNull(),
+  idempotencyKey: varchar("idempotency_key", { length: 120 }).notNull(),
+  requestHash: varchar("request_hash", { length: 64 }).notNull(),
+  cycleStart: date("cycle_start").notNull(),
+  modality: varchar("modality", { length: 20 }).notNull(),
+  messageUnits: integer("message_units").default(1).notNull(),
+  audioUnits: integer("audio_units").default(0).notNull(),
+  attachmentUnits: integer("attachment_units").default(0).notNull(),
+  status: varchar("status", { length: 20 }).default("reserved").notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  consumedAt: timestamp("consumed_at"),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+}, (t) => [
+  uniqueIndex("gina_usage_farm_idempotency_unique_idx").on(t.farmId, t.idempotencyKey),
+  index("gina_usage_user_cycle_idx").on(t.farmId, t.userId, t.cycleStart, t.status),
+  check("gina_usage_modality_valid", sql`${t.modality} IN ('message', 'audio', 'attachment')`),
+  check("gina_usage_status_valid", sql`${t.status} IN ('reserved', 'consumed', 'void')`),
+  check("gina_usage_units_nonnegative", sql`${t.messageUnits} >= 0 AND ${t.audioUnits} >= 0 AND ${t.attachmentUnits} >= 0`),
+]);
+
 // ─── Directorio completo de Clientes y Proveedores ───
 export const contacts = pgTable("contacts", {
   farmId: farmIdCol(),

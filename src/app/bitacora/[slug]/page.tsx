@@ -226,6 +226,23 @@ export default async function BitacoraArticlePage({
           ))}
         </div>
 
+        {article.sources && article.sources.length > 0 && (
+          <section aria-labelledby="fuentes-oficiales" className="rounded-xl border border-slate-200 bg-slate-50 p-5 space-y-3">
+            <h2 id="fuentes-oficiales" className="text-base font-bold text-slate-900">
+              Fuentes oficiales y técnicas
+            </h2>
+            <ul className="grid gap-2 text-sm sm:grid-cols-2">
+              {article.sources.map((source) => (
+                <li key={source.url}>
+                  <a href={source.url} target="_blank" rel="noopener noreferrer" className="font-medium text-emerald-800 underline underline-offset-4 hover:text-emerald-950">
+                    {source.institution}: {source.title} ↗
+                  </a>
+                </li>
+              ))}
+            </ul>
+          </section>
+        )}
+
         <section
           aria-labelledby="lecturas-relacionadas"
           className="rounded-xl border border-slate-200 bg-slate-50 p-5 space-y-3"
@@ -275,7 +292,7 @@ export default async function BitacoraArticlePage({
                 href="/planes"
                 className="text-slate-700 underline underline-offset-4 hover:text-emerald-800"
               >
-                Comparar planes por ciclo productivo en pesos colombianos (COP)
+                Calcular el costo de los planes actuales de IwaGranja en pesos colombianos (COP)
               </Link>
             </li>
           </ul>

@@ -129,7 +129,7 @@ export default function RealidadCampoPage() {
               ¿Tienes otro reto puntual en tu granja?
             </h2>
             <p className="mt-1 text-sm text-[#d6dfd8]">
-              Puedes probar gratis 30 días o contarnos tu caso para priorizarlo en el desarrollo abierto.
+              Puedes crear tu granja con el plan Gratis o contarnos tu caso para priorizarlo en el desarrollo abierto.
             </p>
           </div>
           <div className="flex flex-wrap gap-3 shrink-0">

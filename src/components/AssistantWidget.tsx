@@ -432,7 +432,7 @@ export default function AssistantWidget() {
       const compressed = await compressImageToDataUrl(file);
       const res = await apiFetch("/api/asistente/ocr", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: { "Content-Type": "application/json", "X-Gina-Request-Id": uid("gina-ocr") },
         body: JSON.stringify({
           mode: ocrMode,
           dataUrl: compressed.dataUrl,
@@ -539,7 +539,7 @@ export default function AssistantWidget() {
       try {
         const res = await apiFetch("/api/asistente/chat", {
           method: "POST",
-          headers: { "Content-Type": "application/json" },
+          headers: { "Content-Type": "application/json", "X-Gina-Request-Id": optimistic.id },
           body: JSON.stringify({ conversationId, message: content }),
         });
         const data = await res.json().catch(() => ({}));
@@ -772,7 +772,7 @@ export default function AssistantWidget() {
 
       recorder.onstop = async () => {
         const blob = new Blob(audioChunksRef.current, { type: recorder.mimeType || mimeType || "audio/webm" });
-        const durationSec = Math.max(1, (readNowMs() - recordStartRef.current) / 1000);
+        const durationSec = Math.max(1, Math.ceil((readNowMs() - recordStartRef.current) / 1000));
         stream.getTracks().forEach((t) => t.stop());
         mediaStreamRef.current = null;
         if (blob.size > 0) {

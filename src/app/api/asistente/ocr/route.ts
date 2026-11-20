@@ -1,6 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
 import { safeParseJson, withApiHandler } from "@/lib/api-handler";
+import { createHash } from "node:crypto";
+import { getSessionUser } from "@/lib/auth";
+import { getCurrentFarmId } from "@/db/tenant-context";
 import { getVisionConfig } from "@/lib/agent/config";
+import { getFarmSubscriptionStatus } from "@/lib/subscription";
+import { finishGinaUsage, getGinaQuotaSnapshot, reserveGinaUsage } from "@/lib/pricing/gina-quota";
 import {
   OCR_MODES,
   parseColombianAgroDocument,
@@ -118,6 +123,27 @@ export const POST = withApiHandler(async (req: NextRequest) => {
     );
   }
 
+  const user = await getSessionUser();
+  if (!user) return NextResponse.json({ error: "No autenticado" }, { status: 401 });
+  const farmId = (user as { farmId?: string | null }).farmId || getCurrentFarmId();
+  const subscription = await getFarmSubscriptionStatus(farmId);
+  let reservation: Awaited<ReturnType<typeof reserveGinaUsage>> | null = null;
+  if (dataUrl) {
+    reservation = await reserveGinaUsage({
+      farmId,
+      userId: user.id,
+      entitlements: subscription.entitlements,
+      modality: "attachment",
+      requestId: req.headers.get("x-gina-request-id"),
+      requestFingerprint: createHash("sha256").update(dataUrl).digest("hex"),
+    });
+    if (!reservation.allowed) {
+      const status = reservation.code === "GINA_QUOTA_EXCEEDED" ? 429 : 409;
+      return NextResponse.json({ error: reservation.error, code: reservation.code, quota: reservation.quota }, { status });
+    }
+  }
+
+  try {
   const [{ classifyOcrDocumentWithJev }, { ICA_VETERINARY_VADEMECUM }] = await Promise.all([
     import("@/lib/agent/jev-capabilities"),
     import("@/lib/external-sources/wave2-standards-sanitary-ica"),
@@ -167,6 +193,10 @@ export const POST = withApiHandler(async (req: NextRequest) => {
     }
   }
 
+  if (reservation?.allowed) await finishGinaUsage(reservation.eventId, true);
+  const quota = reservation?.allowed
+    ? await getGinaQuotaSnapshot({ farmId, userId: user.id, entitlements: subscription.entitlements })
+    : null;
   return NextResponse.json({
     ok: true,
     mode,
@@ -174,6 +204,11 @@ export const POST = withApiHandler(async (req: NextRequest) => {
     extractedText: combinedText || fileName || null,
     extracted,
     jevSuggestions,
+    ...(quota ? { ginaQuota: quota } : {}),
   });
+  } catch (error) {
+    if (reservation?.allowed) await finishGinaUsage(reservation.eventId, false).catch(() => undefined);
+    throw error;
+  }
 });
 

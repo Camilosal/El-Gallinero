@@ -357,7 +357,7 @@ const RULE_GUIDANCE_MAP: Record<
   plan_semilla: {
     title: "Límite o alcance del plan actual",
     message:
-      "Algunas capacidades avanzadas o volúmenes mayores requieren actualizar desde el plan Semilla o finalizar la verificación correspondiente.",
+      "Los roles controlan el acceso a módulos; el plan Gratis, Productor o Agregador define los cupos de uso aplicables. Algunas capacidades aún requieren activación progresiva o no están disponibles en la aplicación.",
     guideHref: "/planes",
     guideLabel: "Comparar planes y alcances",
   },
@@ -459,7 +459,7 @@ export async function triageBugReportWithJev(params: {
       rule_plan: {
         type: "noul",
         instructions:
-          "Is the user asking why a feature or quota is locked due to their subscription plan or trial limits?",
+          "Is the user asking why a usage quota is limited by their commercial plan, or why a module is unavailable because of their role or progressive activation?",
       },
       rule_progresivo: {
         type: "noul",

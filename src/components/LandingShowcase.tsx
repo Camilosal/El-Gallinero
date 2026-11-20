@@ -556,6 +556,7 @@ export function LandingShowcase({
 
   const [galleryIndex, setGalleryIndex] = useState(0);
   const [galleryPaused, setGalleryPaused] = useState(false);
+  const [galleryOpen, setGalleryOpen] = useState(false);
   const [galleryAnnouncement, setGalleryAnnouncement] = useState("");
 
   const sectionRef = useRef<HTMLElement>(null);
@@ -676,6 +677,7 @@ export function LandingShowcase({
   useEffect(() => {
     if (
       isHero ||
+      !galleryOpen ||
       galleryPaused ||
       prefersReducedMotion ||
       !inView ||
@@ -689,6 +691,7 @@ export function LandingShowcase({
     return () => window.clearInterval(timer);
   }, [
     isHero,
+    galleryOpen,
     galleryPaused,
     prefersReducedMotion,
     inView,
@@ -1037,22 +1040,26 @@ export function LandingShowcase({
         </div>
 
         {!isHero && (
-          <div
-            role="region"
-            aria-roledescription="carousel"
-            aria-label="Más pantallas del sistema"
-            className="mt-10 pt-8 border-t border-[var(--line)]"
+          <details
+            className="land-gallery-accordion mt-10 border-t border-[var(--line)] pt-6"
+            onToggle={(event) => setGalleryOpen(event.currentTarget.open)}
           >
-            <div className="flex flex-col md:flex-row md:items-end justify-between gap-3 mb-4">
-              <div>
-                <h3 className="font-display text-lg sm:text-xl font-bold text-[var(--ink)]">
-                  Más pantallas del sistema
-                </h3>
-                <p className="text-xs sm:text-sm text-[var(--moss)]">
-                  Galería rotativa: explora las vistas clave o toca cualquiera para ampliarla.
-                </p>
-              </div>
-
+            <summary className="flex cursor-pointer list-none items-center justify-between gap-4 rounded-xl px-1 py-2 text-[var(--ink)]">
+              <span>
+                <span className="block font-display text-lg sm:text-xl font-bold">Más pantallas del sistema</span>
+                <span className="mt-1 block text-xs sm:text-sm text-[var(--moss)]">Explora las vistas clave de IwaGranja cuando quieras ver más.</span>
+              </span>
+              <span className="inline-flex shrink-0 items-center gap-2 rounded-full border border-[var(--line)] bg-[var(--paper)] px-3.5 py-2 text-xs font-semibold text-[var(--forest)]">
+                {galleryOpen ? "Cerrar galería" : `Ver ${SHOWCASE_GALLERY.length} pantallas`}
+                <ChevronDown className="land-gallery-chevron h-4 w-4" aria-hidden="true" />
+              </span>
+            </summary>
+            <div
+              role="region"
+              aria-roledescription="carousel"
+              aria-label="Más pantallas del sistema"
+              className="pt-5"
+            >
               <div className="flex flex-wrap items-center gap-2">
                 <button
                   type="button"
@@ -1100,8 +1107,6 @@ export function LandingShowcase({
                   Probar en vivo →
                 </Link>
               </div>
-            </div>
-
             <div
               ref={galleryTrackRef}
               tabIndex={0}
@@ -1182,7 +1187,8 @@ export function LandingShowcase({
                 />
               ))}
             </nav>
-          </div>
+            </div>
+          </details>
         )}
       </div>
 
