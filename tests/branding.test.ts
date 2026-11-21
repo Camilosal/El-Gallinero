@@ -46,11 +46,11 @@ describe("marca y atribución de desarrollo en producción", () => {
     expect(sizeOf("public/logo-iwagranja-mark.webp")).toBeLessThan(40_000);
     expect(sizeOf("public/icon-192.png")).toBeLessThan(40_000);
 
-    // Cabeceras web/app usan horizontal; pie/sidebar usan cuadrado y FarmID vive en footer de sidebar
-    expect(read("src/app/page.tsx")).toContain('variant="horizontal"');
-    expect(read("src/components/LegalPage.tsx")).toContain('variant="horizontal"');
+    // Cabeceras web/app usan horizontal; el hero público usa el emblema y pie/sidebar usan cuadrado.
+    expect(read("src/components/PublicNavigation.tsx")).toContain('variant="horizontal"');
     expect(read("src/components/guide/GuideShell.tsx")).toContain('variant="horizontal"');
     expect(read("src/components/Sidebar.tsx")).toContain('variant="horizontal"');
+    expect(read("src/app/page.tsx")).toContain('variant="mark"');
     expect(read("src/components/LandingFooter.tsx")).toContain('variant="square"');
     expect(read("src/app/login/page.tsx")).toContain('variant="square"');
     expect(read("src/app/registro/page.tsx")).toContain('variant="square"');
@@ -62,7 +62,7 @@ describe("marca y atribución de desarrollo en producción", () => {
       "src/app/page.tsx",
       "src/components/LandingFooter.tsx",
       "src/components/MobileNav.tsx",
-      "src/components/LegalPage.tsx",
+      "src/components/PublicNavigation.tsx",
       "src/components/LegalFooter.tsx",
       "src/components/Sidebar.tsx",
       "src/components/DeveloperCredit.tsx",
