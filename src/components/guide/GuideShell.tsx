@@ -17,6 +17,7 @@ import { AppIcon } from "@/components/AppIcon";
 import { BrandLogo } from "@/components/BrandLogo";
 import { GuideSearchModal } from "@/components/guide/GuideSearchModal";
 import { DeveloperCredit } from "@/components/DeveloperCredit";
+import { LegalLinksBar } from "@/components/LegalLinksBar";
 import { PublicNavigation } from "@/components/PublicNavigation";
 import { guideModules, guides } from "@/lib/guide-data";
 
@@ -300,8 +301,9 @@ export function GuideShell({ children, basePath, isStandalone }: GuideShellProps
 
         <main className="min-w-0 flex-1 px-4 py-6 sm:px-8 sm:py-8">
           {children}
-          <footer className="mt-10 border-t border-[var(--iw-semantic-border-default)] pt-4">
+          <footer className="mt-10 border-t border-[var(--iw-semantic-border-default)] pt-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <DeveloperCredit variant="inline" showAppName />
+            <LegalLinksBar className="justify-start sm:justify-end" />
           </footer>
         </main>
       </div>
