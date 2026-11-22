@@ -3,6 +3,7 @@ import { withApiHandler, safeParseJson } from "@/lib/api-handler";
 import { getSessionUser } from "@/lib/auth";
 import { getCurrentFarmId } from "@/db/tenant-context";
 import { isValidKpiPresetId } from "@/lib/kpi-dashboard";
+import { learnFromKpiDashboardConfigAction } from "@/lib/agent/ui-memory-bridge";
 import {
   readUserKpiDashboardConfig,
   writeUserKpiDashboardConfig,
@@ -53,6 +54,11 @@ export const PUT = withApiHandler(async (req: NextRequest) => {
     },
     seedFarmDefault: body.seedFarmDefault === true,
   });
+
+  await learnFromKpiDashboardConfigAction({
+    userId: user.id,
+    config: saved.config,
+  }).catch(() => null);
 
   return NextResponse.json({
     ok: true,

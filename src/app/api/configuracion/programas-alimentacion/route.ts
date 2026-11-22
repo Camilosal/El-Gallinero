@@ -5,6 +5,7 @@ import { findBlockedFeeds, findMissingFeeds, recomputeStagePercentages } from "@
 import { NextRequest, NextResponse } from "next/server";
 import { requirePermission } from "@/lib/rbac-server";
 import { withApiHandler, safeParseJson } from "@/lib/api-handler";
+import { learnFromFeedingProgramAction } from "@/lib/agent/ui-memory-bridge";
 
 export const dynamic = "force-dynamic";
 
@@ -78,9 +79,12 @@ export const POST = withApiHandler(async (req: NextRequest) => {
       { status: 400 },
     );
   }
-  const [stage] = await db.select({ id: catalogos.id }).from(catalogos)
+  const [stage] = await db.select({ id: catalogos.id, value: catalogos.value }).from(catalogos)
     .where(and(eq(catalogos.id, data.stageCatalogoId), eq(catalogos.category, "etapa_crecimiento")));
   if (!stage) return NextResponse.json({ error: "Etapa no encontrada" }, { status: 404 });
+
+  const [feedMeta] = await db.select({ name: feedInventory.name, unit: feedInventory.unit })
+    .from(feedInventory).where(eq(feedInventory.id, data.feedId));
 
   const created = await db.transaction(async (tx) => {
     const [row] = await tx.insert(feedPrograms).values(data).returning();
@@ -88,6 +92,13 @@ export const POST = withApiHandler(async (req: NextRequest) => {
     const [fresh] = await tx.select().from(feedPrograms).where(eq(feedPrograms.id, row.id));
     return fresh;
   });
+  await learnFromFeedingProgramAction({
+    stageName: stage.value,
+    feedName: feedMeta?.name || data.feedId,
+    feedUnit: feedMeta?.unit,
+    percentage: Number(created?.percentage ?? data.percentage),
+    dailyAmountPerHen: Number(created?.dailyAmountPerHen ?? data.dailyAmountPerHen),
+  }).catch(() => null);
   return NextResponse.json(created, { status: 201 });
 });
 
@@ -129,6 +140,17 @@ export const PUT = withApiHandler(async (req: NextRequest) => {
   });
 
   if (!updated) return NextResponse.json({ error: "No encontrado" }, { status: 404 });
+  const [[stageMeta], [feedMeta]] = await Promise.all([
+    db.select({ value: catalogos.value }).from(catalogos).where(eq(catalogos.id, updated.stageCatalogoId)),
+    db.select({ name: feedInventory.name, unit: feedInventory.unit }).from(feedInventory).where(eq(feedInventory.id, updated.feedId)),
+  ]);
+  await learnFromFeedingProgramAction({
+    stageName: stageMeta?.value || updated.stageCatalogoId,
+    feedName: feedMeta?.name || updated.feedId,
+    feedUnit: feedMeta?.unit,
+    percentage: Number(updated.percentage),
+    dailyAmountPerHen: Number(updated.dailyAmountPerHen),
+  }).catch(() => null);
   return NextResponse.json(updated);
 });
 

@@ -1,4 +1,5 @@
 import { normalizeFeedingSpecies } from "@/lib/species";
+import { learnFromFeedMovementAction } from "@/lib/agent/ui-memory-bridge";
 import { db } from "@/db";
 import { feedMovements, feedInventory, transactions, catalogos, farmLocations } from "@/db/schema";
 import { eq, desc, sql } from "drizzle-orm";
@@ -59,12 +60,14 @@ export const POST = withApiHandler(async (req: NextRequest) => {
   }
   if (typeof body.isEntry !== "boolean") return NextResponse.json({ error: "Tipo de movimiento inválido" }, { status: 400 });
   if (!body.isEntry && !body.locationId) return NextResponse.json({ error: "Selecciona el lugar al que se suministró el alimento" }, { status: 400 });
+  let resolvedLocationName: string | null = null;
   if (body.locationId) {
-    const [location] = await db.select({ id: farmLocations.id, status: farmLocations.status, operationalStatus: farmLocations.operationalStatus })
+    const [location] = await db.select({ id: farmLocations.id, name: farmLocations.name, status: farmLocations.status, operationalStatus: farmLocations.operationalStatus })
       .from(farmLocations).where(eq(farmLocations.id, String(body.locationId)));
     if (!location || location.status !== "activa" || (!body.isEntry && ["restringida", "fuera_servicio"].includes(location.operationalStatus))) {
       return NextResponse.json({ error: "Selecciona un lugar activo y disponible" }, { status: 400 });
     }
+    resolvedLocationName = location.name;
   }
   if (typeof body.date !== "string" || !/^\d{4}-\d{2}-\d{2}$/.test(body.date) || Number.isNaN(new Date(`${body.date}T00:00:00.000Z`).getTime()) || new Date(`${body.date}T00:00:00.000Z`).toISOString().slice(0, 10) !== body.date) {
     return NextResponse.json({ error: "Fecha inválida" }, { status: 400 });
@@ -131,10 +134,20 @@ export const POST = withApiHandler(async (req: NextRequest) => {
       });
     }
 
-    return inserted;
+    return { inserted, feedName: feed.name, feedUnit: feed.unit, feedCost: feed.costPerUnit };
   });
 
-  return NextResponse.json(created, { status: 201 });
+  await learnFromFeedMovementAction({
+    feedName: created.feedName,
+    unit: created.feedUnit,
+    quantity: qty,
+    isEntry: body.isEntry,
+    movementType: created.inserted.movementType,
+    locationName: resolvedLocationName,
+    unitCost: created.feedCost,
+  }).catch(() => null);
+
+  return NextResponse.json(created.inserted, { status: 201 });
 });
 
 export const DELETE = withApiHandler(async (req: NextRequest) => {
