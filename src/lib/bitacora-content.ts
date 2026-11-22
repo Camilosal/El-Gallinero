@@ -420,7 +420,12 @@ export const BITACORA_ARTICLES: BitacoraArticle[] = [
     topics: ["normativa", "ica", "bienestar-animal", "granja-mixta", "trazabilidad"],
     species: ["gallina", "pollo", "codorniz", "pato", "conejo", "cuy"],
     relatedSlugs: ["tiempos-de-retiro-medicamentos-veterinarios", "clasificacion-de-huevo-ntc-1240", "compostaje-de-gallinaza"],
-    relatedNormIds: [],
+    relatedNormIds: [
+      "norm-ica-3651-3652",
+      "norm-bienestar-205-8452",
+      "norm-invima-pramsac-gsmi",
+      "norm-ntc-1240",
+    ],
     relatedGuideSlug: "control-sanitario",
     summary: "En una finca con varias especies no se debe asumir que una sola resolución o certificación aplica por igual a todos los animales. Esta guía organiza referencias oficiales para saber dónde consultar y qué confirmar antes de tomar decisiones.",
     realFarmData: {

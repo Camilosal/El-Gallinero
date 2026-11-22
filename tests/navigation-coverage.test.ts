@@ -90,7 +90,7 @@ describe("E1 · Cobertura total de páginas en menús y buscador", () => {
 
   it("el menú de la app consume filterNavigationGroups(flags), nunca la lista cruda con flags", () => {
     const sidebar = readRepoFile("src/components/Sidebar.tsx");
-    expect(sidebar).toContain("filterNavigationGroups(flags)");
+    expect(sidebar).toContain("filterNavigationGroups(flags, role)");
     const search = readRepoFile("src/components/GlobalSearch.tsx");
     expect(search).toContain("searchNavigation(query, 12, flags)");
     expect(search).toContain("lockedByFlag");

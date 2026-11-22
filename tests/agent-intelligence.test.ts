@@ -571,6 +571,7 @@ describe("configuración multimodal Gemini para Visión OCR y STT", () => {
 
       const form = new FormData();
       form.append("audio", new Blob(["fake-opus"], { type: "audio/webm;codecs=opus" }), "nota.webm");
+      form.append("durationSec", "3");
       const req = new Request("http://localhost/api/asistente/transcribir", { method: "POST", body: form }) as any;
       const res = await transcribirPOST(req);
       expect(res.status).toBe(200);

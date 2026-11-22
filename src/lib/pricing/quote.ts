@@ -40,6 +40,13 @@ type QuoteInput =
 
 const ALLOWED_PRODUCER_TERMS = [3, 6, 12, 18] as const;
 const ALLOWED_AGGREGATOR_TERMS = [3, 6, 12] as const;
+
+/** Plazos publicados en la política comercial vigente para cada segmento. */
+export function isSupportedPricingTerm(segment: PricingSegment, months: number): boolean {
+  if (!Number.isSafeInteger(months)) return false;
+  const allowedTerms: readonly number[] = segment === "producer" ? ALLOWED_PRODUCER_TERMS : ALLOWED_AGGREGATOR_TERMS;
+  return allowedTerms.includes(months);
+}
 const MAX_AGGREGATOR_ESTIMATE_BENEFICIARIES = policy.interface_limits.max_aggregator_estimate_beneficiaries;
 const MAX_EXTRA_PLATES = policy.interface_limits.max_extra_plates_per_quote;
 const MAX_EXTRA_TRAINING_PACKAGES = policy.interface_limits.max_extra_training_packages;

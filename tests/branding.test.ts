@@ -55,8 +55,9 @@ describe("marca y atribución de desarrollo en producción", () => {
     expect(read("src/app/login/page.tsx")).toContain('variant="square"');
     expect(read("src/app/registro/page.tsx")).toContain('variant="square"');
 
-    const sidebarSrc = read("src/components/Sidebar.tsx");
-    expect(sidebarSrc.indexOf("sidebar-farm-id")).toBeGreaterThan(sidebarSrc.indexOf("Footer:"));
+    const inicioSrc = read("src/app/(app)/inicio/page.tsx");
+    expect(inicioSrc).toContain("FarmID:");
+    expect(inicioSrc).toContain("Copiar FarmID");
 
     for (const surface of [
       "src/app/page.tsx",

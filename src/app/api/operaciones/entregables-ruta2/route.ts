@@ -73,7 +73,13 @@ export const GET = withApiHandler(async (req: NextRequest) => {
 
   const sessionUser = await getSessionUser();
   const normalizedRole = normalizeRole(sessionUser?.role);
-  if (!canPerformAction(normalizedRole, "operations:manage") && normalizedRole !== "veterinario") {
+  const canManageDeliverables =
+    canPerformAction(normalizedRole, "operations:manage") || normalizedRole === "veterinario";
+  // La guía rápida de galpón es un documento operativo de consulta en campo:
+  // el operario debe poder descargarla sin acceso a actas, mapas o POE.
+  const canReadBarnGuide =
+    tipo === "guia-galpon" && canPerformAction(normalizedRole, "inventory:read");
+  if (!canManageDeliverables && !canReadBarnGuide) {
     return forbiddenResponse("Solo propietario, gerente o veterinario pueden generar entregables de implementación.");
   }
 

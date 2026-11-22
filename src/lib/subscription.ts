@@ -5,6 +5,7 @@ import { billingPayments, broilerBatches, farmLocations, farmSubscriptions, farm
 import { DEFAULT_FARM_ID, getCurrentFarmId, runWithFarmContext } from "@/db/tenant-context";
 import { notifyPaymentApproved } from "@/lib/notifications";
 import { getPlanEntitlements, resolveCommercialPlan } from "@/lib/pricing/entitlements";
+import { isSupportedPricingTerm } from "@/lib/pricing/quote";
 import type { PricingPlanKey } from "@/lib/pricing/types";
 
 export type BillingPlanCode =
@@ -444,8 +445,7 @@ function getProductorPurchaseSnapshot(rawPayload: Record<string, unknown> | null
     (quoteData.users as number) < 1 ||
     typeof quoteData.periodMonths !== "number" ||
     !Number.isSafeInteger(quoteData.periodMonths) ||
-    (quoteData.periodMonths as number) < 1 ||
-    (quoteData.periodMonths as number) > 12 ||
+    !isSupportedPricingTerm("producer", quoteData.periodMonths as number) ||
     typeof quoteData.totalBeforeLogisticsAndTaxCop !== "number" ||
     !Number.isSafeInteger(quoteData.totalBeforeLogisticsAndTaxCop) ||
     (quoteData.totalBeforeLogisticsAndTaxCop as number) <= 0

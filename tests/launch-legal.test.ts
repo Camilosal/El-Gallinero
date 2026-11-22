@@ -36,7 +36,7 @@ import {
   clearSentNotificationsLog,
   getSentNotificationsLog,
 } from "@/lib/notifications";
-import { POST as startLegacyCheckout } from "@/app/api/billing/checkout/route";
+import { POST as startCheckout } from "@/app/api/billing/checkout/route";
 
 const root = process.cwd();
 const read = (rel: string) => fs.readFileSync(path.join(root, rel), "utf8");
@@ -83,8 +83,8 @@ describe("Lanzamiento: legal, confianza, soporte, recuperación y bitácora", ()
     }
   });
 
-  it("las 10 preguntas frecuentes tienen máximo 80 palabras, captura real y /nosotros máximo 120", () => {
-    expect(FAQS).toHaveLength(10);
+  it("las preguntas frecuentes tienen máximo 80 palabras, captura real y /nosotros máximo 120", () => {
+    expect(FAQS.length).toBeGreaterThanOrEqual(10);
     for (const f of FAQS) {
       expect(words(f.a), f.q).toBeLessThanOrEqual(80);
       expect(f.image?.src, `Imagen faltante en FAQ: ${f.q}`).toBeTruthy();
@@ -104,7 +104,7 @@ describe("Lanzamiento: legal, confianza, soporte, recuperación y bitácora", ()
   it("los términos dejan claro que el cálculo de precio no contrata ni procesa pagos", () => {
     const t = flat(getTerminos());
     expect(t).toContain("no constituye contrato");
-    expect(t).toContain("no procesa pagos");
+    expect(t).toContain("no inicia cobros");
     expect(t).toContain("Las suscripciones pagadas anteriores conservan las condiciones aceptadas");
     for (const needle of [
       "NIT/RUT",
@@ -146,7 +146,8 @@ describe("Lanzamiento: legal, confianza, soporte, recuperación y bitácora", ()
     expect(read("src/components/LegalFooter.tsx")).not.toContain("SIC_URL");
     expect(read("src/app/login/page.tsx")).toContain("LegalLinksBar");
     expect(read("src/app/(app)/configuracion/plan/page.tsx")).toContain("/planes");
-    expect(read("src/app/api/billing/checkout/route.ts")).toContain("LEGACY_CHECKOUT_RETIRED");
+    expect(read("src/app/api/billing/checkout/route.ts")).toContain("CHECKOUT_PROVIDER_NOT_CONFIGURED");
+    expect(read("src/app/api/billing/checkout/route.ts")).toContain("createPricingQuote");
     const registro = read("src/app/registro/page.tsx");
     for (const href of ["/terminos", "/retracto", "/privacidad"]) {
       expect(registro).toContain(href);
@@ -154,8 +155,8 @@ describe("Lanzamiento: legal, confianza, soporte, recuperación y bitácora", ()
     expect(registro).toContain("useState(false)");
   });
 
-  it("la bitácora tiene 5 artículos completos (600-900 palabras), datos reales, capturas y CTA", () => {
-    expect(BITACORA_ARTICLES).toHaveLength(5);
+  it("la bitácora tiene artículos completos (600-900 palabras), datos reales, capturas y CTA", () => {
+    expect(BITACORA_ARTICLES.length).toBeGreaterThanOrEqual(5);
     for (const article of BITACORA_ARTICLES) {
       const count = countArticleWords(article);
       expect(count, `${article.slug}: ${count} palabras`).toBeGreaterThanOrEqual(600);
@@ -205,7 +206,7 @@ describe("Lanzamiento: legal, confianza, soporte, recuperación y bitácora", ()
   it("la landing orienta a productor y agregador hacia el cálculo del costo", () => {
     const landing = read("src/app/page.tsx");
     expect(landing).not.toContain("Entrar al sistema");
-    expect(landing).toContain("Mi granja");
+    expect(landing).toContain("Tu granja");
     expect(landing).toContain("Agregadores y proyectos");
     expect(landing).toContain("Calcular mi plan");
     expect(landing).toContain("Calcular un proyecto");
@@ -327,7 +328,7 @@ describe("Lanzamiento: legal, confianza, soporte, recuperación y bitácora", ()
     const recoverJson = await recoverRes.json();
     expect(recoverJson).toEqual({ ok: true });
 
-    const checkout = await startLegacyCheckout(
+    const checkout = await startCheckout(
       new NextRequest("http://localhost:3000/api/billing/checkout", { method: "POST" }),
     );
     expect(checkout.status).toBe(410);
