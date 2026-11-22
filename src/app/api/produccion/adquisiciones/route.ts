@@ -327,6 +327,7 @@ export const POST = withApiHandler(async (req: NextRequest) => {
     }
 
     if (!isNoCostAcquisition(acquisitionType) && totalCost != null) {
+      const bioCode = birdType === "gallina" ? "CST-269" : birdType === "gallo" ? "CST-271" : "CST-270";
       await tx.insert(transactions).values({
         date,
         type: "egreso",
@@ -341,6 +342,11 @@ export const POST = withApiHandler(async (req: NextRequest) => {
         sourceId: acquisition.id,
         species: acquisition.species ?? null,
         locationId: destination.id,
+        expenseCatalogId: bioCode,
+        expenseFamily: "23 Activo biológico",
+        expenseConcept: bioCode === "CST-269" ? "Compra inicial de gallinas o pollitas" : bioCode === "CST-271" ? "Compra de reproductores" : "Compra de pollitos para crianza",
+        expenseTreatment: "BIOLOGICO",
+        expenseDriver: "EVENTO",
         notes: notes || null,
       });
     }

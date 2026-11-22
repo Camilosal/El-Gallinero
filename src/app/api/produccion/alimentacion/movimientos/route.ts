@@ -7,6 +7,7 @@ import { runFeedProgramCatchup } from "@/lib/feeding/runProgram";
 import { withApiHandler, safeParseJson } from "@/lib/api-handler";
 import { deleteFeedMovementAndReverseStock } from "@/lib/financial-records";
 import { isPurchasedFeedCategory } from "@/lib/feed-classification";
+import { resolveExpenseClassification } from "@/lib/finance/standard-expense-catalog";
 
 export const dynamic = "force-dynamic";
 
@@ -116,6 +117,12 @@ export const POST = withApiHandler(async (req: NextRequest) => {
     // Purchased (suplementario) feed entry registers an expense in finances
     if (body.isEntry && isPurchasedFeedCategory(feed.category) && Number(feed.costPerUnit) > 0) {
       const amount = (qty * Number(feed.costPerUnit)).toFixed(2);
+      const resolvedFeedTx = resolveExpenseClassification({
+        type: "egreso",
+        category: "Compra de alimento",
+        sourceType: "alimento",
+        description: `Compra de ${body.quantity} ${feed.unit} de ${feed.name}`,
+      });
       await tx.insert(transactions).values({
         date: body.date,
         type: "egreso",
@@ -128,6 +135,11 @@ export const POST = withApiHandler(async (req: NextRequest) => {
         counterparty: feed.supplier || null,
         sourceType: "alimento",
         sourceId: inserted.id,
+        expenseCatalogId: resolvedFeedTx.expenseCatalogId,
+        expenseFamily: resolvedFeedTx.expenseFamily,
+        expenseConcept: resolvedFeedTx.expenseConcept,
+        expenseTreatment: resolvedFeedTx.expenseTreatment,
+        expenseDriver: resolvedFeedTx.expenseDriver,
       });
     }
 

@@ -6,6 +6,9 @@ import { searchFarmKnowledge } from "./knowledge";
 import { jevRerankCandidates } from "./jev-routing";
 import { searchNavigation } from "@/lib/navigation";
 import { FEATURE_FLAG_CATALOG } from "@/lib/onboarding";
+import { FEED_CATALOG_GROUPS, FEED_CURRENT_CATEGORIES, FEED_CURRENT_TYPES } from "@/lib/feed-classification";
+import { findStandardFeedById } from "@/lib/feeding/standard-feed-catalog";
+import { STANDARD_EXPENSE_FAMILIES } from "@/lib/finance/standard-expense-catalog";
 
 /**
  * Herramientas del asistente.
@@ -1703,7 +1706,11 @@ const registrarVentaGallinaza: AgentTool = {
 function prepareFinanceTool(type: "ingreso" | "egreso") {
   return async (args: Record<string, any>): Promise<PreparedWrite> => {
     const date = normalizeDate(args.fecha);
-    const category = String(args.categoria || (type === "egreso" ? "Otros gastos" : "Otros ingresos")).trim();
+    const expenseCatalogId = args.codigo_concepto ? String(args.codigo_concepto).trim().toUpperCase() : null;
+    const expenseFamily = args.familia ? String(args.familia).trim() : null;
+    const category = String(
+      args.categoria || expenseFamily || (type === "egreso" ? "Otro egreso" : "Otro ingreso"),
+    ).trim();
     const description = String(args.descripcion || "").trim();
     if (!description) throw new Error("Indica la descripción del movimiento");
 
@@ -1721,6 +1728,8 @@ function prepareFinanceTool(type: "ingreso" | "egreso") {
         date,
         type,
         category,
+        ...(type === "egreso" && expenseCatalogId ? { expenseCatalogId } : {}),
+        ...(type === "egreso" && expenseFamily ? { expenseFamily } : {}),
         description,
         amount: amount.toFixed(2),
         quantity: args.cantidad ? Number(args.cantidad) : null,
@@ -1731,16 +1740,24 @@ function prepareFinanceTool(type: "ingreso" | "egreso") {
         isCredit: args.credito === true,
         dueDate: args.fecha_vencimiento ? normalizeDate(args.fecha_vencimiento) : null,
       },
-      summary: `Registrar ${type === "egreso" ? "gasto" : "ingreso"} de ${formatCop(amount)} en ${category}: ${description}${args.contraparte ? ` (${args.contraparte})` : ""} el ${formatDateEs(date)}.`,
+      summary: `Registrar ${type === "egreso" ? "gasto" : "ingreso"} de ${formatCop(amount)} en ${expenseCatalogId ? `${expenseCatalogId} · ${category}` : category}: ${description}${args.contraparte ? ` (${args.contraparte})` : ""} el ${formatDateEs(date)}.`,
     };
   };
 }
+
+const EXPENSE_FAMILY_ENUM = STANDARD_EXPENSE_FAMILIES.map((f) => f.name);
 
 const financeParameters = {
   type: "object",
   properties: {
     fecha: { type: "string", description: "Fecha AAAA-MM-DD. Por defecto hoy." },
-    categoria: { type: "string", description: "Categoría del movimiento." },
+    categoria: { type: "string", description: "Categoría o Familia del movimiento (ej: '01 Sanidad preventiva', '08 Clasificación y empaque')." },
+    codigo_concepto: { type: "string", description: "Opcional (egresos): Código estándar del Catálogo de Egresos (CST-001..CST-303)." },
+    familia: {
+      type: "string",
+      enum: EXPENSE_FAMILY_ENUM,
+      description: "Opcional (egresos): Familia / centro estándar (01..26) del Catálogo Maestro de Egresos.",
+    },
     descripcion: { type: "string", description: "Descripción del movimiento." },
     monto: { type: "number", minimum: 0.01, description: "Monto total en COP. Alternativa a cantidad × precio_unitario." },
     cantidad: { type: "number", minimum: 0.01 },
@@ -3471,22 +3488,15 @@ const gestionarAlimento: AgentTool = {
     properties: {
       accion: { type: "string", enum: ["crear", "actualizar"] },
       nombre: { type: "string" },
-      categoria: { type: "string", enum: ["Concentrado", "En Fresco", "Preparados"] },
+      categoria: { type: "string", enum: [...FEED_CURRENT_CATEGORIES] },
       tipo_alimento: {
         type: "string",
-        enum: [
-          "Concentrado Aves",
-          "Concentrado Codorniz",
-          "Concentrado Conejos",
-          "Forraje Verde",
-          "Maiz en Grano",
-          "Maíz Germinado",
-          "Bore o Raices",
-          "Mosca Soldado",
-          "Pastos y gramíneas",
-          "Purinas",
-          "Otro",
-        ],
+        enum: [...FEED_CURRENT_TYPES],
+      },
+      grupo_catalogo: {
+        type: "string",
+        enum: [...FEED_CATALOG_GROUPS],
+        description: "Grupo oficial de Catalogo Alimentos.csv (Balanceados, Cereales y semillas, Hojas y forrajes, etc.).",
       },
       unidad: { type: "string", description: "kg, lb o litros (por defecto kg)." },
       stock_actual: { type: "number", minimum: 0 },
@@ -3516,12 +3526,15 @@ const gestionarAlimento: AgentTool = {
       throw new Error(`No encontré un alimento llamado "${args.nombre}" para actualizar.`);
     }
 
+    const stdFeed = args.codigo_estandar ? findStandardFeedById(String(args.codigo_estandar)) : null;
+
     if (isUpdate && existing) {
       const payload = {
         id: existing.id,
         name: String(args.nombre).trim(),
-        category: args.categoria || existing.category,
-        feedType: args.tipo_alimento || existing.feedType,
+        category: args.categoria || stdFeed?.defaultCategory || existing.category,
+        feedType: args.tipo_alimento || stdFeed?.defaultFeedType || existing.feedType,
+        ...(args.grupo_catalogo || stdFeed?.group ? { catalogGroup: args.grupo_catalogo || stdFeed?.group } : {}),
         unit: args.unidad || existing.unit,
         currentStock: args.stock_actual !== undefined ? Number(args.stock_actual) : Number(existing.currentStock),
         minStock: args.stock_minimo !== undefined ? String(args.stock_minimo) : existing.minStock,
@@ -3529,7 +3542,7 @@ const gestionarAlimento: AgentTool = {
         supplier: args.proveedor !== undefined ? args.proveedor : existing.supplier,
         dryMatterPct: args.materia_seca_pct !== undefined ? Number(args.materia_seca_pct) : existing.dryMatterPct,
         crudeProteinPct: args.proteina_cruda_pct !== undefined ? Number(args.proteina_cruda_pct) : existing.crudeProteinPct,
-        standardCatalogId: args.codigo_estandar !== undefined ? String(args.codigo_estandar).trim() : existing.standardCatalogId,
+        standardCatalogId: args.codigo_estandar !== undefined ? String(args.codigo_estandar).trim().toUpperCase() : existing.standardCatalogId,
         energyKcalKgDm: args.em_kcal_kg_ms !== undefined ? Number(args.em_kcal_kg_ms) : existing.energyKcalKgDm,
         calciumDmPct: args.calcio_ms_pct !== undefined ? Number(args.calcio_ms_pct) : existing.calciumDmPct,
         availablePhosphorusDmPct:
@@ -3544,20 +3557,28 @@ const gestionarAlimento: AgentTool = {
 
     const payload = {
       name: String(args.nombre).trim(),
-      category: args.categoria || "Concentrado",
-      feedType: args.tipo_alimento || "Concentrado Aves",
-      unit: args.unidad || "kg",
+      category: args.categoria || stdFeed?.defaultCategory || "Concentrado",
+      feedType: args.tipo_alimento || stdFeed?.defaultFeedType || "Concentrado Aves",
+      ...(args.grupo_catalogo || stdFeed?.group ? { catalogGroup: args.grupo_catalogo || stdFeed?.group } : {}),
+      unit: args.unidad || stdFeed?.defaultUnit || "kg",
       currentStock: args.stock_actual !== undefined ? Number(args.stock_actual) : 0,
       minStock: args.stock_minimo !== undefined ? String(args.stock_minimo) : "0",
       costPerUnit: args.costo_unitario !== undefined ? String(args.costo_unitario) : "0",
       supplier: args.proveedor || null,
-      dryMatterPct: args.materia_seca_pct !== undefined ? Number(args.materia_seca_pct) : undefined,
-      crudeProteinPct: args.proteina_cruda_pct !== undefined ? Number(args.proteina_cruda_pct) : undefined,
-      standardCatalogId: args.codigo_estandar ? String(args.codigo_estandar).trim() : undefined,
-      energyKcalKgDm: args.em_kcal_kg_ms !== undefined ? Number(args.em_kcal_kg_ms) : undefined,
-      calciumDmPct: args.calcio_ms_pct !== undefined ? Number(args.calcio_ms_pct) : undefined,
-      availablePhosphorusDmPct: args.fosforo_disp_ms_pct !== undefined ? Number(args.fosforo_disp_ms_pct) : undefined,
-      crudeFiberDmPct: args.fibra_ms_pct !== undefined ? Number(args.fibra_ms_pct) : undefined,
+      dryMatterPct: args.materia_seca_pct !== undefined ? Number(args.materia_seca_pct) : stdFeed?.dryMatterPct ?? undefined,
+      crudeProteinPct:
+        args.proteina_cruda_pct !== undefined
+          ? Number(args.proteina_cruda_pct)
+          : stdFeed?.crudeProteinAsFedPct ?? undefined,
+      standardCatalogId: args.codigo_estandar ? String(args.codigo_estandar).trim().toUpperCase() : undefined,
+      energyKcalKgDm: args.em_kcal_kg_ms !== undefined ? Number(args.em_kcal_kg_ms) : stdFeed?.energyKcalKgDm ?? undefined,
+      calciumDmPct: args.calcio_ms_pct !== undefined ? Number(args.calcio_ms_pct) : stdFeed?.calciumDmPct ?? undefined,
+      availablePhosphorusDmPct:
+        args.fosforo_disp_ms_pct !== undefined
+          ? Number(args.fosforo_disp_ms_pct)
+          : stdFeed?.availablePhosphorusDmPct ?? undefined,
+      crudeFiberDmPct:
+        args.fibra_ms_pct !== undefined ? Number(args.fibra_ms_pct) : stdFeed?.crudeFiberDmPct ?? undefined,
     };
     return {
       args: { _method: "POST", payload },
@@ -3924,7 +3945,9 @@ const registrarPresupuesto: AgentTool = {
         items: {
           type: "object",
           properties: {
-            categoria: { type: "string", description: "Categoría real de las transacciones, p. ej. alimento, medicamentos, ventas_huevos." },
+            categoria: { type: "string", description: "Familia del catálogo de egresos (01..26), 'Compra de alimento', 'Mano de obra' o categoría de ingreso." },
+            codigo_concepto: { type: "string", description: "Opcional (egresos): Código estándar del Catálogo de Egresos (CST-001..CST-303)." },
+            familia: { type: "string", enum: EXPENSE_FAMILY_ENUM, description: "Opcional (egresos): Familia / centro estándar (01..26)." },
             meta_mensual: { type: "number", description: "Meta mensual en COP (>= 0)." },
             unidad: { type: "string" },
             notas: { type: "string" },
@@ -3950,11 +3973,15 @@ const registrarPresupuesto: AgentTool = {
     const rubros = Array.isArray(args.rubros) ? args.rubros : [];
     if (rubros.length === 0) throw new Error("Agrega al menos un rubro con categoría y meta mensual.");
     const items = rubros.map((item: any, idx: number) => {
-      const category = String(item?.categoria || "").trim();
+      const category = String(item?.categoria || item?.familia || "").trim();
       if (!category) throw new Error(`El rubro ${idx + 1} no tiene categoría.`);
       const target = asNumber(item?.meta_mensual, `meta_mensual del rubro ${idx + 1}`, { min: 0 });
+      const expenseCatalogId = item?.codigo_concepto ? String(item.codigo_concepto).trim().toUpperCase() : undefined;
+      const expenseFamily = item?.familia ? String(item.familia).trim() : undefined;
       return {
         category,
+        ...(expenseCatalogId ? { expenseCatalogId } : {}),
+        ...(expenseFamily ? { expenseFamily } : {}),
         monthlyTarget: target,
         unit: item?.unidad ? String(item.unidad) : null,
         notes: item?.notas ? String(item.notas) : null,

@@ -1,5 +1,6 @@
 import { db } from "@/db";
 import { accountsPayable, accountsReceivable, feedInventory, feedMovements, payments, transactions } from "@/db/schema";
+import { resolveExpenseClassification } from "@/lib/finance/standard-expense-catalog";
 import { and, eq, inArray, or, sql, type SQL } from "drizzle-orm";
 
 type DbTransaction = Parameters<Parameters<typeof db.transaction>[0]>[0];
@@ -18,6 +19,11 @@ export async function upsertExpenseTransaction(
     species?: string | null;
     locationId?: string | null;
     batchId?: string | null;
+    expenseCatalogId?: string | null;
+    expenseFamily?: string | null;
+    expenseConcept?: string | null;
+    expenseTreatment?: string | null;
+    expenseDriver?: string | null;
   },
 ): Promise<void> {
   if (!input.condition) throw new Error("No se puede vincular el egreso a un origen válido");
@@ -27,6 +33,18 @@ export async function upsertExpenseTransaction(
     await deleteTransactionsAndUnpaidAccounts(tx, input.condition);
     return;
   }
+
+  const resolvedStd = resolveExpenseClassification({
+    type: "egreso",
+    category: input.category,
+    expenseCatalogId: input.expenseCatalogId,
+    expenseFamily: input.expenseFamily,
+    expenseConcept: input.expenseConcept,
+    expenseTreatment: input.expenseTreatment,
+    expenseDriver: input.expenseDriver,
+    description: input.description,
+    sourceType: input.sourceType,
+  });
 
   const [existing] = await tx.select().from(transactions).where(input.condition).for("update");
   const values = {
@@ -38,6 +56,11 @@ export async function upsertExpenseTransaction(
     amount: amount.toFixed(2),
     sourceType: input.sourceType,
     sourceId: input.sourceId,
+    expenseCatalogId: resolvedStd.expenseCatalogId,
+    expenseFamily: resolvedStd.expenseFamily,
+    expenseConcept: resolvedStd.expenseConcept,
+    expenseTreatment: resolvedStd.expenseTreatment,
+    expenseDriver: resolvedStd.expenseDriver,
     ...(input.species !== undefined ? { species: input.species } : {}),
     ...(input.locationId !== undefined ? { locationId: input.locationId } : {}),
     ...(input.batchId !== undefined ? { batchId: input.batchId } : {}),

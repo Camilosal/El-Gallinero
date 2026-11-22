@@ -15,6 +15,12 @@ import FeatureGateBanner from "@/components/FeatureGateBanner";
 import { useOnboardingState } from "@/lib/useOnboardingState";
 import { canPerformAction } from "@/lib/rbac";
 import { useAppRole } from "@/lib/useAppRole";
+import {
+  STANDARD_EXPENSE_FAMILIES,
+  TREATMENT_LABELS,
+  findStandardExpenseFamily,
+  type ExpenseTreatmentType,
+} from "@/lib/finance/standard-expense-catalog";
 
 interface OperatingContext {
   operatingIncomeCop: number;
@@ -38,11 +44,27 @@ interface OperatingContext {
   alertsCount?: number;
 }
 
+interface ExpenseFamilyBreakdown {
+  family: string;
+  treatment: string;
+  isOpex: boolean;
+  total: number;
+  count: number;
+  concepts: Array<{ catalogId: string | null; concept: string; treatment: string; total: number; count: number }>;
+}
+
 interface PLData {
   from: string;
   to: string;
   income: { categories: { category: string; total: number }[]; total: number };
-  expenses: { categories: { category: string; total: number }[]; total: number };
+  expenses: {
+    categories: { category: string; total: number }[];
+    byFamily?: ExpenseFamilyBreakdown[];
+    byTreatment?: Array<{ treatment: string; label: string; isOpex: boolean; total: number; count: number }>;
+    opexTotal?: number;
+    nonOpexTotal?: number;
+    total: number;
+  };
   netProfit: number;
   operatingContext?: OperatingContext;
   transactionCount: number;
@@ -109,7 +131,16 @@ interface AnalyticalData {
     unallocatedSharedCost: number;
     cashNetFlow?: number;
     capexExcluded?: number;
+    nonOperatingExcluded?: number;
   };
+  expensesByFamily?: Array<{
+    family: string;
+    treatment: string;
+    isOpex: boolean;
+    total: number;
+    count: number;
+    conceptsCount: number;
+  }>;
   warehouseSupply?: {
     totalValueCop: number;
     itemsCount: number;
@@ -301,9 +332,11 @@ function ReportesPageInner() {
     date: new Date().toISOString().split("T")[0],
     title: "",
     sourceTransactionId: "",
-    expenseCategory: "Energía / Servicios",
+    expenseCategory: "06 Energía y clima",
+    expenseFamily: "06 Energía y clima",
+    expenseCatalogId: "",
     totalAmount: "",
-    basis: "head_count",
+    basis: "area_m2",
     notes: "",
   });
   const [prError, setPrError] = useState("");
@@ -405,7 +438,17 @@ ${netText}`);
       return;
     }
     setPrModalOpen(false);
-    setPrForm({ date: to, title: "", sourceTransactionId: "", expenseCategory: "Energía / Servicios", totalAmount: "", basis: "head_count", notes: "" });
+    setPrForm({
+      date: to,
+      title: "",
+      sourceTransactionId: "",
+      expenseCategory: "06 Energía y clima",
+      expenseFamily: "06 Energía y clima",
+      expenseCatalogId: "",
+      totalAmount: "",
+      basis: "area_m2",
+      notes: "",
+    });
     load();
   };
 
@@ -557,6 +600,53 @@ ${netText}`);
               </Table>
             )}
           </Card>
+
+          {plData.expenses.byFamily && plData.expenses.byFamily.length > 0 && (
+            <Card>
+              <div className="flex flex-wrap items-center justify-between gap-2 mb-3">
+                <h3 className="font-semibold text-[var(--iw-semantic-text-primary)] flex items-center gap-2">
+                  <ArrowUpRight className="w-4 h-4 text-[var(--iw-semantic-status-danger)]" aria-hidden="true" />
+                  Egresos por Familia / Centro y Tratamiento (Catálogo Estándar)
+                </h3>
+                <div className="flex flex-wrap gap-2 text-xs">
+                  <Badge color="green">OPEX operativo: {fmt(plData.expenses.opexTotal ?? plData.expenses.total)}</Badge>
+                  {(plData.expenses.nonOpexTotal ?? 0) > 0 && (
+                    <Badge color="yellow">No OPEX (CapEx/Fin/Merma/No atr.): {fmt(plData.expenses.nonOpexTotal ?? 0)}</Badge>
+                  )}
+                </div>
+              </div>
+              <Table headers={["Familia / centro", "Tratamiento", "Conceptos CST", "Monto", "% del Total"]}>
+                {plData.expenses.byFamily.map((fam) => (
+                  <tr key={fam.family} className="hover:bg-[var(--iw-semantic-bg-subtle)]">
+                    <td className="px-4 py-3 text-sm font-semibold text-[var(--iw-semantic-text-primary)]">
+                      {fam.family}
+                      <span className="ml-1.5 text-xs font-normal text-[var(--iw-semantic-text-secondary)]">
+                        ({fam.count})
+                      </span>
+                    </td>
+                    <td className="px-4 py-3 text-xs">
+                      <Badge color={fam.isOpex ? "green" : "yellow"}>
+                        {TREATMENT_LABELS[fam.treatment as ExpenseTreatmentType] || fam.treatment}
+                      </Badge>
+                    </td>
+                    <td className="px-4 py-3 text-xs text-[var(--iw-semantic-text-secondary)]">
+                      {fam.concepts
+                        .slice(0, 3)
+                        .map((c) => `${c.catalogId ? `${c.catalogId} ` : ""}${c.concept} (${fmt(c.total)})`)
+                        .join(" · ")}
+                      {fam.concepts.length > 3 ? ` · +${fam.concepts.length - 3} más` : ""}
+                    </td>
+                    <td className="px-4 py-3 text-sm font-bold text-[var(--iw-semantic-status-danger)]">
+                      {fmt(fam.total)}
+                    </td>
+                    <td className="px-4 py-3 text-sm text-[var(--iw-semantic-text-secondary)]">
+                      {plData.expenses.total > 0 ? ((fam.total / plData.expenses.total) * 100).toFixed(1) : 0}%
+                    </td>
+                  </tr>
+                ))}
+              </Table>
+            </Card>
+          )}
 
           <Card>
             <h3 className="font-semibold text-red-700 mb-3 flex items-center gap-2">
@@ -936,6 +1026,37 @@ ${netText}`);
             </Card>
           ))}
 
+          {analitica.expensesByFamily && analitica.expensesByFamily.length > 0 && (
+            <Card>
+              <div className="flex flex-wrap items-center justify-between gap-2 mb-3">
+                <h3 className="font-semibold text-[var(--iw-semantic-text-primary)]">
+                  Egresos Analíticos por Familia / Centro (Catálogo Estándar)
+                </h3>
+                {(analitica.totals.nonOperatingExcluded ?? 0) > 0 && (
+                  <Badge color="yellow">
+                    No OPEX excluidos de costo unitario: {fmt(analitica.totals.nonOperatingExcluded ?? 0)}
+                  </Badge>
+                )}
+              </div>
+              <Table headers={["Familia / centro", "Tratamiento", "Incluye en OPEX", "Registros", "Conceptos", "Total COP"]}>
+                {analitica.expensesByFamily.map((f) => (
+                  <tr key={f.family} className="hover:bg-[var(--iw-semantic-bg-subtle)]">
+                    <td className="px-3 py-2 text-sm font-medium">{f.family}</td>
+                    <td className="px-3 py-2 text-xs">
+                      <Badge color={f.isOpex ? "green" : "yellow"}>
+                        {TREATMENT_LABELS[f.treatment as ExpenseTreatmentType] || f.treatment}
+                      </Badge>
+                    </td>
+                    <td className="px-3 py-2 text-xs">{f.isOpex ? "Sí" : "No (No OPEX)"}</td>
+                    <td className="px-3 py-2 text-xs">{f.count}</td>
+                    <td className="px-3 py-2 text-xs">{f.conceptsCount}</td>
+                    <td className="px-3 py-2 text-sm font-bold text-[var(--iw-semantic-status-danger)]">{fmt(f.total)}</td>
+                  </tr>
+                ))}
+              </Table>
+            </Card>
+          )}
+
           {/* NTC 1240 Caliber Margins */}
           <Card>
             <h3 className="font-semibold text-slate-700 mb-3">Margen por Calibre NTC 1240 (Huevos)</h3>
@@ -1003,12 +1124,17 @@ ${netText}`);
               onChange={(e) => {
                 const txId = e.target.value;
                 const found = prorrateo.unallocatedTransactions.find((t) => t.id === txId);
+                const famMeta = findStandardExpenseFamily(found?.category);
                 setPrForm((prev) => ({
                   ...prev,
                   sourceTransactionId: txId,
                   title: found ? found.description || found.category : prev.title,
                   totalAmount: found ? found.amount : prev.totalAmount,
                   expenseCategory: found ? found.category : prev.expenseCategory,
+                  expenseFamily: famMeta?.name || prev.expenseFamily,
+                  basis: famMeta?.recommendedProrationBasis && famMeta.recommendedProrationBasis !== "manual"
+                    ? famMeta.recommendedProrationBasis
+                    : prev.basis,
                   date: found ? found.date : prev.date,
                 }));
               }}
@@ -1019,6 +1145,29 @@ ${netText}`);
               ))}
             </Select>
           )}
+          <Select
+            label="Familia / centro del costo compartido"
+            value={prForm.expenseFamily}
+            onChange={(e) => {
+              const val = e.target.value;
+              const famMeta = findStandardExpenseFamily(val);
+              setPrForm((prev) => ({
+                ...prev,
+                expenseFamily: val,
+                expenseCategory: val || prev.expenseCategory,
+                basis:
+                  famMeta?.recommendedProrationBasis && famMeta.recommendedProrationBasis !== "manual"
+                    ? famMeta.recommendedProrationBasis
+                    : prev.basis,
+              }));
+            }}
+          >
+            {STANDARD_EXPENSE_FAMILIES.filter((f) => f.isOpex).map((f) => (
+              <option key={f.name} value={f.name}>
+                {f.name}{f.sharedConceptsCount > 0 ? " (Prorrateo recomendado)" : ""}
+              </option>
+            ))}
+          </Select>
           <Input label="Fecha" type="date" value={prForm.date} onChange={(e) => setPrForm({ ...prForm, date: e.target.value })} />
           <Input label="Concepto / Título" value={prForm.title} onChange={(e) => setPrForm({ ...prForm, title: e.target.value })} placeholder="Ej. Energía eléctrica galpones" />
           <Input label="Monto Total (COP)" type="number" value={prForm.totalAmount} onChange={(e) => setPrForm({ ...prForm, totalAmount: e.target.value })} />

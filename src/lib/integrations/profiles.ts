@@ -218,6 +218,10 @@ export interface CanonicalTransaction {
   isCredit: boolean;
   sourceType: string | null;
   sourceId: string | null;
+  expenseCatalogId?: string | null;
+  expenseFamily?: string | null;
+  expenseConcept?: string | null;
+  expenseTreatment?: string | null;
   notes: string | null;
   createdAt: string;
 }
@@ -264,7 +268,8 @@ export function formatTransactionForProfile(
       observations: tx.description,
       items: [
         {
-          code: tx.category,
+          code: tx.expenseCatalogId || tx.category,
+          category: tx.expenseFamily || tx.category,
           description: tx.description,
           quantity: qty,
           unit_price: unitPrice,
@@ -283,7 +288,12 @@ export function formatTransactionForProfile(
       externalId: tx.id,
       date: tx.date,
       type: isIncome ? "income" : "expense",
-      category: tx.category,
+      category: tx.expenseFamily || tx.category,
+      legacyCategory: tx.category,
+      expenseCatalogId: tx.expenseCatalogId ?? null,
+      expenseFamily: tx.expenseFamily ?? null,
+      expenseConcept: tx.expenseConcept ?? null,
+      expenseTreatment: tx.expenseTreatment ?? null,
       categoryAccount: accountCode,
       bankAccount: counterAccountCode,
       costCenter,
@@ -310,10 +320,15 @@ export function formatTransactionForProfile(
       journal_code: tx.isCredit ? (isIncome ? "SALE" : "PURCH") : "CASH",
       currency_id: mapping.currency,
       analytic_distribution: { [costCenter]: 100 },
+      expense_catalog_id: tx.expenseCatalogId ?? null,
+      expense_family: tx.expenseFamily ?? null,
+      expense_treatment: tx.expenseTreatment ?? null,
       invoice_line_ids: [
         {
+          default_code: tx.expenseCatalogId || null,
           name: tx.description,
-          category: tx.category,
+          category: tx.expenseFamily || tx.category,
+          expense_concept: tx.expenseConcept ?? null,
           account_code: accountCode,
           quantity: qty,
           price_unit: unitPrice,
@@ -336,11 +351,16 @@ export function formatTransactionForProfile(
       account_code: accountCode,
       offset_account_code: counterAccountCode,
       cost_center_tag: costCenter,
+      expense_catalog_id: tx.expenseCatalogId ?? null,
+      expense_family: tx.expenseFamily ?? null,
+      expense_treatment: tx.expenseTreatment ?? null,
       is_credit: tx.isCredit,
       line_items: [
         {
-          name: tx.category,
+          sku: tx.expenseCatalogId || null,
+          name: tx.expenseFamily || tx.category,
           description: tx.description,
+          expense_concept: tx.expenseConcept ?? null,
           account_code: accountCode,
           quantity: qty,
           rate: unitPrice,
@@ -371,6 +391,11 @@ export interface CanonicalInventoryItem {
   name: string;
   category: string;
   subCategory: string | null;
+  standardCatalogId?: string | null;
+  catalogGroup?: string | null;
+  sanitaryStatus?: string | null;
+  dryMatterPct?: number | null;
+  crudeProteinPct?: number | null;
   unit: string;
   currentStock: number;
   minStock: number;
@@ -389,10 +414,13 @@ export function formatInventoryItemForProfile(
     return {
       id: item.id,
       code: item.sku,
+      standard_catalog_id: item.standardCatalogId ?? null,
+      catalog_group: item.catalogGroup ?? null,
+      sanitary_status: item.sanitaryStatus ?? null,
       name: item.name,
       account_group: mapping.inventoryAccountCode,
       type: "Product",
-      category: item.category,
+      category: item.catalogGroup || item.category,
       unit_label: item.unit,
       available_quantity: item.currentStock,
       min_quantity: item.minStock,
@@ -408,9 +436,12 @@ export function formatInventoryItemForProfile(
     return {
       id: item.id,
       reference: item.sku,
+      standardCatalogId: item.standardCatalogId ?? null,
+      catalogGroup: item.catalogGroup ?? null,
+      sanitaryStatus: item.sanitaryStatus ?? null,
       name: item.name,
       type: "product",
-      category: item.category,
+      category: item.catalogGroup || item.category,
       unit: item.unit,
       availableQuantity: item.currentStock,
       minQuantity: item.minStock,
@@ -426,9 +457,12 @@ export function formatInventoryItemForProfile(
     return {
       id: item.id,
       default_code: item.sku,
+      standard_catalog_id: item.standardCatalogId ?? null,
+      catalog_group: item.catalogGroup ?? null,
+      sanitary_status: item.sanitaryStatus ?? null,
       name: item.name,
       type: "product",
-      categ_name: `${item.itemType}/${item.category}`,
+      categ_name: item.catalogGroup ? `${item.itemType}/${item.catalogGroup}` : `${item.itemType}/${item.category}`,
       uom_name: item.unit,
       qty_available: item.currentStock,
       reordering_min_qty: item.minStock,
@@ -443,9 +477,12 @@ export function formatInventoryItemForProfile(
     return {
       item_id: item.id,
       sku: item.sku,
+      standard_catalog_id: item.standardCatalogId ?? null,
+      catalog_group: item.catalogGroup ?? null,
+      sanitary_status: item.sanitaryStatus ?? null,
       name: item.name,
       item_type: "inventory",
-      group_name: item.itemType,
+      group_name: item.catalogGroup || item.itemType,
       unit: item.unit,
       stock_on_hand: item.currentStock,
       reorder_level: item.minStock,

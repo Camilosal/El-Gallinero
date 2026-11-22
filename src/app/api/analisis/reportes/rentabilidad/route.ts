@@ -37,19 +37,28 @@ interface DimensionLine {
 
 const UNASSIGNED = "sin_asignar";
 
-function classifyTransaction(t: { category: string; type: string; sourceType: string | null; amount: number }): string {
+function classifyTransaction(t: { category: string; type: string; sourceType: string | null; expenseFamily?: string | null; amount: number }): string {
   const cat = t.category.toLowerCase();
+  const fam = (t.expenseFamily || "").toLowerCase();
   // Costos operativos primero: "Compra de alimento para gallinas" no es una venta de aves.
-  if (cat.includes("alimento")) return "alimento";
-  if (cat.includes("sanidad") || cat.includes("vacun") || cat.includes("medic") || cat.includes("tratamiento")) return "sanidad";
+  if (cat.includes("alimento") || fam.startsWith("24 ")) return "alimento";
+  if (
+    cat.includes("sanidad") ||
+    cat.includes("vacun") ||
+    cat.includes("medic") ||
+    cat.includes("tratamiento") ||
+    fam.startsWith("01 ") ||
+    fam.startsWith("02 ") ||
+    fam.startsWith("03 ")
+  ) return "sanidad";
   // Eggs
-  if (cat.includes("huevo")) return "huevos";
+  if (cat.includes("huevo") || fam.startsWith("08 ") || fam.startsWith("09 ")) return "huevos";
   // Meat
-  if (cat.includes("carne") || cat.includes("sacrificio") || t.sourceType === "sacrificio") return "carne";
+  if (cat.includes("carne") || cat.includes("sacrificio") || t.sourceType === "sacrificio" || fam.startsWith("12 ")) return "carne";
   // Manure
-  if (cat.includes("gallinaza") || cat.includes("abono")) return "gallinaza";
+  if (cat.includes("gallinaza") || cat.includes("abono") || fam.startsWith("13 ")) return "gallinaza";
   // Birds
-  if (cat.includes("aves") || cat.includes("gallina") || cat.includes("gallo") || cat.includes("pollo") || t.sourceType === "venta_aves" || t.sourceType === "venta_ave") return "aves";
+  if (cat.includes("aves") || cat.includes("gallina") || cat.includes("gallo") || cat.includes("pollo") || t.sourceType === "venta_aves" || t.sourceType === "venta_ave" || fam.startsWith("23 ")) return "aves";
   return "otros";
 }
 
@@ -142,7 +151,7 @@ export const GET = withApiHandler(async (req: NextRequest) => {
 
   for (const t of txs) {
     const amount = Number(t.amount);
-    const line = classifyTransaction({ category: t.category, type: t.type, sourceType: t.sourceType, amount });
+    const line = classifyTransaction({ category: t.category, type: t.type, sourceType: t.sourceType, expenseFamily: t.expenseFamily, amount });
     if (t.type === "ingreso") lines[line].revenue += amount; else lines[line].cost += amount;
     bump(bySpecies, t.species ?? UNASSIGNED, t.species ?? "Sin asignar", t.type, amount);
     bump(
@@ -189,6 +198,9 @@ export const GET = withApiHandler(async (req: NextRequest) => {
       category: t.category,
       description: t.description,
       sourceType: t.sourceType,
+      expenseCatalogId: t.expenseCatalogId,
+      expenseFamily: t.expenseFamily,
+      expenseTreatment: t.expenseTreatment,
       amount: t.amount,
       date: t.date,
     })),

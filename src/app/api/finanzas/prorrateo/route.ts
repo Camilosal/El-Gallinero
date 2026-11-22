@@ -7,6 +7,7 @@ import { and, desc, eq, gte, inArray, isNull, lte, or } from "drizzle-orm";
 import { NextRequest, NextResponse } from "next/server";
 import { safeParseJson, withApiHandler } from "@/lib/api-handler";
 import { isDateOnly, todayColombiaIso } from "@/lib/date-validation";
+import { resolveExpenseClassification } from "@/lib/finance/standard-expense-catalog";
 import { normalizeFeedingSpecies } from "@/lib/species";
 import { getSessionUser } from "@/lib/auth";
 import { canPerformAction, forbiddenResponse } from "@/lib/rbac";
@@ -93,6 +94,12 @@ export const POST = withApiHandler(async (req: NextRequest) => {
   let expenseCategory = typeof body.expenseCategory === "string" && body.expenseCategory.trim()
     ? body.expenseCategory.trim()
     : null;
+  let expenseCatalogId = typeof body.expenseCatalogId === "string" && body.expenseCatalogId.trim()
+    ? body.expenseCatalogId.trim()
+    : null;
+  let expenseFamily = typeof body.expenseFamily === "string" && body.expenseFamily.trim()
+    ? body.expenseFamily.trim()
+    : null;
   let title = typeof body.title === "string" ? body.title.trim() : "";
 
   if (body.sourceTransactionId) {
@@ -101,8 +108,20 @@ export const POST = withApiHandler(async (req: NextRequest) => {
     sourceTransactionId = txRow.id;
     if (!Number.isFinite(totalAmount) || totalAmount <= 0) totalAmount = Number(txRow.amount);
     if (!expenseCategory) expenseCategory = txRow.category;
+    if (!expenseCatalogId) expenseCatalogId = txRow.expenseCatalogId;
+    if (!expenseFamily) expenseFamily = txRow.expenseFamily;
     if (!title) title = txRow.description || txRow.category;
   }
+
+  const resolvedProrrateo = resolveExpenseClassification({
+    type: "egreso",
+    category: expenseCategory || expenseFamily || title,
+    expenseCatalogId,
+    expenseFamily,
+    description: title,
+  });
+  expenseCatalogId = expenseCatalogId ?? resolvedProrrateo.expenseCatalogId;
+  expenseFamily = expenseFamily ?? resolvedProrrateo.expenseFamily;
 
   if (!title) return NextResponse.json({ error: "El título del prorrateo es requerido" }, { status: 400 });
   if (!Number.isFinite(totalAmount) || totalAmount <= 0) {
@@ -166,6 +185,8 @@ export const POST = withApiHandler(async (req: NextRequest) => {
     title,
     sourceTransactionId,
     expenseCategory,
+    expenseCatalogId,
+    expenseFamily,
     totalAmount: totalAmount.toFixed(2),
     basis,
     allocations: computedAllocations,

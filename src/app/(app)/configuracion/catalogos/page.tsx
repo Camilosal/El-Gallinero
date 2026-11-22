@@ -16,6 +16,7 @@ import VacunasTab from "./_components/VacunasTab";
 import PesosTab from "./_components/PesosTab";
 import GallinazaTab from "./_components/GallinazaTab";
 import AlimentacionTab from "./_components/AlimentacionTab";
+import EgresosCatalogTab from "./_components/EgresosCatalogTab";
 import FuentesExternasTab from "./_components/FuentesExternasTab";
 import NormasGuiasTab from "./_components/NormasGuiasTab";
 import { MANAGED_SPECIES } from "@/lib/animal-breeds";
@@ -552,6 +553,7 @@ const TABS = [
   { key: "pesos", label: "Estándares de peso", icon: "scale" },
   { key: "gallinaza", label: "Factores de gallinaza", icon: "sprout" },
   { key: "alimentacion", label: "Programas de alimentación", icon: "wheat" },
+  { key: "egresos", label: "Catálogo de egresos", icon: "outgoing" },
   { key: "contactos", label: "Clientes y Proveedores", icon: "handshake" },
   { key: "fuentes", label: "Tablas maestras externas", icon: "globe" },
   { key: "normas", label: "Normas, estándares y guías", icon: "book-open" },
@@ -637,6 +639,7 @@ export default function CatalogosPage() {
       {effectiveTab === "pesos" && <PesosTab />}
       {effectiveTab === "gallinaza" && <GallinazaTab />}
       {effectiveTab === "alimentacion" && <AlimentacionTab />}
+      {effectiveTab === "egresos" && <EgresosCatalogTab />}
       {effectiveTab === "contactos" && (
         <ContactsDirectory
           embedded

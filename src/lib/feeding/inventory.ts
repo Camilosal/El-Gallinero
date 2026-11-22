@@ -1,6 +1,7 @@
 import { db } from "@/db";
 import { feedInventory, feedMovements } from "@/db/schema";
 import { and, desc, eq, sql } from "drizzle-orm";
+import { inferFeedCatalogGroup, normalizeFeedCatalogGroup } from "@/lib/feed-classification";
 import { runFeedProgramCatchup } from "./runProgram";
 
 export interface FeedInventoryProjection {
@@ -16,6 +17,7 @@ export interface FeedInventoryProjection {
   dryMatterPct: string | null;
   crudeProteinPct: string | null;
   standardCatalogId: string | null;
+  catalogGroup: string | null;
   sanitaryStatus: string | null;
   energyKcalKgDm: string | null;
   calciumDmPct: string | null;
@@ -93,6 +95,9 @@ export async function getFeedInventoryProjection(
       dryMatterPct: f.dryMatterPct,
       crudeProteinPct: f.crudeProteinPct,
       standardCatalogId: f.standardCatalogId ?? null,
+      catalogGroup:
+        normalizeFeedCatalogGroup(f.catalogGroup) ??
+        inferFeedCatalogGroup(f.feedType, f.name, f.category),
       sanitaryStatus: f.sanitaryStatus ?? null,
       energyKcalKgDm: f.energyKcalKgDm ?? null,
       calciumDmPct: f.calciumDmPct ?? null,

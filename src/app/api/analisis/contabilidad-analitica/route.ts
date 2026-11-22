@@ -212,6 +212,20 @@ export const GET = withApiHandler(async (req: NextRequest) => {
           ["GMF (4x1000) estimado", payload.taxAndDeductions.gmf4x1000EstimatedCop],
         ],
       },
+      {
+        name: "Egresos por Familia",
+        rows: [
+          ["Familia / centro", "Tratamiento", "Es OPEX", "Registros", "Conceptos", "Total COP"],
+          ...(payload.expensesByFamily || []).map((f) => [
+            f.family,
+            f.treatment,
+            f.isOpex ? "Sí" : "No (No OPEX)",
+            f.count,
+            f.conceptsCount,
+            f.total,
+          ]),
+        ],
+      },
     ]);
     return new NextResponse(Buffer.from(bytes), {
       status: 200,

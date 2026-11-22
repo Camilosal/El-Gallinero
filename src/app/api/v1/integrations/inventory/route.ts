@@ -2,6 +2,7 @@ import { gte } from "drizzle-orm";
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/db";
 import { feedInventory, supplyInventory } from "@/db/schema";
+import { feedTypeLabel, inferFeedCatalogGroup, normalizeFeedCatalogGroup } from "@/lib/feed-classification";
 import { parseIntegrationPagination, withIntegrationContext } from "@/lib/integrations/auth-guard";
 import { formatInventoryItemForProfile, type CanonicalInventoryItem } from "@/lib/integrations/profiles";
 
@@ -49,11 +50,18 @@ export async function GET(req: NextRequest) {
           const cost = Number(f.costPerUnit);
           return {
             id: f.id,
-            sku: `FEED-${f.id.slice(0, 8).toUpperCase()}`,
+            sku: f.standardCatalogId ? `${f.standardCatalogId}-FEED-${f.id.slice(0, 6).toUpperCase()}` : `FEED-${f.id.slice(0, 8).toUpperCase()}`,
             itemType: "alimento" as const,
             name: f.name,
             category: f.category,
-            subCategory: f.feedType,
+            subCategory: feedTypeLabel(f.feedType),
+            standardCatalogId: f.standardCatalogId ?? null,
+            catalogGroup:
+              normalizeFeedCatalogGroup(f.catalogGroup) ??
+              inferFeedCatalogGroup(f.feedType, f.name, f.category),
+            sanitaryStatus: f.sanitaryStatus ?? null,
+            dryMatterPct: f.dryMatterPct != null ? Number(f.dryMatterPct) : null,
+            crudeProteinPct: f.crudeProteinPct != null ? Number(f.crudeProteinPct) : null,
             unit: f.unit,
             currentStock: stock,
             minStock: Number(f.minStock),

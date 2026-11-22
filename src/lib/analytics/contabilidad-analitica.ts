@@ -16,7 +16,13 @@ import { SPECIES_LABELS } from "@/lib/species";
 import {
   classifyTransactionNature,
   computeThreeLayerFinancials,
+  isNonOperatingCatalogueExpense,
 } from "@/lib/analytics/biological-valuation";
+import {
+  resolveExpenseClassification,
+  TREATMENT_LABELS,
+  type ExpenseTreatmentType,
+} from "@/lib/finance/standard-expense-catalog";
 import {
   computeAssetsDepreciationSummary,
   computeFeedWarehouseValuation,
@@ -190,8 +196,14 @@ export async function computeAnalyticalAccounting(opts: ComputeAnalyticsOptions)
   let capexExcluded = 0;
   let feedPurchasesExcluded = 0;
   let supplyPurchasesExcluded = 0;
+  let nonOperatingExcluded = 0;
   let totalProratedCost = 0;
   let unallocatedSharedCost = 0;
+  const expensesByFamilyMap = new Map<
+    string,
+    { family: string; treatment: string; isOpex: boolean; total: number; count: number; conceptSet: Set<string> }
+  >();
+  const expensesByTreatmentMap = new Map<string, { treatment: string; label: string; isOpex: boolean; total: number; count: number }>();
   const hasSupplyConsumptionBasis = payrollSuppliesCtx.hasSupplyConsumptionRecords;
   const filteredTxs = txRows.filter((tx) => {
     if (speciesFilter && tx.species !== speciesFilter) return false;
@@ -218,6 +230,48 @@ export async function computeAnalyticalAccounting(opts: ComputeAnalyticsOptions)
       locBucket.directRevenue += amt;
     } else {
       totalCashOutflow += amt;
+      const resolvedExp = resolveExpenseClassification({
+        type: tx.type,
+        category: tx.category,
+        expenseCatalogId: tx.expenseCatalogId,
+        expenseFamily: tx.expenseFamily,
+        expenseConcept: tx.expenseConcept,
+        expenseTreatment: tx.expenseTreatment,
+        expenseDriver: tx.expenseDriver,
+        description: tx.description,
+        sourceType: tx.sourceType,
+      });
+      const famKey = resolvedExp.expenseFamily || tx.category || "Sin clasificar";
+      const treatment = String(resolvedExp.expenseTreatment || "VARIABLE");
+      let famRow = expensesByFamilyMap.get(famKey);
+      if (!famRow) {
+        famRow = {
+          family: famKey,
+          treatment,
+          isOpex: resolvedExp.isOpex,
+          total: 0,
+          count: 0,
+          conceptSet: new Set<string>(),
+        };
+        expensesByFamilyMap.set(famKey, famRow);
+      }
+      famRow.total += amt;
+      famRow.count += 1;
+      if (resolvedExp.expenseConcept || tx.category) {
+        famRow.conceptSet.add(resolvedExp.expenseConcept || tx.category);
+      }
+
+      const trRow = expensesByTreatmentMap.get(treatment) || {
+        treatment,
+        label: TREATMENT_LABELS[treatment as ExpenseTreatmentType] || treatment,
+        isOpex: resolvedExp.isOpex,
+        total: 0,
+        count: 0,
+      };
+      trRow.total += amt;
+      trRow.count += 1;
+      expensesByTreatmentMap.set(treatment, trRow);
+
       if (nature === "capex") {
         capexExcluded += amt;
         continue;
@@ -228,6 +282,10 @@ export async function computeAnalyticalAccounting(opts: ComputeAnalyticsOptions)
       }
       if (nature === "supply_inventory_purchase" && hasSupplyConsumptionBasis) {
         supplyPurchasesExcluded += amt;
+        continue;
+      }
+      if (isNonOperatingCatalogueExpense(tx)) {
+        nonOperatingExcluded += amt;
         continue;
       }
       const alreadySplit = includeProrated && allocatedTxIds.has(tx.id);
@@ -428,6 +486,7 @@ export async function computeAnalyticalAccounting(opts: ComputeAnalyticsOptions)
       if (nature === "capex") return false;
       if (nature === "feed_inventory_purchase" && hasFeedConsumptionBasis) return false;
       if (nature === "supply_inventory_purchase" && hasSupplyConsumptionBasis) return false;
+      if (isNonOperatingCatalogueExpense(t)) return false;
       return isEggRelatedTx(t) || t.species === "gallina" || t.species === "codorniz";
     })
     .reduce((s, t) => s + Number(t.amount || 0), 0);
@@ -536,6 +595,7 @@ export async function computeAnalyticalAccounting(opts: ComputeAnalyticsOptions)
       if (nature === "capex") return false;
       if (nature === "feed_inventory_purchase" && hasFeedConsumptionBasis) return false;
       if (nature === "supply_inventory_purchase" && hasSupplyConsumptionBasis) return false;
+      if (isNonOperatingCatalogueExpense(t)) return false;
       return isMeatRelatedTx(t) || (t.species && ["pollo", "pato", "conejo", "cuy"].includes(t.species));
     })
     .reduce((s, t) => s + Number(t.amount || 0), 0);
@@ -597,6 +657,9 @@ export async function computeAnalyticalAccounting(opts: ComputeAnalyticsOptions)
       category: t.category,
       description: t.description,
       sourceType: t.sourceType,
+      expenseCatalogId: t.expenseCatalogId,
+      expenseFamily: t.expenseFamily,
+      expenseTreatment: t.expenseTreatment,
       amount: t.amount,
       date: t.date,
     })),
@@ -682,7 +745,21 @@ export async function computeAnalyticalAccounting(opts: ComputeAnalyticsOptions)
       capexExcluded: round2(capexExcluded),
       feedPurchasesExcluded: round2(feedPurchasesExcluded),
       supplyPurchasesExcluded: round2(supplyPurchasesExcluded),
+      nonOperatingExcluded: round2(nonOperatingExcluded),
     },
+    expensesByFamily: Array.from(expensesByFamilyMap.values())
+      .map((f) => ({
+        family: f.family,
+        treatment: f.treatment,
+        isOpex: f.isOpex,
+        total: round2(f.total),
+        count: f.count,
+        conceptsCount: f.conceptSet.size,
+      }))
+      .sort((a, b) => b.total - a.total),
+    expensesByTreatment: Array.from(expensesByTreatmentMap.values())
+      .map((tr) => ({ ...tr, total: round2(tr.total) }))
+      .sort((a, b) => b.total - a.total),
     threeLayer,
     biologicalPortfolio: biologicalSummary,
     biologicalAlerts: biologicalSummary.alerts,

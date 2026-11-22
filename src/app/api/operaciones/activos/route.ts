@@ -131,6 +131,10 @@ export const POST = withApiHandler(async (req: NextRequest) => {
         date: txDate,
         sourceType: "farm_asset",
         sourceId: inserted.id,
+        expenseFamily: "22 Activos / inversión",
+        expenseConcept: `Adquisición: ${inserted.name}`,
+        expenseTreatment: "CAPEX",
+        expenseDriver: "EVENTO",
         notes: "Compra de activo/infraestructura diferida por vida útil",
       });
     }

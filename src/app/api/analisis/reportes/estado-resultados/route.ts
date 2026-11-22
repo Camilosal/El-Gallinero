@@ -11,6 +11,12 @@ import {
   computeThreeLayerFinancials,
 } from "@/lib/analytics/biological-valuation";
 import {
+  OPEX_TREATMENTS,
+  TREATMENT_LABELS,
+  resolveExpenseClassification,
+  type ExpenseTreatmentType,
+} from "@/lib/finance/standard-expense-catalog";
+import {
   computeAssetsDepreciationSummary,
   computeFeedWarehouseValuation,
   evaluateBiologicalPortfolio,
@@ -68,6 +74,18 @@ export const GET = withApiHandler(async (req: NextRequest) => {
 
   const incomeMap = new Map<string, number>();
   const expenseMap = new Map<string, number>();
+  const familyMap = new Map<
+    string,
+    {
+      family: string;
+      treatment: string;
+      isOpex: boolean;
+      total: number;
+      count: number;
+      concepts: Map<string, { catalogId: string | null; concept: string; treatment: string; total: number; count: number }>;
+    }
+  >();
+  const treatmentMap = new Map<string, { treatment: string; label: string; isOpex: boolean; total: number; count: number }>();
 
   for (const t of txs) {
     const amount = Number(t.amount);
@@ -75,6 +93,60 @@ export const GET = withApiHandler(async (req: NextRequest) => {
       incomeMap.set(t.category, (incomeMap.get(t.category) || 0) + amount);
     } else {
       expenseMap.set(t.category, (expenseMap.get(t.category) || 0) + amount);
+      const resolved = resolveExpenseClassification({
+        type: t.type,
+        category: t.category,
+        expenseCatalogId: t.expenseCatalogId,
+        expenseFamily: t.expenseFamily,
+        expenseConcept: t.expenseConcept,
+        expenseTreatment: t.expenseTreatment,
+        expenseDriver: t.expenseDriver,
+        description: t.description,
+        sourceType: t.sourceType,
+      });
+      const famKey = resolved.expenseFamily || t.category || "Sin clasificar";
+      const treatment = resolved.expenseTreatment || "VARIABLE";
+      const isOpex = resolved.isOpex;
+      let famEntry = familyMap.get(famKey);
+      if (!famEntry) {
+        famEntry = {
+          family: famKey,
+          treatment,
+          isOpex,
+          total: 0,
+          count: 0,
+          concepts: new Map(),
+        };
+        familyMap.set(famKey, famEntry);
+      }
+      famEntry.total += amount;
+      famEntry.count += 1;
+
+      const conceptName = resolved.expenseConcept || t.category || "Concepto general";
+      const conceptKey = `${resolved.expenseCatalogId || "MANUAL"}::${conceptName}`;
+      const prevConcept = famEntry.concepts.get(conceptKey) || {
+        catalogId: resolved.expenseCatalogId || null,
+        concept: conceptName,
+        treatment,
+        total: 0,
+        count: 0,
+      };
+      prevConcept.total += amount;
+      prevConcept.count += 1;
+      famEntry.concepts.set(conceptKey, prevConcept);
+
+      const trLabel = TREATMENT_LABELS[treatment as ExpenseTreatmentType] || treatment;
+      const trIsOpex = famKey === "Mano de obra (Nómina / jornales)" || OPEX_TREATMENTS.has(treatment as ExpenseTreatmentType);
+      const trEntry = treatmentMap.get(treatment) || {
+        treatment,
+        label: trLabel,
+        isOpex: trIsOpex,
+        total: 0,
+        count: 0,
+      };
+      trEntry.total += amount;
+      trEntry.count += 1;
+      treatmentMap.set(treatment, trEntry);
     }
   }
 
@@ -85,6 +157,26 @@ export const GET = withApiHandler(async (req: NextRequest) => {
   const expenseCategories = Array.from(expenseMap.entries())
     .map(([category, total]) => ({ category, total: parseFloat(total.toFixed(2)) }))
     .sort((a, b) => b.total - a.total);
+
+  const expensesByFamily = Array.from(familyMap.values())
+    .map((f) => ({
+      family: f.family,
+      treatment: f.treatment,
+      isOpex: f.isOpex,
+      total: parseFloat(f.total.toFixed(2)),
+      count: f.count,
+      concepts: Array.from(f.concepts.values())
+        .map((c) => ({ ...c, total: parseFloat(c.total.toFixed(2)) }))
+        .sort((a, b) => b.total - a.total),
+    }))
+    .sort((a, b) => b.total - a.total);
+
+  const expensesByTreatment = Array.from(treatmentMap.values())
+    .map((tr) => ({ ...tr, total: parseFloat(tr.total.toFixed(2)) }))
+    .sort((a, b) => b.total - a.total);
+
+  const opexTotal = parseFloat(expensesByTreatment.filter((t) => t.isOpex).reduce((s, t) => s + t.total, 0).toFixed(2));
+  const nonOpexTotal = parseFloat(expensesByTreatment.filter((t) => !t.isOpex).reduce((s, t) => s + t.total, 0).toFixed(2));
 
   const totalIncome = incomeCategories.reduce((s, c) => s + c.total, 0);
   const totalExpenses = expenseCategories.reduce((s, c) => s + c.total, 0);
@@ -115,6 +207,9 @@ export const GET = withApiHandler(async (req: NextRequest) => {
       category: t.category,
       description: t.description,
       sourceType: t.sourceType,
+      expenseCatalogId: t.expenseCatalogId,
+      expenseFamily: t.expenseFamily,
+      expenseTreatment: t.expenseTreatment,
       amount: t.amount,
       date: t.date,
     })),
@@ -143,6 +238,10 @@ export const GET = withApiHandler(async (req: NextRequest) => {
     },
     expenses: {
       categories: expenseCategories,
+      byFamily: expensesByFamily,
+      byTreatment: expensesByTreatment,
+      opexTotal,
+      nonOpexTotal,
       total: parseFloat(totalExpenses.toFixed(2)),
     },
     netProfit,

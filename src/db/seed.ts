@@ -7,6 +7,7 @@ import { and, eq, sql } from "drizzle-orm";
 import { hashPassword } from "@/lib/auth";
 import { DEFAULT_FARM_ID } from "./tenant-context";
 import { runCoreSeed } from "./seed-config";
+import { resolveExpenseClassification } from "@/lib/finance/standard-expense-catalog";
 
 async function main() {
   if (process.env.NODE_ENV === "production") {
@@ -482,12 +483,26 @@ async function main() {
     // Egresos por compra de alimento (vinculados a movimientos de entrada)
     ...purchaseTxs,
     // Egresos manuales varios
-    // Control sanitario con presentación: 1 unidad × $80,000
-    { date: daysAgo(20), type: "egreso", category: "Control sanitario", description: "Vacuna Newcastle", counterparty: "Tienda veterinaria", amount: "80000", quantity: "1", unitPrice: "80000", unit: "unidades", presentation: "Unidad" },
-    // Egreso sin presentación (servicio)
-    { date: daysAgo(25), type: "egreso", category: "Mantenimiento", description: "Reparación de cerca perimetral", amount: "120000" },
-    // Equipamiento con presentación: 10 unidades × $9,500
-    { date: daysAgo(28), type: "egreso", category: "Equipamiento", description: "Comederos nuevos", counterparty: "Agrocentro El Campo", amount: "95000", quantity: "10", unitPrice: "9500", unit: "unidades", presentation: "Unidad" },
+    ...[
+      { date: daysAgo(20), type: "egreso", category: "01 Sanidad preventiva", description: "Vacuna Newcastle", counterparty: "Tienda veterinaria", amount: "80000", quantity: "1", unitPrice: "80000", unit: "unidades", presentation: "Unidad", expenseCatalogId: "CST-001" },
+      { date: daysAgo(25), type: "egreso", category: "07 Equipos e infraestructura", description: "Reparación de cerca perimetral", amount: "120000", expenseCatalogId: "CST-079" },
+      { date: daysAgo(28), type: "egreso", category: "07 Equipos e infraestructura", description: "Comederos nuevos", counterparty: "Agrocentro El Campo", amount: "95000", quantity: "10", unitPrice: "9500", unit: "unidades", presentation: "Unidad", expenseCatalogId: "CST-080" },
+    ].map((tx) => {
+      const resolved = resolveExpenseClassification({
+        type: "egreso",
+        category: tx.category,
+        expenseCatalogId: tx.expenseCatalogId,
+        description: tx.description,
+      });
+      return {
+        ...tx,
+        expenseCatalogId: resolved.expenseCatalogId,
+        expenseFamily: resolved.expenseFamily,
+        expenseConcept: resolved.expenseConcept,
+        expenseTreatment: resolved.expenseTreatment,
+        expenseDriver: resolved.expenseDriver,
+      };
+    }),
   ] as any);
 
   // ——— Incubación activa ———
@@ -562,9 +577,9 @@ async function main() {
 
   await db.insert(budgetItems).values([
     { budgetId, category: "Venta de huevos", description: "Ingreso mensual esperado", monthlyTarget: "500000", unit: "COP" },
-    { budgetId, category: "Compra de alimento", description: "Gasto en alimento", monthlyTarget: "200000", unit: "COP" },
-    { budgetId, category: "Control sanitario", description: "Vacunas y medicamentos", monthlyTarget: "50000", unit: "COP" },
-    { budgetId, category: "Mantenimiento", description: "Reparaciones e insumos", monthlyTarget: "30000", unit: "COP" },
+    { budgetId, category: "Compra de alimento", expenseCatalogId: "CST-278", expenseFamily: "24 Alimentación (en otro módulo)", description: "Gasto en alimento", monthlyTarget: "200000", unit: "COP" },
+    { budgetId, category: "01 Sanidad preventiva", expenseCatalogId: "CST-001", expenseFamily: "01 Sanidad preventiva", description: "Vacunas y medicamentos", monthlyTarget: "50000", unit: "COP" },
+    { budgetId, category: "07 Equipos e infraestructura", expenseCatalogId: "CST-080", expenseFamily: "07 Equipos e infraestructura", description: "Reparaciones e insumos", monthlyTarget: "30000", unit: "COP" },
   ]);
 
   // ——— Cuentas por cobrar ———

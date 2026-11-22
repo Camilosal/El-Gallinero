@@ -16,12 +16,15 @@ import { useActionQuery } from "@/lib/useActionQuery";
 import { syncManager } from "@/lib/offline/syncManager";
 import { getCachedCatalog, setCachedCatalog, getCachedRecords, setCachedRecords } from "@/lib/offline/db";
 import {
+  FEED_CATALOG_GROUPS,
   FEED_CURRENT_CATEGORIES,
   FEED_CURRENT_TYPES,
   currentFeedCategory,
   currentFeedType,
   feedTypeLabel,
+  inferFeedCatalogGroup,
   isPurchasedFeedCategory,
+  normalizeFeedCatalogGroup,
   normalizeFeedType,
 } from "@/lib/feed-classification";
 import { getStageSpecies, type FeedingSpecies } from "@/lib/feeding/stage-species";
@@ -55,6 +58,7 @@ interface Feed {
   dryMatterPct?: string | null;
   crudeProteinPct?: string | null;
   standardCatalogId?: string | null;
+  catalogGroup?: string | null;
   sanitaryStatus?: string | null;
   energyKcalKgDm?: string | null;
   calciumDmPct?: string | null;
@@ -246,7 +250,7 @@ const feedTypeLabels: Record<string, string> = {
   bore_raices: "Bore / Raíces",
   purinas: "Purinas",
   maiz_comprado: "Maíz Comprado",
-  concentrado_comercial: "Concentrado Comercial",
+  concentrado_comercial: "Concentrado Aves",
   otro: "Otro",
   "Bore o Raices": "Bore o Raices",
   "Concentrado Aves": "Concentrado Aves",
@@ -315,6 +319,7 @@ export default function AlimentacionPage() {
     name: "",
     category: "En Fresco",
     feedType: "Pastos y gramíneas",
+    catalogGroup: "Hojas y forrajes",
     unit: "kg",
     currentStock: "0",
     minStock: "0",
@@ -340,6 +345,7 @@ export default function AlimentacionPage() {
   const [prediccion, setPrediccion] = useState<PredictionData | null>(null);
   const [prediccionDays, setPrediccionDays] = useState<number>(14);
   const [feedSearch, setFeedSearch] = useState("");
+  const [feedGroupFilter, setFeedGroupFilter] = useState("all");
   const [movementSearch, setMovementSearch] = useState("");
   const [comparativoSearch, setComparativoSearch] = useState("");
   const [predictionSearch, setPredictionSearch] = useState("");
@@ -513,6 +519,7 @@ export default function AlimentacionPage() {
     setForm((prev) => ({
       ...prev,
       standardCatalogId: item.id,
+      catalogGroup: item.group,
       sanitaryStatus: item.sanitaryStatus,
       name: editing ? prev.name : item.name,
       category: item.defaultCategory,
@@ -547,6 +554,10 @@ export default function AlimentacionPage() {
       name: f.name,
       category: currentFeedCategory(f.category) || f.category,
       feedType: currentFeedType(f.feedType) || f.feedType,
+      catalogGroup:
+        normalizeFeedCatalogGroup(f.catalogGroup) ??
+        findStandardFeedById(f.standardCatalogId)?.group ??
+        inferFeedCatalogGroup(f.feedType, f.name, f.category),
       unit: f.unit,
       currentStock: f.currentStock,
       minStock: f.minStock,
@@ -942,10 +953,16 @@ export default function AlimentacionPage() {
   const totalAnimals = stages.reduce((sum, stage) => sum + Number(stage.animalCount ?? stage.henCount ?? 0), 0);
 
   const filteredFeeds = useMemo(() => {
-    if (!feedSearch.trim()) return feeds;
-    return feeds.filter((feed) =>
-      matchesTextQuery(feedSearch, [
+    return feeds.filter((feed) => {
+      const feedGroup =
+        normalizeFeedCatalogGroup(feed.catalogGroup) ??
+        findStandardFeedById(feed.standardCatalogId)?.group ??
+        inferFeedCatalogGroup(feed.feedType, feed.name, feed.category);
+      if (feedGroupFilter !== "all" && feedGroup !== feedGroupFilter) return false;
+      if (!feedSearch.trim()) return true;
+      return matchesTextQuery(feedSearch, [
         feed.name,
+        feedGroup,
         categoryLabels[feed.category] || feed.category,
         feedTypeLabels[feed.feedType] || feed.feedType,
         feed.currentStock,
@@ -956,9 +973,9 @@ export default function AlimentacionPage() {
         feed.standardCatalogId,
         feed.sanitaryStatus,
         Number(feed.currentStock) <= Number(feed.minStock) ? "stock bajo" : "",
-      ]),
-    );
-  }, [feeds, feedSearch]);
+      ]);
+    });
+  }, [feeds, feedSearch, feedGroupFilter]);
 
   const filteredMovements = useMemo(() => {
     if (!movementSearch.trim()) return movements;
@@ -1156,14 +1173,28 @@ export default function AlimentacionPage() {
               )}
             </div>
           )}
-          <TableSearch
-            value={feedSearch}
-            onChange={setFeedSearch}
-            placeholder="Buscar por alimento, categoría o proveedor..."
-            resultCount={filteredFeeds.length}
-            totalCount={feeds.length}
-            className="mb-4"
-          />
+          <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+            <TableSearch
+              value={feedSearch}
+              onChange={setFeedSearch}
+              placeholder="Buscar por alimento, código IG, grupo o proveedor..."
+              resultCount={filteredFeeds.length}
+              totalCount={feeds.length}
+              className="flex-1"
+            />
+            <div className="w-full sm:w-64 shrink-0">
+              <Select
+                label="Grupo catálogo (CSV)"
+                value={feedGroupFilter}
+                onChange={(e) => setFeedGroupFilter(e.target.value)}
+              >
+                <option value="all">Todos los grupos ({FEED_CATALOG_GROUPS.length})</option>
+                {FEED_CATALOG_GROUPS.map((g) => (
+                  <option key={g} value={g}>{g}</option>
+                ))}
+              </Select>
+            </div>
+          </div>
           {loading ? (
             <p className="text-center py-8 text-slate-400">Cargando...</p>
           ) : filteredFeeds.length === 0 ? (
@@ -1176,10 +1207,14 @@ export default function AlimentacionPage() {
               }
             />
           ) : (
-            <Table headers={["Alimento", "Categoría", "Tipo", "Stock", "Mín.", "Costo/Unidad", "Proveedor", "Acciones"]}>
+            <Table headers={["Alimento", "Categoría", "Grupo / Tipo", "Stock", "Mín.", "Costo/Unidad", "Proveedor", "Acciones"]}>
               {filteredFeeds.map((f) => {
                 const missingProfile =
                   !f.dryMatterPct || !f.energyKcalKgDm || !f.calciumDmPct || !f.availablePhosphorusDmPct;
+                const feedGroup =
+                  normalizeFeedCatalogGroup(f.catalogGroup) ??
+                  findStandardFeedById(f.standardCatalogId)?.group ??
+                  inferFeedCatalogGroup(f.feedType, f.name, f.category);
                 return (
                   <tr key={f.id} className={`hover:bg-slate-50 ${Number(f.currentStock) <= Number(f.minStock) ? "bg-red-50" : ""}`}>
                     <td className="px-4 py-3">
@@ -1208,7 +1243,10 @@ export default function AlimentacionPage() {
                       </div>
                     </td>
                     <td className="px-4 py-3 text-sm">{categoryLabels[f.category] || f.category}</td>
-                    <td className="px-4 py-3 text-sm">{feedTypeLabels[f.feedType] || f.feedType}</td>
+                    <td className="px-4 py-3 text-sm">
+                      <div className="font-medium text-[var(--iw-semantic-text-primary)]">{feedGroup}</div>
+                      <div className="text-xs text-[var(--iw-semantic-text-secondary)]">{feedTypeLabels[f.feedType] || f.feedType}</div>
+                    </td>
                     <td className="px-4 py-3 font-semibold">{f.currentStock} {f.unit}</td>
                     <td className="px-4 py-3 text-sm">{f.minStock} {f.unit}</td>
                     <td className="px-4 py-3">${f.costPerUnit}</td>
@@ -1895,6 +1933,9 @@ export default function AlimentacionPage() {
           </div>
 
           <Input label="Nombre del Alimento" help="Nombre descriptivo del alimento. Ej: 'Larvas de BSF', 'Maíz molido', 'Concentrado postura'." value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} placeholder="Ej: Larvas de BSF deshidratadas" required />
+          <Select label="Grupo del Catálogo (CSV)" help="Grupo oficial del Catálogo de Alimentos (IG-001..IG-119)." value={form.catalogGroup} onChange={(e) => setForm({ ...form, catalogGroup: e.target.value })}>
+            {FEED_CATALOG_GROUPS.map((g) => <option key={g} value={g}>{g}</option>)}
+          </Select>
           <Select label="Categoría" help="Clasificación del alimento: de granja (producido por ti) o suplementario (comprado)." value={form.category} onChange={(e) => setForm({ ...form, category: e.target.value })}>
             {categorySelectOptions.map((c) => <option key={c.value} value={c.value}>{c.label}</option>)}
           </Select>

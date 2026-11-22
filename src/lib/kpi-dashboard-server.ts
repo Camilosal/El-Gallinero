@@ -445,6 +445,9 @@ export async function computeFinanceSummary(params: {
         category: transactions.category,
         description: transactions.description,
         sourceType: transactions.sourceType,
+        expenseCatalogId: transactions.expenseCatalogId,
+        expenseFamily: transactions.expenseFamily,
+        expenseTreatment: transactions.expenseTreatment,
         amount: transactions.amount,
         date: transactions.date,
       })

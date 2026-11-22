@@ -1,3 +1,5 @@
+import { resolveExpenseClassification } from "@/lib/finance/standard-expense-catalog";
+
 export function round2(n: number): number {
   return Math.round((Number.isFinite(n) ? n : 0) * 100) / 100;
 }
@@ -156,7 +158,12 @@ export interface PreviousTransactionTaxValues {
   taxNotes?: string | null;
 }
 
-export function inferManagedTaxProfile(type: unknown, category: unknown): ManagedTaxProfile {
+export function inferManagedTaxProfile(
+  type: unknown,
+  category: unknown,
+  standardCatalogId?: string | null,
+  expenseFamily?: string | null,
+): ManagedTaxProfile {
   const normalizedType = String(type || "egreso").toLowerCase();
   const normalizedCategory = String(category || "").normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
   if (/(nomina|mano de obra|jornal|retiro|aporte|prestamo|credito|transferencia|impuesto|gmf|pago a personal)/.test(normalizedCategory)) {
@@ -165,6 +172,17 @@ export function inferManagedTaxProfile(type: unknown, category: unknown): Manage
   if (normalizedType === "ingreso") {
     if (/(venta|huevo|ave|pollo|gallina|carne|gallinaza|abono|subproducto|producto agro)/.test(normalizedCategory)) return "agro";
     return "general";
+  }
+  if (standardCatalogId || expenseFamily) {
+    const resolved = resolveExpenseClassification({
+      type: "egreso",
+      category: typeof category === "string" ? category : null,
+      expenseCatalogId: standardCatalogId ?? null,
+      expenseFamily: expenseFamily ?? null,
+    });
+    if (resolved.isStandardMatched) {
+      return resolved.taxProfile;
+    }
   }
   if (/(servicio|honorario|mantenimiento|veterin|asesoria|consultoria|reparacion)/.test(normalizedCategory)) return "services";
   return "purchases";

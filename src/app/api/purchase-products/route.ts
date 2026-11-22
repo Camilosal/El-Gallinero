@@ -1,20 +1,32 @@
 import { db } from "@/db";
 import { purchaseProducts } from "@/db/schema";
-import { eq, and, desc } from "drizzle-orm";
+import { resolveExpenseClassification } from "@/lib/finance/standard-expense-catalog";
+import { eq, and, desc, or } from "drizzle-orm";
 import { NextRequest, NextResponse } from "next/server";
 import { withApiHandler, safeParseJson } from "@/lib/api-handler";
 
 export const dynamic = "force-dynamic";
 
-/** List all active purchase products, optionally filtered by expense category */
+/** List all active purchase products, optionally filtered by expense category or standard family */
 export const GET = withApiHandler(async (req: NextRequest) => {
   const category = req.nextUrl.searchParams.get("category");
+  const family = req.nextUrl.searchParams.get("family");
 
-  if (category) {
+  if (category || family) {
+    const resolved = resolveExpenseClassification({
+      type: "egreso",
+      category,
+      expenseFamily: family,
+    });
+    const filters = [];
+    if (category) filters.push(eq(purchaseProducts.expenseCategory, category));
+    if (resolved.expenseFamily) filters.push(eq(purchaseProducts.expenseFamily, resolved.expenseFamily));
+    if (resolved.expenseCatalogId) filters.push(eq(purchaseProducts.expenseCatalogId, resolved.expenseCatalogId));
+
     const data = await db
       .select()
       .from(purchaseProducts)
-      .where(and(eq(purchaseProducts.expenseCategory, category), eq(purchaseProducts.isActive, true)))
+      .where(and(eq(purchaseProducts.isActive, true), filters.length > 1 ? or(...filters) : filters[0]))
       .orderBy(desc(purchaseProducts.updatedAt));
     return NextResponse.json(data);
   }
@@ -34,11 +46,21 @@ export const POST = withApiHandler(async (req: NextRequest) => {
     return NextResponse.json({ error: "Nombre y categoría son requeridos" }, { status: 400 });
   }
 
+  const resolved = resolveExpenseClassification({
+    type: "egreso",
+    category: body.expenseCategory,
+    expenseCatalogId: body.expenseCatalogId,
+    expenseFamily: body.expenseFamily,
+    description: body.name,
+  });
+
   const [created] = await db
     .insert(purchaseProducts)
     .values({
       name: body.name,
       expenseCategory: body.expenseCategory,
+      expenseCatalogId: resolved.expenseCatalogId,
+      expenseFamily: resolved.expenseFamily,
       defaultPresentation: body.defaultPresentation || null,
       defaultUnit: body.defaultUnit || "unidades",
       lastPricePerPresentation: body.lastPricePerPresentation || null,
@@ -57,11 +79,21 @@ export const PUT = withApiHandler(async (req: NextRequest) => {
     return NextResponse.json({ error: "ID requerido" }, { status: 400 });
   }
 
+  const resolved = resolveExpenseClassification({
+    type: "egreso",
+    category: body.expenseCategory,
+    expenseCatalogId: body.expenseCatalogId,
+    expenseFamily: body.expenseFamily,
+    description: body.name,
+  });
+
   const [updated] = await db
     .update(purchaseProducts)
     .set({
       name: body.name,
       expenseCategory: body.expenseCategory,
+      expenseCatalogId: resolved.expenseCatalogId,
+      expenseFamily: resolved.expenseFamily,
       defaultPresentation: body.defaultPresentation || null,
       defaultUnit: body.defaultUnit || "unidades",
       lastPricePerPresentation: body.lastPricePerPresentation || null,

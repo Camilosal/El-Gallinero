@@ -28,6 +28,7 @@ import { lockEggInventory } from "@/lib/inventory-locks";
 import { runFeedProgramCatchup } from "@/lib/feeding/runProgram";
 import { HEN_PRESENT_STATUSES } from "@/lib/animal-status";
 import { isPurchasedFeedCategory } from "@/lib/feed-classification";
+import { resolveExpenseClassification } from "@/lib/finance/standard-expense-catalog";
 import { addDaysIso, isDateOnly, todayColombiaIso } from "@/lib/date-validation";
 import { computeDailyGainG, computeUniformityStats, parseIndividualWeightsInput } from "@/lib/zootechnics";
 import { resolveDimensions } from "@/lib/analytics-dimensions";
@@ -387,6 +388,12 @@ async function processAlimentacionMutation(item: MutationItem) {
 
     if (body.isEntry && isPurchasedFeedCategory(feed.category) && Number(feed.costPerUnit) > 0) {
       const amount = (qty * Number(feed.costPerUnit)).toFixed(2);
+      const resolvedFeedTx = resolveExpenseClassification({
+        type: "egreso",
+        category: "Compra de alimento",
+        sourceType: "alimento",
+        description: `Compra de ${body.quantity} ${feed.unit} de ${feed.name} (offline sync)`,
+      });
       await tx.insert(transactions).values({
         date: body.date,
         type: "egreso",
@@ -402,6 +409,11 @@ async function processAlimentacionMutation(item: MutationItem) {
         species: body.species || null,
         locationId: body.locationId || null,
         batchId: body.batchId || null,
+        expenseCatalogId: resolvedFeedTx.expenseCatalogId,
+        expenseFamily: resolvedFeedTx.expenseFamily,
+        expenseConcept: resolvedFeedTx.expenseConcept,
+        expenseTreatment: resolvedFeedTx.expenseTreatment,
+        expenseDriver: resolvedFeedTx.expenseDriver,
       });
     }
   });
@@ -577,6 +589,21 @@ async function processSanidadMutation(item: MutationItem) {
       .returning();
 
     if (Number(body.cost) > 0) {
+      const sanType = String(body.type || "").toLowerCase();
+      const stdSan =
+        sanType === "vacunacion"
+          ? { id: "CST-001", family: "01 Sanidad preventiva" }
+          : sanType === "fumigacion"
+            ? { id: "CST-024", family: "03 Bioseguridad" }
+            : { id: "CST-010", family: "02 Diagnóstico y tratamientos" };
+      const resolvedSan = resolveExpenseClassification({
+        type: "egreso",
+        category: "Control sanitario",
+        expenseCatalogId: typeof body.expenseCatalogId === "string" ? body.expenseCatalogId : stdSan.id,
+        expenseFamily: typeof body.expenseFamily === "string" ? body.expenseFamily : stdSan.family,
+        description: `${body.type}: ${body.description}`,
+        sourceType: "sanidad",
+      });
       await tx.insert(transactions).values({
         date: String(body.date),
         type: "egreso",
@@ -588,6 +615,11 @@ async function processSanidadMutation(item: MutationItem) {
         species: record.species,
         locationId: record.locationId,
         batchId: record.batchId,
+        expenseCatalogId: resolvedSan.expenseCatalogId,
+        expenseFamily: resolvedSan.expenseFamily,
+        expenseConcept: resolvedSan.expenseConcept,
+        expenseTreatment: resolvedSan.expenseTreatment,
+        expenseDriver: resolvedSan.expenseDriver,
       });
     }
   });

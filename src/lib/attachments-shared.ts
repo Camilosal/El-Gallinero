@@ -1,4 +1,5 @@
 import { apiFetch } from "@/lib/fetch";
+import { resolveExpenseClassification } from "@/lib/finance/standard-expense-catalog";
 
 export const ATTACHMENT_ENTITY_TYPES = [
   "transaction",
@@ -78,6 +79,11 @@ export interface FacturaCompraOcrData {
   invoiceNumber?: string;
   date?: string;
   category?: string;
+  expenseCatalogId?: string | null;
+  expenseFamily?: string | null;
+  expenseConcept?: string | null;
+  expenseTreatment?: string | null;
+  expenseDriver?: string | null;
   productName?: string;
   presentation?: string;
   presentationsCount?: number;
@@ -385,24 +391,34 @@ export function parseColombianAgroDocument(
       unitPrice = Math.round(totalAmount / presentationsCount);
     }
 
-    let category = "Compra de insumos";
-    if (/(ponedora|engorde|iniciaci[oó]n|levante|concentrado|alimento|ma[ií]z|bulto|italcol|solla|contegral|purina)/i.test(lower)) {
-      category = "Compra de alimento";
-    } else if (/(vacuna|newcastle|gumboro|bronquitis|ivermectina|antibi[oó]tico|desparasit|sanitario|ica\b)/i.test(lower)) {
-      category = "Control sanitario";
-    } else if (/(energ[ií]a|acueducto|agua|luz|servicio|gas|internet)/i.test(lower)) {
-      category = "Servicios (agua/luz)";
-    } else if (/(mantenimiento|repuesto|malla|teja|bomba|arreglo|ferreter[ií]a)/i.test(lower)) {
-      category = "Mantenimiento";
-    } else if (/(transporte|flete|acarreo|peaje|combustible)/i.test(lower)) {
-      category = "Transporte";
-    }
-
     const productMatch =
       combined.match(/(?:PRODUCTO|CONCEPTO|DESCRIPCI[OÓ]N|ITEM|ART[IÍ]CULO)\s*[:.-]?\s*([^\n\r]{3,70})/i) ||
       combined.match(/\b((?:CONCENTRADO|PONEDORA|ENGORDE|INICIADOR|MA[IÍ]Z|VACUNA|VIRUTA| CAL )[^\n\r,;]{2,55})/i);
 
-    const isFeed = category === "Compra de alimento" || Boolean(bultosMatch);
+    const isFeed =
+      /(ponedora|engorde|iniciaci[oó]n|levante|concentrado|alimento|ma[ií]z|bulto|italcol|solla|contegral|purina)/i.test(lower) ||
+      Boolean(bultosMatch);
+    let legacyHint = "Compra de insumos";
+    if (isFeed) {
+      legacyHint = "Compra de alimento";
+    } else if (/(vacuna|newcastle|gumboro|bronquitis|ivermectina|antibi[oó]tico|desparasit|sanitario|ica\b)/i.test(lower)) {
+      legacyHint = "Control sanitario";
+    } else if (/(energ[ií]a|acueducto|agua|luz|servicio|gas|internet)/i.test(lower)) {
+      legacyHint = "Servicios (agua/luz)";
+    } else if (/(mantenimiento|repuesto|malla|teja|bomba|arreglo|ferreter[ií]a)/i.test(lower)) {
+      legacyHint = "Mantenimiento";
+    } else if (/(transporte|flete|acarreo|peaje|combustible)/i.test(lower)) {
+      legacyHint = "Transporte";
+    }
+    const resolvedExpense = resolveExpenseClassification({
+      type: "egreso",
+      category: legacyHint,
+      description: productMatch?.[1]?.trim() || combined.slice(0, 120),
+    });
+    const category = isFeed
+      ? "Compra de alimento"
+      : resolvedExpense.expenseFamily || legacyHint;
+
     const presentation = isFeed
       ? bagWeightKg === 25
         ? "Bulto 25kg"
@@ -432,6 +448,11 @@ export function parseColombianAgroDocument(
       invoiceNumber,
       date,
       category,
+      expenseCatalogId: resolvedExpense.expenseCatalogId,
+      expenseFamily: resolvedExpense.expenseFamily,
+      expenseConcept: resolvedExpense.expenseConcept,
+      expenseTreatment: resolvedExpense.expenseTreatment,
+      expenseDriver: resolvedExpense.expenseDriver,
       productName,
       presentation,
       presentationsCount,

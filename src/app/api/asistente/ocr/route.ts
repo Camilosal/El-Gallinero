@@ -12,10 +12,11 @@ import {
   type OcrExtractedPayload,
   type OcrExtractionMode,
 } from "@/lib/attachments-shared";
+import { resolveExpenseClassification } from "@/lib/finance/standard-expense-catalog";
 
 const MODE_PROMPTS: Record<OcrExtractionMode, string> = {
   factura_compra:
-    "Extrae de esta factura agropecuaria colombiana un JSON estricto con las llaves: supplierName, documentType ('NIT'|'CC'), documentNumber, invoiceNumber, date (YYYY-MM-DD), category ('Compra de alimento'|'Control sanitario'|'Compra de insumos'|'Mantenimiento'|'Servicios (agua/luz)'|'Transporte'), productName, presentation ('Bulto 40kg'|'Bulto 50kg'|'Bulto 25kg'|'Unidad'), presentationsCount (número de bultos o unidades), unitPrice (número en COP), totalAmount (número en COP), rawText (transcripción resumida).",
+    "Extrae de esta factura agropecuaria colombiana un JSON estricto con las llaves: supplierName, documentType ('NIT'|'CC'), documentNumber, invoiceNumber, date (YYYY-MM-DD), category ('Compra de alimento' o Familia estándar de egresos ej. '01 Sanidad preventiva'|'02 Diagnóstico y tratamientos'|'03 Bioseguridad'|'04 Cama y limpieza'|'05 Agua y suministro'|'06 Energía y clima'|'07 Equipos e infraestructura'|'08 Clasificación y empaque'|'15 Transporte y logística'|'22 Activos / inversión'), expenseCatalogId (opcional código 'CST-001'..'CST-303'), expenseFamily (opcional), productName, presentation ('Bulto 40kg'|'Bulto 50kg'|'Bulto 25kg'|'Unidad'), presentationsCount (número de bultos o unidades), unitPrice (número en COP), totalAmount (número en COP), rawText (transcripción resumida).",
   etiqueta_ica:
     "Extrae de esta etiqueta de vacuna/medicamento veterinario ICA un JSON estricto con las llaves: product, activeIngredient, icaRegistration (ej: '4589-DB'), vaccineLab, vaccineLot, vaccineExpiryDate (YYYY-MM-DD), withdrawalDays (número entero de días de retiro), coldChainTempC (ej: '2-8°C'), administrationRoute ('agua_bebida'|'ocular_nasal'|'punzon_alar'|'intramuscular'|'subcutanea'|'aspersor'), eventType ('vacunacion'|'desparasitacion'|'tratamiento'|'vitaminas'), rawText.",
   comprobante_pago:
@@ -181,6 +182,18 @@ export const POST = withApiHandler(async (req: NextRequest) => {
     if (!rec.suggestedSpecies && jevSuggestions.suggestedSpecies) {
       rec.suggestedSpecies = jevSuggestions.suggestedSpecies;
     }
+    const resolved = resolveExpenseClassification({
+      type: "egreso",
+      category: typeof rec.category === "string" ? rec.category : jevSuggestions.suggestedExpenseCategory,
+      expenseCatalogId: typeof rec.expenseCatalogId === "string" ? rec.expenseCatalogId : null,
+      expenseFamily: typeof rec.expenseFamily === "string" ? rec.expenseFamily : null,
+      description: [rec.productName, combinedText].filter(Boolean).join(" ").slice(0, 200),
+    });
+    rec.expenseCatalogId = rec.expenseCatalogId || resolved.expenseCatalogId;
+    rec.expenseFamily = rec.expenseFamily || resolved.expenseFamily;
+    rec.expenseConcept = rec.expenseConcept || resolved.expenseConcept;
+    rec.expenseTreatment = rec.expenseTreatment || resolved.expenseTreatment;
+    rec.expenseDriver = rec.expenseDriver || resolved.expenseDriver;
   } else if (mode === "etiqueta_ica" && jevSuggestions.matchedIcaItem && extracted && typeof extracted === "object") {
     const rec = extracted as unknown as Record<string, unknown>;
     if (!rec.productName) rec.productName = jevSuggestions.matchedIcaItem.commercialName;

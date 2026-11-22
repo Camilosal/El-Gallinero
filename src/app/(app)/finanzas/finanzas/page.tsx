@@ -11,6 +11,13 @@ import TableSearch from "@/components/TableSearch";
 import { matchesTextQuery } from "@/lib/text";
 import { useSearchParams } from "next/navigation";
 import { useActionQuery } from "@/lib/useActionQuery";
+import StandardExpensePicker from "@/components/finance/StandardExpensePicker";
+import {
+  NON_FEED_STANDARD_EXPENSE_FAMILIES,
+  TREATMENT_LABELS,
+  findStandardExpenseFamily,
+  type ExpenseTreatmentType,
+} from "@/lib/finance/standard-expense-catalog";
 
 interface Transaction {
   id: string;
@@ -27,6 +34,18 @@ interface Transaction {
   notes: string | null;
   sourceType: string | null;
   sourceId: string | null;
+  expenseCatalogId?: string | null;
+  expenseFamily?: string | null;
+  expenseConcept?: string | null;
+  expenseTreatment?: string | null;
+  expenseDriver?: string | null;
+}
+
+interface ByFamily {
+  family: string;
+  treatment: string;
+  total: number;
+  count: number;
 }
 
 interface ByCategory {
@@ -77,6 +96,7 @@ interface FinanceData {
     lifecycleLabel: string;
   };
   byCategory: ByCategory[];
+  byFamily?: ByFamily[];
   series: SeriesPoint[];
   kpis: Kpis;
   cashflow: { series: SeriesPoint[]; kpis: Kpis };
@@ -93,15 +113,8 @@ const incomeCategories = [
 
 const expenseCategories = [
   "Compra de alimento",
-  "Compra de insumos",
-  "Control sanitario",
-  "Mantenimiento",
   "Mano de obra",
-  "Servicios (agua/luz)",
-  "Compra de gallinas",
-  "Equipamiento",
-  "Transporte",
-  "Otro egreso",
+  ...NON_FEED_STANDARD_EXPENSE_FAMILIES.map((f) => f.name),
 ];
 
 const COLORS = [
@@ -119,6 +132,16 @@ const COLORS = [
 
 const defaultUnitByCategory: Record<string, string> = {
   "Compra de alimento": "kg",
+  "01 Sanidad preventiva": "unidades",
+  "02 Diagnóstico y tratamientos": "unidades",
+  "03 Bioseguridad": "unidades",
+  "04 Cama y limpieza": "unidades",
+  "05 Personal / nómina": "otro",
+  "07 Equipos e infraestructura": "unidades",
+  "08 Clasificación y empaque": "unidades",
+  "15 Transporte y logística": "unidades",
+  "22 Activos / inversión": "unidades",
+  "23 Activo biológico": "unidades",
   "Compra de insumos": "unidades",
   "Control sanitario": "unidades",
   "Mantenimiento": "unidades",
@@ -145,7 +168,24 @@ export default function FinanzasPage() {
   const [editing, setEditing] = useState<Transaction | null>(null);
   const [error, setError] = useState("");
   const [search, setSearch] = useState("");
-  const [form, setForm] = useState({ date: new Date().toISOString().split("T")[0], type: "egreso", category: expenseCategories[0], description: "", counterparty: "", quantity: "", unitPrice: "", unit: "unidades", presentation: "", amount: "", notes: "" });
+  const [form, setForm] = useState({
+    date: new Date().toISOString().split("T")[0],
+    type: "egreso",
+    category: "01 Sanidad preventiva",
+    expenseCatalogId: "",
+    expenseFamily: "01 Sanidad preventiva",
+    expenseConcept: "",
+    expenseTreatment: "VARIABLE",
+    expenseDriver: "UNIDAD_MENSUAL",
+    description: "",
+    counterparty: "",
+    quantity: "",
+    unitPrice: "",
+    unit: "unidades",
+    presentation: "",
+    amount: "",
+    notes: "",
+  });
   const { values: incomeCats } = useCatalog("categoria_ingreso", incomeCategories);
   const { values: expenseCats } = useCatalog("categoria_egreso", expenseCategories);
   const { values: unitOptions } = useCatalog("unidad_medida", ["unidades", "kg", "lb", "litros", "docenas", "otro"]);
@@ -171,7 +211,24 @@ export default function FinanzasPage() {
   const openNew = () => {
     setEditing(null);
     setError("");
-    setForm({ date: new Date().toISOString().split("T")[0], type: "egreso", category: expenseCategories[0], description: "", counterparty: "", quantity: "", unitPrice: "", unit: "unidades", presentation: "", amount: "", notes: "" });
+    setForm({
+      date: new Date().toISOString().split("T")[0],
+      type: "egreso",
+      category: "01 Sanidad preventiva",
+      expenseCatalogId: "",
+      expenseFamily: "01 Sanidad preventiva",
+      expenseConcept: "",
+      expenseTreatment: "VARIABLE",
+      expenseDriver: "UNIDAD_MENSUAL",
+      description: "",
+      counterparty: "",
+      quantity: "",
+      unitPrice: "",
+      unit: "unidades",
+      presentation: "",
+      amount: "",
+      notes: "",
+    });
     setModalOpen(true);
   };
   useActionQuery(searchParams.get("nuevo"), { "1": openNew });
@@ -179,21 +236,68 @@ export default function FinanzasPage() {
   const openEdit = (t: Transaction) => {
     setEditing(t);
     setError("");
-    setForm({ date: t.date, type: t.type, category: t.category, description: t.description, counterparty: t.counterparty || "", quantity: t.quantity || "", unitPrice: t.unitPrice || "", unit: t.unit || "unidades", presentation: t.presentation || "", amount: t.amount, notes: t.notes || "" });
+    setForm({
+      date: t.date,
+      type: t.type,
+      category: t.category,
+      expenseCatalogId: t.expenseCatalogId || "",
+      expenseFamily: t.expenseFamily || "",
+      expenseConcept: t.expenseConcept || "",
+      expenseTreatment: t.expenseTreatment || "",
+      expenseDriver: t.expenseDriver || "",
+      description: t.description,
+      counterparty: t.counterparty || "",
+      quantity: t.quantity || "",
+      unitPrice: t.unitPrice || "",
+      unit: t.unit || "unidades",
+      presentation: t.presentation || "",
+      amount: t.amount,
+      notes: t.notes || "",
+    });
     setModalOpen(true);
   };
 
   const onTypeChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
     const t = e.target.value;
-    const firstCat = t === "ingreso" ? (incomeCats[0] || incomeCategories[0]) : (expenseCats[0] || expenseCategories[0]);
-    const unit = defaultUnitByCategory[firstCat];
-    setForm({ ...form, type: t, category: firstCat, ...(unit ? { unit } : {}) });
+    if (t === "ingreso") {
+      const firstCat = incomeCats[0] || incomeCategories[0];
+      const unit = defaultUnitByCategory[firstCat];
+      setForm({
+        ...form,
+        type: t,
+        category: firstCat,
+        expenseCatalogId: "",
+        expenseFamily: "",
+        expenseConcept: "",
+        expenseTreatment: "",
+        expenseDriver: "",
+        ...(unit ? { unit } : {}),
+      });
+    } else {
+      setForm({
+        ...form,
+        type: t,
+        category: "01 Sanidad preventiva",
+        expenseCatalogId: "",
+        expenseFamily: "01 Sanidad preventiva",
+        expenseConcept: "",
+        expenseTreatment: "VARIABLE",
+        expenseDriver: "UNIDAD_MENSUAL",
+        unit: "unidades",
+      });
+    }
   };
 
   const onCategoryChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
     const category = e.target.value;
-    const unit = defaultUnitByCategory[category];
-    setForm({ ...form, category, ...(unit ? { unit } : {}) });
+    const fam = findStandardExpenseFamily(category);
+    const unit = defaultUnitByCategory[category] || (fam?.isPurchaseWorkflow ? "unidades" : undefined);
+    setForm({
+      ...form,
+      category,
+      ...(form.type === "egreso" && fam ? { expenseFamily: fam.name } : {}),
+      ...(unit ? { unit } : {}),
+    });
   };
 
   const save = async () => {
@@ -227,11 +331,18 @@ export default function FinanzasPage() {
     load();
   };
 
-  const expensePie = data?.byCategory.filter((c) => c.type === "egreso").map((c, i) => ({
-    name: c.category,
-    value: Number(c.total),
-    color: COLORS[i % COLORS.length],
-  })) || [];
+  const expensePie =
+    data?.byFamily && data.byFamily.length > 0
+      ? data.byFamily.map((f, i) => ({
+          name: f.family,
+          value: Number(f.total),
+          color: COLORS[i % COLORS.length],
+        }))
+      : data?.byCategory.filter((c) => c.type === "egreso").map((c, i) => ({
+          name: c.category,
+          value: Number(c.total),
+          color: COLORS[i % COLORS.length],
+        })) || [];
 
   const incomePie = data?.byCategory.filter((c) => c.type === "ingreso").map((c, i) => ({
     name: c.category,
@@ -251,6 +362,9 @@ export default function FinanzasPage() {
         dateFmt(transaction.date),
         transaction.type === "ingreso" ? "ingreso" : "egreso",
         transaction.category,
+        transaction.expenseFamily,
+        transaction.expenseCatalogId,
+        transaction.expenseConcept,
         transaction.description,
         transaction.counterparty,
         transaction.quantity,
@@ -471,17 +585,29 @@ export default function FinanzasPage() {
               )}
             </Card>
             <Card>
-              <h3 className="font-semibold text-red-700 mb-3 flex items-center gap-2"><ArrowUpRight className="w-4 h-4" aria-hidden="true" />Desglose de Egresos</h3>
-              {data.byCategory.filter((c) => c.type === "egreso").length === 0 ? (
-                <p className="text-sm text-slate-400 py-4 text-center">Sin egresos registrados</p>
+              <h3 className="font-semibold text-[var(--iw-semantic-status-danger)] mb-3 flex items-center gap-2"><ArrowUpRight className="w-4 h-4" aria-hidden="true" />Desglose de Egresos por Familia / Centro</h3>
+              {expensePie.length === 0 ? (
+                <p className="text-sm text-[var(--iw-semantic-text-secondary)] py-4 text-center">Sin egresos registrados</p>
               ) : (
                 <div className="space-y-2">
-                  {data.byCategory.filter((c) => c.type === "egreso").map((c, i) => (
-                    <div key={i} className="flex justify-between items-center p-2 bg-red-50 rounded">
-                      <span className="text-sm">{c.category}</span>
-                      <span className="font-semibold text-red-700">${Number(c.total).toLocaleString()}</span>
-                    </div>
-                  ))}
+                  {(data.byFamily && data.byFamily.length > 0
+                    ? data.byFamily.map((f, i) => (
+                        <div key={i} className="flex justify-between items-center p-2 bg-[var(--iw-semantic-bg-subtle)] rounded border border-[var(--iw-semantic-border-default)]">
+                          <span className="text-sm text-[var(--iw-semantic-text-primary)]">
+                            {f.family}{" "}
+                            <span className="text-xs text-[var(--iw-semantic-text-secondary)]">
+                              ({TREATMENT_LABELS[f.treatment as ExpenseTreatmentType] || f.treatment})
+                            </span>
+                          </span>
+                          <span className="font-semibold text-[var(--iw-semantic-status-danger)]">${Number(f.total).toLocaleString()}</span>
+                        </div>
+                      ))
+                    : data.byCategory.filter((c) => c.type === "egreso").map((c, i) => (
+                        <div key={i} className="flex justify-between items-center p-2 bg-[var(--iw-semantic-bg-subtle)] rounded">
+                          <span className="text-sm">{c.category}</span>
+                          <span className="font-semibold text-[var(--iw-semantic-status-danger)]">${Number(c.total).toLocaleString()}</span>
+                        </div>
+                      )))}
                 </div>
               )}
             </Card>
@@ -527,7 +653,14 @@ export default function FinanzasPage() {
                     </span>
                   </Badge>
                 </td>
-                <td className="px-4 py-3 text-sm font-medium">{t.category}</td>
+                <td className="px-4 py-3 text-sm font-medium">
+                  <div>{t.expenseFamily || t.category}</div>
+                  {t.expenseCatalogId && (
+                    <div className="text-[11px] text-[var(--iw-semantic-text-secondary)]">
+                      <span className="font-mono">{t.expenseCatalogId}</span> · {t.expenseConcept || t.category}
+                    </div>
+                  )}
+                </td>
                 <td className="px-4 py-3 text-sm max-w-[200px] truncate">{t.description}</td>
                 <td className="px-4 py-3 text-sm text-slate-600">{t.counterparty || "—"}</td>
                 <td className="px-4 py-3 text-sm text-slate-500">
@@ -577,11 +710,40 @@ export default function FinanzasPage() {
             <option value="ingreso">Ingreso</option>
             <option value="egreso">Egreso</option>
           </Select>
-          <Select label="Categoría" value={form.category} onChange={onCategoryChange}>
-            {(form.type === "ingreso" ? incomeCats : expenseCats).map((c) => (
-              <option key={c} value={c}>{c}</option>
-            ))}
-          </Select>
+          {form.type === "ingreso" ? (
+            <Select label="Categoría" value={form.category} onChange={onCategoryChange}>
+              {incomeCats.map((c) => (
+                <option key={c} value={c}>{c}</option>
+              ))}
+            </Select>
+          ) : (
+            <StandardExpensePicker
+              compact
+              includeFeedCategory={false}
+              value={{
+                category: form.category,
+                expenseCatalogId: form.expenseCatalogId,
+                expenseFamily: form.expenseFamily,
+                expenseConcept: form.expenseConcept,
+                expenseTreatment: form.expenseTreatment,
+                expenseDriver: form.expenseDriver,
+              }}
+              extraCategories={expenseCats}
+              onChange={(next, meta) =>
+                setForm((f) => ({
+                  ...f,
+                  category: next.category,
+                  expenseCatalogId: next.expenseCatalogId,
+                  expenseFamily: next.expenseFamily,
+                  expenseConcept: next.expenseConcept,
+                  expenseTreatment: next.expenseTreatment,
+                  expenseDriver: next.expenseDriver,
+                  description: f.description || next.expenseConcept || "",
+                  unit: meta.recommendedUnit || f.unit,
+                }))
+              }
+            />
+          )}
           <Textarea label="Descripción" value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} placeholder="Detalle de la transacción..." required />
           <ContactField
             role={form.type === "ingreso" ? "cliente" : "proveedor"}

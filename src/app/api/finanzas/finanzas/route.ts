@@ -1,5 +1,6 @@
 import { resolveDimensions } from "@/lib/analytics-dimensions";
 import { isDateOnly } from "@/lib/date-validation";
+import { resolveExpenseClassification } from "@/lib/finance/standard-expense-catalog";
 import { db } from "@/db";
 import {
   transactions,
@@ -97,16 +98,51 @@ export const GET = withApiHandler(async (req: NextRequest) => {
   for (const r of receivables) dueDateByTx.set(r.transactionId, r.dueDate || null);
   for (const p of payables) dueDateByTx.set(p.transactionId, p.dueDate || null);
 
+  const byFamilyMap = new Map<string, { family: string; treatment: string; total: number; count: number }>();
   const enriched = await Promise.all(
     data.map(async (t) => {
       const dueDate = dueDateByTx.get(t.id) ?? null;
+      const resolved = resolveExpenseClassification({
+        type: t.type,
+        category: t.category,
+        expenseCatalogId: t.expenseCatalogId,
+        expenseFamily: t.expenseFamily,
+        expenseConcept: t.expenseConcept,
+        expenseTreatment: t.expenseTreatment,
+        expenseDriver: t.expenseDriver,
+        description: t.description,
+        sourceType: t.sourceType,
+      });
+      if (t.type === "egreso") {
+        const famKey = resolved.expenseFamily || t.category || "Sin clasificar";
+        const curFam = byFamilyMap.get(famKey) || {
+          family: famKey,
+          treatment: resolved.expenseTreatment || "VARIABLE",
+          total: 0,
+          count: 0,
+        };
+        curFam.total += Number(t.amount || 0);
+        curFam.count += 1;
+        byFamilyMap.set(famKey, curFam);
+      }
+      const enrichedFields = {
+        dueDate,
+        expenseCatalogId: t.expenseCatalogId ?? resolved.expenseCatalogId,
+        expenseFamily: t.expenseFamily ?? resolved.expenseFamily,
+        expenseConcept: t.expenseConcept ?? resolved.expenseConcept,
+        expenseTreatment: t.expenseTreatment ?? resolved.expenseTreatment,
+        expenseDriver: t.expenseDriver ?? resolved.expenseDriver,
+      };
       if (t.sourceType === "alimento" && t.sourceId) {
         const [mov] = await db.select({ feedId: feedMovements.feedId }).from(feedMovements).where(eq(feedMovements.id, t.sourceId));
-        if (mov) return { ...t, dueDate, feedId: mov.feedId };
+        if (mov) return { ...t, ...enrichedFields, feedId: mov.feedId };
       }
-      return { ...t, dueDate };
+      return { ...t, ...enrichedFields };
     })
   );
+  const byFamily = Array.from(byFamilyMap.values())
+    .map((f) => ({ ...f, total: Number(f.total.toFixed(2)) }))
+    .sort((a, b) => b.total - a.total);
 
   const income = summary.find((s) => s.type === "ingreso")?.total || "0";
   const expenses = summary.find((s) => s.type === "egreso")?.total || "0";
@@ -180,6 +216,7 @@ export const GET = withApiHandler(async (req: NextRequest) => {
     },
     operatingContext,
     byCategory,
+    byFamily,
     series,
     kpis,
     cashflow,
@@ -340,19 +377,53 @@ export const POST = withApiHandler(async (req: NextRequest) => {
   if (!amount) {
     return NextResponse.json({ error: "Defina el monto o cantidad y valor unitario" }, { status: 400 });
   }
+  const txType = body.type || "egreso";
+  const resolvedExpense = resolveExpenseClassification({
+    type: txType,
+    category: body.category,
+    expenseCatalogId: body.expenseCatalogId,
+    expenseFamily: body.expenseFamily,
+    expenseConcept: body.expenseConcept,
+    expenseTreatment: body.expenseTreatment,
+    expenseDriver: body.expenseDriver,
+    description: body.description,
+  });
+  const resolvedCategory = resolvedExpense.category || body.category || (txType === "egreso" ? "Otro egreso" : "Otro ingreso");
+  const expenseCatalogCols =
+    txType === "egreso"
+      ? {
+          expenseCatalogId: resolvedExpense.expenseCatalogId,
+          expenseFamily: resolvedExpense.expenseFamily,
+          expenseConcept: resolvedExpense.expenseConcept,
+          expenseTreatment: resolvedExpense.expenseTreatment,
+          expenseDriver: resolvedExpense.expenseDriver,
+        }
+      : {
+          expenseCatalogId: null,
+          expenseFamily: null,
+          expenseConcept: null,
+          expenseTreatment: null,
+          expenseDriver: null,
+        };
+
   const taxConfig = await getTaxAndPayrollConfig();
   const taxResolved = resolveManagedTransactionTaxColumns(
     body as Record<string, unknown>,
     amount,
     taxConfig,
-    inferManagedTaxProfile(body.type || "egreso", body.category),
+    inferManagedTaxProfile(
+      txType,
+      resolvedCategory,
+      expenseCatalogCols.expenseCatalogId,
+      expenseCatalogCols.expenseFamily,
+    ),
   );
 
   // Determine if this is a purchase with presentation data
   const hasPresentationInputs = [body.presentations, body.pricePerPresentation]
     .some((value) => value !== undefined && value !== null && value !== "");
   const isPresentationPurchase = hasPresentationInputs;
-  const isFeedPurchaseCategory = body.category === "Compra de alimento";
+  const isFeedPurchaseCategory = resolvedCategory === "Compra de alimento";
   if (isFeedPurchaseCategory && !body.feedId) {
     return NextResponse.json({ error: "Selecciona el alimento que se compró" }, { status: 400 });
   }
@@ -394,12 +465,13 @@ export const POST = withApiHandler(async (req: NextRequest) => {
         const [created] = await tx.insert(transactions).values({
         ...dims,
           date: body.date,
-          type: body.type || "egreso",
-          category: body.category,
+          type: txType,
+          category: resolvedCategory,
           description: body.description,
           counterparty: body.counterparty || null,
           amount: presentationAmount,
           ...taxResolved.columns,
+          ...expenseCatalogCols,
           quantity: String(quantityInBaseUnit),
           unitPrice: String(unitPricePerBaseUnit),
           unit: feed.unit,
@@ -457,7 +529,7 @@ export const POST = withApiHandler(async (req: NextRequest) => {
     }
     
     // Non-feed purchase with presentation — optionally links to supplyInventory with weighted average cost
-    const isCapexCategory = (body.type || "egreso") === "egreso" && /equipamiento|infraestructura|maquinaria/i.test(String(body.category || ""));
+    const isCapexCategory = txType === "egreso" && resolvedExpense.accountingNature === "capex";
     const result = await db.transaction(async (tx) => {
       let linkedSupplyMovId: string | null = null;
       if (!isCapexCategory && body.supplyId && (body.type || "egreso") === "egreso") {
@@ -501,12 +573,13 @@ export const POST = withApiHandler(async (req: NextRequest) => {
       const [created] = await tx.insert(transactions).values({
         ...dims,
         date: body.date,
-        type: body.type || "egreso",
-        category: body.category,
+        type: txType,
+        category: resolvedCategory,
         description: body.description,
         counterparty: body.counterparty || null,
         amount: presentationAmount,
         ...taxResolved.columns,
+        ...expenseCatalogCols,
         quantity: String(quantityInBaseUnit),
         unitPrice: String(unitPricePerBaseUnit),
         unit: body.unit || null,
@@ -564,17 +637,18 @@ export const POST = withApiHandler(async (req: NextRequest) => {
   }
 
   // Legacy path: no presentation data
-  const isCapexCategory = (body.type || "egreso") === "egreso" && /equipamiento|infraestructura|maquinaria/i.test(String(body.category || ""));
+  const isCapexCategory = txType === "egreso" && resolvedExpense.accountingNature === "capex";
   const result = await db.transaction(async (tx) => {
     const [created] = await tx.insert(transactions).values({
         ...dims,
       date: body.date,
-      type: body.type,
-      category: body.category,
+      type: txType,
+      category: resolvedCategory,
       description: body.description,
       counterparty: body.counterparty || null,
       amount: taxResolved.amount,
       ...taxResolved.columns,
+      ...expenseCatalogCols,
       quantity: body.quantity || null,
       unitPrice: body.unitPrice || null,
       unit: body.unit || null,
@@ -702,23 +776,49 @@ export const PUT = withApiHandler(async (req: NextRequest) => {
     if ((current.sourceType || current.sourceId) && !(current.sourceType === "alimento" && current.sourceId)) {
       throw new Error("Transacción vinculada: debe editarse desde el módulo que la creó");
     }
+    const resolvedPutExpense = resolveExpenseClassification({
+      type: body.type ?? current.type,
+      category: body.category ?? current.category,
+      expenseCatalogId: body.expenseCatalogId !== undefined ? body.expenseCatalogId : current.expenseCatalogId,
+      expenseFamily: body.expenseFamily !== undefined ? body.expenseFamily : current.expenseFamily,
+      expenseConcept: body.expenseConcept !== undefined ? body.expenseConcept : current.expenseConcept,
+      expenseTreatment: body.expenseTreatment !== undefined ? body.expenseTreatment : current.expenseTreatment,
+      expenseDriver: body.expenseDriver !== undefined ? body.expenseDriver : current.expenseDriver,
+      description: body.description ?? current.description,
+      sourceType: current.sourceType,
+    });
+    const effectiveType = body.type ?? current.type;
     const taxConfig = await getTaxAndPayrollConfig();
     const taxResolved = resolveManagedTransactionTaxColumns(
       body as Record<string, unknown>,
       amount,
       taxConfig,
-      inferManagedTaxProfile(body.type ?? current.type, body.category ?? current.category),
+      inferManagedTaxProfile(
+        effectiveType,
+        resolvedPutExpense.category,
+        resolvedPutExpense.expenseCatalogId,
+        resolvedPutExpense.expenseFamily,
+      ),
       current,
     );
     const [updated] = await tx.update(transactions).set({
       ...(hasDimensions ? dims : {}),
       date: body.date,
       type: body.type,
-      category: body.category,
+      category: resolvedPutExpense.category,
       description: body.description,
       counterparty: body.counterparty || null,
       amount: taxResolved.amount,
       ...taxResolved.columns,
+      ...(effectiveType === "egreso"
+        ? {
+            expenseCatalogId: resolvedPutExpense.expenseCatalogId,
+            expenseFamily: resolvedPutExpense.expenseFamily,
+            expenseConcept: resolvedPutExpense.expenseConcept,
+            expenseTreatment: resolvedPutExpense.expenseTreatment,
+            expenseDriver: resolvedPutExpense.expenseDriver,
+          }
+        : {}),
       quantity: quantityValue,
       unitPrice: unitPriceValue,
       unit: unitValue,

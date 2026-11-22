@@ -1,7 +1,7 @@
 import { eq } from "drizzle-orm";
 import { db } from "@/db";
 import { feedInventory } from "@/db/schema";
-import { currentFeedCategory, currentFeedType } from "@/lib/feed-classification";
+import { currentFeedCategory, currentFeedType, inferFeedCatalogGroup, normalizeFeedCatalogGroup } from "@/lib/feed-classification";
 import { STARTER_FEED_DEFINITIONS } from "@/lib/feeding/default-tenant-seed";
 import { findStandardFeedById } from "@/lib/feeding/standard-feed-catalog";
 
@@ -151,6 +151,10 @@ export async function alignFarmFeedsToStandardCatalog(
     const std = findStandardFeedById(row.standardCatalogId || inferred?.standardCatalogId);
 
     const nextStdId = row.standardCatalogId ?? inferred?.standardCatalogId ?? null;
+    const nextCatalogGroup =
+      std?.group ??
+      normalizeFeedCatalogGroup(row.catalogGroup) ??
+      inferFeedCatalogGroup(nextFeedType, row.name, nextCategory);
     const nextSanitary = row.sanitaryStatus ?? std?.sanitaryStatus ?? inferred?.sanitaryStatus ?? null;
     const nextDryMatter =
       row.dryMatterPct ??
@@ -197,6 +201,7 @@ export async function alignFarmFeedsToStandardCatalog(
       nextCategory !== row.category ||
       nextFeedType !== row.feedType ||
       nextStdId !== row.standardCatalogId ||
+      nextCatalogGroup !== row.catalogGroup ||
       nextSanitary !== row.sanitaryStatus ||
       nextDryMatter !== row.dryMatterPct ||
       nextCrudeProtein !== row.crudeProteinPct ||
@@ -215,6 +220,7 @@ export async function alignFarmFeedsToStandardCatalog(
           category: nextCategory,
           feedType: nextFeedType,
           standardCatalogId: nextStdId,
+          catalogGroup: nextCatalogGroup,
           sanitaryStatus: nextSanitary,
           dryMatterPct: nextDryMatter,
           crudeProteinPct: nextCrudeProtein,
@@ -246,6 +252,7 @@ export async function alignFarmFeedsToStandardCatalog(
       if (existingStdSet.has(def.standardCatalogId)) continue;
       const nameHit = existing.some((r) => normalizeName(r.name) === normalizeName(def.name));
       if (nameHit) continue;
+      const stdSeed = findStandardFeedById(def.standardCatalogId);
       await client.insert(feedInventory).values({
         farmId,
         name: def.name,
@@ -259,6 +266,7 @@ export async function alignFarmFeedsToStandardCatalog(
         dryMatterPct: def.dryMatterPct,
         crudeProteinPct: def.crudeProteinPct,
         standardCatalogId: def.standardCatalogId,
+        catalogGroup: stdSeed?.group ?? inferFeedCatalogGroup(def.feedType, def.name, def.category),
         sanitaryStatus: def.sanitaryStatus ?? "CONDICIONAL",
         energyKcalKgDm: def.energyKcalKgDm ?? null,
         calciumDmPct: def.calciumDmPct ?? null,

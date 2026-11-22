@@ -28,6 +28,9 @@ import {
   weightLogs,
 } from "@/db/schema";
 import { isDateOnly, todayColombiaIso } from "@/lib/date-validation";
+import { feedTypeLabel, inferFeedCatalogGroup, normalizeFeedCatalogGroup } from "@/lib/feed-classification";
+import { findStandardFeedById } from "@/lib/feeding/standard-feed-catalog";
+import { resolveExpenseClassification } from "@/lib/finance/standard-expense-catalog";
 import type { CellValue } from "./xlsx";
 
 /** Tope de filas por dataset para proteger memoria y tiempos de respuesta. */
@@ -474,8 +477,11 @@ async function loadLotes(): Promise<ExportDatasetResult> {
 
 const ALIMENTO_INVENTARIO_HEADERS = [
   "Alimento",
+  "Código estándar (IG)",
+  "Grupo catálogo",
   "Categoría",
   "Tipo",
+  "Estado sanitario",
   "Unidad",
   "Stock actual",
   "Stock mínimo",
@@ -483,6 +489,12 @@ const ALIMENTO_INVENTARIO_HEADERS = [
   "Proveedor",
   "Materia seca (%)",
   "Proteína cruda (%)",
+  "EM (kcal/kg MS)",
+  "Calcio (% MS)",
+  "Fósforo disp. (% MS)",
+  "Lisina dig. (% MS)",
+  "Met+Cys dig. (% MS)",
+  "Fibra bruta (% MS)",
 ];
 
 async function loadAlimentoInventario(): Promise<ExportDatasetResult> {
@@ -493,18 +505,34 @@ async function loadAlimentoInventario(): Promise<ExportDatasetResult> {
   return {
     headers: ALIMENTO_INVENTARIO_HEADERS,
     truncated,
-    rows: rows.map((row) => [
-      row.name,
-      row.category,
-      row.feedType,
-      row.unit,
-      num(row.currentStock),
-      num(row.minStock),
-      num(row.costPerUnit),
-      str(row.supplier),
-      num(row.dryMatterPct),
-      num(row.crudeProteinPct),
-    ]),
+    rows: rows.map((row) => {
+      const std = findStandardFeedById(row.standardCatalogId);
+      const group =
+        std?.group ??
+        normalizeFeedCatalogGroup(row.catalogGroup) ??
+        inferFeedCatalogGroup(row.feedType, row.name, row.category);
+      return [
+        row.name,
+        str(row.standardCatalogId),
+        group,
+        row.category,
+        feedTypeLabel(row.feedType),
+        str(row.sanitaryStatus ?? std?.sanitaryStatus),
+        row.unit,
+        num(row.currentStock),
+        num(row.minStock),
+        num(row.costPerUnit),
+        str(row.supplier),
+        num(row.dryMatterPct),
+        num(row.crudeProteinPct),
+        num(row.energyKcalKgDm),
+        num(row.calciumDmPct),
+        num(row.availablePhosphorusDmPct),
+        num(row.lysineDigDmPct),
+        num(row.metCysDigDmPct),
+        num(row.crudeFiberDmPct),
+      ];
+    }),
   };
 }
 
@@ -663,6 +691,11 @@ const FINANZAS_HEADERS = [
   "Fecha",
   "Tipo",
   "Categoría",
+  "Código catálogo (CST)",
+  "Familia / centro",
+  "Concepto estándar",
+  "Tratamiento",
+  "Driver",
   "Descripción",
   "Contraparte",
   "Monto",
@@ -690,22 +723,42 @@ async function loadFinanzas(range: ExportRange): Promise<ExportDatasetResult> {
   return {
     headers: FINANZAS_HEADERS,
     truncated,
-    rows: rows.map((row) => [
-      row.date,
-      row.type,
-      row.category,
-      row.description,
-      str(row.counterparty),
-      num(row.amount),
-      num(row.quantity),
-      num(row.unitPrice),
-      str(row.unit),
-      str(row.presentation),
-      str(row.species),
-      row.locationId ? locations.get(row.locationId) ?? "" : "",
-      row.isCredit,
-      str(row.notes),
-    ]),
+    rows: rows.map((row) => {
+      const resolved = row.type === "egreso"
+        ? resolveExpenseClassification({
+            type: row.type,
+            category: row.category,
+            expenseCatalogId: row.expenseCatalogId,
+            expenseFamily: row.expenseFamily,
+            expenseConcept: row.expenseConcept,
+            expenseTreatment: row.expenseTreatment,
+            expenseDriver: row.expenseDriver,
+            description: row.description,
+            sourceType: row.sourceType,
+          })
+        : null;
+      return [
+        row.date,
+        row.type,
+        row.category,
+        row.expenseCatalogId ?? resolved?.expenseCatalogId ?? "",
+        row.expenseFamily ?? resolved?.expenseFamily ?? "",
+        row.expenseConcept ?? resolved?.expenseConcept ?? "",
+        row.expenseTreatment ?? resolved?.expenseTreatment ?? "",
+        row.expenseDriver ?? resolved?.expenseDriver ?? "",
+        row.description,
+        str(row.counterparty),
+        num(row.amount),
+        num(row.quantity),
+        num(row.unitPrice),
+        str(row.unit),
+        str(row.presentation),
+        str(row.species),
+        row.locationId ? locations.get(row.locationId) ?? "" : "",
+        row.isCredit,
+        str(row.notes),
+      ];
+    }),
   };
 }
 

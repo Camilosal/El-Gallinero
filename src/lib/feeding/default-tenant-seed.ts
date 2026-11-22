@@ -2,6 +2,8 @@ import { and, eq } from "drizzle-orm";
 import { db } from "@/db";
 import { catalogos, feedInventory, feedPrograms } from "@/db/schema";
 import { withDerivedPercentages } from "@/lib/feeding/program-validation";
+import { inferFeedCatalogGroup } from "@/lib/feed-classification";
+import { findStandardFeedById } from "@/lib/feeding/standard-feed-catalog";
 import type { FeedingSpecies } from "@/lib/species";
 
 type SeedDbClient = Pick<typeof db, "select" | "insert" | "transaction">;
@@ -153,6 +155,7 @@ export const STARTER_FEED_DEFINITIONS: ReadonlyArray<StarterFeedDef> = [
     minStock: "10",
     dryMatterPct: "89.50",
     crudeProteinPct: "21.00",
+    standardCatalogId: "IG-001",
     sanitaryStatus: "CONDICIONAL",
     energyKcalKgDm: "3160.00",
     calciumDmPct: "3.35",
@@ -168,6 +171,7 @@ export const STARTER_FEED_DEFINITIONS: ReadonlyArray<StarterFeedDef> = [
     minStock: "15",
     dryMatterPct: "88.50",
     crudeProteinPct: "17.50",
+    standardCatalogId: "IG-003",
     sanitaryStatus: "CONDICIONAL",
     energyKcalKgDm: "2680.00",
     calciumDmPct: "0.95",
@@ -554,6 +558,9 @@ export async function seedStarterFeedsAndPrograms(
           dryMatterPct: def.dryMatterPct,
           crudeProteinPct: def.crudeProteinPct,
           standardCatalogId: def.standardCatalogId ?? null,
+          catalogGroup:
+            findStandardFeedById(def.standardCatalogId)?.group ??
+            inferFeedCatalogGroup(def.feedType, def.name, def.category),
           sanitaryStatus: def.sanitaryStatus ?? null,
           energyKcalKgDm: def.energyKcalKgDm ?? null,
           calciumDmPct: def.calciumDmPct ?? null,

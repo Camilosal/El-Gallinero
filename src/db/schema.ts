@@ -310,6 +310,7 @@ export const feedInventory = pgTable("feed_inventory", {
   dryMatterPct: decimal("dry_matter_pct", { precision: 5, scale: 2 }), // % materia seca (forrajes frescos ~20-30, concentrado ~88-90)
   crudeProteinPct: decimal("crude_protein_pct", { precision: 5, scale: 2 }), // % proteína cruda en base fresca
   standardCatalogId: varchar("standard_catalog_id", { length: 20 }), // Referencia IG-xxx de Catalogo Alimentos.csv
+  catalogGroup: varchar("catalog_group", { length: 80 }), // Grupo oficial de Catalogo Alimentos.csv (9 grupos)
   sanitaryStatus: varchar("sanitary_status", { length: 24 }), // CONDICIONAL | RESTRINGIDO | NO USAR
   energyKcalKgDm: decimal("energy_kcal_kg_dm", { precision: 7, scale: 2 }), // EM kcal/kg MS
   calciumDmPct: decimal("calcium_dm_pct", { precision: 5, scale: 2 }), // Ca % MS
@@ -320,7 +321,20 @@ export const feedInventory = pgTable("feed_inventory", {
   nutritionProfile: jsonb("nutrition_profile"), // Metadatos de composición, preparación, riesgos y fuente
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
-});
+}, (t) => [
+  check(
+    "feed_inventory_catalog_group_valid",
+    sql`${t.catalogGroup} IS NULL OR ${t.catalogGroup} IN ('Balanceados', 'Cereales y semillas', 'Frutas', 'Hojas y forrajes', 'Hortalizas y verduras', 'Insectos y anélidos', 'Minerales y aditivos', 'Raíces y tubérculos', 'Recuperados y subproductos')`,
+  ),
+  check(
+    "feed_inventory_sanitary_status_valid",
+    sql`${t.sanitaryStatus} IS NULL OR ${t.sanitaryStatus} IN ('CONDICIONAL', 'RESTRINGIDO', 'NO USAR')`,
+  ),
+  check(
+    "feed_inventory_standard_catalog_id_valid",
+    sql`${t.standardCatalogId} IS NULL OR ${t.standardCatalogId} ~ '^IG-[0-9]{3}$'`,
+  ),
+]);
 
 // ─── Activos y equipos de la finca ───
 export const farmAssets = pgTable("farm_assets", {
@@ -610,8 +624,26 @@ export const transactions = pgTable("transactions", {
   netSettlementAmount: decimal("net_settlement_amount", { precision: 12, scale: 2 }),
   taxNotes: text("tax_notes"),
   notes: text("notes"),
+  expenseCatalogId: varchar("expense_catalog_id", { length: 20 }),
+  expenseFamily: varchar("expense_family", { length: 120 }),
+  expenseConcept: varchar("expense_concept", { length: 200 }),
+  expenseTreatment: varchar("expense_treatment", { length: 30 }),
+  expenseDriver: varchar("expense_driver", { length: 30 }),
   createdAt: timestamp("created_at").defaultNow().notNull(),
-});
+}, (t) => [
+  check(
+    "transactions_expense_treatment_valid",
+    sql`${t.expenseTreatment} IS NULL OR ${t.expenseTreatment} IN ('VARIABLE', 'FIJO', 'EXISTENTE_V4', 'CAPEX', 'FINANCIERO', 'BIOLOGICO', 'ALIMENTO', 'MERMA', 'NO_COSTO')`,
+  ),
+  check(
+    "transactions_expense_driver_valid",
+    sql`${t.expenseDriver} IS NULL OR ${t.expenseDriver} IN ('UNIDAD_MENSUAL', 'EVENTO', 'MES', 'HUEVO_VENDIDO')`,
+  ),
+  check(
+    "transactions_expense_catalog_id_valid",
+    sql`${t.expenseCatalogId} IS NULL OR ${t.expenseCatalogId} ~ '^CST-[0-9]{3}$'`,
+  ),
+]);
 
 // ─── Usuarios ───
 export const users = pgTable("users", {
@@ -954,6 +986,8 @@ export const budgetItems = pgTable("budget_items", {
   id: uuid("id").defaultRandom().primaryKey(),
   budgetId: uuid("budget_id").references(() => budgets.id, { onDelete: "cascade" }).notNull(),
   category: varchar("category", { length: 100 }).notNull(),
+  expenseCatalogId: varchar("expense_catalog_id", { length: 20 }),
+  expenseFamily: varchar("expense_family", { length: 120 }),
   description: varchar("description", { length: 200 }),
   monthlyTarget: decimal("monthly_target", { precision: 12, scale: 2 }).notNull(),
   unit: varchar("unit", { length: 30 }),
@@ -1179,6 +1213,8 @@ export const purchaseProducts = pgTable("purchase_products", {
   id: uuid("id").defaultRandom().primaryKey(),
   name: varchar("name", { length: 200 }).notNull(),
   expenseCategory: varchar("expense_category", { length: 100 }).notNull(),
+  expenseCatalogId: varchar("expense_catalog_id", { length: 20 }),
+  expenseFamily: varchar("expense_family", { length: 120 }),
   defaultPresentation: varchar("default_presentation", { length: 100 }),
   defaultUnit: varchar("default_unit", { length: 30 }).notNull().default("unidades"),
   lastPricePerPresentation: decimal("last_price_per_presentation", { precision: 12, scale: 2 }),
@@ -1263,6 +1299,8 @@ export const costAllocations = pgTable("cost_allocations", {
   title: varchar("title", { length: 200 }).notNull(),
   sourceTransactionId: uuid("source_transaction_id").references(() => transactions.id, { onDelete: "set null" }),
   expenseCategory: varchar("expense_category", { length: 100 }),
+  expenseCatalogId: varchar("expense_catalog_id", { length: 20 }),
+  expenseFamily: varchar("expense_family", { length: 120 }),
   totalAmount: decimal("total_amount", { precision: 12, scale: 2 }).notNull(),
   basis: varchar("basis", { length: 30 }).default("head_count").notNull(), // head_count | biomass | feed_kg | area_m2 | manual
   allocations: jsonb("allocations").$type<Array<{

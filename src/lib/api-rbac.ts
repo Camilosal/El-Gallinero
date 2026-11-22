@@ -125,6 +125,7 @@ export function getApiPermission(
     if (pathname === "/api/dashboard/setup/feeding-review") return "production:write";
     if (pathname === "/api/soporte/fallas") return "operations:manage";
 
+    if (pathname === "/api/finanzas/catalogo-egresos") return ["inventory:read", "finance:read", "catalogs:write"];
     if (isFinancialEndpoint(pathname)) return "finance:read";
     return null;
   }
@@ -147,6 +148,7 @@ export function getApiPermission(
   if (pathname === "/api/perdidas-huevos") return "production:write";
   if (pathname === "/api/onboarding" || pathname === "/api/onboarding/sugerir") return "settings:manage";
   if (startsWithPath(pathname, "/api/inventarios/insumos")) return "finance:write";
+  if (pathname === "/api/finanzas/alinear-egresos") return ["catalogs:write", "finance:write"];
   if (isFinancialEndpoint(pathname)) return "finance:write";
 
   if (pathname === "/api/configuracion/usuarios") return "users:manage";

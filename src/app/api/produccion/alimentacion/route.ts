@@ -5,7 +5,14 @@ import { NextRequest, NextResponse } from "next/server";
 import { getFeedInventoryProjection } from "@/lib/feeding/inventory";
 import { withApiHandler, safeParseJson } from "@/lib/api-handler";
 import { deleteTransactionsAndUnpaidAccounts } from "@/lib/financial-records";
-import { normalizeFeedCategory, normalizeFeedType } from "@/lib/feed-classification";
+import {
+  currentFeedCategory,
+  currentFeedType,
+  inferFeedCatalogGroup,
+  normalizeFeedCatalogGroup,
+  normalizeFeedCategory,
+  normalizeFeedType,
+} from "@/lib/feed-classification";
 import { parseOptionalNutrientDecimal, parseOptionalPercent } from "@/lib/feeding/ration";
 import { findStandardFeedById, type StandardFeedItem } from "@/lib/feeding/standard-feed-catalog";
 import { getSessionUser } from "@/lib/auth";
@@ -129,10 +136,17 @@ export const POST = withApiHandler(async (req: NextRequest) => {
   if (!Number.isFinite(initialStock) || initialStock < 0) {
     return NextResponse.json({ error: "Stock inicial inválido" }, { status: 400 });
   }
-  const category = normalizeFeedCategory(body.category ?? standardItem?.defaultCategory);
-  const feedType = normalizeFeedType(body.feedType ?? standardItem?.defaultFeedType);
-  if (!category) return NextResponse.json({ error: "Categoría de alimento no reconocida. Revisa el catálogo de categorías." }, { status: 400 });
-  if (!feedType) return NextResponse.json({ error: "Tipo de alimento no reconocido. Revisa el catálogo de tipos." }, { status: 400 });
+  const rawCategory = normalizeFeedCategory(body.category ?? standardItem?.defaultCategory);
+  const rawFeedType = normalizeFeedType(body.feedType ?? standardItem?.defaultFeedType);
+  if (!rawCategory) return NextResponse.json({ error: "Categoría de alimento no reconocida. Revisa el catálogo de categorías." }, { status: 400 });
+  if (!rawFeedType) return NextResponse.json({ error: "Tipo de alimento no reconocido. Revisa el catálogo de tipos." }, { status: 400 });
+  const category = currentFeedCategory(rawCategory) ?? rawCategory;
+  const feedType = currentFeedType(rawFeedType) ?? rawFeedType;
+  const feedName = (typeof body.name === "string" && body.name.trim()) ? body.name.trim() : standardItem?.name || "";
+  const catalogGroup =
+    standardItem?.group ??
+    normalizeFeedCatalogGroup(body.catalogGroup) ??
+    inferFeedCatalogGroup(feedType, feedName, category);
 
   const toDecimalOrStd = (parsed: { value: string | null } | undefined, stdVal: number | null | undefined) => {
     if (parsed !== undefined && parsed.value !== null) return parsed.value;
@@ -142,7 +156,7 @@ export const POST = withApiHandler(async (req: NextRequest) => {
 
   const [created] = await db.transaction(async (tx) => {
     const [row] = await tx.insert(feedInventory).values({
-      name: (typeof body.name === "string" && body.name.trim()) ? body.name.trim() : standardItem?.name || "",
+      name: feedName,
       category,
       feedType,
       unit: body.unit || standardItem?.defaultUnit || "kg",
@@ -153,6 +167,7 @@ export const POST = withApiHandler(async (req: NextRequest) => {
       dryMatterPct: dryMatter.value,
       crudeProteinPct: protein.value,
       standardCatalogId: standardItem?.id ?? null,
+      catalogGroup,
       sanitaryStatus: resolvedSanitary,
       energyKcalKgDm: toDecimalOrStd(extra.energy, standardItem?.energyKcalKgDm),
       calciumDmPct: toDecimalOrStd(extra.calcium, standardItem?.calciumDmPct),
@@ -210,14 +225,17 @@ export const PUT = withApiHandler(async (req: NextRequest) => {
     return NextResponse.json({ error: "No se permite estado sanitario NO USAR." }, { status: 400 });
   }
 
-  const requestedCategory = body.category == null ? undefined : normalizeFeedCategory(body.category);
-  const requestedFeedType = body.feedType == null ? undefined : normalizeFeedType(body.feedType);
-  if (body.category != null && !requestedCategory) {
+  const parsedCategory = body.category == null ? undefined : normalizeFeedCategory(body.category);
+  const parsedFeedType = body.feedType == null ? undefined : normalizeFeedType(body.feedType);
+  if (body.category != null && !parsedCategory) {
     return NextResponse.json({ error: "Categoría de alimento no reconocida. Revisa el catálogo de categorías." }, { status: 400 });
   }
-  if (body.feedType != null && !requestedFeedType) {
+  if (body.feedType != null && !parsedFeedType) {
     return NextResponse.json({ error: "Tipo de alimento no reconocido. Revisa el catálogo de tipos." }, { status: 400 });
   }
+  const requestedCategory = parsedCategory ? (currentFeedCategory(parsedCategory) ?? parsedCategory) : undefined;
+  const requestedFeedType = parsedFeedType ? (currentFeedType(parsedFeedType) ?? parsedFeedType) : undefined;
+  const requestedGroup = body.catalogGroup == null ? undefined : normalizeFeedCatalogGroup(body.catalogGroup);
 
   const [updated] = await db.transaction(async (tx) => {
     const [existing] = await tx.select().from(feedInventory).where(eq(feedInventory.id, body.id)).for("update");
@@ -225,10 +243,13 @@ export const PUT = withApiHandler(async (req: NextRequest) => {
     const nextStock = body.currentStock != null ? Number(body.currentStock) : Number(existing.currentStock);
     if (!Number.isFinite(nextStock) || nextStock < 0) throw new Error("Stock inválido");
     const previousStock = Number(existing.currentStock);
+    const nextName = body.name ?? existing.name;
+    const nextCategory = requestedCategory ?? existing.category;
+    const nextFeedType = requestedFeedType ?? existing.feedType;
     const [row] = await tx.update(feedInventory).set({
-      name: body.name ?? existing.name,
-      category: requestedCategory ?? existing.category,
-      feedType: requestedFeedType ?? existing.feedType,
+      name: nextName,
+      category: nextCategory,
+      feedType: nextFeedType,
       unit: body.unit ?? existing.unit,
       currentStock: nextStock.toFixed(2),
       minStock: body.minStock ?? existing.minStock,
@@ -237,6 +258,11 @@ export const PUT = withApiHandler(async (req: NextRequest) => {
       dryMatterPct: dryMatter === undefined ? existing.dryMatterPct : dryMatter.value,
       crudeProteinPct: protein === undefined ? existing.crudeProteinPct : protein.value,
       standardCatalogId: requestedStdId === undefined ? existing.standardCatalogId : requestedStdId,
+      catalogGroup:
+        standardItem?.group ??
+        requestedGroup ??
+        normalizeFeedCatalogGroup(existing.catalogGroup) ??
+        inferFeedCatalogGroup(nextFeedType, nextName, nextCategory),
       sanitaryStatus:
         extra.sanitaryStatus !== undefined
           ? extra.sanitaryStatus

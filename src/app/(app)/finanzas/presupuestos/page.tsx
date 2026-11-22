@@ -10,11 +10,21 @@ import { matchesTextQuery } from "@/lib/text";
 import { useSearchParams } from "next/navigation";
 import { useActionQuery } from "@/lib/useActionQuery";
 import FeatureGateBanner from "@/components/FeatureGateBanner";
+import {
+  NON_FEED_STANDARD_EXPENSE_FAMILIES,
+  STANDARD_EXPENSE_CATALOG,
+  TREATMENT_LABELS,
+  findStandardExpenseById,
+  findStandardExpenseFamily,
+  type ExpenseTreatmentType,
+} from "@/lib/finance/standard-expense-catalog";
 
 interface BudgetItem {
   id: string;
   budgetId: string;
   category: string;
+  expenseCatalogId?: string | null;
+  expenseFamily?: string | null;
   description: string | null;
   monthlyTarget: string;
   unit: string | null;
@@ -59,7 +69,7 @@ export default function PresupuestosPage() {
   const [error, setError] = useState("");
   const [editingId, setEditingId] = useState<string | null>(null);
   const [form, setForm] = useState({ name: "", periodStart: "", periodEnd: "", type: budgetTypes[0] });
-  const [items, setItems] = useState<{ category: string; description: string; monthlyTarget: string; unit: string }[]>([]);
+  const [items, setItems] = useState<{ category: string; expenseCatalogId: string; expenseFamily: string; description: string; monthlyTarget: string; unit: string }[]>([]);
   const [search, setSearch] = useState("");
   const [detailSearch, setDetailSearch] = useState("");
 
@@ -87,12 +97,14 @@ export default function PresupuestosPage() {
   };
 
   const addItem = () => {
-    setItems([...items, { category: "", description: "", monthlyTarget: "0", unit: "" }]);
+    const defaultCat = form.type === "ingreso" ? "Venta de huevos" : "01 Sanidad preventiva";
+    const defaultFam = form.type === "ingreso" ? "" : "01 Sanidad preventiva";
+    setItems([...items, { category: defaultCat, expenseCatalogId: "", expenseFamily: defaultFam, description: "", monthlyTarget: "0", unit: "" }]);
   };
 
-  const updateItem = (index: number, field: string, value: string) => {
+  const updateItem = (index: number, patch: Partial<{ category: string; expenseCatalogId: string; expenseFamily: string; description: string; monthlyTarget: string; unit: string }>) => {
     const newItems = [...items];
-    newItems[index] = { ...newItems[index], [field]: value };
+    newItems[index] = { ...newItems[index], ...patch };
     setItems(newItems);
   };
 
@@ -136,6 +148,8 @@ export default function PresupuestosPage() {
     setForm({ name: b.name, periodStart: b.periodStart, periodEnd: b.periodEnd, type: b.type });
     setItems(b.items.map((item) => ({
       category: item.category,
+      expenseCatalogId: item.expenseCatalogId || "",
+      expenseFamily: item.expenseFamily || findStandardExpenseFamily(item.category)?.name || "",
       description: item.description || "",
       monthlyTarget: item.monthlyTarget,
       unit: item.unit || "",
@@ -283,7 +297,15 @@ export default function PresupuestosPage() {
                   const isOverBudget = (c.variance || 0) > 0 && detailBudget.type === "egreso";
                   return (
                     <tr key={i} className="hover:bg-slate-50">
-                      <td className="px-4 py-3 text-sm font-medium">{c.category}</td>
+                      <td className="px-4 py-3 text-sm font-medium">
+                        <div>{c.expenseFamily || c.category}</div>
+                        {c.expenseCatalogId && (
+                          <div className="text-[11px] text-[var(--iw-semantic-text-secondary)]">
+                            <span className="font-mono font-semibold">{c.expenseCatalogId}</span>
+                            {c.description ? ` · ${c.description}` : ""}
+                          </div>
+                        )}
+                      </td>
                       <td className="px-4 py-3 text-sm">{fmt(c.target || 0)}</td>
                       <td className="px-4 py-3 text-sm font-bold">{fmt(c.actual || 0)}</td>
                       <td className={`px-4 py-3 text-sm ${isOverBudget ? "text-red-600" : "text-green-600"}`}>
@@ -349,17 +371,102 @@ export default function PresupuestosPage() {
               <h4 className="text-sm font-semibold text-slate-700">Items del presupuesto</h4>
               <Button variant="secondary" onClick={addItem}>+ Item</Button>
             </div>
-            {items.map((item, i) => (
-              <div key={i} className="flex gap-2 mb-2 items-end">
-                <div className="flex-1">
-                  <Input placeholder="Categoría" value={item.category} onChange={(e) => updateItem(i, "category", e.target.value)} />
+            {items.map((item, i) => {
+              const famMeta = findStandardExpenseFamily(item.expenseFamily || item.category);
+              const familyConcepts = famMeta
+                ? STANDARD_EXPENSE_CATALOG.filter((c) => c.family === famMeta.name)
+                : [];
+              return (
+                <div key={i} className="mb-3 rounded-lg border border-[var(--iw-semantic-border-default)] bg-[var(--iw-semantic-bg-subtle)] p-2.5">
+                  <div className="grid grid-cols-1 gap-2 sm:grid-cols-12 items-end">
+                    <div className={form.type === "ingreso" ? "sm:col-span-7" : "sm:col-span-5"}>
+                      {form.type === "ingreso" ? (
+                        <Input
+                          label={i === 0 ? "Categoría de ingreso" : undefined}
+                          placeholder="Categoría (ej: Venta de huevos)"
+                          value={item.category}
+                          onChange={(e) => updateItem(i, { category: e.target.value })}
+                        />
+                      ) : (
+                        <Select
+                          label={i === 0 ? "Familia / centro de costo" : undefined}
+                          value={item.expenseFamily || item.category}
+                          onChange={(e) => {
+                            const val = e.target.value;
+                            const fam = findStandardExpenseFamily(val);
+                            updateItem(i, {
+                              category: val,
+                              expenseFamily: fam ? fam.name : "",
+                              expenseCatalogId: "",
+                              description: "",
+                            });
+                          }}
+                        >
+                          <option value="">Selecciona familia o categoría...</option>
+                          <option value="Compra de alimento">Compra de alimento</option>
+                          <option value="Mano de obra">Mano de obra</option>
+                          {NON_FEED_STANDARD_EXPENSE_FAMILIES.map((fam) => (
+                            <option key={fam.name} value={fam.name}>
+                              {fam.name} · {TREATMENT_LABELS[fam.defaultTreatment as ExpenseTreatmentType] || fam.defaultTreatment}
+                            </option>
+                          ))}
+                          {item.category &&
+                            !findStandardExpenseFamily(item.category) &&
+                            item.category !== "Compra de alimento" &&
+                            item.category !== "Mano de obra" && (
+                              <option value={item.category}>{item.category}</option>
+                            )}
+                        </Select>
+                      )}
+                    </div>
+                    {form.type !== "ingreso" && (
+                      <div className="sm:col-span-4">
+                        <Select
+                          label={i === 0 ? "Concepto CST (opc.)" : undefined}
+                          value={item.expenseCatalogId || ""}
+                          disabled={familyConcepts.length === 0}
+                          onChange={(e) => {
+                            const std = findStandardExpenseById(e.target.value);
+                            updateItem(i, {
+                              expenseCatalogId: std?.id || "",
+                              description: std?.concept || "",
+                            });
+                          }}
+                        >
+                          <option value="">Toda la familia ({familyConcepts.length})</option>
+                          {familyConcepts.map((c) => (
+                            <option key={c.id} value={c.id}>
+                              {c.id} · {c.concept}
+                            </option>
+                          ))}
+                        </Select>
+                      </div>
+                    )}
+                    <div className={form.type === "ingreso" ? "sm:col-span-4" : "sm:col-span-2"}>
+                      <Input
+                        label={i === 0 ? "Meta $" : undefined}
+                        placeholder="Meta mensual $"
+                        type="number"
+                        min="0"
+                        step="0.01"
+                        value={item.monthlyTarget}
+                        onChange={(e) => updateItem(i, { monthlyTarget: e.target.value })}
+                      />
+                    </div>
+                    <div className="sm:col-span-1 flex justify-end">
+                      <button
+                        type="button"
+                        onClick={() => removeItem(i)}
+                        className="min-h-[40px] px-2 text-[var(--iw-semantic-status-danger)] hover:opacity-80"
+                        aria-label="Quitar partida"
+                      >
+                        &times;
+                      </button>
+                    </div>
+                  </div>
                 </div>
-                <div className="w-32">
-                  <Input placeholder="Meta mensual $" type="number" min="0" step="0.01" value={item.monthlyTarget} onChange={(e) => updateItem(i, "monthlyTarget", e.target.value)} />
-                </div>
-                <button onClick={() => removeItem(i)} className="text-red-500 hover:text-red-700 pb-2 px-1">&times;</button>
-              </div>
-            ))}
+              );
+            })}
           </div>
 
           <div className="flex gap-3">

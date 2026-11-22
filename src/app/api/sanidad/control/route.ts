@@ -164,6 +164,12 @@ export const POST = withApiHandler(async (req: NextRequest) => {
 
     // 2. Register expense if cost > 0
     if (Number(body.cost) > 0) {
+      const sanType = String(body.type || "").toLowerCase();
+      const stdSan = sanType === "vacunacion"
+        ? { id: "CST-001", family: "01 Sanidad preventiva", concept: "Vacunas adquiridas" }
+        : sanType === "fumigacion"
+          ? { id: "CST-024", family: "03 Bioseguridad", concept: "Desinfectante de pediluvios" }
+          : { id: "CST-010", family: "02 Diagnóstico y tratamientos", concept: "Consulta veterinaria externa" };
       await tx.insert(transactions).values({
         date: body.date,
         type: "egreso",
@@ -175,6 +181,11 @@ export const POST = withApiHandler(async (req: NextRequest) => {
         species: record.species,
         locationId: record.locationId,
         batchId: record.batchId,
+        expenseCatalogId: stdSan.id,
+        expenseFamily: stdSan.family,
+        expenseConcept: stdSan.concept,
+        expenseTreatment: "VARIABLE",
+        expenseDriver: "UNIDAD_MENSUAL",
       });
     }
 

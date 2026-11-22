@@ -1,8 +1,7 @@
 "use client";
 
-import Link from "next/link";
 import { useEffect, useState, useCallback, useMemo } from "react";
-import { ArrowUp, BarChart3, Calculator, Package, Pencil } from "lucide-react";
+import { ArrowUp, BarChart3, Calculator, Package, Pencil, RefreshCw } from "lucide-react";
 import { PageHeader, HeroActionButton, Button, Card, Table, Badge, Modal, Input, Select, Textarea, EmptyState, StatCard, Tooltip as FieldTooltip } from "@/components/ui";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from "recharts";
 import { apiFetch } from "@/lib/fetch";
@@ -23,6 +22,18 @@ import { matchesTextQuery } from "@/lib/text";
 import { useSearchParams } from "next/navigation";
 import { useActionQuery } from "@/lib/useActionQuery";
 import { TaxDeductionsFields, emptyTaxFields, type TaxFieldsState } from "@/components/TaxDeductionsFields";
+import StandardExpensePicker, {
+  type StandardExpensePickerMeta,
+  type StandardExpenseSelection,
+} from "@/components/finance/StandardExpensePicker";
+import {
+  NON_FEED_STANDARD_EXPENSE_FAMILIES,
+  STANDARD_EXPENSE_FAMILIES,
+  TREATMENT_LABELS,
+  findStandardExpenseFamily,
+  resolveExpenseClassification,
+  type ExpenseTreatmentType,
+} from "@/lib/finance/standard-expense-catalog";
 
 interface Transaction {
   id: string;
@@ -38,6 +49,11 @@ interface Transaction {
   presentation: string | null;
   notes: string | null;
   feedId?: string | null;
+  expenseCatalogId?: string | null;
+  expenseFamily?: string | null;
+  expenseConcept?: string | null;
+  expenseTreatment?: string | null;
+  expenseDriver?: string | null;
   ivaRate?: string | null;
   ivaAmount?: string | null;
   reteFuenteRate?: string | null;
@@ -80,19 +96,16 @@ interface PurchaseProduct {
 
 const expenseCategories = [
   "Compra de alimento",
-  "Compra de insumos",
-  "Control sanitario",
-  "Mantenimiento",
   "Mano de obra",
-  "Servicios (agua/luz)",
-  "Compra de gallinas",
-  "Equipamiento",
-  "Transporte",
-  "Otro egreso",
+  ...NON_FEED_STANDARD_EXPENSE_FAMILIES.map((f) => f.name),
 ];
 
 const purchaseCategories = [
   "Compra de alimento",
+  ...STANDARD_EXPENSE_FAMILIES
+    .filter((f) => f.isPurchaseWorkflow || ["01", "03", "04", "08", "22", "23", "24"].includes(f.code))
+    .map((f) => f.name),
+  // Compatibilidad al editar egresos legados históricos
   "Compra de insumos",
   "Control sanitario",
   "Equipamiento",
@@ -129,6 +142,11 @@ function getPresentationsForUnit(unit: string) {
 interface EgresoForm {
   date: string;
   category: string;
+  expenseCatalogId: string;
+  expenseFamily: string;
+  expenseConcept: string;
+  expenseTreatment: string;
+  expenseDriver: string;
   description: string;
   counterparty: string;
   // Legacy fields (non-purchase)
@@ -148,7 +166,12 @@ interface EgresoForm {
 
 const defaultForm = (): EgresoForm => ({
   date: new Date().toISOString().split("T")[0],
-  category: expenseCategories[0],
+  category: "01 Sanidad preventiva",
+  expenseCatalogId: "",
+  expenseFamily: "01 Sanidad preventiva",
+  expenseConcept: "",
+  expenseTreatment: "VARIABLE",
+  expenseDriver: "UNIDAD_MENSUAL",
   description: "",
   counterparty: "",
   quantity: "",
@@ -164,17 +187,35 @@ const defaultForm = (): EgresoForm => ({
   factor: "",
 });
 
+function isFormPurchaseWorkflow(form: Pick<EgresoForm, "category" | "expenseCatalogId" | "expenseFamily">): boolean {
+  if (purchaseCategories.includes(form.category)) return true;
+  const fam = findStandardExpenseFamily(form.expenseFamily || form.category);
+  if (fam && (fam.isPurchaseWorkflow || ["01", "03", "04", "08", "22", "23", "24"].includes(fam.code))) {
+    return true;
+  }
+  return false;
+}
+
+function isFormSupplyCapable(form: Pick<EgresoForm, "category" | "expenseCatalogId" | "expenseFamily">): boolean {
+  if (form.category === "Compra de insumos" || form.category === "Control sanitario") return true;
+  const fam = findStandardExpenseFamily(form.expenseFamily || form.category);
+  return Boolean(fam && ["01", "02", "03", "04", "08", "09", "10", "11", "12", "13"].includes(fam.code));
+}
+
 export default function EgresosPage() {
   const searchParams = useSearchParams();
   const [expenses, setExpenses] = useState<Transaction[]>([]);
   const [loading, setLoading] = useState(true);
   const [period, setPeriod] = useState("30");
   const [search, setSearch] = useState("");
+  const [familyFilter, setFamilyFilter] = useState("all");
   const [modalOpen, setModalOpen] = useState(false);
   const [editing, setEditing] = useState<Transaction | null>(null);
   const [draftEntityId, setDraftEntityId] = useState(() => createDraftEntityId("tx"));
   const [lastInsight, setLastInsight] = useState<MicroInsightPayload | null>(null);
   const [error, setError] = useState("");
+  const [aligningCatalog, setAligningCatalog] = useState(false);
+  const [alignNotice, setAlignNotice] = useState("");
   const [form, setForm] = useState<EgresoForm>(defaultForm());
   const [taxFields, setTaxFields] = useState<TaxFieldsState>(emptyTaxFields());
   const [feeds, setFeeds] = useState<FeedItem[]>([]);
@@ -188,9 +229,9 @@ export default function EgresosPage() {
   const [productError, setProductError] = useState("");
   const { values: expenseCats } = useCatalog("categoria_egreso", expenseCategories);
 
-  const isPurchase = purchaseCategories.includes(form.category);
   const isFeedPurchase = form.category === "Compra de alimento";
-  const isSupplyPurchase = form.category === "Compra de insumos" || form.category === "Control sanitario";
+  const isPurchase = isFormPurchaseWorkflow(form);
+  const isSupplyPurchase = isFormSupplyCapable(form);
   const isNonFeedPurchase = isPurchase && !isFeedPurchase;
 
   // Load purchase products and supply inventory for non-feed purchase categories
@@ -333,7 +374,11 @@ export default function EgresosPage() {
     const res = await apiFetch("/api/purchase-products", {
       method: productEditingId ? "PUT" : "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(body),
+      body: JSON.stringify({
+        ...body,
+        expenseCatalogId: form.expenseCatalogId || null,
+        expenseFamily: form.expenseFamily || null,
+      }),
     });
     if (!res.ok) {
       const d = await res.json().catch(() => ({}));
@@ -359,9 +404,32 @@ export default function EgresosPage() {
 
   const load = useCallback(() => {
     apiFetch(`/api/finanzas/finanzas?period=${period}`).then((r) => r.json()).then((d) => {
-      setExpenses(d.transactions.filter((t: Transaction) => t.type === "egreso"));
+      setExpenses((d.transactions || []).filter((t: Transaction) => t.type === "egreso"));
     }).finally(() => setLoading(false));
   }, [period]);
+
+  const runExpenseAlignment = async () => {
+    setAligningCatalog(true);
+    setAlignNotice("");
+    try {
+      const res = await apiFetch("/api/finanzas/alinear-egresos", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ syncCatalogosList: true }),
+      });
+      const data = await res.json().catch(() => null);
+      if (!res.ok) {
+        setAlignNotice(data?.error || "No se pudo alinear los egresos al catálogo estándar.");
+        return;
+      }
+      setAlignNotice(
+        `Catálogo aplicado: ${data?.updatedTransactions ?? 0} egresos históricos, ${data?.updatedBudgetItems ?? 0} presupuestos y ${data?.addedCatalogEntries ?? 0} familias actualizadas sin modificar montos ni saldos.`,
+      );
+      load();
+    } finally {
+      setAligningCatalog(false);
+    }
+  };
 
   useEffect(() => { load(); }, [load]);
 
@@ -406,7 +474,21 @@ export default function EgresosPage() {
     let factor = "";
     const qty = Number(t.quantity) || 0;
     const up = Number(t.unitPrice) || 0;
-    if (purchaseCategories.includes(t.category) && qty > 0) {
+    const resolvedTx = resolveExpenseClassification({
+      type: t.type,
+      category: t.category,
+      expenseCatalogId: t.expenseCatalogId,
+      expenseFamily: t.expenseFamily,
+      expenseConcept: t.expenseConcept,
+      expenseTreatment: t.expenseTreatment,
+      expenseDriver: t.expenseDriver,
+      description: t.description,
+    });
+    const txIsPurchase =
+      purchaseCategories.includes(t.category) ||
+      Boolean(resolvedTx.standardItem?.isPurchaseWorkflow) ||
+      Boolean(t.presentation);
+    if (txIsPurchase && qty > 0) {
       // Buscar el factor de la presentación guardada en el mapa completo
       let matchedFactor = 1;
       if (t.presentation) {
@@ -423,6 +505,11 @@ export default function EgresosPage() {
     setForm({
       date: t.date,
       category: t.category,
+      expenseCatalogId: t.expenseCatalogId || resolvedTx.expenseCatalogId || "",
+      expenseFamily: t.expenseFamily || resolvedTx.expenseFamily || "",
+      expenseConcept: t.expenseConcept || resolvedTx.expenseConcept || "",
+      expenseTreatment: t.expenseTreatment || resolvedTx.expenseTreatment || "",
+      expenseDriver: t.expenseDriver || resolvedTx.expenseDriver || "",
       description: t.description,
       counterparty: t.counterparty || "",
       quantity: t.quantity || "",
@@ -447,23 +534,29 @@ export default function EgresosPage() {
     setModalOpen(true);
   };
 
-  const onCategoryChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
-    const category = e.target.value;
-    const isPurch = purchaseCategories.includes(category);
-    // Si la categoría es de compra, preseleccionar la primera presentación
-    const presOptions = isPurch ? getPresentationsForUnit("unidades") : [];
+  const handleStandardExpenseChange = (
+    next: StandardExpenseSelection,
+    meta: StandardExpensePickerMeta,
+  ) => {
+    const unitForPres = meta.recommendedUnit && meta.recommendedUnit !== "otro" ? meta.recommendedUnit : "unidades";
+    const presOptions = meta.isPurchaseWorkflow ? getPresentationsForUnit(unitForPres) : [];
     const first = presOptions[0];
     setForm((f) => ({
       ...f,
-      category,
-      // Reset purchase-specific fields when switching
+      category: next.category,
+      expenseCatalogId: next.expenseCatalogId,
+      expenseFamily: next.expenseFamily,
+      expenseConcept: next.expenseConcept,
+      expenseTreatment: next.expenseTreatment,
+      expenseDriver: next.expenseDriver,
+      description: f.description || next.expenseConcept || "",
+      unit: meta.recommendedUnit || f.unit,
       feedId: "",
       supplyId: "",
       presentation: first?.label || "",
       presentations: "",
       pricePerPresentation: "",
       factor: first ? String(first.factor) : "",
-      // Reset legacy fields
       quantity: "",
       unitPrice: "",
       amount: "",
@@ -474,8 +567,19 @@ export default function EgresosPage() {
   const handleOcrFacturaCompra = (extracted: OcrExtractedPayload) => {
     if (extracted.mode !== "factura_compra") return;
     setForm((prev) => {
-      const nextCategory = extracted.category || prev.category;
-      const isPurch = purchaseCategories.includes(nextCategory);
+      const nextCategory = extracted.expenseFamily || extracted.category || prev.category;
+      const resolved = resolveExpenseClassification({
+        type: "egreso",
+        category: extracted.category || nextCategory,
+        expenseCatalogId: extracted.expenseCatalogId || null,
+        expenseFamily: extracted.expenseFamily || null,
+        description: extracted.productName || extracted.summary || "",
+      });
+      const fam = findStandardExpenseFamily(resolved.expenseFamily || nextCategory);
+      const isPurch =
+        nextCategory === "Compra de alimento" ||
+        purchaseCategories.includes(nextCategory) ||
+        Boolean(fam && (fam.isPurchaseWorkflow || ["01", "03", "04", "08", "22", "23", "24"].includes(fam.code)));
       const nextPresentation = extracted.presentation || prev.presentation || (isPurch ? "Bulto 40kg" : "");
       const nextFactor = extracted.factor ? String(extracted.factor) : prev.factor || "40";
       const nextPresentations =
@@ -489,6 +593,11 @@ export default function EgresosPage() {
         ...prev,
         date: extracted.date || prev.date,
         category: nextCategory,
+        expenseCatalogId: resolved.expenseCatalogId || prev.expenseCatalogId,
+        expenseFamily: resolved.expenseFamily || prev.expenseFamily,
+        expenseConcept: resolved.expenseConcept || prev.expenseConcept,
+        expenseTreatment: resolved.expenseTreatment || prev.expenseTreatment,
+        expenseDriver: resolved.expenseDriver || prev.expenseDriver,
         description: prev.description || extracted.productName || extracted.summary || "",
         counterparty: extracted.supplierName || prev.counterparty,
         presentation: nextPresentation,
@@ -520,6 +629,11 @@ export default function EgresosPage() {
         date: form.date,
         type: "egreso",
         category: form.category,
+        expenseCatalogId: form.expenseCatalogId || null,
+        expenseFamily: form.expenseFamily || null,
+        expenseConcept: form.expenseConcept || null,
+        expenseTreatment: form.expenseTreatment || null,
+        expenseDriver: form.expenseDriver || null,
         description: form.description,
         counterparty: form.counterparty || null,
         presentation: form.presentation,
@@ -584,10 +698,23 @@ export default function EgresosPage() {
   const totalCount = expenses.length;
   const avgExpense = totalCount > 0 ? Math.round(totalExpenses / totalCount) : 0;
 
-  const catMap = new Map<string, number>();
-  expenses.forEach((t) => catMap.set(t.category, (catMap.get(t.category) || 0) + Number(t.amount)));
-  const catData = Array.from(catMap.entries()).map(([category, total]) => ({ category, total })).sort((a, b) => b.total - a.total);
-  const topCategory = catData[0]?.category || "—";
+  const catMap = new Map<string, { family: string; treatment: string; total: number; count: number }>();
+  expenses.forEach((t) => {
+    const fam = t.expenseFamily || t.category || "Sin clasificar";
+    const cur = catMap.get(fam) || {
+      family: fam,
+      treatment: t.expenseTreatment || "VARIABLE",
+      total: 0,
+      count: 0,
+    };
+    cur.total += Number(t.amount);
+    cur.count += 1;
+    catMap.set(fam, cur);
+  });
+  const catData = Array.from(catMap.values()).sort((a, b) => b.total - a.total);
+  const topCategory = catData[0]?.family || "—";
+
+  const unalignedExpensesCount = expenses.filter((t) => !t.expenseFamily).length;
 
   const chartMap = new Map<string, number>();
   expenses.forEach((t) => {
@@ -597,12 +724,19 @@ export default function EgresosPage() {
   const chartData = Array.from(chartMap.entries()).map(([f, v]) => ({ fecha: f, egresos: v })).reverse();
 
   const filteredExpenses = useMemo(() => {
-    if (!search.trim()) return expenses;
-    return expenses.filter((expense) =>
-      matchesTextQuery(search, [
+    return expenses.filter((expense) => {
+      if (familyFilter !== "all" && (expense.expenseFamily || expense.category) !== familyFilter) {
+        return false;
+      }
+      if (!search.trim()) return true;
+      return matchesTextQuery(search, [
         expense.date,
         new Date(expense.date + "T12:00:00").toLocaleDateString("es"),
         expense.category,
+        expense.expenseFamily,
+        expense.expenseCatalogId,
+        expense.expenseConcept,
+        expense.expenseTreatment,
         expense.description,
         expense.counterparty,
         expense.presentation,
@@ -611,9 +745,9 @@ export default function EgresosPage() {
         expense.unitPrice,
         expense.notes,
         expense.amount,
-      ]),
-    );
-  }, [expenses, search]);
+      ]);
+    });
+  }, [expenses, search, familyFilter]);
 
   return (
     <div>
@@ -672,47 +806,101 @@ export default function EgresosPage() {
 
       {catData.length > 0 && (
         <Card className="mb-6">
-          <h3 className="font-semibold text-red-700 mb-3 flex items-center gap-2">
-            <ArrowUp className="w-4 h-4 shrink-0" aria-hidden="true" />
-            <span>Desglose por Categoría</span>
+          <h3 className="font-semibold text-[var(--iw-semantic-text-primary)] mb-3 flex items-center gap-2">
+            <ArrowUp className="w-4 h-4 text-[var(--iw-semantic-status-danger)] shrink-0" aria-hidden="true" />
+            <span>Desglose por Familia / Centro (Catálogo de Egresos)</span>
           </h3>
           <div className="space-y-2">
             {catData.map((c, i) => (
-              <div key={i} className="flex justify-between items-center p-2 bg-red-50 rounded">
-                <span className="text-sm">{c.category}</span>
-                <span className="font-semibold text-red-700">${c.total.toLocaleString()}</span>
+              <div key={i} className="flex flex-wrap justify-between items-center gap-2 p-2.5 bg-[var(--iw-semantic-bg-subtle)] rounded-lg border border-[var(--iw-semantic-border-default)]">
+                <div className="flex items-center gap-2 min-w-0">
+                  <span className="text-sm font-medium text-[var(--iw-semantic-text-primary)]">{c.family}</span>
+                  <Badge color={c.treatment === "CAPEX" || c.treatment === "NO_COSTO" || c.treatment === "FINANCIERO" ? "yellow" : "gray"}>
+                    {TREATMENT_LABELS[c.treatment as ExpenseTreatmentType] || c.treatment}
+                  </Badge>
+                  <span className="text-xs text-[var(--iw-semantic-text-secondary)]">({c.count} reg.)</span>
+                </div>
+                <span className="font-semibold text-[var(--iw-semantic-status-danger)]">${c.total.toLocaleString()}</span>
               </div>
             ))}
           </div>
         </Card>
       )}
 
+      {!loading && (unalignedExpensesCount > 0 || alignNotice) && (
+        <Card className="mb-6 border-[var(--iw-semantic-border-default)] bg-[var(--iw-semantic-bg-subtle)]">
+          <div className="flex flex-col justify-between gap-3 sm:flex-row sm:items-center">
+            <div>
+              <p className="text-sm font-semibold text-[var(--iw-semantic-text-primary)]">
+                {unalignedExpensesCount > 0
+                  ? `${unalignedExpensesCount} egreso(s) histórico(s) sin vínculo completo al catálogo CST`
+                  : "Egresos sincronizados con el catálogo estándar"}
+              </p>
+              <p className="mt-0.5 text-xs text-[var(--iw-semantic-text-secondary)]">
+                {alignNotice ||
+                  "Clasifica retroactivamente egresos, presupuestos y listas maestras por Familia / centro sin alterar montos ni cuentas."}
+              </p>
+            </div>
+            {unalignedExpensesCount > 0 && (
+              <Button variant="secondary" onClick={runExpenseAlignment} disabled={aligningCatalog} className="shrink-0">
+                <RefreshCw className={`mr-1.5 h-4 w-4 ${aligningCatalog ? "animate-spin" : ""}`} aria-hidden="true" />
+                <span>{aligningCatalog ? "Alineando..." : "Alinear egresos históricos"}</span>
+              </Button>
+            )}
+          </div>
+        </Card>
+      )}
+
       <Card>
-        <TableSearch
-          value={search}
-          onChange={setSearch}
-          placeholder="Buscar por fecha, categoría, proveedor o descripción..."
-          resultCount={filteredExpenses.length}
-          totalCount={expenses.length}
-          className="mb-4"
-        />
+        <div className="mb-4 grid grid-cols-1 gap-3 md:grid-cols-3">
+          <div className="md:col-span-2">
+            <TableSearch
+              value={search}
+              onChange={setSearch}
+              placeholder="Buscar por fecha, CST-xxx, familia, concepto, proveedor o descripción..."
+              resultCount={filteredExpenses.length}
+              totalCount={expenses.length}
+            />
+          </div>
+          <Select value={familyFilter} onChange={(e) => setFamilyFilter(e.target.value)} aria-label="Filtrar por familia de egreso">
+            <option value="all">Todas las familias / centros</option>
+            {STANDARD_EXPENSE_FAMILIES.map((f) => (
+              <option key={f.name} value={f.name}>{f.name}</option>
+            ))}
+          </Select>
+        </div>
         {loading ? (
           <p className="text-center py-8 text-slate-400">Cargando...</p>
         ) : filteredExpenses.length === 0 ? (
           <EmptyState
             icon="outgoing"
             message={
-              search.trim()
-                ? "No hay egresos que coincidan con la búsqueda"
+              search.trim() || familyFilter !== "all"
+                ? "No hay egresos que coincidan con los filtros"
                 : "No hay egresos en este período"
             }
           />
         ) : (
-          <Table headers={["Fecha", "Categoría", "Descripción", "Proveedor", "Detalle", "Monto", ""]}>
+          <Table headers={["Fecha", "Familia / Concepto CST", "Descripción", "Proveedor", "Detalle", "Monto", ""]}>
             {filteredExpenses.map((t) => (
               <tr key={t.id} className="hover:bg-slate-50">
                 <td className="px-4 py-3">{new Date(t.date + "T12:00:00").toLocaleDateString("es")}</td>
-                <td className="px-4 py-3"><Badge color="red">{t.category}</Badge></td>
+                <td className="px-4 py-3">
+                  <div className="flex flex-wrap items-center gap-1">
+                    <Badge color="red">{t.expenseFamily || t.category}</Badge>
+                    {t.expenseTreatment && (
+                      <Badge color="gray">
+                        {TREATMENT_LABELS[t.expenseTreatment as ExpenseTreatmentType] || t.expenseTreatment}
+                      </Badge>
+                    )}
+                  </div>
+                  {(t.expenseCatalogId || t.expenseConcept) && (
+                    <div className="mt-1 text-xs text-[var(--iw-semantic-text-secondary)]">
+                      {t.expenseCatalogId ? <span className="font-mono font-semibold">{t.expenseCatalogId} · </span> : null}
+                      {t.expenseConcept || ""}
+                    </div>
+                  )}
+                </td>
                 <td className="px-4 py-3 text-sm max-w-[220px] truncate">{t.description}</td>
                 <td className="px-4 py-3 text-sm text-slate-600">{t.counterparty || "—"}</td>
                 <td className="px-4 py-3 text-sm text-slate-500">
@@ -746,11 +934,18 @@ export default function EgresosPage() {
         <div className="space-y-4">
           {error && <p className="text-sm text-red-600 bg-red-50 p-3 rounded-lg">{error}</p>}
           <Input label="Fecha" type="date" value={form.date} onChange={(e) => setForm({ ...form, date: e.target.value })} />
-          <Select label="Categoría" value={form.category} onChange={onCategoryChange}>
-            {expenseCats.map((c) => (
-              <option key={c} value={c}>{c}</option>
-            ))}
-          </Select>
+          <StandardExpensePicker
+            value={{
+              category: form.category,
+              expenseCatalogId: form.expenseCatalogId,
+              expenseFamily: form.expenseFamily,
+              expenseConcept: form.expenseConcept,
+              expenseTreatment: form.expenseTreatment,
+              expenseDriver: form.expenseDriver,
+            }}
+            onChange={handleStandardExpenseChange}
+            extraCategories={expenseCats}
+          />
 
           {/* ─── Product selector for non-feed purchase categories ─── */}
           {isNonFeedPurchase && (
@@ -783,15 +978,6 @@ export default function EgresosPage() {
           )}
 
           <Textarea label="Descripción" value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} placeholder="¿En qué se gastó?" required />
-          {form.category === "Equipamiento" && (
-            <div className="rounded-lg border border-emerald-200 bg-emerald-50/70 px-3 py-2 text-xs text-emerald-900">
-              <strong>Compra de equipos para varios ciclos:</strong> Esta compra se registra en tus salidas de dinero pero no se carga como pérdida total del mes. Si aún no creas la ficha en{" "}
-              <Link href="/operaciones/activos" className="underline font-semibold">
-                Almacén → Activos y equipos
-              </Link>
-              , hazlo allí para repartir su desgaste por meses o lotes.
-            </div>
-          )}
           <ContactField
             role="proveedor"
             label="Proveedor / Dónde se compró"

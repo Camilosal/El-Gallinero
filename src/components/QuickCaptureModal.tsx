@@ -43,6 +43,13 @@ import { useCatalog } from "@/lib/useCatalog";
 import { useFarmLocations } from "@/lib/useFarmLocations";
 import { useSpeciesCatalog } from "@/lib/use-species-params";
 import { syncManager } from "@/lib/offline/syncManager";
+import {
+  NON_FEED_STANDARD_EXPENSE_FAMILIES,
+  QUICK_CAPTURE_STANDARD_FAMILY_NAMES,
+  STANDARD_EXPENSE_CATALOG,
+  findStandardExpenseById,
+  findStandardExpenseFamily,
+} from "@/lib/finance/standard-expense-catalog";
 import { getCachedCatalog, getCachedRecords } from "@/lib/offline/db";
 import { trackAdoptionSample } from "@/lib/offline/telemetry";
 import { OPEN_ASSISTANT_VOICE_EVENT } from "@/lib/offline/voiceNotes";
@@ -203,15 +210,7 @@ const MORTALITY_CAUSES = [
   { value: "otro", label: "Otro" },
 ];
 
-const DEFAULT_EXPENSE_CATEGORIES = [
-  "Otro egreso",
-  "Compra de insumos",
-  "Control sanitario",
-  "Mantenimiento",
-  "Mano de obra",
-  "Servicios (agua/luz)",
-  "Transporte",
-];
+const DEFAULT_EXPENSE_CATEGORIES = [...QUICK_CAPTURE_STANDARD_FAMILY_NAMES];
 
 const DEFAULT_INCOME_CATEGORIES = [
   "Venta de subproductos",
@@ -360,7 +359,8 @@ export default function QuickCaptureModal() {
 
   // Expense state
   const [expDate, setExpDate] = useState(todayIso);
-  const [expCategory, setExpCategory] = useState("Otro egreso");
+  const [expCategory, setExpCategory] = useState<string>(QUICK_CAPTURE_STANDARD_FAMILY_NAMES[0]);
+  const [expCatalogId, setExpCatalogId] = useState("");
   const [expAmount, setExpAmount] = useState("");
   const [expDescription, setExpDescription] = useState("");
   const [expCounterparty, setExpCounterparty] = useState("");
@@ -1039,13 +1039,21 @@ export default function QuickCaptureModal() {
 
     setSaving(true);
     try {
+      const selectedStd = findStandardExpenseById(expCatalogId);
+      const selectedFam = findStandardExpenseFamily(expCategory);
+      const effectiveCat = selectedFam?.name || expCategory || "16 Administración y TIC";
       const res = await apiFetch("/api/finanzas/finanzas", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           date: expDate,
           type: "egreso",
-          category: categoriesList.includes(expCategory) ? expCategory : categoriesList[0] || "Otro egreso",
+          category: effectiveCat,
+          expenseFamily: selectedStd?.family || selectedFam?.name || null,
+          expenseCatalogId: selectedStd?.id || null,
+          expenseConcept: selectedStd?.concept || null,
+          expenseTreatment: selectedStd?.treatment || selectedFam?.defaultTreatment || null,
+          expenseDriver: selectedStd?.driver || selectedFam?.defaultDriver || null,
           description: expDescription.trim(),
           amount,
           counterparty: expCounterparty.trim() || null,
@@ -1352,7 +1360,21 @@ export default function QuickCaptureModal() {
 
   const availableSizes = eggInventory.filter((s) => s.available > 0);
   const filteredExpenseCategories = expenseCategories.filter((c) => c !== "Compra de alimento");
-  const categoriesList = filteredExpenseCategories.length > 0 ? filteredExpenseCategories : DEFAULT_EXPENSE_CATEGORIES;
+  const categoriesList = useMemo(() => {
+    const merged = new Set<string>([...QUICK_CAPTURE_STANDARD_FAMILY_NAMES, ...filteredExpenseCategories]);
+    return Array.from(merged);
+  }, [filteredExpenseCategories]);
+  const selectedQuickFamilyMeta = useMemo(
+    () => findStandardExpenseFamily(expCategory),
+    [expCategory],
+  );
+  const quickFamilyConcepts = useMemo(
+    () =>
+      selectedQuickFamilyMeta
+        ? STANDARD_EXPENSE_CATALOG.filter((c) => c.family === selectedQuickFamilyMeta.name)
+        : [],
+    [selectedQuickFamilyMeta],
+  );
 
   return (
     <Modal open={open} onClose={() => setOpen(false)} title="Registro rápido">
@@ -1905,15 +1927,18 @@ export default function QuickCaptureModal() {
               <div className="space-y-3.5">
                 <div>
                   <span className="mb-1.5 inline-flex items-center gap-1 text-xs font-semibold text-[var(--iw-semantic-text-primary)]">
-                    <span>Categoría</span>
-                    <Tooltip text="Tipo de gasto o compra para agruparlo bien en tus reportes y bodega." />
+                    <span>Familia / centro de egreso (1 toque)</span>
+                    <Tooltip text="Clasifica tu gasto según el Catálogo Maestro para agrupar costos, prorrateos y reportes automáticamente." />
                   </span>
                   <div className="flex flex-wrap gap-1.5">
-                    {categoriesList.slice(0, 8).map((cat) => (
+                    {QUICK_CAPTURE_STANDARD_FAMILY_NAMES.map((cat) => (
                       <button
                         key={cat}
                         type="button"
-                        onClick={() => setExpCategory(cat)}
+                        onClick={() => {
+                          setExpCategory(cat);
+                          setExpCatalogId("");
+                        }}
                         className={`min-h-[40px] rounded-[var(--iw-radius-control)] border px-2.5 py-1.5 text-xs font-semibold transition-colors ${
                           expCategory === cat
                             ? "border-[var(--iw-semantic-action-primary)] bg-[var(--iw-semantic-action-primary)] text-[var(--iw-semantic-action-primary-text)]"
@@ -1924,6 +1949,50 @@ export default function QuickCaptureModal() {
                       </button>
                     ))}
                   </div>
+                </div>
+
+                <div className="grid grid-cols-1 gap-2.5 sm:grid-cols-2">
+                  <Select
+                    label="Todas las familias estándar (01–26)"
+                    value={expCategory}
+                    onChange={(e) => {
+                      setExpCategory(e.target.value);
+                      setExpCatalogId("");
+                    }}
+                  >
+                    {NON_FEED_STANDARD_EXPENSE_FAMILIES.map((f) => (
+                      <option key={f.name} value={f.name}>
+                        {f.name}
+                      </option>
+                    ))}
+                    {categoriesList
+                      .filter((c) => !findStandardExpenseFamily(c))
+                      .map((c) => (
+                        <option key={c} value={c}>
+                          {c}
+                        </option>
+                      ))}
+                  </Select>
+                  <Select
+                    label="Concepto CST (opc.)"
+                    value={expCatalogId}
+                    disabled={quickFamilyConcepts.length === 0}
+                    onChange={(e) => {
+                      const nextId = e.target.value;
+                      setExpCatalogId(nextId);
+                      const std = findStandardExpenseById(nextId);
+                      if (std && !expDescription.trim()) {
+                        setExpDescription(std.concept);
+                      }
+                    }}
+                  >
+                    <option value="">General de la familia ({quickFamilyConcepts.length})</option>
+                    {quickFamilyConcepts.map((c) => (
+                      <option key={c.id} value={c.id}>
+                        {c.id} · {c.concept}
+                      </option>
+                    ))}
+                  </Select>
                 </div>
 
                 <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
@@ -1976,6 +2045,13 @@ export default function QuickCaptureModal() {
                   onOcrExtracted={(extracted: OcrExtractedPayload) => {
                     if (extracted.mode !== "factura_compra") return;
                     if (extracted.date) setExpDate(extracted.date);
+                    const nextCat = extracted.expenseFamily || extracted.category;
+                    if (nextCat && nextCat !== "Compra de alimento") {
+                      setExpCategory(nextCat);
+                    }
+                    if (extracted.expenseCatalogId) {
+                      setExpCatalogId(extracted.expenseCatalogId);
+                    }
                     if (extracted.totalAmount) setExpAmount(String(extracted.totalAmount));
                     if (extracted.supplierName) setExpCounterparty(extracted.supplierName);
                     if (extracted.productName || extracted.summary) {

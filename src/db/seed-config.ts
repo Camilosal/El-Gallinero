@@ -15,6 +15,7 @@ import { canonicalBreedType, DEFAULT_BREEDS_BY_SPECIES } from "@/lib/animal-bree
 import { ALL_BREED_STANDARD_DEFS, inferSpeciesForBreed } from "@/lib/breed-standards";
 import { syncLegacyCatalogContacts } from "@/lib/contacts";
 import { seedStarterFeedsAndPrograms, type StarterSeedSummary } from "@/lib/feeding/default-tenant-seed";
+import { NON_FEED_STANDARD_EXPENSE_FAMILIES } from "@/lib/finance/standard-expense-catalog";
 import { DEFAULT_SETTINGS } from "@/lib/settings";
 import { SPECIES_PARAMS } from "@/lib/species-params";
 import { VACCINATION_SCHEDULE_SPECIES, VACCINATION_SCHEDULES } from "@/lib/vaccination-schedules";
@@ -126,16 +127,15 @@ const MASTER_CATALOG_DEFS: MasterCatalogDef[] = [
   { category: "categoria_ingreso", value: "Venta de subproductos", sortOrder: 6 },
   { category: "categoria_ingreso", value: "Otro ingreso", sortOrder: 7 },
 
-  { category: "categoria_egreso", value: "Compra de alimento", sortOrder: 0 },
-  { category: "categoria_egreso", value: "Compra de insumos", sortOrder: 1 },
-  { category: "categoria_egreso", value: "Control sanitario", sortOrder: 2 },
-  { category: "categoria_egreso", value: "Mantenimiento", sortOrder: 3 },
-  { category: "categoria_egreso", value: "Mano de obra", sortOrder: 4 },
-  { category: "categoria_egreso", value: "Servicios (agua/luz)", sortOrder: 5 },
-  { category: "categoria_egreso", value: "Compra de gallinas", sortOrder: 6 },
-  { category: "categoria_egreso", value: "Equipamiento", sortOrder: 7 },
-  { category: "categoria_egreso", value: "Transporte", sortOrder: 8 },
-  { category: "categoria_egreso", value: "Otro egreso", sortOrder: 9 },
+  { category: "categoria_egreso", value: "Compra de alimento", tipo: "ALIMENTO", sortOrder: 0 },
+  { category: "categoria_egreso", value: "Mano de obra", tipo: "FIJO", sortOrder: 1 },
+  ...NON_FEED_STANDARD_EXPENSE_FAMILIES.map((fam, idx) => ({
+    category: "categoria_egreso",
+    value: fam.name,
+    tipo: fam.defaultTreatment,
+    description: `${fam.conceptsCount} conceptos (${fam.p1Count} P1) del Catálogo Maestro de Egresos`,
+    sortOrder: idx + 2,
+  })),
 
   // Sanidad y mantenimiento
   { category: "tipo_sanidad", value: "vacunacion", sortOrder: 0 },

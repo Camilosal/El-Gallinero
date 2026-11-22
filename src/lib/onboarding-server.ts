@@ -16,6 +16,7 @@ import { getSettings, invalidateSettingsCache } from "@/lib/settings";
 import { speciesLabel } from "@/lib/species-db";
 import { todayColombiaIso } from "@/lib/date-validation";
 import { seedBiologicalPreloadInTx } from "@/lib/biological-preload";
+import { findStandardFeedById } from "@/lib/feeding/standard-feed-catalog";
 import { assertCanCreateActiveBatch, assertCanCreateFarmLocation, PlanLimitExceededError } from "@/lib/subscription";
 import {
   ACTIVATION_HISTORY_SETTING_KEY,
@@ -759,6 +760,9 @@ export async function executeDay1Setup(
       const feedName =
         String(payload.nombreAlimentoInicial || "").trim() ||
         `Concentrado Base (${speciesList.map((s) => speciesLabel(s)).join(" / ") || "Granja"})`;
+      const defaultStdId =
+        speciesList.includes("gallina") || speciesList.includes("codorniz") ? "IG-001" : "IG-003";
+      const stdFeed = findStandardFeedById(defaultStdId);
       const [createdFeed] = await tx
         .insert(feedInventory)
         .values({
@@ -770,6 +774,17 @@ export async function executeDay1Setup(
           minStock: Math.max(40, Math.round(totalFeedKg * 0.25)).toFixed(2),
           costPerUnit: costPerKg,
           supplier: "Inventario inicial en bodega",
+          standardCatalogId: stdFeed?.id ?? defaultStdId,
+          catalogGroup: stdFeed?.group ?? "Balanceados",
+          sanitaryStatus: stdFeed?.sanitaryStatus ?? "CONDICIONAL",
+          dryMatterPct: stdFeed?.dryMatterPct != null ? stdFeed.dryMatterPct.toFixed(2) : "89.00",
+          crudeProteinPct:
+            stdFeed?.crudeProteinAsFedPct != null ? stdFeed.crudeProteinAsFedPct.toFixed(2) : "17.50",
+          energyKcalKgDm: stdFeed?.energyKcalKgDm != null ? stdFeed.energyKcalKgDm.toFixed(2) : null,
+          calciumDmPct: stdFeed?.calciumDmPct != null ? stdFeed.calciumDmPct.toFixed(2) : null,
+          availablePhosphorusDmPct:
+            stdFeed?.availablePhosphorusDmPct != null ? stdFeed.availablePhosphorusDmPct.toFixed(2) : null,
+          crudeFiberDmPct: stdFeed?.crudeFiberDmPct != null ? stdFeed.crudeFiberDmPct.toFixed(2) : null,
         })
         .returning();
       await tx.insert(feedMovements).values({

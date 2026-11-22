@@ -1,6 +1,10 @@
 import { getSpeciesParams } from "@/lib/species-params";
 import { getStandardCurve, interpolateStandard } from "@/lib/standard-curves";
 import { calibrateTargetForEnvironment } from "@/lib/zootechnics";
+import {
+  inferAccountingNature,
+  resolveExpenseClassification,
+} from "@/lib/finance/standard-expense-catalog";
 
 export type SpeciesCode = "pollo" | "gallina" | "codorniz" | "pato" | "conejo" | "cuy";
 
@@ -135,6 +139,7 @@ export interface ThreeLayerFinancialSummary {
   supplyPurchaseCashOutflowCop?: number;
   biologicalPurchaseCashOutflowCop: number;
   directOperatingCashOutflowCop: number;
+  nonOperatingCashOutflowCop?: number;
   // 2. Resultado Operativo Devengado (lo justo del periodo)
   operatingIncomeCop: number;
   accruedFeedCostCop: number;
@@ -160,6 +165,9 @@ export interface TransactionLike {
   category?: string | null;
   description?: string | null;
   sourceType?: string | null;
+  expenseCatalogId?: string | null;
+  expenseFamily?: string | null;
+  expenseTreatment?: string | null;
   amount: string | number;
   date?: string | null;
 }
@@ -281,46 +289,32 @@ function diffDaysElapsed(startStr: string, endStr: string): number {
  */
 export function classifyTransactionNature(tx: TransactionLike): TransactionNature {
   if (tx.type === "ingreso") return "operating_income";
-  const category = (tx.category || "").toLowerCase().trim();
-  const sourceType = (tx.sourceType || "").toLowerCase().trim();
-  const desc = (tx.description || "").toLowerCase();
+  return inferAccountingNature({
+    category: tx.category,
+    description: tx.description,
+    sourceType: tx.sourceType,
+    expenseFamily: tx.expenseFamily,
+    expenseTreatment: tx.expenseTreatment,
+  });
+}
 
-  if (
-    sourceType === "farm_asset" ||
-    sourceType === "capex" ||
-    /equipamiento|infraestructura|maquinaria|activo|construcci|equipo/.test(category) ||
-    /compra capex|bebedero|comedero|criadora|galp[oó]n|jaula/.test(desc)
-  ) {
-    return "capex";
-  }
-
-  if (
-    sourceType === "feed_purchase" ||
-    sourceType === "alimento" ||
-    sourceType === "feed_inventory" ||
-    /alimento|concentrado|nutrici|bulto|sal_mineral/.test(category)
-  ) {
-    return "feed_inventory_purchase";
-  }
-
-  if (
-    sourceType === "supply_purchase" ||
-    sourceType === "insumo" ||
-    sourceType === "supply_inventory" ||
-    /compra de insumos|compra_insumos/.test(category)
-  ) {
-    return "supply_inventory_purchase";
-  }
-
-  if (
-    sourceType === "flock_acquisition" ||
-    sourceType === "broiler_batch" ||
-    /compra_aves|compra de aves|pollito|pollona|pie de cr|pie_cria|\baves\b/.test(category)
-  ) {
-    return "biological_stock_acquisition";
-  }
-
-  return "operating_expense";
+/** Identifica egresos que según Catalogo Egresos NO entran al OPEX operativo (FINANCIERO, MERMA, NO_COSTO). */
+export function isNonOperatingCatalogueExpense(tx: TransactionLike): boolean {
+  if (tx.type === "ingreso") return false;
+  const treatment = String(tx.expenseTreatment || "").toUpperCase();
+  if (treatment === "FINANCIERO" || treatment === "MERMA" || treatment === "NO_COSTO") return true;
+  if (!tx.expenseFamily && !tx.expenseCatalogId && !tx.category) return false;
+  const resolved = resolveExpenseClassification({
+    type: tx.type,
+    category: tx.category,
+    expenseCatalogId: tx.expenseCatalogId,
+    expenseFamily: tx.expenseFamily,
+    expenseTreatment: tx.expenseTreatment,
+    description: tx.description,
+    sourceType: tx.sourceType,
+  });
+  const t = String(resolved.expenseTreatment || "").toUpperCase();
+  return t === "FINANCIERO" || t === "MERMA" || t === "NO_COSTO";
 }
 
 /**
@@ -1025,6 +1019,7 @@ export function computeThreeLayerFinancials(input: {
   let supplyPurchaseCashOutflowCop = 0;
   let biologicalPurchaseCashOutflowCop = 0;
   let directOperatingCashOutflowCop = 0;
+  let nonOperatingCashOutflowCop = 0;
 
   for (const tx of input.transactions) {
     const amount = Math.max(0, Number(tx.amount || 0));
@@ -1038,6 +1033,7 @@ export function computeThreeLayerFinancials(input: {
     else if (nature === "feed_inventory_purchase") feedPurchaseCashOutflowCop += amount;
     else if (nature === "supply_inventory_purchase") supplyPurchaseCashOutflowCop += amount;
     else if (nature === "biological_stock_acquisition") biologicalPurchaseCashOutflowCop += amount;
+    else if (isNonOperatingCatalogueExpense(tx)) nonOperatingCashOutflowCop += amount;
     else directOperatingCashOutflowCop += amount;
   }
 
@@ -1088,6 +1084,7 @@ export function computeThreeLayerFinancials(input: {
     supplyPurchaseCashOutflowCop: round2(supplyPurchaseCashOutflowCop),
     biologicalPurchaseCashOutflowCop: round2(biologicalPurchaseCashOutflowCop),
     directOperatingCashOutflowCop: round2(directOperatingCashOutflowCop),
+    nonOperatingCashOutflowCop: round2(nonOperatingCashOutflowCop),
     operatingIncomeCop: round2(cashInflowsCop),
     accruedFeedCostCop: round2(accruedFeedCostCop),
     accruedSupplyCostCop: round2(accruedSupplyCostCop),
