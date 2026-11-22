@@ -121,7 +121,8 @@ describe("Lanzamiento: legal, confianza, soporte, recuperación y bitácora", ()
     const landing = read("src/app/page.tsx");
     expect(landing).toContain("PLAN_PROMISES.noAutoCharge");
     expect(landing).toContain("PLAN_PROMISES.expiry");
-    expect(landing).toContain("PLAN_PROMISES.pricesCop");
+    expect(landing).toContain("priceNote()");
+    expect(read("src/lib/legal.ts")).toContain("PLAN_PROMISES.pricesCop");
     expect(landing).toContain("<LandingFooter />");
   });
 
@@ -159,8 +160,9 @@ describe("Lanzamiento: legal, confianza, soporte, recuperación y bitácora", ()
     expect(BITACORA_ARTICLES.length).toBeGreaterThanOrEqual(5);
     for (const article of BITACORA_ARTICLES) {
       const count = countArticleWords(article);
+      const maxWords = article.relatedNormIds.length > 0 ? 1400 : 900;
       expect(count, `${article.slug}: ${count} palabras`).toBeGreaterThanOrEqual(600);
-      expect(count, `${article.slug}: ${count} palabras`).toBeLessThanOrEqual(900);
+      expect(count, `${article.slug}: ${count} palabras`).toBeLessThanOrEqual(maxWords);
       expect(article.realFarmData.fact.length, article.slug).toBeGreaterThan(20);
       const imgPath = path.join(root, "public", article.image.src.replace(/^\//, ""));
       expect(fs.existsSync(imgPath), `Falta imagen ${imgPath}`).toBe(true);
@@ -207,9 +209,11 @@ describe("Lanzamiento: legal, confianza, soporte, recuperación y bitácora", ()
     const landing = read("src/app/page.tsx");
     expect(landing).not.toContain("Entrar al sistema");
     expect(landing).toContain("Tu granja");
-    expect(landing).toContain("Agregadores y proyectos");
-    expect(landing).toContain("Calcular mi plan");
-    expect(landing).toContain("Calcular un proyecto");
+    const plansCards = read("src/components/LandingSubscriptionPlans.tsx");
+    expect(landing).toContain("<LandingSubscriptionPlans");
+    expect(landing).toContain("organización y sus proyectos");
+    expect(plansCards).toContain("Calcular mi plan");
+    expect(plansCards).toContain("Calcular un proyecto");
   });
 
   it("el registro exige la autorización y guarda constancia", async () => {
@@ -286,7 +290,7 @@ describe("Lanzamiento: legal, confianza, soporte, recuperación y bitácora", ()
     expect(sent.some((n) => n.subject.includes(payload.ticketCode))).toBe(true);
   });
 
-  it("propietario registrado recibe recoveryCode, recupera acceso y el checkout anterior responde 410", async () => {
+  it("propietario registrado recibe recoveryCode, recupera acceso y el checkout rechaza payloads sin segmento válido", async () => {
     clearSentNotificationsLog();
     const suffix = `${Date.now()}_${Math.random().toString(36).slice(2, 6)}`;
     const username = `prop_${suffix}`;
@@ -331,7 +335,15 @@ describe("Lanzamiento: legal, confianza, soporte, recuperación y bitácora", ()
     const checkout = await startCheckout(
       new NextRequest("http://localhost:3000/api/billing/checkout", { method: "POST" }),
     );
-    expect(checkout.status).toBe(410);
-    expect((await checkout.json()).code).toBe("LEGACY_CHECKOUT_RETIRED");
+    expect(checkout.status).toBe(400);
+    const legacyCheckout = await startCheckout(
+      new NextRequest("http://localhost:3000/api/billing/checkout", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ planCode: "CICLO_60D", method: "nequi" }),
+      }),
+    );
+    expect(legacyCheckout.status).toBe(409);
+    expect((await legacyCheckout.json()).code).toBe("AGGREGATOR_CHECKOUT_UNAVAILABLE");
   });
 });

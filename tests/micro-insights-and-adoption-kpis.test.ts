@@ -125,6 +125,12 @@ describe("Micro-insights de utilidad neta, ventana de sacrificio y KPIs de adopc
     const hw = alerts.find((a) => a.type === "harvest_window" && a.birdGroup === "L-HARVEST-43");
     expect(hw).toBeDefined();
     expect(hw?.severity).toBe("warning");
+
+    // Limpiar la localización de este caso para que la granja Gratis conserve su cupo libre en la prueba de onboarding
+    await runWithFarmContext(farmId, async () => {
+      await db.delete(broilerBatches);
+      await db.delete(farmLocations);
+    });
   });
 
   it("POST + GET /api/analisis/kpis-adopcion guarda telemetría y retorna los 5 KPIs de la Sección 8", async () => {

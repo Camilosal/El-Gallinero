@@ -92,7 +92,7 @@ describe("E1 · Cobertura total de páginas en menús y buscador", () => {
     const sidebar = readRepoFile("src/components/Sidebar.tsx");
     expect(sidebar).toContain("filterNavigationGroups(flags, role)");
     const search = readRepoFile("src/components/GlobalSearch.tsx");
-    expect(search).toContain("searchNavigation(query, 12, flags)");
+    expect(search).toContain("searchNavigation(query, 12, flags, role)");
     expect(search).toContain("lockedByFlag");
     // El hito de desbloqueo se renderiza junto al candado (no solo "Por desbloquear").
     expect(search).toContain("autoTriggerDescription");

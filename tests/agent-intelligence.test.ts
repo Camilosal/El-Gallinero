@@ -569,16 +569,59 @@ describe("configuración multimodal Gemini para Visión OCR y STT", () => {
         );
       }) as typeof fetch;
 
-      const form = new FormData();
-      form.append("audio", new Blob(["fake-opus"], { type: "audio/webm;codecs=opus" }), "nota.webm");
-      form.append("durationSec", "3");
-      const req = new Request("http://localhost/api/asistente/transcribir", { method: "POST", body: form }) as any;
-      const res = await transcribirPOST(req);
-      expect(res.status).toBe(200);
-      const data = (await parseJson(res)) as any;
-      expect(data.text).toBe("Recogimos 140 huevos AAA hoy");
-      expect(calledUrl).toContain("models/gemini-3.5-transcribe:generateContent");
-      expect(sentMime).toBe("audio/webm");
+      const { randomUUID } = await import("node:crypto");
+      const { db } = await import("@/db");
+      const { farms, users } = await import("@/db/schema");
+      const { runWithFarmContext } = await import("@/db/tenant-context");
+      const authMod = await import("@/lib/auth");
+      const { eq } = await import("drizzle-orm");
+      const sttFarmId = randomUUID();
+      const sttUserId = randomUUID();
+      await db.insert(farms).values({
+        id: sttFarmId,
+        slug: `stt-${sttFarmId.slice(0, 8)}`,
+        name: "Granja STT Test",
+        planCode: "FREEMIUM_SEMILLA",
+      });
+      await runWithFarmContext(sttFarmId, async () => {
+        await db.insert(users).values({
+          id: sttUserId,
+          farmId: sttFarmId,
+          username: `stt_${sttUserId.slice(0, 8)}`,
+          passwordHash: "x",
+          name: "STT User",
+          role: "propietario",
+        });
+      });
+      vi.mocked(authMod.getSessionUser).mockResolvedValue({
+        id: sttUserId,
+        username: `stt_${sttUserId.slice(0, 8)}`,
+        name: "STT User",
+        role: "propietario",
+        farmId: sttFarmId,
+      });
+
+      try {
+        const form = new FormData();
+        form.append("audio", new Blob(["fake-opus"], { type: "audio/webm;codecs=opus" }), "nota.webm");
+        form.append("durationSec", "3");
+        const req = new Request("http://localhost/api/asistente/transcribir", { method: "POST", body: form }) as any;
+        const res = await transcribirPOST(req);
+        expect(res.status).toBe(200);
+        const data = (await parseJson(res)) as any;
+        expect(data.text).toBe("Recogimos 140 huevos AAA hoy");
+        expect(calledUrl).toContain("models/gemini-3.5-transcribe:generateContent");
+        expect(sentMime).toBe("audio/webm");
+      } finally {
+        vi.mocked(authMod.getSessionUser).mockResolvedValue({
+          id: "test-user",
+          username: "test",
+          name: "Test User",
+          role: "admin",
+          farmId: "00000000-0000-0000-0000-000000000001",
+        });
+        await db.delete(farms).where(eq(farms.id, sttFarmId));
+      }
     } finally {
       globalThis.fetch = origFetch;
       for (const [k, v] of Object.entries(prev)) {

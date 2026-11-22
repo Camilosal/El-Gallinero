@@ -58,7 +58,7 @@ export function getApiPermission(
     if (isSalesEndpoint(pathname) || pathname === "/api/pagos") return "sales:read";
     if (pathname === "/api/contactos") return "contacts:read";
 
-    if (pathname === "/api/analisis/kpis/config") return "settings:manage";
+    if (pathname === "/api/analisis/kpis/config") return "analytics:read";
     if (pathname === "/api/analisis/pesos") return "animal_metrics:write";
     if (isAnalysisEndpoint(pathname)) return "analytics:read";
 
@@ -189,7 +189,7 @@ export function getApiPermission(
   if (pathname === "/api/dashboard/setup/feeding-review") return "production:write";
   if (pathname === "/api/dashboard/setup/sanitary-review") return "sanitary:write";
   if (pathname === "/api/telegram/vincular") return "integrations:manage";
-  if (pathname === "/api/analisis/kpis/config") return "settings:manage";
+  if (pathname === "/api/analisis/kpis/config") return "analytics:read";
   if (pathname === "/api/finanzas/prorrateo") return "finance:write";
   if (pathname === "/api/adjuntos") return "production:write";
   if (pathname === "/api/soporte/fallas" && verb !== "POST") return "operations:manage";

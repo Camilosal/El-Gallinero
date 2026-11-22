@@ -409,7 +409,7 @@ describe("C3 · Telegram como canal bidireccional del agente", () => {
     expect(cancelledRow.status).toBe("cancelled");
   });
 
-  it("operario vinculado intenta cierre diario → rechazo RBAC real al confirmar", async () => {
+  it("operario vinculado intenta cierre diario → rechazo RBAC real inmediato sin crear acción pendiente", async () => {
     hoisted.realApiRoutes["/api/operaciones/cierre-diario"] = async (req: any) =>
       req.method === "GET" ? cierreGET(req) : cierrePOST(req);
     vi.mocked(getSessionUser).mockResolvedValue({
@@ -422,23 +422,23 @@ describe("C3 · Telegram como canal bidireccional del agente", () => {
 
     hoisted.llmQueue.push(
       { role: "assistant", content: null, tool_calls: [toolCall("registrar_cierre_diario", { fecha: todayIso }, "call_3")] },
-      { role: "assistant", content: "El cierre queda pendiente de confirmación.", tool_calls: [] },
+      { role: "assistant", content: "No tienes permisos para cerrar el día; corresponde a gerencia o propietario.", tool_calls: [] },
     );
     await msg(chatB, "cierra el día de hoy");
-    const [action] = await runWithFarmContext(farmId, () =>
-      db.select().from(aiActions).where(and(eq(aiActions.userId, operarioUserId), eq(aiActions.status, "pending"))).limit(1),
-    );
-    expect(action?.toolName).toBe("registrar_cierre_diario");
-    expect(action.status).toBe("pending");
+    const cierreCalls = hoisted.apiCalls.filter((c) => c.path.startsWith("/api/operaciones/cierre-diario"));
+    expect(cierreCalls.some((c) => c.method === "GET")).toBe(true);
+    expect(cierreCalls.some((c) => c.method === "POST")).toBe(false);
 
-    const confirmed = await callback(chatB, `confirm:${action.id}`);
-    expect(confirmed.action).toBe("error_confirmacion");
-    const [failed] = await runWithFarmContext(farmId, () =>
-      db.select().from(aiActions).where(eq(aiActions.id, action.id)).limit(1),
+    const actions = await runWithFarmContext(farmId, () =>
+      db
+        .select()
+        .from(aiActions)
+        .where(and(eq(aiActions.userId, operarioUserId), eq(aiActions.toolName, "registrar_cierre_diario"))),
     );
-    expect(failed.status).toBe("failed");
-    expect(failed.error).toContain("gerencia");
-    expect(lastSendMessage()?.body.text).toContain("⚠️");
+    expect(actions).toHaveLength(1);
+    expect(actions[0]?.status).toBe("failed");
+    expect(actions[0]?.error).toMatch(/permiso|gerencia|cerrar/i);
+    expect(lastSendMessage()?.body.text).toContain("permisos");
 
     vi.mocked(getSessionUser).mockResolvedValue({
       id: "test-user",

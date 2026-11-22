@@ -8,6 +8,7 @@ import {
   birdAcquisitions,
   broilerBatches,
   farmLocations,
+  farmSubscriptions,
   farms,
   feedInventory,
   feedMovements,
@@ -105,10 +106,19 @@ describe("Day 1 Biological Preload & Hy-Line Brown Standards (6 Species)", () =>
       .values({
         slug: `day1-bio-${suffix}`,
         name: `Granja Dia1 ${suffix}`,
-        planCode: "FREEMIUM_SEMILLA",
+        planCode: "PRODUCTOR",
       })
       .returning();
     createdFarmIds.push(farm.id);
+    await db.insert(farmSubscriptions).values({
+      farmId: farm.id,
+      planCode: "PRODUCTOR",
+      status: "active",
+      maxActiveBatches: 100,
+      maxUsers: 5,
+      currentPeriodStart: new Date(Date.now() - 86400000),
+      currentPeriodEnd: new Date(Date.now() + 90 * 86400000),
+    });
 
     vi.mocked(authMod.getSessionUser).mockResolvedValue({
       id: "test-user",
@@ -165,6 +175,53 @@ describe("Day 1 Biological Preload & Hy-Line Brown Standards (6 Species)", () =>
     expect(sanitary.every((s) => s.nextDueDate >= start)).toBe(true);
     const futureLayerWeeks = milestones.filter((m) => (m.expectedHens || 0) === 150).map((m) => m.weekNumber);
     expect(futureLayerWeeks.every((w) => w >= 26)).toBe(true);
+  });
+
+  it("FREEMIUM_SEMILLA bloquea una 2da instalación en Día 1 con PlanLimitExceededError", async () => {
+    const suffix = crypto.randomBytes(4).toString("hex");
+    const [farm] = await db
+      .insert(farms)
+      .values({
+        slug: `day1-free-${suffix}`,
+        name: `Granja Dia1 Free ${suffix}`,
+        planCode: "FREEMIUM_SEMILLA",
+      })
+      .returning();
+    createdFarmIds.push(farm.id);
+
+    vi.mocked(authMod.getSessionUser).mockResolvedValue({
+      id: "test-user",
+      username: "test",
+      name: "Owner",
+      role: "propietario",
+      farmId: farm.id,
+    });
+
+    await expect(
+      runWithFarmContext(farm.id, () =>
+        executeDay1Setup({
+          nombrePredio: "Finca Semilla",
+          escala: "PEQUENO",
+          fechaInicioOperacion: "2026-11-13",
+          especies: ["gallina", "cuy"],
+          bultosConcentrado40kg: 1,
+          unidades: [
+            {
+              nombreInstalacion: "Galpón 1",
+              tipoInstalacion: "galpon",
+              especie: "gallina",
+              cantidadVivaHoy: 30,
+            },
+            {
+              nombreInstalacion: "Poza 1",
+              tipoInstalacion: "poza",
+              especie: "cuy",
+              cantidadVivaHoy: 10,
+            },
+          ],
+        }),
+      ),
+    ).rejects.toThrow(/1 localización activa/i);
   });
 });
 
