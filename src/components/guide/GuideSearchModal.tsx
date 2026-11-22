@@ -147,14 +147,14 @@ export function GuideSearchModal({ open, onClose, basePath }: GuideSearchModalPr
           dialog.close();
         }
       }}
-      className="mx-auto mt-[8dvh] w-[min(94dvw,680px)] max-h-[82dvh] rounded-2xl border border-slate-200 bg-white p-0 text-slate-900 shadow-2xl backdrop:bg-slate-950/60 backdrop:backdrop-blur-xs open:flex open:flex-col"
+      className="mx-auto mt-[8dvh] w-[min(94dvw,680px)] max-h-[82dvh] rounded-2xl border border-[var(--iw-semantic-border-default)] bg-[var(--iw-semantic-bg-surface)] p-0 text-[var(--iw-semantic-text-primary)] shadow-2xl backdrop:bg-[var(--iw-color-ink-strong)]/60 backdrop:backdrop-blur-xs open:flex open:flex-col"
     >
       <h2 id={titleId} className="sr-only">
         Buscar dentro del manual de uso
       </h2>
 
-      <div className="flex items-center gap-3 border-b border-slate-200 px-4 py-3">
-        <Search className="h-4 w-4 shrink-0 text-slate-400" aria-hidden="true" />
+      <div className="flex items-center gap-3 border-b border-[var(--iw-semantic-border-default)] px-4 py-3">
+        <Search className="h-4 w-4 shrink-0 text-[var(--iw-semantic-text-secondary)]" aria-hidden="true" />
         <input
           ref={inputRef}
           type="search"
@@ -166,14 +166,14 @@ export function GuideSearchModal({ open, onClose, basePath }: GuideSearchModalPr
           onKeyDown={handleKeyDown}
           placeholder="Buscar función, módulo, botón, QR, CxC, offline..."
           aria-label="Término de búsqueda en el manual"
-          className="flex-1 bg-transparent text-sm text-slate-900 outline-none placeholder:text-slate-400"
+          className="flex-1 bg-transparent text-sm text-[var(--iw-semantic-text-primary)] outline-none placeholder:text-[var(--iw-semantic-text-secondary)]"
           autoComplete="off"
         />
         <button
           type="button"
           onClick={() => dialogRef.current?.close()}
           aria-label="Cerrar buscador del manual"
-          className="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-slate-200 bg-slate-50 text-slate-500 transition-colors hover:bg-slate-100 hover:text-slate-900 cursor-pointer"
+          className="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-[var(--iw-semantic-border-default)] bg-[var(--iw-semantic-bg-subtle)] text-[var(--iw-semantic-text-secondary)] transition-colors hover:bg-[var(--iw-semantic-bg-subtle)] hover:text-[var(--iw-semantic-text-primary)] cursor-pointer"
         >
           <X className="h-4 w-4" aria-hidden="true" />
         </button>
@@ -182,18 +182,18 @@ export function GuideSearchModal({ open, onClose, basePath }: GuideSearchModalPr
       <div className="guide-scroll-pane flex-1 overflow-y-auto p-2">
         {results.length === 0 ? (
           <div className="px-4 py-10 text-center">
-            <BookOpen className="mx-auto h-8 w-8 text-slate-300" aria-hidden="true" />
-            <p className="mt-2 text-sm font-semibold text-slate-700">
+            <BookOpen className="mx-auto h-8 w-8 text-[var(--iw-semantic-border-default)]" aria-hidden="true" />
+            <p className="mt-2 text-sm font-semibold text-[var(--iw-semantic-text-primary)]">
               No encontramos guías para “{query}”
             </p>
-            <p className="mt-1 text-xs text-slate-500">
+            <p className="mt-1 text-xs text-[var(--iw-semantic-text-secondary)]">
               Prueba con términos como «huevos», «qr», «offline», «voz», «peso», «activos» o «cxc».
             </p>
             {smartLoading ? (
-              <p className="mt-3 text-xs text-slate-500">Buscando guías relacionadas...</p>
+              <p className="mt-3 text-xs text-[var(--iw-semantic-text-secondary)]">Buscando guías relacionadas...</p>
             ) : visibleSmartSuggestions.length > 0 ? (
               <div className="mt-4 max-w-md mx-auto text-left space-y-1.5">
-                <p className="text-[11px] font-bold uppercase tracking-wide text-emerald-700 px-1">
+                <p className="text-[11px] font-bold uppercase tracking-wide text-[var(--iw-semantic-action-primary)] px-1">
                   Quizás buscas
                 </p>
                 {visibleSmartSuggestions.map((s) => (
@@ -201,10 +201,10 @@ export function GuideSearchModal({ open, onClose, basePath }: GuideSearchModalPr
                     key={s.id}
                     type="button"
                     onClick={() => navigateTo(s.id)}
-                    className="w-full rounded-lg border border-slate-200 bg-slate-50/70 px-3 py-2 text-left hover:border-emerald-400 hover:bg-emerald-50/60 transition-colors cursor-pointer"
+                    className="w-full rounded-lg border border-[var(--iw-semantic-border-default)] bg-[var(--iw-semantic-bg-subtle)] px-3 py-2 text-left hover:border-[var(--iw-semantic-border-strong)] hover:bg-[var(--iw-semantic-bg-feature)] transition-colors cursor-pointer"
                   >
-                    <span className="block text-sm font-semibold text-slate-900">{s.title}</span>
-                    <span className="block text-xs text-slate-500 line-clamp-1">{s.summary}</span>
+                    <span className="block text-sm font-semibold text-[var(--iw-semantic-text-primary)]">{s.title}</span>
+                    <span className="block text-xs text-[var(--iw-semantic-text-secondary)] line-clamp-1">{s.summary}</span>
                   </button>
                 ))}
               </div>
@@ -221,38 +221,38 @@ export function GuideSearchModal({ open, onClose, basePath }: GuideSearchModalPr
                     onClick={() => navigateTo(guide.slug)}
                     onMouseEnter={() => setActiveIndex(index)}
                     className={`flex w-full items-start gap-3 rounded-xl px-3.5 py-2.5 text-left transition-colors cursor-pointer ${
-                      active ? "bg-green-50 ring-1 ring-green-200" : "hover:bg-slate-50"
+                      active ? "bg-[var(--iw-semantic-bg-feature)] ring-1 ring-[var(--iw-semantic-border-default)]" : "hover:bg-[var(--iw-semantic-bg-subtle)]"
                     }`}
                   >
                     <span
                       className={`mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border ${
                         active
-                          ? "border-green-200 bg-green-100 text-green-800"
-                          : "border-slate-200 bg-slate-50 text-slate-600"
+                          ? "border-[var(--iw-semantic-border-default)] bg-[var(--iw-semantic-bg-feature)] text-[var(--iw-semantic-action-primary)]"
+                          : "border-[var(--iw-semantic-border-default)] bg-[var(--iw-semantic-bg-subtle)] text-[var(--iw-semantic-text-secondary)]"
                       }`}
                     >
                       <AppIcon icon={guide.icon} className="h-4 w-4" />
                     </span>
                     <span className="min-w-0 flex-1">
                       <span className="flex items-center gap-2">
-                        <span className="truncate text-sm font-semibold text-slate-900">
+                        <span className="truncate text-sm font-semibold text-[var(--iw-semantic-text-primary)]">
                           {guide.title}
                         </span>
-                        <span className="hidden sm:inline-flex shrink-0 items-center gap-1 rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-medium text-slate-600">
+                        <span className="hidden sm:inline-flex shrink-0 items-center gap-1 rounded-full bg-[var(--iw-semantic-bg-page)] px-2 py-0.5 text-[10px] font-medium text-[var(--iw-semantic-text-secondary)]">
                           <Clock className="h-2.5 w-2.5" aria-hidden="true" />
                           {guide.estimatedMinutes} min
                         </span>
                       </span>
-                      <span className="mt-0.5 block text-[11px] font-medium text-green-700">
+                      <span className="mt-0.5 block text-[11px] font-medium text-[var(--iw-semantic-action-primary)]">
                         {MODULE_LABELS.get(guide.module) || guide.module}
                       </span>
-                      <span className="mt-0.5 line-clamp-1 block text-xs text-slate-500">
+                      <span className="mt-0.5 line-clamp-1 block text-xs text-[var(--iw-semantic-text-secondary)]">
                         {guide.summary}
                       </span>
                     </span>
                     <ArrowRight
                       className={`mt-2 h-4 w-4 shrink-0 ${
-                        active ? "text-green-700" : "text-slate-300"
+                        active ? "text-[var(--iw-semantic-action-primary)]" : "text-[var(--iw-semantic-border-default)]"
                       }`}
                       aria-hidden="true"
                     />
@@ -264,7 +264,7 @@ export function GuideSearchModal({ open, onClose, basePath }: GuideSearchModalPr
         )}
       </div>
 
-      <div className="flex flex-wrap items-center justify-between gap-2 border-t border-slate-200 bg-slate-50 px-4 py-2 text-[11px] text-slate-500">
+      <div className="flex flex-wrap items-center justify-between gap-2 border-t border-[var(--iw-semantic-border-default)] bg-[var(--iw-semantic-bg-subtle)] px-4 py-2 text-[11px] text-[var(--iw-semantic-text-secondary)]">
         <div className="flex items-center gap-3">
           <span>↑↓ navegar</span>
           <span>↵ abrir guía</span>

@@ -17,6 +17,7 @@ import { AppIcon } from "@/components/AppIcon";
 import { BrandLogo } from "@/components/BrandLogo";
 import { GuideSearchModal } from "@/components/guide/GuideSearchModal";
 import { DeveloperCredit } from "@/components/DeveloperCredit";
+import { LegalLinksBar } from "@/components/LegalLinksBar";
 import { PublicNavigation } from "@/components/PublicNavigation";
 import { guideModules, guides } from "@/lib/guide-data";
 
@@ -194,10 +195,14 @@ export function GuideShell({ children, basePath, isStandalone }: GuideShellProps
 
   return (
     <>
-      {isStandalone && <PublicNavigation sticky={false} />}
+      {isStandalone && <PublicNavigation />}
       <div className="min-h-[100dvh] bg-[var(--iw-semantic-bg-page)] text-[var(--iw-semantic-text-primary)]">
-      {/* Cabecera fija moderna del manual */}
-      <header className="sticky top-0 z-30 border-b border-[var(--iw-semantic-border-default)] bg-[var(--iw-semantic-bg-surface)]/95 backdrop-blur-md">
+      {/* Barra contextual del manual con contraste diferenciado del contenido */}
+      <header
+        className={`sticky z-30 border-b border-[var(--iw-semantic-border-default)] bg-[var(--iw-semantic-bg-feature)]/95 backdrop-blur-md shadow-xs ${
+          isStandalone ? "top-[60px] sm:top-[64px]" : "top-0"
+        }`}
+      >
         <div className="mx-auto flex h-16 max-w-[1440px] items-center justify-between gap-3 px-4 sm:px-6">
           <div className="flex min-w-0 items-center gap-2.5">
             <button
@@ -215,17 +220,19 @@ export function GuideShell({ children, basePath, isStandalone }: GuideShellProps
             </button>
 
             <Link href={basePath} className="flex min-w-0 items-center gap-3">
-              <BrandLogo
-                variant="horizontal"
-                height={38}
-                className="h-8 sm:h-[38px] w-auto"
-              />
-              <span className="min-w-0 border-l border-[var(--iw-semantic-border-default)] pl-3">
+              {!isStandalone && (
+                <BrandLogo
+                  variant="horizontal"
+                  height={38}
+                  className="h-8 sm:h-[38px] w-auto rounded-[var(--iw-radius-control)] bg-[var(--iw-semantic-bg-surface)] px-1.5 py-0.5 border border-[var(--iw-semantic-border-default)]"
+                />
+              )}
+              <span className={`min-w-0 ${!isStandalone ? "border-l border-[var(--iw-semantic-border-default)] pl-3" : ""}`}>
                 <span className="flex items-center gap-2">
                   <span className="font-display truncate text-sm font-bold text-[var(--iw-semantic-text-primary)] sm:text-base">
                     Manual de Uso
                   </span>
-                  <span className="hidden sm:inline-flex items-center rounded-full border border-[var(--iw-semantic-border-default)] bg-[var(--iw-semantic-bg-feature)] px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-[var(--iw-semantic-action-primary)] tabular-nums">
+                  <span className="hidden sm:inline-flex items-center rounded-full border border-[var(--iw-semantic-border-strong)]/25 bg-[var(--iw-semantic-bg-surface)] px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-[var(--iw-semantic-action-primary)] tabular-nums">
                     {guides.length} guías
                   </span>
                 </span>
@@ -300,8 +307,9 @@ export function GuideShell({ children, basePath, isStandalone }: GuideShellProps
 
         <main className="min-w-0 flex-1 px-4 py-6 sm:px-8 sm:py-8">
           {children}
-          <footer className="mt-10 border-t border-[var(--iw-semantic-border-default)] pt-4">
+          <footer className="mt-10 border-t border-[var(--iw-semantic-border-default)] pt-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <DeveloperCredit variant="inline" showAppName />
+            <LegalLinksBar className="justify-start sm:justify-end" />
           </footer>
         </main>
       </div>

@@ -1,5 +1,6 @@
 import { BrandLogo } from "@/components/BrandLogo";
 import { DeveloperCredit } from "@/components/DeveloperCredit";
+import { LegalLinksBar } from "@/components/LegalLinksBar";
 import { db } from "@/db";
 import { broilerBatches, mortalityRecords } from "@/db/schema";
 import { eq, desc } from "drizzle-orm";
@@ -58,7 +59,7 @@ export default async function LoteTraceabilityPage({ params }: Props) {
 
   return (
     <div className="bg-[var(--iw-semantic-bg-page)] min-h-screen text-[var(--iw-semantic-text-primary)]">
-      <PublicNavigation sticky={false} />
+      <PublicNavigation />
       <div className="max-w-2xl mx-auto px-4 py-8">
         {/* Header */}
         <HeroFrame
@@ -136,18 +137,19 @@ export default async function LoteTraceabilityPage({ params }: Props) {
         )}
 
         {/* Footer */}
-        <div className="text-center mt-8 pt-6 border-t border-[var(--iw-semantic-border-default)]">
+        <footer className="text-center mt-8 pt-6 border-t border-[var(--iw-semantic-border-default)]">
           <div className="flex justify-center mb-3">
             <BrandLogo variant="square" size={80} className="rounded-2xl bg-[var(--iw-semantic-bg-surface)] p-1.5 border border-[var(--iw-semantic-border-default)] shadow-xs" />
           </div>
-          <p className="text-sm text-[var(--iw-semantic-text-secondary)]">
-            Producto de <span className="font-semibold text-[var(--iw-semantic-action-primary)]">IwaGranja</span> - Granja Autosustentable
+          <p className="font-mono text-[11px] font-semibold uppercase tracking-[0.12em] text-[var(--iw-semantic-action-primary)]">
+            IwaGranja · por Iwagé
           </p>
           <p className="text-xs text-[var(--iw-semantic-text-secondary)] mt-1">
-            Sistema integral de gestión pecuaria
+            Gestión y trazabilidad para granjas mixtas en Colombia
           </p>
-          <DeveloperCredit variant="inline" className="mt-3 justify-center text-[var(--iw-semantic-text-secondary)]" />
-        </div>
+          <DeveloperCredit variant="inline" className="mt-3 justify-center" />
+          <LegalLinksBar className="mt-3" />
+        </footer>
       </div>
     </div>
   );

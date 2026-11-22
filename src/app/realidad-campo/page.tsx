@@ -91,32 +91,32 @@ export default function RealidadCampoPage() {
           {FIELD_PAINS.map((item) => (
             <article
               key={item.code}
-              className="rounded-2xl border border-slate-200 bg-white overflow-hidden shadow-2xs"
+              className="rounded-2xl border border-[var(--iw-semantic-border-default)] bg-[var(--iw-semantic-bg-surface)] overflow-hidden shadow-2xs"
             >
-              <div className="border-b border-slate-100 bg-slate-50/80 px-5 py-3 flex flex-wrap items-center justify-between gap-2">
-                <span className="font-mono text-[11px] font-bold uppercase tracking-wider text-emerald-900">
+              <div className="border-b border-[var(--iw-semantic-border-default)] bg-[var(--iw-semantic-bg-subtle)] px-5 py-3 flex flex-wrap items-center justify-between gap-2">
+                <span className="font-mono text-[11px] font-bold uppercase tracking-wider text-[var(--iw-semantic-text-primary)]">
                   {item.code}
                 </span>
                 <Link
                   href={item.moduleLink}
-                  className="text-xs font-semibold text-emerald-800 underline underline-offset-4 hover:text-emerald-950"
+                  className="text-xs font-semibold text-[var(--iw-semantic-action-primary)] underline underline-offset-4 hover:text-[var(--iw-semantic-action-primary-hover)]"
                 >
                   {item.moduleLabel} →
                 </Link>
               </div>
               <div className="grid gap-4 p-5 md:grid-cols-2">
-                <div className="rounded-xl border border-amber-200/80 bg-amber-50/50 p-4">
-                  <p className="font-mono text-[10px] font-bold uppercase tracking-wider text-amber-900">
+                <div className="rounded-xl border border-[var(--iw-color-ochre)]/45 bg-[var(--iw-semantic-bg-subtle)] p-4">
+                  <p className="font-mono text-[10px] font-bold uppercase tracking-wider text-[var(--iw-semantic-text-primary)]">
                     El dolor real en el galpón
                   </p>
-                  <h2 className="mt-1 text-base font-bold text-slate-900">{item.pain}</h2>
-                  <p className="mt-2 text-sm text-slate-700 leading-relaxed">{item.reality}</p>
+                  <h2 className="mt-1 text-base font-bold text-[var(--iw-semantic-text-primary)]">{item.pain}</h2>
+                  <p className="mt-2 text-sm text-[var(--iw-semantic-text-primary)] leading-relaxed">{item.reality}</p>
                 </div>
-                <div className="rounded-xl border border-emerald-200/80 bg-emerald-50/50 p-4">
-                  <p className="font-mono text-[10px] font-bold uppercase tracking-wider text-emerald-900">
+                <div className="rounded-xl border border-[var(--iw-semantic-border-default)] bg-[var(--iw-semantic-bg-feature)] p-4">
+                  <p className="font-mono text-[10px] font-bold uppercase tracking-wider text-[var(--iw-semantic-text-primary)]">
                     Cómo lo resolvemos en IwaGranja
                   </p>
-                  <p className="mt-2 text-sm text-slate-800 leading-relaxed">{item.solution}</p>
+                  <p className="mt-2 text-sm text-[var(--iw-semantic-text-primary)] leading-relaxed">{item.solution}</p>
                 </div>
               </div>
             </article>

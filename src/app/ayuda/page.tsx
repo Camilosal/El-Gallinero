@@ -28,30 +28,30 @@ export default function AyudaPage() {
       extraJsonLdNodes={[buildFaqNode(canonicalUrlFor("/ayuda"), FAQS)]}
     >
       <p className="mb-6 flex flex-wrap items-center gap-4 text-sm">
-        <Link href="/guia" className="font-semibold text-emerald-800 underline underline-offset-2">
+        <Link href="/guia" className="font-semibold text-[var(--iw-semantic-action-primary)] underline underline-offset-2">
           Ir al manual de uso →
         </Link>
-        <Link href="/planes" className="font-semibold text-slate-700 underline underline-offset-2 hover:text-slate-900">
+        <Link href="/planes" className="font-semibold text-[var(--iw-semantic-text-primary)] underline underline-offset-2 hover:text-[var(--iw-semantic-text-primary)]">
           Comparar planes y precios →
         </Link>
-        <Link href="/terminos" className="font-semibold text-slate-700 underline underline-offset-2 hover:text-slate-900">
+        <Link href="/terminos" className="font-semibold text-[var(--iw-semantic-text-primary)] underline underline-offset-2 hover:text-[var(--iw-semantic-text-primary)]">
           Ver términos del servicio →
         </Link>
       </p>
       <div className="grid gap-5 md:grid-cols-2">
         {FAQS.map((f) => (
-          <article key={f.q} className="flex flex-col rounded-2xl border border-slate-200 bg-white p-5">
-            <h2 className="text-base font-bold text-slate-900">{f.q}</h2>
-            <p className="mt-1.5 flex-1 text-slate-700 leading-relaxed">{f.a}</p>
+          <article key={f.q} className="flex flex-col rounded-2xl border border-[var(--iw-semantic-border-default)] bg-[var(--iw-semantic-bg-surface)] p-5">
+            <h2 className="text-base font-bold text-[var(--iw-semantic-text-primary)]">{f.q}</h2>
+            <p className="mt-1.5 flex-1 text-[var(--iw-semantic-text-primary)] leading-relaxed">{f.a}</p>
             {f.image && (
-              <div className="relative mt-4 aspect-[16/9] overflow-hidden rounded-xl border border-slate-200">
+              <div className="relative mt-4 aspect-[16/9] overflow-hidden rounded-xl border border-[var(--iw-semantic-border-default)]">
                 <Image src={f.image.src} alt={f.image.alt} fill sizes="(max-width: 768px) 100vw, 520px" className="object-cover object-top" />
               </div>
             )}
           </article>
         ))}
       </div>
-      <p className="mt-8 text-sm text-slate-600">
+      <p className="mt-8 text-sm text-[var(--iw-semantic-text-secondary)]">
         ¿No encontraste tu respuesta? <Link href="/contacto" className="font-semibold underline">Escríbenos desde la página de contacto</Link>.
       </p>
     </PublicPageShell>

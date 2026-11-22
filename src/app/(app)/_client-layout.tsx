@@ -61,8 +61,8 @@ export default function ClientAppLayout({ children }: { children: React.ReactNod
   return (
     <div className="flex min-h-screen bg-[var(--iw-semantic-bg-page)] text-[var(--iw-semantic-text-primary)]">
       <Sidebar />
-      <main className={`flex-1 ${marginClass} p-4 pb-24 md:p-6 md:pb-6 overflow-auto transition-all duration-300`}>
-        <div className="mb-4 flex items-center md:justify-end gap-2 sm:gap-3 border-b border-[var(--iw-semantic-border-default)] pb-3 pl-12 md:pl-0">
+      <main className={`flex-1 ${marginClass} min-w-0 p-4 pb-24 md:p-6 md:pb-6 transition-all duration-300`}>
+        <header className="sticky top-0 z-30 -mx-4 -mt-4 mb-5 flex items-center md:justify-end gap-2 sm:gap-3 border-b border-[var(--iw-semantic-border-default)] bg-[var(--iw-semantic-bg-surface)]/95 backdrop-blur-md px-4 py-2.5 pl-16 shadow-xs md:-mx-6 md:-mt-6 md:px-6 md:pl-6">
           <OfflineSyncStatus />
           <div className="flex-1 min-w-0 max-w-xs sm:max-w-sm md:max-w-xs lg:max-w-sm">
             <GlobalSearch variant="topbar" className="w-full" />
@@ -87,7 +87,7 @@ export default function ClientAppLayout({ children }: { children: React.ReactNod
             )}
           </button>
           <QuickCreateMenu />
-        </div>
+        </header>
         <DashboardBreadcrumb />
         {children}
         <footer className="mt-10 border-t border-[var(--iw-semantic-border-default)] pt-4 flex flex-wrap items-center justify-between gap-3">

@@ -1,41 +1,56 @@
-const animals = [
-  { id: "gallina", label: "Gallinas", emoji: "🐔", position: "animal-radar-gallina" },
-  { id: "pollo", label: "Pollos", emoji: "🐣", position: "animal-radar-pollo" },
-  { id: "pato", label: "Patos", emoji: "🦆", position: "animal-radar-pato" },
-  { id: "curi", label: "Curíes", emoji: "🐹", position: "animal-radar-curi" },
-  { id: "conejo", label: "Conejos", emoji: "🐇", position: "animal-radar-conejo" },
-] as const;
+import {
+  CANONICAL_SPECIES,
+  SpeciesIllustration,
+} from "@/components/illustrations/SpeciesFieldIllustrations";
 
+/**
+ * Lámina de campo agroeditorial de las 6 especies canónicas del sistema.
+ * Reemplaza la metáfora anterior de radar/emojis por fichas naturalistas documentadas.
+ */
 export function AnimalRadar() {
   return (
     <div
       role="img"
-      aria-label="Vista conceptual de un radar para ubicar y gestionar gallinas, pollos, patos, curíes y conejos."
-      className="land-animal-radar"
+      aria-label="Lámina ilustrativa de campo con seis especies pecuarias gestionadas en IwaGranja: gallinas ponedoras, pollos de engorde, codornices, patos, conejos y cuyes o curíes."
+      className="land-field-sheet"
     >
-      <div className="land-animal-radar-copy">
-        <span className="land-animal-radar-status"><i aria-hidden="true" /> Seguimiento por especie</span>
-        <strong>Animales de tu granja</strong>
-        <span>Ubicación · grupo · estado</span>
+      <div className="land-field-sheet-head">
+        <span className="land-field-sheet-kicker">
+          Lámina de campo · 6 especies
+        </span>
+        <span className="land-field-sheet-sub">
+          Ubicación · grupo · estado
+        </span>
       </div>
-      <div className="land-animal-radar-screen" aria-hidden="true">
-        <span className="land-radar-ring land-radar-ring-outer" />
-        <span className="land-radar-ring land-radar-ring-middle" />
-        <span className="land-radar-ring land-radar-ring-inner" />
-        <span className="land-radar-cross land-radar-cross-x" />
-        <span className="land-radar-cross land-radar-cross-y" />
-        <span className="land-radar-sweep" />
-        <span className="land-radar-center" />
-        {animals.map((animal) => (
-          <span className={`land-radar-animal ${animal.position}`} key={animal.id}>
-            <i>{animal.emoji}</i>
-            <b>{animal.label}</b>
-          </span>
+
+      <div className="land-field-sheet-grid" aria-hidden="true">
+        {CANONICAL_SPECIES.map((item) => (
+          <div key={item.id} className="land-field-specimen">
+            <div className="land-field-specimen-meta">
+              <span className="land-field-specimen-code">{item.code}</span>
+            </div>
+            <div className="land-field-specimen-art">
+              <SpeciesIllustration
+                species={item.id}
+                variant="specimen"
+                className="h-14 w-14 text-[var(--iw-color-forest)]"
+              />
+            </div>
+            <div className="land-field-specimen-text">
+              <strong>{item.name}</strong>
+              <span>{item.detail}</span>
+            </div>
+          </div>
         ))}
       </div>
-      <div className="land-animal-radar-footer">
-        <span><i className="land-radar-online-dot" aria-hidden="true" /> 5 especies ilustradas</span>
-        <span>Vista conceptual</span>
+
+      <div className="land-field-sheet-footer">
+        <span className="land-field-sheet-stamp">
+          Vista ilustrativa · sistema multiespecie
+        </span>
+        <span className="font-mono text-[10px] text-[var(--iw-semantic-text-secondary)]">
+          Aves + mamíferos
+        </span>
       </div>
     </div>
   );

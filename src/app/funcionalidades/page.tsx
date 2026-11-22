@@ -96,101 +96,101 @@ export default function FuncionalidadesPage() {
             ["/#modulos", "Módulos y normas"],
             ["/guia", "Guía de uso"],
           ].map(([href, label]) => (
-            <Link key={href} href={href} className="rounded-lg border border-slate-200 bg-white px-3 py-2.5 text-center text-sm font-semibold text-slate-700 hover:border-emerald-400 hover:text-emerald-900">{label}</Link>
+            <Link key={href} href={href} className="rounded-lg border border-[var(--iw-semantic-border-default)] bg-[var(--iw-semantic-bg-surface)] px-3 py-2.5 text-center text-sm font-semibold text-[var(--iw-semantic-text-primary)] hover:border-[var(--iw-semantic-border-strong)] hover:text-[var(--iw-semantic-action-primary-hover)]">{label}</Link>
           ))}
         </nav>
 
         <section id="modulos" aria-labelledby="funcionalidades-modulos" className="scroll-mt-6">
           <div className="mb-5 flex items-start gap-3">
-            <Layers3 className="mt-1 h-5 w-5 shrink-0 text-emerald-800" />
+            <Layers3 className="mt-1 h-5 w-5 shrink-0 text-[var(--iw-semantic-action-primary)]" />
             <div>
-              <p className="font-mono text-[11px] font-bold uppercase tracking-[0.14em] text-emerald-800">Áreas de gestión</p>
-              <h2 id="funcionalidades-modulos" className="mt-1 text-xl font-bold text-slate-900">La operación conectada por especie, lote y actividad</h2>
-              <p className="mt-1 max-w-3xl text-sm leading-relaxed text-slate-600">Las funciones se complementan para registrar movimientos, consultar existencias y revisar indicadores con el nivel de detalle que requiere cada unidad productiva.</p>
+              <p className="font-mono text-[11px] font-bold uppercase tracking-[0.14em] text-[var(--iw-semantic-action-primary)]">Áreas de gestión</p>
+              <h2 id="funcionalidades-modulos" className="mt-1 text-xl font-bold text-[var(--iw-semantic-text-primary)]">La operación conectada por especie, lote y actividad</h2>
+              <p className="mt-1 max-w-3xl text-sm leading-relaxed text-[var(--iw-semantic-text-secondary)]">Las funciones se complementan para registrar movimientos, consultar existencias y revisar indicadores con el nivel de detalle que requiere cada unidad productiva.</p>
             </div>
           </div>
           <div className="grid gap-3 md:grid-cols-2">
             {MODULES.map((module, index) => (
-              <article key={module.title} className="rounded-2xl border border-slate-200 bg-white p-4 sm:p-5">
+              <article key={module.title} className="rounded-2xl border border-[var(--iw-semantic-border-default)] bg-[var(--iw-semantic-bg-surface)] p-4 sm:p-5">
                 <div className="flex items-start gap-3">
-                  <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-emerald-50 font-mono text-xs font-bold text-emerald-900">{String(index + 1).padStart(2, "0")}</span>
+                  <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-[var(--iw-semantic-bg-feature)] font-mono text-xs font-bold text-[var(--iw-semantic-text-primary)]">{String(index + 1).padStart(2, "0")}</span>
                   <div className="min-w-0">
-                    <h3 className="font-bold text-slate-900">{module.title}</h3>
-                    <p className="mt-1 text-sm leading-relaxed text-slate-600">{module.summary}</p>
+                    <h3 className="font-bold text-[var(--iw-semantic-text-primary)]">{module.title}</h3>
+                    <p className="mt-1 text-sm leading-relaxed text-[var(--iw-semantic-text-secondary)]">{module.summary}</p>
                   </div>
                 </div>
                 <ul className="mt-4 grid gap-2 sm:grid-cols-2">
-                  {module.features.map((feature) => <li key={feature} className="flex items-start gap-2 text-xs leading-relaxed text-slate-700"><CheckCircle2 className="mt-0.5 h-3.5 w-3.5 shrink-0 text-emerald-700" />{feature}</li>)}
+                  {module.features.map((feature) => <li key={feature} className="flex items-start gap-2 text-xs leading-relaxed text-[var(--iw-semantic-text-primary)]"><CheckCircle2 className="mt-0.5 h-3.5 w-3.5 shrink-0 text-[var(--iw-semantic-action-primary)]" />{feature}</li>)}
                 </ul>
               </article>
             ))}
           </div>
         </section>
 
-        <section id="campo" aria-labelledby="funcionalidades-campo" className="scroll-mt-6 rounded-2xl border border-emerald-200 bg-emerald-50/60 p-5 sm:p-7">
+        <section id="campo" aria-labelledby="funcionalidades-campo" className="scroll-mt-6 rounded-2xl border border-[var(--iw-semantic-border-default)] bg-[var(--iw-semantic-bg-feature)] p-5 sm:p-7">
           <div className="flex items-start gap-3">
-            <Sparkles className="mt-1 h-5 w-5 shrink-0 text-emerald-800" />
+            <Sparkles className="mt-1 h-5 w-5 shrink-0 text-[var(--iw-semantic-action-primary)]" />
             <div>
-              <p className="font-mono text-[11px] font-bold uppercase tracking-[0.14em] text-emerald-800">Experiencia de campo</p>
-              <h2 id="funcionalidades-campo" className="mt-1 text-xl font-bold text-slate-900">Menos pasos para registrar y revisar</h2>
-              <p className="mt-1 max-w-3xl text-sm leading-relaxed text-slate-600">La app combina captura rápida, lectura de códigos, asistencia por voz y tareas relacionadas con los registros.</p>
+              <p className="font-mono text-[11px] font-bold uppercase tracking-[0.14em] text-[var(--iw-semantic-action-primary)]">Experiencia de campo</p>
+              <h2 id="funcionalidades-campo" className="mt-1 text-xl font-bold text-[var(--iw-semantic-text-primary)]">Menos pasos para registrar y revisar</h2>
+              <p className="mt-1 max-w-3xl text-sm leading-relaxed text-[var(--iw-semantic-text-secondary)]">La app combina captura rápida, lectura de códigos, asistencia por voz y tareas relacionadas con los registros.</p>
             </div>
           </div>
           <div className="mt-5 grid gap-3 sm:grid-cols-2">
             {AI_AUTOMATION_PILLARS.map((item) => (
-              <article key={item.title} className="rounded-xl border border-emerald-100 bg-white p-4">
-                <p className="font-mono text-[10px] font-bold uppercase tracking-wider text-emerald-800">{item.eyebrow}</p>
-                <h3 className="mt-1 text-sm font-bold text-slate-900">{item.title}</h3>
-                <p className="mt-1.5 text-sm leading-relaxed text-slate-600">{item.summary}</p>
-                <div className="mt-3 rounded-lg bg-slate-50 p-3 text-xs leading-relaxed">
-                  <p className="font-medium text-slate-800">{item.exampleInput}</p>
-                  <p className="mt-1 text-slate-600">→ {item.exampleOutput}</p>
+              <article key={item.title} className="rounded-xl border border-[var(--iw-semantic-border-default)] bg-[var(--iw-semantic-bg-surface)] p-4">
+                <p className="font-mono text-[10px] font-bold uppercase tracking-wider text-[var(--iw-semantic-action-primary)]">{item.eyebrow}</p>
+                <h3 className="mt-1 text-sm font-bold text-[var(--iw-semantic-text-primary)]">{item.title}</h3>
+                <p className="mt-1.5 text-sm leading-relaxed text-[var(--iw-semantic-text-secondary)]">{item.summary}</p>
+                <div className="mt-3 rounded-lg bg-[var(--iw-semantic-bg-subtle)] p-3 text-xs leading-relaxed">
+                  <p className="font-medium text-[var(--iw-semantic-text-primary)]">{item.exampleInput}</p>
+                  <p className="mt-1 text-[var(--iw-semantic-text-secondary)]">→ {item.exampleOutput}</p>
                 </div>
               </article>
             ))}
           </div>
           <div className="mt-5 flex flex-wrap gap-3">
-            <Link href="/#como-funciona" className="inline-flex items-center gap-1.5 text-sm font-semibold text-emerald-900 underline underline-offset-4">Ver la demostración en la landing <ArrowRight className="h-4 w-4" /></Link>
-            <Link href="/realidad-campo" className="inline-flex items-center gap-1.5 text-sm font-semibold text-slate-700 underline underline-offset-4">Leer sobre los retos de campo <ArrowRight className="h-4 w-4" /></Link>
+            <Link href="/#como-funciona" className="inline-flex items-center gap-1.5 text-sm font-semibold text-[var(--iw-semantic-text-primary)] underline underline-offset-4">Ver la demostración en la landing <ArrowRight className="h-4 w-4" /></Link>
+            <Link href="/realidad-campo" className="inline-flex items-center gap-1.5 text-sm font-semibold text-[var(--iw-semantic-text-primary)] underline underline-offset-4">Leer sobre los retos de campo <ArrowRight className="h-4 w-4" /></Link>
           </div>
         </section>
 
         <section aria-labelledby="funcionalidades-referencias">
           <div className="flex items-start gap-3">
-            <ShieldCheck className="mt-1 h-5 w-5 shrink-0 text-emerald-800" />
+            <ShieldCheck className="mt-1 h-5 w-5 shrink-0 text-[var(--iw-semantic-action-primary)]" />
             <div>
-              <p className="font-mono text-[11px] font-bold uppercase tracking-[0.14em] text-emerald-800">Normas y referencias</p>
-              <h2 id="funcionalidades-referencias" className="mt-1 text-xl font-bold text-slate-900">Información de apoyo para la operación</h2>
-              <p className="mt-1 max-w-3xl text-sm leading-relaxed text-slate-600">La plataforma incorpora referencias y herramientas de consulta para apoyar la gestión. Su disponibilidad no sustituye la revisión de la fuente vigente ni el criterio de profesionales competentes.</p>
+              <p className="font-mono text-[11px] font-bold uppercase tracking-[0.14em] text-[var(--iw-semantic-action-primary)]">Normas y referencias</p>
+              <h2 id="funcionalidades-referencias" className="mt-1 text-xl font-bold text-[var(--iw-semantic-text-primary)]">Información de apoyo para la operación</h2>
+              <p className="mt-1 max-w-3xl text-sm leading-relaxed text-[var(--iw-semantic-text-secondary)]">La plataforma incorpora referencias y herramientas de consulta para apoyar la gestión. Su disponibilidad no sustituye la revisión de la fuente vigente ni el criterio de profesionales competentes.</p>
             </div>
           </div>
-          <div className="mt-4 rounded-xl border border-blue-200 bg-blue-50 p-4 text-sm leading-relaxed text-blue-950">
+          <div className="mt-4 rounded-xl border border-[var(--iw-semantic-status-info)]/40 bg-[var(--iw-semantic-bg-subtle)] p-4 text-sm leading-relaxed text-[var(--iw-semantic-text-primary)]">
             <ListChecks className="mr-2 inline h-4 w-4" /> Consulta las normas y referencias disponibles desde la sección de módulos de la landing y revisa el alcance aplicable a cada especie, producto y territorio.
           </div>
         </section>
 
-        <section aria-labelledby="funcionalidades-plataforma" className="border-t border-slate-200 pt-7">
-          <p className="font-mono text-[11px] font-bold uppercase tracking-[0.14em] text-emerald-800">Administración de la plataforma</p>
-          <h2 id="funcionalidades-plataforma" className="mt-1 text-xl font-bold text-slate-900">Configuración para cada granja y equipo</h2>
+        <section aria-labelledby="funcionalidades-plataforma" className="border-t border-[var(--iw-semantic-border-default)] pt-7">
+          <p className="font-mono text-[11px] font-bold uppercase tracking-[0.14em] text-[var(--iw-semantic-action-primary)]">Administración de la plataforma</p>
+          <h2 id="funcionalidades-plataforma" className="mt-1 text-xl font-bold text-[var(--iw-semantic-text-primary)]">Configuración para cada granja y equipo</h2>
           <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
             {PLATFORM_TOOLS.map((item) => (
-              <article key={item.title} className="rounded-xl border border-slate-200 bg-white p-4">
-                <h3 className="text-sm font-bold text-slate-900">{item.title}</h3>
-                <p className="mt-1.5 text-xs leading-relaxed text-slate-600">{item.summary}</p>
+              <article key={item.title} className="rounded-xl border border-[var(--iw-semantic-border-default)] bg-[var(--iw-semantic-bg-surface)] p-4">
+                <h3 className="text-sm font-bold text-[var(--iw-semantic-text-primary)]">{item.title}</h3>
+                <p className="mt-1.5 text-xs leading-relaxed text-[var(--iw-semantic-text-secondary)]">{item.summary}</p>
               </article>
             ))}
           </div>
         </section>
 
-        <section aria-labelledby="funcionalidades-adopcion" className="border-t border-slate-200 pt-7">
-          <p className="font-mono text-[11px] font-bold uppercase tracking-[0.14em] text-emerald-800">Adopción y escala</p>
-          <h2 id="funcionalidades-adopcion" className="mt-1 text-xl font-bold text-slate-900">El arranque puede ser gradual</h2>
+        <section aria-labelledby="funcionalidades-adopcion" className="border-t border-[var(--iw-semantic-border-default)] pt-7">
+          <p className="font-mono text-[11px] font-bold uppercase tracking-[0.14em] text-[var(--iw-semantic-action-primary)]">Adopción y escala</p>
+          <h2 id="funcionalidades-adopcion" className="mt-1 text-xl font-bold text-[var(--iw-semantic-text-primary)]">El arranque puede ser gradual</h2>
           <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
             {ADOPTION_HIGHLIGHTS.map((item) => (
-              <article key={item.id} className="rounded-xl border border-slate-200 bg-white p-4">
-                <p className="font-mono text-[10px] font-bold uppercase tracking-wider text-emerald-800">{item.badge}</p>
-                <h3 className="mt-2 text-sm font-bold text-slate-900">{item.title}</h3>
-                <p className="mt-1.5 text-xs leading-relaxed text-slate-600">{item.description}</p>
+              <article key={item.id} className="rounded-xl border border-[var(--iw-semantic-border-default)] bg-[var(--iw-semantic-bg-surface)] p-4">
+                <p className="font-mono text-[10px] font-bold uppercase tracking-wider text-[var(--iw-semantic-action-primary)]">{item.badge}</p>
+                <h3 className="mt-2 text-sm font-bold text-[var(--iw-semantic-text-primary)]">{item.title}</h3>
+                <p className="mt-1.5 text-xs leading-relaxed text-[var(--iw-semantic-text-secondary)]">{item.description}</p>
               </article>
             ))}
           </div>

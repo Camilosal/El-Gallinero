@@ -5,6 +5,7 @@ import Link from "next/link";
 import { BrandLogo } from "@/components/BrandLogo";
 import { HeroFrame } from "@/components/HeroFrame";
 import { DeveloperCredit } from "@/components/DeveloperCredit";
+import { LegalLinksBar } from "@/components/LegalLinksBar";
 
 export default function RecoverAccessPage() {
   const [username, setUsername] = useState("");
@@ -155,6 +156,7 @@ export default function RecoverAccessPage() {
           )}
         </section>
         <DeveloperCredit variant="inline" className="justify-center" />
+        <LegalLinksBar className="pt-1" />
       </div>
     </main>
   );

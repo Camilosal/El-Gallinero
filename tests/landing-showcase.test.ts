@@ -125,7 +125,7 @@ describe("página de presentación — pantallazos y adopción", () => {
     expect(footer).not.toContain("SIC_URL");
     expect(page).toContain('id="preguntas-frecuentes"');
     expect(page).toContain('href="/realidad-campo"');
-    expect(page).toContain("hero-illustration.png");
+    expect(page).toContain("hero-illustration.webp");
     expect(
       fs.existsSync(path.join(process.cwd(), "src/app/realidad-campo/page.tsx")),
     ).toBe(true);

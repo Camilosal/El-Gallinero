@@ -87,34 +87,34 @@ export default async function ContactoPage({
       extraJsonLdNodes={[contactPointNode]}
     >
       <div className="grid gap-8 lg:grid-cols-12 items-start">
-        <aside className="lg:col-span-4 rounded-2xl border border-slate-200 bg-white p-5 space-y-4">
-          <h2 className="text-base font-bold text-slate-900">Canales directos</h2>
-          <ul className="space-y-2.5 text-sm text-slate-700">
+        <aside className="lg:col-span-4 rounded-2xl border border-[var(--iw-semantic-border-default)] bg-[var(--iw-semantic-bg-surface)] p-5 space-y-4">
+          <h2 className="text-base font-bold text-[var(--iw-semantic-text-primary)]">Canales directos</h2>
+          <ul className="space-y-2.5 text-sm text-[var(--iw-semantic-text-primary)]">
             <li>
-              <span className="block text-xs font-semibold uppercase tracking-wide text-slate-500">Correo electrónico</span>
+              <span className="block text-xs font-semibold uppercase tracking-wide text-[var(--iw-semantic-text-secondary)]">Correo electrónico</span>
               <strong>{email || "próximamente"}</strong>
             </li>
             <li>
-              <span className="block text-xs font-semibold uppercase tracking-wide text-slate-500">WhatsApp</span>
+              <span className="block text-xs font-semibold uppercase tracking-wide text-[var(--iw-semantic-text-secondary)]">WhatsApp</span>
               <strong>{whatsapp || "próximamente"}</strong>
             </li>
             <li>
-              <span className="block text-xs font-semibold uppercase tracking-wide text-slate-500">Ciudad</span>
+              <span className="block text-xs font-semibold uppercase tracking-wide text-[var(--iw-semantic-text-secondary)]">Ciudad</span>
               <span>{LEGAL.ciudad}</span>
             </li>
             <li>
-              <span className="block text-xs font-semibold uppercase tracking-wide text-slate-500">Tiempo de respuesta</span>
+              <span className="block text-xs font-semibold uppercase tracking-wide text-[var(--iw-semantic-text-secondary)]">Tiempo de respuesta</span>
               <span>{RESPONSE_TIME}</span>
             </li>
           </ul>
-          <div className="border-t border-slate-100 pt-3 text-xs text-slate-600 space-y-1">
+          <div className="border-t border-[var(--iw-semantic-border-default)] pt-3 text-xs text-[var(--iw-semantic-text-secondary)] space-y-1">
             <p>
-              <Link href="/ayuda" className="font-semibold text-emerald-800 underline underline-offset-2">
+              <Link href="/ayuda" className="font-semibold text-[var(--iw-semantic-action-primary)] underline underline-offset-2">
                 Preguntas frecuentes y ayuda rápida →
               </Link>
             </p>
             <p>
-              <Link href="/privacidad" className="font-semibold text-slate-700 underline underline-offset-2">
+              <Link href="/privacidad" className="font-semibold text-[var(--iw-semantic-text-primary)] underline underline-offset-2">
                 Política de tratamiento de datos (Ley 1581) →
               </Link>
             </p>
