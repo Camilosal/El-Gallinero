@@ -47,6 +47,7 @@ export default function MobileNav() {
               <Link href="/#como-funciona" onClick={close} className={GROUP_LINK_CLASS}>Cómo funciona</Link>
               <Link href="/#modulos" onClick={close} className={GROUP_LINK_CLASS}>Módulos y normas</Link>
               <Link href="/funcionalidades" onClick={close} className={GROUP_LINK_CLASS}>Todas las funcionalidades</Link>
+              <Link href="/guia" onClick={close} className={GROUP_LINK_CLASS}>Guía de uso</Link>
               <Link href="/realidad-campo" onClick={close} className={GROUP_LINK_CLASS}>Realidad del campo</Link>
             </div>
           </details>

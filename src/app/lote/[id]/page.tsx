@@ -59,7 +59,7 @@ export default async function LoteTraceabilityPage({ params }: Props) {
 
   return (
     <div className="bg-[var(--iw-semantic-bg-page)] min-h-screen text-[var(--iw-semantic-text-primary)]">
-      <PublicNavigation sticky={false} />
+      <PublicNavigation />
       <div className="max-w-2xl mx-auto px-4 py-8">
         {/* Header */}
         <HeroFrame

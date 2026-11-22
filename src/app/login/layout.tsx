@@ -14,7 +14,7 @@ export const metadata: Metadata = buildPageMetadata({
 export default function LoginLayout({ children }: { children: ReactNode }) {
   return (
     <div className="flex min-h-screen flex-col">
-      <PublicNavigation sticky={false} />
+      <PublicNavigation />
       <div className="flex-1">{children}</div>
     </div>
   );
