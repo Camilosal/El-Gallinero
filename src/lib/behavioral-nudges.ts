@@ -752,3 +752,214 @@ export function pickNextRotatingNudge(
     nudge: safeList[nextIndex],
   };
 }
+
+// ─── Bucle de retroalimentación adaptativa (Capacidad 3) ───
+
+export const NUDGE_FEEDBACK_STORAGE_KEY = "gallinero_nudge_feedback_v1";
+const NUDGE_DISMISS_COOLDOWN_MS = 86_400_000; // 24 h
+
+export type NudgeFeedbackOutcome = "shown" | "acted" | "dismissed" | "skipped";
+
+export interface NudgeFeedbackStats {
+  nudgeId: string;
+  shownCount: number;
+  actedCount: number;
+  dismissedCount: number;
+  skippedCount: number;
+  lastShownAt: number;
+  lastActedAt: number;
+  lastDismissedAt: number;
+}
+
+export interface NudgeUtilityEvaluation {
+  score: number;
+  conversionRate: number;
+  isCooledDown: boolean;
+  prioritizedByHistory: boolean;
+}
+
+export interface AdaptiveNudgeResult extends PickedNudgeResult {
+  prioritizedByHistory: boolean;
+  utilityScore: number;
+}
+
+export function getNudgeFeedbackMap(
+  storage?: Pick<Storage, "getItem"> | null,
+): Record<string, NudgeFeedbackStats> {
+  if (!storage) return {};
+  try {
+    const raw = storage.getItem(NUDGE_FEEDBACK_STORAGE_KEY);
+    if (!raw) return {};
+    const parsed = JSON.parse(raw);
+    if (!parsed || typeof parsed !== "object") return {};
+    return parsed as Record<string, NudgeFeedbackStats>;
+  } catch {
+    return {};
+  }
+}
+
+function emptyStats(nudgeId: string): NudgeFeedbackStats {
+  return {
+    nudgeId,
+    shownCount: 0,
+    actedCount: 0,
+    dismissedCount: 0,
+    skippedCount: 0,
+    lastShownAt: 0,
+    lastActedAt: 0,
+    lastDismissedAt: 0,
+  };
+}
+
+export function recordNudgeFeedback(
+  nudgeId: string,
+  outcome: NudgeFeedbackOutcome,
+  storage?: Pick<Storage, "getItem" | "setItem"> | null,
+  nowMs: number = Date.now(),
+): NudgeFeedbackStats {
+  const map = getNudgeFeedbackMap(storage);
+  const current = map[nudgeId] ? { ...emptyStats(nudgeId), ...map[nudgeId] } : emptyStats(nudgeId);
+
+  if (outcome === "shown") {
+    current.shownCount += 1;
+    current.lastShownAt = nowMs;
+  } else if (outcome === "acted") {
+    current.actedCount += 1;
+    current.lastActedAt = nowMs;
+  } else if (outcome === "dismissed") {
+    current.dismissedCount += 1;
+    current.lastDismissedAt = nowMs;
+  } else if (outcome === "skipped") {
+    current.skippedCount += 1;
+  }
+
+  map[nudgeId] = current;
+  if (storage) {
+    try {
+      // Limitar a 120 nudges más recientes para mantener almacenamiento mínimo
+      const entries = Object.entries(map).slice(-120);
+      storage.setItem(NUDGE_FEEDBACK_STORAGE_KEY, JSON.stringify(Object.fromEntries(entries)));
+    } catch {
+      // Ignore storage quota errors
+    }
+  }
+  return current;
+}
+
+export function computeNudgeUtilityScore(
+  nudgeId: string,
+  statsMap: Record<string, NudgeFeedbackStats>,
+  nowMs: number = Date.now(),
+): NudgeUtilityEvaluation {
+  const stats = statsMap[nudgeId];
+  if (!stats) {
+    return {
+      score: 0.5,
+      conversionRate: 0,
+      isCooledDown: false,
+      prioritizedByHistory: false,
+    };
+  }
+
+  const conversionRate = (stats.actedCount + 1) / (stats.shownCount + 2);
+  const isCooledDown =
+    stats.lastDismissedAt > 0 && nowMs - stats.lastDismissedAt < NUDGE_DISMISS_COOLDOWN_MS;
+  const cooldownPenalty = isCooledDown ? 1.5 : 0;
+
+  const rawScore =
+    conversionRate +
+    0.35 * stats.actedCount -
+    0.45 * stats.dismissedCount -
+    0.15 * stats.skippedCount -
+    cooldownPenalty;
+
+  return {
+    score: Number(rawScore.toFixed(4)),
+    conversionRate: Number(conversionRate.toFixed(4)),
+    isCooledDown,
+    prioritizedByHistory: stats.actedCount > 0 && stats.actedCount > stats.dismissedCount,
+  };
+}
+
+/**
+ * Selecciona el siguiente nudge combinando la rotación secuencial base con utilidad histórica real:
+ * - Si no existe historial de interacción (`acted`/`dismissed`/`skipped`), mantiene la rotación exacta de `pickNextRotatingNudge`.
+ * - Si existen señales previas, prioriza los nudges útiles (no enfriados) con mayor utilidad empírica.
+ */
+export function pickAdaptiveNudge(
+  pageKey: string,
+  nudges: readonly BehavioralNudgeItem[],
+  storage?: Pick<Storage, "getItem" | "setItem"> | null,
+  options?: { advance?: boolean; nowMs?: number },
+): AdaptiveNudgeResult {
+  const safeList = nudges.length > 0 ? nudges : BEHAVIORAL_NUDGE_GROUPS.inicio.nudges;
+  const nowMs = options?.nowMs ?? Date.now();
+  const feedbackMap = getNudgeFeedbackMap(storage);
+
+  const hasFeedbackSignal = safeList.some((item) => {
+    const st = feedbackMap[item.id];
+    return Boolean(st && (st.actedCount > 0 || st.dismissedCount > 0 || st.skippedCount > 0));
+  });
+
+  if (!hasFeedbackSignal) {
+    const base = pickNextRotatingNudge(pageKey, safeList, storage, options);
+    return {
+      ...base,
+      prioritizedByHistory: false,
+      utilityScore: 0.5,
+    };
+  }
+
+  const total = safeList.length;
+  const storageKey = `${CURSOR_PREFIX}${pageKey}`;
+  let prevIndex = -1;
+  if (storage) {
+    try {
+      const raw = storage.getItem(storageKey);
+      if (raw !== null) {
+        const parsed = Number.parseInt(raw, 10);
+        if (Number.isFinite(parsed) && parsed >= 0 && parsed < total) {
+          prevIndex = parsed;
+        }
+      }
+    } catch {
+      prevIndex = -1;
+    }
+  }
+
+  const advance = options?.advance ?? true;
+  const evaluated = safeList.map((item, idx) => {
+    const evalRes = computeNudgeUtilityScore(item.id, feedbackMap, nowMs);
+    const circularOffset = ((idx - (prevIndex < 0 ? -1 : prevIndex) + total) % total) || total;
+    return { item, idx, evalRes, circularOffset };
+  });
+
+  const nonCooled = evaluated.filter((e) => !e.evalRes.isCooledDown);
+  const pool = nonCooled.length > 0 ? nonCooled : evaluated;
+
+  pool.sort((a, b) => {
+    // Al avanzar manualmente, evitamos repetir el mismo nudge si hay otro con utilidad competitiva
+    if (advance && a.idx === prevIndex && pool.length > 1) return 1;
+    if (advance && b.idx === prevIndex && pool.length > 1) return -1;
+    const scoreDiff = b.evalRes.score - a.evalRes.score;
+    if (Math.abs(scoreDiff) > 0.05) return scoreDiff;
+    return a.circularOffset - b.circularOffset;
+  });
+
+  const winner = pool[0];
+  if (storage && advance) {
+    try {
+      storage.setItem(storageKey, String(winner.idx));
+    } catch {
+      // Ignore storage errors
+    }
+  }
+
+  return {
+    index: winner.idx,
+    total,
+    nudge: winner.item,
+    prioritizedByHistory: winner.evalRes.prioritizedByHistory,
+    utilityScore: winner.evalRes.score,
+  };
+}

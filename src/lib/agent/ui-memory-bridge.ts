@@ -239,3 +239,42 @@ export async function learnFromFeedMovementAction(params: {
     return null;
   }
 }
+
+export async function learnFromBiologicalCalibrationAction(params: {
+  userId?: string | null;
+  species: string;
+  breed?: string | null;
+  weekNumber?: number | null;
+  avgWeightKg: number;
+  sampleSize?: number | null;
+  empiricalFactor?: number | null;
+  confidencePct?: number | null;
+}): Promise<FarmMemoryRecord | null> {
+  try {
+    const userId = await resolveTargetUserId(params.userId);
+    if (!userId) return null;
+
+    const sp = String(params.species || "ave").trim().toLowerCase();
+    const breed = String(params.breed || "general").trim();
+    const weekClause = params.weekNumber != null ? ` en semana ${params.weekNumber}` : "";
+    const factor = params.empiricalFactor != null && Number.isFinite(params.empiricalFactor) ? params.empiricalFactor : null;
+    const factorPct = factor != null ? Math.round((factor - 1) * 1000) / 10 : null;
+    const factorClause =
+      factorPct != null
+        ? ` Factor empírico local: ${factorPct >= 0 ? `+${factorPct}%` : `${factorPct}%`} (confianza ${params.confidencePct ?? 0}%).`
+        : "";
+    const weightG = Math.round(Number(params.avgWeightKg) * 1000);
+    const content = `Biometría registrada para ${sp} (${breed})${weekClause}: promedio ${weightG} g${params.sampleSize ? ` (n=${params.sampleSize})` : ""}.${factorClause}`;
+
+    return await saveFarmMemory({
+      userId,
+      category: "lote",
+      subjectKey: normalizeSubjectKey(`biometria_calibracion_${sp}_${breed}`),
+      content,
+      entities: extractFarmEntities(`${sp} ${breed} peso biometria`),
+      importance: 4,
+    });
+  } catch {
+    return null;
+  }
+}
