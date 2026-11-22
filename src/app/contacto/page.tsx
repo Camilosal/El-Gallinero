@@ -3,6 +3,7 @@ import Link from "next/link";
 import { ContactForm } from "@/components/ContactForm";
 import { PublicPageShell } from "@/components/LegalPage";
 import { LEGAL, PENDING, RESPONSE_TIME } from "@/lib/legal";
+import { isUuidString, isValidFarmCode, normalizeFarmCode } from "@/lib/farm-code";
 import { buildPageMetadata, ENTITY_IDS } from "@/lib/seo";
 
 export const dynamic = "force-dynamic";
@@ -31,20 +32,23 @@ export default async function ContactoPage({
   searchParams: Promise<ContactSearchParams>;
 }) {
   const params = await searchParams;
-  const farmId = firstParam(params.farmId).trim();
+  const rawFarmRef = firstParam(params.farmId).trim();
+  const normalizedFarmCode = normalizeFarmCode(rawFarmRef);
+  const isFarmShortCode = isValidFarmCode(normalizedFarmCode);
+  const resolvedFarmRef = isFarmShortCode ? normalizedFarmCode : rawFarmRef;
   const farmName = firstParam(params.farmName).trim().slice(0, 160);
   const beneficiaries = Number(firstParam(params.beneficiaries));
   const months = Number(firstParam(params.months));
   const amount = Number(firstParam(params.amount));
   const isOrganizationRenewal =
     firstParam(params.request) === "organization-renewal" &&
-    /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(farmId);
+    (isUuidString(rawFarmRef) || isFarmShortCode);
   const initialOrganizationRenewal = isOrganizationRenewal
     ? {
         farm: farmName,
         message: [
           "Solicito renovar el contrato de Organización.",
-          `FarmID: ${farmId}`,
+          isFarmShortCode ? `Código de granja: ${resolvedFarmRef}` : `FarmID: ${resolvedFarmRef}`,
           Number.isSafeInteger(beneficiaries) && beneficiaries >= 25
             ? `Tamaño de cohorte solicitado: ${beneficiaries} beneficiarios.`
             : "",

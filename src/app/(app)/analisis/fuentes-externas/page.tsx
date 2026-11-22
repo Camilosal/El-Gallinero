@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
-import { Globe, RefreshCw, MapPin, CloudSun, TrendingUp, ShieldAlert, Landmark, Cpu, TableProperties } from "lucide-react";
+import { Globe, RefreshCw, MapPin, CloudSun, TrendingUp, ShieldAlert, Landmark, Cpu, TableProperties, KeyRound, Copy, Check } from "lucide-react";
 import { Badge, Button, Card, HeroActionButton, HeroActionLink, PageHeader, Select } from "@/components/ui";
 import { apiFetch } from "@/lib/fetch";
 import { COLOMBIA_DIVIPOLA_CATALOG } from "@/lib/divipola-catalog";
@@ -187,6 +187,14 @@ export default function FuentesExternasControlPage() {
   const [busyAction, setBusyAction] = useState<string | null>(null);
   const [notice, setNotice] = useState<{ type: "ok" | "error"; text: string } | null>(null);
   const [selectedDane, setSelectedDane] = useState("25286");
+  const [iotTokenInfo, setIotTokenInfo] = useState<{
+    farmCode: string;
+    configured: boolean;
+    tokenPrefix: string | null;
+    rawToken?: string | null;
+  } | null>(null);
+  const [rotatingIotToken, setRotatingIotToken] = useState(false);
+  const [copiedIotSnippet, setCopiedIotSnippet] = useState(false);
 
   const loadState = useCallback(async (forceRefresh = false) => {
     setLoading(true);
@@ -212,7 +220,70 @@ export default function FuentesExternasControlPage() {
 
   useEffect(() => {
     void Promise.resolve().then(() => loadState(false));
+    apiFetch("/api/operaciones/sensores/token")
+      .then((res) => (res.ok ? res.json() : null))
+      .then((json) => {
+        if (json?.farmCode) {
+          setIotTokenInfo({
+            farmCode: String(json.farmCode),
+            configured: Boolean(json.configured),
+            tokenPrefix: typeof json.tokenPrefix === "string" ? json.tokenPrefix : null,
+            rawToken: null,
+          });
+        }
+      })
+      .catch(() => undefined);
   }, [loadState]);
+
+  const handleRotateIotToken = useCallback(async () => {
+    setRotatingIotToken(true);
+    setNotice(null);
+    try {
+      const res = await apiFetch("/api/operaciones/sensores/token", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "rotate" }),
+      });
+      const json = await res.json();
+      if (!res.ok) {
+        throw new Error(json?.error || "No se pudo emitir el token IoT de la granja");
+      }
+      setIotTokenInfo({
+        farmCode: String(json.farmCode),
+        configured: Boolean(json.configured),
+        tokenPrefix: typeof json.tokenPrefix === "string" ? json.tokenPrefix : null,
+        rawToken: typeof json.rawToken === "string" ? json.rawToken : null,
+      });
+      setNotice({
+        type: "ok",
+        text: "Nuevo token IoT emitido para esta granja. Guárdalo ahora; no se mostrará completo otra vez.",
+      });
+    } catch (err) {
+      setNotice({
+        type: "error",
+        text: err instanceof Error ? err.message : "Error emitiendo credencial IoT",
+      });
+    } finally {
+      setRotatingIotToken(false);
+    }
+  }, []);
+
+  const handleCopyIotConfig = useCallback(async () => {
+    if (!iotTokenInfo) return;
+    const tokenPlaceholder = iotTokenInfo.rawToken || `${iotTokenInfo.tokenPrefix || "iwg_iot_"}...`;
+    const snippet = [
+      `Endpoint: POST /api/operaciones/sensores`,
+      `Header x-farm-code: ${iotTokenInfo.farmCode}`,
+      `Header x-sensor-token: ${tokenPlaceholder}`,
+    ].join("\n");
+    try {
+      await navigator.clipboard.writeText(snippet);
+      setCopiedIotSnippet(true);
+      setTimeout(() => setCopiedIotSnippet(false), 1800);
+    } catch {
+      // Clipboard unavailable
+    }
+  }, [iotTokenInfo]);
 
   const runAction = useCallback(
     async (actionKey: string, payload: Record<string, unknown>, successText: string) => {
@@ -689,6 +760,62 @@ export default function FuentesExternasControlPage() {
                   Alertas últimas 24 h: <strong>{state.iotStatus?.alertsLast24h ?? 0}</strong> · ITH máx registrado:{" "}
                   <strong>{state.iotStatus?.maxIthLast24h ?? "—"}</strong>.
                 </p>
+
+                {iotTokenInfo && (
+                  <div className="mb-3 rounded-xl border border-slate-200 bg-slate-50 p-3 space-y-2 text-xs">
+                    <div className="flex flex-wrap items-center justify-between gap-2">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <span className="inline-flex items-center gap-1 font-semibold text-slate-800">
+                          <KeyRound className="w-3.5 h-3.5 text-emerald-700" aria-hidden="true" />
+                          <span>Código granja (`x-farm-code`):</span>
+                        </span>
+                        <code className="rounded bg-white border border-slate-200 px-2 py-0.5 font-mono font-bold tracking-wider text-slate-900">
+                          {iotTokenInfo.farmCode}
+                        </code>
+                        <Badge color={iotTokenInfo.configured ? "green" : "yellow"}>
+                          {iotTokenInfo.configured
+                            ? `Token activo (${iotTokenInfo.tokenPrefix}…)`
+                            : "Sin token propio"}
+                        </Badge>
+                      </div>
+                      <div className="flex flex-wrap items-center gap-2">
+                        <Button
+                          type="button"
+                          variant="secondary"
+                          className="px-2.5 py-1 text-xs"
+                          disabled={rotatingIotToken}
+                          onClick={() => void handleRotateIotToken()}
+                        >
+                          {rotatingIotToken
+                            ? "Generando…"
+                            : iotTokenInfo.configured
+                              ? "Rotar token IoT"
+                              : "Generar token IoT"}
+                        </Button>
+                        <Button
+                          type="button"
+                          variant="secondary"
+                          className="px-2.5 py-1 text-xs inline-flex items-center gap-1"
+                          onClick={() => void handleCopyIotConfig()}
+                        >
+                          {copiedIotSnippet ? <Check className="w-3.5 h-3.5 text-emerald-700" aria-hidden="true" /> : <Copy className="w-3.5 h-3.5" aria-hidden="true" />}
+                          <span>{copiedIotSnippet ? "Copiado" : "Copiar cabecera"}</span>
+                        </Button>
+                      </div>
+                    </div>
+                    {iotTokenInfo.rawToken && (
+                      <div className="rounded-lg border border-emerald-300 bg-emerald-50 p-2.5 text-emerald-950">
+                        <p className="font-semibold mb-1">
+                          Token secreto recién emitido (cópialo ahora, solo se muestra esta vez):
+                        </p>
+                        <code className="block break-all rounded bg-white px-2 py-1 font-mono text-[11px] border border-emerald-200">
+                          x-farm-code: {iotTokenInfo.farmCode} · x-sensor-token: {iotTokenInfo.rawToken}
+                        </code>
+                      </div>
+                    )}
+                  </div>
+                )}
+
                 <Button
                   className="px-3 py-1.5 text-xs"
                   variant="secondary"

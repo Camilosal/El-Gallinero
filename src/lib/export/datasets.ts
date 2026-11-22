@@ -1600,6 +1600,7 @@ export async function loadCompleteFarmBackup() {
     db
       .select({
         id: farmSchema.farms.id,
+        code: farmSchema.farms.code,
         slug: farmSchema.farms.slug,
         name: farmSchema.farms.name,
         deploymentMode: farmSchema.farms.deploymentMode,

@@ -27,6 +27,7 @@ export const FEED_STANDARD_CATALOG_MIGRATION_FILE = "drizzle/0016_feed_standard_
 export const EXPENSE_STANDARD_CATALOG_MIGRATION_FILE = "drizzle/0017_expense_standard_catalog.sql";
 export const CATALOG_ENUMS_ALIGNMENT_MIGRATION_FILE = "drizzle/0018_catalog_enums_alignment.sql";
 export const CAPEX_STANDARD_CATALOG_MIGRATION_FILE = "drizzle/0019_capex_standard_catalog.sql";
+export const FARM_SHORT_CODE_MIGRATION_FILE = "drizzle/0020_farm_short_code_and_scoped_users.sql";
 
 export const ORDERED_MIGRATION_SCRIPTS = [
   BASELINE_MIGRATION_FILE,
@@ -49,6 +50,7 @@ export const ORDERED_MIGRATION_SCRIPTS = [
   EXPENSE_STANDARD_CATALOG_MIGRATION_FILE,
   CATALOG_ENUMS_ALIGNMENT_MIGRATION_FILE,
   CAPEX_STANDARD_CATALOG_MIGRATION_FILE,
+  FARM_SHORT_CODE_MIGRATION_FILE,
 ] as const;
 
 export function getOrderedMigrationScripts(rootDir = process.cwd()): string[] {

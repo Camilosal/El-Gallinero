@@ -1,10 +1,11 @@
 import { createHash, timingSafeEqual } from "node:crypto";
-import { eq, or } from "drizzle-orm";
+import { and, eq, sql } from "drizzle-orm";
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/db";
-import { sessions, users } from "@/db/schema";
+import { farms, sessions, users } from "@/db/schema";
 import { hashPassword, sessionCookieName } from "@/lib/auth";
 import { safeParseJson, withErrorHandler } from "@/lib/api-handler";
+import { describeFarmCodeError, isValidFarmCode, normalizeFarmCode } from "@/lib/farm-code";
 import { isRequestRateLimited } from "@/lib/rate-limit";
 
 export const dynamic = "force-dynamic";
@@ -14,7 +15,7 @@ function sha256(value: string): string {
 }
 
 export const POST = withErrorHandler(async (req: NextRequest) => {
-  const { username, recoveryCode, newPassword } = await safeParseJson(req);
+  const { username, farmCode, recoveryCode, newPassword } = await safeParseJson(req);
   if (
     typeof username !== "string" ||
     typeof recoveryCode !== "string" ||
@@ -31,7 +32,18 @@ export const POST = withErrorHandler(async (req: NextRequest) => {
   }
 
   const normalizedUsername = username.trim().toLowerCase();
-  const rawUsername = username.trim();
+  const rawFarmCode = typeof farmCode === "string" ? farmCode.trim() : "";
+  const normalizedFarmCode = rawFarmCode ? normalizeFarmCode(rawFarmCode) : "";
+
+  if (rawFarmCode && !isValidFarmCode(normalizedFarmCode)) {
+    return NextResponse.json(
+      {
+        code: "INVALID_FARM_CODE",
+        error: describeFarmCodeError(rawFarmCode) || "Código de granja inválido.",
+      },
+      { status: 400 },
+    );
+  }
 
   if (
     isRequestRateLimited(req, {
@@ -41,7 +53,7 @@ export const POST = withErrorHandler(async (req: NextRequest) => {
     }) ||
     isRequestRateLimited(req, {
       namespace: "recover-user",
-      key: `user:${normalizedUsername}`,
+      key: `user:${normalizedFarmCode || "global"}:${normalizedUsername}`,
       windowMs: 15 * 60 * 1000,
       maxAttempts: 8,
     })
@@ -52,8 +64,19 @@ export const POST = withErrorHandler(async (req: NextRequest) => {
     );
   }
 
-  const success = await db.transaction(async (tx) => {
-    const [user] = await tx
+  const outcome = await db.transaction(async (tx) => {
+    let farmIdFilter: string | null = null;
+    if (normalizedFarmCode) {
+      const [farm] = await tx
+        .select({ id: farms.id })
+        .from(farms)
+        .where(eq(farms.code, normalizedFarmCode))
+        .limit(1);
+      if (!farm) return "failed" as const;
+      farmIdFilter = farm.id;
+    }
+
+    const matches = await tx
       .select({
         id: users.id,
         role: users.role,
@@ -62,13 +85,18 @@ export const POST = withErrorHandler(async (req: NextRequest) => {
       })
       .from(users)
       .where(
-        normalizedUsername === rawUsername
-          ? eq(users.username, normalizedUsername)
-          : or(eq(users.username, normalizedUsername), eq(users.username, rawUsername)),
+        farmIdFilter
+          ? and(eq(users.farmId, farmIdFilter), sql`lower(${users.username}) = ${normalizedUsername}`)
+          : sql`lower(${users.username}) = ${normalizedUsername}`,
       )
-      .limit(1)
+      .limit(2)
       .for("update");
 
+    if (!farmIdFilter && matches.length > 1) {
+      return "farm_code_required" as const;
+    }
+
+    const [user] = matches;
     const supplied = Buffer.from(sha256(recoveryCode.trim()), "hex");
     const expected = Buffer.from(user?.recoveryCodeHash || sha256("missing-recovery-code"), "hex");
     const codeAge = user?.recoveryCodeIssuedAt
@@ -77,7 +105,7 @@ export const POST = withErrorHandler(async (req: NextRequest) => {
     const currentCode = codeAge >= 0 && codeAge <= 365 * 24 * 60 * 60 * 1000;
     const valid = timingSafeEqual(supplied, expected) && Boolean(user?.recoveryCodeHash) && currentCode;
 
-    if (!user || !valid) return false;
+    if (!user || !valid) return "failed" as const;
 
     await tx
       .update(users)
@@ -88,12 +116,23 @@ export const POST = withErrorHandler(async (req: NextRequest) => {
       })
       .where(eq(users.id, user.id));
     await tx.delete(sessions).where(eq(sessions.userId, user.id));
-    return true;
+    return "ok" as const;
   });
 
-  if (!success) {
+  if (outcome === "farm_code_required") {
     return NextResponse.json(
-      { error: "No se pudo restablecer el acceso. Revisa el usuario y el código de recuperación." },
+      {
+        code: "FARM_CODE_REQUIRED",
+        error:
+          "Hay más de una cuenta con este usuario. Ingresa el Código de Granja (6 caracteres, ej. 7K4M2P) para identificar tu finca.",
+      },
+      { status: 409 },
+    );
+  }
+
+  if (outcome !== "ok") {
+    return NextResponse.json(
+      { error: "No se pudo restablecer el acceso. Revisa el usuario, código de granja y código de recuperación." },
       { status: 400 },
     );
   }

@@ -406,6 +406,11 @@ export default function PlanSuscripcionPage() {
               <div>
                 <div className="flex flex-wrap items-center gap-2.5">
                   <h2 className="text-lg font-bold text-slate-900">{subscription.farmName}</h2>
+                  {subscription.farmCode && (
+                    <span className="rounded-full border border-emerald-200 bg-emerald-50 px-2.5 py-0.5 font-mono text-xs font-bold tracking-wider text-emerald-900">
+                      Código: {subscription.farmCode}
+                    </span>
+                  )}
                   <Badge color={badge.color}>{badge.label}</Badge>
                 </div>
                 <p className="mt-1 text-sm text-slate-600">

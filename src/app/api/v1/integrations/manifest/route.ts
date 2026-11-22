@@ -20,6 +20,7 @@ export async function GET(req: NextRequest) {
       const [farm] = await db
         .select({
           id: farms.id,
+          code: farms.code,
           name: farms.name,
           slug: farms.slug,
         })
@@ -31,7 +32,7 @@ export async function GET(req: NextRequest) {
         {
           object: "integration_manifest",
           apiVersion: "v1",
-          farm: farm ?? { id: ctx.farmId, name: "Granja", slug: null },
+          farm: farm ?? { id: ctx.farmId, code: null, name: "Granja", slug: null },
           authVia: ctx.via,
           activeProfile: ctx.profile,
           supportedProfiles: ERP_PROFILES.map((id) => ERP_PROFILE_METADATA[id]),

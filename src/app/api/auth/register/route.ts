@@ -6,6 +6,7 @@ import { appSettings, farmSubscriptions, farms, users } from "@/db/schema";
 import { runWithFarmContext } from "@/db/tenant-context";
 import { safeParseJson, withApiHandler } from "@/lib/api-handler";
 import { createSession, hashPassword, sessionCookieName } from "@/lib/auth";
+import { generateUniqueFarmCode } from "@/lib/farm-code.server";
 import { createDefaultProgressiveConfig, PROGRESSIVE_CONFIG_SETTING_KEY } from "@/lib/onboarding";
 import { seedStarterFeedsAndPrograms } from "@/lib/feeding/default-tenant-seed";
 import { LEGAL_CONSENT_SETTING_KEY, LEGAL_DOCS_VERSION } from "@/lib/legal";
@@ -90,19 +91,6 @@ export const POST = withApiHandler(async (req: NextRequest) => {
     );
   }
 
-  const [existingUser] = await db
-    .select({ id: users.id })
-    .from(users)
-    .where(eq(users.username, username))
-    .limit(1);
-
-  if (existingUser) {
-    return NextResponse.json(
-      { error: "Ese usuario o correo ya está registrado. Intenta iniciar sesión." },
-      { status: 409 },
-    );
-  }
-
   const now = new Date();
   const passwordHash = await hashPassword(password);
   const recoveryCode = generateRecoveryCode();
@@ -110,9 +98,11 @@ export const POST = withApiHandler(async (req: NextRequest) => {
   const slug = toFarmSlug(farmName);
 
   const created = await db.transaction(async (tx) => {
+    const code = await generateUniqueFarmCode(tx);
     const [farm] = await tx
       .insert(farms)
       .values({
+        code,
         slug,
         name: farmName,
         deploymentMode: "saas",
@@ -221,8 +211,10 @@ export const POST = withApiHandler(async (req: NextRequest) => {
     {
       ok: true,
       farmId: created.farm.id,
+      farmCode: created.farm.code,
       farm: {
         id: created.farm.id,
+        code: created.farm.code,
         slug: created.farm.slug,
         name: created.farm.name,
         planCode: created.farm.planCode,

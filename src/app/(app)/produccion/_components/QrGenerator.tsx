@@ -5,7 +5,8 @@ import Image from "next/image";
 import { Printer, Tag } from "lucide-react";
 import QRCode from "qrcode";
 import { Button, HeroActionButton, Modal } from "@/components/ui";
-import { generateQrPayload } from "@/lib/qr";
+import { useActiveFarmMeta } from "@/lib/active-farm-client";
+import { generateEntityQrUrl } from "@/lib/qr";
 import { HEN_PRESENT_STATUSES } from "@/lib/animal-status";
 
 interface Hen {
@@ -17,6 +18,7 @@ interface Hen {
 
 export function QrGeneratorButton({ hens, hero = false }: { hens: Hen[]; hero?: boolean }) {
   const [open, setOpen] = useState(false);
+  const activeFarm = useActiveFarmMeta(open);
   const activeHens = hens.filter((h) => HEN_PRESENT_STATUSES.includes(h.status));
 
   return (
@@ -38,13 +40,13 @@ export function QrGeneratorButton({ hens, hero = false }: { hens: Hen[]; hero?: 
         </button>
       )}
       <Modal open={open} onClose={() => setOpen(false)} title="Etiquetas QR de Gallinas">
-        <QrGeneratorContent hens={activeHens} />
+        <QrGeneratorContent hens={activeHens} farmCode={activeFarm?.code || null} />
       </Modal>
     </>
   );
 }
 
-function QrGeneratorContent({ hens }: { hens: Hen[] }) {
+function QrGeneratorContent({ hens, farmCode }: { hens: Hen[]; farmCode: string | null }) {
   const [qrUrls, setQrUrls] = useState<Record<string, string>>({});
   const [generating, setGenerating] = useState(true);
   const printRef = useRef<HTMLDivElement>(null);
@@ -52,9 +54,10 @@ function QrGeneratorContent({ hens }: { hens: Hen[] }) {
   useEffect(() => {
     const generate = async () => {
       setGenerating(true);
+      const origin = typeof window !== "undefined" ? window.location.origin : "";
       const urls: Record<string, string> = {};
       for (const hen of hens) {
-        const payload = generateQrPayload(hen.id);
+        const payload = generateEntityQrUrl("gallina", hen.id, { origin, farmCode });
         try {
           urls[hen.id] = await QRCode.toDataURL(payload, {
             width: 200,
@@ -69,7 +72,7 @@ function QrGeneratorContent({ hens }: { hens: Hen[] }) {
       setGenerating(false);
     };
     generate();
-  }, [hens]);
+  }, [hens, farmCode]);
 
   const handlePrint = () => {
     const content = printRef.current;
@@ -106,7 +109,7 @@ function QrGeneratorContent({ hens }: { hens: Hen[] }) {
               (h) => `
             <div class="label">
               <img src="${qrUrls[h.id]}" alt="QR" />
-              <div class="code">${h.code}</div>
+              <div class="code">${farmCode ? `${farmCode} · ` : ""}${h.code}</div>
               <div class="breed">${h.breed}</div>
             </div>
           `,

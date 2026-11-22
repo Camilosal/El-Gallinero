@@ -16,15 +16,17 @@ export const GET = withErrorHandler(async () => {
 
   let farmName: string | null = null;
   let farmSlug: string | null = null;
+  let farmCode: string | null = null;
   try {
     const [farm] = await db
-      .select({ name: farms.name, slug: farms.slug })
+      .select({ name: farms.name, slug: farms.slug, code: farms.code })
       .from(farms)
       .where(eq(farms.id, user.farmId))
       .limit(1);
     if (farm) {
       farmName = farm.name;
       farmSlug = farm.slug;
+      farmCode = farm.code;
     }
   } catch {
     // Non-fatal: still return session user even if farm metadata lookup fails
@@ -34,6 +36,7 @@ export const GET = withErrorHandler(async () => {
     ...user,
     farmName,
     farmSlug,
+    farmCode,
     permissions: getPermissionsForRole(user.role),
   });
 });

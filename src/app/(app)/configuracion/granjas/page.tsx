@@ -20,6 +20,7 @@ import {
 import { HeroActionButton, HeroActionLink, HeroBanner } from "@/components/HeroBanner";
 import TableSearch from "@/components/TableSearch";
 import { Input, Modal, Select, Tooltip } from "@/components/ui";
+import { clearCachedActiveFarmMeta, fetchActiveFarmMeta } from "@/lib/active-farm-client";
 import { matchesTextQuery } from "@/lib/text";
 import { COLOMBIA_DIVIPOLA_CATALOG } from "@/lib/divipola-catalog";
 import { resolveDefaultFieldHelp } from "@/lib/field-help";
@@ -58,6 +59,7 @@ interface PlanOption {
 
 interface TenantFarmItem {
   id: string;
+  code: string;
   slug: string;
   name: string;
   isDefaultFarm: boolean;
@@ -199,6 +201,7 @@ export default function SuperAdminGranjasPage() {
   const [newRegisterPayment, setNewRegisterPayment] = useState(false);
   const [createdCredentials, setCreatedCredentials] = useState<{
     farmName: string;
+    farmCode?: string | null;
     ownerName: string;
     username: string;
     password: string;
@@ -326,6 +329,7 @@ export default function SuperAdminGranjasPage() {
         return false;
       }
       return matchesTextQuery(search, [
+        f.code,
         f.name,
         f.slug,
         f.municipality || "",
@@ -448,6 +452,7 @@ export default function SuperAdminGranjasPage() {
       const planMeta = plansByCode.get(newPlanCode);
       setCreatedCredentials({
         farmName: newFarmName.trim(),
+        farmCode: typeof json.farm?.code === "string" ? json.farm.code : null,
         ownerName: newOwnerName.trim(),
         username: newOwnerUsername.trim().toLowerCase(),
         password: newOwnerPassword,
@@ -553,6 +558,8 @@ export default function SuperAdminGranjasPage() {
         toast(json.error || "No se pudo cambiar de granja activa", "error");
         return;
       }
+      clearCachedActiveFarmMeta();
+      await fetchActiveFarmMeta();
       toast(`Contexto activo cambiado a: ${farmName}`, "success");
       await loadTenants();
     } catch {
@@ -565,11 +572,17 @@ export default function SuperAdminGranjasPage() {
   const copyWelcomeMessage = async () => {
     if (!createdCredentials) return;
     const origin =
-      typeof window !== "undefined" ? window.location.origin : "https://iwage.co";
+      typeof window !== "undefined" ? window.location.origin : "https://app.iwage.co";
+    const loginLink = createdCredentials.farmCode
+      ? `${origin}/login?granja=${encodeURIComponent(createdCredentials.farmCode)}`
+      : `${origin}/login`;
     const text = [
-      `Hola ${createdCredentials.ownerName}, tu finca *${createdCredentials.farmName}* ya está activa en *Iwagé* (${createdCredentials.planName}).`,
+      `Hola ${createdCredentials.ownerName}, tu finca *${createdCredentials.farmName}* ya está activa en *IwaGranja* (${createdCredentials.planName}).`,
       ``,
-      `Ingresa desde tu celular o computador en: ${origin}/login`,
+      `Ingresa desde tu celular o computador en: ${loginLink}`,
+      createdCredentials.farmCode
+        ? `Código de granja: *${createdCredentials.farmCode}*`
+        : null,
       `Usuario: *${createdCredentials.username}*`,
       `Contraseña inicial: *${createdCredentials.password}*`,
       createdCredentials.recoveryCode
@@ -917,6 +930,9 @@ export default function SuperAdminGranjasPage() {
                     </div>
 
                     <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs sm:text-sm text-slate-600">
+                      <span className="font-mono text-xs font-bold tracking-wider bg-emerald-50 text-emerald-900 border border-emerald-200 px-2 py-0.5 rounded">
+                        Código: {farm.code}
+                      </span>
                       <span className="font-mono text-xs bg-slate-100 px-2 py-0.5 rounded">
                         slug: {farm.slug}
                       </span>
@@ -1098,6 +1114,11 @@ export default function SuperAdminGranjasPage() {
                 <p>
                   <strong>Finca:</strong> {createdCredentials.farmName}
                 </p>
+                {createdCredentials.farmCode && (
+                  <p>
+                    <strong>Código de granja:</strong> {createdCredentials.farmCode}
+                  </p>
+                )}
                 <p>
                   <strong>Titular:</strong> {createdCredentials.ownerName}
                 </p>

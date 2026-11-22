@@ -1,11 +1,22 @@
+import crypto from "node:crypto";
 import { db } from "@/db";
-import { sensorReadings, farmLocations } from "@/db/schema";
+import { farms, sensorReadings, farmLocations } from "@/db/schema";
+import { DEFAULT_FARM_ID, getCurrentFarmId, runWithFarmContext } from "@/db/tenant-context";
 import { and, desc, eq } from "drizzle-orm";
 import { NextRequest, NextResponse } from "next/server";
 import { withApiHandler, withErrorHandler, safeParseJson } from "@/lib/api-handler";
 import { getSessionUser } from "@/lib/auth";
+import { describeFarmCodeError, isValidFarmCode, normalizeFarmCode } from "@/lib/farm-code";
+import { verifySensorIngestToken } from "@/lib/farm-code.server";
 import { requirePermission } from "@/lib/rbac-server";
 import { computeIth, evaluateSensorAlert } from "@/lib/sensor-metrics";
+
+function matchesGlobalWebhookToken(provided: string | undefined, expected: string | undefined): boolean {
+  if (!provided || !expected) return false;
+  const a = crypto.createHash("sha256").update(provided).digest();
+  const b = crypto.createHash("sha256").update(expected).digest();
+  return crypto.timingSafeEqual(a, b);
+}
 
 export const dynamic = "force-dynamic";
 
@@ -60,24 +71,79 @@ export const GET = withApiHandler(async (req: NextRequest) => {
   });
 });
 
-// Soporta sesión autenticada o webhook IoT con x-sensor-token (cuando SENSOR_WEBHOOK_TOKEN esté configurado)
+// Soporta sesión autenticada o webhook IoT por granja (`x-farm-code` + `x-sensor-token`)
+// y mantiene compatibilidad con `SENSOR_WEBHOOK_TOKEN` global sobre la granja base.
 export const POST = withErrorHandler(async (req: NextRequest) => {
-  const configuredToken = process.env.SENSOR_WEBHOOK_TOKEN?.trim();
+  const configuredGlobalToken = process.env.SENSOR_WEBHOOK_TOKEN?.trim();
   const headerToken = req.headers.get("x-sensor-token")?.trim();
-  const hasWebhookAuth = Boolean(configuredToken && headerToken && headerToken === configuredToken);
+  const body = await safeParseJson(req);
+  if (!body || typeof body !== "object") {
+    return NextResponse.json({ error: "Payload de sensor inválido" }, { status: 400 });
+  }
 
-  if (!hasWebhookAuth) {
+  let resolvedFarmId = getCurrentFarmId() || DEFAULT_FARM_ID;
+  let resolvedFarmCode: string | null = null;
+
+  if (headerToken) {
+    const rawFarmCode =
+      req.headers.get("x-farm-code")?.trim() ||
+      req.nextUrl.searchParams.get("f")?.trim() ||
+      req.nextUrl.searchParams.get("farmCode")?.trim() ||
+      (typeof body.farmCode === "string" ? body.farmCode.trim() : "");
+
+    if (rawFarmCode) {
+      const normalizedCode = normalizeFarmCode(rawFarmCode);
+      if (!isValidFarmCode(normalizedCode)) {
+        return NextResponse.json(
+          {
+            code: "INVALID_FARM_CODE",
+            error: describeFarmCodeError(rawFarmCode) || "Código de granja inválido en x-farm-code.",
+          },
+          { status: 400 },
+        );
+      }
+
+      const [farm] = await db
+        .select({
+          id: farms.id,
+          code: farms.code,
+          sensorTokenHash: farms.sensorTokenHash,
+        })
+        .from(farms)
+        .where(eq(farms.code, normalizedCode))
+        .limit(1);
+
+      const perFarmValid = farm ? verifySensorIngestToken(headerToken, farm.sensorTokenHash) : false;
+      const legacyDefaultFallback =
+        farm?.id === DEFAULT_FARM_ID &&
+        !farm.sensorTokenHash &&
+        matchesGlobalWebhookToken(headerToken, configuredGlobalToken);
+
+      if (!farm || (!perFarmValid && !legacyDefaultFallback)) {
+        return NextResponse.json(
+          { error: "Código de granja o token de sensor IoT inválido" },
+          { status: 401 },
+        );
+      }
+
+      resolvedFarmId = farm.id;
+      resolvedFarmCode = farm.code;
+    } else if (matchesGlobalWebhookToken(headerToken, configuredGlobalToken)) {
+      resolvedFarmId = DEFAULT_FARM_ID;
+    } else {
+      return NextResponse.json(
+        { error: "Falta el Código de Granja (`x-farm-code`) o el token de sensor es inválido" },
+        { status: 401 },
+      );
+    }
+  } else {
     const user = await getSessionUser();
     if (!user) {
       return NextResponse.json({ error: "No autenticado" }, { status: 401 });
     }
     const denied = await requirePermission("production:write");
     if (denied) return denied;
-  }
-
-  const body = await safeParseJson(req);
-  if (!body || typeof body !== "object") {
-    return NextResponse.json({ error: "Payload de sensor inválido" }, { status: 400 });
+    resolvedFarmId = user.farmId || DEFAULT_FARM_ID;
   }
 
   const deviceId = typeof body.deviceId === "string" && body.deviceId.trim()
@@ -130,21 +196,27 @@ export const POST = withErrorHandler(async (req: NextRequest) => {
   const unit = typeof body.unit === "string" && body.unit.trim() ? body.unit.trim().slice(0, 20) : unitMap[metricType];
   const alertEval = evaluateSensorAlert(metricType, rawValue, ithIndex);
 
-  const [created] = await db.insert(sensorReadings).values({
-    locationId: typeof body.locationId === "string" && body.locationId ? body.locationId : null,
-    batchId: typeof body.batchId === "string" && body.batchId ? body.batchId : null,
-    deviceId,
-    metricType,
-    value: rawValue.toFixed(3),
-    unit,
-    ithIndex: ithIndex != null && Number.isFinite(ithIndex) ? ithIndex.toFixed(2) : null,
-    alertTriggered: alertEval.triggered,
-    rawPayload: body as Record<string, unknown>,
-  }).returning();
+  const created = await runWithFarmContext(resolvedFarmId, async () => {
+    const [row] = await db.insert(sensorReadings).values({
+      farmId: resolvedFarmId,
+      locationId: typeof body.locationId === "string" && body.locationId ? body.locationId : null,
+      batchId: typeof body.batchId === "string" && body.batchId ? body.batchId : null,
+      deviceId,
+      metricType,
+      value: rawValue.toFixed(3),
+      unit,
+      ithIndex: ithIndex != null && Number.isFinite(ithIndex) ? ithIndex.toFixed(2) : null,
+      alertTriggered: alertEval.triggered,
+      rawPayload: body as Record<string, unknown>,
+    }).returning();
+    return row;
+  });
 
   return NextResponse.json(
     {
       reading: created,
+      farmId: resolvedFarmId,
+      farmCode: resolvedFarmCode,
       ithIndex,
       alertTriggered: alertEval.triggered,
       alertReason: alertEval.reason,

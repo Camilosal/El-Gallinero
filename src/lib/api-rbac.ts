@@ -111,6 +111,7 @@ export function getApiPermission(
     ) return "sanitary:write";
 
     if (pathname === "/api/operaciones/cierre-diario") return "closure:close";
+    if (pathname === "/api/operaciones/sensores/token") return ["operations:manage", "settings:manage"];
     if (pathname === "/api/operaciones/activos/catalogo-capex") return ["operations:manage", "inventory:read", "finance:read", "catalogs:write"];
     if (
       startsWithPath(pathname, "/api/operaciones/activos") ||
@@ -190,6 +191,7 @@ export function getApiPermission(
   if (startsWithPath(pathname, "/api/produccion/plan-parvada")) return "planning:write";
   if (startsWithPath(pathname, "/api/produccion/etapas")) return "catalogs:write";
   if (pathname === "/api/operaciones/activos/alinear-catalogo") return ["operations:manage", "catalogs:write", "finance:write"];
+  if (pathname === "/api/operaciones/sensores/token") return ["operations:manage", "settings:manage"];
   if (startsWithPath(pathname, "/api/operaciones/activos") || startsWithPath(pathname, "/api/operaciones/mantenimiento") || startsWithPath(pathname, "/api/operaciones/kit-campo")) return "operations:manage";
   if (pathname === "/api/operaciones/compostaje") return verb === "DELETE" ? "sanitary:write" : "biosecurity:write";
   if (startsWithPath(pathname, "/api/operaciones/gallinaza") || startsWithPath(pathname, "/api/produccion/gallinaza/ajustes")) return "production:write";

@@ -18,6 +18,7 @@ import {
 import { DEFAULT_FARM_ID, runWithFarmContext } from "@/db/tenant-context";
 import { safeParseJson, withApiHandler } from "@/lib/api-handler";
 import { getSessionUser, hashPassword, switchUserSessionFarm } from "@/lib/auth";
+import { generateUniqueFarmCode } from "@/lib/farm-code.server";
 import {
   createDefaultProgressiveConfig,
   sanitizeProgressiveConfig,
@@ -272,6 +273,7 @@ export const GET = withApiHandler(async () => {
 
       return {
         id: f.id,
+        code: f.code,
         slug: f.slug,
         name: f.name,
         isDefaultFarm: f.id === DEFAULT_FARM_ID,
@@ -426,19 +428,6 @@ export const POST = withApiHandler(async (req: NextRequest) => {
     );
   }
 
-  const [existingUser] = await db
-    .select({ id: users.id })
-    .from(users)
-    .where(eq(users.username, ownerUsername))
-    .limit(1);
-
-  if (existingUser) {
-    return NextResponse.json(
-      { error: `El usuario "${ownerUsername}" ya existe en la plataforma.` },
-      { status: 409 },
-    );
-  }
-
   const now = new Date();
   const periodEnd = null;
   const passwordHash = await hashPassword(ownerPassword);
@@ -447,9 +436,11 @@ export const POST = withApiHandler(async (req: NextRequest) => {
   const slug = toFarmSlug(farmName);
 
   const created = await db.transaction(async (tx) => {
+    const code = await generateUniqueFarmCode(tx);
     const [farm] = await tx
       .insert(farms)
       .values({
+        code,
         slug,
         name: farmName,
         deploymentMode,
@@ -572,6 +563,7 @@ export const POST = withApiHandler(async (req: NextRequest) => {
       ok: true,
       farm: {
         id: created.farm.id,
+        code: created.farm.code,
         slug: created.farm.slug,
         name: created.farm.name,
         deploymentMode: created.farm.deploymentMode,

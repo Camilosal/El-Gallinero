@@ -108,6 +108,8 @@ describe("Ruta 2 — Plancha de Impresión QR en Lote (GET /api/operaciones/kit-
     expect(res.status).toBe(200);
 
     const body = await res.json();
+    expect(typeof body.farmCode).toBe("string");
+    expect(body.farmCode).toHaveLength(6);
     expect(body.counts.ubicacion).toBe(1);
     expect(body.counts.lote).toBe(1);
     expect(body.counts.activo).toBe(1);
@@ -125,12 +127,22 @@ describe("Ruta 2 — Plancha de Impresión QR en Lote (GET /api/operaciones/kit-
     expect(locPlate.zoneType).toBe("limpia");
     expect(locPlate.allowedSpecies).toEqual(["gallina"]);
 
-    // Todos los payloads deben ser parseables por src/lib/qr.ts
+    // Todos los payloads y scannerUrl nativos deben ser parseables e incluir el código de finca
     for (const plate of body.plates) {
-      const parsed = parseQrTarget(plate.payload);
-      expect(parsed).not.toBeNull();
-      expect(parsed?.type).toBe(plate.entityType);
-      expect(parsed?.id).toBe(plate.entityId);
+      expect(plate.farmCode).toBe(body.farmCode);
+      expect(plate.scannerUrl).toContain(`/escanear?f=${body.farmCode}&qr=`);
+
+      const parsedPayload = parseQrTarget(plate.payload);
+      expect(parsedPayload).not.toBeNull();
+      expect(parsedPayload?.type).toBe(plate.entityType);
+      expect(parsedPayload?.id).toBe(plate.entityId);
+      expect(parsedPayload?.farmCode).toBe(body.farmCode);
+
+      const parsedUrl = parseQrTarget(plate.scannerUrl);
+      expect(parsedUrl).not.toBeNull();
+      expect(parsedUrl?.type).toBe(plate.entityType);
+      expect(parsedUrl?.id).toBe(plate.entityId);
+      expect(parsedUrl?.farmCode).toBe(body.farmCode);
     }
 
     // Consultar bajo sesión de Finca Beta no ve NADA de Finca Alfa

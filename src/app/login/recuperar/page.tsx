@@ -1,13 +1,18 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { BrandLogo } from "@/components/BrandLogo";
 import { HeroFrame } from "@/components/HeroFrame";
 import { DeveloperCredit } from "@/components/DeveloperCredit";
 import { LegalLinksBar } from "@/components/LegalLinksBar";
+import { LAST_FARM_CODE_STORAGE_KEY } from "@/lib/active-farm-client";
+import { describeFarmCodeError, isValidFarmCode, normalizeFarmCode } from "@/lib/farm-code";
 
 export default function RecoverAccessPage() {
+  const farmCodeInputRef = useRef<HTMLInputElement>(null);
+  const [farmCode, setFarmCode] = useState("");
+  const [farmCodeRequired, setFarmCodeRequired] = useState(false);
   const [username, setUsername] = useState("");
   const [recoveryCode, setRecoveryCode] = useState("");
   const [newPassword, setNewPassword] = useState("");
@@ -16,9 +21,40 @@ export default function RecoverAccessPage() {
   const [complete, setComplete] = useState(false);
   const [loading, setLoading] = useState(false);
 
+  useEffect(() => {
+    let active = true;
+    queueMicrotask(() => {
+      if (!active) return;
+      const params = new URLSearchParams(window.location.search);
+      const fromUrl = params.get("granja") || params.get("f") || "";
+      const normalizedUrl = normalizeFarmCode(fromUrl);
+      if (normalizedUrl) {
+        setFarmCode(normalizedUrl);
+        return;
+      }
+      try {
+        const remembered = window.localStorage.getItem(LAST_FARM_CODE_STORAGE_KEY) || "";
+        const normalized = normalizeFarmCode(remembered);
+        if (normalized) setFarmCode(normalized);
+      } catch {
+        // Ignore storage restrictions
+      }
+    });
+    return () => {
+      active = false;
+    };
+  }, []);
+
+  const normalizedFarmCode = normalizeFarmCode(farmCode);
+
   const submit = async (event: React.FormEvent) => {
     event.preventDefault();
     setError("");
+    if (normalizedFarmCode.length > 0 && !isValidFarmCode(normalizedFarmCode)) {
+      setError(describeFarmCodeError(normalizedFarmCode) || "Código de granja inválido.");
+      farmCodeInputRef.current?.focus();
+      return;
+    }
     if (newPassword.length < 8) {
       return setError("La nueva contraseña debe tener al menos 8 caracteres.");
     }
@@ -30,10 +66,19 @@ export default function RecoverAccessPage() {
       const response = await fetch("/api/auth/recover", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ username, recoveryCode, newPassword }),
+        body: JSON.stringify({
+          username,
+          ...(normalizedFarmCode ? { farmCode: normalizedFarmCode } : {}),
+          recoveryCode,
+          newPassword,
+        }),
       });
+      const result = await response.json().catch(() => ({}));
       if (!response.ok) {
-        const result = await response.json().catch(() => ({}));
+        if (response.status === 409 && result.code === "FARM_CODE_REQUIRED") {
+          setFarmCodeRequired(true);
+          setTimeout(() => farmCodeInputRef.current?.focus(), 0);
+        }
         setError(result.error || "No se pudo restablecer el acceso.");
         return;
       }
@@ -57,7 +102,7 @@ export default function RecoverAccessPage() {
           description="Restablece tu contraseña con un código de recuperación de un solo uso"
         />
         <section className="w-full rounded-2xl border border-[var(--iw-semantic-border-default)] bg-[var(--iw-semantic-bg-surface)] p-8 shadow-[var(--iw-shadow-card)]">
-          <Link href="/login" className="text-sm font-medium text-[var(--iw-semantic-action-primary)] hover:underline">
+          <Link href={normalizedFarmCode ? `/login?granja=${encodeURIComponent(normalizedFarmCode)}` : "/login"} className="text-sm font-medium text-[var(--iw-semantic-action-primary)] hover:underline">
             ← Volver al inicio de sesión
           </Link>
           {complete ? (
@@ -69,7 +114,7 @@ export default function RecoverAccessPage() {
                 La contraseña se actualizó. El código quedó usado y se cerraron las sesiones anteriores.
               </p>
               <Link
-                href="/login"
+                href={normalizedFarmCode ? `/login?granja=${encodeURIComponent(normalizedFarmCode)}` : "/login"}
                 className="inline-flex min-h-[48px] items-center rounded-[var(--iw-radius-control)] bg-[var(--iw-semantic-action-primary)] hover:bg-[var(--iw-semantic-action-primary-hover)] px-5 py-2.5 font-semibold text-[var(--iw-semantic-action-primary-text)] transition"
               >
                 Iniciar sesión
@@ -81,6 +126,23 @@ export default function RecoverAccessPage() {
                 Ingresa el código de recuperación de un solo uso entregado al crear tu granja o emitido por soporte.
               </p>
               <form onSubmit={submit} className="mt-6 space-y-4">
+                <label className="block text-sm font-semibold text-[var(--iw-semantic-text-primary)]">
+                  Código de granja {farmCodeRequired ? "(obligatorio)" : "(opcional)"}
+                  <input
+                    ref={farmCodeInputRef}
+                    type="text"
+                    required={farmCodeRequired}
+                    aria-invalid={farmCodeRequired && !isValidFarmCode(normalizedFarmCode)}
+                    autoComplete="organization"
+                    autoCapitalize="characters"
+                    spellCheck={false}
+                    maxLength={12}
+                    placeholder="Ej. 7K4M2P (si tienes varias fincas)"
+                    value={farmCode}
+                    onChange={(event) => setFarmCode(event.target.value.toUpperCase())}
+                    className="mt-1 min-h-[48px] w-full rounded-[var(--iw-radius-control)] border border-[var(--iw-semantic-border-input)] bg-[var(--iw-semantic-bg-surface)] px-3 py-2 font-mono uppercase tracking-widest font-normal text-[var(--iw-semantic-text-primary)] placeholder:font-sans placeholder:normal-case placeholder:tracking-normal focus:outline-none focus:ring-2 focus:ring-[var(--iw-semantic-focus-ring)]"
+                  />
+                </label>
                 <label className="block text-sm font-semibold text-[var(--iw-semantic-text-primary)]">
                   Usuario, celular o correo
                   <input

@@ -114,6 +114,9 @@ const farmIdCol = () =>
 // ─── Multi-Tenancy & Suscripciones SaaS ───
 export const farms = pgTable("farms", {
   id: uuid("id").defaultRandom().primaryKey(),
+  code: varchar("code", { length: 12 })
+    .default(sql`public.generate_farm_code_mod31()`)
+    .notNull(),
   slug: varchar("slug", { length: 100 }).unique().notNull(),
   name: varchar("name", { length: 200 }).notNull(),
   deploymentMode: varchar("deployment_mode", { length: 20 }).default("saas").notNull(),
@@ -122,9 +125,14 @@ export const farms = pgTable("farms", {
   allyCode: varchar("ally_code", { length: 120 }),
   planCode: varchar("plan_code", { length: 40 }).default("FREEMIUM_SEMILLA").notNull(),
   trialEndsAt: timestamp("trial_ends_at"),
+  sensorTokenHash: varchar("sensor_token_hash", { length: 64 }),
+  sensorTokenPrefix: varchar("sensor_token_prefix", { length: 20 }),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
-});
+}, (t) => [
+  uniqueIndex("farms_code_unique_idx").on(t.code),
+  check("farms_code_valid_check", sql`public.is_valid_farm_code_mod31(${t.code})`),
+]);
 
 export const farmSubscriptions = pgTable("farm_subscriptions", {
   id: uuid("id").defaultRandom().primaryKey(),
@@ -673,14 +681,16 @@ export const transactions = pgTable("transactions", {
 export const users = pgTable("users", {
   farmId: farmIdCol(),
   id: uuid("id").defaultRandom().primaryKey(),
-  username: varchar("username", { length: 100 }).unique().notNull(),
+  username: varchar("username", { length: 100 }).notNull(),
   passwordHash: varchar("password_hash", { length: 255 }).notNull(),
   recoveryCodeHash: varchar("recovery_code_hash", { length: 64 }),
   recoveryCodeIssuedAt: timestamp("recovery_code_issued_at"),
   name: varchar("name", { length: 200 }).notNull(),
   role: varchar("role", { length: 50 }).default("operario").notNull(),
   createdAt: timestamp("created_at").defaultNow().notNull(),
-});
+}, (t) => [
+  uniqueIndex("users_farm_username_unique_idx").on(t.farmId, sql`lower(${t.username})`),
+]);
 
 // ─── Sesiones ───
 export const sessions = pgTable("sessions", {

@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { and, asc, eq, inArray, ne } from "drizzle-orm";
 import { db } from "@/db";
-import { broilerBatches, farmAssets, farmLocations, hens } from "@/db/schema";
+import { broilerBatches, farmAssets, farmLocations, farms, hens } from "@/db/schema";
+import { getCurrentFarmId } from "@/db/tenant-context";
 import { withApiHandler } from "@/lib/api-handler";
 import { generateEntityQrPayload, generateEntityQrUrl, type QrEntityType } from "@/lib/qr";
 import { todayColombiaIso } from "@/lib/date-validation";
@@ -10,6 +11,7 @@ export const dynamic = "force-dynamic";
 
 export interface QrPlateItem {
   uid: string;
+  farmCode: string | null;
   entityType: QrEntityType;
   entityId: string;
   code: string;
@@ -22,6 +24,27 @@ export interface QrPlateItem {
   sanitaryEmptyUntil: string | null;
   payload: string;
   scannerUrl: string;
+}
+
+function resolvePlateOrigin(req: NextRequest, searchParams: URLSearchParams): string {
+  const explicit = searchParams.get("origin")?.trim();
+  if (explicit) return explicit.replace(/\/$/, "");
+
+  const fwdHost = req.headers.get("x-forwarded-host")?.split(",")[0]?.trim();
+  const fwdProto = req.headers.get("x-forwarded-proto")?.split(",")[0]?.trim() || "https";
+  if (fwdHost && !/^(localhost|127\.0\.0\.1|0\.0\.0\.0)(:\d+)?$/i.test(fwdHost)) {
+    return `${fwdProto}://${fwdHost}`;
+  }
+
+  const hostHeader = req.headers.get("host")?.trim();
+  if (hostHeader && !/^(localhost|127\.0\.0\.1|0\.0\.0\.0)(:\d+)?$/i.test(hostHeader)) {
+    return `${req.nextUrl.protocol === "http:" ? "http" : "https"}://${hostHeader}`;
+  }
+
+  const configured = process.env.NEXT_PUBLIC_APP_URL?.trim();
+  if (configured) return configured.replace(/\/$/, "");
+
+  return req.nextUrl.origin.replace(/\/$/, "");
 }
 
 const VALID_TYPES = new Set<QrEntityType>(["ubicacion", "lote", "activo", "gallina"]);
@@ -43,14 +66,19 @@ export const GET = withApiHandler(async (req: NextRequest) => {
   const requestedTypes = parseRequestedTypes(searchParams.get("types"));
   const rawLimit = Number(searchParams.get("hensLimit") || 80);
   const hensLimit = Number.isFinite(rawLimit) ? Math.min(200, Math.max(1, Math.trunc(rawLimit))) : 80;
-  const origin = searchParams.get("origin") || "";
+  const origin = resolvePlateOrigin(req, searchParams);
+  const farmId = getCurrentFarmId();
 
-  // Siempre consultamos ubicaciones activas para mapear zona biosegura a lotes, activos y aves
-  const locRows = await db
-    .select()
-    .from(farmLocations)
-    .where(eq(farmLocations.status, "activa"))
-    .orderBy(asc(farmLocations.zoneType), asc(farmLocations.code));
+  // Siempre consultamos código de granja y ubicaciones activas para mapear zona biosegura a lotes, activos y aves
+  const [[farmRow], locRows] = await Promise.all([
+    db.select({ code: farms.code }).from(farms).where(eq(farms.id, farmId)).limit(1),
+    db
+      .select()
+      .from(farmLocations)
+      .where(eq(farmLocations.status, "activa"))
+      .orderBy(asc(farmLocations.zoneType), asc(farmLocations.code)),
+  ]);
+  const farmCode = farmRow?.code || null;
 
   const locMap = new Map(locRows.map((l) => [l.id, l]));
   const plates: QrPlateItem[] = [];
@@ -59,6 +87,7 @@ export const GET = withApiHandler(async (req: NextRequest) => {
     for (const loc of locRows) {
       plates.push({
         uid: `ubicacion:${loc.id}`,
+        farmCode,
         entityType: "ubicacion",
         entityId: loc.id,
         code: loc.code,
@@ -75,8 +104,8 @@ export const GET = withApiHandler(async (req: NextRequest) => {
         allowedSpecies: Array.isArray(loc.allowedSpecies) ? loc.allowedSpecies : [],
         isQuarantine: Boolean(loc.isQuarantine || loc.zoneType === "cuarentena"),
         sanitaryEmptyUntil: loc.sanitaryEmptyUntil || null,
-        payload: generateEntityQrPayload("ubicacion", loc.id),
-        scannerUrl: generateEntityQrUrl("ubicacion", loc.id, origin),
+        payload: generateEntityQrPayload("ubicacion", loc.id, farmCode),
+        scannerUrl: generateEntityQrUrl("ubicacion", loc.id, origin, farmCode),
       });
     }
   }
@@ -92,6 +121,7 @@ export const GET = withApiHandler(async (req: NextRequest) => {
       const parentLoc = b.locationId ? locMap.get(b.locationId) : undefined;
       plates.push({
         uid: `lote:${b.id}`,
+        farmCode,
         entityType: "lote",
         entityId: b.id,
         code: b.code,
@@ -106,8 +136,8 @@ export const GET = withApiHandler(async (req: NextRequest) => {
         allowedSpecies: parentLoc?.allowedSpecies?.length ? parentLoc.allowedSpecies : [b.species],
         isQuarantine: Boolean(parentLoc?.isQuarantine || parentLoc?.zoneType === "cuarentena"),
         sanitaryEmptyUntil: parentLoc?.sanitaryEmptyUntil || null,
-        payload: generateEntityQrPayload("lote", b.id),
-        scannerUrl: generateEntityQrUrl("lote", b.id, origin),
+        payload: generateEntityQrPayload("lote", b.id, farmCode),
+        scannerUrl: generateEntityQrUrl("lote", b.id, origin, farmCode),
       });
     }
   }
@@ -127,6 +157,7 @@ export const GET = withApiHandler(async (req: NextRequest) => {
       const parentLoc = a.locationId ? locMap.get(a.locationId) : undefined;
       plates.push({
         uid: `activo:${a.id}`,
+        farmCode,
         entityType: "activo",
         entityId: a.id,
         code: a.code,
@@ -143,8 +174,8 @@ export const GET = withApiHandler(async (req: NextRequest) => {
         allowedSpecies: parentLoc?.allowedSpecies || [],
         isQuarantine: Boolean(parentLoc?.isQuarantine),
         sanitaryEmptyUntil: parentLoc?.sanitaryEmptyUntil || null,
-        payload: generateEntityQrPayload("activo", a.id),
-        scannerUrl: generateEntityQrUrl("activo", a.id, origin),
+        payload: generateEntityQrPayload("activo", a.id, farmCode),
+        scannerUrl: generateEntityQrUrl("activo", a.id, origin, farmCode),
       });
     }
   }
@@ -161,6 +192,7 @@ export const GET = withApiHandler(async (req: NextRequest) => {
       const parentLoc = h.locationId ? locMap.get(h.locationId) : undefined;
       plates.push({
         uid: `gallina:${h.id}`,
+        farmCode,
         entityType: "gallina",
         entityId: h.id,
         code: h.code,
@@ -174,8 +206,8 @@ export const GET = withApiHandler(async (req: NextRequest) => {
         allowedSpecies: ["gallina"],
         isQuarantine: Boolean(parentLoc?.isQuarantine),
         sanitaryEmptyUntil: parentLoc?.sanitaryEmptyUntil || null,
-        payload: generateEntityQrPayload("gallina", h.id),
-        scannerUrl: generateEntityQrUrl("gallina", h.id, origin),
+        payload: generateEntityQrPayload("gallina", h.id, farmCode),
+        scannerUrl: generateEntityQrUrl("gallina", h.id, origin, farmCode),
       });
     }
   }
@@ -190,6 +222,7 @@ export const GET = withApiHandler(async (req: NextRequest) => {
 
   return NextResponse.json({
     generatedAt: todayColombiaIso(),
+    farmCode,
     counts,
     plates,
   });

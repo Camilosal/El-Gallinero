@@ -76,7 +76,8 @@ export default function BatchQrSheetModal({
       setLoading(true);
       setError("");
       try {
-        const res = await apiFetch(`/api/operaciones/kit-campo/placas-qr?types=${encodeURIComponent(typesQuery)}`);
+        const originParam = typeof window !== "undefined" ? `&origin=${encodeURIComponent(window.location.origin)}` : "";
+        const res = await apiFetch(`/api/operaciones/kit-campo/placas-qr?types=${encodeURIComponent(typesQuery)}${originParam}`);
         const data = await res.json();
         if (!active) return;
         if (!res.ok) {
@@ -134,7 +135,8 @@ export default function BatchQrSheetModal({
 
       for (let i = 0; i < chosenPlates.length; i++) {
         const plate = chosenPlates[i];
-        const dataUrl = await QRCode.toDataURL(plate.payload, { width: qrSize, margin: 2 });
+        const qrContent = plate.scannerUrl || plate.payload;
+        const dataUrl = await QRCode.toDataURL(qrContent, { width: qrSize, margin: 2 });
         rendered.push({ plate, dataUrl });
         if (i % 4 === 0 || i === chosenPlates.length - 1) {
           setRenderingProgress({ done: i + 1, total: chosenPlates.length });
@@ -164,7 +166,7 @@ export default function BatchQrSheetModal({
                 <div class="plate ${isDoor ? "plate-door" : "plate-compact"}" style="border-color:${zone.border};">
                   <div class="zone-band" style="background:${zone.bg};color:${zone.text};border-bottom:1.5px solid ${zone.border};">
                     <span>${escapeHtml(zone.label)}</span>
-                    <span>${escapeHtml(plate.code)}</span>
+                    <span>${escapeHtml(plate.farmCode ? `${plate.farmCode} · ${plate.code}` : plate.code)}</span>
                   </div>
                   <div class="plate-body">
                     <img class="qr" src="${dataUrl}" alt="QR ${escapeHtml(plate.code)}" />
@@ -173,8 +175,8 @@ export default function BatchQrSheetModal({
                       <div class="title">${escapeHtml(plate.title)}</div>
                       ${plate.subtitle ? `<div class="sub">${escapeHtml(plate.subtitle)}</div>` : ""}
                       <div class="species">Especies: ${escapeHtml(speciesText)}</div>
-                      <div class="offline-note">Escanear sin señal desde el menú Escáner QR</div>
-                      <div class="payload">${escapeHtml(plate.payload)}</div>
+                      <div class="offline-note">Escanear con cámara celular o Escáner QR IwaGranja</div>
+                      <div class="payload">${escapeHtml(plate.scannerUrl || plate.payload)}</div>
                     </div>
                   </div>
                 </div>

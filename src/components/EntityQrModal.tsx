@@ -6,6 +6,7 @@ import Link from "next/link";
 import QRCode from "qrcode";
 import { Check, Copy, ExternalLink, Printer, QrCode } from "lucide-react";
 import { Button, Modal } from "@/components/ui";
+import { useActiveFarmMeta } from "@/lib/active-farm-client";
 import { generateEntityQrPayload, generateEntityQrUrl, type QrEntityType } from "@/lib/qr";
 
 const ENTITY_TYPE_LABEL: Record<QrEntityType, string> = {
@@ -45,31 +46,41 @@ export default function EntityQrModal({
     dataUrl: "",
   });
   const [copied, setCopied] = useState(false);
+  const activeFarm = useActiveFarmMeta(open);
+  const farmCode = activeFarm?.code || null;
+  const origin = typeof window !== "undefined" ? window.location.origin : "";
 
-  const payload = entityId ? generateEntityQrPayload(entityType, entityId) : "";
-  const scannerUrl = entityId ? generateEntityQrUrl(entityType, entityId) : "/escanear";
+  const payload = entityId ? generateEntityQrPayload(entityType, entityId, farmCode) : "";
+  const relativeScannerUrl = entityId
+    ? generateEntityQrUrl(entityType, entityId, { farmCode })
+    : "/escanear";
+  const qrCodeValue = entityId
+    ? generateEntityQrUrl(entityType, entityId, { origin, farmCode })
+    : "";
+  const visibleCodeLine = [farmCode, code].filter(Boolean).join(" · ");
 
   useEffect(() => {
-    if (!open || !payload) return;
+    if (!open || !qrCodeValue) return;
     let active = true;
-    QRCode.toDataURL(payload, { width: 320, margin: 2 })
+    QRCode.toDataURL(qrCodeValue, { width: 320, margin: 2 })
       .then((url) => {
-        if (active) setQrState({ payload, dataUrl: url });
+        if (active) setQrState({ payload: qrCodeValue, dataUrl: url });
       })
       .catch(() => {
-        if (active) setQrState({ payload, dataUrl: "" });
+        if (active) setQrState({ payload: qrCodeValue, dataUrl: "" });
       });
     return () => {
       active = false;
     };
-  }, [open, payload]);
+  }, [open, qrCodeValue]);
 
-  const dataUrl = qrState.payload === payload ? qrState.dataUrl : "";
+  const dataUrl = qrState.payload === qrCodeValue ? qrState.dataUrl : "";
 
   const handleCopy = async () => {
-    if (!payload || typeof navigator === "undefined" || !navigator.clipboard) return;
+    const textToCopy = qrCodeValue || payload;
+    if (!textToCopy || typeof navigator === "undefined" || !navigator.clipboard) return;
     try {
-      await navigator.clipboard.writeText(payload);
+      await navigator.clipboard.writeText(textToCopy);
       setCopied(true);
       setTimeout(() => setCopied(false), 1800);
     } catch {
@@ -102,10 +113,10 @@ export default function EntityQrModal({
           <div class="tag">
             <span class="badge">${escapeHtml(ENTITY_TYPE_LABEL[entityType])}</span>
             <img class="qr" src="${dataUrl}" alt="Código QR ${escapeHtml(title)}" />
-            ${code ? `<p class="code">${escapeHtml(code)}</p>` : ""}
+            ${visibleCodeLine ? `<p class="code">${escapeHtml(visibleCodeLine)}</p>` : ""}
             <p class="title">${escapeHtml(title)}</p>
             ${subtitle ? `<p class="sub">${escapeHtml(subtitle)}</p>` : ""}
-            <p class="payload">${escapeHtml(payload)}</p>
+            <p class="payload">${escapeHtml(qrCodeValue || payload)}</p>
           </div>
           <script>setTimeout(() => window.print(), 250);</script>
         </body>
@@ -140,16 +151,16 @@ export default function EntityQrModal({
             )}
           </div>
 
-          {code && <p className="text-xs font-bold uppercase tracking-wide text-slate-500">{code}</p>}
+          {visibleCodeLine && <p className="text-xs font-bold uppercase tracking-wide text-slate-600">{visibleCodeLine}</p>}
           <p className="text-base font-bold text-slate-800">{title}</p>
           {subtitle && <p className="mt-0.5 text-xs text-slate-500">{subtitle}</p>}
           <p className="mt-2 break-all rounded-md bg-white px-2.5 py-1 font-mono text-[11px] text-slate-600 border border-slate-200">
-            {payload}
+            {qrCodeValue || payload}
           </p>
         </div>
 
         <p className="text-xs leading-relaxed text-slate-500">
-          Imprime y plastifica esta etiqueta en la puerta del galpón, jaula o equipo para escanearla incluso sin internet y registrar huevos, alimento o bajas en segundos.
+          Imprime y plastifica esta etiqueta en la puerta del galpón, jaula o equipo. Al escanearla con la cámara del celular o desde Escáner QR, abrirá esta entidad dentro de tu granja.
         </p>
 
         <div className="flex flex-wrap gap-2">
@@ -159,13 +170,13 @@ export default function EntityQrModal({
           </Button>
           <Button type="button" variant="secondary" onClick={() => void handleCopy()} className="inline-flex items-center gap-1.5">
             {copied ? <Check className="h-4 w-4 text-green-700" aria-hidden="true" /> : <Copy className="h-4 w-4" aria-hidden="true" />}
-            <span>{copied ? "Copiado" : "Copiar código"}</span>
+            <span>{copied ? "Copiado" : "Copiar enlace QR"}</span>
           </Button>
         </div>
 
         <div className="text-center">
           <Link
-            href={scannerUrl}
+            href={relativeScannerUrl}
             onClick={onClose}
             className="inline-flex items-center gap-1 text-xs font-semibold text-green-700 hover:underline"
           >

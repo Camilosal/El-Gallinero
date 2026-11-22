@@ -49,13 +49,19 @@ const ASSIGNABLE_ROLES: { value: AppRole; label: string; hint: string }[] = [
 
 const ALL_PERMISSIONS = Object.keys(PERMISSION_LABELS) as RbacPermission[];
 
-function buildWelcomeMessage(u: { name: string; username: string; role: AppRole }, tempPassword?: string): string {
-  const origin = typeof window !== "undefined" ? window.location.origin : "https://granja.iwage.co";
+function buildWelcomeMessage(
+  u: { name: string; username: string; role: AppRole },
+  tempPassword?: string,
+  farmCode?: string | null,
+): string {
+  const origin = typeof window !== "undefined" ? window.location.origin : "https://app.iwage.co";
+  const loginUrl = farmCode ? `${origin}/login?granja=${encodeURIComponent(farmCode)}` : `${origin}/login`;
   const roleLabel = ROLE_LABELS[u.role] || u.role;
   const roleInfo = ASSIGNABLE_ROLES.find((r) => r.value === u.role)?.hint || "Operación en granja";
   const lines = [
     `Hola ${u.name}, ya tienes acceso a IwaGranja.`,
-    `• Ingreso: ${origin}/login`,
+    `• Ingreso: ${loginUrl}`,
+    ...(farmCode ? [`• Código de granja: *${farmCode}*`] : []),
     `• Usuario: ${u.username}`,
     ...(tempPassword ? [`• Contraseña temporal: ${tempPassword} (cámbiala o guárdala)`] : ["• Contraseña: la asignada por administración"]),
     `• Rol: ${roleLabel} — ${roleInfo}.`,
@@ -68,6 +74,7 @@ export default function UsuariosConfiguracionPage() {
   const actorRole = useAppRole();
   const availableRoles = ASSIGNABLE_ROLES.filter((item) => canDelegateRole(actorRole, item.value));
   const [usersList, setUsersList] = useState<FarmUserRow[]>([]);
+  const [farmCode, setFarmCode] = useState<string | null>(null);
   const [maxUsers, setMaxUsers] = useState(1);
   const [planName, setPlanName] = useState("Gratis");
   const [loading, setLoading] = useState(true);
@@ -106,6 +113,7 @@ export default function UsuariosConfiguracionPage() {
         return;
       }
       setUsersList(data.users || []);
+      setFarmCode(typeof data.farmCode === "string" ? data.farmCode : null);
       setMaxUsers(Number(data.maxUsers ?? 1));
       setPlanName(String(data.planName || "Gratis"));
     } catch {
@@ -126,6 +134,7 @@ export default function UsuariosConfiguracionPage() {
           return;
         }
         setUsersList(data.users || []);
+        setFarmCode(typeof data.farmCode === "string" ? data.farmCode : null);
         setMaxUsers(Number(data.maxUsers ?? 1));
         setPlanName(String(data.planName || "Gratis"));
       })
@@ -182,7 +191,7 @@ export default function UsuariosConfiguracionPage() {
   }
 
   async function copyWelcomeMessage(target: { id?: string; name: string; username: string; role: AppRole }, tempPassword?: string) {
-    const text = buildWelcomeMessage(target, tempPassword);
+    const text = buildWelcomeMessage(target, tempPassword, farmCode);
     try {
       await navigator.clipboard.writeText(text);
       const marker = target.id || target.username;
@@ -295,8 +304,9 @@ export default function UsuariosConfiguracionPage() {
         title="Usuarios y Roles de la Granja"
         description="Asigna accesos por función: operación, sanidad, ventas, finanzas, gerencia o consulta directiva."
         badge={
-          <span className="inline-flex items-center gap-1 rounded-full border border-white/25 bg-white/15 px-2.5 py-0.5 text-[11px] font-medium text-emerald-50">
-            Cupo: {usersList.length} / {maxUsers} · {planName}
+          <span className="inline-flex items-center gap-1.5 rounded-full border border-white/25 bg-white/15 px-2.5 py-0.5 text-[11px] font-medium text-emerald-50">
+            {farmCode && <span className="font-mono font-bold tracking-wider">Granja: {farmCode} ·</span>}
+            <span>Cupo: {usersList.length} / {maxUsers} · {planName}</span>
           </span>
         }
         actions={

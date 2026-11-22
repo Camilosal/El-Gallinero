@@ -34,7 +34,9 @@ import TableSearch from "@/components/TableSearch";
 import { matchesTextQuery } from "@/lib/text";
 import { apiFetch } from "@/lib/fetch";
 import { todayColombiaIso } from "@/lib/date-validation";
-import { parseQrTarget } from "@/lib/qr";
+import { useActiveFarmState } from "@/lib/active-farm-client";
+import { normalizeFarmCode } from "@/lib/farm-code";
+import { parseFarmLoginQr, parseQrTarget } from "@/lib/qr";
 import { HEN_PRESENT_STATUSES, isHenAvailableForExit } from "@/lib/animal-status";
 import { LOCATION_TYPE_LABELS, type FarmLocation, useFarmLocations } from "@/lib/useFarmLocations";
 import { getCachedCatalog } from "@/lib/offline/db";
@@ -140,14 +142,21 @@ const assetStatusLabels: Record<string, { label: string; color: string }> = {
 
 export default function EscanearPage() {
   const { locations } = useFarmLocations(false);
+  const { meta: activeFarmMeta, resolved: activeFarmResolved } = useActiveFarmState(true);
+  const activeFarmCode = normalizeFarmCode(activeFarmMeta?.code || "");
   const [hens, setHens] = useState<Hen[]>([]);
   const [batches, setBatches] = useState<Batch[]>([]);
   const [assets, setAssets] = useState<FarmAsset[]>([]);
+  const [catalogsLoaded, setCatalogsLoaded] = useState(false);
   const [online, setOnline] = useState(true);
 
   const [scanning, setScanning] = useState(false);
   const [selected, setSelected] = useState<ScannedSelection | null>(null);
   const [error, setError] = useState("");
+  const [farmMismatchTarget, setFarmMismatchTarget] = useState<{
+    code: string;
+    nextHref: string;
+  } | null>(null);
   const [manualInput, setManualInput] = useState("");
   const [quickToast, setQuickToast] = useState("");
   const [ocrScanMode, setOcrScanMode] = useState<OcrExtractionMode>("factura_compra");
@@ -202,6 +211,7 @@ export default function EscanearPage() {
         // Offline: mantener datos en caché
       }
     }
+    setCatalogsLoaded(true);
   }, []);
 
   useEffect(() => {
@@ -240,13 +250,60 @@ export default function EscanearPage() {
     setScanning(false);
   }, []);
 
+  const buildCrossFarmSwitchHref = useCallback((targetFarmCode: string, qrToken?: string) => {
+    const params = new URLSearchParams();
+    params.set("granja", targetFarmCode);
+    if (qrToken) {
+      const targetNext = `/escanear?f=${encodeURIComponent(targetFarmCode)}&qr=${encodeURIComponent(qrToken)}`;
+      params.set("next", targetNext);
+    }
+    return `/login?${params.toString()}`;
+  }, []);
+
   const resolvePayload = useCallback(
     (raw: string): boolean => {
       const clean = raw.trim();
       if (!clean) return false;
+      setFarmMismatchTarget(null);
+
+      const loginBadgeFarmCode = parseFarmLoginQr(clean);
+      if (loginBadgeFarmCode) {
+        if (activeFarmCode && loginBadgeFarmCode !== activeFarmCode) {
+          setSelected(null);
+          setFarmMismatchTarget({
+            code: loginBadgeFarmCode,
+            nextHref: `/login?granja=${encodeURIComponent(loginBadgeFarmCode)}`,
+          });
+          setError(
+            `Esta placa de acceso pertenece a la granja ${loginBadgeFarmCode}. Tu sesión activa está en ${activeFarmCode}.`,
+          );
+          return true;
+        }
+        setError("");
+        setQuickToast(`Placa de acceso verificada para la granja ${loginBadgeFarmCode}.`);
+        return true;
+      }
 
       const parsed = parseQrTarget(clean);
       if (parsed) {
+        if (parsed.farmCode && activeFarmCode && parsed.farmCode !== activeFarmCode) {
+          setSelected(null);
+          setFarmMismatchTarget({
+            code: parsed.farmCode,
+            nextHref: buildCrossFarmSwitchHref(
+              parsed.farmCode,
+              (() => {
+                if (typeof window === "undefined") return undefined;
+                const q = new URLSearchParams(window.location.search).get("qr");
+                return q || undefined;
+              })(),
+            ),
+          });
+          setError(
+            `Esta etiqueta pertenece a la granja ${parsed.farmCode}, mientras tu sesión actual está en ${activeFarmCode}. Cambia de sesión para operar esa granja.`,
+          );
+          return true;
+        }
         if (parsed.type === "ubicacion") {
           const foundLoc = locations.find(
             (l) => l.id === parsed.id || l.code.toLowerCase() === parsed.id.toLowerCase(),
@@ -329,26 +386,74 @@ export default function EscanearPage() {
       setError(`No se encontró ningún lugar, lote, equipo ni animal con "${clean}".`);
       return false;
     },
-    [assets, batches, hens, locations],
+    [activeFarmCode, assets, batches, buildCrossFarmSwitchHref, hens, locations],
   );
 
-  // Resolve ?qr=... URL parameter once catalogs arrive
+  // Resolve ?f=...&qr=... URL parameters once active farm & catalogs arrive
   useEffect(() => {
     if (queryAppliedRef.current || typeof window === "undefined") return;
-    const qrParam = new URLSearchParams(window.location.search).get("qr");
+    const urlParams = new URLSearchParams(window.location.search);
+    const farmParam = normalizeFarmCode(
+      urlParams.get("f") || urlParams.get("granja") || urlParams.get("farm") || "",
+    );
+    const qrParam = urlParams.get("qr");
+    if (!qrParam && !farmParam) {
+      queryAppliedRef.current = true;
+      return;
+    }
+
+    if (farmParam && online && !activeFarmResolved) {
+      return;
+    }
+
+    if (farmParam && activeFarmCode && farmParam !== activeFarmCode) {
+      queryAppliedRef.current = true;
+      void Promise.resolve().then(() => {
+        setSelected(null);
+        setFarmMismatchTarget({
+          code: farmParam,
+          nextHref: buildCrossFarmSwitchHref(farmParam, qrParam || undefined),
+        });
+        setError(
+          `Esta etiqueta pertenece a la granja ${farmParam}, mientras tu sesión actual está en ${activeFarmCode}. Cambia de sesión para operar esa granja.`,
+        );
+      });
+      return;
+    }
+
     if (!qrParam) {
       queryAppliedRef.current = true;
       return;
     }
-    if (locations.length === 0 && hens.length === 0 && batches.length === 0 && assets.length === 0) {
+
+    const hasAnyCatalogRows =
+      locations.length > 0 || hens.length > 0 || batches.length > 0 || assets.length > 0;
+    if (!catalogsLoaded && !hasAnyCatalogRows) {
       return;
     }
+
+    const inputToResolve = farmParam && !/^https?:\/\//i.test(qrParam) && !qrParam.startsWith("/")
+      ? `/escanear?f=${encodeURIComponent(farmParam)}&qr=${encodeURIComponent(qrParam)}`
+      : qrParam;
+
     void Promise.resolve().then(() => {
-      if (resolvePayload(qrParam)) {
+      const resolved = resolvePayload(inputToResolve);
+      if (resolved || catalogsLoaded) {
         queryAppliedRef.current = true;
       }
     });
-  }, [assets.length, batches.length, hens.length, locations.length, resolvePayload]);
+  }, [
+    activeFarmCode,
+    activeFarmResolved,
+    assets.length,
+    batches.length,
+    buildCrossFarmSwitchHref,
+    catalogsLoaded,
+    hens.length,
+    locations.length,
+    online,
+    resolvePayload,
+  ]);
 
   const startScanner = async () => {
     setError("");
@@ -591,6 +696,11 @@ export default function EscanearPage() {
         icon={<Camera className="w-3.5 h-3.5 text-amber-200" aria-hidden="true" />}
         title="Escáner QR de Granja"
         description="Escanea la puerta del lugar, un lote, un equipo o una ficha animal para registrar acciones al instante"
+        badge={activeFarmCode ? (
+          <span className="inline-flex items-center gap-1 rounded-full border border-white/25 bg-white/15 px-2.5 py-0.5 font-mono text-[11px] font-bold tracking-wider text-white">
+            Granja: {activeFarmCode}
+          </span>
+        ) : undefined}
         helpTitle="Escáner QR Multifunción"
         help="Escanea códigos QR impresos en puertas de lugares/corrales, lotes, equipos o identificadores de animales. También funciona offline usando los catálogos guardados en el dispositivo."
       />
@@ -938,7 +1048,23 @@ export default function EscanearPage() {
 
             {!selected && (
               <div className="text-center space-y-3">
-                {error && <p role="alert" className="text-[var(--iw-semantic-status-danger)] text-sm font-medium">{error}</p>}
+                {error && (
+                  <div
+                    role="alert"
+                    className="rounded-[var(--iw-radius-control)] border border-[var(--iw-semantic-status-danger)]/40 bg-[var(--iw-semantic-bg-subtle)] p-3 text-sm font-medium text-[var(--iw-semantic-status-danger)] space-y-2.5"
+                  >
+                    <p>{error}</p>
+                    {farmMismatchTarget && (
+                      <Link
+                        href={farmMismatchTarget.nextHref}
+                        className="inline-flex min-h-[48px] items-center justify-center gap-1.5 rounded-[var(--iw-radius-control)] bg-[var(--iw-semantic-action-primary)] px-4 py-2 text-xs font-bold text-[var(--iw-semantic-action-primary-text)] hover:bg-[var(--iw-semantic-action-primary-hover)] transition-colors"
+                      >
+                        <span>Cambiar a la granja {farmMismatchTarget.code}</span>
+                        <ExternalLink className="h-3.5 w-3.5" aria-hidden="true" />
+                      </Link>
+                    )}
+                  </div>
+                )}
                 <Button touchSize="field" onClick={() => void startScanner()}>
                   <span className="inline-flex items-center gap-1.5">
                     <Camera className="w-4 h-4" aria-hidden="true" />

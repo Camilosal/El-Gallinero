@@ -88,6 +88,7 @@ export const PLAN_CATALOG: Record<Exclude<BillingPlanCode, "FREEMIUM_SEMILLA">, 
 
 export interface FarmSubscriptionStatus {
   farmId: string;
+  farmCode: string | null;
   farmName: string;
   deploymentMode: string;
   planCode: string;
@@ -279,6 +280,7 @@ export async function getFarmSubscriptionStatus(targetFarmId?: string): Promise<
 
   return {
     farmId,
+    farmCode: farmRow?.code || null,
     farmName: farmRow?.name || "Mi Granja",
     deploymentMode,
     planCode,

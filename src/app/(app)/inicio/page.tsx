@@ -166,7 +166,9 @@ export default function Dashboard() {
   const [externalZoneLabel, setExternalZoneLabel] = useState<string | null>(null);
   const [externalSyncNotice, setExternalSyncNotice] = useState<{ ok: boolean; text: string } | null>(null);
   const [farmId, setFarmId] = useState<string | null>(null);
+  const [farmCode, setFarmCode] = useState<string | null>(null);
   const [farmIdCopied, setFarmIdCopied] = useState(false);
+  const [farmCodeCopied, setFarmCodeCopied] = useState(false);
   const { state: onboardingState, flags: onboardingFlags, patchOnboarding, refresh: refreshOnboarding } = useOnboardingState();
 
   useEffect(() => {
@@ -175,14 +177,24 @@ export default function Dashboard() {
       .then((res) => (res.ok ? res.json() : null))
       .then((data) => {
         if (!active || !data?.farmId) return;
+        const resolvedCode = typeof data.farmCode === "string" ? data.farmCode : null;
         const farmMeta = {
+          id: String(data.farmId),
           farmId: String(data.farmId),
+          name: data.farmName ?? null,
           farmName: data.farmName ?? null,
+          slug: data.farmSlug ?? null,
           farmSlug: data.farmSlug ?? null,
+          code: resolvedCode,
+          farmCode: resolvedCode,
         };
         setFarmId(farmMeta.farmId);
+        setFarmCode(resolvedCode);
         try {
           localStorage.setItem(ACTIVE_FARM_META_STORAGE_KEY, JSON.stringify(farmMeta));
+          if (resolvedCode) {
+            localStorage.setItem("galli-last-farm-code", resolvedCode);
+          }
         } catch {
           // El valor de la sesión sigue disponible aunque no se pueda guardar en caché.
         }
@@ -193,6 +205,17 @@ export default function Dashboard() {
       active = false;
     };
   }, []);
+
+  const copyFarmCode = async () => {
+    if (!farmCode) return;
+    try {
+      await navigator.clipboard.writeText(farmCode);
+      setFarmCodeCopied(true);
+      window.setTimeout(() => setFarmCodeCopied(false), 1800);
+    } catch {
+      // Clipboard API unavailable
+    }
+  };
 
   const copyFarmId = async () => {
     if (!farmId) return;
@@ -584,17 +607,32 @@ export default function Dashboard() {
         icon={<Home className="w-3.5 h-3.5 text-amber-200" aria-hidden="true" />}
         title={onboardingState?.farmProfile?.name || "Panel principal"}
         metadata={farmId ? (
-          <button
-            type="button"
-            onClick={() => void copyFarmId()}
-            className="inline-flex max-w-full items-center gap-1.5 text-left font-mono text-[10px] text-white/70 transition-colors hover:text-white/90"
-            title={farmIdCopied ? "FarmID copiado" : "Copiar FarmID"}
-            aria-label="Copiar FarmID"
-            data-testid="home-farm-id"
-          >
-            <span className="break-all">FarmID: {farmId}</span>
-            {farmIdCopied ? <Check className="h-3 w-3 shrink-0" aria-hidden="true" /> : <Copy className="h-3 w-3 shrink-0" aria-hidden="true" />}
-          </button>
+          <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
+            {farmCode && (
+              <button
+                type="button"
+                onClick={() => void copyFarmCode()}
+                className="inline-flex items-center gap-1.5 rounded-full border border-white/25 bg-white/15 px-2.5 py-0.5 font-mono text-[11px] font-bold tracking-wider text-white transition-colors hover:bg-white/25"
+                title={farmCodeCopied ? "Código de granja copiado" : "Copiar código corto de granja"}
+                aria-label="Copiar código corto de granja"
+                data-testid="home-farm-code"
+              >
+                <span>Código: {farmCode}</span>
+                {farmCodeCopied ? <Check className="h-3 w-3 shrink-0" aria-hidden="true" /> : <Copy className="h-3 w-3 shrink-0" aria-hidden="true" />}
+              </button>
+            )}
+            <button
+              type="button"
+              onClick={() => void copyFarmId()}
+              className="inline-flex max-w-full items-center gap-1.5 text-left font-mono text-[10px] text-white/70 transition-colors hover:text-white/90"
+              title={farmIdCopied ? "FarmID copiado" : "Copiar FarmID"}
+              aria-label="Copiar FarmID"
+              data-testid="home-farm-id"
+            >
+              <span className="break-all">FarmID: {farmId}</span>
+              {farmIdCopied ? <Check className="h-3 w-3 shrink-0" aria-hidden="true" /> : <Copy className="h-3 w-3 shrink-0" aria-hidden="true" />}
+            </button>
+          </div>
         ) : undefined}
         description={
           isMediano

@@ -38,6 +38,8 @@ async function resolveFarmContext() {
   const subscription = await getFarmSubscriptionStatus(farmId);
   return {
     farmId,
+    farmCode: farm?.code || null,
+    farmName: farm?.name || null,
     sessionUser,
     planCode,
     planKey: subscription.planKey,
@@ -50,7 +52,7 @@ export const GET = withApiHandler(async () => {
   const denied = await requirePermission("users:manage");
   if (denied) return denied;
 
-  const { farmId, planCode, planKey, planName, maxUsers } = await resolveFarmContext();
+  const { farmId, farmCode, farmName, planCode, planKey, planName, maxUsers } = await resolveFarmContext();
   const rows = await db
     .select({
       id: users.id,
@@ -66,6 +68,8 @@ export const GET = withApiHandler(async () => {
 
   return NextResponse.json({
     users: rows,
+    farmCode,
+    farmName,
     planCode,
     planKey,
     planName,
@@ -102,13 +106,20 @@ export const POST = withApiHandler(async (req: NextRequest) => {
     return NextResponse.json({ error: "Rol inválido" }, { status: 400 });
   }
 
-  const { farmId, planCode, planName, maxUsers, sessionUser } = await resolveFarmContext();
+  const { farmId, farmCode, planCode, planName, maxUsers, sessionUser } = await resolveFarmContext();
   if (!canDelegateRole(sessionUser?.role, role)) {
     return NextResponse.json({ error: "No puedes asignar un rol con permisos superiores a los tuyos" }, { status: 403 });
   }
   const passwordHash = await hashPassword(password);
   const result = await db.transaction(async (tx) => {
     await tx.execute(sql`SELECT pg_advisory_xact_lock(hashtext(${`user-seat-limit:${farmId}`}))`);
+    const [existingInFarm] = await tx
+      .select({ id: users.id })
+      .from(users)
+      .where(and(eq(users.farmId, farmId), sql`lower(${users.username}) = ${username}`))
+      .limit(1);
+    if (existingInFarm) return { usernameConflict: true as const };
+
     const [countRow] = await tx
       .select({ count: sql<number>`count(*)::int` })
       .from(users)
@@ -119,7 +130,6 @@ export const POST = withApiHandler(async (req: NextRequest) => {
     const [created] = await tx
       .insert(users)
       .values({ farmId, username, passwordHash, name, role })
-      .onConflictDoNothing({ target: users.username })
       .returning({
         id: users.id,
         farmId: users.farmId,
@@ -128,7 +138,7 @@ export const POST = withApiHandler(async (req: NextRequest) => {
         role: users.role,
         createdAt: users.createdAt,
       });
-    return created ? { created } : { usernameConflict: true as const };
+    return { created };
   });
 
   if ("limitReached" in result) {
@@ -144,10 +154,10 @@ export const POST = withApiHandler(async (req: NextRequest) => {
     );
   }
   if ("usernameConflict" in result) {
-    return NextResponse.json({ error: "Ese usuario ya existe en el sistema" }, { status: 409 });
+    return NextResponse.json({ error: "Ese usuario ya existe en esta granja" }, { status: 409 });
   }
 
-  return NextResponse.json({ user: result.created }, { status: 201 });
+  return NextResponse.json({ user: result.created, farmCode }, { status: 201 });
 });
 
 export const PATCH = withApiHandler(async (req: NextRequest) => {

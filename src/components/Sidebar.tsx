@@ -34,8 +34,13 @@ const COLLAPSED_KEY = "sidebar-collapsed";
 const ACTIVE_FARM_META_STORAGE_KEY = "galli-active-farm-meta";
 
 interface ActiveFarmMeta {
+  id?: string;
   farmId: string;
+  code?: string | null;
+  farmCode?: string | null;
+  name?: string | null;
   farmName?: string | null;
+  slug?: string | null;
   farmSlug?: string | null;
 }
 
@@ -157,14 +162,23 @@ export default function Sidebar() {
       .then((res) => (res.ok ? res.json() : null))
       .then((data) => {
         if (!active || !data?.farmId) return;
+        const resolvedCode = typeof data.farmCode === "string" ? data.farmCode : null;
         const nextMeta: ActiveFarmMeta = {
+          id: String(data.farmId),
           farmId: String(data.farmId),
+          code: resolvedCode,
+          farmCode: resolvedCode,
+          name: data.farmName ?? null,
           farmName: data.farmName ?? null,
+          slug: data.farmSlug ?? null,
           farmSlug: data.farmSlug ?? null,
         };
         setFarmMeta(nextMeta);
         try {
           localStorage.setItem(ACTIVE_FARM_META_STORAGE_KEY, JSON.stringify(nextMeta));
+          if (resolvedCode) {
+            localStorage.setItem("galli-last-farm-code", resolvedCode);
+          }
         } catch {
           // Ignore storage write errors
         }

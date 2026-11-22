@@ -11,6 +11,7 @@ import type {
   PublicPricingOffer,
 } from "@/lib/pricing/types";
 import { getPricingPlanCardBenefits } from "@/lib/pricing/plan-card-benefits";
+import { isValidFarmCode, normalizeFarmCode } from "@/lib/farm-code";
 
 type QuoteInput =
   | { segment: "producer"; users: number; months: number; renewal: boolean; farmId?: string; locations: number; areasPerLocation: number; extraPlates: 0; extraTrainingPackages: 0 }
@@ -125,7 +126,7 @@ export default function InteractivePricingPage() {
   const [farmId, setFarmId] = useState("");
   const [renewalVerification, setRenewalVerification] = useState<{
     loading: boolean;
-    farm: { id: string; name: string; planName: "Productor" | "Organización" } | null;
+    farm: { id: string; code?: string; name: string; planName: "Productor" | "Organización" } | null;
     error: string;
     loginRequired: boolean;
   }>({ loading: false, farm: null, error: "", loginRequired: false });
@@ -244,7 +245,11 @@ export default function InteractivePricingPage() {
       "&users=" + users + "&beneficiaries=" + beneficiaries +
       "&months=" + months + "&renewal=" + renewal +
       (renewal && farmId.trim() ? "&farmId=" + encodeURIComponent(farmId.trim()) : "") + "#calculadora";
-    return "/login?next=" + encodeURIComponent(returnTo);
+    const normalizedCode = normalizeFarmCode(farmId);
+    const farmParam = renewal && isValidFarmCode(normalizedCode)
+      ? "&granja=" + encodeURIComponent(normalizedCode)
+      : "";
+    return "/login?next=" + encodeURIComponent(returnTo) + farmParam;
   }, [segment, users, beneficiaries, months, renewal, farmId]);
   const requestBody = JSON.stringify(input);
   const currentResult = quoteResult?.requestBody === requestBody ? quoteResult : null;
@@ -254,7 +259,7 @@ export default function InteractivePricingPage() {
     if (segment !== "aggregator" || !renewalApplied || !verifiedRenewalFarm || !quote) return "/contacto";
     const params = new URLSearchParams({
       request: "organization-renewal",
-      farmId: verifiedRenewalFarm.id,
+      farmId: verifiedRenewalFarm.code || verifiedRenewalFarm.id,
       farmName: verifiedRenewalFarm.name,
       beneficiaries: String(beneficiaries),
       months: String(months),
@@ -400,7 +405,7 @@ export default function InteractivePricingPage() {
   async function verifyRenewalFarm() {
     const submittedFarmId = farmId.trim();
     if (!submittedFarmId) {
-      setRenewalVerification({ loading: false, farm: null, error: "Escribe el FarmID de la granja que quieres renovar.", loginRequired: false });
+      setRenewalVerification({ loading: false, farm: null, error: "Escribe el Código de Granja (ej. 7K4M2P) o el FarmID de la granja que quieres renovar.", loginRequired: false });
       return;
     }
 
@@ -411,7 +416,7 @@ export default function InteractivePricingPage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ farmId: submittedFarmId, segment }),
       });
-      const data = (await response.json()) as { farm?: { id: string; name: string; planName: "Productor" | "Organización" }; error?: string };
+      const data = (await response.json()) as { farm?: { id: string; code?: string; name: string; planName: "Productor" | "Organización" }; error?: string };
       if (response.status === 401) {
         setRenewalVerification({ loading: false, farm: null, error: "Inicia sesión para comprobar esta granja.", loginRequired: true });
         return;
@@ -420,7 +425,7 @@ export default function InteractivePricingPage() {
         setRenewalVerification({
           loading: false,
           farm: null,
-          error: data.error || "No pudimos confirmar ese FarmID. Revisa el dato e inténtalo otra vez.",
+          error: data.error || "No pudimos confirmar ese Código de Granja o FarmID. Revisa el dato e inténtalo otra vez.",
           loginRequired: false,
         });
         return;
@@ -428,7 +433,7 @@ export default function InteractivePricingPage() {
       setRenewalVerification({ loading: false, farm: data.farm, error: "", loginRequired: false });
       setCheckoutState({ loading: false, error: "", loginRequired: false });
     } catch {
-      setRenewalVerification({ loading: false, farm: null, error: "No fue posible comprobar el FarmID. Inténtalo de nuevo.", loginRequired: false });
+      setRenewalVerification({ loading: false, farm: null, error: "No fue posible comprobar la granja. Inténtalo de nuevo.", loginRequired: false });
     }
   }
 
@@ -661,7 +666,7 @@ export default function InteractivePricingPage() {
 
                 {renewal && (
                   <div className="mt-3 border-t border-[var(--iw-semantic-border-default)] pt-3">
-                    <label htmlFor={id + "-renewal-farm-id"} className="block text-xs font-bold text-[var(--iw-semantic-text-primary)]">FarmID de la granja</label>
+                    <label htmlFor={id + "-renewal-farm-id"} className="block text-xs font-bold text-[var(--iw-semantic-text-primary)]">Código de granja o FarmID</label>
                     <div className="mt-2 flex flex-col gap-2 sm:flex-row">
                       <input
                         id={id + "-renewal-farm-id"}
@@ -676,7 +681,7 @@ export default function InteractivePricingPage() {
                         autoComplete="off"
                         spellCheck={false}
                         maxLength={36}
-                        placeholder="Pega aquí el FarmID"
+                        placeholder="Ej. 7K4M2P o pega el FarmID"
                         className="min-h-11 min-w-0 flex-1 rounded-[var(--iw-radius-control)] border border-[var(--iw-semantic-border-input)] bg-[var(--iw-semantic-bg-surface)] px-3 text-xs text-[var(--iw-semantic-text-primary)] outline-none focus-visible:ring-2 focus-visible:ring-[var(--iw-semantic-focus-ring)]"
                       />
                       <button
@@ -686,11 +691,11 @@ export default function InteractivePricingPage() {
                         className="inline-flex min-h-11 shrink-0 items-center justify-center gap-2 rounded-[var(--iw-radius-control)] border border-[var(--iw-semantic-action-secondary-border)] bg-[var(--iw-semantic-action-secondary)] px-3 text-xs font-bold text-[var(--iw-semantic-action-secondary-text)] hover:bg-[var(--iw-semantic-bg-feature)] disabled:cursor-not-allowed disabled:opacity-50"
                       >
                         {renewalVerification.loading && <LoaderCircle className="h-3.5 w-3.5 animate-spin" aria-hidden="true" />}
-                        Comprobar FarmID
+                        Comprobar granja
                       </button>
                     </div>
-                    <p className="mt-1 text-[10px] leading-4 text-[var(--iw-semantic-text-secondary)]">Lo encuentras en Inicio, en la opción «Copiar FarmID».</p>
-                    {verifiedRenewalFarm && <p role="status" className="mt-2 text-[11px] font-semibold text-[var(--iw-semantic-status-success)]">{verifiedRenewalFarm.planName === "Organización" ? "Contrato institucional confirmado" : "Granja confirmada"}: {verifiedRenewalFarm.name}. {renewalApplied && (offer?.[segment].renewalTerms.includes(months) ? "El cálculo incluye 5% por continuidad." : "La renovación quedó asociada, pero este plazo no recibe el descuento de continuidad.")} </p>}
+                    <p className="mt-1 text-[10px] leading-4 text-[var(--iw-semantic-text-secondary)]">Encuentras el Código corto (ej. 7K4M2P) y el FarmID arriba en Inicio.</p>
+                    {verifiedRenewalFarm && <p role="status" className="mt-2 text-[11px] font-semibold text-[var(--iw-semantic-status-success)]">{verifiedRenewalFarm.planName === "Organización" ? "Contrato institucional confirmado" : "Granja confirmada"}: {verifiedRenewalFarm.name}{verifiedRenewalFarm.code ? ` (${verifiedRenewalFarm.code})` : ""}. {renewalApplied && (offer?.[segment].renewalTerms.includes(months) ? "El cálculo incluye 5% por continuidad." : "La renovación quedó asociada, pero este plazo no recibe el descuento de continuidad.")} </p>}
                     {renewalVerification.error && (
                       <p role="alert" className="mt-2 text-[11px] leading-5 text-[var(--iw-semantic-status-danger)]">
                         {renewalVerification.error}{renewalVerification.loginRequired && <> <Link href={checkoutLoginHref} className="font-bold underline underline-offset-2">Iniciar sesión</Link></>}

@@ -18,6 +18,7 @@ import { DeveloperCredit } from "@/components/DeveloperCredit";
 import { LegalLinksBar } from "@/components/LegalLinksBar";
 import { PublicNavigation } from "@/components/PublicNavigation";
 import { trackAnalyticsEvent } from "@/components/AnalyticsTracker";
+import { writeCachedActiveFarmMeta } from "@/lib/active-farm-client";
 
 function fallbackCopyText(text: string): boolean {
   const field = Object.assign(document.createElement("textarea"), { value: text });
@@ -75,10 +76,12 @@ export default function RegistroPage() {
   const [error, setError] = useState("");
   const [createdAccount, setCreatedAccount] = useState<{
     farmName: string;
+    farmCode: string | null;
     username: string;
     recoveryCode: string;
     redirectTo: string;
   } | null>(null);
+  const [farmCodeCopied, setFarmCodeCopied] = useState(false);
 
   const [copyState, setCopyState] = useState<"idle" | "copied" | "failed">("idle");
   const [copyLiveMessage, setCopyLiveMessage] = useState("");
@@ -149,9 +152,23 @@ export default function RegistroPage() {
         return;
       }
       trackAnalyticsEvent("farm_created");
+      const assignedFarmCode = typeof data.farmCode === "string"
+        ? data.farmCode
+        : typeof data.farm?.code === "string"
+          ? data.farm.code
+          : null;
+      if (data.farmId) {
+        writeCachedActiveFarmMeta({
+          id: String(data.farmId),
+          code: assignedFarmCode,
+          name: data.farm?.name || farmName.trim(),
+          slug: data.farm?.slug || null,
+        });
+      }
       if (data.recoveryCode) {
         setCreatedAccount({
           farmName: data.farm?.name || farmName,
+          farmCode: assignedFarmCode,
           username: data.user?.username || username,
           recoveryCode: String(data.recoveryCode),
           redirectTo: data.redirectTo || "/inicio?wizard=1",
@@ -195,6 +212,45 @@ export default function RegistroPage() {
 
         {createdAccount ? (
           <div className="space-y-4">
+            {createdAccount.farmCode && (
+              <div className="rounded-[var(--iw-radius-control)] border border-[var(--iw-semantic-action-primary)]/35 bg-[var(--iw-semantic-bg-feature)] p-4 text-sm text-[var(--iw-semantic-text-primary)] space-y-2">
+                <p className="font-bold text-[var(--iw-semantic-action-primary)]">
+                  Código corto de tu granja
+                </p>
+                <p className="text-xs text-[var(--iw-semantic-text-secondary)] leading-relaxed">
+                  Úsalo para invitar a tu equipo desde <code className="font-mono">/login?granja={createdAccount.farmCode}</code>, imprimir etiquetas QR o conectar sensores.
+                </p>
+                <div className="rounded-[var(--iw-radius-control)] border border-[var(--iw-semantic-border-default)] bg-[var(--iw-semantic-bg-surface)] px-3 py-2 flex items-center justify-between gap-2">
+                  <span className="font-mono text-xl font-black tracking-[0.22em] text-[var(--iw-semantic-text-primary)]">
+                    {createdAccount.farmCode}
+                  </span>
+                  <button
+                    type="button"
+                    onClick={async () => {
+                      const code = createdAccount.farmCode;
+                      if (!code) return;
+                      try {
+                        await navigator.clipboard.writeText(code);
+                      } catch {
+                        fallbackCopyText(code);
+                      }
+                      setFarmCodeCopied(true);
+                      setTimeout(() => setFarmCodeCopied(false), 1800);
+                    }}
+                    aria-label="Copiar código corto de la granja"
+                    className="inline-flex items-center gap-1.5 min-h-[44px] px-3 py-2 rounded-[var(--iw-radius-control)] border border-[var(--iw-semantic-border-default)] bg-[var(--iw-semantic-bg-subtle)] text-xs font-bold text-[var(--iw-semantic-text-primary)] hover:bg-[var(--iw-semantic-bg-page)]"
+                  >
+                    {farmCodeCopied ? (
+                      <Check className="w-4 h-4 text-[var(--iw-semantic-status-success)]" aria-hidden="true" />
+                    ) : (
+                      <Copy className="w-4 h-4 text-[var(--iw-semantic-text-secondary)]" aria-hidden="true" />
+                    )}
+                    <span>{farmCodeCopied ? "Copiado" : "Copiar"}</span>
+                  </button>
+                </div>
+              </div>
+            )}
+
             <div className="rounded-[var(--iw-radius-control)] border border-[var(--iw-semantic-status-warning)]/45 bg-[var(--iw-semantic-bg-subtle)] p-4 text-sm text-[var(--iw-semantic-text-primary)] space-y-3">
               <div className="flex items-start gap-2">
                 <KeyRound className="w-5 h-5 text-[var(--iw-semantic-status-warning)] shrink-0 mt-0.5" aria-hidden="true" />

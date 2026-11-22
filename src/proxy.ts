@@ -97,6 +97,20 @@ export async function proxy(req: NextRequest) {
   if (!token) {
     // Browser-like requests → redirect to login
     if (req.headers.get("accept")?.includes("text/html")) {
+      if (pathname === "/escanear" || pathname === "/dashboard/escanear") {
+        const rawFarm = req.nextUrl.searchParams.get("f") || req.nextUrl.searchParams.get("granja") || "";
+        const rawQr = req.nextUrl.searchParams.get("qr") || "";
+        if (rawFarm || rawQr) {
+          const loginUrl = new URL("/login", req.url);
+          const normalizedFarm = rawFarm.trim().toUpperCase().replace(/[^A-Z0-9]/g, "");
+          if (normalizedFarm) {
+            loginUrl.searchParams.set("granja", normalizedFarm);
+          }
+          const canonicalPath = pathname === "/dashboard/escanear" ? "/escanear" : pathname;
+          loginUrl.searchParams.set("next", `${canonicalPath}${search}`);
+          return NextResponse.redirect(loginUrl);
+        }
+      }
       return NextResponse.redirect(new URL("/login", req.url));
     }
     // API requests → 401
