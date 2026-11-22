@@ -161,7 +161,7 @@ export default function HomePage() {
 
         <header className="land-hero relative overflow-hidden bg-[var(--iw-color-forest-dark)] text-[var(--iw-color-white)]">
           <Image
-            src="/hero-illustration.png"
+            src="/hero-illustration.webp"
             alt="Ilustración rural de IwaGranja en Ibagué, Tolima"
             fill
             priority
@@ -215,6 +215,16 @@ export default function HomePage() {
                     Ver cómo funciona ↓
                   </a>
                 </div>
+
+                <p className="text-xs text-[var(--iw-color-sage)]">
+                  ¿Coordinas una cooperativa, ONG o equipo técnico?{" "}
+                  <a
+                    href="#planes"
+                    className="font-semibold text-[var(--iw-color-paper)] underline underline-offset-4 hover:text-[var(--iw-color-white)]"
+                  >
+                    Ver planes para organizaciones →
+                  </a>
+                </p>
               </div>
 
               <div className="lg:col-span-6">
@@ -285,7 +295,7 @@ export default function HomePage() {
               const Icon = frag.icon;
               return (
                 <li key={frag.id} className="land-floating-fact">
-                  <Icon className="h-4 w-4 shrink-0 text-[var(--forest)]" aria-hidden="true" />
+                  <Icon className="h-4 w-4 shrink-0 text-[var(--iw-semantic-action-primary)]" aria-hidden="true" />
                   <span><strong>{frag.label}:</strong> {frag.detail}</span>
                 </li>
               );
@@ -311,7 +321,7 @@ export default function HomePage() {
                 mientras consultan reglas y resultados claros al instante.{" "}
                 <Link
                   href="/realidad-campo"
-                  className="font-semibold text-[var(--forest)] underline underline-offset-4 hover:text-[var(--forest-deep)]"
+                  className="font-semibold text-[var(--iw-semantic-action-primary)] underline underline-offset-4 hover:text-[var(--iw-semantic-action-primary-hover)]"
                 >
                   Ver problemas reales del campo que resolvemos →
                 </Link>
@@ -481,6 +491,82 @@ export default function HomePage() {
               Abrir guía de uso
               <ArrowRight className="w-4 h-4" aria-hidden="true" />
             </Link>
+          </div>
+        </section>
+
+        <section
+          id="confianza"
+          className="land-section border-t border-[var(--iw-semantic-border-default)] bg-[var(--iw-semantic-bg-surface)]"
+          aria-labelledby="confianza-heading"
+        >
+          <div className="land-wrap">
+            <div className="max-w-2xl mb-7">
+              <p className="land-eyebrow">Confianza y respaldo</p>
+              <h2 id="confianza-heading" className="land-h2">
+                Especificaciones verificables y operación en campo
+              </h2>
+              <p className="land-section-sub" style={{ marginBottom: 0 }}>
+                Sin promesas infladas ni sellos ficticios: cada capacidad descrita corresponde al software real en uso y documentación abierta.
+              </p>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+              <article className="land-reveal land-animated-card rounded-2xl border border-[var(--iw-semantic-border-default)] bg-[var(--iw-semantic-bg-page)] p-5 flex flex-col gap-2.5">
+                <span className="font-mono text-[10px] font-bold uppercase tracking-wider text-[var(--iw-color-ochre)]">
+                  Territorio real
+                </span>
+                <h3 className="font-display text-base font-bold text-[var(--iw-semantic-text-primary)]">
+                  Operación en Ibagué, Tolima
+                </h3>
+                <p className="text-xs sm:text-sm text-[var(--iw-semantic-text-secondary)] leading-relaxed">
+                  Diseñada y probada junto a granjas mixtas en producción, adaptada a prácticas e insumos en Colombia.
+                </p>
+              </article>
+
+              <article className="land-reveal land-animated-card rounded-2xl border border-[var(--iw-semantic-border-default)] bg-[var(--iw-semantic-bg-page)] p-5 flex flex-col gap-2.5">
+                <span className="font-mono text-[10px] font-bold uppercase tracking-wider text-[var(--iw-color-ochre)]">
+                  Continuidad en campo
+                </span>
+                <h3 className="font-display text-base font-bold text-[var(--iw-semantic-text-primary)]">
+                  Respaldo local verificable
+                </h3>
+                <p className="text-xs sm:text-sm text-[var(--iw-semantic-text-secondary)] leading-relaxed">
+                  Tus anotaciones se guardan primero en el dispositivo mediante IndexedDB y muestran cuándo siguen pendientes o sincronizadas.
+                </p>
+              </article>
+
+              <article className="land-reveal land-animated-card rounded-2xl border border-[var(--iw-semantic-border-default)] bg-[var(--iw-semantic-bg-page)] p-5 flex flex-col gap-2.5">
+                <span className="font-mono text-[10px] font-bold uppercase tracking-wider text-[var(--iw-color-ochre)]">
+                  Fuentes consultables
+                </span>
+                <h3 className="font-display text-base font-bold text-[var(--iw-semantic-text-primary)]">
+                  Criterios técnicos en bitácora
+                </h3>
+                <p className="text-xs sm:text-sm text-[var(--iw-semantic-text-secondary)] leading-relaxed">
+                  Referenciamos NTC 1240, guías ICA y tablas productivas en{" "}
+                  <Link href="/bitacora" className="font-semibold text-[var(--iw-semantic-action-primary)] underline underline-offset-2">
+                    la bitácora pública
+                  </Link>{" "}
+                  sin confundir orientación con certificación oficial.
+                </p>
+              </article>
+
+              <article className="land-reveal land-animated-card rounded-2xl border border-[var(--iw-semantic-border-default)] bg-[var(--iw-semantic-bg-page)] p-5 flex flex-col gap-2.5">
+                <span className="font-mono text-[10px] font-bold uppercase tracking-wider text-[var(--iw-color-ochre)]">
+                  Código auditable
+                </span>
+                <h3 className="font-display text-base font-bold text-[var(--iw-semantic-text-primary)]">
+                  Transparencia Open Source
+                </h3>
+                <p className="text-xs sm:text-sm text-[var(--iw-semantic-text-secondary)] leading-relaxed">
+                  Puedes revisar el código, exportar tus registros y conocer nuestro modelo abierto en{" "}
+                  <Link href="/open-source" className="font-semibold text-[var(--iw-semantic-action-primary)] underline underline-offset-2">
+                    Open Source
+                  </Link>
+                  .
+                </p>
+              </article>
+            </div>
           </div>
         </section>
 

@@ -38,6 +38,7 @@ export const OG_IMAGE_DIMENSIONS: Record<string, { width: number; height: number
   "/images/heroes/inicio-1x.webp": { width: 800, height: 280 },
   "/traceability-flow.png": { width: 1792, height: 1024 },
   "/hero-illustration.png": { width: 1024, height: 768 },
+  "/hero-illustration.webp": { width: 1024, height: 768 },
   "/modules-diagram.png": { width: 1024, height: 1024 },
   "/logo-iwagranja-horizontal.webp": { width: 680, height: 201 },
   "/logo-iwagranja.webp": { width: 512, height: 512 },

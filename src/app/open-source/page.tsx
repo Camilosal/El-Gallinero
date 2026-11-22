@@ -73,12 +73,12 @@ export default function OpenSourcePage() {
       description={DESCRIPTION}
       extraJsonLdNodes={[buildSoftwareNode()]}
     >
-      <div className="space-y-8 text-slate-700 leading-relaxed">
+      <div className="space-y-8 text-[var(--iw-semantic-text-primary)] leading-relaxed">
         <section aria-labelledby="os-como-funciona">
-          <h2 id="os-como-funciona" className="text-xl font-bold text-slate-900">
+          <h2 id="os-como-funciona" className="text-xl font-bold text-[var(--iw-semantic-text-primary)]">
             Cómo funciona nuestro modelo abierto
           </h2>
-          <p className="mt-2 text-slate-700">
+          <p className="mt-2 text-[var(--iw-semantic-text-primary)]">
             El código fuente de la aplicación web, el modelo multi-especie, las validaciones zootécnicas y la
             documentación operativa están publicados de forma abierta. Cualquier productor, técnico o equipo puede
             inspeccionarlos, adaptarlos o auto-hospedarlos.
@@ -87,13 +87,13 @@ export default function OpenSourcePage() {
             {PILLARS.map((item) => (
               <article
                 key={item.code}
-                className="rounded-2xl border border-slate-200 bg-white p-5 shadow-2xs"
+                className="rounded-2xl border border-[var(--iw-semantic-border-default)] bg-[var(--iw-semantic-bg-surface)] p-5 shadow-2xs"
               >
-                <p className="font-mono text-[11px] font-semibold tracking-wider text-emerald-800">
+                <p className="font-mono text-[11px] font-semibold tracking-wider text-[var(--iw-semantic-action-primary)]">
                   {item.code}
                 </p>
-                <h3 className="mt-1.5 text-base font-bold text-slate-900">{item.title}</h3>
-                <p className="mt-2 text-sm text-slate-600 leading-relaxed">{item.detail}</p>
+                <h3 className="mt-1.5 text-base font-bold text-[var(--iw-semantic-text-primary)]">{item.title}</h3>
+                <p className="mt-2 text-sm text-[var(--iw-semantic-text-secondary)] leading-relaxed">{item.detail}</p>
               </article>
             ))}
           </div>
@@ -101,12 +101,12 @@ export default function OpenSourcePage() {
 
         <section
           aria-labelledby="os-participar"
-          className="rounded-2xl border border-emerald-900/15 bg-emerald-50/50 p-6"
+          className="rounded-2xl border border-[var(--iw-semantic-border-default)] bg-[var(--iw-semantic-bg-feature)] p-6"
         >
-          <h2 id="os-participar" className="text-xl font-bold text-slate-900">
+          <h2 id="os-participar" className="text-xl font-bold text-[var(--iw-semantic-text-primary)]">
             Cómo puedes participar (con o sin código)
           </h2>
-          <p className="mt-2 text-sm text-slate-700">
+          <p className="mt-2 text-sm text-[var(--iw-semantic-text-primary)]">
             No necesitas saber programar para aportar. Gran parte del valor de IwaGranja viene de quienes trabajan
             todos los días con aves, conejos, cuyes y compostaje.
           </p>
@@ -114,29 +114,29 @@ export default function OpenSourcePage() {
             {CONTRIBUTE_WAYS.map((way) => (
               <div
                 key={way.role}
-                className="flex flex-col justify-between rounded-xl border border-slate-200 bg-white p-4"
+                className="flex flex-col justify-between rounded-xl border border-[var(--iw-semantic-border-default)] bg-[var(--iw-semantic-bg-surface)] p-4"
               >
                 <div>
-                  <span className="inline-block rounded-full bg-emerald-100 px-2.5 py-0.5 font-mono text-[11px] font-semibold text-emerald-900">
+                  <span className="inline-block rounded-full bg-[var(--iw-semantic-bg-feature)] px-2.5 py-0.5 font-mono text-[11px] font-semibold text-[var(--iw-semantic-text-primary)]">
                     {way.role}
                   </span>
-                  <h3 className="mt-2.5 text-base font-bold text-slate-900">{way.action}</h3>
-                  <p className="mt-1.5 text-sm text-slate-600 leading-relaxed">{way.summary}</p>
+                  <h3 className="mt-2.5 text-base font-bold text-[var(--iw-semantic-text-primary)]">{way.action}</h3>
+                  <p className="mt-1.5 text-sm text-[var(--iw-semantic-text-secondary)] leading-relaxed">{way.summary}</p>
                 </div>
-                <div className="mt-4 pt-3 border-t border-slate-100">
+                <div className="mt-4 pt-3 border-t border-[var(--iw-semantic-border-default)]">
                   {"external" in way && way.external ? (
                     <a
                       href={way.href}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="text-sm font-semibold text-emerald-800 underline underline-offset-4 hover:text-emerald-950"
+                      className="text-sm font-semibold text-[var(--iw-semantic-action-primary)] underline underline-offset-4 hover:text-[var(--iw-semantic-action-primary-hover)]"
                     >
                       {way.cta}
                     </a>
                   ) : (
                     <Link
                       href={way.href}
-                      className="text-sm font-semibold text-emerald-800 underline underline-offset-4 hover:text-emerald-950"
+                      className="text-sm font-semibold text-[var(--iw-semantic-action-primary)] underline underline-offset-4 hover:text-[var(--iw-semantic-action-primary-hover)]"
                     >
                       {way.cta} →
                     </Link>
@@ -147,26 +147,26 @@ export default function OpenSourcePage() {
           </div>
         </section>
 
-        <section aria-labelledby="os-stack" className="rounded-2xl border border-slate-200 bg-white p-6">
-          <h2 id="os-stack" className="text-lg font-bold text-slate-900">
+        <section aria-labelledby="os-stack" className="rounded-2xl border border-[var(--iw-semantic-border-default)] bg-[var(--iw-semantic-bg-surface)] p-6">
+          <h2 id="os-stack" className="text-lg font-bold text-[var(--iw-semantic-text-primary)]">
             Stack técnico y despliegue propio
           </h2>
           <div className="mt-3 grid gap-3 sm:grid-cols-2 lg:grid-cols-4 text-sm">
-            <div className="rounded-lg border border-slate-200 bg-slate-50 px-3.5 py-2.5">
-              <p className="font-mono text-[11px] text-slate-500">FRONTEND &amp; API</p>
-              <p className="font-semibold text-slate-900">Next.js + TypeScript</p>
+            <div className="rounded-lg border border-[var(--iw-semantic-border-default)] bg-[var(--iw-semantic-bg-subtle)] px-3.5 py-2.5">
+              <p className="font-mono text-[11px] text-[var(--iw-semantic-text-secondary)]">FRONTEND &amp; API</p>
+              <p className="font-semibold text-[var(--iw-semantic-text-primary)]">Next.js + TypeScript</p>
             </div>
-            <div className="rounded-lg border border-slate-200 bg-slate-50 px-3.5 py-2.5">
-              <p className="font-mono text-[11px] text-slate-500">BASE DE DATOS</p>
-              <p className="font-semibold text-slate-900">PostgreSQL + Drizzle ORM</p>
+            <div className="rounded-lg border border-[var(--iw-semantic-border-default)] bg-[var(--iw-semantic-bg-subtle)] px-3.5 py-2.5">
+              <p className="font-mono text-[11px] text-[var(--iw-semantic-text-secondary)]">BASE DE DATOS</p>
+              <p className="font-semibold text-[var(--iw-semantic-text-primary)]">PostgreSQL + Drizzle ORM</p>
             </div>
-            <div className="rounded-lg border border-slate-200 bg-slate-50 px-3.5 py-2.5">
-              <p className="font-mono text-[11px] text-slate-500">CAMPO OFFLINE</p>
-              <p className="font-semibold text-slate-900">PWA + IndexedDB + QR</p>
+            <div className="rounded-lg border border-[var(--iw-semantic-border-default)] bg-[var(--iw-semantic-bg-subtle)] px-3.5 py-2.5">
+              <p className="font-mono text-[11px] text-[var(--iw-semantic-text-secondary)]">CAMPO OFFLINE</p>
+              <p className="font-semibold text-[var(--iw-semantic-text-primary)]">PWA + IndexedDB + QR</p>
             </div>
-            <div className="rounded-lg border border-slate-200 bg-slate-50 px-3.5 py-2.5">
-              <p className="font-mono text-[11px] text-slate-500">INFRAESTRUCTURA</p>
-              <p className="font-semibold text-slate-900">Docker Compose</p>
+            <div className="rounded-lg border border-[var(--iw-semantic-border-default)] bg-[var(--iw-semantic-bg-subtle)] px-3.5 py-2.5">
+              <p className="font-mono text-[11px] text-[var(--iw-semantic-text-secondary)]">INFRAESTRUCTURA</p>
+              <p className="font-semibold text-[var(--iw-semantic-text-primary)]">Docker Compose</p>
             </div>
           </div>
           <div className="mt-5 flex flex-wrap gap-3">

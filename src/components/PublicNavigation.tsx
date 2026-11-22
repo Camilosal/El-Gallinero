@@ -24,13 +24,16 @@ export function PublicNavigation({
         <Link
           href={brandHref}
           aria-label="IwaGranja — Inicio"
-          className="inline-flex shrink-0 items-center"
+          className="inline-flex shrink-0 items-center gap-2.5"
         >
           <BrandLogo
             variant="horizontal"
             height={42}
             className="h-9 w-auto sm:h-[42px]"
           />
+          <span className="hidden lg:inline-block border-l border-[var(--iw-semantic-border-default)] pl-2.5 font-mono text-[10px] font-semibold uppercase tracking-[0.12em] text-[var(--iw-semantic-text-secondary)]">
+            por Iwagé
+          </span>
         </Link>
 
         <div className="hidden items-center gap-4 md:flex">

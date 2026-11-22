@@ -36,7 +36,7 @@ const FOOTER_GROUPS = [
 ] as const;
 
 const FOOTER_LINK_CLASS =
-  "inline-block py-0.5 text-[var(--ink-soft)] hover:text-[var(--forest-deep)] underline underline-offset-4 decoration-[var(--line)] hover:decoration-current transition-colors";
+  "inline-block py-0.5 text-[var(--iw-semantic-text-secondary)] hover:text-[var(--iw-semantic-action-primary-hover)] underline underline-offset-4 decoration-[var(--iw-semantic-border-default)] hover:decoration-current transition-colors";
 
 /**
  * Pie único de la landing: marca y crédito, navegación y documentos legales.
@@ -51,24 +51,27 @@ export function LandingFooter() {
             <Link
               href="#top"
               aria-label="IwaGranja — Volver arriba"
-              className="inline-flex items-center gap-3 font-display text-lg font-bold tracking-tight text-[var(--ink)]"
+              className="inline-flex items-center gap-3 font-display text-lg font-bold tracking-tight text-[var(--iw-semantic-text-primary)]"
             >
               <BrandLogo
                 variant="square"
                 size={76}
-                className="rounded-2xl bg-white/95 p-1.5 border border-[var(--line)] shadow-xs"
+                className="rounded-2xl bg-[var(--iw-semantic-bg-surface)] p-1.5 border border-[var(--iw-semantic-border-default)] shadow-xs"
               />
             </Link>
-            <p className="mt-2 text-sm text-[var(--moss)]">
+            <p className="mt-2 font-mono text-[11px] font-semibold uppercase tracking-[0.12em] text-[var(--iw-semantic-action-primary)]">
+              IwaGranja · por Iwagé
+            </p>
+            <p className="mt-1.5 text-sm text-[var(--iw-semantic-text-secondary)]">
               Tu granja, todo bajo control · Gestión para granjas mixtas en Colombia.
             </p>
-            <p className="mt-3 text-xs leading-relaxed text-[var(--moss)]">
+            <p className="mt-3 text-xs leading-relaxed text-[var(--iw-semantic-text-secondary)]">
               Operado y desarrollado por{" "}
               <a
                 href={APP_DEVELOPER.url}
                 target="_blank"
                 rel="noreferrer"
-                className="font-semibold text-[var(--ink)] underline underline-offset-2 hover:text-[var(--forest)]"
+                className="font-semibold text-[var(--iw-semantic-text-primary)] underline underline-offset-2 hover:text-[var(--iw-semantic-action-primary)]"
               >
                 {LEGAL.razonSocial}
               </a>
@@ -79,8 +82,8 @@ export function LandingFooter() {
 
           {FOOTER_GROUPS.map((group) => (
             <nav key={group.title} aria-label={group.title}>
-              <h2 className="font-mono text-[11px] font-bold uppercase tracking-[0.14em] text-[var(--forest)]">{group.title}</h2>
-              <ul className="mt-2 space-y-1 text-sm text-[var(--moss)]">
+              <h2 className="font-mono text-[11px] font-bold uppercase tracking-[0.14em] text-[var(--iw-semantic-action-primary)]">{group.title}</h2>
+              <ul className="mt-2 space-y-1 text-sm text-[var(--iw-semantic-text-secondary)]">
                 {group.links.map((item) => (
                   <li key={item.href}>
                     <Link href={item.href} className={FOOTER_LINK_CLASS}>{item.label}</Link>
@@ -91,7 +94,7 @@ export function LandingFooter() {
           ))}
         </div>
 
-        <div className="mt-6 flex flex-col gap-1 border-t border-[var(--line)] pt-3 text-xs text-[var(--moss)] sm:flex-row sm:items-center sm:justify-between">
+        <div className="mt-6 flex flex-col gap-1 border-t border-[var(--iw-semantic-border-default)] pt-3 text-xs text-[var(--iw-semantic-text-secondary)] sm:flex-row sm:items-center sm:justify-between">
           <span>
             © {new Date().getFullYear()} {LEGAL.marca}
           </span>

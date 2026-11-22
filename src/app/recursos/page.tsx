@@ -40,7 +40,7 @@ const RESOURCE_GROUPS = [
     category: "03 · Seguir el proyecto",
     title: "Noticias y novedades",
     summary: "Página preparada para novedades verificables. Aún no hay publicaciones en esta categoría.",
-    image: "/hero-illustration.png",
+    image: "/hero-illustration.webp",
     imageAlt: "Ilustración institucional de IwaGranja que identifica el espacio de noticias y novedades",
     actionLabel: "Consultar el estado",
   },
