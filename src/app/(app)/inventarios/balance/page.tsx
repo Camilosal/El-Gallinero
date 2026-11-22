@@ -139,7 +139,18 @@ const movementTypeLabels: Record<string, string> = {
   otro: "Otro",
 };
 
-const COLORS = ["#22c55e", "#3b82f6", "#eab308", "#ef4444", "#a855f7", "#06b6d4", "#f97316", "#ec4899", "#84cc16", "#64748b"];
+const COLORS = [
+  "var(--iw-color-forest)",
+  "var(--iw-color-info)",
+  "var(--iw-color-ochre)",
+  "var(--iw-color-terracotta)",
+  "var(--iw-color-success)",
+  "var(--iw-color-warning)",
+  "var(--iw-color-danger)",
+  "var(--iw-color-outline-soft)",
+  "var(--iw-color-muted)",
+  "var(--iw-color-forest-dark)",
+];
 
 const fmtMoney = (n: number) => `$${Math.round(n).toLocaleString()}`;
 const fmtKg = (n: number) => `${Math.round(n).toLocaleString()} kg`;
@@ -449,22 +460,30 @@ export default function BalancePage() {
                 }
               />
             ) : (
-              <table className="w-full text-sm">
-                <thead><tr className="border-b text-left text-gray-500">
-                  <th className="py-2">Nombre</th><th>Categoría</th><th>Stock</th><th>Mínimo</th><th>Valor</th>
-                </tr></thead>
-                <tbody>
-                  {filteredSupplies.map((s) => (
-                    <tr key={s.supplyId} className={`border-b ${s.isLow ? 'bg-red-50' : ''}`}>
-                      <td className="py-2 font-medium">{s.name}</td>
-                      <td>{s.category}</td>
-                      <td>{s.currentStock} {s.unit}</td>
-                      <td>{s.minStock}</td>
-                      <td>${s.estimatedValue.toLocaleString()}</td>
+              <div className="overflow-x-auto rounded-[var(--iw-radius-control)] border border-[var(--iw-semantic-border-default)]">
+                <table className="w-full text-sm tabular-nums text-[var(--iw-semantic-text-primary)]">
+                  <thead>
+                    <tr className="bg-[var(--iw-semantic-bg-subtle)] border-b border-[var(--iw-semantic-border-default)] text-left text-xs uppercase tracking-wider text-[var(--iw-semantic-text-secondary)]">
+                      <th className="px-4 py-2.5">Nombre</th>
+                      <th className="px-4 py-2.5">Categoría</th>
+                      <th className="px-4 py-2.5">Stock</th>
+                      <th className="px-4 py-2.5">Mínimo</th>
+                      <th className="px-4 py-2.5">Valor</th>
                     </tr>
-                  ))}
-                </tbody>
-              </table>
+                  </thead>
+                  <tbody className="divide-y divide-[var(--iw-semantic-border-default)]/70">
+                    {filteredSupplies.map((s) => (
+                      <tr key={s.supplyId} className={s.isLow ? "bg-[var(--iw-color-paper)]" : ""}>
+                        <td className="px-4 py-2.5 font-medium">{s.name}</td>
+                        <td className="px-4 py-2.5 text-[var(--iw-semantic-text-secondary)]">{s.category}</td>
+                        <td className={`px-4 py-2.5 ${s.isLow ? "font-semibold text-[var(--iw-semantic-status-danger)]" : ""}`}>{s.currentStock} {s.unit}</td>
+                        <td className="px-4 py-2.5">{s.minStock}</td>
+                        <td className="px-4 py-2.5 font-medium">${s.estimatedValue.toLocaleString()}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
             )}
           </div>
 
@@ -655,24 +674,34 @@ export default function BalancePage() {
                   }
                 />
               ) : (
-                <table className="w-full text-sm">
-                  <thead><tr className="border-b text-left text-gray-500">
-                    <th className="py-2">Fecha</th><th>Origen</th><th>Especie</th><th>Kg</th><th>Disponible</th><th>Precio estimado/kg</th><th>Valor estimado</th>
-                  </tr></thead>
-                  <tbody>
-                    {filteredMeat.map((m) => (
-                      <tr key={m.id} className="border-b">
-                        <td className="py-2">{m.date}</td>
-                        <td>{m.source}</td>
-                        <td>{m.species}</td>
-                        <td>{m.quantityKg} kg</td>
-                        <td>{m.availableKg} kg</td>
-                        <td>{fmtMoney(m.estimatedPriceKg)}</td>
-                        <td className="font-medium">{fmtMoney(m.estimatedValue)}</td>
+                <div className="overflow-x-auto rounded-[var(--iw-radius-control)] border border-[var(--iw-semantic-border-default)]">
+                  <table className="w-full text-sm tabular-nums text-[var(--iw-semantic-text-primary)]">
+                    <thead>
+                      <tr className="bg-[var(--iw-semantic-bg-subtle)] border-b border-[var(--iw-semantic-border-default)] text-left text-xs uppercase tracking-wider text-[var(--iw-semantic-text-secondary)]">
+                        <th className="px-4 py-2.5">Fecha</th>
+                        <th className="px-4 py-2.5">Origen</th>
+                        <th className="px-4 py-2.5">Especie</th>
+                        <th className="px-4 py-2.5">Kg</th>
+                        <th className="px-4 py-2.5">Disponible</th>
+                        <th className="px-4 py-2.5">Precio estimado/kg</th>
+                        <th className="px-4 py-2.5">Valor estimado</th>
                       </tr>
-                    ))}
-                  </tbody>
-                </table>
+                    </thead>
+                    <tbody className="divide-y divide-[var(--iw-semantic-border-default)]/70">
+                      {filteredMeat.map((m) => (
+                        <tr key={m.id}>
+                          <td className="px-4 py-2.5">{m.date}</td>
+                          <td className="px-4 py-2.5">{m.source}</td>
+                          <td className="px-4 py-2.5">{m.species}</td>
+                          <td className="px-4 py-2.5">{m.quantityKg} kg</td>
+                          <td className="px-4 py-2.5">{m.availableKg} kg</td>
+                          <td className="px-4 py-2.5">{fmtMoney(m.estimatedPriceKg)}</td>
+                          <td className="px-4 py-2.5 font-medium">{fmtMoney(m.estimatedValue)}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
               )}
             </div>
           )}

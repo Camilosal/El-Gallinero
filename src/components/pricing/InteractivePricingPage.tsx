@@ -24,10 +24,10 @@ function money(value: number): string {
 }
 
 function statusColor(state: PricingCatalogBenefit["availability"]["state"]): string {
-  if (state === "operational") return "border-[#bed9c3] bg-[#e8f3e9] text-[#265e37]";
-  if (state === "progressive") return "border-[#ead5ae] bg-[#fbf3e4] text-[#805b23]";
-  if (state === "manual") return "border-[#d8d8c8] bg-[#f3f2eb] text-[#62644e]";
-  return "border-[#e7c5bb] bg-[#faece7] text-[#813f30]";
+  if (state === "operational") return "border-[var(--iw-semantic-status-success)]/40 bg-[var(--iw-semantic-bg-feature)] text-[var(--iw-semantic-status-success)]";
+  if (state === "progressive") return "border-[var(--iw-semantic-status-warning)]/40 bg-[var(--iw-color-paper)] text-[var(--iw-semantic-status-warning)]";
+  if (state === "manual") return "border-[var(--iw-semantic-border-default)] bg-[var(--iw-semantic-bg-subtle)] text-[var(--iw-semantic-text-secondary)]";
+  return "border-[var(--iw-semantic-status-danger)]/40 bg-[var(--iw-semantic-bg-subtle)] text-[var(--iw-semantic-status-danger)]";
 }
 
 function planName(segment: PricingSegment): string {
@@ -483,22 +483,26 @@ export default function InteractivePricingPage() {
 
   return (
     <div className="space-y-10">
-      {offerError && <div role="alert" className="rounded-xl border border-red-300 bg-red-50 p-4 text-sm text-red-900">{offerError} Recarga la página para intentarlo de nuevo.</div>}
+      {offerError && (
+        <div role="alert" className="rounded-[var(--iw-radius-control)] border border-[var(--iw-semantic-status-danger)]/40 bg-[var(--iw-semantic-bg-surface)] p-4 text-sm text-[var(--iw-semantic-status-danger)]">
+          {offerError} Recarga la página para intentarlo de nuevo.
+        </div>
+      )}
 
       <section aria-labelledby={id + "-plans-heading"}>
         <div className="mx-auto mb-7 max-w-3xl text-center">
-          <p className="text-[11px] font-extrabold uppercase tracking-[.16em] text-[#a56e34]">Planes y precios</p>
-          <h2 id={id + "-plans-heading"} className="mt-2 font-serif text-4xl font-medium leading-tight text-[#183f31] sm:text-5xl">Elige cómo quieres crecer.</h2>
-          <p className="mt-3 text-sm leading-6 text-[#718078]">Dos formas de usar IwaGranja, con herramientas adecuadas para cada escala.</p>
+          <p className="font-mono text-[11px] font-bold uppercase tracking-[.16em] text-[var(--iw-semantic-action-primary)]">Planes y precios</p>
+          <h2 id={id + "-plans-heading"} className="mt-2 font-display text-4xl font-medium leading-tight text-[var(--iw-semantic-text-primary)] sm:text-5xl">Elige cómo quieres crecer.</h2>
+          <p className="mt-3 text-sm leading-6 text-[var(--iw-semantic-text-secondary)]">Dos formas de usar IwaGranja, con herramientas adecuadas para cada escala.</p>
         </div>
 
-        <div className="mx-auto mb-7 flex w-fit max-w-full rounded-full bg-[#e9eee7] p-1" role="group" aria-label="Grupo de planes">
+        <div className="mx-auto mb-7 flex w-fit max-w-full rounded-full border border-[var(--iw-semantic-border-default)] bg-[var(--iw-semantic-bg-feature)] p-1" role="group" aria-label="Grupo de planes">
           <button
             type="button"
             aria-pressed={segment === "producer"}
             aria-controls={id + "-plan-cards"}
             onClick={() => changeSegment("producer")}
-            className={"min-h-11 rounded-full px-5 text-sm font-bold transition " + (segment === "producer" ? "bg-white text-[#183f31] shadow-sm" : "text-[#65766b] hover:text-[#183f31]")}
+            className={"min-h-11 rounded-full px-5 text-sm font-bold transition " + (segment === "producer" ? "bg-[var(--iw-semantic-bg-surface)] text-[var(--iw-semantic-action-primary)] shadow-[var(--iw-shadow-card)]" : "text-[var(--iw-semantic-text-secondary)] hover:text-[var(--iw-semantic-text-primary)]")}
           >
             <span className="inline-flex items-center gap-2"><House className="h-4 w-4" aria-hidden="true" />Mi granja</span>
           </button>
@@ -507,7 +511,7 @@ export default function InteractivePricingPage() {
             aria-pressed={segment === "aggregator"}
             aria-controls={id + "-plan-cards"}
             onClick={() => changeSegment("aggregator")}
-            className={"min-h-11 rounded-full px-5 text-sm font-bold transition " + (segment === "aggregator" ? "bg-white text-[#183f31] shadow-sm" : "text-[#65766b] hover:text-[#183f31]")}
+            className={"min-h-11 rounded-full px-5 text-sm font-bold transition " + (segment === "aggregator" ? "bg-[var(--iw-semantic-bg-surface)] text-[var(--iw-semantic-action-primary)] shadow-[var(--iw-shadow-card)]" : "text-[var(--iw-semantic-text-secondary)] hover:text-[var(--iw-semantic-text-primary)]")}
           >
             <span className="inline-flex items-center gap-2"><Users className="h-4 w-4" aria-hidden="true" />Organizaciones y proyectos</span>
           </button>
@@ -523,7 +527,7 @@ export default function InteractivePricingPage() {
                 price="$0"
                 priceNote="para siempre"
                 benefits={offer ? getPricingPlanCardBenefits(offer, "free") : []}
-                action={<Link href="/registro" className="inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-xl border border-[#c8d6ca] px-4 text-sm font-bold text-[#183f31] hover:bg-[#f3f6f1]">Empezar gratis <ArrowRight className="h-4 w-4" aria-hidden="true" /></Link>}
+                action={<Link href="/registro" className="inline-flex min-h-12 w-full items-center justify-center gap-2 rounded-[var(--iw-radius-control)] border border-[var(--iw-semantic-action-secondary-border)] bg-[var(--iw-semantic-action-secondary)] px-4 text-sm font-bold text-[var(--iw-semantic-action-secondary-text)] hover:bg-[var(--iw-semantic-bg-feature)] transition">Empezar gratis <ArrowRight className="h-4 w-4" aria-hidden="true" /></Link>}
               />
               <PlanCard
                 recommended
@@ -533,7 +537,7 @@ export default function InteractivePricingPage() {
                 price={offer ? money(offer.producer.userTiers[0]?.priceCop ?? 0) : "…"}
                 priceNote="por usuario / mes desde"
                 benefits={offer ? getPricingPlanCardBenefits(offer, "producer") : []}
-                action={<button type="button" onClick={() => selectPlan("producer")} className="inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-xl bg-[#ddb47f] px-4 text-sm font-bold text-[#29352c] hover:bg-[#e9c491]">Configurar Productor <ArrowRight className="h-4 w-4" aria-hidden="true" /></button>}
+                action={<button type="button" onClick={() => selectPlan("producer")} className="inline-flex min-h-12 w-full items-center justify-center gap-2 rounded-[var(--iw-radius-control)] bg-[var(--iw-semantic-action-primary)] px-4 text-sm font-bold text-[var(--iw-semantic-action-primary-text)] hover:bg-[var(--iw-semantic-action-primary-hover)] transition">Configurar Productor <ArrowRight className="h-4 w-4" aria-hidden="true" /></button>}
               />
             </>
           ) : (
@@ -546,7 +550,7 @@ export default function InteractivePricingPage() {
                 price={offer ? money(offer.aggregator.beneficiaryTiers[0]?.priceCop ?? 0) : "…"}
                 priceNote="por beneficiario / mes desde"
                 benefits={offer ? getPricingPlanCardBenefits(offer, "aggregator") : []}
-                action={<button type="button" onClick={() => selectPlan("aggregator")} className="inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-xl bg-[#ddb47f] px-4 text-sm font-bold text-[#29352c] hover:bg-[#e9c491]">Configurar Organización <ArrowRight className="h-4 w-4" aria-hidden="true" /></button>}
+                action={<button type="button" onClick={() => selectPlan("aggregator")} className="inline-flex min-h-12 w-full items-center justify-center gap-2 rounded-[var(--iw-radius-control)] bg-[var(--iw-semantic-action-primary)] px-4 text-sm font-bold text-[var(--iw-semantic-action-primary-text)] hover:bg-[var(--iw-semantic-action-primary-hover)] transition">Configurar Organización <ArrowRight className="h-4 w-4" aria-hidden="true" /></button>}
               />
               <PlanCard
                 eyebrow="Programas especiales"
@@ -555,13 +559,13 @@ export default function InteractivePricingPage() {
                 price="Hablemos"
                 priceNote="de tu proyecto"
                 benefits={["Diseñamos el plan según las necesidades de tu organización", "Acompañamiento durante la puesta en marcha", "Formación e indicadores acordes al proyecto", "Integraciones según los objetivos acordados"]}
-                action={<Link href="/contacto" className="inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-xl border border-[#c8d6ca] px-4 text-sm font-bold text-[#183f31] hover:bg-[#f3f6f1]">Diseñar el alcance <ArrowRight className="h-4 w-4" aria-hidden="true" /></Link>}
+                action={<Link href="/contacto" className="inline-flex min-h-12 w-full items-center justify-center gap-2 rounded-[var(--iw-radius-control)] border border-[var(--iw-semantic-action-secondary-border)] bg-[var(--iw-semantic-action-secondary)] px-4 text-sm font-bold text-[var(--iw-semantic-action-secondary-text)] hover:bg-[var(--iw-semantic-bg-feature)] transition">Diseñar el alcance <ArrowRight className="h-4 w-4" aria-hidden="true" /></Link>}
               />
             </>
           )}
         </div>
 
-        <p className="mx-auto mt-5 max-w-4xl text-center text-xs leading-5 text-[#718078]">
+        <p className="mx-auto mt-5 max-w-4xl text-center text-xs leading-5 text-[var(--iw-semantic-text-secondary)]">
             {!offer
             ? "Estamos preparando las opciones para ti."
             : segment === "producer"
@@ -572,49 +576,49 @@ export default function InteractivePricingPage() {
 
       <section id="calculadora" aria-labelledby={id + "-calculator-heading"} className="scroll-mt-56">
         <div className="mb-5 max-w-3xl">
-          <p className="text-[11px] font-extrabold uppercase tracking-[.14em] text-[#9d7852]">Tu suscripción</p>
-          <h2 id={id + "-calculator-heading"} className="mt-2 font-serif text-3xl font-medium leading-tight text-[#183f31] sm:text-4xl">
+          <p className="font-mono text-[11px] font-bold uppercase tracking-[.14em] text-[var(--iw-semantic-action-primary)]">Tu suscripción</p>
+          <h2 id={id + "-calculator-heading"} className="mt-2 font-display text-3xl font-medium leading-tight text-[var(--iw-semantic-text-primary)] sm:text-4xl">
             Configura {planName(segment)}
           </h2>
-          <p className="mt-2 text-sm leading-6 text-[#718078]">{segment === "producer" ? "Indica cuántas personas usarán IwaGranja y por cuánto tiempo." : "Elige el tamaño de tu grupo y el tiempo de permanencia."}</p>
+          <p className="mt-2 text-sm leading-6 text-[var(--iw-semantic-text-secondary)]">{segment === "producer" ? "Indica cuántas personas usarán IwaGranja y por cuánto tiempo." : "Elige el tamaño de tu grupo y el tiempo de permanencia."}</p>
         </div>
 
         <div className="grid gap-4 md:grid-cols-2">
-          <article className="rounded-2xl border border-[#d8dfd4] bg-white p-4 shadow-[0_8px_25px_rgba(24,63,49,.04)] sm:p-5">
+          <article className="rounded-2xl border border-[var(--iw-semantic-border-default)] bg-[var(--iw-semantic-bg-surface)] p-4 shadow-[var(--iw-shadow-card)] sm:p-5">
             <div className="flex items-start gap-3">
-              <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-[#e8f0e6] text-sm font-extrabold text-[#397657]">1</span>
+              <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-[var(--iw-semantic-bg-feature)] text-sm font-extrabold text-[var(--iw-semantic-action-primary)]">1</span>
               <div>
-                <h3 className="font-bold text-[#183f31]">{segment === "producer" ? "Usuarios de tu granja" : "Beneficiarios de tu grupo"}</h3>
-                <p className="mt-1 text-xs leading-5 text-[#718078]">{segment === "producer" ? "Indica cuántas personas usarán IwaGranja." : "Indica cuántas unidades productivas quieres incluir."}</p>
+                <h3 className="font-bold text-[var(--iw-semantic-text-primary)]">{segment === "producer" ? "Usuarios de tu granja" : "Beneficiarios de tu grupo"}</h3>
+                <p className="mt-1 text-xs leading-5 text-[var(--iw-semantic-text-secondary)]">{segment === "producer" ? "Indica cuántas personas usarán IwaGranja." : "Indica cuántas unidades productivas quieres incluir."}</p>
               </div>
             </div>
 
             <div className="mt-5 flex items-center justify-between gap-3">
-              <label htmlFor={id + "-quantity"} className="text-sm font-bold text-[#26372d]">{segment === "producer" ? "Personas en tu equipo" : "Beneficiarios pagos"}</label>
-              <div className="flex h-10 items-center rounded-xl border border-[#c8d6ca] bg-[#f8faf7]">
-                <button type="button" aria-label={segment === "producer" ? "Reducir personas" : "Reducir beneficiarios"} onClick={() => chooseQuantity(Math.max(segment === "producer" ? 1 : offer?.aggregator.minPaidBeneficiaries ?? 25, (segment === "producer" ? users : beneficiaries) - 1))} disabled={(segment === "producer" ? users : beneficiaries) <= (segment === "producer" ? 1 : offer?.aggregator.minPaidBeneficiaries ?? 25)} className="flex h-10 w-10 items-center justify-center rounded-l-xl text-[#397657] hover:bg-[#e8f0e6] disabled:opacity-40"><Minus className="h-4 w-4" aria-hidden="true" /></button>
-                <output htmlFor={id + "-quantity"} className="min-w-10 text-center text-base font-extrabold text-[#183f31]">{COUNT.format(segment === "producer" ? users : beneficiaries)}</output>
-                <button type="button" aria-label={segment === "producer" ? "Aumentar personas" : "Aumentar beneficiarios"} onClick={() => chooseQuantity(Math.min(segment === "producer" ? offer?.producer.maxUsers ?? 25 : offer?.aggregator.maxEstimatorBeneficiaries ?? 5000, (segment === "producer" ? users : beneficiaries) + 1))} disabled={(segment === "producer" ? users : beneficiaries) >= (segment === "producer" ? offer?.producer.maxUsers ?? 25 : offer?.aggregator.maxEstimatorBeneficiaries ?? 5000)} className="flex h-10 w-10 items-center justify-center rounded-r-xl text-[#397657] hover:bg-[#e8f0e6] disabled:opacity-40"><Plus className="h-4 w-4" aria-hidden="true" /></button>
+              <label htmlFor={id + "-quantity"} className="text-sm font-bold text-[var(--iw-semantic-text-primary)]">{segment === "producer" ? "Personas en tu equipo" : "Beneficiarios pagos"}</label>
+              <div className="flex h-11 items-center rounded-[var(--iw-radius-control)] border border-[var(--iw-semantic-border-input)] bg-[var(--iw-semantic-bg-subtle)]">
+                <button type="button" aria-label={segment === "producer" ? "Reducir personas" : "Reducir beneficiarios"} onClick={() => chooseQuantity(Math.max(segment === "producer" ? 1 : offer?.aggregator.minPaidBeneficiaries ?? 25, (segment === "producer" ? users : beneficiaries) - 1))} disabled={(segment === "producer" ? users : beneficiaries) <= (segment === "producer" ? 1 : offer?.aggregator.minPaidBeneficiaries ?? 25)} className="flex h-11 w-11 items-center justify-center rounded-l-[var(--iw-radius-control)] text-[var(--iw-semantic-action-primary)] hover:bg-[var(--iw-semantic-bg-feature)] disabled:opacity-40"><Minus className="h-4 w-4" aria-hidden="true" /></button>
+                <output htmlFor={id + "-quantity"} className="min-w-10 text-center text-base font-extrabold text-[var(--iw-semantic-text-primary)] tabular-nums">{COUNT.format(segment === "producer" ? users : beneficiaries)}</output>
+                <button type="button" aria-label={segment === "producer" ? "Aumentar personas" : "Aumentar beneficiarios"} onClick={() => chooseQuantity(Math.min(segment === "producer" ? offer?.producer.maxUsers ?? 25 : offer?.aggregator.maxEstimatorBeneficiaries ?? 5000, (segment === "producer" ? users : beneficiaries) + 1))} disabled={(segment === "producer" ? users : beneficiaries) >= (segment === "producer" ? offer?.producer.maxUsers ?? 25 : offer?.aggregator.maxEstimatorBeneficiaries ?? 5000)} className="flex h-11 w-11 items-center justify-center rounded-r-[var(--iw-radius-control)] text-[var(--iw-semantic-action-primary)] hover:bg-[var(--iw-semantic-bg-feature)] disabled:opacity-40"><Plus className="h-4 w-4" aria-hidden="true" /></button>
               </div>
             </div>
 
-            <input id={id + "-quantity"} type="range" min={segment === "producer" ? 1 : offer?.aggregator.minPaidBeneficiaries ?? 25} max={segment === "producer" ? offer?.producer.maxUsers ?? 25 : offer?.aggregator.maxEstimatorBeneficiaries ?? 5000} step={1} value={segment === "producer" ? users : beneficiaries} onChange={(event) => chooseQuantity(Number(event.target.value))} aria-label={segment === "producer" ? "Cantidad de personas en tu equipo" : "Cantidad de beneficiarios pagos"} className="mt-5 h-2 w-full cursor-pointer accent-[#397657]" disabled={!offer} />
-            <div className="mt-1 flex justify-between text-[10px] text-[#89978d]"><span>{segment === "producer" ? "1 persona" : COUNT.format(offer?.aggregator.minPaidBeneficiaries ?? 25)}</span><span>{COUNT.format(segment === "producer" ? offer?.producer.maxUsers ?? 25 : offer?.aggregator.maxEstimatorBeneficiaries ?? 5000)}</span></div>
+            <input id={id + "-quantity"} type="range" min={segment === "producer" ? 1 : offer?.aggregator.minPaidBeneficiaries ?? 25} max={segment === "producer" ? offer?.producer.maxUsers ?? 25 : offer?.aggregator.maxEstimatorBeneficiaries ?? 5000} step={1} value={segment === "producer" ? users : beneficiaries} onChange={(event) => chooseQuantity(Number(event.target.value))} aria-label={segment === "producer" ? "Cantidad de personas en tu equipo" : "Cantidad de beneficiarios pagos"} className="mt-5 h-2 w-full cursor-pointer accent-[var(--iw-semantic-action-primary)]" disabled={!offer} />
+            <div className="mt-1 flex justify-between text-[10px] text-[var(--iw-semantic-text-secondary)] tabular-nums"><span>{segment === "producer" ? "1 persona" : COUNT.format(offer?.aggregator.minPaidBeneficiaries ?? 25)}</span><span>{COUNT.format(segment === "producer" ? offer?.producer.maxUsers ?? 25 : offer?.aggregator.maxEstimatorBeneficiaries ?? 5000)}</span></div>
             <div className="mt-4 flex flex-wrap gap-2" role="group" aria-label="Cantidades sugeridas">
               {(segment === "producer" ? [1, 3, 5, 10, 25] : [25, 50, 150, 500]).map((value) => {
                 const selected = (segment === "producer" ? users : beneficiaries) === value;
-                return <button key={value} type="button" aria-pressed={selected} onClick={() => chooseQuantity(value)} className={"min-h-9 min-w-10 rounded-lg border px-3 text-xs font-bold transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#397657] " + (selected ? "border-[#578464] bg-[#e6f0e7] text-[#1f5138]" : "border-[#e2e7dd] bg-[#f8faf7] text-[#536257] hover:border-[#aebfae]")}>{COUNT.format(value)}</button>;
+                return <button key={value} type="button" aria-pressed={selected} onClick={() => chooseQuantity(value)} className={"min-h-10 min-w-10 rounded-[var(--iw-radius-control)] border px-3 text-xs font-bold tabular-nums transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--iw-semantic-focus-ring)] " + (selected ? "border-[var(--iw-semantic-action-primary)] bg-[var(--iw-semantic-bg-feature)] text-[var(--iw-semantic-action-primary)]" : "border-[var(--iw-semantic-border-default)] bg-[var(--iw-semantic-bg-subtle)] text-[var(--iw-semantic-text-secondary)] hover:border-[var(--iw-semantic-action-primary)]")}>{COUNT.format(value)}</button>;
               })}
             </div>
-            <p className="mt-3 text-[11px] leading-5 text-[#718078]">Al ampliar tu equipo, el precio por persona disminuye por tramos.</p>
+            <p className="mt-3 text-[11px] leading-5 text-[var(--iw-semantic-text-secondary)]">Al ampliar tu equipo, el precio por persona disminuye por tramos.</p>
           </article>
 
-          <article className="rounded-2xl border border-[#d8dfd4] bg-white p-4 shadow-[0_8px_25px_rgba(24,63,49,.04)] sm:p-5">
+          <article className="rounded-2xl border border-[var(--iw-semantic-border-default)] bg-[var(--iw-semantic-bg-surface)] p-4 shadow-[var(--iw-shadow-card)] sm:p-5">
             <div className="flex items-start gap-3">
-              <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-[#e8f0e6] text-sm font-extrabold text-[#397657]">2</span>
+              <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-[var(--iw-semantic-bg-feature)] text-sm font-extrabold text-[var(--iw-semantic-action-primary)]">2</span>
               <div>
-                <h3 className="font-bold text-[#183f31]">Elige tu permanencia</h3>
-                <p className="mt-1 text-xs leading-5 text-[#718078]">Los períodos más largos pueden reducir tu precio promedio.</p>
+                <h3 className="font-bold text-[var(--iw-semantic-text-primary)]">Elige tu permanencia</h3>
+                <p className="mt-1 text-xs leading-5 text-[var(--iw-semantic-text-secondary)]">Los períodos más largos pueden reducir tu precio promedio.</p>
               </div>
             </div>
 
@@ -622,21 +626,21 @@ export default function InteractivePricingPage() {
               <legend className="sr-only">Duración de la suscripción</legend>
               <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
                 {(segment === "producer" ? offer?.producer.terms : offer?.aggregator.terms)?.map((term) => (
-                  <button key={term.months} type="button" aria-pressed={months === term.months} onClick={() => chooseTerm(term.months)} className={"min-h-[4.75rem] rounded-xl border px-2 py-2 text-sm font-bold transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#397657] " + (months === term.months ? "border-[#578464] bg-[#eaf2e8] text-[#1f5138] shadow-[inset_0_0_0_1px_#578464]" : "border-[#e2e7dd] bg-white text-[#26372d] hover:border-[#aebfae]")}>
+                  <button key={term.months} type="button" aria-pressed={months === term.months} onClick={() => chooseTerm(term.months)} className={"min-h-[4.75rem] rounded-[var(--iw-radius-control)] border px-2 py-2 text-sm font-bold tabular-nums transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--iw-semantic-focus-ring)] " + (months === term.months ? "border-[var(--iw-semantic-action-primary)] bg-[var(--iw-semantic-bg-feature)] text-[var(--iw-semantic-action-primary)] shadow-[inset_0_0_0_1px_var(--iw-semantic-action-primary)]" : "border-[var(--iw-semantic-border-default)] bg-[var(--iw-semantic-bg-surface)] text-[var(--iw-semantic-text-primary)] hover:border-[var(--iw-semantic-action-primary)]")}>
                     {term.months} {term.months === 1 ? "mes" : "meses"}
-                    <span className="mt-1 block text-[10px] font-medium text-[#718078]">{term.discountPct ? `Ahorra ${term.discountPct}%` : "Precio regular"}</span>
+                    <span className="mt-1 block text-[10px] font-medium text-[var(--iw-semantic-text-secondary)]">{term.discountPct ? `Ahorra ${term.discountPct}%` : "Precio regular"}</span>
                   </button>
                 ))}
               </div>
             </fieldset>
 
             {(
-              <div className="mt-4 rounded-xl border border-[#e7eae4] bg-[#f7f8f4] p-3">
+              <div className="mt-4 rounded-[var(--iw-radius-control)] border border-[var(--iw-semantic-border-default)] bg-[var(--iw-semantic-bg-subtle)] p-3">
                 <label className="flex cursor-pointer items-start gap-3">
-                  <input type="checkbox" checked={renewal} onChange={(event) => chooseRenewal(event.target.checked)} className="mt-0.5 h-4 w-4 shrink-0 accent-[#397657]" />
+                  <input type="checkbox" checked={renewal} onChange={(event) => chooseRenewal(event.target.checked)} className="mt-0.5 h-4 w-4 shrink-0 accent-[var(--iw-semantic-action-primary)]" />
                   <span>
-                    <span className="block text-xs font-bold text-[#26372d]">{segment === "producer" ? "Ya tengo una suscripción y quiero renovarla" : "Ya tengo un contrato institucional y quiero renovarlo"}</span>
-                    <span className="mt-1 block text-[10px] leading-4 text-[#718078]">
+                    <span className="block text-xs font-bold text-[var(--iw-semantic-text-primary)]">{segment === "producer" ? "Ya tengo una suscripción y quiero renovarla" : "Ya tengo un contrato institucional y quiero renovarlo"}</span>
+                    <span className="mt-1 block text-[10px] leading-4 text-[var(--iw-semantic-text-secondary)]">
                       {(segment === "producer" ? offer?.producer.renewalTerms : offer?.aggregator.renewalTerms)?.includes(months)
                         ? segment === "producer"
                           ? "La renovación recibe 5% adicional después del descuento por permanencia. Ingresa el FarmID para comprobar la granja y asociar el pago."
@@ -647,8 +651,8 @@ export default function InteractivePricingPage() {
                 </label>
 
                 {renewal && (
-                  <div className="mt-3 border-t border-[#e2e7dd] pt-3">
-                    <label htmlFor={id + "-renewal-farm-id"} className="block text-xs font-bold text-[#26372d]">FarmID de la granja</label>
+                  <div className="mt-3 border-t border-[var(--iw-semantic-border-default)] pt-3">
+                    <label htmlFor={id + "-renewal-farm-id"} className="block text-xs font-bold text-[var(--iw-semantic-text-primary)]">FarmID de la granja</label>
                     <div className="mt-2 flex flex-col gap-2 sm:flex-row">
                       <input
                         id={id + "-renewal-farm-id"}
@@ -664,22 +668,22 @@ export default function InteractivePricingPage() {
                         spellCheck={false}
                         maxLength={36}
                         placeholder="Pega aquí el FarmID"
-                        className="min-h-10 min-w-0 flex-1 rounded-lg border border-[#c8d6ca] bg-white px-3 text-xs text-[#26372d] outline-none focus-visible:ring-2 focus-visible:ring-[#397657]"
+                        className="min-h-11 min-w-0 flex-1 rounded-[var(--iw-radius-control)] border border-[var(--iw-semantic-border-input)] bg-[var(--iw-semantic-bg-surface)] px-3 text-xs text-[var(--iw-semantic-text-primary)] outline-none focus-visible:ring-2 focus-visible:ring-[var(--iw-semantic-focus-ring)]"
                       />
                       <button
                         type="button"
                         onClick={() => void verifyRenewalFarm()}
                         disabled={renewalVerification.loading || !farmId.trim()}
-                        className="inline-flex min-h-10 shrink-0 items-center justify-center gap-2 rounded-lg border border-[#aebfae] bg-white px-3 text-xs font-bold text-[#183f31] hover:bg-[#eaf2e8] disabled:cursor-not-allowed disabled:opacity-50"
+                        className="inline-flex min-h-11 shrink-0 items-center justify-center gap-2 rounded-[var(--iw-radius-control)] border border-[var(--iw-semantic-action-secondary-border)] bg-[var(--iw-semantic-action-secondary)] px-3 text-xs font-bold text-[var(--iw-semantic-action-secondary-text)] hover:bg-[var(--iw-semantic-bg-feature)] disabled:cursor-not-allowed disabled:opacity-50"
                       >
                         {renewalVerification.loading && <LoaderCircle className="h-3.5 w-3.5 animate-spin" aria-hidden="true" />}
                         Comprobar FarmID
                       </button>
                     </div>
-                    <p className="mt-1 text-[10px] leading-4 text-[#718078]">Lo encuentras en Inicio, en la opción «Copiar FarmID».</p>
-                    {verifiedRenewalFarm && <p role="status" className="mt-2 text-[11px] font-semibold text-[#2d7045]">{verifiedRenewalFarm.planName === "Organización" ? "Contrato institucional confirmado" : "Granja confirmada"}: {verifiedRenewalFarm.name}. {renewalApplied && (offer?.[segment].renewalTerms.includes(months) ? "El cálculo incluye 5% por continuidad." : "La renovación quedó asociada, pero este plazo no recibe el descuento de continuidad.")} </p>}
+                    <p className="mt-1 text-[10px] leading-4 text-[var(--iw-semantic-text-secondary)]">Lo encuentras en Inicio, en la opción «Copiar FarmID».</p>
+                    {verifiedRenewalFarm && <p role="status" className="mt-2 text-[11px] font-semibold text-[var(--iw-semantic-status-success)]">{verifiedRenewalFarm.planName === "Organización" ? "Contrato institucional confirmado" : "Granja confirmada"}: {verifiedRenewalFarm.name}. {renewalApplied && (offer?.[segment].renewalTerms.includes(months) ? "El cálculo incluye 5% por continuidad." : "La renovación quedó asociada, pero este plazo no recibe el descuento de continuidad.")} </p>}
                     {renewalVerification.error && (
-                      <p role="alert" className="mt-2 text-[11px] leading-5 text-[#813f30]">
+                      <p role="alert" className="mt-2 text-[11px] leading-5 text-[var(--iw-semantic-status-danger)]">
                         {renewalVerification.error}{renewalVerification.loginRequired && <> <Link href={checkoutLoginHref} className="font-bold underline underline-offset-2">Iniciar sesión</Link></>}
                       </p>
                     )}
@@ -690,83 +694,83 @@ export default function InteractivePricingPage() {
           </article>
         </div>
 
-        <aside aria-live="polite" aria-busy={quoteLoading} className="mt-4 rounded-3xl bg-[radial-gradient(ellipse_at_top_right,#305a45_0%,transparent_48%),linear-gradient(145deg,#1e4735,#102c21)] p-5 text-white shadow-[0_18px_55px_rgba(24,63,49,.12)] sm:p-7">
-          {quoteLoading && <div className="flex items-center gap-2 text-sm text-[#d0e1d2]"><LoaderCircle className="h-4 w-4 animate-spin" aria-hidden="true" />Actualizando el resumen de tu suscripción…</div>}
-          {currentResult?.error && <p role="alert" className="rounded-xl bg-white/10 p-3 text-sm text-white">{currentResult.error}</p>}
+        <aside aria-live="polite" aria-busy={quoteLoading} className="mt-4 rounded-2xl bg-[var(--iw-color-forest-dark)] p-5 text-[var(--iw-color-white)] shadow-[var(--iw-shadow-popover)] sm:p-7">
+          {quoteLoading && <div className="flex items-center gap-2 text-sm text-[var(--iw-color-paper)]"><LoaderCircle className="h-4 w-4 animate-spin" aria-hidden="true" />Actualizando el resumen de tu suscripción…</div>}
+          {currentResult?.error && <p role="alert" className="rounded-[var(--iw-radius-control)] bg-white/10 p-3 text-sm text-white">{currentResult.error}</p>}
           {quote && (
             <>
               <div className="grid gap-5 md:grid-cols-[.9fr_1.1fr]">
                 <div>
-                  <p className="text-[10px] font-extrabold uppercase tracking-[.15em] text-[#b7d0b8]">Tu suscripción {planName(segment)}</p>
-                  <p className="mt-3 text-xs text-[#c9d8cb]">Total prepago por {quote.periodMonths} {quote.periodMonths === 1 ? "mes" : "meses"}</p>
-                  <p className="mt-1 font-serif text-4xl font-bold tracking-tight text-white sm:text-5xl">{money(quote.totalBeforeLogisticsAndTaxCop)}</p>
-                  <p className="mt-2 text-sm font-semibold text-[#f2d5a4]">{money(quote.subscription.effectiveUnitMonthlyCop)} por {segment === "producer" ? "persona" : "beneficiario habilitado"} al mes</p>
-                  <p className="mt-1 text-xs text-[#d0e1d2]">Suscripción: {money(quote.subscription.monthlyEquivalentCop)} al mes · sin renovación automática.</p>
-                  {quote.implementationOnceCop > 0 && <p className="mt-2 text-xs text-[#f2d5a4]">Incluye implementación única de {money(quote.implementationOnceCop)}.</p>}
+                  <p className="font-mono text-[10px] font-extrabold uppercase tracking-[.15em] text-[var(--iw-color-sage)]">Tu suscripción {planName(segment)}</p>
+                  <p className="mt-3 text-xs text-[var(--iw-color-paper)]/85">Total prepago por {quote.periodMonths} {quote.periodMonths === 1 ? "mes" : "meses"}</p>
+                  <p className="mt-1 font-display text-4xl font-bold tracking-tight text-white tabular-nums sm:text-5xl">{money(quote.totalBeforeLogisticsAndTaxCop)}</p>
+                  <p className="mt-2 text-sm font-semibold text-[var(--iw-color-sage)] tabular-nums">{money(quote.subscription.effectiveUnitMonthlyCop)} por {segment === "producer" ? "persona" : "beneficiario habilitado"} al mes</p>
+                  <p className="mt-1 text-xs text-[var(--iw-color-paper)]/85 tabular-nums">Suscripción: {money(quote.subscription.monthlyEquivalentCop)} al mes · sin renovación automática.</p>
+                  {quote.implementationOnceCop > 0 && <p className="mt-2 text-xs text-[var(--iw-color-paper)] tabular-nums">Incluye implementación única de {money(quote.implementationOnceCop)}.</p>}
 
-                  <div className="mt-4 space-y-2 border-t border-white/15 pt-3 text-xs leading-5 text-[#d0e1d2]">
+                  <div className="mt-4 space-y-2 border-t border-white/15 pt-3 text-xs leading-5 text-[var(--iw-color-paper)]/90 tabular-nums">
                     <p><strong className="text-white">Ahorro por cantidad:</strong> {money(quote.subscription.volumeSavingsCop)} en el período · {money(quote.subscription.volumeAdjustedMonthlyCop)}/mes antes del descuento por permanencia.</p>
                     <p><strong className="text-white">Ahorro por permanencia:</strong> {money(quote.subscription.durationSavingsCop)} · {quote.subscription.durationDiscountPct}% aplicado después del precio por cantidad.</p>
                     {quote.subscription.loyaltySavingsCop > 0 && <p><strong className="text-white">{segment === "producer" ? "Beneficio de renovación" : "Beneficio de continuidad"}:</strong> {money(quote.subscription.loyaltySavingsCop)} adicional ({quote.subscription.loyaltyDiscountPct}%).</p>}
-                    <p className="font-semibold text-[#f2d5a4]">Ahorro combinado: {money(quote.subscription.combinedSavingsCop)} ({quote.subscription.combinedSavingsPct.toLocaleString("es-CO", { maximumFractionDigits: 2 })}%) frente a {money(quote.subscription.baseReferencePeriodTotalCop)}.</p>
+                    <p className="font-semibold text-[var(--iw-color-sage)]">Ahorro combinado: {money(quote.subscription.combinedSavingsCop)} ({quote.subscription.combinedSavingsPct.toLocaleString("es-CO", { maximumFractionDigits: 2 })}%) frente a {money(quote.subscription.baseReferencePeriodTotalCop)}.</p>
                   </div>
                 </div>
 
                 <div className="rounded-2xl border border-white/15 bg-white/[.06] p-4 sm:p-5">
                   <h3 className="text-sm font-bold text-white">En esta suscripción recibes</h3>
-                  <ul className="mt-3 space-y-2.5 text-xs leading-5 text-[#e1ece2]">
-                    {includedSubscriptionBenefits(offer!, quote).map((item) => <li key={item} className="flex gap-2"><Check className="mt-0.5 h-4 w-4 shrink-0 text-[#c2d9b7]" aria-hidden="true" /><span>{item}</span></li>)}
-                    <li className="flex gap-2"><Check className="mt-0.5 h-4 w-4 shrink-0 text-[#c2d9b7]" aria-hidden="true" /><span>{quote.logistics.coverage}</span></li>
-                    {quote.taxes.status && <li className="flex gap-2"><Check className="mt-0.5 h-4 w-4 shrink-0 text-[#c2d9b7]" aria-hidden="true" /><span>{quote.taxes.status}</span></li>}
+                  <ul className="mt-3 space-y-2.5 text-xs leading-5 text-[var(--iw-color-paper)]">
+                    {includedSubscriptionBenefits(offer!, quote).map((item) => <li key={item} className="flex gap-2"><Check className="mt-0.5 h-4 w-4 shrink-0 text-[var(--iw-color-sage)]" aria-hidden="true" /><span>{item}</span></li>)}
+                    <li className="flex gap-2"><Check className="mt-0.5 h-4 w-4 shrink-0 text-[var(--iw-color-sage)]" aria-hidden="true" /><span>{quote.logistics.coverage}</span></li>
+                    {quote.taxes.status && <li className="flex gap-2"><Check className="mt-0.5 h-4 w-4 shrink-0 text-[var(--iw-color-sage)]" aria-hidden="true" /><span>{quote.taxes.status}</span></li>}
                   </ul>
-                  <Link href="#explorador-de-alcances" className="mt-4 inline-flex items-center gap-1 text-xs font-bold text-[#f2d5a4] underline underline-offset-4">Revisar alcance y exclusiones <ArrowRight className="h-3.5 w-3.5" aria-hidden="true" /></Link>
+                  <Link href="#explorador-de-alcances" className="mt-4 inline-flex items-center gap-1 text-xs font-bold text-[var(--iw-color-sage)] underline underline-offset-4">Revisar alcance y exclusiones <ArrowRight className="h-3.5 w-3.5" aria-hidden="true" /></Link>
                 </div>
               </div>
 
               {segment === "producer" ? (
                 <div className="mt-5 border-t border-white/15 pt-4">
-                  <button type="button" onClick={openCheckoutReview} disabled={!quote || quoteLoading || checkoutState.loading || (renewal && !renewalApplied)} className="mt-4 inline-flex min-h-12 w-full items-center justify-center gap-2 rounded-xl bg-[#edc993] px-4 text-sm font-extrabold text-[#183f31] transition hover:bg-[#f5d7a8] disabled:cursor-not-allowed disabled:opacity-55">
+                  <button type="button" onClick={openCheckoutReview} disabled={!quote || quoteLoading || checkoutState.loading || (renewal && !renewalApplied)} className="mt-4 inline-flex min-h-12 w-full items-center justify-center gap-2 rounded-[var(--iw-radius-control)] bg-[var(--iw-color-paper)] px-4 text-sm font-extrabold text-[var(--iw-color-ink-strong)] transition hover:bg-[var(--iw-color-white)] disabled:cursor-not-allowed disabled:opacity-55">
                     Continuar con Productor <ArrowRight className="h-4 w-4" aria-hidden="true" />
                   </button>
-                  <p className="mt-2 text-center text-[10px] leading-4 text-[#c9d8cb]">Antes de iniciar el pago podrás revisar el importe, los beneficios y las condiciones de tu suscripción.</p>
+                  <p className="mt-2 text-center text-[10px] leading-4 text-[var(--iw-color-paper)]/80">Antes de iniciar el pago podrás revisar el importe, los beneficios y las condiciones de tu suscripción.</p>
                 </div>
               ) : (
                 <div className="mt-5 border-t border-white/15 pt-4">
-                  <p className="text-xs leading-5 text-[#d0e1d2]">{renewal ? renewalApplied ? "El equipo revisará el contrato y el tamaño de la cohorte antes de confirmar la renovación." : "Comprueba el FarmID para validar el contrato y asociar la solicitud de renovación." : "Nuestro equipo te ayudará a concretar la activación de tu grupo."}</p>
+                  <p className="text-xs leading-5 text-[var(--iw-color-paper)]">{renewal ? renewalApplied ? "El equipo revisará el contrato y el tamaño de la cohorte antes de confirmar la renovación." : "Comprueba el FarmID para validar el contrato y asociar la solicitud de renovación." : "Nuestro equipo te ayudará a concretar la activación de tu grupo."}</p>
                   {renewal && !renewalApplied ? (
-                    <button type="button" disabled className="mt-3 inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-xl bg-[#edc993]/60 px-4 text-sm font-bold text-[#183f31]/70">Comprueba el FarmID para continuar</button>
+                    <button type="button" disabled className="mt-3 inline-flex min-h-12 w-full items-center justify-center gap-2 rounded-[var(--iw-radius-control)] bg-[var(--iw-color-paper)]/60 px-4 text-sm font-bold text-[var(--iw-color-ink-strong)]/70">Comprueba el FarmID para continuar</button>
                   ) : (
-                    <Link href={organizationContactHref} className="mt-3 inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-xl bg-[#edc993] px-4 text-sm font-bold text-[#183f31] hover:bg-[#f5d7a8]">{renewalApplied ? "Solicitar renovación de Organización" : "Solicitar activación de Organización"} <ArrowRight className="h-4 w-4" aria-hidden="true" /></Link>
+                    <Link href={organizationContactHref} className="mt-3 inline-flex min-h-12 w-full items-center justify-center gap-2 rounded-[var(--iw-radius-control)] bg-[var(--iw-color-paper)] px-4 text-sm font-bold text-[var(--iw-color-ink-strong)] hover:bg-[var(--iw-color-white)]">{renewalApplied ? "Solicitar renovación de Organización" : "Solicitar activación de Organización"} <ArrowRight className="h-4 w-4" aria-hidden="true" /></Link>
                   )}
                 </div>
               )}
             </>
           )}
-          {!quote && !quoteLoading && !currentResult?.error && <p role="alert" className="text-sm text-[#e1ece2]">No pudimos actualizar el precio. Inténtalo de nuevo.</p>}
+          {!quote && !quoteLoading && !currentResult?.error && <p role="alert" className="text-sm text-[var(--iw-color-paper)]">No pudimos actualizar el precio. Inténtalo de nuevo.</p>}
         </aside>
       </section>
 
       {offer && (
-        <section aria-labelledby={id + "-matrix-heading"} className="rounded-2xl border border-[#d8dfd4] bg-white p-4 sm:p-5">
+        <section aria-labelledby={id + "-matrix-heading"} className="rounded-2xl border border-[var(--iw-semantic-border-default)] bg-[var(--iw-semantic-bg-surface)] p-4 shadow-[var(--iw-shadow-card)] sm:p-5">
           <div className="flex flex-wrap items-end justify-between gap-3">
             <div>
-              <p className="text-[10px] font-extrabold uppercase tracking-[.14em] text-[#9d7852]">Compara antes de elegir</p>
-              <h2 id={id + "-matrix-heading"} className="mt-1 font-serif text-2xl font-medium text-[#183f31]">Cantidad × duración</h2>
-              <p className="mt-1 max-w-3xl text-xs leading-5 text-[#718078]">Selecciona una celda para aplicar esa opción al resumen. Los importes corresponden a la suscripción prepaga; la implementación se muestra aparte.</p>
+              <p className="font-mono text-[10px] font-extrabold uppercase tracking-[.14em] text-[var(--iw-semantic-action-primary)]">Compara antes de elegir</p>
+              <h2 id={id + "-matrix-heading"} className="mt-1 font-display text-2xl font-medium text-[var(--iw-semantic-text-primary)]">Cantidad × duración</h2>
+              <p className="mt-1 max-w-3xl text-xs leading-5 text-[var(--iw-semantic-text-secondary)]">Selecciona una celda para aplicar esa opción al resumen. Los importes corresponden a la suscripción prepaga; la implementación se muestra aparte.</p>
             </div>
-            {matrixLoading && <LoaderCircle className="h-5 w-5 animate-spin text-[#397657]" aria-label="Cargando matriz" />}
+            {matrixLoading && <LoaderCircle className="h-5 w-5 animate-spin text-[var(--iw-semantic-action-primary)]" aria-label="Cargando matriz" />}
           </div>
           {matrixError && (
-            <div role="alert" className="mt-3 flex flex-wrap items-center justify-between gap-3 rounded-lg bg-[#faece7] p-3 text-sm text-[#813f30]">
+            <div role="alert" className="mt-3 flex flex-wrap items-center justify-between gap-3 rounded-[var(--iw-radius-control)] border border-[var(--iw-semantic-status-danger)]/35 bg-[var(--iw-semantic-bg-subtle)] p-3 text-sm text-[var(--iw-semantic-status-danger)]">
               <span>{matrixError}</span>
-              <button type="button" onClick={() => { setMatrixResult(null); setMatrixAttempt((attempt) => attempt + 1); }} className="min-h-9 rounded-lg border border-[#c98e7f] px-3 text-xs font-bold hover:bg-white/60">Intentar de nuevo</button>
+              <button type="button" onClick={() => { setMatrixResult(null); setMatrixAttempt((attempt) => attempt + 1); }} className="min-h-9 rounded-[var(--iw-radius-control)] border border-[var(--iw-semantic-status-danger)]/40 px-3 text-xs font-bold hover:bg-white/60">Intentar de nuevo</button>
             </div>
           )}
           {matrix && matrix.segment === segment && (
-            <div className="mt-4 overflow-x-auto rounded-xl border border-[#e5e7df]" aria-busy={matrixLoading}>
-              <table className="w-full min-w-[700px] border-collapse text-left text-xs">
+            <div className="mt-4 overflow-x-auto rounded-[var(--iw-radius-control)] border border-[var(--iw-semantic-border-default)]" aria-busy={matrixLoading}>
+              <table className="w-full min-w-[700px] border-collapse text-left text-xs tabular-nums">
                 <caption className="sr-only">Comparación interactiva de cantidad y plazo para {segment === "producer" ? "usuarios" : "beneficiarios"}</caption>
-                <thead className="bg-[#f1f5ef] text-[#314638]">
+                <thead className="bg-[var(--iw-semantic-bg-subtle)] text-[var(--iw-semantic-text-secondary)]">
                   <tr>
                     <th scope="col" className="p-3">{segment === "producer" ? "Usuarios" : "Beneficiarios pagos"}</th>
                     {matrix.terms.map((term) => <th scope="col" key={term.months} className="p-3">{term.months} {term.months === 1 ? "mes" : "meses"}</th>)}
@@ -774,16 +778,16 @@ export default function InteractivePricingPage() {
                 </thead>
                 <tbody>
                   {matrix.quantityOptions.map((quantity) => (
-                    <tr key={quantity} className="border-t border-[#e5e7df]">
-                      <th scope="row" className="whitespace-nowrap p-3 font-bold text-[#26372d]">{COUNT.format(quantity)} {segment === "producer" ? "usuarios" : "pagos"}</th>
+                    <tr key={quantity} className="border-t border-[var(--iw-semantic-border-default)]">
+                      <th scope="row" className="whitespace-nowrap p-3 font-bold text-[var(--iw-semantic-text-primary)]">{COUNT.format(quantity)} {segment === "producer" ? "usuarios" : "pagos"}</th>
                       {matrix.terms.map((term) => {
                         const cell = matrix.cells.find((item) => item.quantity === quantity && item.months === term.months);
                         if (!cell) return <td key={term.months} className="p-2">—</td>;
                         const selected = (segment === "producer" ? users : beneficiaries) === quantity && months === term.months;
                         return (
                           <td key={term.months} className="min-w-[150px] p-2">
-                            <button type="button" aria-pressed={selected} onClick={() => chooseMatrixCell(quantity, term.months)} className={"min-h-[5.5rem] w-full rounded-lg border p-2.5 text-left transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#397657] " + (selected ? "border-[#578464] bg-[#e6f0e7] text-[#1f5138] shadow-[inset_0_0_0_1px_#578464]" : "border-[#e7eae4] bg-white text-[#536257] hover:border-[#aebfae]")}>
-                              <span className="block font-bold">{money(cell.effectiveUnitMonthlyCop)} / {segment === "producer" ? "usuario" : "beneficiario habilitado"} / mes</span>
+                            <button type="button" aria-pressed={selected} onClick={() => chooseMatrixCell(quantity, term.months)} className={"min-h-[5.5rem] w-full rounded-[var(--iw-radius-control)] border p-2.5 text-left transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--iw-semantic-focus-ring)] " + (selected ? "border-[var(--iw-semantic-action-primary)] bg-[var(--iw-semantic-bg-feature)] text-[var(--iw-semantic-action-primary)] shadow-[inset_0_0_0_1px_var(--iw-semantic-action-primary)]" : "border-[var(--iw-semantic-border-default)] bg-[var(--iw-semantic-bg-surface)] text-[var(--iw-semantic-text-secondary)] hover:border-[var(--iw-semantic-action-primary)]")}>
+                              <span className="block font-bold text-[var(--iw-semantic-text-primary)]">{money(cell.effectiveUnitMonthlyCop)} / {segment === "producer" ? "usuario" : "beneficiario habilitado"} / mes</span>
                               <span className="mt-1 block text-[10px]">Prepago: {money(cell.subscriptionTotalCop)}</span>
                               {segment === "aggregator" && <span className="mt-1 block text-[10px]">+ {COUNT.format(cell.bonusActivations ?? 0)} bonificados = {COUNT.format(cell.totalActivated ?? quantity)} activados</span>}
                               <span className="mt-1 block text-[10px]">Ahorro: {money(cell.combinedSavingsCop)} ({cell.combinedSavingsPct.toLocaleString("es-CO", { maximumFractionDigits: 1 })}%)</span>
@@ -802,28 +806,28 @@ export default function InteractivePricingPage() {
 
       {offer && (
         <>
-          <details className="group rounded-2xl border border-[#d8dfd4] bg-white p-4 sm:p-5">
-            <summary className="flex cursor-pointer list-none items-center justify-between gap-4 font-serif text-xl font-medium text-[#183f31]">
+          <details className="group rounded-2xl border border-[var(--iw-semantic-border-default)] bg-[var(--iw-semantic-bg-surface)] p-4 shadow-[var(--iw-shadow-card)] sm:p-5">
+            <summary className="flex min-h-11 cursor-pointer list-none items-center justify-between gap-4 font-display text-xl font-medium text-[var(--iw-semantic-text-primary)]">
               Comparar planes
-              <span className="text-sm font-bold text-[#718078] group-open:hidden">Ver comparación</span>
-              <span className="hidden text-sm font-bold text-[#718078] group-open:inline">Ocultar</span>
+              <span className="text-sm font-bold text-[var(--iw-semantic-action-primary)] group-open:hidden">Ver comparación</span>
+              <span className="hidden text-sm font-bold text-[var(--iw-semantic-action-primary)] group-open:inline">Ocultar</span>
             </summary>
-            <p className="mt-3 text-sm leading-6 text-[#718078]">Consulta en una sola vista las diferencias de cobertura, límites y disponibilidad.</p>
-            <div className="mt-4 overflow-x-auto rounded-xl border border-[#e5e7df]">
-              <table className="w-full min-w-[760px] border-collapse text-left text-xs">
+            <p className="mt-3 text-sm leading-6 text-[var(--iw-semantic-text-secondary)]">Consulta en una sola vista las diferencias de cobertura, límites y disponibilidad.</p>
+            <div className="mt-4 overflow-x-auto rounded-[var(--iw-radius-control)] border border-[var(--iw-semantic-border-default)]">
+              <table className="w-full min-w-[760px] border-collapse text-left text-xs tabular-nums">
                 <caption className="sr-only">Comparación de planes Gratis, Productor y Organización</caption>
-                <thead className="bg-[#f1f5ef] text-[#314638]">
+                <thead className="bg-[var(--iw-semantic-bg-subtle)] text-[var(--iw-semantic-text-secondary)]">
                   <tr><th scope="col" className="w-[26%] p-3">Prestación</th><th scope="col" className="p-3">Gratis</th><th scope="col" className="p-3">Productor</th><th scope="col" className="p-3">Organización</th></tr>
                 </thead>
                 <tbody>
                   {offer.catalog.benefits.map((item) => (
-                    <tr key={item.id} className="border-t border-[#e5e7df] align-top">
-                      <th scope="row" className="p-3 font-semibold text-[#26372d]">{item.name}<p className="mt-1 font-normal leading-5 text-[#718078]">{item.availability.label}</p></th>
+                    <tr key={item.id} className="border-t border-[var(--iw-semantic-border-default)] align-top">
+                      <th scope="row" className="p-3 font-semibold text-[var(--iw-semantic-text-primary)]">{item.name}<p className="mt-1 font-normal leading-5 text-[var(--iw-semantic-text-secondary)]">{item.availability.label}</p></th>
                       {(["free", "producer", "aggregator"] as const).map((plan) => (
-                        <td key={plan} className="p-3 text-[#536257]">
-                          <p>{item.coverage[plan].summary}</p>
-                          {item.coverage[plan].limits.length > 0 && <ul className="mt-2 list-disc space-y-1 pl-4 text-[#718078]">{item.coverage[plan].limits.map((limit) => <li key={limit}>{limit}</li>)}</ul>}
-                          <p className="mt-2 text-[#718078]">Periodicidad: {item.coverage[plan].frequency}</p>
+                        <td key={plan} className="p-3 text-[var(--iw-semantic-text-secondary)]">
+                          <p className="text-[var(--iw-semantic-text-primary)]">{item.coverage[plan].summary}</p>
+                          {item.coverage[plan].limits.length > 0 && <ul className="mt-2 list-disc space-y-1 pl-4 text-[var(--iw-semantic-text-secondary)]">{item.coverage[plan].limits.map((limit) => <li key={limit}>{limit}</li>)}</ul>}
+                          <p className="mt-2 text-[var(--iw-semantic-text-secondary)]">Periodicidad: {item.coverage[plan].frequency}</p>
                         </td>
                       ))}
                     </tr>
@@ -833,38 +837,38 @@ export default function InteractivePricingPage() {
             </div>
           </details>
 
-          <details id="explorador-de-alcances" className="group rounded-2xl border border-[#d8dfd4] bg-white p-4 sm:p-5">
-            <summary className="flex cursor-pointer list-none items-center justify-between gap-4 font-serif text-xl font-medium text-[#183f31]">
+          <details id="explorador-de-alcances" className="group rounded-2xl border border-[var(--iw-semantic-border-default)] bg-[var(--iw-semantic-bg-surface)] p-4 shadow-[var(--iw-shadow-card)] sm:p-5">
+            <summary className="flex min-h-11 cursor-pointer list-none items-center justify-between gap-4 font-display text-xl font-medium text-[var(--iw-semantic-text-primary)]">
               Explorador de alcances
-              <span className="text-sm font-bold text-[#718078] group-open:hidden">Ver prestaciones</span>
-              <span className="hidden text-sm font-bold text-[#718078] group-open:inline">Ocultar</span>
+              <span className="text-sm font-bold text-[var(--iw-semantic-action-primary)] group-open:hidden">Ver prestaciones</span>
+              <span className="hidden text-sm font-bold text-[var(--iw-semantic-action-primary)] group-open:inline">Ocultar</span>
             </summary>
             <div className="mt-5">
-              <h2 className="font-serif text-2xl font-medium text-[#183f31]">Qué incluye cada prestación</h2>
-              <p className="mt-2 max-w-3xl text-sm leading-6 text-[#718078]">Una ficha por prestación: unidad, disponibilidad real, exclusiones y servicios adicionales.</p>
+              <h2 className="font-display text-2xl font-medium text-[var(--iw-semantic-text-primary)]">Qué incluye cada prestación</h2>
+              <p className="mt-2 max-w-3xl text-sm leading-6 text-[var(--iw-semantic-text-secondary)]">Una ficha por prestación: unidad, disponibilidad real, exclusiones y servicios adicionales.</p>
               <div className="mt-4 flex gap-2 overflow-x-auto pb-2" role="group" aria-label="Categorías de prestaciones">
                 {offer.catalog.categories.map((category) => (
-                  <button key={category.id} type="button" aria-pressed={activeCategory === category.id} aria-controls={id + "-category-panel"} onClick={() => setActiveCategory(category.id)} className={"min-h-10 shrink-0 rounded-full border px-4 py-2 text-xs font-bold transition " + (activeCategory === category.id ? "border-[#183f31] bg-[#183f31] text-white" : "border-[#d8dfd4] bg-white text-[#536257] hover:border-[#72937a]")}>{category.label}</button>
+                  <button key={category.id} type="button" aria-pressed={activeCategory === category.id} aria-controls={id + "-category-panel"} onClick={() => setActiveCategory(category.id)} className={"min-h-10 shrink-0 rounded-full border px-4 py-2 text-xs font-bold transition " + (activeCategory === category.id ? "border-[var(--iw-semantic-action-primary)] bg-[var(--iw-semantic-action-primary)] text-[var(--iw-semantic-action-primary-text)]" : "border-[var(--iw-semantic-border-default)] bg-[var(--iw-semantic-bg-surface)] text-[var(--iw-semantic-text-secondary)] hover:border-[var(--iw-semantic-action-primary)]")}>{category.label}</button>
                 ))}
               </div>
               {offer.catalog.categories.filter((category) => category.id === activeCategory).map((category) => (
                 <div key={category.id} id={id + "-category-panel"} aria-live="polite" className="mt-3">
-                  <p className="mb-3 text-sm text-[#718078]">{category.description}</p>
+                  <p className="mb-3 text-sm text-[var(--iw-semantic-text-secondary)]">{category.description}</p>
                   <div className="space-y-3">
                     {offer.catalog.benefits.filter((item) => item.category === category.id).map((item) => (
-                      <article key={item.id} className="rounded-2xl border border-[#e2e7dd] bg-white p-4 sm:p-5">
+                      <article key={item.id} className="rounded-2xl border border-[var(--iw-semantic-border-default)] bg-[var(--iw-semantic-bg-subtle)] p-4 sm:p-5">
                         <div className="flex flex-wrap items-start justify-between gap-3">
                           <div className="min-w-0">
-                            <h3 className="font-semibold text-[#26372d]">{item.name}</h3>
-                            <p className="mt-1 text-sm leading-6 text-[#718078]">{item.description}</p>
+                            <h3 className="font-semibold text-[var(--iw-semantic-text-primary)]">{item.name}</h3>
+                            <p className="mt-1 text-sm leading-6 text-[var(--iw-semantic-text-secondary)]">{item.description}</p>
                           </div>
                           <span className={"rounded-full border px-2.5 py-1 text-[10px] font-bold " + statusColor(item.availability.state)}>{item.availability.label}</span>
                         </div>
-                        <dl className="mt-3 space-y-2 border-t border-[#e5e7df] pt-3 text-xs leading-5">
-                          <div><dt className="font-bold text-[#526456]">Unidad</dt><dd className="text-[#718078]">{item.unit}</dd></div>
-                          <div><dt className="font-bold text-[#526456]">Disponibilidad</dt><dd className="text-[#718078]">{item.availability.detail}</dd></div>
-                          <div><dt className="font-bold text-[#526456]">Exclusiones</dt><dd className="text-[#718078]">{item.exclusions.length ? item.exclusions.join(" ") : "No se han declarado exclusiones adicionales."}</dd></div>
-                          <div><dt className="font-bold text-[#526456]">Servicios adicionales</dt><dd className="text-[#718078]">{item.addOns.length ? item.addOns.join(" ") : "No definidos."}</dd></div>
+                        <dl className="mt-3 space-y-2 border-t border-[var(--iw-semantic-border-default)] pt-3 text-xs leading-5">
+                          <div><dt className="font-bold text-[var(--iw-semantic-text-primary)]">Unidad</dt><dd className="text-[var(--iw-semantic-text-secondary)]">{item.unit}</dd></div>
+                          <div><dt className="font-bold text-[var(--iw-semantic-text-primary)]">Disponibilidad</dt><dd className="text-[var(--iw-semantic-text-secondary)]">{item.availability.detail}</dd></div>
+                          <div><dt className="font-bold text-[var(--iw-semantic-text-primary)]">Exclusiones</dt><dd className="text-[var(--iw-semantic-text-secondary)]">{item.exclusions.length ? item.exclusions.join(" ") : "No se han declarado exclusiones adicionales."}</dd></div>
+                          <div><dt className="font-bold text-[var(--iw-semantic-text-primary)]">Servicios adicionales</dt><dd className="text-[var(--iw-semantic-text-secondary)]">{item.addOns.length ? item.addOns.join(" ") : "No definidos."}</dd></div>
                         </dl>
                       </article>
                     ))}
@@ -876,7 +880,7 @@ export default function InteractivePricingPage() {
         </>
       )}
 
-      <p className="text-center text-xs leading-5 text-[#718078]">Catálogo {offer?.catalog.version ?? "…"} · Política {offer?.policyVersion ?? "…"}. Las condiciones vigentes se revisan antes de iniciar un pago.</p>
+      <p className="text-center text-xs leading-5 text-[var(--iw-semantic-text-secondary)]">Catálogo {offer?.catalog.version ?? "…"} · Política {offer?.policyVersion ?? "…"}. Las condiciones vigentes se revisan antes de iniciar un pago.</p>
 
       <dialog
         ref={checkoutReviewDialogRef}
@@ -910,7 +914,7 @@ export default function InteractivePricingPage() {
             </header>
 
             <div className="pricing-review-content">
-              <p id={id + "-review-description"} className="text-sm leading-6 text-[#718078]">
+              <p id={id + "-review-description"} className="text-sm leading-6 text-[var(--iw-semantic-text-secondary)]">
                 Comprueba el alcance que elegiste antes de continuar.
               </p>
 
@@ -1017,22 +1021,22 @@ function PlanCard({
   recommended?: boolean;
 }) {
   return (
-    <article className={"relative flex h-full flex-col rounded-3xl border bg-white p-6 shadow-[0_12px_35px_rgba(24,63,49,.05)] sm:p-8 " + (recommended ? "border-[#b8d2bd] bg-[#fbfcf8]" : "border-[#e5e7df]")}>
+    <article className={"relative flex h-full flex-col rounded-2xl border p-6 shadow-[var(--iw-shadow-card)] sm:p-8 " + (recommended ? "border-[var(--iw-semantic-action-primary)] bg-[var(--iw-semantic-bg-subtle)]" : "border-[var(--iw-semantic-border-default)] bg-[var(--iw-semantic-bg-surface)]")}>
       <div className="flex min-h-6 items-start justify-between gap-3">
-        <p className="text-[10px] font-extrabold uppercase tracking-[.15em] text-[#a56e34]">{eyebrow}</p>
-        {recommended && <span className="rounded-full bg-[#dfeadd] px-3 py-1 text-[9px] font-extrabold uppercase tracking-wide text-[#23523a]">Recomendado</span>}
+        <p className="font-mono text-[10px] font-extrabold uppercase tracking-[.15em] text-[var(--iw-semantic-text-secondary)]">{eyebrow}</p>
+        {recommended && <span className="rounded-full bg-[var(--iw-semantic-bg-feature)] px-3 py-1 text-[10px] font-extrabold uppercase tracking-wide text-[var(--iw-semantic-action-primary)]">Recomendado</span>}
       </div>
-      <h3 className="mt-3 font-serif text-3xl font-medium text-[#183f31]">{title}</h3>
-      <p className="mt-1 min-h-12 text-sm leading-6 text-[#718078]">{description}</p>
+      <h3 className="mt-3 font-display text-3xl font-medium text-[var(--iw-semantic-text-primary)]">{title}</h3>
+      <p className="mt-1 min-h-12 text-sm leading-6 text-[var(--iw-semantic-text-secondary)]">{description}</p>
       <div className="mt-5 flex min-h-12 flex-wrap items-baseline gap-x-2">
-        <span className="font-serif text-4xl font-bold tracking-tight text-[#183f31]">{price}</span>
-        <span className="text-xs text-[#718078]">{priceNote}</span>
+        <span className="font-display text-4xl font-bold tracking-tight text-[var(--iw-semantic-text-primary)] tabular-nums">{price}</span>
+        <span className="text-xs text-[var(--iw-semantic-text-secondary)]">{priceNote}</span>
       </div>
       <div className="mt-4">{action}</div>
-      <ul className="mt-5 flex-1 space-y-2.5 border-t border-[#e5e7df] pt-5 text-sm leading-5 text-[#536257]">
+      <ul className="mt-5 flex-1 space-y-2.5 border-t border-[var(--iw-semantic-border-default)] pt-5 text-sm leading-5 text-[var(--iw-semantic-text-primary)]">
         {benefits.map((benefit, index) => (
           <li key={index} className="flex items-start gap-2.5">
-            {title === "A la medida" ? <Egg className="mt-0.5 h-4 w-4 shrink-0 text-[#397657]" aria-hidden="true" /> : <Check className="mt-0.5 h-4 w-4 shrink-0 text-[#397657]" aria-hidden="true" />}
+            {title === "A la medida" ? <Egg className="mt-0.5 h-4 w-4 shrink-0 text-[var(--iw-semantic-action-primary)]" aria-hidden="true" /> : <Check className="mt-0.5 h-4 w-4 shrink-0 text-[var(--iw-semantic-status-success)]" aria-hidden="true" />}
             <span>{benefit}</span>
           </li>
         ))}

@@ -45,9 +45,9 @@ export default function LoginPage() {
   };
 
   return (
-    <div className="flex min-h-[calc(100dvh-74px)] flex-col bg-gradient-to-br from-earth-50 via-white to-earth-100">
+    <div className="flex min-h-[calc(100dvh-74px)] flex-col bg-[var(--iw-semantic-bg-page)]">
       {/* Main Content */}
-      <div className="flex-1 flex items-center justify-center px-4 pb-12">
+      <div className="flex-1 flex items-center justify-center px-4 py-8 pb-12">
         <div className="w-full max-w-md">
           {/* Hero Header */}
           <HeroFrame
@@ -61,21 +61,21 @@ export default function LoginPage() {
           />
 
           {/* Login Form */}
-          <div className="bg-white rounded-2xl shadow-xl p-8 border border-earth-100">
+          <div className="bg-[var(--iw-semantic-bg-surface)] rounded-2xl shadow-[var(--iw-shadow-card)] p-8 border border-[var(--iw-semantic-border-default)]">
             <div className="flex justify-center mb-5">
               <BrandLogo
                 variant="square"
                 size={96}
-                className="rounded-2xl bg-[#faf6ec] p-1.5 border border-earth-100 shadow-xs"
+                className="rounded-2xl bg-[var(--iw-semantic-bg-page)] p-1.5 border border-[var(--iw-semantic-border-default)] shadow-xs"
               />
             </div>
             <form onSubmit={submit} className="space-y-5">
               <div>
-                <label className="block text-sm font-semibold text-earth-800 mb-2">
+                <label className="block text-sm font-semibold text-[var(--iw-semantic-text-primary)] mb-2">
                   Usuario
                 </label>
                 <input
-                  className="w-full px-4 py-3 border-2 border-earth-200 rounded-xl text-earth-900 placeholder:text-earth-400 focus:outline-none focus:border-earth-500 focus:ring-4 focus:ring-earth-100 transition-all"
+                  className="w-full min-h-[48px] px-4 py-3 border border-[var(--iw-semantic-border-input)] rounded-[var(--iw-radius-control)] bg-[var(--iw-semantic-bg-surface)] text-[var(--iw-semantic-text-primary)] placeholder:text-[var(--iw-semantic-text-secondary)]/75 focus:outline-none focus:ring-2 focus:ring-[var(--iw-semantic-focus-ring)] transition-all"
                   value={username}
                   onChange={(e) => setUsername(e.target.value)}
                   placeholder="Ingresa tu usuario"
@@ -85,12 +85,12 @@ export default function LoginPage() {
               </div>
 
               <div>
-                <label className="block text-sm font-semibold text-earth-800 mb-2">
+                <label className="block text-sm font-semibold text-[var(--iw-semantic-text-primary)] mb-2">
                   Contraseña
                 </label>
                 <input
                   type="password"
-                  className="w-full px-4 py-3 border-2 border-earth-200 rounded-xl text-earth-900 placeholder:text-earth-400 focus:outline-none focus:border-earth-500 focus:ring-4 focus:ring-earth-100 transition-all"
+                  className="w-full min-h-[48px] px-4 py-3 border border-[var(--iw-semantic-border-input)] rounded-[var(--iw-radius-control)] bg-[var(--iw-semantic-bg-surface)] text-[var(--iw-semantic-text-primary)] placeholder:text-[var(--iw-semantic-text-secondary)]/75 focus:outline-none focus:ring-2 focus:ring-[var(--iw-semantic-focus-ring)] transition-all"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   placeholder="••••••••"
@@ -99,7 +99,7 @@ export default function LoginPage() {
               </div>
 
               {error && (
-                <div className="bg-red-50 border-2 border-red-200 text-red-700 px-4 py-3 rounded-xl text-sm font-medium">
+                <div role="alert" className="bg-[var(--iw-semantic-bg-subtle)] border border-[var(--iw-semantic-status-danger)] text-[var(--iw-semantic-status-danger)] px-4 py-3 rounded-[var(--iw-radius-control)] text-sm font-medium">
                   {error}
                 </div>
               )}
@@ -107,7 +107,7 @@ export default function LoginPage() {
               <button
                 type="submit"
                 disabled={loading || !username || !password}
-                className="w-full py-3.5 bg-earth-600 hover:bg-earth-700 text-white rounded-xl font-semibold transition-all disabled:opacity-50 disabled:cursor-not-allowed shadow-lg hover:shadow-xl"
+                className="w-full min-h-[48px] py-3 bg-[var(--iw-semantic-action-primary)] hover:bg-[var(--iw-semantic-action-primary-hover)] text-[var(--iw-semantic-action-primary-text)] rounded-[var(--iw-radius-control)] font-semibold transition-all disabled:opacity-50 disabled:cursor-not-allowed shadow-sm"
               >
                 {loading ? (
                   <span className="flex items-center justify-center gap-2">
@@ -123,11 +123,11 @@ export default function LoginPage() {
               </button>
               <div className="text-center space-y-2">
                 <div>
-                  <Link href="/login/recuperar" className="text-sm font-medium text-earth-700 hover:underline">¿Olvidaste tu contraseña?</Link>
+                  <Link href="/login/recuperar" className="text-sm font-medium text-[var(--iw-semantic-action-primary)] hover:underline">¿Olvidaste tu contraseña?</Link>
                 </div>
-                <div className="pt-2 border-t border-earth-100">
-                  <span className="text-sm text-earth-600">¿Es tu primera vez? </span>
-                  <Link href="/registro" className="text-sm font-bold text-emerald-700 hover:underline">
+                <div className="pt-2 border-t border-[var(--iw-semantic-border-default)]">
+                  <span className="text-sm text-[var(--iw-semantic-text-secondary)]">¿Es tu primera vez? </span>
+                  <Link href="/registro" className="text-sm font-bold text-[var(--iw-semantic-action-primary)] hover:underline">
                     Crear cuenta de finca gratis (3 min)
                   </Link>
                 </div>
@@ -137,8 +137,8 @@ export default function LoginPage() {
 
           {/* Footer Info */}
           <div className="mt-8 text-center space-y-2">
-            <div className="inline-flex items-center gap-2 text-sm text-earth-600">
-              <Leaf className="w-4 h-4" />
+            <div className="inline-flex items-center gap-2 text-sm text-[var(--iw-semantic-text-secondary)]">
+              <Leaf className="w-4 h-4 text-[var(--iw-semantic-action-primary)]" />
               <span>Granja Autosustentable Iwagé</span>
             </div>
             <DeveloperCredit variant="inline" className="justify-center" />

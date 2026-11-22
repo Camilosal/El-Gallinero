@@ -220,7 +220,7 @@ export default function Sidebar() {
       {/* Hamburger button - mobile only */}
       <button
         onClick={() => setMobileOpen(true)}
-        className="fixed top-3 left-3 z-40 md:hidden bg-green-900 text-white p-2 rounded-lg shadow-lg hover:bg-green-800 transition-colors"
+        className="fixed top-3 left-3 z-40 md:hidden inline-flex h-11 w-11 items-center justify-center bg-[var(--iw-color-forest-dark)] text-[var(--iw-color-white)] rounded-[var(--iw-radius-control)] shadow-[var(--iw-shadow-card)] hover:bg-[var(--iw-color-forest)] transition-colors"
         aria-label="Abrir menú"
       >
         <Menu className="w-5 h-5" />
@@ -229,32 +229,32 @@ export default function Sidebar() {
       {/* Backdrop - mobile only */}
       {mobileOpen && (
         <div
-          className="fixed inset-0 bg-black/50 z-40 md:hidden"
+          className="fixed inset-0 bg-[var(--iw-color-ink-strong)]/50 z-40 md:hidden"
           onClick={() => setMobileOpen(false)}
         />
       )}
 
       {/* Sidebar */}
       <aside
-        className={`fixed left-0 top-0 h-screen ${sidebarWidth} bg-green-900 text-white flex flex-col z-50 shadow-xl transition-all duration-300 ${mobileOpen ? "translate-x-0" : "-translate-x-full"
+        className={`fixed left-0 top-0 h-screen ${sidebarWidth} bg-[var(--iw-color-forest-dark)] text-[var(--iw-color-white)] flex flex-col z-50 shadow-[var(--iw-shadow-popover)] transition-all duration-300 ${mobileOpen ? "translate-x-0" : "-translate-x-full"
           } md:translate-x-0`}
       >
         {/* Close button - mobile only */}
         <button
           onClick={() => setMobileOpen(false)}
-          className="absolute top-3 right-3 md:hidden text-green-300 hover:text-white p-1"
+          className="absolute top-3 right-3 md:hidden inline-flex h-10 w-10 items-center justify-center rounded-[var(--iw-radius-control)] text-[var(--iw-color-paper)] hover:bg-[var(--iw-color-forest)] hover:text-[var(--iw-color-white)]"
           aria-label="Cerrar menú"
         >
           <X className="w-5 h-5" />
         </button>
 
         {/* Header */}
-        <div className={`border-b border-green-700 ${collapsed ? "px-2 py-3.5" : "px-4 py-3.5"}`}>
+        <div className={`border-b border-[var(--iw-color-forest)] ${collapsed ? "px-2 py-3.5" : "px-4 py-3.5"}`}>
           {collapsed ? (
             <div className="flex flex-col items-center">
               <Link
                 href="/inicio"
-                className="flex h-9 w-9 items-center justify-center rounded-xl bg-white/95 p-1 border border-white/25 shadow-sm"
+                className="flex h-9 w-9 items-center justify-center rounded-[var(--iw-radius-control)] bg-white/95 p-1 border border-white/25 shadow-sm"
                 title={farmMeta?.farmName ? `IwaGranja · ${farmMeta.farmName}` : "IwaGranja — Tu granja, todo bajo control."}
               >
                 <BrandLogo variant="mark" size={28} decorative />
@@ -264,7 +264,7 @@ export default function Sidebar() {
             <Link
               href="/inicio"
               aria-label="IwaGranja — Inicio del panel"
-              className="block rounded-xl bg-white/95 px-2.5 py-2 shadow-sm border border-white/25 hover:bg-white transition-colors"
+              className="block rounded-[var(--iw-radius-control)] bg-white/95 px-2.5 py-2 shadow-sm border border-white/25 hover:bg-white transition-colors"
             >
               <BrandLogo variant="horizontal" height={42} priority className="mx-auto max-w-full" />
             </Link>
@@ -274,7 +274,7 @@ export default function Sidebar() {
         {/* Collapse toggle - desktop only */}
         <button
           onClick={() => setCollapsed(!collapsed)}
-          className="hidden md:flex items-center justify-center absolute -right-4 top-7 w-8 h-8 bg-green-600 hover:bg-green-500 border-2 border-green-900 rounded-full text-white text-sm font-bold shadow-lg transition-all z-10 hover:scale-110"
+          className="hidden md:flex items-center justify-center absolute -right-4 top-7 w-8 h-8 bg-[var(--iw-color-forest)] hover:bg-[var(--iw-color-ochre)] border-2 border-[var(--iw-color-forest-dark)] rounded-full text-[var(--iw-color-white)] text-sm font-bold shadow-lg transition-all z-10 hover:scale-105"
           aria-label={collapsed ? "Expandir menú" : "Colapsar menú"}
           title={collapsed ? "Expandir menú" : "Colapsar menú"}
         >
@@ -285,25 +285,25 @@ export default function Sidebar() {
           {/* Dashboard link */}
           <Link
             href="/inicio"
-            className={`flex items-center gap-3 py-3 text-sm transition-all hover:bg-green-800 ${collapsed ? "justify-center px-2" : "px-5"
-              } ${pathname === "/inicio" ? "bg-green-700 border-r-4 border-farm-400 font-semibold" : ""}`}
+            className={`flex items-center gap-3 py-3 text-sm transition-all hover:bg-[var(--iw-color-forest)]/70 ${collapsed ? "justify-center px-2" : "px-5"
+              } ${pathname === "/inicio" ? "bg-[var(--iw-color-forest)] border-r-4 border-[var(--iw-color-ochre)] font-semibold" : ""}`}
             title={collapsed ? "Inicio" : undefined}
           >
-            <BarChart3 className="w-4 h-4 flex-shrink-0 text-green-200" />
+            <BarChart3 className="w-4 h-4 flex-shrink-0 text-[var(--iw-color-sage)]" />
             {!collapsed && <span>Inicio</span>}
           </Link>
 
           {/* QR Scanner */}
           {canAccessAppRoute(role, "/escanear") && <Link
             href="/escanear"
-            className={`flex items-center gap-3 py-3 text-sm transition-all hover:bg-green-800 ${collapsed ? "justify-center px-2" : "px-5"
+            className={`flex items-center gap-3 py-3 text-sm transition-all hover:bg-[var(--iw-color-forest)]/70 ${collapsed ? "justify-center px-2" : "px-5"
               } ${pathname === "/escanear" || pathname.startsWith("/escanear")
-                ? "bg-green-700 border-r-4 border-farm-400 font-semibold"
+                ? "bg-[var(--iw-color-forest)] border-r-4 border-[var(--iw-color-ochre)] font-semibold"
                 : ""
               }`}
             title={collapsed ? "Escanear" : undefined}
           >
-            <QrCode className="w-4 h-4 flex-shrink-0 text-green-200" />
+            <QrCode className="w-4 h-4 flex-shrink-0 text-[var(--iw-color-sage)]" />
             {!collapsed && <span>Escanear</span>}
           </Link>}
 
@@ -323,7 +323,7 @@ export default function Sidebar() {
 
           {/* Configuración unificada dentro del mismo árbol de navegación */}
           {visibleConfigGroup && (
-            <div className="mt-2 pt-2 border-t border-green-800/80">
+            <div className="mt-2 pt-2 border-t border-[var(--iw-color-forest)]">
               <GroupItem
                 group={visibleConfigGroup}
                 pathname={pathname}
@@ -338,16 +338,30 @@ export default function Sidebar() {
         </nav>
 
         {/* Footer: guide, logout and developer credit */}
-        <div className={`border-t border-green-700 space-y-2 ${collapsed ? "p-2" : "p-3.5"}`}>
+        <div className={`border-t border-[var(--iw-color-forest)] space-y-2 ${collapsed ? "p-2" : "p-3.5"}`}>
+          {!collapsed && farmMeta?.farmId && (
+            <div
+              data-testid="sidebar-farm-id"
+              className="flex items-center justify-between gap-2 rounded-[var(--iw-radius-control)] border border-white/15 bg-[var(--iw-color-ink-strong)]/35 px-2.5 py-1.5 text-[11px] text-[var(--iw-color-paper)]"
+              title={`Identificador de granja: ${farmMeta.farmId}`}
+            >
+              <span className="truncate font-medium">
+                {farmMeta.farmName ? farmMeta.farmName : "Granja activa"}
+              </span>
+              <span className="shrink-0 font-mono text-[10px] text-[var(--iw-color-sage)] tabular-nums">
+                ID {farmMeta.farmId}
+              </span>
+            </div>
+          )}
           <div className={collapsed ? "flex flex-col gap-1.5" : "grid grid-cols-2 gap-1.5"}>
             <a
               href="/guia"
               target="_blank"
               rel="noopener noreferrer"
-              className={`py-1.5 rounded-lg text-xs font-medium transition-colors flex items-center justify-center gap-1.5 ${collapsed ? "w-full px-1" : "px-2"
+              className={`min-h-[36px] py-1.5 rounded-[var(--iw-radius-control)] text-xs font-medium transition-colors flex items-center justify-center gap-1.5 ${collapsed ? "w-full px-1" : "px-2"
                 } ${pathname.startsWith("/manual") || pathname.startsWith("/guia")
-                  ? "bg-green-600 text-white"
-                  : "bg-green-800 hover:bg-green-700 text-green-100"
+                  ? "bg-[var(--iw-color-ochre)] text-[var(--iw-color-ink-strong)] font-semibold"
+                  : "bg-[var(--iw-color-forest)] hover:bg-[var(--iw-color-forest)]/80 text-[var(--iw-color-paper)]"
                 }`}
               title={collapsed ? "Guía de Usuario (abre en hoja aparte)" : "Abrir manual de usuario"}
               aria-label="Guía de Usuario"
@@ -362,7 +376,7 @@ export default function Sidebar() {
             </a>
             <button
               onClick={logout}
-              className={`py-1.5 rounded-lg bg-green-700 hover:bg-green-600 text-green-100 text-[11px] font-medium transition-colors flex items-center justify-center gap-1 ${collapsed ? "w-full px-1" : "px-2"
+              className={`min-h-[36px] py-1.5 rounded-[var(--iw-radius-control)] bg-[var(--iw-color-forest)] hover:bg-[var(--iw-color-forest)]/80 text-[var(--iw-color-paper)] text-[11px] font-medium transition-colors flex items-center justify-center gap-1 ${collapsed ? "w-full px-1" : "px-2"
                 }`}
               title="Cerrar Sesión"
               aria-label="Cerrar Sesión"
@@ -406,35 +420,35 @@ function GroupItem({
     return (
       <Link
         href={group.indexHref}
-        className={`flex items-center justify-center py-3 text-sm transition-all hover:bg-green-800 ${isIndexActive || groupActive
-          ? "bg-green-700 border-r-4 border-farm-400"
+        className={`flex items-center justify-center py-3 text-sm transition-all hover:bg-[var(--iw-color-forest)]/70 ${isIndexActive || groupActive
+          ? "bg-[var(--iw-color-forest)] border-r-4 border-[var(--iw-color-ochre)]"
           : ""
           }`}
         title={group.label}
       >
-        <AppIcon icon={group.icon} className="w-4 h-4 text-green-200" />
+        <AppIcon icon={group.icon} className="w-4 h-4 text-[var(--iw-color-sage)]" />
       </Link>
     );
   }
 
   return (
     <div key={group.id}>
-      <div className={`flex items-center ${groupActive ? "bg-green-800" : ""}`}>
+      <div className={`flex items-center ${groupActive ? "bg-[var(--iw-color-forest)]/60" : ""}`}>
         <Link
           href={group.indexHref}
-          className={`flex-1 flex items-center gap-3 px-5 py-3 text-sm transition-all hover:bg-green-800 ${isIndexActive ? "bg-green-700 border-r-4 border-farm-400 font-semibold" : ""
+          className={`flex-1 flex items-center gap-3 px-5 py-3 text-sm transition-all hover:bg-[var(--iw-color-forest)]/70 ${isIndexActive ? "bg-[var(--iw-color-forest)] border-r-4 border-[var(--iw-color-ochre)] font-semibold" : ""
             }`}
         >
-          <AppIcon icon={group.icon} className="w-4 h-4 text-green-200 shrink-0" />
-          <span className="font-semibold text-green-100">{group.label}</span>
+          <AppIcon icon={group.icon} className="w-4 h-4 text-[var(--iw-color-sage)] shrink-0" />
+          <span className="font-semibold text-[var(--iw-color-paper)]">{group.label}</span>
         </Link>
         {hasItems && (
           <button
             onClick={() => toggleGroup(group.id)}
-            className="px-3 py-3 hover:bg-green-700 transition-colors text-green-300 inline-flex items-center gap-1.5"
+            className="px-3 py-3 hover:bg-[var(--iw-color-forest)] transition-colors text-[var(--iw-color-sage)] inline-flex items-center gap-1.5"
             aria-label={`${isExpanded ? "Colapsar" : "Expandir"} ${group.label}`}
           >
-            <span className="rounded bg-green-950/60 px-1.5 py-0.5 text-[10px] font-semibold text-green-200/90 tabular-nums">
+            <span className="rounded bg-[var(--iw-color-ink-strong)]/50 px-1.5 py-0.5 text-[10px] font-semibold text-[var(--iw-color-paper)] tabular-nums">
               {group.items.length}
             </span>
             <ChevronRight className={`w-3.5 h-3.5 transition-transform ${isExpanded ? "rotate-90" : ""}`} />
@@ -443,17 +457,17 @@ function GroupItem({
       </div>
 
       {isExpanded && hasItems && (
-        <div className="bg-green-950">
+        <div className="bg-[var(--iw-color-ink-strong)]/35">
           {group.items.map((item) => {
             const active = isItemActive(item.href);
             return (
               <Link
                 key={item.href}
                 href={item.href}
-                className={`flex items-center gap-3 pl-10 pr-5 py-2.5 text-sm transition-all hover:bg-green-800 ${active ? "bg-green-700 border-r-4 border-farm-400 font-semibold" : ""
+                className={`flex items-center gap-3 pl-10 pr-5 py-2.5 text-sm transition-all hover:bg-[var(--iw-color-forest)]/70 ${active ? "bg-[var(--iw-color-forest)] border-r-4 border-[var(--iw-color-ochre)] font-semibold" : ""
                   }`}
               >
-                <AppIcon icon={item.icon} className="w-3.5 h-3.5 text-green-300 shrink-0" />
+                <AppIcon icon={item.icon} className="w-3.5 h-3.5 text-[var(--iw-color-sage)] shrink-0" />
                 <span>{item.label}</span>
               </Link>
             );

@@ -59,28 +59,34 @@ export default function OfflineSyncStatus() {
     mirrorState.total > 0 ? Math.min(100, Math.round((mirrorState.completed / mirrorState.total) * 100)) : 0;
 
   // Determinar apariencia del botón principal
-  let badgeColor = "bg-emerald-50 text-emerald-700 border-emerald-200";
+  let badgeColor =
+    "bg-[var(--iw-semantic-bg-feature)] text-[var(--iw-semantic-action-primary)] border-[var(--iw-semantic-border-default)]";
   let Icon = Cloud;
   let text = "En línea";
 
   if (isSyncing) {
-    badgeColor = "bg-blue-50 text-blue-700 border-blue-200 animate-pulse";
+    badgeColor =
+      "bg-[var(--iw-semantic-bg-subtle)] text-[var(--iw-semantic-status-info)] border-[var(--iw-semantic-status-info)]/40 animate-pulse";
     Icon = RefreshCw;
     text = "Sincronizando...";
   } else if (mirrorState.isMirroring && isOnline) {
-    badgeColor = "bg-blue-50 text-blue-700 border-blue-200";
+    badgeColor =
+      "bg-[var(--iw-semantic-bg-subtle)] text-[var(--iw-semantic-status-info)] border-[var(--iw-semantic-status-info)]/40";
     Icon = Download;
     text = `Copiando (${mirrorProgressPct}%)`;
   } else if (!isOnline) {
-    badgeColor = "bg-amber-50 text-amber-700 border-amber-200";
+    badgeColor =
+      "bg-[var(--iw-color-paper)] text-[var(--iw-semantic-status-warning)] border-[var(--iw-semantic-status-warning)]/40";
     Icon = CloudOff;
     text = pendingCount > 0 ? `Offline (${pendingCount})` : "Sin conexión";
   } else if (pendingCount > 0) {
-    badgeColor = "bg-amber-50 text-amber-700 border-amber-200";
+    badgeColor =
+      "bg-[var(--iw-color-paper)] text-[var(--iw-semantic-status-warning)] border-[var(--iw-semantic-status-warning)]/40";
     Icon = RefreshCw;
     text = `${pendingCount} pendiente(s)`;
   } else if (syncError) {
-    badgeColor = "bg-rose-50 text-rose-700 border-rose-200";
+    badgeColor =
+      "bg-[var(--iw-semantic-bg-surface)] text-[var(--iw-semantic-status-danger)] border-[var(--iw-semantic-status-danger)]/40";
     Icon = AlertCircle;
     text = "Revisar sync";
   }
@@ -90,7 +96,7 @@ export default function OfflineSyncStatus() {
       <button
         type="button"
         onClick={() => setIsOpen(true)}
-        className={`inline-flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 sm:py-2 rounded-lg text-xs sm:text-sm font-medium border shadow-xs transition-colors hover:brightness-95 shrink-0 ${badgeColor}`}
+        className={`inline-flex min-h-[40px] items-center gap-1.5 px-2.5 sm:px-3 py-1.5 sm:py-2 rounded-[var(--iw-radius-control)] text-xs sm:text-sm font-medium border shadow-xs transition-colors hover:brightness-95 shrink-0 ${badgeColor}`}
         title="Ver estado de conexión, copia offline y sincronización"
       >
         <Icon className={`w-3.5 h-3.5 sm:w-4 sm:h-4 shrink-0 ${isSyncing ? "animate-spin" : ""}`} />
@@ -99,21 +105,26 @@ export default function OfflineSyncStatus() {
 
       {/* Modal / Dialog de estado de sincronización */}
       {isOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-xs p-4 animate-in fade-in duration-150">
-          <div className="bg-white rounded-xl shadow-xl max-w-md w-full overflow-hidden border border-slate-200">
+        <div
+          role="dialog"
+          aria-modal="true"
+          aria-label="Estado de conexión y sincronización"
+          className="fixed inset-0 z-50 flex items-center justify-center bg-[var(--iw-color-ink-strong)]/45 backdrop-blur-xs p-4 animate-in fade-in duration-150"
+        >
+          <div className="bg-[var(--iw-semantic-bg-surface)] rounded-2xl shadow-[var(--iw-shadow-popover)] max-w-md w-full overflow-hidden border border-[var(--iw-semantic-border-default)]">
             {/* Cabecera */}
-            <div className="flex items-center justify-between px-5 py-4 border-b border-slate-100 bg-slate-50/50">
+            <div className="flex items-center justify-between px-5 py-4 border-b border-[var(--iw-semantic-border-default)] bg-[var(--iw-semantic-bg-subtle)]">
               <div className="flex items-center gap-2">
                 {isOnline ? (
-                  <CheckCircle2 className="w-5 h-5 text-emerald-600" />
+                  <CheckCircle2 className="w-5 h-5 text-[var(--iw-semantic-status-success)]" />
                 ) : (
-                  <CloudOff className="w-5 h-5 text-amber-600" />
+                  <CloudOff className="w-5 h-5 text-[var(--iw-semantic-status-warning)]" />
                 )}
                 <div>
-                  <h3 className="text-sm font-semibold text-slate-800">
+                  <h3 className="font-display text-sm font-semibold text-[var(--iw-semantic-text-primary)]">
                     {isOnline ? "Conectado a Internet" : "Modo Sin Conexión (Offline)"}
                   </h3>
-                  <p className="text-xs text-slate-500">
+                  <p className="text-xs text-[var(--iw-semantic-text-secondary)]">
                     {isOnline
                       ? "Los cambios se guardan y sincronizan con la nube"
                       : "Tus registros se guardan en el teléfono de forma segura"}
@@ -122,8 +133,9 @@ export default function OfflineSyncStatus() {
               </div>
               <button
                 type="button"
+                aria-label="Cerrar"
                 onClick={() => setIsOpen(false)}
-                className="text-slate-400 hover:text-slate-600 p-1 rounded-md transition-colors"
+                className="inline-flex h-9 w-9 items-center justify-center text-[var(--iw-semantic-text-secondary)] hover:text-[var(--iw-semantic-text-primary)] hover:bg-[var(--iw-semantic-bg-page)] rounded-[var(--iw-radius-control)] transition-colors"
               >
                 <X className="w-5 h-5" />
               </button>
@@ -133,32 +145,32 @@ export default function OfflineSyncStatus() {
             <div className="p-5 space-y-4">
               {/* Notificación de feedback */}
               {syncFeedback && (
-                <div className="p-3 bg-emerald-50 border border-emerald-200 text-emerald-800 rounded-lg text-xs font-medium">
+                <div className="p-3 bg-[var(--iw-semantic-bg-feature)] border border-[var(--iw-semantic-status-success)]/35 text-[var(--iw-semantic-status-success)] rounded-[var(--iw-radius-control)] text-xs font-medium">
                   {syncFeedback}
                 </div>
               )}
 
               {syncError && (
-                <div className="p-3 bg-rose-50 border border-rose-200 text-rose-800 rounded-lg text-xs">
+                <div className="p-3 bg-[var(--iw-semantic-bg-subtle)] border border-[var(--iw-semantic-status-danger)]/40 text-[var(--iw-semantic-status-danger)] rounded-[var(--iw-radius-control)] text-xs">
                   <p className="font-semibold">Problema al sincronizar:</p>
                   <p>{syncError}</p>
                 </div>
               )}
 
               {/* Copia local de la app en este dispositivo */}
-              <div className="rounded-lg border border-slate-200 bg-slate-50/70 p-3 space-y-2">
+              <div className="rounded-[var(--iw-radius-control)] border border-[var(--iw-semantic-border-default)] bg-[var(--iw-semantic-bg-subtle)] p-3 space-y-2">
                 <div className="flex items-start justify-between gap-2">
                   <div className="flex items-start gap-2">
-                    <Smartphone className="w-4 h-4 text-emerald-600 mt-0.5 shrink-0" />
+                    <Smartphone className="w-4 h-4 text-[var(--iw-semantic-action-primary)] mt-0.5 shrink-0" />
                     <div>
-                      <p className="text-xs font-semibold text-slate-800">Copia completa en el dispositivo</p>
-                      <p className="text-[11px] text-slate-500">
+                      <p className="text-xs font-semibold text-[var(--iw-semantic-text-primary)]">Copia completa en el dispositivo</p>
+                      <p className="text-[11px] text-[var(--iw-semantic-text-secondary)]">
                         {mirrorState.lastSyncedAt
                           ? `Guardada: ${mirrorState.routesCached} pantallas · ${mirrorState.endpointsCached} módulos de datos`
                           : "Guarda toda la app y datos para navegar cualquier módulo sin internet"}
                       </p>
                       {mirrorState.lastSyncedAt && (
-                        <p className="text-[10px] text-slate-400 mt-0.5">
+                        <p className="text-[10px] text-[var(--iw-semantic-text-secondary)] mt-0.5">
                           Última copia:{" "}
                           {new Date(mirrorState.lastSyncedAt).toLocaleString([], {
                             dateStyle: "short",
@@ -173,9 +185,9 @@ export default function OfflineSyncStatus() {
                     type="button"
                     onClick={handleSaveOfflineCopy}
                     disabled={!isOnline || mirrorState.isMirroring}
-                    className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-md text-[11px] font-semibold bg-white border border-slate-200 text-slate-700 hover:bg-slate-100 disabled:opacity-50 disabled:cursor-not-allowed shrink-0 shadow-2xs"
+                    className="inline-flex min-h-[36px] items-center gap-1 px-2.5 py-1.5 rounded-[var(--iw-radius-control)] text-[11px] font-semibold bg-[var(--iw-semantic-bg-surface)] border border-[var(--iw-semantic-border-default)] text-[var(--iw-semantic-text-primary)] hover:bg-[var(--iw-semantic-bg-page)] disabled:opacity-50 disabled:cursor-not-allowed shrink-0 shadow-2xs"
                   >
-                    <Download className={`w-3.5 h-3.5 ${mirrorState.isMirroring ? "animate-bounce text-blue-600" : ""}`} />
+                    <Download className={`w-3.5 h-3.5 ${mirrorState.isMirroring ? "animate-bounce text-[var(--iw-semantic-status-info)]" : ""}`} />
                     {mirrorState.isMirroring
                       ? `${mirrorProgressPct}%`
                       : mirrorState.lastSyncedAt
@@ -186,25 +198,25 @@ export default function OfflineSyncStatus() {
 
                 {mirrorState.isMirroring && (
                   <div className="space-y-1">
-                    <div className="w-full h-1.5 bg-slate-200 rounded-full overflow-hidden">
+                    <div className="w-full h-1.5 bg-[var(--iw-semantic-border-default)] rounded-full overflow-hidden">
                       <div
-                        className="h-full bg-blue-600 transition-all duration-200"
+                        className="h-full bg-[var(--iw-semantic-status-info)] transition-all duration-200"
                         style={{ width: `${mirrorProgressPct}%` }}
                       />
                     </div>
-                    <p className="text-[10px] text-slate-500 truncate">{mirrorState.currentLabel}</p>
+                    <p className="text-[10px] text-[var(--iw-semantic-text-secondary)] truncate">{mirrorState.currentLabel}</p>
                   </div>
                 )}
 
                 {mirrorState.lastError && !mirrorState.isMirroring && (
-                  <p className="text-[10px] text-rose-600 font-medium">{mirrorState.lastError}</p>
+                  <p className="text-[10px] text-[var(--iw-semantic-status-danger)] font-medium">{mirrorState.lastError}</p>
                 )}
               </div>
 
               {voiceCount > 0 && (
-                <div className="rounded-lg border border-amber-200 bg-amber-50 p-3 flex items-center justify-between gap-2 text-xs text-amber-900">
+                <div className="rounded-[var(--iw-radius-control)] border border-[var(--iw-semantic-status-warning)]/35 bg-[var(--iw-color-paper)] p-3 flex items-center justify-between gap-2 text-xs text-[var(--iw-semantic-status-warning)]">
                   <span className="flex items-center gap-1.5 font-medium">
-                    <Mic className="w-4 h-4 text-amber-700 shrink-0" />
+                    <Mic className="w-4 h-4 shrink-0" />
                     {voiceCount} nota(s) de voz pendiente(s) en el Asistente
                   </span>
                 </div>
@@ -212,40 +224,40 @@ export default function OfflineSyncStatus() {
 
               {/* Estado de la cola */}
               <div>
-                <div className="flex items-center justify-between text-xs text-slate-600 mb-2">
-                  <span className="font-semibold text-slate-700">Registros pendientes en este dispositivo</span>
-                  <span className="bg-slate-100 px-2 py-0.5 rounded-full font-mono text-slate-600">
+                <div className="flex items-center justify-between text-xs text-[var(--iw-semantic-text-secondary)] mb-2">
+                  <span className="font-semibold text-[var(--iw-semantic-text-primary)]">Registros pendientes en este dispositivo</span>
+                  <span className="bg-[var(--iw-semantic-bg-subtle)] border border-[var(--iw-semantic-border-default)] px-2 py-0.5 rounded-full font-mono text-[var(--iw-semantic-text-primary)] tabular-nums">
                     {pendingCount}
                   </span>
                 </div>
 
                 {outboxItems.length === 0 ? (
-                  <div className="text-center py-6 border border-dashed border-slate-200 rounded-lg bg-slate-50/50">
-                    <CheckCircle2 className="w-8 h-8 text-emerald-500 mx-auto mb-1 opacity-80" />
-                    <p className="text-xs text-slate-600 font-medium">No hay registros pendientes</p>
-                    <p className="text-[11px] text-slate-400">Todos los datos del gallinero están sincronizados</p>
+                  <div className="text-center py-6 border border-dashed border-[var(--iw-semantic-border-default)] rounded-[var(--iw-radius-control)] bg-[var(--iw-semantic-bg-subtle)]">
+                    <CheckCircle2 className="w-8 h-8 text-[var(--iw-semantic-status-success)] mx-auto mb-1 opacity-85" />
+                    <p className="text-xs text-[var(--iw-semantic-text-primary)] font-medium">No hay registros pendientes</p>
+                    <p className="text-[11px] text-[var(--iw-semantic-text-secondary)]">Todos los datos de tu granja están sincronizados</p>
                   </div>
                 ) : (
                   <div className="max-h-56 overflow-y-auto space-y-2 pr-1">
                     {outboxItems.map((item) => (
                       <div
                         key={item.id}
-                        className="flex items-start justify-between p-2.5 rounded-lg border border-slate-200 bg-white shadow-2xs text-xs"
+                        className="flex items-start justify-between p-2.5 rounded-[var(--iw-radius-control)] border border-[var(--iw-semantic-border-default)] bg-[var(--iw-semantic-bg-surface)] shadow-2xs text-xs"
                       >
                         <div className="space-y-0.5">
                           <div className="flex items-center gap-1.5">
-                            <span className="font-medium text-slate-800 capitalize">
+                            <span className="font-medium text-[var(--iw-semantic-text-primary)] capitalize">
                               {item.entity}
                             </span>
                             <span
-                              className={`text-[10px] px-1.5 py-0.2 rounded-full font-medium ${
+                              className={`text-[10px] px-2 py-0.5 rounded-full font-semibold ${
                                 item.status === "synced"
-                                  ? "bg-emerald-100 text-emerald-800"
+                                  ? "bg-[var(--iw-semantic-status-success)] text-white"
                                   : item.status === "failed"
-                                  ? "bg-rose-100 text-rose-800"
+                                  ? "bg-[var(--iw-semantic-status-danger)] text-white"
                                   : item.status === "syncing"
-                                  ? "bg-blue-100 text-blue-800"
-                                  : "bg-amber-100 text-amber-800"
+                                  ? "bg-[var(--iw-semantic-status-info)] text-white"
+                                  : "bg-[var(--iw-semantic-status-warning)] text-white"
                               }`}
                             >
                               {item.status === "synced"
@@ -257,8 +269,8 @@ export default function OfflineSyncStatus() {
                                 : "Pendiente"}
                             </span>
                           </div>
-                          <p className="text-slate-600 text-[11px]">{item.description}</p>
-                          <p className="text-[10px] text-slate-400">
+                          <p className="text-[var(--iw-semantic-text-secondary)] text-[11px]">{item.description}</p>
+                          <p className="text-[10px] text-[var(--iw-semantic-text-secondary)] tabular-nums">
                             {new Date(item.clientTimestamp).toLocaleTimeString([], {
                               hour: "2-digit",
                               minute: "2-digit",
@@ -266,14 +278,15 @@ export default function OfflineSyncStatus() {
                             · {new Date(item.clientTimestamp).toLocaleDateString()}
                           </p>
                           {item.error && (
-                            <p className="text-[10px] text-rose-600 font-medium">{item.error}</p>
+                            <p className="text-[10px] text-[var(--iw-semantic-status-danger)] font-medium">{item.error}</p>
                           )}
                         </div>
 
                         <button
                           type="button"
                           onClick={() => discardItem(item.id)}
-                          className="text-slate-400 hover:text-rose-600 p-1 rounded-md transition-colors"
+                          aria-label="Descartar este registro local"
+                          className="text-[var(--iw-semantic-text-secondary)] hover:text-[var(--iw-semantic-status-danger)] p-1.5 rounded-[var(--iw-radius-control)] transition-colors"
                           title="Descartar este registro local"
                         >
                           <Trash2 className="w-3.5 h-3.5" />
@@ -285,15 +298,15 @@ export default function OfflineSyncStatus() {
               </div>
 
               {lastSyncTime && (
-                <p className="text-[11px] text-slate-400 text-center">
+                <p className="text-[11px] text-[var(--iw-semantic-text-secondary)] text-center tabular-nums">
                   Última sincronización: {new Date(lastSyncTime).toLocaleTimeString()}
                 </p>
               )}
             </div>
 
             {/* Pie con acciones */}
-            <div className="px-5 py-3 bg-slate-50 border-t border-slate-100 flex items-center justify-between gap-2">
-              <span className="text-[11px] text-slate-500">
+            <div className="px-5 py-3 bg-[var(--iw-semantic-bg-subtle)] border-t border-[var(--iw-semantic-border-default)] flex items-center justify-between gap-2">
+              <span className="text-[11px] text-[var(--iw-semantic-text-secondary)]">
                 {isOnline ? "Conexión activa" : "Sin conexión celular/Wi-Fi"}
               </span>
 
@@ -301,7 +314,7 @@ export default function OfflineSyncStatus() {
                 type="button"
                 onClick={handleSyncClick}
                 disabled={!isOnline || isSyncing || pendingCount === 0}
-                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold text-white bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 disabled:cursor-not-allowed shadow-xs transition-colors"
+                className="inline-flex min-h-[40px] items-center gap-1.5 px-3.5 py-2 rounded-[var(--iw-radius-control)] text-xs font-semibold text-[var(--iw-semantic-action-primary-text)] bg-[var(--iw-semantic-action-primary)] hover:bg-[var(--iw-semantic-action-primary-hover)] disabled:opacity-50 disabled:cursor-not-allowed shadow-xs transition-colors"
               >
                 <RefreshCw className={`w-3.5 h-3.5 ${isSyncing ? "animate-spin" : ""}`} />
                 {isSyncing ? "Sincronizando..." : "Sincronizar ahora"}

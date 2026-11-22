@@ -980,11 +980,11 @@ export default function Dashboard() {
                         }))
                         .reverse()}
                     >
-                      <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
+                      <CartesianGrid strokeDasharray="3 3" stroke="var(--iw-color-border)" />
                       <XAxis dataKey="fecha" fontSize={10} />
                       <YAxis fontSize={10} />
                       <Tooltip />
-                      <Bar dataKey="huevos" fill="#15803d" radius={[4, 4, 0, 0]} />
+                      <Bar dataKey="huevos" fill="var(--iw-color-forest)" radius={[4, 4, 0, 0]} />
                     </BarChart>
                   </ResponsiveContainer>
                 ) : (
@@ -1048,14 +1048,14 @@ export default function Dashboard() {
                 </h3>
                 <ResponsiveContainer width="100%" height={220}>
                   <LineChart data={data.feedChartData}>
-                    <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
+                    <CartesianGrid strokeDasharray="3 3" stroke="var(--iw-color-border)" />
                     <XAxis dataKey="fecha" fontSize={10} />
                     <YAxis yAxisId="left" fontSize={10} />
                     <YAxis yAxisId="right" orientation="right" fontSize={10} />
                     <Tooltip />
                     <Legend />
-                    <Line yAxisId="left" type="monotone" dataKey="alimento" stroke="#64748b" strokeWidth={2} name="Alimento (kg)" dot={{ r: 2 }} />
-                    <Line yAxisId="right" type="monotone" dataKey="huevos" stroke="#15803d" strokeWidth={2} name="Huevos" dot={{ r: 2 }} />
+                    <Line yAxisId="left" type="monotone" dataKey="alimento" stroke="var(--iw-color-ochre)" strokeWidth={2} name="Alimento (kg)" dot={{ r: 2 }} />
+                    <Line yAxisId="right" type="monotone" dataKey="huevos" stroke="var(--iw-color-forest)" strokeWidth={2} name="Huevos" dot={{ r: 2 }} />
                   </LineChart>
                 </ResponsiveContainer>
               </Card>

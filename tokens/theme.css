@@ -1,0 +1,93 @@
+/* GENERATED FILE — edit tokens/tokens.json, then run python3 scripts/build_tokens.py */
+/* System: Iwagé · Agroeditorial Ilustrado | version 0.1.0 */
+:root {
+  /* color */
+  --iw-color-forest: #315245;
+  --iw-color-forest-dark: #26463A;
+  --iw-color-paper: #F3EDE0;
+  --iw-color-paper-light: #FCFBF7;
+  --iw-color-white: #FFFFFF;
+  --iw-color-ochre: #B17A45;
+  --iw-color-terracotta: #C76E4C;
+  --iw-color-graphite: #253238;
+  --iw-color-muted: #536760;
+  --iw-color-border: #C9CEC3;
+  --iw-color-sage: #E5EBD8;
+  --iw-color-success: #286B4A;
+  --iw-color-warning: #9A5C1A;
+  --iw-color-danger: #A83F32;
+  --iw-color-info: #2D637B;
+  --iw-color-outline-soft: #8B9A86;
+  --iw-color-ink-strong: #121D15;
+  --iw-color-field-border: #798A80;
+  /* semantic */
+  --iw-semantic-bg-page: #F3EDE0;
+  --iw-semantic-bg-surface: #FFFFFF;
+  --iw-semantic-bg-subtle: #FCFBF7;
+  --iw-semantic-bg-feature: #E5EBD8;
+  --iw-semantic-text-primary: #253238;
+  --iw-semantic-text-secondary: #536760;
+  --iw-semantic-text-inverse: #FFFFFF;
+  --iw-semantic-border-default: #C9CEC3;
+  --iw-semantic-border-strong: #315245;
+  --iw-semantic-action-primary: #315245;
+  --iw-semantic-action-primary-hover: #26463A;
+  --iw-semantic-action-primary-text: #FFFFFF;
+  --iw-semantic-action-secondary: #FCFBF7;
+  --iw-semantic-action-secondary-text: #315245;
+  --iw-semantic-action-secondary-border: #315245;
+  --iw-semantic-accent-ochre: #B17A45;
+  --iw-semantic-accent-terracotta: #C76E4C;
+  --iw-semantic-status-success: #286B4A;
+  --iw-semantic-status-warning: #9A5C1A;
+  --iw-semantic-status-danger: #A83F32;
+  --iw-semantic-status-info: #2D637B;
+  --iw-semantic-focus-ring: #2D637B;
+  --iw-semantic-border-input: #798A80;
+  --iw-semantic-border-illustration: #8B9A86;
+  --iw-semantic-text-on-accent: #121D15;
+  /* font */
+  --iw-font-display: 'Fraunces', Georgia, 'Times New Roman', serif;
+  --iw-font-body: 'Inter', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  /* type */
+  --iw-type-display: clamp(2.65rem, 5vw, 4.5rem);
+  --iw-type-h1: clamp(2rem, 3.5vw, 3rem);
+  --iw-type-h2: clamp(1.5rem, 2.3vw, 2rem);
+  --iw-type-h3: 1.25rem;
+  --iw-type-body: 1rem;
+  --iw-type-small: 0.875rem;
+  --iw-type-caption: 0.75rem;
+  /* leading */
+  --iw-leading-display: 1.05;
+  --iw-leading-heading: 1.2;
+  --iw-leading-body: 1.55;
+  --iw-leading-small: 1.45;
+  /* space */
+  --iw-space-0: 0px;
+  --iw-space-1: 4px;
+  --iw-space-2: 8px;
+  --iw-space-3: 12px;
+  --iw-space-4: 16px;
+  --iw-space-6: 24px;
+  --iw-space-8: 32px;
+  --iw-space-12: 48px;
+  --iw-space-16: 64px;
+  --iw-space-24: 96px;
+  /* radius */
+  --iw-radius-xs: 4px;
+  --iw-radius-sm: 6px;
+  --iw-radius-control: 10px;
+  --iw-radius-card: 16px;
+  --iw-radius-pill: 999px;
+  /* size */
+  --iw-size-touch-min: 48px;
+  --iw-size-container: 1160px;
+  --iw-size-reading: 720px;
+  /* shadow */
+  --iw-shadow-card: 0 3px 16px rgba(37, 50, 56, 0.06);
+  --iw-shadow-popover: 0 12px 30px rgba(37, 50, 56, 0.12);
+  /* motion */
+  --iw-motion-fast: 120ms;
+  --iw-motion-normal: 180ms;
+  --iw-motion-slow: 250ms;
+}

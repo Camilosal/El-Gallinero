@@ -46,7 +46,14 @@ const CAUSE_LABELS: Record<string, string> = {
   otra: "Otra causa",
 };
 
-const PIE_COLORS = ["#16a34a", "#eab308", "#dc2626", "#2563eb", "#7c3aed", "#ea580c"];
+const PIE_COLORS = [
+  "var(--iw-color-forest)",
+  "var(--iw-color-ochre)",
+  "var(--iw-color-danger)",
+  "var(--iw-color-info)",
+  "var(--iw-color-terracotta)",
+  "var(--iw-color-muted)",
+];
 
 function formatCop(value: number): string {
   return new Intl.NumberFormat("es-CO", {
@@ -580,7 +587,7 @@ export function KpiWidgetCard({
           <div className="h-[250px] w-full min-w-0">
             <ResponsiveContainer width="100%" height="100%">
               <AreaChart data={series}>
-                <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
+                <CartesianGrid strokeDasharray="3 3" stroke="var(--iw-color-border)" />
                 <XAxis dataKey="dateLabel" fontSize={11} />
                 <YAxis fontSize={11} unit={layingChartMode === "rate" ? "%" : ""} />
                 <Tooltip
@@ -593,12 +600,12 @@ export function KpiWidgetCard({
                 {layingChartMode === "rate" && (
                   <ReferenceLine
                     y={data.benchmarks.layingTargetPct}
-                    stroke="#ca8a04"
+                    stroke="var(--iw-color-ochre)"
                     strokeDasharray="4 4"
                     label={{
                       value: `Meta ${data.benchmarks.layingTargetPct}%`,
                       position: "insideTopRight",
-                      fill: "#a16207",
+                      fill: "var(--iw-color-warning)",
                       fontSize: 11,
                     }}
                   />
@@ -606,8 +613,8 @@ export function KpiWidgetCard({
                 <Area
                   type="monotone"
                   dataKey={layingChartMode === "rate" ? "tasaPct" : "huevos"}
-                  stroke="#16a34a"
-                  fill="#bbf7d0"
+                  stroke="var(--iw-color-forest)"
+                  fill="var(--iw-color-sage)"
                   strokeWidth={2}
                 />
               </AreaChart>
@@ -731,11 +738,11 @@ export function KpiWidgetCard({
         <div className="h-[250px] w-full min-w-0">
           <ResponsiveContainer width="100%" height="100%">
             <BarChart data={costBreakdown}>
-              <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
+              <CartesianGrid strokeDasharray="3 3" stroke="var(--iw-color-border)" />
               <XAxis dataKey="name" fontSize={11} />
               <YAxis fontSize={11} />
               <Tooltip formatter={(value) => formatCop(Number(value || 0))} />
-              <Bar dataKey="total" fill="#16a34a" radius={[6, 6, 0, 0]} />
+              <Bar dataKey="total" fill="var(--iw-color-forest)" radius={[6, 6, 0, 0]} />
             </BarChart>
           </ResponsiveContainer>
         </div>

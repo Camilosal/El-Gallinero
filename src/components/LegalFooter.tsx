@@ -3,24 +3,24 @@ import { BrandLogo } from "@/components/BrandLogo";
 import { LEGAL, LEGAL_LINKS } from "@/lib/legal";
 
 const FOOTER_LINK_CLASS =
-  "underline underline-offset-4 decoration-slate-300 hover:decoration-slate-700 hover:text-slate-900 py-0.5 inline-flex items-center transition-colors";
+  "underline underline-offset-4 decoration-[var(--iw-semantic-border-default)] hover:decoration-current hover:text-[var(--iw-semantic-action-primary)] py-0.5 inline-flex items-center transition-colors";
 
 /** Pie con identidad del vendedor y documentos legales. */
 export function LegalFooter({ className = "" }: { className?: string }) {
   return (
     <footer
-      className={`border-t border-[var(--line,#e5dfcf)] bg-white/70 py-5 text-xs text-slate-600 ${className}`}
+      className={`border-t border-[var(--iw-semantic-border-default)] bg-[var(--iw-semantic-bg-subtle)] py-6 text-xs text-[var(--iw-semantic-text-secondary)] ${className}`}
     >
-      <div className="max-w-[1080px] mx-auto px-4 sm:px-7 space-y-2">
+      <div className="max-w-[var(--iw-size-container,1160px)] mx-auto px-4 sm:px-7 space-y-2.5">
         <p className="flex flex-wrap items-center gap-2">
           <BrandLogo
             variant="square"
             size={32}
             decorative
-            className="rounded-lg bg-white p-0.5 border border-slate-200"
+            className="rounded-[var(--iw-radius-control)] bg-[var(--iw-semantic-bg-surface)] p-0.5 border border-[var(--iw-semantic-border-default)]"
           />
           <span>
-            <strong className="text-slate-900">{LEGAL.marca}</strong> · Operado por{" "}
+            <strong className="text-[var(--iw-semantic-text-primary)]">{LEGAL.marca}</strong> · Operado por{" "}
             {LEGAL.razonSocial} · NIT/RUT {LEGAL.nit} · {LEGAL.ciudad} · {LEGAL.email}
           </span>
         </p>
@@ -47,4 +47,3 @@ export function LegalFooter({ className = "" }: { className?: string }) {
     </footer>
   );
 }
-

@@ -1358,14 +1358,14 @@ export default function QuickCaptureModal() {
     <Modal open={open} onClose={() => setOpen(false)} title="Registro rápido">
       <div className="space-y-4">
         {!online && (
-          <div className="flex items-center gap-2 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800">
-            <WifiOff className="h-4 w-4 shrink-0 text-amber-600" aria-hidden="true" />
+          <div className="flex items-center gap-2 rounded-[var(--iw-radius-control)] border border-[var(--iw-semantic-status-warning)]/40 bg-[var(--iw-color-paper)] px-3 py-2 text-xs text-[var(--iw-semantic-status-warning)]">
+            <WifiOff className="h-4 w-4 shrink-0" aria-hidden="true" />
             <span>Sin internet: tu registro se guardará en el teléfono y se enviará al reconectar.</span>
           </div>
         )}
 
         {/* Mode selector strip */}
-        <div className="grid grid-cols-5 gap-1.5 rounded-xl bg-slate-100 p-1">
+        <div className="grid grid-cols-5 gap-1.5 rounded-[var(--iw-radius-control)] border border-[var(--iw-semantic-border-default)] bg-[var(--iw-semantic-bg-subtle)] p-1">
           {MODE_TABS.map((tab) => {
             const Icon = tab.icon;
             const active = mode === tab.mode;
@@ -1379,8 +1379,10 @@ export default function QuickCaptureModal() {
                   setSuccessInfo(null);
                   setEggOverLimitMsg("");
                 }}
-                className={`flex min-h-[48px] flex-col items-center justify-center gap-1 rounded-lg px-2 py-2 text-xs font-semibold transition-all ${
-                  active ? "bg-white text-green-700 shadow-xs" : "text-slate-700 hover:text-slate-900"
+                className={`flex min-h-[48px] flex-col items-center justify-center gap-1 rounded-[var(--iw-radius-control)] px-2 py-2 text-xs font-semibold transition-all ${
+                  active
+                    ? "bg-[var(--iw-semantic-bg-surface)] text-[var(--iw-semantic-action-primary)] shadow-xs"
+                    : "text-[var(--iw-semantic-text-secondary)] hover:text-[var(--iw-semantic-text-primary)]"
                 }`}
               >
                 <Icon className="h-4 w-4" aria-hidden="true" />
@@ -1391,16 +1393,16 @@ export default function QuickCaptureModal() {
         </div>
 
         {error && (
-          <div className="flex items-start gap-2 rounded-lg border border-red-200 bg-red-50 px-3 py-2.5 text-sm text-red-700">
+          <div role="alert" className="flex items-start gap-2 rounded-[var(--iw-radius-control)] border border-[var(--iw-semantic-status-danger)]/40 bg-[var(--iw-semantic-bg-subtle)] px-3 py-2.5 text-sm text-[var(--iw-semantic-status-danger)]">
             <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" aria-hidden="true" />
             <span>{error}</span>
           </div>
         )}
 
         {eggOverLimitMsg && (
-          <div className="space-y-2 rounded-xl border border-amber-300 bg-amber-50 p-3 text-sm text-amber-900">
-            <p className="font-semibold">Confirmación de postura alta</p>
-            <p className="text-xs leading-relaxed">{eggOverLimitMsg}</p>
+          <div className="space-y-2 rounded-2xl border border-[var(--iw-semantic-status-warning)]/45 bg-[var(--iw-color-paper)] p-3 text-sm text-[var(--iw-semantic-text-primary)]">
+            <p className="font-semibold text-[var(--iw-semantic-status-warning)]">Confirmación de postura alta</p>
+            <p className="text-xs leading-relaxed text-[var(--iw-semantic-text-secondary)]">{eggOverLimitMsg}</p>
             <div className="flex gap-2">
               <Button type="button" onClick={() => void submitEggs(true)} disabled={saving}>
                 Confirmar y guardar
@@ -1443,10 +1445,10 @@ export default function QuickCaptureModal() {
                           setEggSpecies(sp.value);
                           setEggBatchId("");
                         }}
-                        className={`rounded-lg border px-2.5 py-1.5 text-xs font-semibold transition-colors ${
+                        className={`min-h-[40px] rounded-[var(--iw-radius-control)] border px-3 py-1.5 text-xs font-semibold transition-colors ${
                           eggSpecies === sp.value
-                            ? "border-yellow-500 bg-yellow-100 text-yellow-900"
-                            : "border-slate-200 bg-white text-slate-600 hover:bg-slate-50"
+                            ? "border-[var(--iw-semantic-action-primary)] bg-[var(--iw-semantic-bg-feature)] text-[var(--iw-semantic-action-primary)]"
+                            : "border-[var(--iw-semantic-border-default)] bg-[var(--iw-semantic-bg-surface)] text-[var(--iw-semantic-text-secondary)] hover:bg-[var(--iw-semantic-bg-subtle)]"
                         }`}
                       >
                         {sp.label}
@@ -1457,7 +1459,7 @@ export default function QuickCaptureModal() {
                     <button
                       type="button"
                       onClick={applyLastEggRecord}
-                      className="inline-flex items-center gap-1 rounded-lg border border-green-200 bg-green-50 px-2.5 py-1.5 text-xs font-semibold text-green-700 hover:bg-green-100"
+                      className="inline-flex min-h-[40px] items-center gap-1 rounded-[var(--iw-radius-control)] border border-[var(--iw-semantic-border-default)] bg-[var(--iw-semantic-bg-feature)] px-3 py-1.5 text-xs font-semibold text-[var(--iw-semantic-action-primary)] hover:brightness-95"
                     >
                       <Copy className="h-3.5 w-3.5" aria-hidden="true" />
                       <span>Igual que ayer ({lastEggRecord.totalCollected})</span>
@@ -1498,10 +1500,10 @@ export default function QuickCaptureModal() {
                 )}
 
                 {/* Cubetas + sueltos counter */}
-                <div className="rounded-xl border border-yellow-200 bg-yellow-50/70 p-3.5 space-y-3">
+                <div className="rounded-2xl border border-[var(--iw-semantic-accent-ochre)]/45 bg-[var(--iw-color-paper)] p-3.5 space-y-3">
                   <div className="grid grid-cols-2 gap-3">
                     <div>
-                      <span className="mb-1 inline-flex items-center gap-1 text-xs font-semibold text-slate-700">
+                      <span className="mb-1 inline-flex items-center gap-1 text-xs font-semibold text-[var(--iw-semantic-text-primary)]">
                         <span>Cubetas (×30)</span>
                         <Tooltip text="Cantidad de cartones completos de 30 huevos que llenaste hoy." />
                       </span>
@@ -1509,7 +1511,7 @@ export default function QuickCaptureModal() {
                         <button
                           type="button"
                           onClick={() => setTrays((t) => Math.max(0, t - 1))}
-                          className="flex h-10 w-10 items-center justify-center rounded-lg border border-slate-300 bg-white text-slate-700 hover:bg-slate-50"
+                          className="flex h-12 w-12 shrink-0 items-center justify-center rounded-[var(--iw-radius-control)] border border-[var(--iw-semantic-border-input)] bg-[var(--iw-semantic-bg-surface)] text-[var(--iw-semantic-text-primary)] hover:bg-[var(--iw-semantic-bg-subtle)]"
                           aria-label="Restar una cubeta"
                         >
                           <Minus className="h-4 w-4" />
@@ -1519,12 +1521,12 @@ export default function QuickCaptureModal() {
                           min={0}
                           value={trays}
                           onChange={(e) => setTrays(Math.max(0, Number(e.target.value || 0)))}
-                          className="h-10 w-full rounded-lg border border-slate-300 bg-white text-center text-base font-bold text-slate-800"
+                          className="h-12 w-full rounded-[var(--iw-radius-control)] border border-[var(--iw-semantic-border-input)] bg-[var(--iw-semantic-bg-surface)] text-center text-base font-bold text-[var(--iw-semantic-text-primary)] tabular-nums"
                         />
                         <button
                           type="button"
                           onClick={() => setTrays((t) => t + 1)}
-                          className="flex h-10 w-10 items-center justify-center rounded-lg border border-slate-300 bg-white text-slate-700 hover:bg-slate-50"
+                          className="flex h-12 w-12 shrink-0 items-center justify-center rounded-[var(--iw-radius-control)] border border-[var(--iw-semantic-border-input)] bg-[var(--iw-semantic-bg-surface)] text-[var(--iw-semantic-text-primary)] hover:bg-[var(--iw-semantic-bg-subtle)]"
                           aria-label="Sumar una cubeta"
                         >
                           <Plus className="h-4 w-4" />
@@ -1533,7 +1535,7 @@ export default function QuickCaptureModal() {
                     </div>
 
                     <div>
-                      <span className="mb-1 inline-flex items-center gap-1 text-xs font-semibold text-slate-700">
+                      <span className="mb-1 inline-flex items-center gap-1 text-xs font-semibold text-[var(--iw-semantic-text-primary)]">
                         <span>Huevos sueltos</span>
                         <Tooltip text="Huevos adicionales que no alcanzan a completar otra cubeta de 30." />
                       </span>
@@ -1541,7 +1543,7 @@ export default function QuickCaptureModal() {
                         <button
                           type="button"
                           onClick={() => setLooseEggs((l) => Math.max(0, l - 1))}
-                          className="flex h-10 w-10 items-center justify-center rounded-lg border border-slate-300 bg-white text-slate-700 hover:bg-slate-50"
+                          className="flex h-12 w-12 shrink-0 items-center justify-center rounded-[var(--iw-radius-control)] border border-[var(--iw-semantic-border-input)] bg-[var(--iw-semantic-bg-surface)] text-[var(--iw-semantic-text-primary)] hover:bg-[var(--iw-semantic-bg-subtle)]"
                           aria-label="Restar un huevo suelto"
                         >
                           <Minus className="h-4 w-4" />
@@ -1551,12 +1553,12 @@ export default function QuickCaptureModal() {
                           min={0}
                           value={looseEggs}
                           onChange={(e) => setLooseEggs(Math.max(0, Number(e.target.value || 0)))}
-                          className="h-10 w-full rounded-lg border border-slate-300 bg-white text-center text-base font-bold text-slate-800"
+                          className="h-12 w-full rounded-[var(--iw-radius-control)] border border-[var(--iw-semantic-border-input)] bg-[var(--iw-semantic-bg-surface)] text-center text-base font-bold text-[var(--iw-semantic-text-primary)] tabular-nums"
                         />
                         <button
                           type="button"
                           onClick={() => setLooseEggs((l) => l + 1)}
-                          className="flex h-10 w-10 items-center justify-center rounded-lg border border-slate-300 bg-white text-slate-700 hover:bg-slate-50"
+                          className="flex h-12 w-12 shrink-0 items-center justify-center rounded-[var(--iw-radius-control)] border border-[var(--iw-semantic-border-input)] bg-[var(--iw-semantic-bg-surface)] text-[var(--iw-semantic-text-primary)] hover:bg-[var(--iw-semantic-bg-subtle)]"
                           aria-label="Sumar un huevo suelto"
                         >
                           <Plus className="h-4 w-4" />
@@ -1575,7 +1577,7 @@ export default function QuickCaptureModal() {
                           setTrays(Math.floor(next / 30));
                           setLooseEggs(next % 30);
                         }}
-                        className="rounded-lg border border-yellow-300 bg-white px-2.5 py-1 text-xs font-semibold text-yellow-800 hover:bg-yellow-100"
+                        className="min-h-[40px] rounded-[var(--iw-radius-control)] border border-[var(--iw-semantic-border-default)] bg-[var(--iw-semantic-bg-surface)] px-3 py-1 text-xs font-semibold text-[var(--iw-semantic-action-primary)] hover:bg-[var(--iw-semantic-bg-feature)] tabular-nums"
                       >
                         +{inc}
                       </button>
@@ -1586,18 +1588,18 @@ export default function QuickCaptureModal() {
                         setTrays(0);
                         setLooseEggs(0);
                       }}
-                      className="ml-auto text-xs font-medium text-slate-500 hover:text-slate-700"
+                      className="ml-auto min-h-[40px] px-2 text-xs font-medium text-[var(--iw-semantic-text-secondary)] hover:text-[var(--iw-semantic-text-primary)]"
                     >
                       Limpiar
                     </button>
                   </div>
 
-                  <div className="flex items-center justify-between border-t border-yellow-200 pt-2 text-xs">
-                    <span className="font-semibold text-slate-700">
-                      Total: <strong className="text-base text-slate-900">{totalEggsCollected}</strong> huevos
+                  <div className="flex items-center justify-between border-t border-[var(--iw-semantic-border-default)] pt-2 text-xs">
+                    <span className="font-semibold text-[var(--iw-semantic-text-secondary)]">
+                      Total: <strong className="text-base text-[var(--iw-semantic-text-primary)] tabular-nums">{totalEggsCollected}</strong> huevos
                       {goodEggs !== totalEggsCollected ? ` (${goodEggs} útiles)` : ""}
                     </span>
-                    <span className="inline-flex items-center gap-1 font-semibold text-green-700">
+                    <span className="inline-flex items-center gap-1 font-semibold text-[var(--iw-semantic-action-primary)] tabular-nums">
                       <Banknote className="h-3.5 w-3.5" aria-hidden="true" />
                       ~${estimatedEggValue.toLocaleString("es-CO")}
                     </span>
@@ -1608,14 +1610,14 @@ export default function QuickCaptureModal() {
                 <button
                   type="button"
                   onClick={() => setShowEggDetails((v) => !v)}
-                  className="flex w-full items-center justify-between rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-xs font-medium text-slate-600 hover:bg-slate-100"
+                  className="flex min-h-[44px] w-full items-center justify-between rounded-[var(--iw-radius-control)] border border-[var(--iw-semantic-border-default)] bg-[var(--iw-semantic-bg-subtle)] px-3 py-2 text-xs font-medium text-[var(--iw-semantic-text-secondary)] hover:bg-[var(--iw-semantic-bg-page)]"
                 >
                   <span>Rotos, incubación o nota opcional</span>
                   {showEggDetails ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
                 </button>
 
                 {showEggDetails && (
-                  <div className="space-y-3 rounded-lg border border-slate-200 bg-slate-50 p-3">
+                  <div className="space-y-3 rounded-[var(--iw-radius-control)] border border-[var(--iw-semantic-border-default)] bg-[var(--iw-semantic-bg-subtle)] p-3">
                     <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-4">
                       <Input label="Rotos" type="number" min={0} value={brokenEggs} onChange={(e) => setBrokenEggs(Math.max(0, Number(e.target.value || 0)))} />
                       <Input label="Incubación" type="number" min={0} value={incubEggs} onChange={(e) => setIncubEggs(Math.max(0, Number(e.target.value || 0)))} />
@@ -1635,12 +1637,12 @@ export default function QuickCaptureModal() {
             {mode === "alimentacion" && (
               <div className="space-y-3.5">
                 <div className="flex items-center justify-between gap-2">
-                  <span className="text-xs font-medium text-slate-500">Registra alimento entregado sin salir</span>
+                  <span className="text-xs font-medium text-[var(--iw-semantic-text-secondary)]">Registra alimento entregado sin salir</span>
                   {lastFeedRecord && (
                     <button
                       type="button"
                       onClick={applyLastFeedRecord}
-                      className="inline-flex items-center gap-1 rounded-lg border border-green-200 bg-green-50 px-2.5 py-1.5 text-xs font-semibold text-green-700 hover:bg-green-100"
+                      className="inline-flex min-h-[40px] items-center gap-1 rounded-[var(--iw-radius-control)] border border-[var(--iw-semantic-border-default)] bg-[var(--iw-semantic-bg-feature)] px-3 py-1.5 text-xs font-semibold text-[var(--iw-semantic-action-primary)] hover:brightness-95"
                     >
                       <Copy className="h-3.5 w-3.5" aria-hidden="true" />
                       <span>Igual que ayer ({Number(lastFeedRecord.quantity)} {lastFeedRecord.feedUnit || "kg"})</span>
@@ -1840,10 +1842,10 @@ export default function QuickCaptureModal() {
                         key={c.value}
                         type="button"
                         onClick={() => setMortCause(c.value)}
-                        className={`min-h-[48px] rounded-lg border px-2.5 py-2 text-xs font-semibold transition-colors ${
+                        className={`min-h-[48px] rounded-[var(--iw-radius-control)] border px-2.5 py-2 text-xs font-semibold transition-colors ${
                           mortCause === c.value
-                            ? "border-red-600 bg-red-600 text-white"
-                            : "border-slate-300 bg-white text-slate-800 hover:bg-slate-50"
+                            ? "border-[var(--iw-semantic-status-danger)] bg-[var(--iw-semantic-status-danger)] text-white"
+                            : "border-[var(--iw-semantic-border-input)] bg-[var(--iw-semantic-bg-surface)] text-[var(--iw-semantic-text-primary)] hover:bg-[var(--iw-semantic-bg-subtle)]"
                         }`}
                       >
                         {c.label}
@@ -1853,7 +1855,7 @@ export default function QuickCaptureModal() {
                 </div>
 
                 <div>
-                  <span className="mb-1.5 block text-xs font-semibold text-slate-700">Observación rápida (1 toque)</span>
+                  <span className="mb-1.5 block text-xs font-semibold text-[var(--iw-semantic-text-primary)]">Observación rápida (1 toque)</span>
                   <div className="flex flex-wrap gap-1.5">
                     {MORTALITY_QUICK_OBSERVATIONS.map((obs) => {
                       const active = mortNotes.includes(obs);
@@ -1870,10 +1872,10 @@ export default function QuickCaptureModal() {
                                 : obs,
                             )
                           }
-                          className={`rounded-lg border px-2.5 py-1.5 text-xs font-semibold transition-colors ${
+                          className={`min-h-[40px] rounded-[var(--iw-radius-control)] border px-2.5 py-1.5 text-xs font-semibold transition-colors ${
                             active
-                              ? "border-amber-600 bg-amber-600 text-white"
-                              : "border-slate-200 bg-white text-slate-700 hover:bg-slate-50"
+                              ? "border-[var(--iw-semantic-status-warning)] bg-[var(--iw-semantic-status-warning)] text-white"
+                              : "border-[var(--iw-semantic-border-default)] bg-[var(--iw-semantic-bg-surface)] text-[var(--iw-semantic-text-primary)] hover:bg-[var(--iw-semantic-bg-subtle)]"
                           }`}
                         >
                           {obs}
@@ -1902,7 +1904,7 @@ export default function QuickCaptureModal() {
             {mode === "gasto" && (
               <div className="space-y-3.5">
                 <div>
-                  <span className="mb-1.5 inline-flex items-center gap-1 text-xs font-semibold text-slate-700">
+                  <span className="mb-1.5 inline-flex items-center gap-1 text-xs font-semibold text-[var(--iw-semantic-text-primary)]">
                     <span>Categoría</span>
                     <Tooltip text="Tipo de gasto o compra para agruparlo bien en tus reportes y bodega." />
                   </span>
@@ -1912,10 +1914,10 @@ export default function QuickCaptureModal() {
                         key={cat}
                         type="button"
                         onClick={() => setExpCategory(cat)}
-                        className={`rounded-lg border px-2.5 py-1.5 text-xs font-semibold transition-colors ${
+                        className={`min-h-[40px] rounded-[var(--iw-radius-control)] border px-2.5 py-1.5 text-xs font-semibold transition-colors ${
                           expCategory === cat
-                            ? "border-green-600 bg-green-600 text-white"
-                            : "border-slate-200 bg-white text-slate-700 hover:bg-slate-50"
+                            ? "border-[var(--iw-semantic-action-primary)] bg-[var(--iw-semantic-action-primary)] text-[var(--iw-semantic-action-primary-text)]"
+                            : "border-[var(--iw-semantic-border-default)] bg-[var(--iw-semantic-bg-surface)] text-[var(--iw-semantic-text-primary)] hover:bg-[var(--iw-semantic-bg-subtle)]"
                         }`}
                       >
                         {cat}
@@ -1994,8 +1996,8 @@ export default function QuickCaptureModal() {
               <div className="space-y-3.5">
                 {/* Selector de tipo de venta */}
                 <div>
-                  <span className="mb-1.5 block text-xs font-semibold text-slate-700">¿Qué vas a vender?</span>
-                  <div className="grid grid-cols-5 gap-1 rounded-xl bg-slate-100 p-1">
+                  <span className="mb-1.5 block text-xs font-semibold text-[var(--iw-semantic-text-primary)]">¿Qué vas a vender?</span>
+                  <div className="grid grid-cols-5 gap-1 rounded-[var(--iw-radius-control)] border border-[var(--iw-semantic-border-default)] bg-[var(--iw-semantic-bg-subtle)] p-1">
                     {SALE_TYPE_TABS.map((opt) => (
                       <button
                         key={opt.value}
@@ -2021,10 +2023,10 @@ export default function QuickCaptureModal() {
                             setSaleSpecies("");
                           }
                         }}
-                        className={`rounded-lg px-2 py-1.5 text-xs font-semibold transition-all ${
+                        className={`min-h-[40px] rounded-[var(--iw-radius-control)] px-2 py-1.5 text-xs font-semibold transition-all ${
                           saleType === opt.value
-                            ? "bg-green-700 text-white shadow-sm"
-                            : "text-slate-600 hover:bg-white hover:text-slate-900"
+                            ? "bg-[var(--iw-semantic-action-primary)] text-[var(--iw-semantic-action-primary-text)] shadow-sm"
+                            : "text-[var(--iw-semantic-text-secondary)] hover:bg-[var(--iw-semantic-bg-surface)] hover:text-[var(--iw-semantic-text-primary)]"
                         }`}
                       >
                         {opt.label}
@@ -2037,7 +2039,7 @@ export default function QuickCaptureModal() {
                   <>
                     {availableSizes.length > 0 ? (
                       <div>
-                        <span className="mb-1.5 block text-xs font-semibold text-slate-700">Tamaño disponible</span>
+                        <span className="mb-1.5 block text-xs font-semibold text-[var(--iw-semantic-text-primary)]">Tamaño disponible</span>
                         <div className="flex flex-wrap gap-1.5">
                           {availableSizes.map((item) => (
                             <button
@@ -2047,10 +2049,10 @@ export default function QuickCaptureModal() {
                                 setSaleSize(item.size);
                                 if (item.price) setSalePrice(String(item.price));
                               }}
-                              className={`rounded-lg border px-2.5 py-1.5 text-xs font-semibold transition-colors ${
+                              className={`min-h-[40px] rounded-[var(--iw-radius-control)] border px-2.5 py-1.5 text-xs font-semibold tabular-nums transition-colors ${
                                 saleSize === item.size
-                                  ? "border-green-600 bg-green-600 text-white"
-                                  : "border-green-200 bg-green-50 text-green-800 hover:bg-green-100"
+                                  ? "border-[var(--iw-semantic-action-primary)] bg-[var(--iw-semantic-action-primary)] text-[var(--iw-semantic-action-primary-text)]"
+                                  : "border-[var(--iw-semantic-border-default)] bg-[var(--iw-semantic-bg-feature)] text-[var(--iw-semantic-action-primary)] hover:brightness-95"
                               }`}
                             >
                               {item.size}: {item.available} disp.
@@ -2377,9 +2379,9 @@ export default function QuickCaptureModal() {
                   compact
                 />
 
-                <div className="flex items-center justify-between rounded-lg bg-green-50 px-3 py-2 text-sm text-green-800">
+                <div className="flex items-center justify-between rounded-[var(--iw-radius-control)] border border-[var(--iw-semantic-border-default)] bg-[var(--iw-semantic-bg-feature)] px-3 py-2.5 text-sm text-[var(--iw-semantic-action-primary)]">
                   <span>{saleIsCredit ? "Total a crédito:" : "Total venta:"}</span>
-                  <strong>${Math.round(saleTotalPreview).toLocaleString("es-CO")}</strong>
+                  <strong className="tabular-nums">${Math.round(saleTotalPreview).toLocaleString("es-CO")}</strong>
                 </div>
 
                 <Button type="button" touchSize="field" onClick={() => void submitSale()} disabled={saving} className="w-full">
@@ -2388,16 +2390,16 @@ export default function QuickCaptureModal() {
               </div>
             )}
 
-            <div className="border-t border-slate-200 pt-2.5">
+            <div className="border-t border-[var(--iw-semantic-border-default)] pt-2.5">
               <button
                 type="button"
                 onClick={() => {
                   setOpen(false);
                   window.dispatchEvent(new CustomEvent(OPEN_ASSISTANT_VOICE_EVENT));
                 }}
-                className="flex w-full items-center justify-center gap-2 rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-xs font-medium text-slate-600 transition-colors hover:bg-slate-100 hover:text-slate-900"
+                className="flex min-h-[44px] w-full items-center justify-center gap-2 rounded-[var(--iw-radius-control)] border border-[var(--iw-semantic-border-default)] bg-[var(--iw-semantic-bg-subtle)] px-3 py-2 text-xs font-medium text-[var(--iw-semantic-text-secondary)] transition-colors hover:bg-[var(--iw-semantic-bg-page)] hover:text-[var(--iw-semantic-text-primary)]"
               >
-                <Mic className="h-3.5 w-3.5 text-green-700" aria-hidden="true" />
+                <Mic className="h-3.5 w-3.5 text-[var(--iw-semantic-action-primary)]" aria-hidden="true" />
                 <span>¿Prefieres dictarlo? Abrir nota de voz</span>
               </button>
             </div>

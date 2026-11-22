@@ -196,15 +196,15 @@ export default function FuncionalidadesPage() {
           </div>
         </section>
 
-        <section className="rounded-2xl bg-[#132a1e] p-5 text-[#f5efe2] sm:p-6">
+        <section className="rounded-2xl bg-[var(--iw-color-forest-dark)] p-5 text-[var(--iw-color-paper)] sm:p-6">
           <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
             <div>
-              <h2 className="text-lg font-bold text-white">¿Quieres revisar qué alcance se ajusta a una granja o proyecto?</h2>
-              <p className="mt-1 text-sm leading-relaxed text-[#d6dfd8]">Consulta los planes o conversa con el equipo sobre una posible implementación.</p>
+              <h2 className="font-display text-lg font-bold text-white">¿Quieres revisar qué alcance se ajusta a una granja o proyecto?</h2>
+              <p className="mt-1 text-sm leading-relaxed text-[var(--iw-color-sage)]">Consulta los planes o conversa con el equipo sobre una posible implementación.</p>
             </div>
             <div className="flex shrink-0 flex-wrap gap-2">
-              <Link href="/planes" className="inline-flex items-center gap-2 rounded-lg bg-[#e9c46a] px-4 py-2.5 text-sm font-bold text-[#132a1e] hover:bg-[#f2d385]">Ver planes <ArrowRight className="h-4 w-4" /></Link>
-              <Link href="/contacto" className="inline-flex items-center rounded-lg border border-white/25 px-4 py-2.5 text-sm font-semibold text-white hover:bg-white/10">Contacto</Link>
+              <Link href="/planes" className="inline-flex min-h-11 items-center gap-2 rounded-[var(--iw-radius-control)] bg-[var(--iw-color-paper)] px-4 py-2.5 text-sm font-bold text-[var(--iw-color-ink-strong)] hover:bg-[var(--iw-color-white)] transition">Ver planes <ArrowRight className="h-4 w-4" /></Link>
+              <Link href="/contacto" className="inline-flex min-h-11 items-center rounded-[var(--iw-radius-control)] border border-white/25 px-4 py-2.5 text-sm font-semibold text-white hover:bg-white/10 transition">Contacto</Link>
             </div>
           </div>
         </section>

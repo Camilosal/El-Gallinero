@@ -200,12 +200,12 @@ export default function OfficialCsvImportPanel({
             </ul>
           ) : null}
           {preview.preview.length > 0 ? (
-            <div className="overflow-x-auto">
-              <table className="w-full text-xs">
-                <thead><tr className="border-b border-slate-200 text-left text-slate-500"><th className="py-2 pr-3">Periodo</th><th className="py-2 pr-3">Indicador</th><th className="py-2 pr-3">Territorio</th><th className="py-2 text-right">Valor</th></tr></thead>
-                <tbody className="divide-y divide-slate-100">
+            <div className="overflow-x-auto rounded-[var(--iw-radius-control)] border border-[var(--iw-semantic-border-default)]">
+              <table className="w-full text-xs tabular-nums">
+                <thead><tr className="bg-[var(--iw-semantic-bg-subtle)] border-b border-[var(--iw-semantic-border-default)] text-left text-[var(--iw-semantic-text-secondary)]"><th className="px-3 py-2">Periodo</th><th className="px-3 py-2">Indicador</th><th className="px-3 py-2">Territorio</th><th className="px-3 py-2 text-right">Valor</th></tr></thead>
+                <tbody className="divide-y divide-[var(--iw-semantic-border-default)]/70">
                   {preview.preview.slice(0, 5).map((row, index) => (
-                    <tr key={index}><td className="py-2 pr-3">{row.period}</td><td className="py-2 pr-3">{row.indicator}</td><td className="py-2 pr-3">{row.territory || "No informado"}</td><td className="py-2 text-right">{displayValue(sourceType, String(row.value), row.unit)}</td></tr>
+                    <tr key={index}><td className="px-3 py-2">{row.period}</td><td className="px-3 py-2">{row.indicator}</td><td className="px-3 py-2">{row.territory || "No informado"}</td><td className="px-3 py-2 text-right">{displayValue(sourceType, String(row.value), row.unit)}</td></tr>
                   ))}
                 </tbody>
               </table>
@@ -215,12 +215,12 @@ export default function OfficialCsvImportPanel({
       ) : null}
 
       {history.length > 0 ? (
-        <div className="mt-5 border-t border-slate-200 pt-4">
-          <h4 className="mb-2 text-xs font-bold text-slate-800">Observaciones importadas más recientes</h4>
-          <div className="overflow-x-auto">
-            <table className="w-full text-xs">
-              <thead><tr className="border-b border-slate-200 text-left text-slate-500"><th className="py-2 pr-3">Periodo</th><th className="py-2 pr-3">Indicador / presentación</th><th className="py-2 pr-3">Territorio</th><th className="py-2 pr-3 text-right">Valor</th><th className="py-2">Fuente</th></tr></thead>
-              <tbody className="divide-y divide-slate-100">
+        <div className="mt-5 border-t border-[var(--iw-semantic-border-default)] pt-4">
+          <h4 className="mb-2 text-xs font-bold text-[var(--iw-semantic-text-primary)]">Observaciones importadas más recientes</h4>
+          <div className="overflow-x-auto rounded-[var(--iw-radius-control)] border border-[var(--iw-semantic-border-default)]">
+            <table className="w-full text-xs tabular-nums">
+              <thead><tr className="bg-[var(--iw-semantic-bg-subtle)] border-b border-[var(--iw-semantic-border-default)] text-left text-[var(--iw-semantic-text-secondary)]"><th className="px-3 py-2">Periodo</th><th className="px-3 py-2">Indicador / presentación</th><th className="px-3 py-2">Territorio</th><th className="px-3 py-2 text-right">Valor</th><th className="px-3 py-2">Fuente</th></tr></thead>
+              <tbody className="divide-y divide-[var(--iw-semantic-border-default)]/70">
                 {history.slice(0, 15).map((row) => {
                   const period = String(row.dimensions.period || row.observedAt.slice(0, 7));
                   const indicator = String(row.dimensions.article || row.dimensions.indicator || row.observationKey);
@@ -228,11 +228,11 @@ export default function OfficialCsvImportPanel({
                   const territory = String(row.dimensions.divipolaCode || row.dimensions.coverage || "No informado");
                   return (
                     <tr key={row.id}>
-                      <td className="whitespace-nowrap py-2 pr-3 text-slate-600">{period}</td>
-                      <td className="max-w-md py-2 pr-3"><span className="font-medium text-slate-900">{indicator}</span>{detail ? <span className="block text-[11px] text-slate-500">{detail}</span> : null}</td>
-                      <td className="py-2 pr-3 text-slate-600">{territory}{row.dimensions.coverageLevel ? " · " + String(row.dimensions.coverageLevel) : ""}</td>
-                      <td className="whitespace-nowrap py-2 pr-3 text-right">{displayValue(sourceType, row.value, row.unit)}</td>
-                      <td className="py-2 text-slate-500">{row.providerName}</td>
+                      <td className="whitespace-nowrap px-3 py-2 text-[var(--iw-semantic-text-secondary)]">{period}</td>
+                      <td className="max-w-md px-3 py-2"><span className="font-medium text-[var(--iw-semantic-text-primary)]">{indicator}</span>{detail ? <span className="block text-[11px] text-[var(--iw-semantic-text-secondary)]">{detail}</span> : null}</td>
+                      <td className="px-3 py-2 text-[var(--iw-semantic-text-secondary)]">{territory}{row.dimensions.coverageLevel ? " · " + String(row.dimensions.coverageLevel) : ""}</td>
+                      <td className="whitespace-nowrap px-3 py-2 text-right font-medium">{displayValue(sourceType, row.value, row.unit)}</td>
+                      <td className="px-3 py-2 text-[var(--iw-semantic-text-secondary)]">{row.providerName}</td>
                     </tr>
                   );
                 })}

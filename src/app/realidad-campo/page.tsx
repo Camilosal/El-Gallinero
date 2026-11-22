@@ -123,25 +123,25 @@ export default function RealidadCampoPage() {
           ))}
         </div>
 
-        <section className="rounded-2xl bg-[#132a1e] p-6 text-[#f5efe2] flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        <section className="rounded-2xl bg-[var(--iw-color-forest-dark)] p-6 text-[var(--iw-color-paper)] flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <div>
-            <h2 className="text-lg font-bold text-white">
+            <h2 className="font-display text-lg font-bold text-white">
               ¿Tienes otro reto puntual en tu granja?
             </h2>
-            <p className="mt-1 text-sm text-[#d6dfd8]">
+            <p className="mt-1 text-sm text-[var(--iw-color-sage)]">
               Puedes crear tu granja con el plan Gratis o contarnos tu caso para priorizarlo en el desarrollo abierto.
             </p>
           </div>
           <div className="flex flex-wrap gap-3 shrink-0">
             <Link
               href="/registro"
-              className="inline-flex items-center rounded-lg bg-[#e9c46a] px-4 py-2.5 text-sm font-bold text-[#132a1e] hover:bg-[#f2d385]"
+              className="inline-flex min-h-11 items-center rounded-[var(--iw-radius-control)] bg-[var(--iw-color-paper)] px-4 py-2.5 text-sm font-bold text-[var(--iw-color-ink-strong)] hover:bg-[var(--iw-color-white)] transition"
             >
               Crear mi granja gratis →
             </Link>
             <Link
               href="/contacto"
-              className="inline-flex items-center rounded-lg border border-white/25 px-4 py-2.5 text-sm font-semibold text-white hover:bg-white/10"
+              className="inline-flex min-h-11 items-center rounded-[var(--iw-radius-control)] border border-white/25 px-4 py-2.5 text-sm font-semibold text-white hover:bg-white/10 transition"
             >
               Contar mi caso
             </Link>

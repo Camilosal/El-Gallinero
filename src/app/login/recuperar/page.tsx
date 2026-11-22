@@ -45,7 +45,7 @@ export default function RecoverAccessPage() {
   };
 
   return (
-    <main className="flex min-h-[calc(100dvh-74px)] items-center justify-center bg-earth-50 px-4 py-10">
+    <main className="flex min-h-[calc(100dvh-74px)] items-center justify-center bg-[var(--iw-semantic-bg-page)] px-4 py-10">
       <div className="w-full max-w-md space-y-5">
         <HeroFrame
           theme="guia"
@@ -55,32 +55,32 @@ export default function RecoverAccessPage() {
           title="Recuperar acceso"
           description="Restablece tu contraseña con un código de recuperación de un solo uso"
         />
-        <section className="w-full rounded-2xl border border-earth-100 bg-white p-8 shadow-xl">
-          <Link href="/login" className="text-sm font-medium text-earth-700 hover:underline">
+        <section className="w-full rounded-2xl border border-[var(--iw-semantic-border-default)] bg-[var(--iw-semantic-bg-surface)] p-8 shadow-[var(--iw-shadow-card)]">
+          <Link href="/login" className="text-sm font-medium text-[var(--iw-semantic-action-primary)] hover:underline">
             ← Volver al inicio de sesión
           </Link>
           {complete ? (
             <div className="mt-5 space-y-4">
               <p
                 role="status"
-                className="rounded-xl border border-green-200 bg-green-50 p-4 text-sm text-green-800"
+                className="rounded-[var(--iw-radius-control)] border border-[var(--iw-semantic-status-success)]/40 bg-[var(--iw-semantic-bg-feature)] p-4 text-sm text-[var(--iw-semantic-status-success)]"
               >
                 La contraseña se actualizó. El código quedó usado y se cerraron las sesiones anteriores.
               </p>
               <Link
                 href="/login"
-                className="inline-flex min-h-[44px] items-center rounded-lg bg-earth-700 px-4 py-2 font-semibold text-white"
+                className="inline-flex min-h-[48px] items-center rounded-[var(--iw-radius-control)] bg-[var(--iw-semantic-action-primary)] hover:bg-[var(--iw-semantic-action-primary-hover)] px-5 py-2.5 font-semibold text-[var(--iw-semantic-action-primary-text)] transition"
               >
                 Iniciar sesión
               </Link>
             </div>
           ) : (
             <>
-              <p className="mt-4 text-sm text-slate-600">
+              <p className="mt-4 text-sm text-[var(--iw-semantic-text-secondary)]">
                 Ingresa el código de recuperación de un solo uso entregado al crear tu granja o emitido por soporte.
               </p>
               <form onSubmit={submit} className="mt-6 space-y-4">
-                <label className="block text-sm font-semibold text-slate-700">
+                <label className="block text-sm font-semibold text-[var(--iw-semantic-text-primary)]">
                   Usuario, celular o correo
                   <input
                     required
@@ -90,10 +90,10 @@ export default function RecoverAccessPage() {
                     spellCheck={false}
                     value={username}
                     onChange={(event) => setUsername(event.target.value)}
-                    className="mt-1 min-h-[44px] w-full rounded-lg border border-slate-300 px-3 py-2 font-normal"
+                    className="mt-1 min-h-[48px] w-full rounded-[var(--iw-radius-control)] border border-[var(--iw-semantic-border-input)] bg-[var(--iw-semantic-bg-surface)] px-3 py-2 font-normal text-[var(--iw-semantic-text-primary)] focus:outline-none focus:ring-2 focus:ring-[var(--iw-semantic-focus-ring)]"
                   />
                 </label>
-                <label className="block text-sm font-semibold text-slate-700">
+                <label className="block text-sm font-semibold text-[var(--iw-semantic-text-primary)]">
                   Código de recuperación
                   <input
                     required
@@ -104,10 +104,10 @@ export default function RecoverAccessPage() {
                     spellCheck={false}
                     value={recoveryCode}
                     onChange={(event) => setRecoveryCode(event.target.value)}
-                    className="mt-1 min-h-[44px] w-full rounded-lg border border-slate-300 px-3 py-2 font-mono font-normal"
+                    className="mt-1 min-h-[48px] w-full rounded-[var(--iw-radius-control)] border border-[var(--iw-semantic-border-input)] bg-[var(--iw-semantic-bg-surface)] px-3 py-2 font-mono font-normal text-[var(--iw-semantic-text-primary)] focus:outline-none focus:ring-2 focus:ring-[var(--iw-semantic-focus-ring)]"
                   />
                 </label>
-                <label className="block text-sm font-semibold text-slate-700">
+                <label className="block text-sm font-semibold text-[var(--iw-semantic-text-primary)]">
                   Nueva contraseña (mínimo 8 caracteres)
                   <input
                     required
@@ -116,10 +116,10 @@ export default function RecoverAccessPage() {
                     autoComplete="new-password"
                     value={newPassword}
                     onChange={(event) => setNewPassword(event.target.value)}
-                    className="mt-1 min-h-[44px] w-full rounded-lg border border-slate-300 px-3 py-2 font-normal"
+                    className="mt-1 min-h-[48px] w-full rounded-[var(--iw-radius-control)] border border-[var(--iw-semantic-border-input)] bg-[var(--iw-semantic-bg-surface)] px-3 py-2 font-normal text-[var(--iw-semantic-text-primary)] focus:outline-none focus:ring-2 focus:ring-[var(--iw-semantic-focus-ring)]"
                   />
                 </label>
-                <label className="block text-sm font-semibold text-slate-700">
+                <label className="block text-sm font-semibold text-[var(--iw-semantic-text-primary)]">
                   Confirma la contraseña
                   <input
                     required
@@ -128,25 +128,25 @@ export default function RecoverAccessPage() {
                     autoComplete="new-password"
                     value={confirmation}
                     onChange={(event) => setConfirmation(event.target.value)}
-                    className="mt-1 min-h-[44px] w-full rounded-lg border border-slate-300 px-3 py-2 font-normal"
+                    className="mt-1 min-h-[48px] w-full rounded-[var(--iw-radius-control)] border border-[var(--iw-semantic-border-input)] bg-[var(--iw-semantic-bg-surface)] px-3 py-2 font-normal text-[var(--iw-semantic-text-primary)] focus:outline-none focus:ring-2 focus:ring-[var(--iw-semantic-focus-ring)]"
                   />
                 </label>
                 {error && (
-                  <p role="alert" className="rounded-lg bg-red-50 p-3 text-sm text-red-700">
+                  <p role="alert" className="rounded-[var(--iw-radius-control)] border border-[var(--iw-semantic-status-danger)]/40 bg-[var(--iw-semantic-bg-subtle)] p-3 text-sm text-[var(--iw-semantic-status-danger)]">
                     {error}
                   </p>
                 )}
                 <button
                   type="submit"
                   disabled={loading}
-                  className="min-h-[48px] w-full rounded-lg bg-earth-700 px-4 py-3 font-semibold text-white hover:bg-earth-800 disabled:opacity-50"
+                  className="min-h-[48px] w-full rounded-[var(--iw-radius-control)] bg-[var(--iw-semantic-action-primary)] px-4 py-3 font-semibold text-[var(--iw-semantic-action-primary-text)] hover:bg-[var(--iw-semantic-action-primary-hover)] disabled:opacity-50 transition"
                 >
                   {loading ? "Actualizando…" : "Cambiar contraseña"}
                 </button>
               </form>
-              <p className="mt-5 text-xs leading-relaxed text-slate-600">
+              <p className="mt-5 text-xs leading-relaxed text-[var(--iw-semantic-text-secondary)]">
                 ¿Perdiste tu código de recuperación? Solicita uno nuevo al propietario de tu granja o escríbenos en{" "}
-                <Link href="/contacto" className="font-semibold text-earth-800 underline">
+                <Link href="/contacto" className="font-semibold text-[var(--iw-semantic-action-primary)] underline">
                   /contacto
                 </Link>
                 .
