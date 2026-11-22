@@ -5,7 +5,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { withApiHandler } from "@/lib/api-handler";
 import { getStandardCurve, interpolateStandard } from "@/lib/standard-curves";
 import { getDbWeightCurve } from "@/lib/breed-standards-db";
-import { calibrateTargetForEnvironment } from "@/lib/zootechnics";
+import { calibrateTargetForEnvironment, computeEmpiricalCurveCalibration } from "@/lib/zootechnics";
 import { syncWeatherSnapshot } from "@/lib/external-sources/wave1-territory-weather-market";
 
 export const dynamic = "force-dynamic";
@@ -237,12 +237,32 @@ export const GET = withApiHandler(async (req: NextRequest) => {
     }
   }
 
+  const empiricalCalibration = computeEmpiricalCurveCalibration({
+    points: curve.points,
+    observations: actualPoints.map((pt) => ({
+      week: pt.week,
+      actualValue: pt.actual,
+      sampleSize: pt.count,
+      ageDaysFromNow: pt.date
+        ? Math.max(0, Math.round((Date.now() - Date.parse(`${pt.date}T12:00:00Z`)) / 86400000))
+        : 0,
+    })),
+    environmentFactor: envCal.factor,
+  });
+
+  const calibratedCurve = {
+    ...curve,
+    points: empiricalCalibration.calibratedPoints,
+  };
+
   const [latestMetrics, weatherSnap] = [
     [...logs].reverse().find((l) => l.cvPercent != null || l.dailyGainG != null),
     await syncWeatherSnapshot().catch(() => null),
   ];
   return NextResponse.json({
     curve,
+    calibratedCurve,
+    empiricalCalibration,
     logs,
     actualPoints,
     comparison,

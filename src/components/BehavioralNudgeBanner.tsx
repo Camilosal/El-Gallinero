@@ -3,12 +3,14 @@
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import { usePathname, useSearchParams } from "next/navigation";
-import { ArrowRight, ChevronDown, ChevronUp, Lightbulb, RefreshCw } from "lucide-react";
+import { ArrowRight, ChevronDown, ChevronUp, Lightbulb, RefreshCw, Sparkles } from "lucide-react";
 import {
-  pickNextRotatingNudge,
+  pickAdaptiveNudge,
+  recordNudgeFeedback,
   resolvePageNudgeGroup,
+  type AdaptiveNudgeResult,
+  type NudgeFeedbackOutcome,
   type NudgeTone,
-  type PickedNudgeResult,
 } from "@/lib/behavioral-nudges";
 import { openQuickCapture } from "@/lib/quick-capture-events";
 
@@ -17,36 +19,44 @@ const TONE_CLASSES: Record<
   { container: string; pill: string; principle: string; action: string; icon: string }
 > = {
   emerald: {
-    container: "border-emerald-200 bg-gradient-to-r from-emerald-50/95 via-white to-teal-50/70 text-slate-900",
-    pill: "bg-emerald-800 text-white",
-    principle: "bg-emerald-100 text-emerald-900 border border-emerald-300",
-    action: "bg-emerald-700 hover:bg-emerald-800 text-white",
-    icon: "text-emerald-700",
+    container: "border-[var(--iw-semantic-border-default)] bg-[var(--iw-semantic-bg-feature)] text-[var(--iw-semantic-text-primary)]",
+    pill: "bg-[var(--iw-semantic-action-primary)] text-[var(--iw-semantic-action-primary-text)]",
+    principle: "bg-[var(--iw-semantic-bg-surface)] text-[var(--iw-semantic-action-primary)] border border-[var(--iw-semantic-border-default)]",
+    action: "bg-[var(--iw-semantic-action-primary)] hover:bg-[var(--iw-semantic-action-primary-hover)] text-[var(--iw-semantic-action-primary-text)]",
+    icon: "text-[var(--iw-semantic-action-primary)]",
   },
   amber: {
-    container: "border-amber-300 bg-gradient-to-r from-amber-50/95 via-white to-orange-50/70 text-slate-900",
-    pill: "bg-amber-900 text-white",
-    principle: "bg-amber-100 text-amber-950 border border-amber-300",
-    action: "bg-amber-800 hover:bg-amber-900 text-white",
-    icon: "text-amber-700",
+    container: "border-[var(--iw-color-ochre)]/45 bg-[var(--iw-semantic-bg-subtle)] text-[var(--iw-semantic-text-primary)]",
+    pill: "bg-[var(--iw-semantic-status-warning)] text-[var(--iw-color-white)]",
+    principle: "bg-[var(--iw-semantic-bg-page)] text-[var(--iw-semantic-text-primary)] border border-[var(--iw-color-ochre)]/45",
+    action: "bg-[var(--iw-semantic-action-primary)] hover:bg-[var(--iw-semantic-action-primary-hover)] text-[var(--iw-semantic-action-primary-text)]",
+    icon: "text-[var(--iw-semantic-status-warning)]",
   },
   sky: {
-    container: "border-sky-200 bg-gradient-to-r from-sky-50/95 via-white to-cyan-50/70 text-slate-900",
-    pill: "bg-sky-900 text-white",
-    principle: "bg-sky-100 text-sky-950 border border-sky-300",
-    action: "bg-sky-800 hover:bg-sky-900 text-white",
-    icon: "text-sky-700",
+    container: "border-[var(--iw-semantic-border-default)] bg-[var(--iw-semantic-bg-subtle)] text-[var(--iw-semantic-text-primary)]",
+    pill: "bg-[var(--iw-semantic-status-info)] text-[var(--iw-color-white)]",
+    principle: "bg-[var(--iw-semantic-bg-surface)] text-[var(--iw-semantic-status-info)] border border-[var(--iw-semantic-border-default)]",
+    action: "bg-[var(--iw-semantic-status-info)] hover:opacity-90 text-[var(--iw-color-white)]",
+    icon: "text-[var(--iw-semantic-status-info)]",
   },
   slate: {
-    container: "border-slate-300 bg-gradient-to-r from-slate-50 via-white to-stone-50 text-slate-900",
-    pill: "bg-slate-800 text-white",
-    principle: "bg-slate-200/80 text-slate-800 border border-slate-300",
-    action: "bg-slate-800 hover:bg-slate-900 text-white",
-    icon: "text-slate-700",
+    container: "border-[var(--iw-semantic-border-default)] bg-[var(--iw-semantic-bg-subtle)] text-[var(--iw-semantic-text-primary)]",
+    pill: "bg-[var(--iw-semantic-text-primary)] text-[var(--iw-color-white)]",
+    principle: "bg-[var(--iw-semantic-bg-surface)] text-[var(--iw-semantic-text-secondary)] border border-[var(--iw-semantic-border-default)]",
+    action: "bg-[var(--iw-semantic-action-primary)] hover:bg-[var(--iw-semantic-action-primary-hover)] text-[var(--iw-semantic-action-primary-text)]",
+    icon: "text-[var(--iw-semantic-text-secondary)]",
   },
 };
 
-const RECENT_ROTATIONS = new Map<string, { at: number; result: PickedNudgeResult }>();
+const RECENT_ROTATIONS = new Map<string, { at: number; result: AdaptiveNudgeResult }>();
+
+function safeStorage(): Storage | null {
+  try {
+    return typeof window !== "undefined" ? window.localStorage : null;
+  } catch {
+    return null;
+  }
+}
 
 export interface BehavioralNudgeBannerProps {
   compact?: boolean;
@@ -71,7 +81,7 @@ export default function BehavioralNudgeBanner({
 
   const [state, setState] = useState<{
     pageKey: string;
-    picked: PickedNudgeResult;
+    picked: AdaptiveNudgeResult;
   } | null>(null);
   const [minimized, setMinimized] = useState(false);
 
@@ -81,17 +91,13 @@ export default function BehavioralNudgeBanner({
       if (!active) return;
       const now = Date.now();
       const recent = RECENT_ROTATIONS.get(pageKey);
-      let picked: PickedNudgeResult;
+      let picked: AdaptiveNudgeResult;
       if (recent && now - recent.at < 180) {
         picked = recent.result;
       } else {
-        let storage: Storage | null = null;
-        try {
-          storage = window.localStorage;
-        } catch {
-          storage = null;
-        }
-        picked = pickNextRotatingNudge(pageKey, group.nudges, storage, { advance: true });
+        const storage = safeStorage();
+        picked = pickAdaptiveNudge(pageKey, group.nudges, storage, { advance: true, nowMs: now });
+        recordNudgeFeedback(picked.nudge.id, "shown", storage, now);
         RECENT_ROTATIONS.set(pageKey, { at: now, result: picked });
       }
       setMinimized(false);
@@ -102,31 +108,46 @@ export default function BehavioralNudgeBanner({
     };
   }, [group.nudges, pageKey]);
 
-  const activePicked =
+  const activePicked: AdaptiveNudgeResult =
     state && state.pageKey === pageKey
       ? state.picked
-      : { index: 0, total: group.nudges.length, nudge: group.nudges[0] };
+      : {
+          index: 0,
+          total: group.nudges.length,
+          nudge: group.nudges[0],
+          prioritizedByHistory: false,
+          utilityScore: 0.5,
+        };
 
-  const { nudge, index, total } = activePicked;
+  const { nudge, index, total, prioritizedByHistory } = activePicked;
   const tone = TONE_CLASSES[nudge.tone] ?? TONE_CLASSES.emerald;
 
+  const trackOutcome = (outcome: NudgeFeedbackOutcome) => {
+    recordNudgeFeedback(nudge.id, outcome, safeStorage());
+  };
+
   const handleManualNext = () => {
-    let storage: Storage | null = null;
-    try {
-      storage = window.localStorage;
-    } catch {
-      storage = null;
-    }
-    const next = pickNextRotatingNudge(pageKey, group.nudges, storage, { advance: true });
-    RECENT_ROTATIONS.set(pageKey, { at: Date.now(), result: next });
+    const storage = safeStorage();
+    const now = Date.now();
+    recordNudgeFeedback(nudge.id, "skipped", storage, now);
+    const next = pickAdaptiveNudge(pageKey, group.nudges, storage, { advance: true, nowMs: now });
+    recordNudgeFeedback(next.nudge.id, "shown", storage, now);
+    RECENT_ROTATIONS.set(pageKey, { at: now, result: next });
     setState({ pageKey, picked: next });
+  };
+
+  const handleToggleMinimize = () => {
+    if (!minimized) {
+      trackOutcome("dismissed");
+    }
+    setMinimized((prev) => !prev);
   };
 
   if (!state || state.pageKey !== pageKey) {
     return (
       <div
         aria-hidden="true"
-        className={`${className ?? "mb-4"} ${compact ? "h-full min-h-[104px]" : "h-12"} rounded-xl border border-slate-200/70 bg-slate-50/70 animate-pulse`}
+        className={`${className ?? "mb-4"} ${compact ? "h-full min-h-[104px]" : "h-12"} rounded-[var(--iw-radius-control)] border border-[var(--iw-semantic-border-default)] bg-[var(--iw-semantic-bg-subtle)] animate-pulse`}
       />
     );
   }
@@ -136,11 +157,11 @@ export default function BehavioralNudgeBanner({
       aria-label={`Recordatorio conductual de ${group.label}`}
       data-nudge-group={group.key}
       data-nudge-id={nudge.id}
-      className={`${className ?? "mb-4"} rounded-xl border px-3.5 py-2.5 shadow-2xs transition-colors ${compact ? "flex flex-col justify-between gap-2.5 h-full" : ""} ${tone.container}`}
+      className={`${className ?? "mb-4"} rounded-[var(--iw-radius-control)] border px-3.5 py-2.5 shadow-xs transition-colors ${compact ? "flex flex-col justify-between gap-2.5 h-full" : ""} ${tone.container}`}
     >
       <div className={compact ? "flex flex-col justify-between gap-2.5 h-full" : "flex flex-wrap items-center justify-between gap-2"}>
         <div className="flex items-start sm:items-center gap-2.5 min-w-0 flex-1">
-          <div className={`mt-0.5 sm:mt-0 flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-white/90 border border-slate-200 ${tone.icon}`}>
+          <div className={`mt-0.5 sm:mt-0 flex h-7 w-7 shrink-0 items-center justify-center rounded-[var(--iw-radius-control)] bg-[var(--iw-semantic-bg-surface)] border border-[var(--iw-semantic-border-default)] ${tone.icon}`}>
             <Lightbulb className="h-4 w-4" aria-hidden="true" />
           </div>
           <div className="min-w-0 flex-1">
@@ -151,24 +172,33 @@ export default function BehavioralNudgeBanner({
               <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-semibold ${tone.principle}`}>
                 {nudge.principle}
               </span>
-              <span className="text-[10px] font-mono text-slate-500 tabular-nums">
+              {prioritizedByHistory && (
+                <span className="inline-flex items-center gap-1 rounded-full border border-[var(--iw-semantic-border-default)] bg-[var(--iw-semantic-bg-surface)] px-2 py-0.5 text-[10px] font-semibold text-[var(--iw-semantic-action-primary)]">
+                  <Sparkles className="h-2.5 w-2.5" aria-hidden="true" />
+                  <span>Priorizado por tu uso</span>
+                </span>
+              )}
+              <span className="text-[10px] font-mono text-[var(--iw-semantic-text-secondary)] tabular-nums">
                 Nudge {index + 1}/{total}
               </span>
             </div>
             {!minimized && (
-              <p className="text-xs sm:text-[13px] font-medium text-slate-800 leading-snug">
+              <p className="text-xs sm:text-[13px] font-medium text-[var(--iw-semantic-text-primary)] leading-snug">
                 {nudge.message}
               </p>
             )}
           </div>
         </div>
 
-        <div className={`flex flex-wrap items-center gap-1.5 shrink-0 ${compact ? "pt-1 border-t border-slate-200/60 justify-end" : ""}`}>
+        <div className={`flex flex-wrap items-center gap-1.5 shrink-0 ${compact ? "pt-1 border-t border-[var(--iw-semantic-border-default)] justify-end" : ""}`}>
           {!minimized && nudge.actionLabel && nudge.quickCaptureMode && (
             <button
               type="button"
-              onClick={() => openQuickCapture({ mode: nudge.quickCaptureMode! })}
-              className={`inline-flex items-center gap-1 rounded-lg px-2.5 py-1.5 text-[11px] font-semibold transition-colors ${tone.action}`}
+              onClick={() => {
+                trackOutcome("acted");
+                openQuickCapture({ mode: nudge.quickCaptureMode! });
+              }}
+              className={`inline-flex items-center gap-1 rounded-[var(--iw-radius-control)] px-2.5 py-1.5 text-[11px] font-semibold transition-colors ${tone.action}`}
             >
               <span>{nudge.actionLabel}</span>
               <ArrowRight className="h-3 w-3" aria-hidden="true" />
@@ -177,7 +207,8 @@ export default function BehavioralNudgeBanner({
           {!minimized && nudge.actionLabel && nudge.actionHref && (
             <Link
               href={nudge.actionHref}
-              className={`inline-flex items-center gap-1 rounded-lg px-2.5 py-1.5 text-[11px] font-semibold transition-colors ${tone.action}`}
+              onClick={() => trackOutcome("acted")}
+              className={`inline-flex items-center gap-1 rounded-[var(--iw-radius-control)] px-2.5 py-1.5 text-[11px] font-semibold transition-colors ${tone.action}`}
             >
               <span>{nudge.actionLabel}</span>
               <ArrowRight className="h-3 w-3" aria-hidden="true" />
@@ -187,17 +218,17 @@ export default function BehavioralNudgeBanner({
             type="button"
             onClick={handleManualNext}
             title="Ver siguiente consejo conductual"
-            className="inline-flex items-center gap-1 rounded-lg border border-slate-300 bg-white px-2 py-1.5 text-[11px] font-medium text-slate-700 hover:bg-slate-100 transition-colors"
+            className="inline-flex items-center gap-1 rounded-[var(--iw-radius-control)] border border-[var(--iw-semantic-border-default)] bg-[var(--iw-semantic-bg-surface)] px-2 py-1.5 text-[11px] font-medium text-[var(--iw-semantic-text-primary)] hover:bg-[var(--iw-semantic-bg-subtle)] transition-colors"
           >
             <RefreshCw className="h-3 w-3" aria-hidden="true" />
             <span className="hidden sm:inline">Otro</span>
           </button>
           <button
             type="button"
-            onClick={() => setMinimized((prev) => !prev)}
+            onClick={handleToggleMinimize}
             title={minimized ? "Mostrar mensaje conductual" : "Minimizar temporalmente"}
             aria-label={minimized ? "Mostrar mensaje conductual" : "Minimizar mensaje conductual"}
-            className="inline-flex items-center justify-center rounded-lg border border-slate-300 bg-white p-1.5 text-slate-600 hover:bg-slate-100 transition-colors"
+            className="inline-flex items-center justify-center rounded-[var(--iw-radius-control)] border border-[var(--iw-semantic-border-default)] bg-[var(--iw-semantic-bg-surface)] p-1.5 text-[var(--iw-semantic-text-secondary)] hover:bg-[var(--iw-semantic-bg-subtle)] transition-colors"
           >
             {minimized ? (
               <ChevronDown className="h-3.5 w-3.5" aria-hidden="true" />

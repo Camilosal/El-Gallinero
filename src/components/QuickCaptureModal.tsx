@@ -779,6 +779,22 @@ export default function QuickCaptureModal() {
   }, [batches, mortBirdType, mortLocationId]);
 
   const selectedFeedObj = useMemo(() => feeds.find((f) => f.id === feedId) || null, [feeds, feedId]);
+  const categoriesList = useMemo(() => {
+    const filteredExpenseCategories = expenseCategories.filter((c) => c !== "Compra de alimento");
+    const merged = new Set<string>([...QUICK_CAPTURE_STANDARD_FAMILY_NAMES, ...filteredExpenseCategories]);
+    return Array.from(merged);
+  }, [expenseCategories]);
+  const selectedQuickFamilyMeta = useMemo(
+    () => findStandardExpenseFamily(expCategory),
+    [expCategory],
+  );
+  const quickFamilyConcepts = useMemo(
+    () =>
+      selectedQuickFamilyMeta
+        ? STANDARD_EXPENSE_CATALOG.filter((c) => c.family === selectedQuickFamilyMeta.name)
+        : [],
+    [selectedQuickFamilyMeta],
+  );
 
   const applyLastEggRecord = () => {
     if (!lastEggRecord) return;
@@ -1478,22 +1494,6 @@ export default function QuickCaptureModal() {
   };
 
   const availableSizes = eggInventory.filter((s) => s.available > 0);
-  const filteredExpenseCategories = expenseCategories.filter((c) => c !== "Compra de alimento");
-  const categoriesList = useMemo(() => {
-    const merged = new Set<string>([...QUICK_CAPTURE_STANDARD_FAMILY_NAMES, ...filteredExpenseCategories]);
-    return Array.from(merged);
-  }, [filteredExpenseCategories]);
-  const selectedQuickFamilyMeta = useMemo(
-    () => findStandardExpenseFamily(expCategory),
-    [expCategory],
-  );
-  const quickFamilyConcepts = useMemo(
-    () =>
-      selectedQuickFamilyMeta
-        ? STANDARD_EXPENSE_CATALOG.filter((c) => c.family === selectedQuickFamilyMeta.name)
-        : [],
-    [selectedQuickFamilyMeta],
-  );
 
   return (
     <Modal open={open} onClose={() => setOpen(false)} title="Registro rápido">
