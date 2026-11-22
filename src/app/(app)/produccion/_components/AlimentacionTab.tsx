@@ -15,6 +15,7 @@ import FarmLocationSelect from "@/components/FarmLocationSelect";
 import { useActionQuery } from "@/lib/useActionQuery";
 import { syncManager } from "@/lib/offline/syncManager";
 import { getCachedCatalog, setCachedCatalog, getCachedRecords, setCachedRecords } from "@/lib/offline/db";
+import { recordFeedCaptureHabit } from "@/lib/form-habit-learner";
 import {
   FEED_CATALOG_GROUPS,
   FEED_CURRENT_CATEGORIES,
@@ -669,6 +670,11 @@ export default function AlimentacionPage() {
           offline: true,
         }),
       );
+      recordFeedCaptureHabit({
+        locationId: movForm.locationId || "",
+        feedId: movForm.feedId,
+        quantity: qtyNum,
+      });
       return;
     }
 
@@ -691,6 +697,11 @@ export default function AlimentacionPage() {
         offline: false,
       }),
     );
+    recordFeedCaptureHabit({
+      locationId: movForm.locationId || "",
+      feedId: movForm.feedId,
+      quantity: qtyNum,
+    });
     load();
   };
 

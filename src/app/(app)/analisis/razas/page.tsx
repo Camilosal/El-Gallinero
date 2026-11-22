@@ -31,8 +31,22 @@ interface Comparison {
   batchCode?: string | null;
 }
 
+interface EmpiricalCalibration {
+  empiricalFactor: number;
+  environmentFactor: number;
+  combinedFactor: number;
+  observationCount: number;
+  confidencePct: number;
+  meanObservedRatio: number | null;
+  status: "sin_historial" | "en_aprendizaje" | "calibrada";
+  explanation: string;
+}
+
 interface CurveResponse {
   curve: StandardCurve;
+  calibratedCurve?: StandardCurve;
+  calibratedComparison?: Comparison | null;
+  empiricalCalibration?: EmpiricalCalibration;
   actualPoints: ActualPoint[];
   comparison: Comparison | null;
   environmentAdjustment?: { locationName: string | null; factor: number; altitudeMeters: number | null; floorType: string | null; notes: string[] };
@@ -70,6 +84,7 @@ export default function RazasPage() {
   const [loading, setLoading] = useState(true);
   const [pointSearch, setPointSearch] = useState("");
   const [dbBreeds, setDbBreeds] = useState<string[]>([]);
+  const [useAutocalibrated, setUseAutocalibrated] = useState(true);
   const breedOptions = useMemo(() => {
     const base = getStandardCurves(species).map((option) => option.breed);
     if (species === "gallina") return base;
@@ -115,17 +130,34 @@ export default function RazasPage() {
 
   useEffect(() => { void Promise.resolve().then(load); }, [load]);
 
-  const selectedCurve = data?.curve || getStandardCurve(species, selectedBreed);
-  const chartData = useMemo(() => (selectedCurve?.points || []).map((point) => ({
-    week: point.week,
-    target: point.target,
-    min: point.min,
-    max: point.max,
-    range: [point.min, point.max],
-  })), [selectedCurve]);
+  const empiricalCalibration = data?.empiricalCalibration || null;
+  const hasEmpiricalCalibration = Boolean(
+    empiricalCalibration && empiricalCalibration.observationCount > 0 && data?.calibratedCurve,
+  );
+  const showCalibratedOverlay = useAutocalibrated && hasEmpiricalCalibration;
+  const selectedCurve =
+    (showCalibratedOverlay ? data?.calibratedCurve : data?.curve) ||
+    getStandardCurve(species, selectedBreed);
+  const baseStandardPoints = data?.curve?.points;
+  const activePoints = selectedCurve?.points;
+  const chartData = useMemo(
+    () =>
+      (activePoints || []).map((point, idx) => ({
+        week: point.week,
+        target: point.target,
+        standardTarget: baseStandardPoints?.[idx]?.target ?? point.target,
+        min: point.min,
+        max: point.max,
+        range: [point.min, point.max],
+      })),
+    [activePoints, baseStandardPoints],
+  );
 
   const isLayer = selectedCurve?.metric === "postura";
-  const comparison = data?.comparison || null;
+  const comparison =
+    showCalibratedOverlay && data?.calibratedComparison
+      ? data.calibratedComparison
+      : data?.comparison || null;
   const actualLink = isLayer ? "/produccion?tab=huevos" : "/produccion/peso";
   const actualAction = isLayer ? "Registrar huevos" : "Registrar pesajes";
   const filteredPoints = (selectedCurve?.points || []).filter((point) =>
@@ -195,7 +227,10 @@ export default function RazasPage() {
                 <YAxis label={{ value: isLayer ? "% postura ave-día" : "Peso (g)", angle: -90, position: "insideLeft" }} />
                 <Tooltip formatter={(value) => typeof value === "number" ? formatMetric(value, selectedCurve) : value} />
                 <Area type="monotone" dataKey="range" name="Rango esperado" stroke="var(--iw-color-outline-soft)" fill="var(--iw-color-sage)" fillOpacity={0.55} />
-                <Line type="monotone" dataKey="target" name="Objetivo" stroke="var(--iw-color-forest)" strokeWidth={2} dot={false} />
+                <Line type="monotone" dataKey="target" name={showCalibratedOverlay ? "Objetivo autocalibrado" : "Objetivo"} stroke="var(--iw-color-forest)" strokeWidth={2} dot={false} />
+                {showCalibratedOverlay && (
+                  <Line type="monotone" dataKey="standardTarget" name="Objetivo teórico" stroke="var(--iw-color-earth)" strokeDasharray="4 4" strokeWidth={1.5} dot={false} />
+                )}
                 <Scatter data={data?.actualPoints || []} dataKey="actual" name={isLayer ? "Postura real" : "Peso real"} fill="var(--iw-color-info)" shape="circle" />
               </ComposedChart>
             </ResponsiveContainer>
@@ -203,6 +238,44 @@ export default function RazasPage() {
               Referencia: <a className="font-medium text-blue-700 underline" href={selectedCurve.sourceUrl} target="_blank" rel="noreferrer">{selectedCurve.sourceLabel}</a>.
               {" "}{selectedCurve.note}
             </p>
+            {empiricalCalibration && (
+              <div className="mt-3 flex flex-wrap items-center justify-between gap-3 rounded-[var(--iw-radius-control)] border border-[var(--iw-semantic-border-default)] bg-[var(--iw-semantic-bg-feature)] px-3.5 py-2.5 text-xs text-[var(--iw-semantic-text-primary)]">
+                <div className="space-y-1">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <span className="inline-flex items-center rounded-full bg-[var(--iw-semantic-action-primary)] px-2.5 py-0.5 text-[11px] font-semibold text-[var(--iw-semantic-action-primary-text)]">
+                      {empiricalCalibration.status === "calibrada"
+                        ? "Autocalibrada por tu finca"
+                        : empiricalCalibration.status === "en_aprendizaje"
+                          ? "En aprendizaje empírico"
+                          : "Sin historial de calibración"}
+                    </span>
+                    {empiricalCalibration.observationCount > 0 && (
+                      <>
+                        <span className="font-semibold tabular-nums">
+                          Factor empírico:{" "}
+                          {empiricalCalibration.empiricalFactor >= 1
+                            ? `+${(Math.round((empiricalCalibration.empiricalFactor - 1) * 1000) / 10).toFixed(1)}%`
+                            : `${(Math.round((empiricalCalibration.empiricalFactor - 1) * 1000) / 10).toFixed(1)}%`}
+                        </span>
+                        <span className="text-[var(--iw-semantic-text-secondary)] tabular-nums">
+                          Confianza: {empiricalCalibration.confidencePct}%
+                        </span>
+                      </>
+                    )}
+                  </div>
+                  <p className="text-[var(--iw-semantic-text-secondary)]">{empiricalCalibration.explanation}</p>
+                </div>
+                {hasEmpiricalCalibration && (
+                  <button
+                    type="button"
+                    onClick={() => setUseAutocalibrated((prev) => !prev)}
+                    className="shrink-0 rounded-[var(--iw-radius-control)] border border-[var(--iw-semantic-border-default)] bg-[var(--iw-semantic-bg-surface)] px-3 py-1.5 text-xs font-semibold text-[var(--iw-semantic-action-primary)] hover:bg-[var(--iw-semantic-bg-subtle)] transition-colors"
+                  >
+                    {showCalibratedOverlay ? "Ver curva teórica estándar" : "Ver curva autocalibrada"}
+                  </button>
+                )}
+              </div>
+            )}
             {data?.environmentAdjustment && data.environmentAdjustment.notes.length > 0 && (
               <div className="mt-2 rounded-lg border border-blue-200 bg-blue-50 px-3 py-2 text-xs text-blue-800">
                 <strong>Calibración ambiental ({data.environmentAdjustment.locationName || "lugar"}):</strong>{" "}
