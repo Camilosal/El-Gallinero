@@ -23,6 +23,8 @@ import {
 import {
   adaptMicroInsightForPurpose,
   buildEggMicroInsight,
+  buildFeedMicroInsight,
+  inferInsightFamily,
   resolveEssentialHabitSteps,
 } from "@/lib/micro-insights";
 import {
@@ -329,6 +331,43 @@ describe("Cadena Onboarding (Propósitos) -> 69 Nudges -> MicroInsights -> Contr
       comercial: 20,
       unit: "huevos",
     });
+
+    // Inferencia automática de familia y recálculo de hábito/nextAction sin insightFamily explícito
+    expect(inferInsightFamily({ id: "egg-1", categoryLabel: "" })).toBe("huevos");
+    expect(inferInsightFamily({ id: "feed-1", categoryLabel: "" })).toBe("alimentacion");
+    expect(inferInsightFamily({ id: "mort-1", categoryLabel: "" })).toBe("mortalidad");
+    expect(inferInsightFamily({ id: "sale-1", categoryLabel: "" })).toBe("venta");
+    expect(inferInsightFamily({ id: "exp-1", categoryLabel: "" })).toBe("gasto");
+    expect(inferInsightFamily({ id: "health-1", categoryLabel: "" })).toBe("sanidad");
+    expect(inferInsightFamily({ id: "repro-1", categoryLabel: "" })).toBe("reproduccion");
+    expect(inferInsightFamily({ id: "inc-start-1", categoryLabel: "" })).toBe("incubacion");
+
+    const rawFeedForCuy = buildFeedMicroInsight({
+      date: "2026-11-22",
+      feedName: "Forraje Cuyes",
+      unit: "kg",
+      quantity: 12,
+      isEntry: false,
+      locationName: "Cuyera A",
+      remainingStockAfter: 60,
+    });
+    const cuyAdaptedFeed = adaptMicroInsightForPurpose(rawFeedForCuy, {
+      activeSpecies: ["cuy"],
+      purposes: ["ingresos"],
+      farmId: testFarmId,
+    });
+    expect(cuyAdaptedFeed.learningAction?.routeId).toBe("nutricion_bodega");
+    expect(cuyAdaptedFeed.habit?.essentialTotal).toBe(2);
+    expect(cuyAdaptedFeed.nextAction?.mode).toBe("venta");
+
+    const homeAdaptedEggs = adaptMicroInsightForPurpose(insight, {
+      species: "gallina",
+      purposes: ["hogar"],
+      farmId: testFarmId,
+    });
+    expect(homeAdaptedEggs.learningAction?.routeId).toBe("produccion_calidad");
+    expect(homeAdaptedEggs.habit?.essentialTotal).toBe(2);
+    expect(homeAdaptedEggs.nextAction?.mode).toBe("alimentacion");
   });
 
   it("mantiene el contrato desacoplado de la Escuela (8 rutas x plantilla de 10 bloques) separado de /guia sin enlaces rotos", () => {

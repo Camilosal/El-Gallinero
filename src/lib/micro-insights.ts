@@ -1347,10 +1347,45 @@ export function buildIncubationMicroInsight(input: {
 
 
 
+const FAMILY_TO_HABIT_STEP: Record<SchoolInsightFamily, DailyHabitStep> = {
+  huevos: "huevos",
+  alimentacion: "alimentacion",
+  mortalidad: "mortalidad",
+  venta: "finanzas",
+  gasto: "finanzas",
+  sanidad: "sanidad",
+  reproduccion: "reproduccion",
+  incubacion: "reproduccion",
+};
+
+export function inferInsightFamily(
+  insight: Pick<MicroInsightPayload, "id" | "categoryLabel">,
+): SchoolInsightFamily {
+  const id = (insight.id || "").toLowerCase();
+  if (id.startsWith("egg-")) return "huevos";
+  if (id.startsWith("feed-")) return "alimentacion";
+  if (id.startsWith("mort-")) return "mortalidad";
+  if (id.startsWith("sale-")) return "venta";
+  if (id.startsWith("exp-")) return "gasto";
+  if (id.startsWith("health-")) return "sanidad";
+  if (id.startsWith("repro-")) return "reproduccion";
+  if (id.startsWith("inc-")) return "incubacion";
+
+  const cat = (insight.categoryLabel || "").toLowerCase();
+  if (cat.includes("postura") || cat.includes("huevo")) return "huevos";
+  if (cat.includes("aliment") || cat.includes("bodega")) return "alimentacion";
+  if (cat.includes("mortal") || cat.includes("baja")) return "mortalidad";
+  if (cat.includes("venta")) return "venta";
+  if (cat.includes("egreso") || cat.includes("gasto")) return "gasto";
+  if (cat.includes("reprodu")) return "reproduccion";
+  if (cat.includes("incub")) return "incubacion";
+  return "sanidad";
+}
+
 /**
  * Capa de enriquecimiento contextual v2.3 (MOA + puente a la Escuela de Formación):
  * No altera cálculos numéricos de los generadores base; añade propósito activo,
- * estado real de sincronización y el puente preparado hacia las 8 rutas de la Escuela.
+ * estado real de sincronización, hábito filtrado por especie/propósito y puente a Escuela.
  */
 export function adaptMicroInsightForPurpose(
   insight: MicroInsightPayload,
@@ -1359,6 +1394,9 @@ export function adaptMicroInsightForPurpose(
     purposes?: readonly FarmPurposeKey[] | null;
     primaryPurpose?: FarmPurposeKey | null;
     species?: string | null;
+    activeSpecies?: readonly string[] | null;
+    farmId?: string | null;
+    persistHabit?: boolean;
     quantityAutoconsumo?: number;
     syncStatus?: MicroInsightSyncStatus;
   },
@@ -1369,10 +1407,24 @@ export function adaptMicroInsightForPurpose(
   const syncStatus: MicroInsightSyncStatus =
     context?.syncStatus ?? insight.syncStatus ?? (insight.offline ? "queued" : "confirmed");
 
+  const inferredFamily = inferInsightFamily(insight);
+  const resolvedFamily: SchoolInsightFamily =
+    context?.insightFamily && context.insightFamily in FAMILY_TO_HABIT_STEP
+      ? (context.insightFamily as SchoolInsightFamily)
+      : inferredFamily;
+
+  const speciesList = Array.from(
+    new Set(
+      [...(context?.activeSpecies ?? []), ...(context?.species ? [context.species] : [])]
+        .map((s) => s.trim().toLowerCase())
+        .filter(Boolean),
+    ),
+  );
+
   const bridge = resolveSchoolLearningBridge({
-    insightFamily: context?.insightFamily ?? null,
+    insightFamily: resolvedFamily,
     purpose: primaryPurpose,
-    species: context?.species ?? null,
+    species: context?.species ?? speciesList[0] ?? null,
   });
 
   const learningAction: MicroInsightLearningAction = {
@@ -1400,12 +1452,51 @@ export function adaptMicroInsightForPurpose(
     };
   }
 
+  let adaptedHabit = insight.habit;
+  let adaptedNextAction = insight.nextAction;
+  if (insight.habit && (purposes.length > 0 || speciesList.length > 0 || Boolean(context?.farmId))) {
+    const habitStep = FAMILY_TO_HABIT_STEP[resolvedFamily];
+    const targetDate = insight.habit.date;
+    const baseState = readHabitState(context?.farmId);
+    const mergedSteps = Array.from(
+      new Set<DailyHabitStep>([
+        ...(baseState.byDate[targetDate] || []),
+        ...(insight.habit.completedSteps || []),
+        habitStep,
+      ]),
+    );
+    const mergedState: StoredHabitState = {
+      byDate: {
+        ...baseState.byDate,
+        [targetDate]: mergedSteps,
+      },
+    };
+    if (context?.persistHabit) {
+      writeHabitState(mergedState, context?.farmId);
+    }
+    adaptedHabit = getDailyHabitProgress(targetDate, mergedState, {
+      farmId: context?.farmId,
+      species: speciesList,
+      purposes,
+    });
+    if (insight.nextAction) {
+      adaptedNextAction = adaptedHabit.nextSuggestedMode
+        ? {
+            label: adaptedHabit.nextSuggestedLabel || "Continuar rutina del día",
+            mode: adaptedHabit.nextSuggestedMode,
+          }
+        : undefined;
+    }
+  }
+
   return {
     ...insight,
     purposeMode,
     syncStatus,
     valueKind: insight.valueKind ?? "calculated",
     destinationBreakdown,
+    habit: adaptedHabit,
+    nextAction: adaptedNextAction,
     learningAction,
     reasonCode: bridge.reasonCode,
   };
