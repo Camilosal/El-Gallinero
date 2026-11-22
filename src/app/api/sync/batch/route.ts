@@ -2,15 +2,11 @@ import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/db";
 import {
   eggProduction,
-  eggProductionDetails,
-  autoconsumoLogs,
   farmLocations,
   mortalityRecords,
   hens,
   roosters,
   broilerBatches,
-  feedMovements,
-  feedInventory,
   transactions,
   offlineMutationReceipts,
   weightLogs,
@@ -23,19 +19,17 @@ import {
   meatSales,
 } from "@/db/schema";
 import { and, desc, eq, or, sql } from "drizzle-orm";
-import { withApiHandler, safeParseJson } from "@/lib/api-handler";
-import { lockEggInventory } from "@/lib/inventory-locks";
-import { runFeedProgramCatchup } from "@/lib/feeding/runProgram";
+import { ApiHttpError, withApiHandler, safeParseJson } from "@/lib/api-handler";
 import { HEN_PRESENT_STATUSES } from "@/lib/animal-status";
-import { isPurchasedFeedCategory } from "@/lib/feed-classification";
-import { resolveExpenseClassification } from "@/lib/finance/standard-expense-catalog";
 import { addDaysIso, isDateOnly, todayColombiaIso } from "@/lib/date-validation";
 import { computeDailyGainG, computeUniformityStats, parseIndividualWeightsInput } from "@/lib/zootechnics";
 import { resolveDimensions } from "@/lib/analytics-dimensions";
 import { assertDateNotClosed } from "@/lib/sanitary-locks";
 import { getSessionUser } from "@/lib/auth";
 import { canPerformAction, type RbacPermission } from "@/lib/rbac";
-import { loadSpeciesParams } from "@/lib/species-db";
+import { registerEggProduction } from "@/lib/production/egg-production-service";
+import { registerFeedMovement } from "@/lib/feeding/feed-movement-service";
+import { resolveExpenseClassification } from "@/lib/finance/standard-expense-catalog";
 
 export const dynamic = "force-dynamic";
 
@@ -67,12 +61,23 @@ export const POST = withApiHandler(async (req: NextRequest) => {
 
   const mutations: MutationItem[] = body.mutations;
   const sessionUser = await getSessionUser();
-  const results: Array<{ id: string; status: "synced" | "error"; error?: string; deduplicated?: boolean }> = [];
+  const results: Array<{
+    id: string;
+    status: "synced" | "error";
+    resolution?: "confirmed" | "duplicate_confirmed" | "validation_error" | "business_conflict" | "permission_denied";
+    error?: string;
+    deduplicated?: boolean;
+  }> = [];
 
   for (const item of mutations) {
     try {
       if (!item.id || !item.entity) {
-        results.push({ id: item.id || "unknown", status: "error", error: "Datos de mutación incompletos" });
+        results.push({
+          id: item.id || "unknown",
+          status: "error",
+          resolution: "validation_error",
+          error: "Datos de mutación incompletos",
+        });
         continue;
       }
 
@@ -88,7 +93,12 @@ export const POST = withApiHandler(async (req: NextRequest) => {
       };
       const requiredPermission = permissionByEntity[item.entity];
       if (!requiredPermission || !canPerformAction(sessionUser?.role, requiredPermission)) {
-        results.push({ id: item.id, status: "error", error: "Tu rol no tiene permiso para sincronizar este tipo de registro" });
+        results.push({
+          id: item.id,
+          status: "error",
+          resolution: "permission_denied",
+          error: "Tu rol no tiene permiso para sincronizar este tipo de registro",
+        });
         continue;
       }
 
@@ -99,29 +109,27 @@ export const POST = withApiHandler(async (req: NextRequest) => {
         .limit(1);
 
       if (receipt && receipt.statusCode >= 200 && receipt.statusCode < 300) {
-        results.push({ id: item.id, status: "synced", deduplicated: true });
+        results.push({ id: item.id, status: "synced", resolution: "duplicate_confirmed", deduplicated: true });
         continue;
       }
 
+      let deduplicated = false;
       if (item.entity === "huevos") {
-        let effectiveItem = item;
-        if (!canPerformAction(sessionUser?.role, "sales:write")) {
-          const species = String(item.payload.species || "");
-          const params = await loadSpeciesParams(species);
-          const configuredPrice = params.find((row) => row.species === species)?.marketPriceEggUnitCOP;
-          effectiveItem = {
-            ...item,
-            payload: {
-              ...item.payload,
-              referenceUnitPrice: configuredPrice && configuredPrice > 0 ? String(configuredPrice) : null,
-            },
-          };
-        }
-        await processHuevosMutation(effectiveItem);
+        const res = await registerEggProduction(item.payload || {}, {
+          id: item.id,
+          isUpdate: false,
+          sessionRole: sessionUser?.role,
+          isOfflineSync: true,
+        });
+        deduplicated = res.deduplicated;
       } else if (item.entity === "mortalidad") {
         await processMortalidadMutation(item);
       } else if (item.entity === "alimentacion") {
-        await processAlimentacionMutation(item);
+        const res = await registerFeedMovement(item.payload || {}, {
+          id: item.id,
+          isOfflineSync: true,
+        });
+        deduplicated = res.deduplicated;
       } else if (item.entity === "pesaje") {
         await processPesajeMutation(item);
       } else if (item.entity === "sanidad") {
@@ -133,7 +141,12 @@ export const POST = withApiHandler(async (req: NextRequest) => {
       } else if (item.entity === "cierre_diario") {
         await processCierreDiarioMutation(item);
       } else {
-        results.push({ id: item.id, status: "error", error: `Entidad no soportada para batch: ${item.entity}` });
+        results.push({
+          id: item.id,
+          status: "error",
+          resolution: "validation_error",
+          error: `Entidad no soportada para batch: ${item.entity}`,
+        });
         continue;
       }
 
@@ -148,10 +161,32 @@ export const POST = withApiHandler(async (req: NextRequest) => {
         })
         .onConflictDoNothing();
 
-      results.push({ id: item.id, status: "synced" });
+      results.push({
+        id: item.id,
+        status: "synced",
+        resolution: deduplicated ? "duplicate_confirmed" : "confirmed",
+        ...(deduplicated ? { deduplicated: true } : {}),
+      });
     } catch (err: any) {
       console.error(`Error procesando mutación ${item.id} (${item.entity}):`, err);
-      results.push({ id: item.id, status: "error", error: err.message || "Error procesando registro" });
+      const statusCode =
+        err instanceof ApiHttpError
+          ? err.statusCode
+          : typeof err?.statusCode === "number"
+            ? err.statusCode
+            : 400;
+      const resolution =
+        statusCode === 409
+          ? "business_conflict"
+          : statusCode === 401 || statusCode === 403
+            ? "permission_denied"
+            : "validation_error";
+      results.push({
+        id: item.id,
+        status: "error",
+        resolution,
+        error: err.message || "Error procesando registro",
+      });
     }
   }
 
@@ -166,98 +201,6 @@ export const POST = withApiHandler(async (req: NextRequest) => {
 
   return NextResponse.json({ ok: true, results });
 });
-
-async function processHuevosMutation(item: MutationItem) {
-  const { id, payload } = item;
-  const body = payload;
-
-  // 1. Idempotencia: Verificar si ya fue insertado previamente
-  const [existing] = await db
-    .select({ id: eggProduction.id })
-    .from(eggProduction)
-    .where(eq(eggProduction.id, id));
-
-  if (existing) {
-    // Ya existe, se considera sincronizado con éxito
-    return;
-  }
-
-  const species = body.species || "gallina";
-  const totalCollected = Number(body.totalCollected) || 0;
-  const broken = Number(body.broken) || 0;
-  const forIncubation = Number(body.forIncubation) || 0;
-  const qtyAutoconsumo = Number(body.quantityAutoconsumo) || 0;
-  const qtyExcedente = Number(body.quantityExcedente) || 0;
-  const refPrice = body.referenceUnitPrice || null;
-  const rawSizes = Array.isArray(body.details)
-    ? body.details
-    : Array.isArray(body.sizes)
-      ? body.sizes
-      : body.sizes && typeof body.sizes === "object"
-        ? Object.entries(body.sizes).map(([size, quantity]) => ({ size, quantity }))
-        : [];
-  const sizes: { size: string; quantity: number }[] = rawSizes
-    .map((x: any) => ({ size: String(x.size), quantity: Number(x.quantity) || 0 }))
-    .filter((x: { size: string; quantity: number }) => x.quantity > 0);
-
-  if (typeof body.locationId !== "string" || !body.locationId.trim()) {
-    throw new Error("Falta el lugar (locationId) para registrar huevos");
-  }
-
-  await db.transaction(async (tx) => {
-    await lockEggInventory(tx);
-
-    const [loc] = await tx
-      .select({ id: farmLocations.id })
-      .from(farmLocations)
-      .where(eq(farmLocations.id, body.locationId));
-    if (!loc) {
-      throw new Error("El lugar seleccionado para los huevos no existe");
-    }
-
-    const [row] = await tx
-      .insert(eggProduction)
-      .values({
-        id,
-        date: body.date,
-        species,
-        batchId: body.batchId || null,
-        locationId: body.locationId,
-        totalCollected,
-        broken,
-        forIncubation,
-        quantityAutoconsumo: qtyAutoconsumo,
-        quantityExcedente: qtyExcedente,
-        referenceUnitPrice: refPrice,
-        notes: body.notes || null,
-      })
-      .returning();
-
-    if (sizes.length) {
-      await tx.insert(eggProductionDetails).values(
-        sizes.map((x) => ({ productionId: row.id, size: x.size, quantity: x.quantity }))
-      );
-    }
-
-    if (qtyAutoconsumo > 0 && refPrice) {
-      const unitPriceNum = Number(refPrice) || 0;
-      const savings = (qtyAutoconsumo * unitPriceNum).toFixed(2);
-      await tx.insert(autoconsumoLogs).values({
-        date: body.date,
-        species,
-        productType: "huevo",
-        quantity: String(qtyAutoconsumo),
-        unit: "unidades",
-        marketReferencePrice: refPrice,
-        savingsAmount: savings,
-        destinationHousehold: "Familia Granja",
-        batchId: body.batchId || null,
-        eggProductionId: row.id,
-        notes: `Cosecha de huevos (${species}) - autoconsumo (offline sync)`,
-      });
-    }
-  });
-}
 
 async function processMortalidadMutation(item: MutationItem) {
   const { id, payload } = item;
@@ -335,87 +278,6 @@ async function processMortalidadMutation(item: MutationItem) {
       locationId: locationId || null,
       description: description || null,
     });
-  });
-}
-
-async function processAlimentacionMutation(item: MutationItem) {
-  const { id, payload } = item;
-  const body = payload;
-
-  // 1. Idempotencia
-  const [existing] = await db
-    .select({ id: feedMovements.id })
-    .from(feedMovements)
-    .where(eq(feedMovements.id, id));
-
-  if (existing) {
-    return;
-  }
-
-  const qty = Number(body.quantity);
-  await runFeedProgramCatchup();
-
-  await db.transaction(async (tx) => {
-    const [feed] = await tx.select().from(feedInventory).where(eq(feedInventory.id, body.feedId)).for("update");
-    if (!feed) {
-      throw new Error("Alimento no encontrado en inventario");
-    }
-
-    await tx.insert(feedMovements).values({
-      id,
-      feedId: body.feedId,
-      quantity: body.quantity,
-      isEntry: Boolean(body.isEntry),
-      movementType: body.movementType || (body.isEntry ? "compra" : "consumo_manual"),
-      autoGenerated: false,
-      species: body.species || null,
-      stageCatalogoId: body.stageCatalogoId || null,
-      henCount: body.henCount || null,
-      locationId: body.locationId || null,
-      date: body.date,
-      notes: body.notes || null,
-    });
-
-    await tx
-      .update(feedInventory)
-      .set({
-        currentStock: body.isEntry
-          ? sql`(${feedInventory.currentStock}::numeric + ${qty})`
-          : sql`(${feedInventory.currentStock}::numeric - ${qty})`,
-        updatedAt: new Date(),
-      })
-      .where(eq(feedInventory.id, body.feedId));
-
-    if (body.isEntry && isPurchasedFeedCategory(feed.category) && Number(feed.costPerUnit) > 0) {
-      const amount = (qty * Number(feed.costPerUnit)).toFixed(2);
-      const resolvedFeedTx = resolveExpenseClassification({
-        type: "egreso",
-        category: "Compra de alimento",
-        sourceType: "alimento",
-        description: `Compra de ${body.quantity} ${feed.unit} de ${feed.name} (offline sync)`,
-      });
-      await tx.insert(transactions).values({
-        date: body.date,
-        type: "egreso",
-        category: "Compra de alimento",
-        description: `Compra de ${body.quantity} ${feed.unit} de ${feed.name} (offline sync)`,
-        amount,
-        quantity: body.quantity,
-        unitPrice: feed.costPerUnit,
-        unit: feed.unit,
-        counterparty: feed.supplier || null,
-        sourceType: "alimento",
-        sourceId: id,
-        species: body.species || null,
-        locationId: body.locationId || null,
-        batchId: body.batchId || null,
-        expenseCatalogId: resolvedFeedTx.expenseCatalogId,
-        expenseFamily: resolvedFeedTx.expenseFamily,
-        expenseConcept: resolvedFeedTx.expenseConcept,
-        expenseTreatment: resolvedFeedTx.expenseTreatment,
-        expenseDriver: resolvedFeedTx.expenseDriver,
-      });
-    }
   });
 }
 

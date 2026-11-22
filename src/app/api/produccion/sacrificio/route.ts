@@ -204,16 +204,21 @@ export const POST = withApiHandler(async (req: NextRequest) => {
       await applyBatchExit(body.batchId, qty, "sacrificio", tx);
     }
 
-    // Auto-registrar en Soberanía Alimentaria si hay carne para el hogar
-    if (weightKgAutoconsumo > 0 && refPricePerKg > 0) {
+    // Auto-registrar en Soberanía Alimentaria si hay carne para el hogar (incluso sin precio)
+    if (weightKgAutoconsumo > 0) {
+      const effectiveRefPrice = refPricePerKg > 0 ? refPricePerKg.toFixed(2) : "0.00";
+      const effectiveSavings =
+        refPricePerKg > 0
+          ? (weightKgAutoconsumo * refPricePerKg).toFixed(2)
+          : "0.00";
       await tx.insert(autoconsumoLogs).values({
         date: body.date,
         species,
         productType: "carne_canal",
         quantity: String(weightKgAutoconsumo),
         unit: "kg",
-        marketReferencePrice: String(refPricePerKg),
-        savingsAmount: String(savingsAmount || "0"),
+        marketReferencePrice: effectiveRefPrice,
+        savingsAmount: effectiveSavings,
         destinationHousehold: "Familia Granja",
         batchId: body.batchId || null,
         slaughterId: inserted.id,
@@ -383,17 +388,22 @@ export const PUT = withApiHandler(async (req: NextRequest) => {
         await applyBatchExit(body.batchId, qty, "sacrificio", tx);
       }
 
-      // Sync autoconsumo log
+      // Sync autoconsumo log (también sin precio de referencia)
       await tx.delete(autoconsumoLogs).where(eq(autoconsumoLogs.slaughterId, body.id));
-      if (weightKgAutoconsumo > 0 && refPricePerKg > 0) {
+      if (weightKgAutoconsumo > 0) {
+        const effectiveRefPrice = refPricePerKg > 0 ? refPricePerKg.toFixed(2) : "0.00";
+        const effectiveSavings =
+          refPricePerKg > 0
+            ? (weightKgAutoconsumo * refPricePerKg).toFixed(2)
+            : "0.00";
         await tx.insert(autoconsumoLogs).values({
           date: body.date,
           species,
           productType: "carne_canal",
           quantity: String(weightKgAutoconsumo),
           unit: "kg",
-          marketReferencePrice: String(refPricePerKg),
-          savingsAmount: String(savingsAmount || "0"),
+          marketReferencePrice: effectiveRefPrice,
+          savingsAmount: effectiveSavings,
           destinationHousehold: "Familia Granja",
           batchId: body.batchId || null,
           slaughterId: upd.id,

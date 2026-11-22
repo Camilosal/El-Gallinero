@@ -8,8 +8,16 @@
  * recuperar conexión o al completar una sincronización.
  */
 
+import { readCachedActiveFarmMeta } from "../active-farm-client";
+
 const QUEUE_KEY = "gallinero_adoption_telemetry_v1";
 const MAX_QUEUE = 200;
+
+export function resolveTelemetryQueueKey(farmId?: string | null): string {
+  const effectiveFarmId = farmId !== undefined ? farmId : readCachedActiveFarmMeta()?.id ?? null;
+  const trimmed = typeof effectiveFarmId === "string" ? effectiveFarmId.trim() : "";
+  return trimmed ? `${QUEUE_KEY}:${trimmed}` : QUEUE_KEY;
+}
 
 export interface AdoptionCaptureSample {
   mode: string;
@@ -24,10 +32,10 @@ interface QueuedTelemetry {
   recordedAt: string;
 }
 
-function readQueue(): QueuedTelemetry[] {
+function readQueue(farmId?: string | null): QueuedTelemetry[] {
   if (typeof window === "undefined") return [];
   try {
-    const raw = window.localStorage.getItem(QUEUE_KEY);
+    const raw = window.localStorage.getItem(resolveTelemetryQueueKey(farmId));
     const parsed = raw ? (JSON.parse(raw) as QueuedTelemetry[]) : [];
     return Array.isArray(parsed) ? parsed : [];
   } catch {
@@ -35,10 +43,10 @@ function readQueue(): QueuedTelemetry[] {
   }
 }
 
-function writeQueue(items: QueuedTelemetry[]): void {
+function writeQueue(items: QueuedTelemetry[], farmId?: string | null): void {
   if (typeof window === "undefined") return;
   try {
-    window.localStorage.setItem(QUEUE_KEY, JSON.stringify(items.slice(-MAX_QUEUE)));
+    window.localStorage.setItem(resolveTelemetryQueueKey(farmId), JSON.stringify(items.slice(-MAX_QUEUE)));
   } catch {
     // almacenamiento lleno o bloqueado: la telemetría nunca debe romper la captura
   }

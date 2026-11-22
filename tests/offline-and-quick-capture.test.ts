@@ -16,6 +16,7 @@ import {
   eggProductionDetails,
   feedInventory,
   healthControl,
+  hens,
   offlineMutationReceipts,
   transactions,
 } from "@/db/schema";
@@ -185,6 +186,19 @@ describe("Offline Idempotency, Batch Sync & Quick Capture Parity", () => {
     cleanupData = createCleanup();
     const loc = await createTestFarmLocation();
     cleanupData.locationIds.push(loc.id);
+    const henBirthDate = new Date(Date.now() - 245 * 86400000).toISOString().split("T")[0];
+    const [testHen] = await db
+      .insert(hens)
+      .values({
+        code: `G-BATCH-${Date.now()}`,
+        breed: "ISA Brown",
+        birthDate: henBirthDate,
+        status: "activa",
+        locationId: loc.id,
+      })
+      .returning();
+    cleanupData.henIds.push(testHen.id);
+
     const feed = await createTestFeed({ category: "suplementario", currentStock: "10", costPerUnit: "2000" });
     cleanupData.feedIds.push(feed.id);
 
@@ -210,6 +224,7 @@ describe("Offline Idempotency, Batch Sync & Quick Capture Parity", () => {
                 totalCollected: 12,
                 broken: 1,
                 forIncubation: 0,
+                overrideValidation: true,
                 sizes: [
                   { size: "Grande", quantity: 8 },
                   { size: "Mediano", quantity: 3 },
