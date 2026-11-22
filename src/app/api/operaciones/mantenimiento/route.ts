@@ -86,6 +86,8 @@ export const GET = withApiHandler(async () => {
     assetName: farmAssets.name,
     assetCategory: farmAssets.category,
     assetStatus: farmAssets.status,
+    assetCapexCatalogId: farmAssets.capexCatalogId,
+    assetCapexFamily: farmAssets.capexFamily,
   })
     .from(maintenance)
     .leftJoin(farmLocations, eq(maintenance.locationId, farmLocations.id))

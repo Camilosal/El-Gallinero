@@ -74,6 +74,10 @@ interface FarmAsset {
   code: string;
   name: string;
   category: string;
+  capexCatalogId?: string | null;
+  capexFamily?: string | null;
+  capexSubfamily?: string | null;
+  capexDestination?: string | null;
   brand?: string | null;
   model?: string | null;
   serialNumber?: string | null;
@@ -796,12 +800,19 @@ export default function EscanearPage() {
                         <Wrench className="h-6 w-6" aria-hidden="true" />
                       </div>
                       <div>
-                        <p className="text-xs font-semibold uppercase tracking-wide text-slate-400">
-                          {selected.asset.code} · {selected.asset.category}
+                        <p className="text-xs font-semibold uppercase tracking-wide text-[var(--iw-semantic-text-secondary)]">
+                          {selected.asset.code}
+                          {selected.asset.capexCatalogId ? ` · ${selected.asset.capexCatalogId}` : ` · ${selected.asset.category}`}
                         </p>
-                        <h2 className="text-lg font-bold text-slate-800">{selected.asset.name}</h2>
+                        <h2 className="text-lg font-bold text-[var(--iw-semantic-text-primary)]">{selected.asset.name}</h2>
+                        {selected.asset.capexFamily && (
+                          <p className="text-xs font-medium text-[var(--iw-semantic-action-primary)]">
+                            {selected.asset.capexFamily}
+                            {selected.asset.capexDestination ? ` · Destino: ${selected.asset.capexDestination}` : ""}
+                          </p>
+                        )}
                         {(selected.asset.brand || selected.asset.model) && (
-                          <p className="text-xs text-slate-500">
+                          <p className="text-xs text-[var(--iw-semantic-text-secondary)]">
                             {[selected.asset.brand, selected.asset.model].filter(Boolean).join(" · ")}
                           </p>
                         )}

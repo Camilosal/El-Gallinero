@@ -664,11 +664,11 @@ const consultarMantenimiento: AgentTool = {
 
 const consultarActivos: AgentTool = {
   name: "consultar_activos",
-  description: "Consulta equipos, herramientas e infraestructura por código, nombre, serie, lugar o estado. Incluye ubicación, garantía, costo registrado y estado operativo.",
+  description: "Consulta activos, equipos, herramientas e infraestructura por código, nombre, serie, familia CapEx, clasificación, destino productivo, lugar o estado. Incluye ubicación, garantía, costo registrado, vida útil y estado operativo.",
   parameters: {
     type: "object",
     properties: {
-      buscar: { type: "string", description: "Código, nombre, marca, modelo o número de serie. Opcional." },
+      buscar: { type: "string", description: "Código, CAP-xxx, nombre, familia CapEx, subfamilia, marca, modelo o número de serie. Opcional." },
       lugar: { type: "string", description: "Nombre del lugar asociado. Opcional." },
       estado: { type: "string", description: "operativo, requiere_mantenimiento, fuera_servicio o retirado. Opcional." },
       incluir_retirados: { type: "boolean", description: "Por defecto false; si es true incluye activos retirados con historial." },
@@ -687,7 +687,15 @@ const consultarActivos: AgentTool = {
       if (status && normalizeLookup(asset.status) !== status) return false;
       if (place && !normalizeLookup(asset.locationName).includes(place)) return false;
       if (requested && ![
-        asset.code, asset.name, asset.brand, asset.model, asset.serialNumber,
+        asset.code,
+        asset.name,
+        asset.brand,
+        asset.model,
+        asset.serialNumber,
+        asset.capexCatalogId,
+        asset.capexFamily,
+        asset.capexSubfamily,
+        asset.capexDestination,
       ].some((value) => normalizeLookup(value).includes(requested))) return false;
       return true;
     });
@@ -697,6 +705,12 @@ const consultarActivos: AgentTool = {
         codigo: asset.code,
         nombre: asset.name,
         tipo: asset.category,
+        catalogoCapexId: asset.capexCatalogId || null,
+        familiaCapex: asset.capexFamily || null,
+        subfamiliaCapex: asset.capexSubfamily || null,
+        clasificacionContable: asset.capexClassification || "CAPEX_DEPRECIABLE",
+        destinoProductivo: asset.capexDestination || "Compartido",
+        driverReparto: asset.capexDriver || "según activo",
         marca: asset.brand || null,
         modelo: asset.model || null,
         serie: asset.serialNumber || null,
@@ -705,6 +719,7 @@ const consultarActivos: AgentTool = {
         fechaAdquisicion: asset.acquisitionDate || null,
         garantiaHasta: asset.warrantyUntil || null,
         costoRegistradoCOP: Number(asset.acquisitionCost || 0),
+        valorResidualCOP: Number(asset.residualValue || 0),
         vidaUtilMeses: asset.usefulLifeMonths ?? null,
         vidaUtilCiclos: asset.usefulLifeCycles ?? null,
         baseDesgaste: asset.depreciationBasis || "meses",
@@ -1740,7 +1755,7 @@ function prepareFinanceTool(type: "ingreso" | "egreso") {
         isCredit: args.credito === true,
         dueDate: args.fecha_vencimiento ? normalizeDate(args.fecha_vencimiento) : null,
       },
-      summary: `Registrar ${type === "egreso" ? "gasto" : "ingreso"} de ${formatCop(amount)} en ${expenseCatalogId ? `${expenseCatalogId} · ${category}` : category}: ${description}${args.contraparte ? ` (${args.contraparte})` : ""} el ${formatDateEs(date)}.`,
+      summary: `Registrar ${type === "egreso" ? "gasto" : "ingreso"} de ${formatCop(amount)} en ${expenseCatalogId ? `${expenseCatalogId} · ${category}` : category}: ${description}${args.contraparte ? ` (${args.contraparte})` : ""} el ${formatDateEs(date)}.${type === "egreso" && (expenseFamily?.startsWith("22") || /^CST-25[5-9]|^CST-26[0-8]/.test(expenseCatalogId || "")) ? " (Nota: al ser CapEx/Inversión, registra también el activo en Almacén → Activos para depreciarlo por vida útil.)" : ""}`,
     };
   };
 }

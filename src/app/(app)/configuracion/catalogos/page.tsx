@@ -16,6 +16,7 @@ import VacunasTab from "./_components/VacunasTab";
 import PesosTab from "./_components/PesosTab";
 import GallinazaTab from "./_components/GallinazaTab";
 import AlimentacionTab from "./_components/AlimentacionTab";
+import CapexCatalogTab from "./_components/CapexCatalogTab";
 import EgresosCatalogTab from "./_components/EgresosCatalogTab";
 import FuentesExternasTab from "./_components/FuentesExternasTab";
 import NormasGuiasTab from "./_components/NormasGuiasTab";
@@ -75,6 +76,7 @@ const CATEGORIES: CatalogCategoryDef[] = [
   // Finanzas
   { key: "categoria_ingreso", label: "Categorías de ingreso", icon: "incoming", group: "finanzas" },
   { key: "categoria_egreso", label: "Categorías de egreso", icon: "outgoing", group: "finanzas" },
+  { key: "categoria_capex", label: "Familias CapEx e inversiones", icon: "wrench", group: "finanzas" },
   // Proyectos y alianzas
   { key: "proyecto_proposito", label: "Propósitos de proyecto", icon: "target", group: "proyectos" },
   { key: "beneficiario_arquetipo", label: "Perfiles de beneficiarios", icon: "users", group: "proyectos" },
@@ -554,6 +556,7 @@ const TABS = [
   { key: "gallinaza", label: "Factores de gallinaza", icon: "sprout" },
   { key: "alimentacion", label: "Programas de alimentación", icon: "wheat" },
   { key: "egresos", label: "Catálogo de egresos", icon: "outgoing" },
+  { key: "capex", label: "Catálogo CapEx e inversiones", icon: "wrench" },
   { key: "contactos", label: "Clientes y Proveedores", icon: "handshake" },
   { key: "fuentes", label: "Tablas maestras externas", icon: "globe" },
   { key: "normas", label: "Normas, estándares y guías", icon: "book-open" },
@@ -640,6 +643,7 @@ export default function CatalogosPage() {
       {effectiveTab === "gallinaza" && <GallinazaTab />}
       {effectiveTab === "alimentacion" && <AlimentacionTab />}
       {effectiveTab === "egresos" && <EgresosCatalogTab />}
+      {effectiveTab === "capex" && <CapexCatalogTab />}
       {effectiveTab === "contactos" && (
         <ContactsDirectory
           embedded

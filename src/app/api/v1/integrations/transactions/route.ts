@@ -66,6 +66,8 @@ export async function GET(req: NextRequest) {
           expenseFamily: transactions.expenseFamily,
           expenseConcept: transactions.expenseConcept,
           expenseTreatment: transactions.expenseTreatment,
+          capexCatalogId: transactions.capexCatalogId,
+          capexFamily: transactions.capexFamily,
           notes: transactions.notes,
           createdAt: transactions.createdAt,
         })
@@ -104,6 +106,8 @@ export async function GET(req: NextRequest) {
             expenseFamily: row.expenseFamily ?? null,
             expenseConcept: row.expenseConcept ?? null,
             expenseTreatment: row.expenseTreatment ?? null,
+            capexCatalogId: row.capexCatalogId ?? null,
+            capexFamily: row.capexFamily ?? null,
             notes: row.notes ?? null,
             createdAt: row.createdAt.toISOString(),
           },

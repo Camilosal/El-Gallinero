@@ -13,6 +13,7 @@ import {
   eggProduction,
   eggProductionDetails,
   eggSales,
+  farmAssets,
   feedInventory,
   feedMovements,
   farmLocations,
@@ -30,6 +31,10 @@ import {
 import { isDateOnly, todayColombiaIso } from "@/lib/date-validation";
 import { feedTypeLabel, inferFeedCatalogGroup, normalizeFeedCatalogGroup } from "@/lib/feed-classification";
 import { findStandardFeedById } from "@/lib/feeding/standard-feed-catalog";
+import {
+  CAPEX_CLASSIFICATION_LABELS,
+  resolveCapexClassification,
+} from "@/lib/finance/standard-capex-catalog";
 import { resolveExpenseClassification } from "@/lib/finance/standard-expense-catalog";
 import type { CellValue } from "./xlsx";
 
@@ -1065,6 +1070,91 @@ async function loadCierres(range: ExportRange): Promise<ExportDatasetResult> {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
+// Activos e inversiones (CapEx estándar)
+// ─────────────────────────────────────────────────────────────────────────────
+
+const ACTIVOS_CAPEX_HEADERS = [
+  "Código activo",
+  "Nombre",
+  "Código catálogo CapEx",
+  "Familia CapEx",
+  "Subfamilia CapEx",
+  "Clasificación contable",
+  "Etiqueta clasificación",
+  "Destino productivo",
+  "Driver reparto",
+  "Categoría operativa",
+  "Lugar",
+  "Estado",
+  "Fecha adquisición",
+  "Costo adquisición (COP)",
+  "Valor residual (COP)",
+  "Base desgaste",
+  "Vida útil (meses)",
+  "Vida útil (ciclos)",
+  "Marca",
+  "Modelo",
+  "Serie",
+  "Garantía hasta",
+  "Descripción",
+];
+
+async function loadActivosCapex(): Promise<ExportDatasetResult> {
+  const { rows, truncated } = await loadCapped((limit) =>
+    db
+      .select()
+      .from(farmAssets)
+      .orderBy(asc(farmAssets.capexFamily), asc(farmAssets.code))
+      .limit(limit),
+  );
+  const locations = await locationNames();
+
+  return {
+    headers: ACTIVOS_CAPEX_HEADERS,
+    truncated,
+    rows: rows.map((row) => {
+      const resolved = resolveCapexClassification({
+        capexCatalogId: row.capexCatalogId,
+        capexFamily: row.capexFamily,
+        capexSubfamily: row.capexSubfamily,
+        capexClassification: row.capexClassification,
+        capexDestination: row.capexDestination,
+        capexDriver: row.capexDriver,
+        name: row.name,
+        category: row.category,
+        description: row.description,
+      });
+      const classKey = row.capexClassification ?? resolved.capexClassification;
+      return [
+        row.code,
+        row.name,
+        row.capexCatalogId ?? resolved.capexCatalogId ?? "",
+        row.capexFamily ?? resolved.capexFamily ?? "",
+        row.capexSubfamily ?? resolved.capexSubfamily ?? "",
+        classKey,
+        CAPEX_CLASSIFICATION_LABELS[classKey as keyof typeof CAPEX_CLASSIFICATION_LABELS] ?? classKey,
+        row.capexDestination ?? resolved.capexDestination,
+        row.capexDriver ?? resolved.capexDriver,
+        row.category,
+        row.locationId ? locations.get(row.locationId) ?? "" : "",
+        row.status,
+        row.acquisitionDate ?? "",
+        num(row.acquisitionCost),
+        num(row.residualValue),
+        row.depreciationBasis,
+        row.usefulLifeMonths ?? "",
+        row.usefulLifeCycles ?? "",
+        str(row.brand),
+        str(row.model),
+        str(row.serialNumber),
+        row.warrantyUntil ?? "",
+        str(row.description),
+      ];
+    }),
+  };
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
 // Catálogo público
 // ─────────────────────────────────────────────────────────────────────────────
 
@@ -1257,6 +1347,17 @@ export const EXPORT_DATASETS: ExportDataset[] = [
     headers: CIERRES_HEADERS,
     load: loadCierres,
   },
+  {
+    id: "activos-capex",
+    label: "Activos e inversiones (CapEx)",
+    description: "Inventario de activos, infraestructura y CapEx clasificado por familia, subfamilia, destino y vida útil.",
+    category: "infraestructura",
+    granularity: "estado actual",
+    usesRange: false,
+    formats: ["csv", "xlsx"],
+    headers: ACTIVOS_CAPEX_HEADERS,
+    load: loadActivosCapex,
+  },
 ];
 
 /** Paquete multi-hoja analítico para XLSX; el respaldo completo se ofrece aparte. */
@@ -1282,6 +1383,7 @@ export const EXPORT_PACKAGE_DATASETS: string[] = [
   "ventas-carne",
   "sensores",
   "cierres",
+  "activos-capex",
 ];
 
 export function getExportDataset(id: string): ExportDataset | null {

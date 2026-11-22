@@ -222,6 +222,8 @@ export interface CanonicalTransaction {
   expenseFamily?: string | null;
   expenseConcept?: string | null;
   expenseTreatment?: string | null;
+  capexCatalogId?: string | null;
+  capexFamily?: string | null;
   notes: string | null;
   createdAt: string;
 }
@@ -294,6 +296,8 @@ export function formatTransactionForProfile(
       expenseFamily: tx.expenseFamily ?? null,
       expenseConcept: tx.expenseConcept ?? null,
       expenseTreatment: tx.expenseTreatment ?? null,
+      capexCatalogId: tx.capexCatalogId ?? null,
+      capexFamily: tx.capexFamily ?? null,
       categoryAccount: accountCode,
       bankAccount: counterAccountCode,
       costCenter,
@@ -323,6 +327,8 @@ export function formatTransactionForProfile(
       expense_catalog_id: tx.expenseCatalogId ?? null,
       expense_family: tx.expenseFamily ?? null,
       expense_treatment: tx.expenseTreatment ?? null,
+      capex_catalog_id: tx.capexCatalogId ?? null,
+      capex_family: tx.capexFamily ?? null,
       invoice_line_ids: [
         {
           default_code: tx.expenseCatalogId || null,
@@ -354,6 +360,8 @@ export function formatTransactionForProfile(
       expense_catalog_id: tx.expenseCatalogId ?? null,
       expense_family: tx.expenseFamily ?? null,
       expense_treatment: tx.expenseTreatment ?? null,
+      capex_catalog_id: tx.capexCatalogId ?? null,
+      capex_family: tx.capexFamily ?? null,
       is_credit: tx.isCredit,
       line_items: [
         {

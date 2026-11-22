@@ -520,6 +520,21 @@ export async function computeAnalyticalAccounting(opts: ComputeAnalyticsOptions)
       : totalCarcassKg === 0
         ? 1
         : 0.5;
+  const deprByDestination = new Map(
+    (assetsSummary.byDestination ?? []).map((item) => [item.key, item.periodDepreciationCop]),
+  );
+  const dedicatedEggCapexDepr = deprByDestination.get("Huevos") ?? 0;
+  const dedicatedMeatCapexDepr = deprByDestination.get("Aves/carne") ?? 0;
+  const dedicatedOtherCapexDepr =
+    (deprByDestination.get("Reproducción") ?? 0) +
+    (deprByDestination.get("Gallinaza/compost") ?? 0);
+  const sharedCapexDepr = Math.max(
+    0,
+    assetsSummary.periodDepreciationCop -
+      dedicatedEggCapexDepr -
+      dedicatedMeatCapexDepr -
+      dedicatedOtherCapexDepr,
+  );
   const eggProductionPoolCost =
     layerDirectExpenses +
     layerAccruedFeedCost +
@@ -527,7 +542,8 @@ export async function computeAnalyticalAccounting(opts: ComputeAnalyticsOptions)
     layerProratedShare +
     layerImputedOwnerLabor +
     unassignedImputedOwnerLabor * layerShareOfAssets +
-    assetsSummary.periodDepreciationCop * layerShareOfAssets;
+    dedicatedEggCapexDepr +
+    sharedCapexDepr * layerShareOfAssets;
   const costDenominatorEggs = netSaleableEggs > 0 ? netSaleableEggs : totalEggsCollected;
   const realCostPerEgg = costDenominatorEggs > 0 ? round2(eggProductionPoolCost / costDenominatorEggs) : 0;
   const realCostPerTray30 = round2(realCostPerEgg * 30);
@@ -623,7 +639,8 @@ export async function computeAnalyticalAccounting(opts: ComputeAnalyticsOptions)
     meatProratedShare +
     meatImputedOwnerLabor +
     unassignedImputedOwnerLabor * meatShareOfAssets +
-    assetsSummary.periodDepreciationCop * meatShareOfAssets;
+    dedicatedMeatCapexDepr +
+    sharedCapexDepr * meatShareOfAssets;
   const realCostPerLiveKg = totalLiveKg > 0 ? round2(meatPoolCost / totalLiveKg) : 0;
   const realCostPerCarcassKg = totalCarcassKg > 0 ? round2(meatPoolCost / totalCarcassKg) : 0;
 

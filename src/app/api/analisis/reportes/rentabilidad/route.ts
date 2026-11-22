@@ -232,6 +232,8 @@ export const GET = withApiHandler(async (req: NextRequest) => {
         lifecycleLabel: biologicalSummary.lifecycleLabel,
         capexRecoveryPct: assetsSummary.capexRecoveryPct,
         alertsCount: biologicalSummary.alerts.length,
+        capexByFamily: assetsSummary.byFamily ?? [],
+        capexByDestination: assetsSummary.byDestination ?? [],
       },
     } : {}),
   });

@@ -132,7 +132,7 @@ export const GET = withApiHandler(async (req: NextRequest) => {
         code: a.code,
         title: a.name,
         subtitle: [
-          a.category.toUpperCase(),
+          [a.capexCatalogId, a.capexFamily].filter(Boolean).join(" · ") || a.category.toUpperCase(),
           [a.brand, a.model].filter(Boolean).join(" ") || null,
           parentLoc?.name || null,
         ]

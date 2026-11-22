@@ -343,6 +343,12 @@ export const farmAssets = pgTable("farm_assets", {
   code: varchar("code", { length: 50 }).notNull(),
   name: varchar("name", { length: 200 }).notNull(),
   category: varchar("category", { length: 30 }).default("equipo").notNull(),
+  capexCatalogId: varchar("capex_catalog_id", { length: 20 }),
+  capexFamily: varchar("capex_family", { length: 120 }),
+  capexSubfamily: varchar("capex_subfamily", { length: 120 }),
+  capexClassification: varchar("capex_classification", { length: 40 }),
+  capexDestination: varchar("capex_destination", { length: 40 }),
+  capexDriver: varchar("capex_driver", { length: 60 }),
   brand: varchar("brand", { length: 120 }),
   model: varchar("model", { length: 120 }),
   serialNumber: varchar("serial_number", { length: 150 }),
@@ -366,6 +372,18 @@ export const farmAssets = pgTable("farm_assets", {
   check("farm_assets_acquisition_cost_nonnegative", sql`${t.acquisitionCost} >= 0`),
   check("farm_assets_residual_value_nonnegative", sql`${t.residualValue} >= 0`),
   check("farm_assets_depreciation_basis_valid", sql`${t.depreciationBasis} IN ('meses', 'ciclos')`),
+  check(
+    "farm_assets_capex_catalog_id_valid",
+    sql`${t.capexCatalogId} IS NULL OR ${t.capexCatalogId} ~ '^CAP-[0-9]{3}$'`,
+  ),
+  check(
+    "farm_assets_capex_classification_valid",
+    sql`${t.capexClassification} IS NULL OR ${t.capexClassification} IN ('CAPEX_DEPRECIABLE', 'CAPEX_NO_DEPRECIABLE', 'INTANGIBLE_AMORTIZABLE', 'ACTIVO_BIOLOGICO', 'INVENTARIO', 'OPEX_NO_CAPEX', 'FINANCIACION')`,
+  ),
+  check(
+    "farm_assets_capex_destination_valid",
+    sql`${t.capexDestination} IS NULL OR ${t.capexDestination} IN ('Compartido', 'Huevos', 'Aves/carne', 'Reproducción', 'Gallinaza/compost')`,
+  ),
 ]);
 
 // ─── Movimientos de alimento ───
@@ -629,6 +647,8 @@ export const transactions = pgTable("transactions", {
   expenseConcept: varchar("expense_concept", { length: 200 }),
   expenseTreatment: varchar("expense_treatment", { length: 30 }),
   expenseDriver: varchar("expense_driver", { length: 30 }),
+  capexCatalogId: varchar("capex_catalog_id", { length: 20 }),
+  capexFamily: varchar("capex_family", { length: 120 }),
   createdAt: timestamp("created_at").defaultNow().notNull(),
 }, (t) => [
   check(
@@ -642,6 +662,10 @@ export const transactions = pgTable("transactions", {
   check(
     "transactions_expense_catalog_id_valid",
     sql`${t.expenseCatalogId} IS NULL OR ${t.expenseCatalogId} ~ '^CST-[0-9]{3}$'`,
+  ),
+  check(
+    "transactions_capex_catalog_id_valid",
+    sql`${t.capexCatalogId} IS NULL OR ${t.capexCatalogId} ~ '^CAP-[0-9]{3}$'`,
   ),
 ]);
 

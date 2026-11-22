@@ -450,9 +450,9 @@ export default function StandardExpensePicker({
             <p className="flex items-start gap-1.5 rounded border border-[var(--iw-semantic-border-default)] bg-[var(--iw-semantic-bg-subtle)] px-2.5 py-1.5 text-[11px] text-[var(--iw-semantic-text-primary)]">
               <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0 text-[var(--iw-semantic-status-warning)]" aria-hidden="true" />
               <span>
-                <strong>No OPEX (CapEx):</strong> Se excluye del costo operativo mensual y se deprecia por vida útil. Registra la ficha en{" "}
-                <Link href="/operaciones/activos" className="font-semibold underline">
-                  Almacén → Activos y equipos
+                <strong>No OPEX (CapEx · 242 conceptos CAP-001..CAP-242):</strong> Se excluye del costo operativo mensual y se deprecia según familia, subfamilia y vida útil estándar. Registra la ficha en{" "}
+                <Link href="/operaciones/activos?nuevo=1" className="font-semibold underline">
+                  Almacén → Activos y CapEx
                 </Link>
                 .
               </span>

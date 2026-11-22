@@ -15,6 +15,7 @@ import { canonicalBreedType, DEFAULT_BREEDS_BY_SPECIES } from "@/lib/animal-bree
 import { ALL_BREED_STANDARD_DEFS, inferSpeciesForBreed } from "@/lib/breed-standards";
 import { syncLegacyCatalogContacts } from "@/lib/contacts";
 import { seedStarterFeedsAndPrograms, type StarterSeedSummary } from "@/lib/feeding/default-tenant-seed";
+import { PRODUCTIVE_CAPEX_FAMILIES } from "@/lib/finance/standard-capex-catalog";
 import { NON_FEED_STANDARD_EXPENSE_FAMILIES } from "@/lib/finance/standard-expense-catalog";
 import { DEFAULT_SETTINGS } from "@/lib/settings";
 import { SPECIES_PARAMS } from "@/lib/species-params";
@@ -135,6 +136,14 @@ const MASTER_CATALOG_DEFS: MasterCatalogDef[] = [
     tipo: fam.defaultTreatment,
     description: `${fam.conceptsCount} conceptos (${fam.p1Count} P1) del Catálogo Maestro de Egresos`,
     sortOrder: idx + 2,
+  })),
+
+  ...PRODUCTIVE_CAPEX_FAMILIES.map((fam, idx) => ({
+    category: "categoria_capex",
+    value: fam.name,
+    tipo: fam.defaultClassification,
+    description: `${fam.conceptsCount} conceptos (${fam.p1Count} P1) del Catálogo Maestro de CapEx e Inversiones`,
+    sortOrder: idx,
   })),
 
   // Sanidad y mantenimiento

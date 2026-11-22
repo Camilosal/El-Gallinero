@@ -2,6 +2,10 @@ import { getSpeciesParams } from "@/lib/species-params";
 import { getStandardCurve, interpolateStandard } from "@/lib/standard-curves";
 import { calibrateTargetForEnvironment } from "@/lib/zootechnics";
 import {
+  CAPEX_CLASSIFICATION_LABELS,
+  resolveCapexClassification,
+} from "@/lib/finance/standard-capex-catalog";
+import {
   inferAccountingNature,
   resolveExpenseClassification,
 } from "@/lib/finance/standard-expense-catalog";
@@ -38,6 +42,12 @@ export interface AssetDepreciationRow {
   code: string;
   name: string;
   category: string;
+  capexCatalogId?: string | null;
+  capexFamily?: string | null;
+  capexSubfamily?: string | null;
+  capexClassification?: string;
+  capexDestination?: string;
+  capexDriver?: string;
   acquisitionCostCop: number;
   residualValueCop: number;
   depreciationBasis: "meses" | "ciclos";
@@ -46,6 +56,17 @@ export interface AssetDepreciationRow {
   accumulatedDepreciationCop: number;
   netBookValueCop: number;
   recoveryPct: number;
+}
+
+export interface CapexGroupSummaryRow {
+  key: string;
+  label: string;
+  count: number;
+  acquisitionCostCop: number;
+  depreciableCop: number;
+  periodDepreciationCop: number;
+  accumulatedDepreciationCop: number;
+  netBookValueCop: number;
 }
 
 export interface AssetsDepreciationSummary {
@@ -57,6 +78,10 @@ export interface AssetsDepreciationSummary {
   capexRecoveryPct: number;
   activeAssetCount: number;
   breakdown: AssetDepreciationRow[];
+  byFamily?: CapexGroupSummaryRow[];
+  bySubfamily?: CapexGroupSummaryRow[];
+  byClassification?: CapexGroupSummaryRow[];
+  byDestination?: CapexGroupSummaryRow[];
 }
 
 export interface FeedWarehouseSummary {
@@ -178,6 +203,12 @@ export interface AssetLike {
   name: string;
   category: string;
   status: string;
+  capexCatalogId?: string | null;
+  capexFamily?: string | null;
+  capexSubfamily?: string | null;
+  capexClassification?: string | null;
+  capexDestination?: string | null;
+  capexDriver?: string | null;
   acquisitionDate?: string | null;
   acquisitionCost: string | number;
   usefulLifeMonths?: number | null;
@@ -334,6 +365,40 @@ export function computeAssetsDepreciationSummary(
   let accumulatedDepreciationCop = 0;
   let netBookValueCop = 0;
 
+  const familyMap = new Map<string, CapexGroupSummaryRow>();
+  const subfamilyMap = new Map<string, CapexGroupSummaryRow>();
+  const classMap = new Map<string, CapexGroupSummaryRow>();
+  const destMap = new Map<string, CapexGroupSummaryRow>();
+
+  const bumpGroup = (
+    map: Map<string, CapexGroupSummaryRow>,
+    key: string,
+    label: string,
+    cost: number,
+    depreciable: number,
+    periodDepr: number,
+    accumDepr: number,
+    bookVal: number,
+  ) => {
+    const entry = map.get(key) ?? {
+      key,
+      label,
+      count: 0,
+      acquisitionCostCop: 0,
+      depreciableCop: 0,
+      periodDepreciationCop: 0,
+      accumulatedDepreciationCop: 0,
+      netBookValueCop: 0,
+    };
+    entry.count += 1;
+    entry.acquisitionCostCop = round2(entry.acquisitionCostCop + cost);
+    entry.depreciableCop = round2(entry.depreciableCop + depreciable);
+    entry.periodDepreciationCop = round2(entry.periodDepreciationCop + periodDepr);
+    entry.accumulatedDepreciationCop = round2(entry.accumulatedDepreciationCop + accumDepr);
+    entry.netBookValueCop = round2(entry.netBookValueCop + bookVal);
+    map.set(key, entry);
+  };
+
   for (const asset of assets) {
     if (asset.status === "retirado") continue;
     const cost = Math.max(0, Number(asset.acquisitionCost || 0));
@@ -342,31 +407,65 @@ export function computeAssetsDepreciationSummary(
     // Exclude assets clearly acquired after the report end date
     if (asset.acquisitionDate && asset.acquisitionDate > toDate) continue;
 
-    const residual = Math.min(cost, Math.max(0, Number(asset.residualValue || 0)));
-    const depreciable = Math.max(0, cost - residual);
+    const resolvedCapex = resolveCapexClassification({
+      capexCatalogId: asset.capexCatalogId,
+      capexFamily: asset.capexFamily,
+      capexSubfamily: asset.capexSubfamily,
+      capexClassification: asset.capexClassification,
+      capexDestination: asset.capexDestination,
+      capexDriver: asset.capexDriver,
+      name: asset.name,
+      category: asset.category,
+      usefulLifeMonths: asset.usefulLifeMonths,
+    });
+
+    const capexClass = asset.capexClassification ?? resolvedCapex.capexClassification;
+    const capexFamily = asset.capexFamily ?? resolvedCapex.capexFamily ?? "Sin familia CapEx";
+    const capexSubfamily = asset.capexSubfamily ?? resolvedCapex.capexSubfamily ?? "General";
+    const capexDest = asset.capexDestination ?? resolvedCapex.capexDestination ?? "Compartido";
+    const capexDriver = asset.capexDriver ?? resolvedCapex.capexDriver ?? "según activo";
+    const capexCatalogId = asset.capexCatalogId ?? resolvedCapex.capexCatalogId ?? null;
+
+    const isZeroDepr =
+      capexClass === "CAPEX_NO_DEPRECIABLE" ||
+      (capexClass !== "CAPEX_DEPRECIABLE" && capexClass !== "INTANGIBLE_AMORTIZABLE") ||
+      (asset.depreciationBasis !== "ciclos" && asset.usefulLifeMonths === 0);
+
     const basis: "meses" | "ciclos" = asset.depreciationBasis === "ciclos" ? "ciclos" : "meses";
-    const usefulLifeCount =
-      basis === "ciclos"
-        ? Math.max(1, Number(asset.usefulLifeCycles || 18))
-        : Math.max(1, Number(asset.usefulLifeMonths || 36));
-    const totalLifeDays =
-      basis === "ciclos"
-        ? usefulLifeCount * Math.max(1, avgCycleDays)
-        : usefulLifeCount * 30.4375;
+    let residual = 0;
+    let depreciable = 0;
+    let usefulLifeCount = 0;
+    let periodDepr = 0;
+    let accruedAccum = 0;
+    let bookValue = cost;
+    let recoveryPct = 0;
 
-    const dailyDepr = depreciable / totalLifeDays;
-    const effectivePeriodStart =
-      asset.acquisitionDate && asset.acquisitionDate > fromDate ? asset.acquisitionDate : fromDate;
-    const periodDays = Math.min(windowDays, diffDaysInclusive(effectivePeriodStart, toDate));
-    const totalElapsedDays = asset.acquisitionDate
-      ? Math.max(periodDays, diffDaysInclusive(asset.acquisitionDate, toDate))
-      : periodDays;
+    if (!isZeroDepr) {
+      residual = Math.min(cost, Math.max(0, Number(asset.residualValue || 0)));
+      depreciable = Math.max(0, cost - residual);
+      usefulLifeCount =
+        basis === "ciclos"
+          ? Math.max(1, Number(asset.usefulLifeCycles || 18))
+          : Math.max(1, Number(asset.usefulLifeMonths || 36));
+      const totalLifeDays =
+        basis === "ciclos"
+          ? usefulLifeCount * Math.max(1, avgCycleDays)
+          : usefulLifeCount * 30.4375;
 
-    const accruedAccum = Math.min(depreciable, dailyDepr * totalElapsedDays);
-    const remainingBeforePeriod = Math.max(0, depreciable - Math.max(0, accruedAccum - dailyDepr * periodDays));
-    const periodDepr = Math.min(remainingBeforePeriod, dailyDepr * periodDays);
-    const bookValue = Math.max(residual, cost - accruedAccum);
-    const recoveryPct = cost > 0 ? clamp((accruedAccum / cost) * 100, 0, 100) : 0;
+      const dailyDepr = depreciable / totalLifeDays;
+      const effectivePeriodStart =
+        asset.acquisitionDate && asset.acquisitionDate > fromDate ? asset.acquisitionDate : fromDate;
+      const periodDays = Math.min(windowDays, diffDaysInclusive(effectivePeriodStart, toDate));
+      const totalElapsedDays = asset.acquisitionDate
+        ? Math.max(periodDays, diffDaysInclusive(asset.acquisitionDate, toDate))
+        : periodDays;
+
+      accruedAccum = Math.min(depreciable, dailyDepr * totalElapsedDays);
+      const remainingBeforePeriod = Math.max(0, depreciable - Math.max(0, accruedAccum - dailyDepr * periodDays));
+      periodDepr = Math.min(remainingBeforePeriod, dailyDepr * periodDays);
+      bookValue = Math.max(residual, cost - accruedAccum);
+      recoveryPct = cost > 0 ? clamp((accruedAccum / cost) * 100, 0, 100) : 0;
+    }
 
     totalAcquisitionCostCop += cost;
     totalDepreciableCop += depreciable;
@@ -374,11 +473,31 @@ export function computeAssetsDepreciationSummary(
     accumulatedDepreciationCop += accruedAccum;
     netBookValueCop += bookValue;
 
+    bumpGroup(familyMap, capexFamily, capexFamily, cost, depreciable, periodDepr, accruedAccum, bookValue);
+    bumpGroup(subfamilyMap, capexSubfamily, capexSubfamily, cost, depreciable, periodDepr, accruedAccum, bookValue);
+    bumpGroup(
+      classMap,
+      capexClass,
+      CAPEX_CLASSIFICATION_LABELS[capexClass as keyof typeof CAPEX_CLASSIFICATION_LABELS] ?? capexClass,
+      cost,
+      depreciable,
+      periodDepr,
+      accruedAccum,
+      bookValue,
+    );
+    bumpGroup(destMap, capexDest, capexDest, cost, depreciable, periodDepr, accruedAccum, bookValue);
+
     breakdown.push({
       id: asset.id,
       code: asset.code,
       name: asset.name,
       category: asset.category,
+      capexCatalogId,
+      capexFamily,
+      capexSubfamily,
+      capexClassification: capexClass,
+      capexDestination: capexDest,
+      capexDriver,
       acquisitionCostCop: round2(cost),
       residualValueCop: round2(residual),
       depreciationBasis: basis,
@@ -389,6 +508,9 @@ export function computeAssetsDepreciationSummary(
       recoveryPct: round2(recoveryPct),
     });
   }
+
+  const sortGroups = (m: Map<string, CapexGroupSummaryRow>) =>
+    Array.from(m.values()).sort((a, b) => b.acquisitionCostCop - a.acquisitionCostCop);
 
   return {
     totalAcquisitionCostCop: round2(totalAcquisitionCostCop),
@@ -402,6 +524,10 @@ export function computeAssetsDepreciationSummary(
         : 0,
     activeAssetCount: breakdown.length,
     breakdown,
+    byFamily: sortGroups(familyMap),
+    bySubfamily: sortGroups(subfamilyMap),
+    byClassification: sortGroups(classMap),
+    byDestination: sortGroups(destMap),
   };
 }
 

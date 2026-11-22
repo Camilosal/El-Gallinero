@@ -183,6 +183,9 @@ export const GET = withApiHandler(async (req: NextRequest) => {
         category: t.category,
         description: t.description,
         sourceType: t.sourceType,
+        expenseCatalogId: t.expenseCatalogId,
+        expenseFamily: t.expenseFamily,
+        expenseTreatment: t.expenseTreatment,
         amount: t.amount,
         date: t.date,
       })),
@@ -638,6 +641,14 @@ export const POST = withApiHandler(async (req: NextRequest) => {
 
   // Legacy path: no presentation data
   const isCapexCategory = txType === "egreso" && resolvedExpense.accountingNature === "capex";
+  const capexCatalogId =
+    isCapexCategory && typeof body.capexCatalogId === "string" && /^CAP-\d{3}$/i.test(body.capexCatalogId.trim())
+      ? body.capexCatalogId.trim().toUpperCase()
+      : null;
+  const capexFamily =
+    isCapexCategory && typeof body.capexFamily === "string" && body.capexFamily.trim()
+      ? body.capexFamily.trim().slice(0, 120)
+      : null;
   const result = await db.transaction(async (tx) => {
     const [created] = await tx.insert(transactions).values({
         ...dims,
@@ -649,6 +660,8 @@ export const POST = withApiHandler(async (req: NextRequest) => {
       amount: taxResolved.amount,
       ...taxResolved.columns,
       ...expenseCatalogCols,
+      capexCatalogId,
+      capexFamily,
       quantity: body.quantity || null,
       unitPrice: body.unitPrice || null,
       unit: body.unit || null,

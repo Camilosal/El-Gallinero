@@ -53,6 +53,27 @@ interface ExpenseFamilyBreakdown {
   concepts: Array<{ catalogId: string | null; concept: string; treatment: string; total: number; count: number }>;
 }
 
+interface CapexBreakdownGroup {
+  key: string;
+  label: string;
+  count: number;
+  acquisitionCostCop: number;
+  depreciableCop: number;
+  periodDepreciationCop: number;
+  accumulatedDepreciationCop: number;
+  netBookValueCop: number;
+}
+
+interface PLCapexSummary {
+  totalAcquisitionCostCop: number;
+  netBookValueCop: number;
+  periodDepreciationCop: number;
+  activeAssetCount: number;
+  byFamily: CapexBreakdownGroup[];
+  byClassification: CapexBreakdownGroup[];
+  byDestination: CapexBreakdownGroup[];
+}
+
 interface PLData {
   from: string;
   to: string;
@@ -66,7 +87,7 @@ interface PLData {
     total: number;
   };
   netProfit: number;
-  operatingContext?: OperatingContext;
+  operatingContext?: OperatingContext & { capexSummary?: PLCapexSummary };
   transactionCount: number;
 }
 
@@ -179,9 +200,13 @@ interface AnalyticalData {
     bultos40Kg: number;
   };
   assetsDepreciation?: {
+    totalAcquisitionCostCop?: number;
     netBookValueCop: number;
     periodDepreciationCop: number;
     capexRecoveryPct: number;
+    byFamily?: CapexBreakdownGroup[];
+    byClassification?: CapexBreakdownGroup[];
+    byDestination?: CapexBreakdownGroup[];
   };
   biologicalAlerts?: Array<{
     id: string;
@@ -674,6 +699,31 @@ ${netText}`);
             )}
           </Card>
 
+          {plData.operatingContext?.capexSummary && plData.operatingContext.capexSummary.byFamily.length > 0 && (
+            <Card>
+              <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+                <h3 className="font-semibold text-[var(--iw-semantic-text-primary)]">
+                  CapEx, Activos e Inversiones por Familia (Catálogo Estándar)
+                </h3>
+                <div className="flex flex-wrap gap-2 text-xs">
+                  <Badge color="blue">Inversión CapEx: {fmt(plData.operatingContext.capexSummary.totalAcquisitionCostCop)}</Badge>
+                  <Badge color="green">Valor neto en libros: {fmt(plData.operatingContext.capexSummary.netBookValueCop)}</Badge>
+                </div>
+              </div>
+              <Table headers={["Familia CapEx", "Activos", "Inversión COP", "Depreciación período", "Valor neto libros"]}>
+                {plData.operatingContext.capexSummary.byFamily.map((fam) => (
+                  <tr key={fam.key} className="hover:bg-[var(--iw-semantic-bg-subtle)]">
+                    <td className="px-4 py-3 text-sm font-semibold text-[var(--iw-semantic-text-primary)]">{fam.label}</td>
+                    <td className="px-4 py-3 text-xs text-[var(--iw-semantic-text-secondary)]">{fam.count}</td>
+                    <td className="px-4 py-3 text-sm font-medium text-[var(--iw-semantic-text-primary)]">{fmt(fam.acquisitionCostCop)}</td>
+                    <td className="px-4 py-3 text-sm text-[var(--iw-semantic-status-warning)]">{fmt(fam.periodDepreciationCop)}</td>
+                    <td className="px-4 py-3 text-sm font-bold text-[var(--iw-semantic-status-success)]">{fmt(fam.netBookValueCop)}</td>
+                  </tr>
+                ))}
+              </Table>
+            </Card>
+          )}
+
           {plData.operatingContext && (
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
               <Card className="border-emerald-200 bg-emerald-50/50">
@@ -924,6 +974,65 @@ ${netText}`);
             </Card>
             )}
           </div>
+
+          {analitica.assetsDepreciation && (analitica.assetsDepreciation.byFamily?.length ?? 0) > 0 && (
+            <Card>
+              <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+                <div>
+                  <h3 className="font-semibold text-[var(--iw-semantic-text-primary)]">
+                    Estructura de CapEx por Familia y Destino Productivo
+                  </h3>
+                  <p className="text-xs text-[var(--iw-semantic-text-secondary)]">
+                    Atribución sin subsidio cruzado: cada activo carga su desgaste al destino productivo asignado (o se prorratea si es Compartido); terrenos suman patrimonio con $0 depreciación.
+                  </p>
+                </div>
+                <HeroActionLink href="/operaciones/activos" tone="solid">
+                  <span>Ver inventario CapEx</span>
+                </HeroActionLink>
+              </div>
+              <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+                <div>
+                  <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-[var(--iw-semantic-text-secondary)]">
+                    Por Familia estándar
+                  </p>
+                  <Table headers={["Familia", "N°", "CapEx COP", "Deprec. período", "Neto libros"]}>
+                    {(analitica.assetsDepreciation.byFamily ?? []).map((fam) => (
+                      <tr key={fam.key} className="hover:bg-[var(--iw-semantic-bg-subtle)]">
+                        <td className="px-3 py-2 text-xs font-medium text-[var(--iw-semantic-text-primary)]">{fam.label}</td>
+                        <td className="px-3 py-2 text-xs text-[var(--iw-semantic-text-secondary)]">{fam.count}</td>
+                        <td className="px-3 py-2 text-xs font-medium text-[var(--iw-semantic-text-primary)]">{fmt(fam.acquisitionCostCop)}</td>
+                        <td className="px-3 py-2 text-xs text-[var(--iw-semantic-status-warning)]">{fmt(fam.periodDepreciationCop)}</td>
+                        <td className="px-3 py-2 text-xs font-semibold text-[var(--iw-semantic-status-success)]">{fmt(fam.netBookValueCop)}</td>
+                      </tr>
+                    ))}
+                  </Table>
+                </div>
+                <div>
+                  <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-[var(--iw-semantic-text-secondary)]">
+                    Por Destino y Clasificación
+                  </p>
+                  <Table headers={["Destino / Clasificación", "N°", "CapEx COP", "Deprec. período"]}>
+                    {(analitica.assetsDepreciation.byDestination ?? []).map((dest) => (
+                      <tr key={`dest-${dest.key}`} className="hover:bg-[var(--iw-semantic-bg-subtle)]">
+                        <td className="px-3 py-2 text-xs font-medium text-[var(--iw-semantic-text-primary)]">Destino: {dest.label}</td>
+                        <td className="px-3 py-2 text-xs text-[var(--iw-semantic-text-secondary)]">{dest.count}</td>
+                        <td className="px-3 py-2 text-xs font-medium text-[var(--iw-semantic-text-primary)]">{fmt(dest.acquisitionCostCop)}</td>
+                        <td className="px-3 py-2 text-xs text-[var(--iw-semantic-status-warning)]">{fmt(dest.periodDepreciationCop)}</td>
+                      </tr>
+                    ))}
+                    {(analitica.assetsDepreciation.byClassification ?? []).map((cls) => (
+                      <tr key={`cls-${cls.key}`} className="bg-[var(--iw-semantic-bg-subtle)]">
+                        <td className="px-3 py-2 text-xs font-semibold text-[var(--iw-semantic-text-secondary)]">{cls.label}</td>
+                        <td className="px-3 py-2 text-xs text-[var(--iw-semantic-text-secondary)]">{cls.count}</td>
+                        <td className="px-3 py-2 text-xs font-semibold text-[var(--iw-semantic-text-primary)]">{fmt(cls.acquisitionCostCop)}</td>
+                        <td className="px-3 py-2 text-xs text-[var(--iw-semantic-text-secondary)]">{fmt(cls.periodDepreciationCop)}</td>
+                      </tr>
+                    ))}
+                  </Table>
+                </div>
+              </div>
+            </Card>
+          )}
 
           {analitica.taxAndDeductions && (
             <Card>
