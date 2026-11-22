@@ -169,7 +169,7 @@ export default function RegistroPage() {
 
   return (
     <div className="flex min-h-screen flex-col bg-[var(--iw-semantic-bg-page)]">
-      <PublicNavigation sticky={false} action={null} />
+      <PublicNavigation action={{ href: "/planes", label: "Ver planes" }} />
       <main className="flex flex-1 items-center justify-center p-4 py-8">
       <div className="w-full max-w-md bg-[var(--iw-semantic-bg-surface)] rounded-2xl shadow-[var(--iw-shadow-card)] border border-[var(--iw-semantic-border-default)] p-6 sm:p-8">
         <div className="text-center mb-6">
