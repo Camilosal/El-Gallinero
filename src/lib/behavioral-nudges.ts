@@ -1,6 +1,15 @@
+import type { FarmPurposeKey } from "./onboarding";
 import type { QuickCaptureMode } from "./quick-capture-events";
+import type { SchoolCurriculumRouteId } from "./school-curriculum";
 
 export type NudgeTone = "emerald" | "amber" | "sky" | "slate";
+
+export type NudgeReasonCode =
+  | "objetivo_declarado"
+  | "necesidad_explicita"
+  | "evento_operativo"
+  | "especie_etapa"
+  | "rotacion_base";
 
 export interface BehavioralNudgeItem {
   id: string;
@@ -10,6 +19,10 @@ export interface BehavioralNudgeItem {
   actionLabel?: string;
   actionHref?: string;
   quickCaptureMode?: QuickCaptureMode;
+  purposes?: readonly FarmPurposeKey[];
+  species?: readonly string[];
+  appGuideSlug?: string;
+  schoolRouteId?: SchoolCurriculumRouteId;
 }
 
 export interface BehavioralNudgeGroup {
@@ -781,6 +794,91 @@ export interface NudgeUtilityEvaluation {
 export interface AdaptiveNudgeResult extends PickedNudgeResult {
   prioritizedByHistory: boolean;
   utilityScore: number;
+  reasonCode?: NudgeReasonCode;
+  appGuideHref?: string;
+  schoolRouteId?: SchoolCurriculumRouteId;
+}
+
+interface NudgeGroupContextMeta {
+  purposes: readonly FarmPurposeKey[];
+  species?: readonly string[];
+  appGuideSlug: string;
+  schoolRouteId: SchoolCurriculumRouteId;
+}
+
+const NUDGE_GROUP_META: Record<string, NudgeGroupContextMeta> = {
+  inicio: { purposes: ["hogar", "ingresos", "aprendizaje"], appGuideSlug: "primeros-pasos", schoolRouteId: "manejo_bienestar" },
+  escanear: { purposes: ["aprendizaje", "proyecto"], appGuideSlug: "escanear-qr", schoolRouteId: "tecnologia_campo" },
+  animales: { purposes: ["hogar", "ingresos", "reproduccion"], appGuideSlug: "trazabilidad-genetica", schoolRouteId: "manejo_bienestar" },
+  produccion_huevos: { purposes: ["hogar", "ingresos"], species: ["gallina", "codorniz", "pato"], appGuideSlug: "recoger-huevos", schoolRouteId: "produccion_calidad" },
+  produccion_carne: { purposes: ["ingresos", "hogar"], species: ["pollo", "pato", "conejo", "cuy"], appGuideSlug: "sacrificio-aves", schoolRouteId: "produccion_calidad" },
+  produccion_gallinaza: { purposes: ["sostenibilidad", "hogar", "ingresos"], appGuideSlug: "gallinaza-produccion", schoolRouteId: "sostenibilidad_mejora" },
+  alimentacion: { purposes: ["hogar", "ingresos", "sostenibilidad"], appGuideSlug: "alimentar-aves", schoolRouteId: "nutricion_bodega" },
+  mortalidad: { purposes: ["hogar", "ingresos", "aprendizaje"], appGuideSlug: "alertas-mortalidad", schoolRouteId: "sanidad_bioseguridad" },
+  ubicaciones: { purposes: ["hogar", "aprendizaje", "proyecto"], appGuideSlug: "lugares-manejo", schoolRouteId: "manejo_bienestar" },
+  sanidad: { purposes: ["hogar", "ingresos", "aprendizaje"], appGuideSlug: "bioseguridad-bienestar", schoolRouteId: "sanidad_bioseguridad" },
+  finanzas: { purposes: ["ingresos", "proyecto"], appGuideSlug: "registrar-venta", schoolRouteId: "gestion_economica" },
+  inventarios: { purposes: ["ingresos", "hogar", "sostenibilidad"], appGuideSlug: "balance-inventarios", schoolRouteId: "nutricion_bodega" },
+  almacen_operaciones: { purposes: ["sostenibilidad", "proyecto", "ingresos"], appGuideSlug: "cierre-sensores", schoolRouteId: "sostenibilidad_mejora" },
+  planeacion: { purposes: ["hogar", "proyecto", "aprendizaje"], appGuideSlug: "calendario-rutinas", schoolRouteId: "manejo_bienestar" },
+  analisis: { purposes: ["ingresos", "aprendizaje", "sostenibilidad"], appGuideSlug: "kpis-reportes", schoolRouteId: "produccion_calidad" },
+  configuracion: { purposes: ["aprendizaje", "proyecto"], appGuideSlug: "configuracion-general", schoolRouteId: "tecnologia_campo" },
+  guia: { purposes: ["aprendizaje", "proyecto"], appGuideSlug: "modo-offline-voz", schoolRouteId: "tecnologia_campo" },
+};
+
+const NUDGE_PREFIX_TO_GROUP: Record<string, string> = {
+  ini: "inicio",
+  qr: "escanear",
+  ani: "animales",
+  hue: "produccion_huevos",
+  car: "produccion_carne",
+  gal: "produccion_gallinaza",
+  ali: "alimentacion",
+  mor: "mortalidad",
+  ubi: "ubicaciones",
+  san: "sanidad",
+  fin: "finanzas",
+  inv: "inventarios",
+  alm: "almacen_operaciones",
+  pla: "planeacion",
+  ana: "analisis",
+  cfg: "configuracion",
+  gui: "guia",
+};
+
+const NUDGE_OVERRIDES: Record<string, Partial<NudgeGroupContextMeta>> = {
+  "ini-1": { purposes: ["hogar", "ingresos"], appGuideSlug: "recoger-huevos", schoolRouteId: "produccion_calidad" },
+  "ini-2": { purposes: ["ingresos", "sostenibilidad"], appGuideSlug: "cierre-sensores", schoolRouteId: "nutricion_bodega" },
+  "ini-4": { purposes: ["hogar", "ingresos"], appGuideSlug: "soberania-alimentaria", schoolRouteId: "sostenibilidad_mejora" },
+  "ani-2": { purposes: ["reproduccion"], appGuideSlug: "trazabilidad-genetica", schoolRouteId: "manejo_bienestar" },
+  "ani-3": { purposes: ["hogar", "ingresos"], species: ["gallina", "codorniz", "pato"], appGuideSlug: "control-peso", schoolRouteId: "produccion_calidad" },
+  "ani-4": { purposes: ["hogar", "ingresos"], species: ["gallina", "codorniz"], appGuideSlug: "gestionar-gallinas", schoolRouteId: "produccion_calidad" },
+  "ali-3": { purposes: ["hogar", "sostenibilidad"], species: ["conejo", "cuy"], appGuideSlug: "alimentar-aves", schoolRouteId: "nutricion_bodega" },
+  "mor-2": { purposes: ["sostenibilidad", "hogar"], appGuideSlug: "compostaje", schoolRouteId: "sostenibilidad_mejora" },
+  "mor-3": { purposes: ["hogar", "ingresos"], species: ["gallina", "codorniz"], appGuideSlug: "alertas-mortalidad", schoolRouteId: "produccion_calidad" },
+  "fin-1": { purposes: ["ingresos"], appGuideSlug: "balance-financiero", schoolRouteId: "gestion_economica" },
+  "fin-2": { purposes: ["ingresos"], appGuideSlug: "registrar-venta", schoolRouteId: "comercializacion_red" },
+  "fin-3": { purposes: ["ingresos"], appGuideSlug: "cuentas-cobrar-pagar", schoolRouteId: "comercializacion_red" },
+  "fin-4": { purposes: ["ingresos", "hogar"], appGuideSlug: "registrar-egreso", schoolRouteId: "gestion_economica" },
+  "pla-3": { purposes: ["hogar", "sostenibilidad"], appGuideSlug: "soberania-alimentaria", schoolRouteId: "sostenibilidad_mejora" },
+  "ana-3": { purposes: ["aprendizaje", "ingresos"], appGuideSlug: "normas-estandares", schoolRouteId: "sanidad_bioseguridad" },
+};
+
+export function resolveNudgeContextMeta(
+  item: BehavioralNudgeItem,
+  pageKey?: string,
+): NudgeGroupContextMeta {
+  const prefix = item.id.split("-")[0] || "";
+  const groupFromPage = pageKey && pageKey.includes(":") ? pageKey.split(":")[0] : "";
+  const resolvedGroup = NUDGE_PREFIX_TO_GROUP[prefix] || groupFromPage || "inicio";
+  const groupMeta = NUDGE_GROUP_META[resolvedGroup] || NUDGE_GROUP_META.inicio;
+  const override = NUDGE_OVERRIDES[item.id] || {};
+  return {
+    purposes: item.purposes || override.purposes || groupMeta.purposes,
+    species: item.species || override.species || groupMeta.species,
+    appGuideSlug: item.appGuideSlug || override.appGuideSlug || groupMeta.appGuideSlug,
+    schoolRouteId: item.schoolRouteId || override.schoolRouteId || groupMeta.schoolRouteId,
+  };
 }
 
 export function getNudgeFeedbackMap(
@@ -890,23 +988,37 @@ export function pickAdaptiveNudge(
   pageKey: string,
   nudges: readonly BehavioralNudgeItem[],
   storage?: Pick<Storage, "getItem" | "setItem"> | null,
-  options?: { advance?: boolean; nowMs?: number },
+  options?: {
+    advance?: boolean;
+    nowMs?: number;
+    purposes?: readonly FarmPurposeKey[];
+    primaryPurpose?: FarmPurposeKey | null;
+    activeSpecies?: readonly string[];
+  },
 ): AdaptiveNudgeResult {
   const safeList = nudges.length > 0 ? nudges : BEHAVIORAL_NUDGE_GROUPS.inicio.nudges;
   const nowMs = options?.nowMs ?? Date.now();
   const feedbackMap = getNudgeFeedbackMap(storage);
+  const activePurposes = (options?.purposes ?? []).filter(Boolean);
+  const primaryPurpose = options?.primaryPurpose ?? activePurposes[0] ?? null;
+  const activeSpecies = (options?.activeSpecies ?? []).map((s) => s.trim().toLowerCase()).filter(Boolean);
 
   const hasFeedbackSignal = safeList.some((item) => {
     const st = feedbackMap[item.id];
     return Boolean(st && (st.actedCount > 0 || st.dismissedCount > 0 || st.skippedCount > 0));
   });
+  const hasContextFilter = activePurposes.length > 0 || activeSpecies.length > 0;
 
-  if (!hasFeedbackSignal) {
+  if (!hasFeedbackSignal && !hasContextFilter) {
     const base = pickNextRotatingNudge(pageKey, safeList, storage, options);
+    const meta = resolveNudgeContextMeta(base.nudge, pageKey);
     return {
       ...base,
       prioritizedByHistory: false,
       utilityScore: 0.5,
+      reasonCode: "rotacion_base",
+      appGuideHref: `/guia/${meta.appGuideSlug}`,
+      schoolRouteId: meta.schoolRouteId,
     };
   }
 
@@ -930,8 +1042,23 @@ export function pickAdaptiveNudge(
   const advance = options?.advance ?? true;
   const evaluated = safeList.map((item, idx) => {
     const evalRes = computeNudgeUtilityScore(item.id, feedbackMap, nowMs);
+    const meta = resolveNudgeContextMeta(item, pageKey);
+    let purposeBonus = 0;
+    if (primaryPurpose && meta.purposes.includes(primaryPurpose)) {
+      purposeBonus = 0.3;
+    } else if (activePurposes.some((p) => meta.purposes.includes(p))) {
+      purposeBonus = 0.18;
+    }
+
+    let speciesMismatchPenalty = 0;
+    if (activeSpecies.length > 0 && meta.species && meta.species.length > 0) {
+      const matchesSpecies = meta.species.some((sp) => activeSpecies.includes(sp));
+      if (!matchesSpecies) speciesMismatchPenalty = 0.65;
+    }
+
+    const totalScore = Number((evalRes.score + purposeBonus - speciesMismatchPenalty).toFixed(4));
     const circularOffset = ((idx - (prevIndex < 0 ? -1 : prevIndex) + total) % total) || total;
-    return { item, idx, evalRes, circularOffset };
+    return { item, idx, evalRes, meta, purposeBonus, speciesMismatchPenalty, totalScore, circularOffset };
   });
 
   const nonCooled = evaluated.filter((e) => !e.evalRes.isCooledDown);
@@ -941,7 +1068,7 @@ export function pickAdaptiveNudge(
     // Al avanzar manualmente, evitamos repetir el mismo nudge si hay otro con utilidad competitiva
     if (advance && a.idx === prevIndex && pool.length > 1) return 1;
     if (advance && b.idx === prevIndex && pool.length > 1) return -1;
-    const scoreDiff = b.evalRes.score - a.evalRes.score;
+    const scoreDiff = b.totalScore - a.totalScore;
     if (Math.abs(scoreDiff) > 0.05) return scoreDiff;
     return a.circularOffset - b.circularOffset;
   });
@@ -955,11 +1082,23 @@ export function pickAdaptiveNudge(
     }
   }
 
+  const reasonCode: NudgeReasonCode =
+    winner.evalRes.prioritizedByHistory
+      ? "evento_operativo"
+      : winner.purposeBonus > 0
+        ? "objetivo_declarado"
+        : activeSpecies.length > 0 && pool.some((p) => p.speciesMismatchPenalty > 0)
+          ? "especie_etapa"
+          : "rotacion_base";
+
   return {
     index: winner.idx,
     total,
     nudge: winner.item,
     prioritizedByHistory: winner.evalRes.prioritizedByHistory,
-    utilityScore: winner.evalRes.score,
+    utilityScore: winner.totalScore,
+    reasonCode,
+    appGuideHref: `/guia/${winner.meta.appGuideSlug}`,
+    schoolRouteId: winner.meta.schoolRouteId,
   };
 }

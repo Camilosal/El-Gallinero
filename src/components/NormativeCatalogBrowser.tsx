@@ -23,6 +23,7 @@ import TableSearch from "@/components/TableSearch";
 import AttachmentPanel from "@/components/attachments/AttachmentPanel";
 import { createDraftEntityId } from "@/lib/attachments-shared";
 import { apiFetch } from "@/lib/fetch";
+import { readCachedActiveFarmMeta } from "@/lib/active-farm-client";
 import { matchesTextQuery } from "@/lib/text";
 import { askGinaWithContext } from "@/lib/assistant-events";
 import { useActionQuery } from "@/lib/useActionQuery";
@@ -158,6 +159,35 @@ export default function NormativeCatalogBrowser({
   const [kindFilter, setKindFilter] = useState<"" | NormativeDocumentKind>("");
   const [speciesFilter, setSpeciesFilter] = useState("");
   const [expandedMap, setExpandedMap] = useState<Record<string, boolean>>({});
+  const [normChecks, setNormChecks] = useState<Record<string, number[]>>(() => {
+    if (typeof window === "undefined") return {};
+    try {
+      const farmId = readCachedActiveFarmMeta()?.id || "default";
+      const raw = window.localStorage.getItem(`gallinero:norm_checks:v1:${farmId}`);
+      if (!raw) return {};
+      const parsed = JSON.parse(raw);
+      return parsed && typeof parsed === "object" ? (parsed as Record<string, number[]>) : {};
+    } catch {
+      return {};
+    }
+  });
+
+  const toggleNormCheckItem = (normId: string, idx: number) => {
+    setNormChecks((prev) => {
+      const existing = prev[normId] || [];
+      const nextForItem = existing.includes(idx)
+        ? existing.filter((v) => v !== idx)
+        : [...existing, idx].sort((a, b) => a - b);
+      const next = { ...prev, [normId]: nextForItem };
+      try {
+        const farmId = readCachedActiveFarmMeta()?.id || "default";
+        window.localStorage.setItem(`gallinero:norm_checks:v1:${farmId}`, JSON.stringify(next));
+      } catch {
+        // Ignore storage quota errors
+      }
+      return next;
+    });
+  };
   const [openAttachmentsMap, setOpenAttachmentsMap] = useState<Record<string, boolean>>({});
   const [attachmentCounts, setAttachmentCounts] = useState<Record<string, number>>({});
   const [reviewOpenMap, setReviewOpenMap] = useState<Record<string, boolean>>({});
@@ -595,16 +625,38 @@ export default function NormativeCatalogBrowser({
 
                       <div>
                         <p className="font-semibold text-slate-800 mb-1.5">
-                          Lista de chequeo en granja
+                          Lista de chequeo en granja (comprobación declarativa local)
                         </p>
                         <ul className="space-y-1.5 text-slate-700">
-                          {item.complianceChecklist.map((checkLine, idx) => (
-                            <li key={idx} className="flex items-start gap-1.5 leading-relaxed">
-                              <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600 shrink-0 mt-0.5" />
-                              <span>{checkLine}</span>
-                            </li>
-                          ))}
+                          {item.complianceChecklist.map((checkLine, idx) => {
+                            const checked = (normChecks[item.id] || []).includes(idx);
+                            return (
+                              <li key={idx} className="flex items-start gap-2 leading-relaxed">
+                                <input
+                                  id={`norm-check-${item.id}-${idx}`}
+                                  type="checkbox"
+                                  checked={checked}
+                                  onChange={() => toggleNormCheckItem(item.id, idx)}
+                                  className="mt-1 h-4 w-4 accent-emerald-700 shrink-0 cursor-pointer"
+                                />
+                                <label
+                                  htmlFor={`norm-check-${item.id}-${idx}`}
+                                  className={`cursor-pointer ${checked ? "text-emerald-900 font-medium" : ""}`}
+                                >
+                                  {checkLine}
+                                </label>
+                              </li>
+                            );
+                          })}
                         </ul>
+                        {(normChecks[item.id] || []).length > 0 && (
+                          <p className="mt-2 inline-flex items-center gap-1.5 rounded-lg border border-emerald-200 bg-emerald-50 px-2.5 py-1 text-[11px] font-medium text-emerald-900">
+                            <CheckCircle2 className="w-3.5 h-3.5 text-emerald-700 shrink-0" />
+                            <span>
+                              Comprobaste {(normChecks[item.id] || []).length} de {item.complianceChecklist.length} aspectos en este teléfono (declaración local; no equivale a diagnóstico ni certificación oficial).
+                            </span>
+                          </p>
+                        )}
                       </div>
 
                       {item.ginaPrompts.length > 0 && (

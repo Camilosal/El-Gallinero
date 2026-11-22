@@ -19,7 +19,9 @@ import {
 } from "@/lib/onboarding-server";
 import {
   PROGRESSIVE_UNLOCKABLE_KEYS,
+  normalizeFarmPurposes,
   parseDay1StarterCsv,
+  type FarmPurposeKey,
   type ProducerScale,
   type ProgressiveUnlockableFlagKey,
 } from "@/lib/onboarding";
@@ -76,6 +78,18 @@ export const PATCH = withApiHandler(async (req: NextRequest) => {
   if (Array.isArray(body.selectedSpecies)) {
     patch.selectedSpecies = body.selectedSpecies.map((s: unknown) => String(s));
   }
+  if (Array.isArray(body.purposes)) {
+    patch.purposes = normalizeFarmPurposes(body.purposes);
+  }
+  if (body.primaryPurpose !== undefined) {
+    patch.primaryPurpose = body.primaryPurpose ? (String(body.primaryPurpose) as FarmPurposeKey) : null;
+  }
+  if (Array.isArray(body.projectPurposes)) {
+    patch.projectPurposes = normalizeFarmPurposes(body.projectPurposes);
+  }
+  if (Array.isArray(body.acceptedSharedPurposes)) {
+    patch.acceptedSharedPurposes = normalizeFarmPurposes(body.acceptedSharedPurposes);
+  }
 
   try {
     const updated = await updateProgressiveOnboardingState(patch, user?.id ?? null);
@@ -116,6 +130,13 @@ export const POST = withApiHandler(async (req: NextRequest) => {
     kgConcentradoAdicional: body.kgConcentradoAdicional == null ? 0 : Number(body.kgConcentradoAdicional),
     costoPorBulto40kg: body.costoPorBulto40kg == null ? undefined : Number(body.costoPorBulto40kg),
     nombreAlimentoInicial: body.nombreAlimentoInicial ? String(body.nombreAlimentoInicial) : undefined,
+    purposes: Array.isArray(body.purposes) ? normalizeFarmPurposes(body.purposes) : undefined,
+    primaryPurpose:
+      body.primaryPurpose !== undefined
+        ? body.primaryPurpose
+          ? (String(body.primaryPurpose) as FarmPurposeKey)
+          : null
+        : undefined,
   };
 
   try {

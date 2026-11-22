@@ -26,6 +26,87 @@ export type ActivationOrigin =
   | "MANUAL_USUARIO"
   | "AUTO_TRIGGER_CRECIMIENTO";
 
+export type FarmPurposeKey =
+  | "hogar"
+  | "ingresos"
+  | "aprendizaje"
+  | "reproduccion"
+  | "sostenibilidad"
+  | "proyecto";
+
+export interface FarmPurposeDefinition {
+  key: FarmPurposeKey;
+  label: string;
+  shortLabel: string;
+  description: string;
+}
+
+export const FARM_PURPOSE_CATALOG: readonly FarmPurposeDefinition[] = [
+  {
+    key: "hogar",
+    label: "Alimentar a mi familia",
+    shortLabel: "Hogar / Autoconsumo",
+    description: "Registrar qué parte de la producción llega al hogar y cuidar la continuidad alimentaria.",
+  },
+  {
+    key: "ingresos",
+    label: "Vender y generar ingresos",
+    shortLabel: "Ventas / Negocio",
+    description: "Conocer lo producido, disponible para venta, vendido y gastado sin confundir caja con ganancia.",
+  },
+  {
+    key: "aprendizaje",
+    label: "Aprender y mejorar mi manejo",
+    shortLabel: "Aprender manejo",
+    description: "Aplicar guías breves, listas de chequeo y microlecciones prácticas por especie y etapa.",
+  },
+  {
+    key: "reproduccion",
+    label: "Reproducir, conservar o mejorar animales",
+    shortLabel: "Cría y reproducción",
+    description: "Seguir eventos reproductivos, incubación, linaje e hitos de levante.",
+  },
+  {
+    key: "sostenibilidad",
+    label: "Reducir desperdicios y mejorar sostenibilidad",
+    shortLabel: "Sostenibilidad",
+    description: "Controlar merma de alimento, compostaje térmico de gallinaza y aprovechamiento circular.",
+  },
+  {
+    key: "proyecto",
+    label: "Organizar el trabajo o un proyecto colectivo",
+    shortLabel: "Equipo / Proyecto",
+    description: "Coordinar roles, tareas diarias y metas compartidas con consentimiento.",
+  },
+] as const;
+
+export const VALID_FARM_PURPOSES: readonly FarmPurposeKey[] = FARM_PURPOSE_CATALOG.map((p) => p.key);
+
+export type FarmPurposeProfileMode = "neutral" | "hogar" | "ingresos" | "mixto";
+
+export function normalizeFarmPurposes(raw: unknown): FarmPurposeKey[] {
+  if (!Array.isArray(raw)) return [];
+  const valid = new Set<FarmPurposeKey>();
+  for (const item of raw) {
+    if (typeof item === "string" && (VALID_FARM_PURPOSES as readonly string[]).includes(item)) {
+      valid.add(item as FarmPurposeKey);
+    }
+  }
+  return Array.from(valid);
+}
+
+export function resolvePurposeProfileMode(
+  purposes?: readonly FarmPurposeKey[] | null,
+): FarmPurposeProfileMode {
+  if (!purposes || purposes.length === 0) return "neutral";
+  const hasHogar = purposes.includes("hogar");
+  const hasIngresos = purposes.includes("ingresos");
+  if (hasHogar && hasIngresos) return "mixto";
+  if (hasHogar) return "hogar";
+  if (hasIngresos) return "ingresos";
+  return "neutral";
+}
+
 export interface FeatureFlagDefinition {
   key: FeatureFlagKey;
   name: string;
@@ -50,6 +131,11 @@ export interface ProgressiveConfig {
   flags: Record<ProgressiveUnlockableFlagKey, boolean>;
   /** Explicit user choices (`MANUAL_USUARIO`): `false` prevents auto-trigger from overriding an intentional disable. */
   manualOverrides: Partial<Record<ProgressiveUnlockableFlagKey, boolean>>;
+  /** Combinable user purposes («Mis propósitos»); no gating/permissions attached. */
+  purposes?: FarmPurposeKey[];
+  primaryPurpose?: FarmPurposeKey | null;
+  projectPurposes?: FarmPurposeKey[];
+  acceptedSharedPurposes?: FarmPurposeKey[];
   updatedAt: string;
 }
 
@@ -299,6 +385,10 @@ export function createDefaultProgressiveConfig(
     solicitaReporteFormal: scale === "MEDIANO",
     flags: buildScaleDefaultFlags(scale),
     manualOverrides: {},
+    purposes: [],
+    primaryPurpose: null,
+    projectPurposes: [],
+    acceptedSharedPurposes: [],
     updatedAt: now,
   };
 }
@@ -331,6 +421,16 @@ export function sanitizeProgressiveConfig(raw: unknown): ProgressiveConfig {
     }
   }
 
+  const purposes = normalizeFarmPurposes(obj.purposes);
+  const projectPurposes = normalizeFarmPurposes(obj.projectPurposes);
+  const acceptedSharedPurposes = normalizeFarmPurposes(obj.acceptedSharedPurposes);
+  const rawPrimary = typeof obj.primaryPurpose === "string" && (VALID_FARM_PURPOSES as readonly string[]).includes(obj.primaryPurpose)
+    ? (obj.primaryPurpose as FarmPurposeKey)
+    : null;
+  const primaryPurpose = rawPrimary && purposes.includes(rawPrimary)
+    ? rawPrimary
+    : purposes[0] ?? null;
+
   return {
     scale,
     onboardingCompleted: Boolean(obj.onboardingCompleted),
@@ -346,6 +446,10 @@ export function sanitizeProgressiveConfig(raw: unknown): ProgressiveConfig {
       : scale === "MEDIANO",
     flags,
     manualOverrides,
+    purposes,
+    primaryPurpose,
+    projectPurposes,
+    acceptedSharedPurposes,
     updatedAt: typeof obj.updatedAt === "string" ? obj.updatedAt : base.updatedAt,
   };
 }

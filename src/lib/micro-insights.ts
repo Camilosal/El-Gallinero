@@ -1,4 +1,30 @@
+import { resolvePurposeProfileMode, type FarmPurposeKey, type FarmPurposeProfileMode } from "./onboarding";
+import { resolveSchoolLearningBridge, type SchoolInsightFamily } from "./school-curriculum";
+
 export type MicroInsightTone = "positive" | "warning" | "critical" | "info";
+export type MicroInsightValueKind = "confirmed" | "calculated" | "estimate" | "educational" | "alert";
+export type MicroInsightSyncStatus = "local_draft" | "queued" | "syncing" | "confirmed" | "failed" | "conflict";
+
+export interface MicroInsightDestinationBreakdown {
+  total: number;
+  hogar: number;
+  comercial: number;
+  unit: string;
+}
+
+export interface MicroInsightLearningAction {
+  lessonId: string;
+  routeId: string;
+  title: string;
+  fieldQuestion: string;
+  durationMinutes: number;
+  level: string;
+  isSchoolModuleMounted: boolean;
+  targetHref: string;
+  appGuideHref: string;
+  practiceHref: string;
+  reasonCode: string;
+}
 
 export type DailyHabitStep =
   | "huevos"
@@ -45,6 +71,13 @@ export interface MicroInsightPayload {
   offline?: boolean;
   habit?: DailyHabitProgress;
   nextAction?: MicroInsightNextAction;
+  valueKind?: MicroInsightValueKind;
+  syncStatus?: MicroInsightSyncStatus;
+  assumptions?: string[];
+  destinationBreakdown?: MicroInsightDestinationBreakdown;
+  learningAction?: MicroInsightLearningAction;
+  purposeMode?: FarmPurposeProfileMode;
+  reasonCode?: string;
 }
 
 const HABIT_STORAGE_KEY = "gallinero_daily_habit_v1";
@@ -79,10 +112,35 @@ function shiftIsoDate(dateIso: string, deltaDays: number): string {
   return d.toISOString().slice(0, 10);
 }
 
-function readHabitState(): StoredHabitState {
+function resolveHabitStorageKey(farmId?: string | null): string {
+  const clean = typeof farmId === "string" ? farmId.trim() : "";
+  return clean ? `${HABIT_STORAGE_KEY}:${clean}` : HABIT_STORAGE_KEY;
+}
+
+export function resolveEssentialHabitSteps(options?: {
+  species?: readonly string[];
+  purposes?: readonly FarmPurposeKey[];
+}): Array<{ step: DailyHabitStep; mode: "huevos" | "alimentacion" | "mortalidad" | "venta"; label: string }> {
+  const speciesList = (options?.species ?? []).map((s) => s.trim().toLowerCase()).filter(Boolean);
+  const purposes = options?.purposes ?? [];
+  const hasLayingSpecies =
+    speciesList.length === 0 ||
+    speciesList.some((sp) => sp === "gallina" || sp === "codorniz" || sp === "pato");
+  const isHomeOnly = purposes.includes("hogar") && !purposes.includes("ingresos");
+
+  return ESSENTIAL_DAILY_STEPS.filter((item) => {
+    if (item.step === "huevos" && !hasLayingSpecies) return false;
+    // Mortalidad es un registro por evento, no una meta diaria obligatoria cuando se personaliza perfil
+    if (item.step === "mortalidad" && (speciesList.length > 0 || purposes.length > 0)) return false;
+    if (item.step === "finanzas" && isHomeOnly) return false;
+    return true;
+  });
+}
+
+function readHabitState(farmId?: string | null): StoredHabitState {
   if (typeof window === "undefined") return { byDate: {} };
   try {
-    const raw = window.localStorage.getItem(HABIT_STORAGE_KEY);
+    const raw = window.localStorage.getItem(resolveHabitStorageKey(farmId));
     if (!raw) return { byDate: {} };
     const parsed = JSON.parse(raw) as StoredHabitState;
     if (!parsed || typeof parsed.byDate !== "object") return { byDate: {} };
@@ -92,7 +150,7 @@ function readHabitState(): StoredHabitState {
   }
 }
 
-function writeHabitState(state: StoredHabitState): void {
+function writeHabitState(state: StoredHabitState, farmId?: string | null): void {
   if (typeof window === "undefined") return;
   try {
     // Keep only last 45 days to stay lightweight
@@ -101,7 +159,7 @@ function writeHabitState(state: StoredHabitState): void {
     for (const dt of dates) {
       trimmed[dt] = state.byDate[dt];
     }
-    window.localStorage.setItem(HABIT_STORAGE_KEY, JSON.stringify({ byDate: trimmed }));
+    window.localStorage.setItem(resolveHabitStorageKey(farmId), JSON.stringify({ byDate: trimmed }));
   } catch {
     // Ignore storage quota errors
   }
@@ -110,25 +168,28 @@ function writeHabitState(state: StoredHabitState): void {
 export function recordDailyHabitStep(
   step: DailyHabitStep,
   dateIso?: string,
+  options?: { farmId?: string | null; species?: readonly string[]; purposes?: readonly FarmPurposeKey[] },
 ): DailyHabitProgress {
   const targetDate = dateIso && /^\d{4}-\d{2}-\d{2}$/.test(dateIso) ? dateIso : getTodayIsoLocal();
-  const state = readHabitState();
+  const state = readHabitState(options?.farmId);
   const existing = state.byDate[targetDate] || [];
   const updated = existing.includes(step) ? existing : [...existing, step];
   state.byDate[targetDate] = updated;
-  writeHabitState(state);
-  return getDailyHabitProgress(targetDate, state);
+  writeHabitState(state, options?.farmId);
+  return getDailyHabitProgress(targetDate, state, options);
 }
 
 export function getDailyHabitProgress(
   dateIso?: string,
   preloadedState?: StoredHabitState,
+  options?: { farmId?: string | null; species?: readonly string[]; purposes?: readonly FarmPurposeKey[] },
 ): DailyHabitProgress {
+  const essentialList = options ? resolveEssentialHabitSteps(options) : ESSENTIAL_DAILY_STEPS;
   const targetDate = dateIso && /^\d{4}-\d{2}-\d{2}$/.test(dateIso) ? dateIso : getTodayIsoLocal();
-  const state = preloadedState || readHabitState();
+  const state = preloadedState || readHabitState(options?.farmId);
   const completedSteps = state.byDate[targetDate] || [];
 
-  const essentialDone = ESSENTIAL_DAILY_STEPS.filter((item) =>
+  const essentialDone = essentialList.filter((item) =>
     completedSteps.includes(item.step),
   ).length;
 
@@ -145,7 +206,7 @@ export function getDailyHabitProgress(
   }
   if (streakDays === 0) streakDays = 1;
 
-  const nextMissing = ESSENTIAL_DAILY_STEPS.find(
+  const nextMissing = essentialList.find(
     (item) => !completedSteps.includes(item.step),
   );
 
@@ -153,7 +214,7 @@ export function getDailyHabitProgress(
     date: targetDate,
     completedSteps,
     completedEssentialCount: Math.max(1, essentialDone),
-    essentialTotal: ESSENTIAL_DAILY_STEPS.length,
+    essentialTotal: Math.max(1, essentialList.length),
     streakDays,
     nextSuggestedMode: nextMissing?.mode,
     nextSuggestedLabel: nextMissing?.label,
@@ -296,6 +357,7 @@ export function buildEggMicroInsight(input: {
   previousDayCollected?: number | null;
   todayFeedKg?: number | null;
   todayFeedCostCOP?: number | null;
+  quantityAutoconsumo?: number;
   offline?: boolean;
 }): MicroInsightPayload {
   const habit = recordDailyHabitStep("huevos", input.date);
@@ -382,10 +444,7 @@ export function buildEggMicroInsight(input: {
     });
   }
 
-  const monthlySavedIfLowBreakage = Math.max(
-    15000,
-    Math.round(input.totalCollected * 0.025 * input.unitPrice * 30),
-  );
+  const monthlySavedIfLowBreakage = Math.round(input.totalCollected * 0.025 * input.unitPrice * 30);
 
   const nudgeTitle =
     mermaPct <= 2
@@ -409,6 +468,29 @@ export function buildEggMicroInsight(input: {
       ? `\n📊 Utilidad Neta Hoy (Ingreso − Alimento): *${netProfitToday >= 0 ? "+" : ""}$${netProfitToday.toLocaleString("es-CO")}*`
       : "");
 
+  const rawAuto = Math.max(0, Math.round(Number(input.quantityAutoconsumo || 0)));
+  const hogarCount = Math.min(commercialEggs, rawAuto);
+  const comercialCount = Math.max(0, commercialEggs - hogarCount);
+  const destinationBreakdown: MicroInsightDestinationBreakdown | undefined =
+    hogarCount > 0
+      ? {
+          total: commercialEggs,
+          hogar: hogarCount,
+          comercial: comercialCount,
+          unit: "huevos",
+        }
+      : undefined;
+
+  const assumptions: string[] = [];
+  if (netProfitToday !== null && feedCostToday !== null) {
+    assumptions.push(
+      "Margen parcial estimado: descuenta únicamente el costo del alimento registrado hoy; no incluye sanidad, empaque ni mano de obra.",
+    );
+  }
+  if (monthlySavedIfLowBreakage === 0) {
+    assumptions.push("Sin rotura significativa o sin precio unitario definido para proyectar ahorro mensual.");
+  }
+
   return {
     id: `egg-${Date.now()}`,
     categoryLabel: "Micro-Reporte Zootécnico · Postura",
@@ -417,13 +499,17 @@ export function buildEggMicroInsight(input: {
     subtitle:
       deltaPrev !== null
         ? `Comparativo inmediato: ${deltaPrev >= 0 ? `+${deltaPrev}` : deltaPrev} huevos frente a la recolección previa.`
-        : `Inventario PEPS actualizado con ${commercialEggs} huevos comerciales.`,
+        : `Inventario PEPS actualizado con ${commercialEggs} huevos útiles.`,
     metrics,
     nudgeTitle,
     nudgeBody,
     normativeTag: "Norma NTC 1240 · Inventario PEPS",
     whatsappText,
     offline: input.offline,
+    syncStatus: input.offline ? "queued" : "confirmed",
+    valueKind: feedCostToday !== null ? "estimate" : "calculated",
+    assumptions: assumptions.length > 0 ? assumptions : undefined,
+    destinationBreakdown,
     habit,
     nextAction: habit.nextSuggestedMode
       ? {
@@ -1259,3 +1345,68 @@ export function buildIncubationMicroInsight(input: {
   };
 }
 
+
+
+/**
+ * Capa de enriquecimiento contextual v2.3 (MOA + puente a la Escuela de Formación):
+ * No altera cálculos numéricos de los generadores base; añade propósito activo,
+ * estado real de sincronización y el puente preparado hacia las 8 rutas de la Escuela.
+ */
+export function adaptMicroInsightForPurpose(
+  insight: MicroInsightPayload,
+  context?: {
+    insightFamily?: SchoolInsightFamily | string | null;
+    purposes?: readonly FarmPurposeKey[] | null;
+    primaryPurpose?: FarmPurposeKey | null;
+    species?: string | null;
+    quantityAutoconsumo?: number;
+    syncStatus?: MicroInsightSyncStatus;
+  },
+): MicroInsightPayload {
+  const purposes = context?.purposes ?? [];
+  const primaryPurpose = context?.primaryPurpose ?? purposes[0] ?? null;
+  const purposeMode = resolvePurposeProfileMode(purposes);
+  const syncStatus: MicroInsightSyncStatus =
+    context?.syncStatus ?? insight.syncStatus ?? (insight.offline ? "queued" : "confirmed");
+
+  const bridge = resolveSchoolLearningBridge({
+    insightFamily: context?.insightFamily ?? null,
+    purpose: primaryPurpose,
+    species: context?.species ?? null,
+  });
+
+  const learningAction: MicroInsightLearningAction = {
+    lessonId: bridge.lesson.id,
+    routeId: bridge.route.id,
+    title: bridge.lesson.title,
+    fieldQuestion: bridge.lesson.block1FieldQuestion,
+    durationMinutes: bridge.lesson.durationMinutes,
+    level: bridge.lesson.level,
+    isSchoolModuleMounted: bridge.isSchoolModuleMounted,
+    targetHref: bridge.targetHref,
+    appGuideHref: bridge.fallbackAppGuideHref,
+    practiceHref: bridge.practiceHref,
+    reasonCode: bridge.reasonCode,
+  };
+
+  let destinationBreakdown = insight.destinationBreakdown;
+  if (!destinationBreakdown && typeof context?.quantityAutoconsumo === "number" && context.quantityAutoconsumo > 0) {
+    const hogar = Math.round(context.quantityAutoconsumo);
+    destinationBreakdown = {
+      total: hogar,
+      hogar,
+      comercial: 0,
+      unit: "unidades",
+    };
+  }
+
+  return {
+    ...insight,
+    purposeMode,
+    syncStatus,
+    valueKind: insight.valueKind ?? "calculated",
+    destinationBreakdown,
+    learningAction,
+    reasonCode: bridge.reasonCode,
+  };
+}

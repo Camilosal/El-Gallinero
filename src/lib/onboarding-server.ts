@@ -32,10 +32,13 @@ import {
   normalizeDay1LocationType,
   normalizeDay1Species,
   sanitizeProgressiveConfig,
+  normalizeFarmPurposes,
+  VALID_FARM_PURPOSES,
   type ActivationHistoryEntry,
   type ActivationOrigin,
   type AutoTriggerEvaluation,
   type Day1StarterRow,
+  type FarmPurposeKey,
   type FeatureFlagDefinition,
   type FeatureFlagKey,
   type LiveFarmMetrics,
@@ -87,6 +90,8 @@ export interface Day1SetupPayload {
   kgConcentradoAdicional?: number;
   costoPorBulto40kg?: number;
   nombreAlimentoInicial?: string;
+  purposes?: FarmPurposeKey[];
+  primaryPurpose?: FarmPurposeKey | null;
 }
 
 const MAX_HISTORY_ITEMS = 120;
@@ -316,6 +321,10 @@ export async function updateProgressiveOnboardingState(
     onboardingCompleted?: boolean;
     wizardDismissed?: boolean;
     selectedSpecies?: string[];
+    purposes?: FarmPurposeKey[];
+    primaryPurpose?: FarmPurposeKey | null;
+    projectPurposes?: FarmPurposeKey[];
+    acceptedSharedPurposes?: FarmPurposeKey[];
   },
   userId?: string | null,
 ): Promise<OnboardingStatePayload> {
@@ -390,6 +399,31 @@ export async function updateProgressiveOnboardingState(
     nextConfig.selectedSpecies = patch.selectedSpecies
       .map((s) => normalizeDay1Species(String(s)))
       .filter(Boolean);
+  }
+  if (patch.purposes !== undefined) {
+    const cleaned = normalizeFarmPurposes(patch.purposes);
+    nextConfig.purposes = cleaned;
+    if (patch.primaryPurpose === undefined) {
+      nextConfig.primaryPurpose =
+        nextConfig.primaryPurpose && cleaned.includes(nextConfig.primaryPurpose)
+          ? nextConfig.primaryPurpose
+          : cleaned[0] ?? null;
+    }
+  }
+  if (patch.primaryPurpose !== undefined) {
+    const currentPurposes = normalizeFarmPurposes(nextConfig.purposes);
+    nextConfig.primaryPurpose =
+      patch.primaryPurpose &&
+      (VALID_FARM_PURPOSES as readonly string[]).includes(patch.primaryPurpose) &&
+      currentPurposes.includes(patch.primaryPurpose)
+        ? patch.primaryPurpose
+        : currentPurposes[0] ?? null;
+  }
+  if (patch.projectPurposes !== undefined) {
+    nextConfig.projectPurposes = normalizeFarmPurposes(patch.projectPurposes);
+  }
+  if (patch.acceptedSharedPurposes !== undefined) {
+    nextConfig.acceptedSharedPurposes = normalizeFarmPurposes(patch.acceptedSharedPurposes);
   }
 
   // Si el usuario eligió explícitamente Modo Pequeño, bloquear que los disparadores
@@ -805,12 +839,27 @@ export async function executeDay1Setup(
     milestonesCreated = bioPreload.milestonesCreated;
     sanitaryEventsCreated = bioPreload.sanitaryEventsCreated;
 
+    const nextPurposes =
+      payload.purposes !== undefined
+        ? normalizeFarmPurposes(payload.purposes)
+        : normalizeFarmPurposes(currentOnboarding.config.purposes);
+    const nextPrimaryPurpose =
+      payload.primaryPurpose !== undefined
+        ? payload.primaryPurpose && nextPurposes.includes(payload.primaryPurpose)
+          ? payload.primaryPurpose
+          : nextPurposes[0] ?? null
+        : currentOnboarding.config.primaryPurpose && nextPurposes.includes(currentOnboarding.config.primaryPurpose)
+          ? currentOnboarding.config.primaryPurpose
+          : nextPurposes[0] ?? null;
+
     const baseScaled = applyScalePreset(
       {
         ...currentOnboarding.config,
         operationStartDate,
         selectedSpecies: Array.from(speciesSet),
         solicitaReporteFormal: Boolean(payload.solicitaReporteFormal ?? escala === "MEDIANO"),
+        purposes: nextPurposes,
+        primaryPurpose: nextPrimaryPurpose,
         onboardingCompleted: true,
         wizardDismissed: true,
       },
