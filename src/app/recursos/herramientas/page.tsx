@@ -92,7 +92,7 @@ export default function HerramientasPage() {
           <ResourceVisualCard key={tool.href} {...tool} />
         ))}
       </section>
-      <p className="mt-5 rounded-xl border border-slate-200 bg-slate-50 p-4 text-sm leading-relaxed text-slate-600">
+      <p className="mt-5 rounded-xl border border-[var(--iw-semantic-border-default)] bg-[var(--iw-semantic-bg-subtle)] p-4 text-sm leading-relaxed text-[var(--iw-semantic-text-secondary)]">
         Las funciones dentro de IwaGranja requieren acceso a una cuenta. El formulador es una herramienta abierta para organizar una idea y preparar el diálogo con aliados; no reemplaza la formulación técnica, financiera ni la validación en territorio.
       </p>
     </PublicPageShell>

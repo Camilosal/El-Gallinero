@@ -83,7 +83,7 @@ export function ContactForm({
       : "";
 
   const field =
-    "public-form-input w-full min-h-[48px] px-4 py-2.5 rounded-xl border border-slate-500 bg-white text-base text-slate-900 focus:outline-none focus:ring-2 focus:ring-emerald-700";
+    "public-form-input w-full min-h-[48px] px-4 py-2.5 rounded-xl border border-[var(--iw-semantic-border-input)] bg-[var(--iw-semantic-bg-surface)] text-base text-[var(--iw-semantic-text-primary)] focus:outline-none focus:ring-2 focus:ring-[var(--iw-semantic-focus-ring)]";
 
   async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -158,9 +158,9 @@ export function ContactForm({
       aria-labelledby={headingId}
       onSubmit={handleSubmit}
       noValidate
-      className="space-y-5 rounded-2xl border border-slate-200 bg-white p-5 sm:p-6 shadow-sm"
+      className="space-y-5 rounded-2xl border border-[var(--iw-semantic-border-default)] bg-[var(--iw-semantic-bg-surface)] p-5 sm:p-6 shadow-sm"
     >
-      <h2 id={headingId} className="text-lg font-bold text-slate-900">
+      <h2 id={headingId} className="text-lg font-bold text-[var(--iw-semantic-text-primary)]">
         Radicar solicitud directa
       </h2>
 
@@ -179,7 +179,7 @@ export function ContactForm({
       </div>
 
       <fieldset className="space-y-2">
-        <legend className="text-sm font-semibold text-slate-800 mb-1.5">
+        <legend className="text-sm font-semibold text-[var(--iw-semantic-text-primary)] mb-1.5">
           Motivo de tu mensaje <span aria-hidden="true">*</span>
         </legend>
         <div className="grid grid-cols-1 gap-2">
@@ -188,7 +188,7 @@ export function ContactForm({
             return (
               <div
                 key={r.id}
-                className="flex items-center gap-3 rounded-xl border border-slate-300 bg-slate-50/70 px-3.5 py-2.5"
+                className="flex items-center gap-3 rounded-xl border border-[var(--iw-semantic-border-input)] bg-[var(--iw-semantic-bg-subtle)] px-3.5 py-2.5"
               >
                 <input
                   id={inputId}
@@ -201,7 +201,7 @@ export function ContactForm({
                 />
                 <label
                   htmlFor={inputId}
-                  className="text-sm font-medium text-slate-900 cursor-pointer flex-1"
+                  className="text-sm font-medium text-[var(--iw-semantic-text-primary)] cursor-pointer flex-1"
                 >
                   {r.label}
                 </label>
@@ -213,7 +213,7 @@ export function ContactForm({
 
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
         <div className="flex flex-col gap-1">
-          <label htmlFor="c-name" className="text-sm font-semibold text-slate-800">
+          <label htmlFor="c-name" className="text-sm font-semibold text-[var(--iw-semantic-text-primary)]">
             Tu nombre <span aria-hidden="true">*</span>
           </label>
           <input
@@ -236,14 +236,14 @@ export function ContactForm({
             className={field}
           />
           {nameError && (
-            <p id="c-name-error" className="text-xs font-medium text-red-700">
+            <p id="c-name-error" className="text-xs font-medium text-[var(--iw-semantic-status-danger)]">
               {nameError}
             </p>
           )}
         </div>
 
         <div className="flex flex-col gap-1">
-          <label htmlFor="c-farm" className="text-sm font-semibold text-slate-800">
+          <label htmlFor="c-farm" className="text-sm font-semibold text-[var(--iw-semantic-text-primary)]">
             Nombre de tu granja (opcional)
           </label>
           <input
@@ -260,7 +260,7 @@ export function ContactForm({
 
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
         <div className="flex flex-col gap-1">
-          <label htmlFor="c-contact" className="text-sm font-semibold text-slate-800">
+          <label htmlFor="c-contact" className="text-sm font-semibold text-[var(--iw-semantic-text-primary)]">
             Celular / WhatsApp o correo <span aria-hidden="true">*</span>
           </label>
           <input
@@ -284,18 +284,18 @@ export function ContactForm({
             onBlur={() => setTouched((prev) => ({ ...prev, contactInfo: true }))}
             className={field}
           />
-          <span id="c-contact-help" className="text-xs text-slate-600">
+          <span id="c-contact-help" className="text-xs text-[var(--iw-semantic-text-secondary)]">
             Si escribes tu correo, recibirás copia del radicado automáticamente.
           </span>
           {contactError && (
-            <p id="c-contact-error" className="text-xs font-medium text-red-700">
+            <p id="c-contact-error" className="text-xs font-medium text-[var(--iw-semantic-status-danger)]">
               {contactError}
             </p>
           )}
         </div>
 
         <div className="flex flex-col gap-1">
-          <label htmlFor="c-discovery" className="text-sm font-semibold text-slate-800">
+          <label htmlFor="c-discovery" className="text-sm font-semibold text-[var(--iw-semantic-text-primary)]">
             ¿Cómo nos encontraste? (opcional)
           </label>
           <select
@@ -315,7 +315,7 @@ export function ContactForm({
       </div>
 
       <div className="flex flex-col gap-1">
-        <label htmlFor="c-msg" className="text-sm font-semibold text-slate-800">
+        <label htmlFor="c-msg" className="text-sm font-semibold text-[var(--iw-semantic-text-primary)]">
           Mensaje <span aria-hidden="true">*</span>
         </label>
         <textarea
@@ -335,18 +335,18 @@ export function ContactForm({
           aria-describedby={messageError ? "c-msg-help c-msg-error" : "c-msg-help"}
           className={field}
         />
-        <span id="c-msg-help" className="text-xs text-slate-600">
+        <span id="c-msg-help" className="text-xs text-[var(--iw-semantic-text-secondary)]">
           Incluye la referencia de pago si solicitas retracto o aclaración de ciclo.
         </span>
         {messageError && (
-          <p id="c-msg-error" className="text-xs font-medium text-red-700">
+          <p id="c-msg-error" className="text-xs font-medium text-[var(--iw-semantic-status-danger)]">
             {messageError}
           </p>
         )}
       </div>
 
       <div className="space-y-1">
-        <label className="flex items-start gap-3 rounded-xl border border-slate-300 bg-slate-50 p-3 text-sm text-slate-800 cursor-pointer">
+        <label className="flex items-start gap-3 rounded-xl border border-[var(--iw-semantic-border-input)] bg-[var(--iw-semantic-bg-subtle)] p-3 text-sm text-[var(--iw-semantic-text-primary)] cursor-pointer">
           <input
             ref={privacyRef}
             id="c-privacy"
@@ -359,42 +359,42 @@ export function ContactForm({
             }}
             aria-invalid={privacyError ? "true" : undefined}
             aria-describedby={privacyError ? "c-privacy-error" : undefined}
-            className="mt-0.5 h-5 w-5 shrink-0 rounded border-slate-400 text-emerald-700"
+            className="mt-0.5 h-5 w-5 shrink-0 rounded border-[var(--iw-semantic-border-input)] text-[var(--iw-semantic-action-primary)]"
           />
           <span>
             Autorizo el tratamiento de mis datos personales para atender esta solicitud conforme a la{" "}
-            <Link href="/privacidad" target="_blank" className="font-semibold text-emerald-800 underline">
+            <Link href="/privacidad" target="_blank" className="font-semibold text-[var(--iw-semantic-action-primary)] underline">
               política de tratamiento de datos (Ley 1581)
             </Link>{" "}
             y los{" "}
-            <Link href="/terminos" target="_blank" className="font-semibold text-emerald-800 underline">
+            <Link href="/terminos" target="_blank" className="font-semibold text-[var(--iw-semantic-action-primary)] underline">
               términos y condiciones
             </Link>
             .
           </span>
         </label>
         {privacyError && (
-          <p id="c-privacy-error" className="text-xs font-medium text-red-700">
+          <p id="c-privacy-error" className="text-xs font-medium text-[var(--iw-semantic-status-danger)]">
             {privacyError}
           </p>
         )}
       </div>
 
       {submitError && (
-        <div role="alert" className="rounded-xl border border-red-300 bg-red-50 px-4 py-3 text-sm font-medium text-red-800">
+        <div role="alert" className="rounded-xl border border-[var(--iw-semantic-status-danger)]/50 bg-[var(--iw-semantic-bg-subtle)] px-4 py-3 text-sm font-medium text-[var(--iw-semantic-status-danger)]">
           {submitError}
         </div>
       )}
 
       <div role="status" aria-live="polite">
         {submittedTicket && (
-          <div className="rounded-xl border border-emerald-300 bg-emerald-50 p-4 text-sm text-emerald-950 flex items-start gap-2.5">
-            <CheckCircle2 className="w-5 h-5 text-emerald-700 shrink-0 mt-0.5" aria-hidden="true" />
+          <div className="rounded-xl border border-[var(--iw-semantic-border-strong)] bg-[var(--iw-semantic-bg-feature)] p-4 text-sm text-[var(--iw-semantic-text-primary)] flex items-start gap-2.5">
+            <CheckCircle2 className="w-5 h-5 text-[var(--iw-semantic-action-primary)] shrink-0 mt-0.5" aria-hidden="true" />
             <div>
               <p className="font-bold">
                 Solicitud radicada: <span className="font-mono">{submittedTicket.ticketCode}</span>
               </p>
-              <p className="mt-1 text-emerald-900">
+              <p className="mt-1 text-[var(--iw-semantic-text-primary)]">
                 Guardamos tu mensaje con fecha y hora. Responderemos en un plazo máximo de{" "}
                 <strong>{submittedTicket.responseTime}</strong>.
               </p>
@@ -407,7 +407,7 @@ export function ContactForm({
         <button
           type="submit"
           disabled={submitting}
-          className="inline-flex items-center justify-center gap-2 min-h-[48px] px-5 py-2.5 rounded-xl bg-emerald-700 text-white font-bold hover:bg-emerald-800 disabled:opacity-60"
+          className="inline-flex items-center justify-center gap-2 min-h-[48px] px-5 py-2.5 rounded-xl bg-[var(--iw-semantic-action-primary)] text-white font-bold hover:bg-[var(--iw-semantic-action-primary-hover)] disabled:opacity-60"
         >
           <Send className="w-4 h-4" aria-hidden="true" />
           <span>{submitting ? "Enviando solicitud..." : "Enviar solicitud"}</span>
@@ -419,7 +419,7 @@ export function ContactForm({
             target="_blank"
             rel="noreferrer"
             onClick={() => trackAnalyticsEvent("whatsapp_click", { page: "contacto" })}
-            className="inline-flex items-center min-h-[48px] px-4 py-2.5 rounded-xl border border-emerald-700 text-emerald-800 text-sm font-bold hover:bg-emerald-50"
+            className="inline-flex items-center min-h-[48px] px-4 py-2.5 rounded-xl border border-[var(--iw-semantic-border-strong)] text-[var(--iw-semantic-action-primary)] text-sm font-bold hover:bg-[var(--iw-semantic-bg-feature)]"
           >
             Abrir en WhatsApp
           </a>
@@ -428,7 +428,7 @@ export function ContactForm({
         {hasEmail ? (
           <a
             href={`mailto:${email}?subject=${encodeURIComponent(`[${label}] ${farm || "Consulta"}`)}&body=${encodeURIComponent(body)}`}
-            className="inline-flex items-center min-h-[48px] px-4 py-2.5 rounded-xl border border-slate-300 text-slate-800 text-sm font-semibold hover:bg-slate-50"
+            className="inline-flex items-center min-h-[48px] px-4 py-2.5 rounded-xl border border-[var(--iw-semantic-border-input)] text-[var(--iw-semantic-text-primary)] text-sm font-semibold hover:bg-[var(--iw-semantic-bg-subtle)]"
           >
             Usar app de correo
           </a>

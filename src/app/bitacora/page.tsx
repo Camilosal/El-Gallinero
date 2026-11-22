@@ -37,11 +37,11 @@ export default function BitacoraPage() {
       ]}
       headerAction={{ href: "/recursos", label: "Todos los recursos" }}
     >
-      <div className="mb-6 flex flex-col gap-3 rounded-2xl border border-emerald-200 bg-emerald-50/70 p-4 sm:flex-row sm:items-center sm:justify-between">
-        <p className="text-sm font-medium text-emerald-950">{BITACORA_CADENCE_NOTE}</p>
+      <div className="mb-6 flex flex-col gap-3 rounded-2xl border border-[var(--iw-semantic-border-default)] bg-[var(--iw-semantic-bg-feature)] p-4 sm:flex-row sm:items-center sm:justify-between">
+        <p className="text-sm font-medium text-[var(--iw-semantic-text-primary)]">{BITACORA_CADENCE_NOTE}</p>
         <Link
           href="/registro"
-          className="inline-flex min-h-[44px] shrink-0 items-center justify-center rounded-xl bg-slate-900 px-4 py-2 text-sm font-bold text-white transition hover:bg-slate-800"
+          className="inline-flex min-h-[44px] shrink-0 items-center justify-center rounded-xl bg-[var(--iw-semantic-action-primary)] px-4 py-2 text-sm font-bold text-[var(--iw-semantic-action-primary-text)] transition hover:bg-[var(--iw-semantic-action-primary-hover)]"
         >
           {BITACORA_CTA_LABEL}
         </Link>
@@ -53,9 +53,9 @@ export default function BitacoraPage() {
           return (
             <article
               key={article.slug}
-              className="flex flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-xs transition hover:border-emerald-300"
+              className="flex flex-col overflow-hidden rounded-2xl border border-[var(--iw-semantic-border-default)] bg-[var(--iw-semantic-bg-surface)] shadow-xs transition hover:border-[var(--iw-semantic-border-strong)]"
             >
-              <Link href={`/bitacora/${article.slug}`} className="block bg-slate-100">
+              <Link href={`/bitacora/${article.slug}`} className="block bg-[var(--iw-semantic-bg-page)]">
                 <div className="relative aspect-[16/10] w-full overflow-hidden">
                   <Image
                     src={article.image.src}
@@ -68,8 +68,8 @@ export default function BitacoraPage() {
               </Link>
 
               <div className="flex flex-1 flex-col p-5">
-                <div className="mb-2 flex flex-wrap items-center gap-2 text-xs font-semibold text-slate-600">
-                  <span className="rounded-full bg-amber-100 px-2.5 py-0.5 text-amber-900">
+                <div className="mb-2 flex flex-wrap items-center gap-2 text-xs font-semibold text-[var(--iw-semantic-text-secondary)]">
+                  <span className="rounded-full bg-[var(--iw-semantic-bg-page)] px-2.5 py-0.5 text-[var(--iw-semantic-text-primary)]">
                     {article.category}
                   </span>
                   <span>{article.publishedAt}</span>
@@ -77,26 +77,26 @@ export default function BitacoraPage() {
                   <span>{article.readingMinutes} min ({words} palabras)</span>
                 </div>
 
-                <h2 className="text-lg font-bold leading-snug text-slate-900">
-                  <Link href={`/bitacora/${article.slug}`} className="hover:text-emerald-800">
+                <h2 className="text-lg font-bold leading-snug text-[var(--iw-semantic-text-primary)]">
+                  <Link href={`/bitacora/${article.slug}`} className="hover:text-[var(--iw-semantic-action-primary-hover)]">
                     {article.title}
                   </Link>
                 </h2>
 
-                <p className="mt-2 flex-1 text-sm leading-relaxed text-slate-600">
+                <p className="mt-2 flex-1 text-sm leading-relaxed text-[var(--iw-semantic-text-secondary)]">
                   {article.summary}
                 </p>
 
-                <div className="mt-4 flex flex-wrap items-center justify-between gap-3 border-t border-slate-100 pt-4">
+                <div className="mt-4 flex flex-wrap items-center justify-between gap-3 border-t border-[var(--iw-semantic-border-default)] pt-4">
                   <Link
                     href={`/bitacora/${article.slug}`}
-                    className="inline-flex min-h-[40px] items-center text-sm font-bold text-emerald-800 underline underline-offset-4 hover:text-emerald-950"
+                    className="inline-flex min-h-[40px] items-center text-sm font-bold text-[var(--iw-semantic-action-primary)] underline underline-offset-4 hover:text-[var(--iw-semantic-action-primary-hover)]"
                   >
                     Leer artículo completo
                   </Link>
                   <Link
                     href="/registro"
-                    className="inline-flex min-h-[40px] items-center rounded-lg bg-slate-900 px-3.5 py-2 text-xs font-bold text-white transition hover:bg-slate-800"
+                    className="inline-flex min-h-[40px] items-center rounded-lg bg-[var(--iw-semantic-action-primary)] px-3.5 py-2 text-xs font-bold text-[var(--iw-semantic-action-primary-text)] transition hover:bg-[var(--iw-semantic-action-primary-hover)]"
                   >
                     {BITACORA_CTA_LABEL}
                   </Link>
@@ -108,10 +108,10 @@ export default function BitacoraPage() {
       </div>
 
       <section aria-labelledby="bitacora-materiales" className="mt-10">
-        <div className="mb-4 border-b border-slate-200 pb-3">
-          <p className="font-mono text-[11px] font-bold uppercase tracking-[0.14em] text-emerald-800">Material relacionado</p>
-          <h2 id="bitacora-materiales" className="mt-1 text-xl font-bold text-slate-900">Guías y documentación disponibles</h2>
-          <p className="mt-1 max-w-2xl text-sm leading-relaxed text-slate-600">Otros materiales existentes en el sitio para conocer el uso de la aplicación, el contexto de campo y el proyecto abierto.</p>
+        <div className="mb-4 border-b border-[var(--iw-semantic-border-default)] pb-3">
+          <p className="font-mono text-[11px] font-bold uppercase tracking-[0.14em] text-[var(--iw-semantic-action-primary)]">Material relacionado</p>
+          <h2 id="bitacora-materiales" className="mt-1 text-xl font-bold text-[var(--iw-semantic-text-primary)]">Guías y documentación disponibles</h2>
+          <p className="mt-1 max-w-2xl text-sm leading-relaxed text-[var(--iw-semantic-text-secondary)]">Otros materiales existentes en el sitio para conocer el uso de la aplicación, el contexto de campo y el proyecto abierto.</p>
         </div>
         <div className="grid gap-5 md:grid-cols-2 xl:grid-cols-3">
           <ResourceVisualCard

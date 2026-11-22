@@ -123,23 +123,23 @@ function ShowcaseSimulation({ kind }: { kind: ShowcaseSimulationKind }) {
   if (kind === "routines") {
     const doneCount = (routineEggsDone ? 1 : 0) + (routineBioDone ? 1 : 0);
     return (
-      <div className="rounded-xl border border-[var(--line)] bg-[var(--cream)] p-4">
+      <div className="rounded-xl border border-[var(--iw-semantic-border-default)] bg-[var(--iw-semantic-bg-subtle)] p-4">
         <div className="flex items-center justify-between gap-3 mb-3">
-          <span className="text-xs font-semibold text-[var(--ink)]">
+          <span className="text-xs font-semibold text-[var(--iw-semantic-text-primary)]">
             Prueba interactiva · Tareas de hoy
           </span>
-          <span className="text-xs text-[var(--moss)] font-mono">
+          <span className="text-xs text-[var(--iw-semantic-text-secondary)] font-mono">
             {doneCount} / 2 completas
           </span>
         </div>
 
         <div className="space-y-2">
-          <div className="flex items-center justify-between gap-3 rounded-lg border border-[var(--line)] bg-[var(--paper)] px-3 py-2.5">
+          <div className="flex items-center justify-between gap-3 rounded-lg border border-[var(--iw-semantic-border-default)] bg-[var(--iw-semantic-bg-surface)] px-3 py-2.5">
             <div>
-              <p className="text-xs font-semibold text-[var(--ink)]">
+              <p className="text-xs font-semibold text-[var(--iw-semantic-text-primary)]">
                 Recoger postura de la mañana
               </p>
-              <p className="text-[11px] text-[var(--moss)]">
+              <p className="text-[11px] text-[var(--iw-semantic-text-secondary)]">
                 {routineEggsDone
                   ? "Registrado al guardar la producción"
                   : "Se completa automáticamente al anotar huevos"}
@@ -150,21 +150,21 @@ function ShowcaseSimulation({ kind }: { kind: ShowcaseSimulationKind }) {
               onClick={() => setRoutineEggsDone((v) => !v)}
               className={`shrink-0 rounded-md px-3 py-1.5 text-xs font-semibold transition ${
                 routineEggsDone
-                  ? "bg-[var(--forest)] text-white"
-                  : "border border-[var(--line)] bg-white text-[var(--ink)] hover:border-[var(--forest)]"
+                  ? "bg-[var(--iw-semantic-action-primary)] text-[var(--iw-semantic-action-primary-text)]"
+                  : "border border-[var(--iw-semantic-border-default)] bg-[var(--iw-semantic-bg-surface)] text-[var(--iw-semantic-text-primary)] hover:border-[var(--iw-semantic-action-primary)]"
               }`}
             >
               {routineEggsDone ? "Completa" : "Registrar"}
             </button>
           </div>
 
-          <div className="rounded-lg border border-[var(--line)] bg-[var(--paper)] px-3 py-2.5">
+          <div className="rounded-lg border border-[var(--iw-semantic-border-default)] bg-[var(--iw-semantic-bg-surface)] px-3 py-2.5">
             <div className="flex items-center justify-between gap-3">
               <div>
-                <p className="text-xs font-semibold text-[var(--ink)]">
+                <p className="text-xs font-semibold text-[var(--iw-semantic-text-primary)]">
                   Revisión de bebederos y mallas
                 </p>
-                <p className="text-[11px] text-[var(--moss)]">
+                <p className="text-[11px] text-[var(--iw-semantic-text-secondary)]">
                   {routineBioDone
                     ? "Confirmado con nota de campo"
                     : "Pide nota breve del recorrido en campo"}
@@ -182,8 +182,8 @@ function ShowcaseSimulation({ kind }: { kind: ShowcaseSimulationKind }) {
                 }}
                 className={`shrink-0 rounded-md px-3 py-1.5 text-xs font-semibold transition ${
                   routineBioDone
-                    ? "bg-[var(--forest)] text-white"
-                    : "border border-[var(--line)] bg-white text-[var(--ink)] hover:border-[var(--forest)]"
+                    ? "bg-[var(--iw-semantic-action-primary)] text-[var(--iw-semantic-action-primary-text)]"
+                    : "border border-[var(--iw-semantic-border-default)] bg-[var(--iw-semantic-bg-surface)] text-[var(--iw-semantic-text-primary)] hover:border-[var(--iw-semantic-action-primary)]"
                 }`}
               >
                 {routineBioDone ? "Confirmada" : "Confirmar"}
@@ -191,14 +191,14 @@ function ShowcaseSimulation({ kind }: { kind: ShowcaseSimulationKind }) {
             </div>
 
             {routineBioOpen && !routineBioDone && (
-              <div className="mt-2.5 flex flex-col sm:flex-row gap-2 pt-2.5 border-t border-[var(--line)]">
+              <div className="mt-2.5 flex flex-col sm:flex-row gap-2 pt-2.5 border-t border-[var(--iw-semantic-border-default)]">
                 <input
                   type="text"
                   aria-label="Observación de recorrido en granja"
                   value={routineBioNote}
                   onChange={(e) => setRoutineBioNote(e.target.value)}
                   placeholder="Ej. Bebederos limpios y malla intacta"
-                  className="flex-1 rounded-md border border-[var(--line)] bg-white px-2.5 py-1.5 text-xs text-[var(--ink)] focus:outline-none focus:border-[var(--forest)]"
+                  className="flex-1 rounded-md border border-[var(--iw-semantic-border-default)] bg-[var(--iw-semantic-bg-surface)] px-2.5 py-1.5 text-xs text-[var(--iw-semantic-text-primary)] focus:outline-none focus:border-[var(--iw-semantic-action-primary)]"
                 />
                 <button
                   type="button"
@@ -207,7 +207,7 @@ function ShowcaseSimulation({ kind }: { kind: ShowcaseSimulationKind }) {
                     setRoutineBioDone(true);
                     setRoutineBioOpen(false);
                   }}
-                  className="rounded-md bg-[var(--forest)] px-3 py-1.5 text-xs font-semibold text-white disabled:opacity-40"
+                  className="rounded-md bg-[var(--iw-semantic-action-primary)] px-3 py-1.5 text-xs font-semibold text-[var(--iw-semantic-action-primary-text)] disabled:opacity-40"
                 >
                   Guardar
                 </button>
@@ -223,22 +223,22 @@ function ShowcaseSimulation({ kind }: { kind: ShowcaseSimulationKind }) {
     const totalEggs = trays * 30;
     const totalFeedKg = bags * 40;
     return (
-      <div className="rounded-xl border border-[var(--line)] bg-[var(--cream)] p-4">
+      <div className="rounded-xl border border-[var(--iw-semantic-border-default)] bg-[var(--iw-semantic-bg-subtle)] p-4">
         <div className="flex items-center justify-between gap-2 mb-3">
-          <span className="inline-flex items-center gap-1.5 text-xs font-semibold text-[var(--ink)]">
-            <QrCode className="w-3.5 h-3.5 text-[var(--forest)]" />
+          <span className="inline-flex items-center gap-1.5 text-xs font-semibold text-[var(--iw-semantic-text-primary)]">
+            <QrCode className="w-3.5 h-3.5 text-[var(--iw-semantic-action-primary)]" />
             Galpón Principal · Código QR
           </span>
-          <span className="text-[11px] font-mono text-[var(--moss)]">
+          <span className="text-[11px] font-mono text-[var(--iw-semantic-text-secondary)]">
             Vista de campo
           </span>
         </div>
 
         <div className="grid grid-cols-2 gap-2.5 mb-3">
-          <div className="rounded-lg border border-[var(--line)] bg-[var(--paper)] p-3">
-            <div className="flex items-center justify-between text-[11px] font-medium text-[var(--moss)] mb-1.5">
+          <div className="rounded-lg border border-[var(--iw-semantic-border-default)] bg-[var(--iw-semantic-bg-surface)] p-3">
+            <div className="flex items-center justify-between text-[11px] font-medium text-[var(--iw-semantic-text-secondary)] mb-1.5">
               <span>Cubetas (30 uds)</span>
-              <Egg className="w-3.5 h-3.5 text-[var(--forest)]" />
+              <Egg className="w-3.5 h-3.5 text-[var(--iw-semantic-action-primary)]" />
             </div>
             <div className="flex items-center justify-between gap-2">
               <button
@@ -248,11 +248,11 @@ function ShowcaseSimulation({ kind }: { kind: ShowcaseSimulationKind }) {
                   setTrays((t) => Math.max(0, t - 1));
                   setCaptureSaved(false);
                 }}
-                className="w-7 h-7 rounded-md border border-[var(--line)] bg-white text-sm font-semibold text-[var(--ink)] hover:border-[var(--forest)]"
+                className="w-7 h-7 rounded-md border border-[var(--iw-semantic-border-default)] bg-white text-sm font-semibold text-[var(--iw-semantic-text-primary)] hover:border-[var(--iw-semantic-action-primary)]"
               >
                 -
               </button>
-              <span className="font-mono text-base font-bold text-[var(--ink)]">
+              <span className="font-mono text-base font-bold text-[var(--iw-semantic-text-primary)]">
                 {trays}
               </span>
               <button
@@ -262,17 +262,17 @@ function ShowcaseSimulation({ kind }: { kind: ShowcaseSimulationKind }) {
                   setTrays((t) => t + 1);
                   setCaptureSaved(false);
                 }}
-                className="w-7 h-7 rounded-md border border-[var(--line)] bg-white text-sm font-semibold text-[var(--ink)] hover:border-[var(--forest)]"
+                className="w-7 h-7 rounded-md border border-[var(--iw-semantic-border-default)] bg-white text-sm font-semibold text-[var(--iw-semantic-text-primary)] hover:border-[var(--iw-semantic-action-primary)]"
               >
                 +
               </button>
             </div>
           </div>
 
-          <div className="rounded-lg border border-[var(--line)] bg-[var(--paper)] p-3">
-            <div className="flex items-center justify-between text-[11px] font-medium text-[var(--moss)] mb-1.5">
+          <div className="rounded-lg border border-[var(--iw-semantic-border-default)] bg-[var(--iw-semantic-bg-surface)] p-3">
+            <div className="flex items-center justify-between text-[11px] font-medium text-[var(--iw-semantic-text-secondary)] mb-1.5">
               <span>Bultos (40 kg)</span>
-              <Wheat className="w-3.5 h-3.5 text-[var(--forest)]" />
+              <Wheat className="w-3.5 h-3.5 text-[var(--iw-semantic-action-primary)]" />
             </div>
             <div className="flex items-center justify-between gap-2">
               <button
@@ -282,11 +282,11 @@ function ShowcaseSimulation({ kind }: { kind: ShowcaseSimulationKind }) {
                   setBags((b) => Math.max(0, b - 1));
                   setCaptureSaved(false);
                 }}
-                className="w-7 h-7 rounded-md border border-[var(--line)] bg-white text-sm font-semibold text-[var(--ink)] hover:border-[var(--forest)]"
+                className="w-7 h-7 rounded-md border border-[var(--iw-semantic-border-default)] bg-white text-sm font-semibold text-[var(--iw-semantic-text-primary)] hover:border-[var(--iw-semantic-action-primary)]"
               >
                 -
               </button>
-              <span className="font-mono text-base font-bold text-[var(--ink)]">
+              <span className="font-mono text-base font-bold text-[var(--iw-semantic-text-primary)]">
                 {bags}
               </span>
               <button
@@ -296,7 +296,7 @@ function ShowcaseSimulation({ kind }: { kind: ShowcaseSimulationKind }) {
                   setBags((b) => b + 1);
                   setCaptureSaved(false);
                 }}
-                className="w-7 h-7 rounded-md border border-[var(--line)] bg-white text-sm font-semibold text-[var(--ink)] hover:border-[var(--forest)]"
+                className="w-7 h-7 rounded-md border border-[var(--iw-semantic-border-default)] bg-white text-sm font-semibold text-[var(--iw-semantic-text-primary)] hover:border-[var(--iw-semantic-action-primary)]"
               >
                 +
               </button>
@@ -305,20 +305,20 @@ function ShowcaseSimulation({ kind }: { kind: ShowcaseSimulationKind }) {
         </div>
 
         <div className="flex items-center justify-between gap-3">
-          <p className="text-xs text-[var(--moss)] font-mono">
+          <p className="text-xs text-[var(--iw-semantic-text-secondary)] font-mono">
             +{totalEggs} huevos · -{totalFeedKg} kg en bodega
           </p>
           <button
             type="button"
             onClick={() => setCaptureSaved(true)}
-            className="rounded-md bg-[var(--forest)] px-3 py-1.5 text-xs font-semibold text-white hover:bg-[var(--forest-deep)] transition"
+            className="rounded-md bg-[var(--iw-semantic-action-primary)] px-3 py-1.5 text-xs font-semibold text-[var(--iw-semantic-action-primary-text)] hover:bg-[var(--iw-semantic-action-primary-hover)] transition"
           >
             {captureSaved ? "Guardado" : "Guardar"}
           </button>
         </div>
 
         {captureSaved && (
-          <p className="mt-2.5 rounded-lg border border-[var(--line)] bg-[var(--paper)] px-3 py-2 text-xs text-[var(--ink)]">
+          <p className="mt-2.5 rounded-lg border border-[var(--iw-semantic-border-default)] bg-[var(--iw-semantic-bg-surface)] px-3 py-2 text-xs text-[var(--iw-semantic-text-primary)]">
             Guardado: +{totalEggs} huevos · -{totalFeedKg} kg en bodega · Utilidad neta hoy +$214.000 (lista para WhatsApp).
           </p>
         )}
@@ -329,10 +329,10 @@ function ShowcaseSimulation({ kind }: { kind: ShowcaseSimulationKind }) {
   if (kind === "ai-voice") {
     const preset = VOICE_PRESETS[voiceIndex];
     return (
-      <div className="rounded-xl border border-[var(--line)] bg-[var(--cream)] p-4">
+      <div className="rounded-xl border border-[var(--iw-semantic-border-default)] bg-[var(--iw-semantic-bg-subtle)] p-4">
         <div className="flex items-center justify-between gap-2 mb-3">
-          <span className="inline-flex items-center gap-1.5 text-xs font-semibold text-[var(--ink)]">
-            <Mic className="w-3.5 h-3.5 text-[var(--forest)]" />
+          <span className="inline-flex items-center gap-1.5 text-xs font-semibold text-[var(--iw-semantic-text-primary)]">
+            <Mic className="w-3.5 h-3.5 text-[var(--iw-semantic-action-primary)]" />
             Ejemplo con voz o mensaje escrito
           </span>
           <div className="flex items-end gap-0.5 h-3.5" aria-hidden="true">
@@ -354,8 +354,8 @@ function ShowcaseSimulation({ kind }: { kind: ShowcaseSimulationKind }) {
               }}
               className={`rounded-md px-2.5 py-1 text-xs font-medium transition ${
                 voiceIndex === idx
-                  ? "bg-[var(--forest)] text-white"
-                  : "border border-[var(--line)] bg-[var(--paper)] text-[var(--moss)] hover:text-[var(--ink)]"
+                  ? "bg-[var(--iw-semantic-action-primary)] text-[var(--iw-semantic-action-primary-text)]"
+                  : "border border-[var(--iw-semantic-border-default)] bg-[var(--iw-semantic-bg-surface)] text-[var(--iw-semantic-text-secondary)] hover:text-[var(--iw-semantic-text-primary)]"
               }`}
             >
               {item.label}
@@ -363,22 +363,22 @@ function ShowcaseSimulation({ kind }: { kind: ShowcaseSimulationKind }) {
           ))}
         </div>
 
-        <div className="rounded-lg border border-[var(--line)] bg-[var(--paper)] p-3 text-xs space-y-2">
-          <p className="italic text-[var(--ink)]">{preset.prompt}</p>
-          <div className="pt-2 border-t border-[var(--line)] flex items-start gap-2">
-            <Bot className="w-4 h-4 text-[var(--forest)] shrink-0 mt-0.5" />
+        <div className="rounded-lg border border-[var(--iw-semantic-border-default)] bg-[var(--iw-semantic-bg-surface)] p-3 text-xs space-y-2">
+          <p className="italic text-[var(--iw-semantic-text-primary)]">{preset.prompt}</p>
+          <div className="pt-2 border-t border-[var(--iw-semantic-border-default)] flex items-start gap-2">
+            <Bot className="w-4 h-4 text-[var(--iw-semantic-action-primary)] shrink-0 mt-0.5" />
             <div className="flex-1 space-y-1">
-              <p className="font-semibold text-[var(--ink)]">
+              <p className="font-semibold text-[var(--iw-semantic-text-primary)]">
                 {preset.requiresConfirm && voiceConfirmed
                   ? "Operación guardada y factura al día"
                   : preset.resultTitle}
               </p>
-              <p className="text-[var(--moss)] leading-relaxed">{preset.resultBody}</p>
+              <p className="text-[var(--iw-semantic-text-secondary)] leading-relaxed">{preset.resultBody}</p>
               {preset.requiresConfirm && !voiceConfirmed && (
                 <button
                   type="button"
                   onClick={() => setVoiceConfirmed(true)}
-                  className="mt-1.5 inline-flex items-center gap-1 rounded-md bg-[var(--forest)] px-2.5 py-1 text-xs font-semibold text-white hover:bg-[var(--forest-deep)]"
+                  className="mt-1.5 inline-flex items-center gap-1 rounded-md bg-[var(--iw-semantic-action-primary)] px-2.5 py-1 text-xs font-semibold text-[var(--iw-semantic-action-primary-text)] hover:bg-[var(--iw-semantic-action-primary-hover)]"
                 >
                   <ShieldCheck className="w-3.5 h-3.5" />
                   Confirmar operación
@@ -397,12 +397,12 @@ function ShowcaseSimulation({ kind }: { kind: ShowcaseSimulationKind }) {
       NTC_GRADES[NTC_GRADES.length - 1];
     const trayPrice = matched.priceUnit * 30;
     return (
-      <div className="rounded-xl border border-[var(--line)] bg-[var(--cream)] p-4">
+      <div className="rounded-xl border border-[var(--iw-semantic-border-default)] bg-[var(--iw-semantic-bg-subtle)] p-4">
         <div className="flex items-center justify-between gap-2 mb-3">
-          <span className="text-xs font-semibold text-[var(--ink)]">
+          <span className="text-xs font-semibold text-[var(--iw-semantic-text-primary)]">
             Clasificador por peso (norma NTC 1240)
           </span>
-          <span className="font-mono text-xs font-semibold text-[var(--forest)]">
+          <span className="font-mono text-xs font-semibold text-[var(--iw-semantic-action-primary)]">
             {eggWeight} g · Categoría {matched.grade}
           </span>
         </div>
@@ -417,7 +417,7 @@ function ShowcaseSimulation({ kind }: { kind: ShowcaseSimulationKind }) {
             onChange={(e) => setEggWeight(Number(e.target.value))}
             className="w-full accent-[var(--iw-semantic-action-primary)]"
           />
-          <div className="flex justify-between text-[11px] font-mono text-[var(--moss)] mt-1">
+          <div className="flex justify-between text-[11px] font-mono text-[var(--iw-semantic-text-secondary)] mt-1">
             <span>46 g (B)</span>
             <span>60 g (AA)</span>
             <span>67 g (AAA)</span>
@@ -426,21 +426,21 @@ function ShowcaseSimulation({ kind }: { kind: ShowcaseSimulationKind }) {
         </label>
 
         <div className="grid grid-cols-2 gap-2.5 text-xs">
-          <div className="rounded-lg border border-[var(--line)] bg-[var(--paper)] p-3">
-            <span className="text-[11px] text-[var(--moss)] block">Clasificación</span>
-            <span className="text-sm font-bold text-[var(--ink)]">
+          <div className="rounded-lg border border-[var(--iw-semantic-border-default)] bg-[var(--iw-semantic-bg-surface)] p-3">
+            <span className="text-[11px] text-[var(--iw-semantic-text-secondary)] block">Clasificación</span>
+            <span className="text-sm font-bold text-[var(--iw-semantic-text-primary)]">
               Tipo {matched.grade}
             </span>
-            <span className="text-[11px] text-[var(--moss)] block">
+            <span className="text-[11px] text-[var(--iw-semantic-text-secondary)] block">
               {matched.range}
             </span>
           </div>
-          <div className="rounded-lg border border-[var(--line)] bg-[var(--paper)] p-3">
-            <span className="text-[11px] text-[var(--moss)] block">Valor sugerido</span>
-            <span className="text-sm font-bold text-[var(--ink)]">
+          <div className="rounded-lg border border-[var(--iw-semantic-border-default)] bg-[var(--iw-semantic-bg-surface)] p-3">
+            <span className="text-[11px] text-[var(--iw-semantic-text-secondary)] block">Valor sugerido</span>
+            <span className="text-sm font-bold text-[var(--iw-semantic-text-primary)]">
               ${trayPrice.toLocaleString("es-CO")} / cubeta
             </span>
-            <span className="text-[11px] text-[var(--moss)] block">
+            <span className="text-[11px] text-[var(--iw-semantic-text-secondary)] block">
               ${matched.priceUnit.toLocaleString("es-CO")} por unidad
             </span>
           </div>
@@ -451,40 +451,40 @@ function ShowcaseSimulation({ kind }: { kind: ShowcaseSimulationKind }) {
 
   if (kind === "sanitary-withdrawal") {
     return (
-      <div className="rounded-xl border border-[var(--line)] bg-[var(--cream)] p-4">
+      <div className="rounded-xl border border-[var(--iw-semantic-border-default)] bg-[var(--iw-semantic-bg-subtle)] p-4">
         <div className="flex items-center justify-between gap-2 mb-3">
-          <span className="text-xs font-semibold text-[var(--ink)]">
+          <span className="text-xs font-semibold text-[var(--iw-semantic-text-primary)]">
             Control de retiro veterinario
           </span>
           <button
             type="button"
             onClick={() => setUnderWithdrawal((v) => !v)}
-            className="rounded-md border border-[var(--line)] bg-[var(--paper)] px-2.5 py-1 text-xs font-medium text-[var(--ink)] hover:border-[var(--forest)] transition"
+            className="rounded-md border border-[var(--iw-semantic-border-default)] bg-[var(--iw-semantic-bg-surface)] px-2.5 py-1 text-xs font-medium text-[var(--iw-semantic-text-primary)] hover:border-[var(--iw-semantic-action-primary)] transition"
           >
             {underWithdrawal ? "Simular día 8 (libre)" : "Simular tratamiento activo"}
           </button>
         </div>
 
         <div
-          className={`rounded-lg border border-[var(--line)] border-l-4 bg-[var(--paper)] p-3 text-xs ${
+          className={`rounded-lg border border-[var(--iw-semantic-border-default)] border-l-4 bg-[var(--iw-semantic-bg-surface)] p-3 text-xs ${
             underWithdrawal
-              ? "border-l-[var(--amber-deep)]"
-              : "border-l-[var(--forest)]"
+              ? "border-l-[var(--iw-color-ochre)]"
+              : "border-l-[var(--iw-semantic-action-primary)]"
           }`}
         >
           <div className="flex items-start gap-2.5">
             {underWithdrawal ? (
-              <Lock className="w-4 h-4 text-[var(--amber-deep)] shrink-0 mt-0.5" />
+              <Lock className="w-4 h-4 text-[var(--iw-color-ochre)] shrink-0 mt-0.5" />
             ) : (
-              <ShieldCheck className="w-4 h-4 text-[var(--forest)] shrink-0 mt-0.5" />
+              <ShieldCheck className="w-4 h-4 text-[var(--iw-semantic-action-primary)] shrink-0 mt-0.5" />
             )}
             <div className="space-y-1">
-              <p className="font-semibold text-[var(--ink)]">
+              <p className="font-semibold text-[var(--iw-semantic-text-primary)]">
                 {underWithdrawal
                   ? "Venta bloqueada: Lote en día 4 de 8 de retiro"
                   : "Retiro cumplido: lote habilitado para venta"}
               </p>
-              <p className="text-[var(--moss)] leading-relaxed">
+              <p className="text-[var(--iw-semantic-text-secondary)] leading-relaxed">
                 {underWithdrawal
                   ? "Para proteger al comprador, la app impide facturar huevos o carne de este corral hasta cumplir el tiempo del medicamento."
                   : "El periodo de seguridad terminó. El lote queda libre nuevamente en el registro de ventas."}
@@ -497,37 +497,37 @@ function ShowcaseSimulation({ kind }: { kind: ShowcaseSimulationKind }) {
   }
 
   return (
-    <div className="rounded-xl border border-[var(--line)] bg-[var(--cream)] p-4">
+    <div className="rounded-xl border border-[var(--iw-semantic-border-default)] bg-[var(--iw-semantic-bg-subtle)] p-4">
       <div className="flex items-center justify-between gap-2 mb-3">
-        <span className="inline-flex items-center gap-1.5 text-xs font-semibold text-[var(--ink)]">
+        <span className="inline-flex items-center gap-1.5 text-xs font-semibold text-[var(--iw-semantic-text-primary)]">
           {offlineMode ? (
-            <WifiOff className="w-3.5 h-3.5 text-[var(--amber-deep)]" />
+            <WifiOff className="w-3.5 h-3.5 text-[var(--iw-color-ochre)]" />
           ) : (
-            <Wifi className="w-3.5 h-3.5 text-[var(--forest)]" />
+            <Wifi className="w-3.5 h-3.5 text-[var(--iw-semantic-action-primary)]" />
           )}
           {offlineMode ? "Sin señal en el galpón" : "Señal recuperada"}
         </span>
         <button
           type="button"
           onClick={() => setOfflineMode((v) => !v)}
-          className="rounded-md bg-[var(--forest)] px-2.5 py-1 text-xs font-semibold text-white hover:bg-[var(--forest-deep)] transition"
+          className="rounded-md bg-[var(--iw-semantic-action-primary)] px-2.5 py-1 text-xs font-semibold text-[var(--iw-semantic-action-primary-text)] hover:bg-[var(--iw-semantic-action-primary-hover)] transition"
         >
           {offlineMode ? "Simular conexión" : "Simular sin señal"}
         </button>
       </div>
 
-      <div className="rounded-lg border border-[var(--line)] bg-[var(--paper)] p-3 text-xs space-y-2">
+      <div className="rounded-lg border border-[var(--iw-semantic-border-default)] bg-[var(--iw-semantic-bg-surface)] p-3 text-xs space-y-2">
         <div className="flex items-center justify-between">
-          <span className="font-semibold text-[var(--ink)]">
+          <span className="font-semibold text-[var(--iw-semantic-text-primary)]">
             {offlineMode
               ? "2 registros en copia cifrada del teléfono"
               : "Sincronizado con copia local cifrada"}
           </span>
-          <span className="font-mono text-[11px] text-[var(--moss)]">
+          <span className="font-mono text-[11px] text-[var(--iw-semantic-text-secondary)]">
             {offlineMode ? "En espera" : "Sincronizado"}
           </span>
         </div>
-        <p className="text-[var(--moss)]">
+        <p className="text-[var(--iw-semantic-text-secondary)]">
           {offlineMode
             ? "Puedes seguir registrando huevos, alimento, vacunas y cierres sin señal; todo se sube al volver a casa."
             : "Stock PEPS: 284 huevos · Utilidad neta hoy: +$214.000 · Resumen listo para WhatsApp."}
@@ -890,16 +890,16 @@ export function LandingShowcase({
             <button
               type="button"
               onClick={() => setPaused((p) => !p)}
-              className="self-start md:self-auto inline-flex items-center gap-2 rounded-full border border-[var(--line)] bg-[var(--paper)] px-3.5 py-1.5 text-xs font-semibold text-[var(--ink)] hover:border-[var(--forest)] transition"
+              className="self-start md:self-auto inline-flex items-center gap-2 rounded-full border border-[var(--iw-semantic-border-default)] bg-[var(--iw-semantic-bg-surface)] px-3.5 py-1.5 text-xs font-semibold text-[var(--iw-semantic-text-primary)] hover:border-[var(--iw-semantic-action-primary)] transition"
             >
               {paused || prefersReducedMotion ? (
                 <>
-                  <Play className="w-3.5 h-3.5 text-[var(--forest)]" />
+                  <Play className="w-3.5 h-3.5 text-[var(--iw-semantic-action-primary)]" />
                   Reanudar
                 </>
               ) : (
                 <>
-                  <Pause className="w-3.5 h-3.5 text-[var(--forest)]" />
+                  <Pause className="w-3.5 h-3.5 text-[var(--iw-semantic-action-primary)]" />
                   Pausar recorrido
                 </>
               )}
@@ -947,27 +947,27 @@ export function LandingShowcase({
               {browserFrame}
               <div
                 key={activeTab.id}
-                className="land-hero-caption rounded-xl border border-white/15 bg-[var(--paper)] p-3.5 shadow-sm land-panel-enter"
+                className="land-hero-caption rounded-xl border border-white/15 bg-[var(--iw-semantic-bg-surface)] p-3.5 shadow-sm land-panel-enter"
               >
-                <p className="font-mono text-[10px] font-bold uppercase tracking-widest text-[var(--forest)]">
+                <p className="font-mono text-[10px] font-bold uppercase tracking-widest text-[var(--iw-semantic-action-primary)]">
                   {activeTab.eyebrow}
                 </p>
-                <p className="mt-1 font-display text-sm font-bold text-[var(--ink)] leading-snug">
+                <p className="mt-1 font-display text-sm font-bold text-[var(--iw-semantic-text-primary)] leading-snug">
                   {activeTab.title}
                 </p>
-                <p className="mt-1 text-xs text-[var(--moss)] leading-relaxed line-clamp-2">
+                <p className="mt-1 text-xs text-[var(--iw-semantic-text-secondary)] leading-relaxed line-clamp-2">
                   {activeTab.description}
                 </p>
-                <details className="land-hero-details mt-2 border-t border-[var(--line)] pt-2">
-                  <summary className="flex cursor-pointer list-none items-center justify-between gap-2 text-xs font-semibold text-[var(--forest)]">
+                <details className="land-hero-details mt-2 border-t border-[var(--iw-semantic-border-default)] pt-2">
+                  <summary className="flex cursor-pointer list-none items-center justify-between gap-2 text-xs font-semibold text-[var(--iw-semantic-action-primary)]">
                     Probar esta pantalla
                     <ChevronDown className="land-norm-chevron w-3.5 h-3.5 shrink-0" />
                   </summary>
                   <div className="mt-3 space-y-3">
-                    <ul className="space-y-1.5 text-xs text-[var(--ink)]">
+                    <ul className="space-y-1.5 text-xs text-[var(--iw-semantic-text-primary)]">
                       {activeTab.highlights.map((hl) => (
                         <li key={hl} className="flex items-start gap-2">
-                          <CheckCircle2 className="w-3.5 h-3.5 text-[var(--forest)] shrink-0 mt-0.5" />
+                          <CheckCircle2 className="w-3.5 h-3.5 text-[var(--iw-semantic-action-primary)] shrink-0 mt-0.5" />
                           <span>{hl}</span>
                         </li>
                       ))}
@@ -981,14 +981,14 @@ export function LandingShowcase({
             <>
               <div
                 key={`header-${activeTab.id}`}
-                className="lg:col-span-12 rounded-2xl border border-[var(--line)] bg-[var(--paper)] px-5 py-4 sm:px-6 sm:py-5 shadow-xs land-panel-enter"
+                className="lg:col-span-12 rounded-2xl border border-[var(--iw-semantic-border-default)] bg-[var(--iw-semantic-bg-surface)] px-5 py-4 sm:px-6 sm:py-5 shadow-xs land-panel-enter"
               >
                 <div className="flex flex-wrap items-center justify-between gap-2 mb-2">
                   <div className="flex flex-wrap items-center gap-2">
-                    <span className="inline-flex items-center rounded-full bg-[var(--forest)] px-2.5 py-0.5 font-mono text-[10px] font-bold uppercase tracking-widest text-white">
+                    <span className="inline-flex items-center rounded-full bg-[var(--iw-semantic-action-primary)] px-2.5 py-0.5 font-mono text-[10px] font-bold uppercase tracking-widest text-[var(--iw-semantic-action-primary-text)]">
                       {activeTab.eyebrow}
                     </span>
-                    <span className="font-mono text-[11px] text-[var(--moss)]">
+                    <span className="font-mono text-[11px] text-[var(--iw-semantic-text-secondary)]">
                       {activeTab.routeLabel}
                     </span>
                   </div>
@@ -996,17 +996,17 @@ export function LandingShowcase({
                     {activeTab.tags.map((tag) => (
                       <span
                         key={tag}
-                        className="rounded-full border border-[var(--line)] bg-[var(--cream)] px-2.5 py-0.5 font-mono text-[10px] font-medium text-[var(--moss)]"
+                        className="rounded-full border border-[var(--iw-semantic-border-default)] bg-[var(--iw-semantic-bg-subtle)] px-2.5 py-0.5 font-mono text-[10px] font-medium text-[var(--iw-semantic-text-secondary)]"
                       >
                         {tag}
                       </span>
                     ))}
                   </div>
                 </div>
-                <h3 className="font-display text-xl sm:text-2xl lg:text-[26px] font-bold text-[var(--ink)] leading-snug">
+                <h3 className="font-display text-xl sm:text-2xl lg:text-[26px] font-bold text-[var(--iw-semantic-text-primary)] leading-snug">
                   {activeTab.title}
                 </h3>
-                <p className="mt-1.5 text-sm sm:text-base text-[var(--moss)] leading-relaxed max-w-4xl">
+                <p className="mt-1.5 text-sm sm:text-base text-[var(--iw-semantic-text-secondary)] leading-relaxed max-w-4xl">
                   {activeTab.description}
                 </p>
               </div>
@@ -1016,16 +1016,16 @@ export function LandingShowcase({
               <div className="lg:col-span-5">
                 <div
                   key={`body-${activeTab.id}`}
-                  className="rounded-2xl border border-[var(--line)] bg-[var(--paper)] p-5 sm:p-6 space-y-4 shadow-sm land-panel-enter"
+                  className="rounded-2xl border border-[var(--iw-semantic-border-default)] bg-[var(--iw-semantic-bg-surface)] p-5 sm:p-6 space-y-4 shadow-sm land-panel-enter"
                 >
                   <div>
-                    <p className="font-mono text-[10px] font-bold uppercase tracking-widest text-[var(--forest)]">
+                    <p className="font-mono text-[10px] font-bold uppercase tracking-widest text-[var(--iw-semantic-action-primary)]">
                       Qué resuelve en campo
                     </p>
-                    <ul className="mt-2.5 space-y-2 text-xs sm:text-sm text-[var(--ink)]">
+                    <ul className="mt-2.5 space-y-2 text-xs sm:text-sm text-[var(--iw-semantic-text-primary)]">
                       {activeTab.highlights.map((hl) => (
                         <li key={hl} className="flex items-start gap-2">
-                          <CheckCircle2 className="w-4 h-4 text-[var(--forest)] shrink-0 mt-0.5" />
+                          <CheckCircle2 className="w-4 h-4 text-[var(--iw-semantic-action-primary)] shrink-0 mt-0.5" />
                           <span>{hl}</span>
                         </li>
                       ))}
@@ -1041,15 +1041,15 @@ export function LandingShowcase({
 
         {!isHero && (
           <details
-            className="land-gallery-accordion mt-10 border-t border-[var(--line)] pt-6"
+            className="land-gallery-accordion mt-10 border-t border-[var(--iw-semantic-border-default)] pt-6"
             onToggle={(event) => setGalleryOpen(event.currentTarget.open)}
           >
-            <summary className="flex cursor-pointer list-none items-center justify-between gap-4 rounded-xl px-1 py-2 text-[var(--ink)]">
+            <summary className="flex cursor-pointer list-none items-center justify-between gap-4 rounded-xl px-1 py-2 text-[var(--iw-semantic-text-primary)]">
               <span>
                 <span className="block font-display text-lg sm:text-xl font-bold">Más pantallas del sistema</span>
-                <span className="mt-1 block text-xs sm:text-sm text-[var(--moss)]">Explora las vistas clave de IwaGranja cuando quieras ver más.</span>
+                <span className="mt-1 block text-xs sm:text-sm text-[var(--iw-semantic-text-secondary)]">Explora las vistas clave de IwaGranja cuando quieras ver más.</span>
               </span>
-              <span className="inline-flex shrink-0 items-center gap-2 rounded-full border border-[var(--line)] bg-[var(--paper)] px-3.5 py-2 text-xs font-semibold text-[var(--forest)]">
+              <span className="inline-flex shrink-0 items-center gap-2 rounded-full border border-[var(--iw-semantic-border-default)] bg-[var(--iw-semantic-bg-surface)] px-3.5 py-2 text-xs font-semibold text-[var(--iw-semantic-action-primary)]">
                 {galleryOpen ? "Cerrar galería" : `Ver ${SHOWCASE_GALLERY.length} pantallas`}
                 <ChevronDown className="land-gallery-chevron h-4 w-4" aria-hidden="true" />
               </span>
@@ -1068,23 +1068,23 @@ export function LandingShowcase({
                     scrollToGallerySlide(galleryIndex - 1, true);
                   }}
                   aria-label="Pantalla anterior en la galería"
-                  className="land-carousel-ctrl inline-flex h-8 w-8 items-center justify-center rounded-full border border-[var(--line)] bg-[var(--paper)] text-[var(--ink)] hover:border-[var(--forest)] transition"
+                  className="land-carousel-ctrl inline-flex h-8 w-8 items-center justify-center rounded-full border border-[var(--iw-semantic-border-default)] bg-[var(--iw-semantic-bg-surface)] text-[var(--iw-semantic-text-primary)] hover:border-[var(--iw-semantic-action-primary)] transition"
                 >
                   <ChevronLeft className="w-4 h-4" />
                 </button>
                 <button
                   type="button"
                   onClick={() => setGalleryPaused((p) => !p)}
-                  className="land-carousel-ctrl inline-flex items-center gap-1.5 rounded-full border border-[var(--line)] bg-[var(--paper)] px-3 py-1.5 text-xs font-semibold text-[var(--ink)] hover:border-[var(--forest)] transition"
+                  className="land-carousel-ctrl inline-flex items-center gap-1.5 rounded-full border border-[var(--iw-semantic-border-default)] bg-[var(--iw-semantic-bg-surface)] px-3 py-1.5 text-xs font-semibold text-[var(--iw-semantic-text-primary)] hover:border-[var(--iw-semantic-action-primary)] transition"
                 >
                   {galleryPaused || prefersReducedMotion ? (
                     <>
-                      <Play className="w-3 h-3 text-[var(--forest)]" />
+                      <Play className="w-3 h-3 text-[var(--iw-semantic-action-primary)]" />
                       Reanudar galería
                     </>
                   ) : (
                     <>
-                      <Pause className="w-3 h-3 text-[var(--forest)]" />
+                      <Pause className="w-3 h-3 text-[var(--iw-semantic-action-primary)]" />
                       Pausar galería
                     </>
                   )}
@@ -1096,13 +1096,13 @@ export function LandingShowcase({
                     scrollToGallerySlide(galleryIndex + 1, true);
                   }}
                   aria-label="Siguiente pantalla en la galería"
-                  className="land-carousel-ctrl inline-flex h-8 w-8 items-center justify-center rounded-full border border-[var(--line)] bg-[var(--paper)] text-[var(--ink)] hover:border-[var(--forest)] transition"
+                  className="land-carousel-ctrl inline-flex h-8 w-8 items-center justify-center rounded-full border border-[var(--iw-semantic-border-default)] bg-[var(--iw-semantic-bg-surface)] text-[var(--iw-semantic-text-primary)] hover:border-[var(--iw-semantic-action-primary)] transition"
                 >
                   <ChevronRight className="w-4 h-4" />
                 </button>
                 <Link
                   href="/login"
-                  className="ml-1 text-xs font-semibold text-[var(--forest)] hover:underline shrink-0"
+                  className="ml-1 text-xs font-semibold text-[var(--iw-semantic-action-primary)] hover:underline shrink-0"
                 >
                   Probar en vivo →
                 </Link>
@@ -1131,9 +1131,9 @@ export function LandingShowcase({
                     <button
                       type="button"
                       onClick={() => setLightboxIndex(SHOWCASE_TABS.length + idx)}
-                      className="land-carousel-card group w-full h-full text-left rounded-2xl border border-[var(--line)] bg-[var(--paper)] overflow-hidden hover:border-[var(--forest)] focus-visible:outline-2 focus-visible:outline-[var(--forest)] flex flex-col"
+                      className="land-carousel-card group w-full h-full text-left rounded-2xl border border-[var(--iw-semantic-border-default)] bg-[var(--iw-semantic-bg-surface)] overflow-hidden hover:border-[var(--iw-semantic-action-primary)] focus-visible:outline-2 focus-visible:outline-[var(--iw-semantic-action-primary)] flex flex-col"
                     >
-                      <div className="relative aspect-[16/10] w-full bg-white overflow-hidden border-b border-[var(--line)]">
+                      <div className="relative aspect-[16/10] w-full bg-white overflow-hidden border-b border-[var(--iw-semantic-border-default)]">
                         <Image
                           src={item.image}
                           alt={item.alt}

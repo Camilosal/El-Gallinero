@@ -20,7 +20,7 @@ export function LegalFooter({ className = "" }: { className?: string }) {
             className="rounded-[var(--iw-radius-control)] bg-[var(--iw-semantic-bg-surface)] p-0.5 border border-[var(--iw-semantic-border-default)]"
           />
           <span>
-            <strong className="text-[var(--iw-semantic-text-primary)]">{LEGAL.marca}</strong> · Operado por{" "}
+            <strong className="text-[var(--iw-semantic-text-primary)]">{LEGAL.marca}</strong> · por Iwagé · Operado por{" "}
             {LEGAL.razonSocial} · NIT/RUT {LEGAL.nit} · {LEGAL.ciudad} · {LEGAL.email}
           </span>
         </p>

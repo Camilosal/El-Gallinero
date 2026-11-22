@@ -26,7 +26,7 @@ export default function NosotrosPage() {
       pageType="AboutPage"
     >
       <div className="grid gap-8 lg:grid-cols-12 items-center">
-        <figure className="lg:col-span-6 overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
+        <figure className="lg:col-span-6 overflow-hidden rounded-2xl border border-[var(--iw-semantic-border-default)] bg-[var(--iw-semantic-bg-surface)] shadow-sm">
           <div className="relative aspect-[16/10]">
             <Image
               src="/images/heroes/inicio-2x.webp"
@@ -37,23 +37,23 @@ export default function NosotrosPage() {
               priority
             />
           </div>
-          <figcaption className="border-t border-slate-100 px-4 py-2.5 text-xs font-medium text-slate-600">
+          <figcaption className="border-t border-[var(--iw-semantic-border-default)] px-4 py-2.5 text-xs font-medium text-[var(--iw-semantic-text-secondary)]">
             Gallinero base en Ambalá · Ibagué, Tolima · Operación mixta probada en campo
           </figcaption>
         </figure>
 
         <div className="lg:col-span-6 space-y-5">
-          <p className="text-slate-700 leading-relaxed text-lg">{NOSOTROS_TEXT}</p>
+          <p className="text-[var(--iw-semantic-text-primary)] leading-relaxed text-lg">{NOSOTROS_TEXT}</p>
 
-          <div className="rounded-xl border border-slate-200 bg-white p-4 text-sm text-slate-700 space-y-2">
-            <p className="font-semibold text-slate-900">Ecosistema y origen en Tolima</p>
+          <div className="rounded-xl border border-[var(--iw-semantic-border-default)] bg-[var(--iw-semantic-bg-surface)] p-4 text-sm text-[var(--iw-semantic-text-primary)] space-y-2">
+            <p className="font-semibold text-[var(--iw-semantic-text-primary)]">Ecosistema y origen en Tolima</p>
             <p>
               El proyecto hace parte de{" "}
               <a
                 href="https://iwage.co"
                 target="_blank"
                 rel="noreferrer"
-                className="font-semibold text-emerald-800 underline underline-offset-2"
+                className="font-semibold text-[var(--iw-semantic-action-primary)] underline underline-offset-2"
               >
                 Iwagé Granja (iwage.co)
               </a>{" "}
@@ -62,7 +62,7 @@ export default function NosotrosPage() {
                 href="https://camilosaldarriaga.com"
                 target="_blank"
                 rel="noreferrer"
-                className="font-semibold text-emerald-800 underline underline-offset-2"
+                className="font-semibold text-[var(--iw-semantic-action-primary)] underline underline-offset-2"
               >
                 Camilo Saldarriaga
               </a>
@@ -73,19 +73,19 @@ export default function NosotrosPage() {
           <div className="flex flex-wrap items-center gap-4 pt-1">
             <Link
               href="/planes"
-              className="font-semibold text-emerald-800 underline underline-offset-2"
+              className="font-semibold text-[var(--iw-semantic-action-primary)] underline underline-offset-2"
             >
               Calcular el costo del plan →
             </Link>
             <Link
               href="/bitacora"
-              className="font-semibold text-slate-700 hover:text-slate-900 underline underline-offset-2"
+              className="font-semibold text-[var(--iw-semantic-text-primary)] hover:text-[var(--iw-semantic-text-primary)] underline underline-offset-2"
             >
               Leer notas técnicas de campo en la Bitácora →
             </Link>
             <Link
               href="/contacto"
-              className="font-semibold text-slate-700 hover:text-slate-900 underline underline-offset-2"
+              className="font-semibold text-[var(--iw-semantic-text-primary)] hover:text-[var(--iw-semantic-text-primary)] underline underline-offset-2"
             >
               Escribirnos desde Contacto →
             </Link>

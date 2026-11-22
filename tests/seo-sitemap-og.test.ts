@@ -62,6 +62,7 @@ describe("SEO-01 y SEO-02 — Sitemap granular y dimensiones OG reales", () => {
       "/images/heroes/inicio-2x.webp",
       "/traceability-flow.png",
       "/hero-illustration.png",
+      "/hero-illustration.webp",
       "/modules-diagram.png",
       "/logo-iwagranja-horizontal.webp",
       "/logo-iwagranja.webp",
