@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import Link from "next/link";
 import {
   AlertTriangle,
   ArrowRight,
@@ -19,10 +20,13 @@ import {
   X,
 } from "lucide-react";
 import { Button } from "@/components/ui";
-import type {
-  MicroInsightNextAction,
-  MicroInsightPayload,
-  MicroInsightTone,
+import { readCachedActiveFarmMeta } from "@/lib/active-farm-client";
+import { useOnboardingState } from "@/lib/useOnboardingState";
+import {
+  adaptMicroInsightForPurpose,
+  type MicroInsightNextAction,
+  type MicroInsightPayload,
+  type MicroInsightTone,
 } from "@/lib/micro-insights";
 
 interface MicroInsightCardProps {
@@ -90,13 +94,25 @@ export default function MicroInsightCard({
   variant = "full",
 }: MicroInsightCardProps) {
   const isCompact = variant === "compact";
-  const resolvedSyncStatus = insight.syncStatus ?? (insight.offline ? "queued" : undefined);
+  const { config: onboardingConfig } = useOnboardingState();
+  const activeFarmMeta = readCachedActiveFarmMeta();
+  const effectiveInsight =
+    insight.learningAction && insight.purposeMode !== undefined
+      ? insight
+      : adaptMicroInsightForPurpose(insight, {
+          purposes: onboardingConfig?.purposes,
+          primaryPurpose: onboardingConfig?.primaryPurpose,
+          activeSpecies: onboardingConfig?.selectedSpecies,
+          farmId: activeFarmMeta?.id ?? null,
+        });
+  const resolvedSyncStatus =
+    effectiveInsight.syncStatus ?? (effectiveInsight.offline ? "queued" : undefined);
   const [copied, setCopied] = useState(false);
-  const styles = TONE_STYLES[insight.tone] || TONE_STYLES.positive;
+  const styles = TONE_STYLES[effectiveInsight.tone] || TONE_STYLES.positive;
 
   const handleCopy = async () => {
     try {
-      await navigator.clipboard.writeText(insight.whatsappText);
+      await navigator.clipboard.writeText(effectiveInsight.whatsappText);
       setCopied(true);
       setTimeout(() => setCopied(false), 2200);
     } catch {
@@ -106,7 +122,7 @@ export default function MicroInsightCard({
 
   const handleShareParte = async () => {
     // Parte diario omnicanal: compartir nativo (Telegram, etc.) o copiar al portapapeles.
-    const text = insight.whatsappText;
+    const text = effectiveInsight.whatsappText;
     if (typeof navigator.share === "function") {
       try {
         await navigator.share({ title: "Parte diario · IwaGranja", text });
@@ -137,27 +153,27 @@ export default function MicroInsightCard({
             className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[11px] font-bold tracking-wide uppercase ${styles.badge}`}
           >
             <Sparkles className="h-3.5 w-3.5" aria-hidden="true" />
-            <span>{insight.categoryLabel}</span>
+            <span>{effectiveInsight.categoryLabel}</span>
           </span>
 
-          {insight.normativeTag && (
+          {effectiveInsight.normativeTag && (
             <span className="inline-flex items-center gap-1 rounded-full border border-slate-300 bg-white px-2.5 py-0.5 text-[11px] font-semibold text-slate-800">
               <ShieldCheck className="h-3.5 w-3.5 text-emerald-700" aria-hidden="true" />
-              <span>{insight.normativeTag}</span>
+              <span>{effectiveInsight.normativeTag}</span>
             </span>
           )}
         </div>
 
         <div className="flex items-center gap-2">
-          {insight.habit && (
+          {effectiveInsight.habit && (
             <span
-              title="Progreso de los 4 registros esenciales de hoy y racha de disciplina"
+              title="Progreso de los registros esenciales de hoy y racha de disciplina"
               className="inline-flex items-center gap-1.5 rounded-full border border-orange-300 bg-orange-100 px-2.5 py-1 text-xs font-extrabold text-orange-950"
             >
               <Flame className="h-3.5 w-3.5 text-orange-600 fill-orange-500" aria-hidden="true" />
               <span>
-                Racha {insight.habit.streakDays}d · {insight.habit.completedEssentialCount}/
-                {insight.habit.essentialTotal} hoy
+                Racha {effectiveInsight.habit.streakDays}d · {effectiveInsight.habit.completedEssentialCount}/
+                {effectiveInsight.habit.essentialTotal} hoy
               </span>
             </span>
           )}
@@ -180,7 +196,7 @@ export default function MicroInsightCard({
         <div
           className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-xl ${styles.iconWrap}`}
         >
-          {insight.tone === "critical" || insight.tone === "warning" ? (
+          {effectiveInsight.tone === "critical" || effectiveInsight.tone === "warning" ? (
             <AlertTriangle className="h-6 w-6" aria-hidden="true" />
           ) : (
             <CheckCircle2 className="h-6 w-6" aria-hidden="true" />
@@ -188,28 +204,28 @@ export default function MicroInsightCard({
         </div>
         <div className="min-w-0 flex-1">
           <h3 className="text-base sm:text-lg font-extrabold text-slate-900 leading-snug">
-            {insight.title}
+            {effectiveInsight.title}
           </h3>
           <p className="mt-0.5 text-xs sm:text-sm font-medium text-slate-700">
-            {insight.subtitle}
+            {effectiveInsight.subtitle}
           </p>
-          {(resolvedSyncStatus === "queued" || resolvedSyncStatus === "local_draft" || insight.offline) && (
+          {(resolvedSyncStatus === "queued" || resolvedSyncStatus === "local_draft" || effectiveInsight.offline) && (
             <p className="mt-1 inline-flex items-center gap-1.5 rounded-md bg-amber-100 px-2 py-0.5 text-xs font-bold text-amber-950">
               <WifiOff className="h-3.5 w-3.5 text-amber-700" aria-hidden="true" />
               <span>Guardado en este teléfono · pendiente de respaldo en el servidor</span>
             </p>
           )}
-          {resolvedSyncStatus === "confirmed" && !insight.offline && (
+          {resolvedSyncStatus === "confirmed" && !effectiveInsight.offline && (
             <p className="mt-1 inline-flex items-center gap-1.5 rounded-md bg-emerald-100 px-2 py-0.5 text-[11px] font-semibold text-emerald-900">
               <CheckCircle2 className="h-3 w-3 text-emerald-700" aria-hidden="true" />
               <span>Confirmado en servidor</span>
             </p>
           )}
-          {insight.destinationBreakdown && (
+          {effectiveInsight.destinationBreakdown && (
             <p className="mt-1 text-xs font-semibold text-slate-800">
-              Destino sin doble conteo: {insight.destinationBreakdown.hogar} al hogar ·{" "}
-              {insight.destinationBreakdown.comercial} disponibles para comercialización (Total:{" "}
-              {insight.destinationBreakdown.total} {insight.destinationBreakdown.unit})
+              Destino sin doble conteo: {effectiveInsight.destinationBreakdown.hogar} al hogar ·{" "}
+              {effectiveInsight.destinationBreakdown.comercial} disponibles para comercialización (Total:{" "}
+              {effectiveInsight.destinationBreakdown.total} {effectiveInsight.destinationBreakdown.unit})
             </p>
           )}
         </div>
@@ -217,7 +233,7 @@ export default function MicroInsightCard({
 
       {/* Instant Micro-Report Metrics Grid */}
       <div className={`grid grid-cols-2 ${isCompact ? "" : "sm:grid-cols-3"} gap-2 sm:gap-2.5 mb-4`}>
-        {insight.metrics.map((metric, idx) => {
+        {effectiveInsight.metrics.map((metric, idx) => {
           const boxStyle =
             METRIC_HIGHLIGHT_STYLES[metric.highlight || "neutral"] ||
             METRIC_HIGHLIGHT_STYLES.neutral;
@@ -238,9 +254,9 @@ export default function MicroInsightCard({
         })}
       </div>
 
-      {insight.assumptions && insight.assumptions.length > 0 && (
+      {effectiveInsight.assumptions && effectiveInsight.assumptions.length > 0 && (
         <div className="mb-3 rounded-lg border border-slate-200 bg-white/80 px-3 py-2 text-[11px] text-slate-700">
-          <strong>Nota sobre el cálculo:</strong> {insight.assumptions.join(" ")}
+          <strong>Nota sobre el cálculo:</strong> {effectiveInsight.assumptions.join(" ")}
         </div>
       )}
 
@@ -253,47 +269,44 @@ export default function MicroInsightCard({
           />
           <div className="space-y-1 text-left">
             <p className={`text-xs sm:text-sm font-extrabold ${styles.nudgeTitle}`}>
-              💡 Cápsula de Valor: {insight.nudgeTitle}
+              💡 Cápsula de Valor: {effectiveInsight.nudgeTitle}
             </p>
             <p className="text-xs sm:text-sm leading-relaxed font-medium text-white/95">
-              {insight.nudgeBody}
+              {effectiveInsight.nudgeBody}
             </p>
           </div>
         </div>
       </div>
 
       {/* Puente formativo preparado hacia la Escuela de Operación de Granja */}
-      {!isCompact && insight.learningAction && (
+      {!isCompact && effectiveInsight.learningAction && (
         <div className="mb-4 flex flex-wrap items-center justify-between gap-2 rounded-xl border border-slate-200 bg-white/90 px-3.5 py-2.5 text-xs">
           <div className="min-w-0 flex-1">
             <p className="flex items-center gap-1.5 font-bold text-slate-900">
               <GraduationCap className="h-4 w-4 text-emerald-700 shrink-0" aria-hidden="true" />
               <span>
-                {insight.learningAction.isSchoolModuleMounted
-                  ? `Escuela IwaGranja (${insight.learningAction.durationMinutes} min):`
+                {effectiveInsight.learningAction.isSchoolModuleMounted
+                  ? `Escuela IwaGranja (${effectiveInsight.learningAction.durationMinutes} min):`
                   : "Microlección Escuela (contrato preparado):"}
               </span>
-              <span className="truncate font-semibold text-emerald-900">{insight.learningAction.title}</span>
+              <span className="truncate font-semibold text-emerald-900">
+                {effectiveInsight.learningAction.title}
+              </span>
             </p>
-            <p className="mt-0.5 text-[11px] text-slate-600">{insight.learningAction.fieldQuestion}</p>
+            <p className="mt-0.5 text-[11px] text-slate-600">
+              {effectiveInsight.learningAction.fieldQuestion}
+            </p>
           </div>
-          {onNextAction && (
-            <div className="flex flex-wrap items-center gap-1.5 shrink-0">
-              <button
-                type="button"
-                onClick={() =>
-                  onNextAction({
-                    label: insight.learningAction!.title,
-                    href: insight.learningAction!.targetHref,
-                  })
-                }
-                className="inline-flex items-center gap-1 rounded-lg border border-emerald-300 bg-emerald-50 px-2.5 py-1.5 text-[11px] font-semibold text-emerald-900 hover:bg-emerald-100"
-              >
-                <BookOpen className="h-3 w-3" aria-hidden="true" />
-                <span>Ver referencia y práctica</span>
-              </button>
-            </div>
-          )}
+          <div className="flex flex-wrap items-center gap-1.5 shrink-0">
+            <Link
+              href={effectiveInsight.learningAction.targetHref}
+              onClick={() => onDismiss?.()}
+              className="inline-flex items-center gap-1 rounded-lg border border-emerald-300 bg-emerald-50 px-2.5 py-1.5 text-[11px] font-semibold text-emerald-900 hover:bg-emerald-100"
+            >
+              <BookOpen className="h-3 w-3" aria-hidden="true" />
+              <span>Ver referencia y práctica</span>
+            </Link>
+          </div>
         </div>
       )}
 
@@ -329,13 +342,13 @@ export default function MicroInsightCard({
         </div>
 
         <div className="flex flex-wrap items-center gap-2">
-          {insight.nextAction && onNextAction && (
+          {effectiveInsight.nextAction && onNextAction && (
             <button
               type="button"
-              onClick={() => onNextAction(insight.nextAction!)}
+              onClick={() => onNextAction(effectiveInsight.nextAction!)}
               className="inline-flex min-h-[44px] items-center gap-1.5 rounded-xl border border-amber-400 bg-amber-100 px-3.5 py-2 text-xs font-extrabold text-amber-950 hover:bg-amber-200 transition-colors"
             >
-              <span>{insight.nextAction.label}</span>
+              <span>{effectiveInsight.nextAction.label}</span>
               <ArrowRight className="h-4 w-4" aria-hidden="true" />
             </button>
           )}

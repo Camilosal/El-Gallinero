@@ -488,6 +488,7 @@ export default function HuevosPage() {
           unitPrice: Number(payload.referenceUnitPrice || priceEgg(payload.species)),
           activeLayingBirds: activeLayingBirds > 0 ? activeLayingBirds : undefined,
           previousDayCollected: prevRecord?.totalCollected ?? null,
+          quantityAutoconsumo: Number(payload.quantityAutoconsumo || 0),
           offline: true,
         }),
       );
@@ -523,6 +524,7 @@ export default function HuevosPage() {
         unitPrice: Number(payload.referenceUnitPrice || priceEgg(payload.species)),
         activeLayingBirds: activeLayingBirds > 0 ? activeLayingBirds : undefined,
         previousDayCollected: prevRecord?.totalCollected ?? null,
+        quantityAutoconsumo: Number(payload.quantityAutoconsumo || 0),
         offline: false,
       }),
     );
