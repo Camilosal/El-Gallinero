@@ -6,12 +6,14 @@ import { HERO_THEMES, type HeroThemeKey } from "@/lib/hero-themes";
 export type HeroActionTone = "glass" | "solid" | "accent";
 
 const BASE_HERO_ACTION_CLS =
-  "inline-flex items-center justify-center gap-1.5 min-h-[38px] px-3.5 py-1.5 text-xs sm:text-[13px] font-semibold rounded-xl border transition-colors whitespace-nowrap cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed";
+  "inline-flex items-center justify-center gap-1.5 min-h-[42px] px-3.5 py-2 text-xs sm:text-[13px] font-semibold rounded-[var(--iw-radius-control)] border transition-colors whitespace-nowrap cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--iw-semantic-focus-ring)]";
 
 const HERO_ACTION_TONE_CLS: Record<HeroActionTone, string> = {
   glass: "bg-white/15 backdrop-blur-sm border-white/25 text-white hover:bg-white/25",
-  solid: "bg-white border-white/90 text-emerald-950 shadow-sm hover:bg-emerald-50",
-  accent: "bg-amber-400 border-amber-300 text-slate-950 shadow-sm hover:bg-amber-300",
+  solid:
+    "bg-[var(--iw-color-paper)] border-[var(--iw-color-paper)] text-[var(--iw-color-ink-strong)] shadow-sm hover:bg-[var(--iw-color-white)]",
+  accent:
+    "bg-[var(--iw-color-ochre)] border-[var(--iw-color-paper)]/40 text-[var(--iw-color-ink-strong)] shadow-sm hover:brightness-110",
 };
 
 /**
@@ -111,7 +113,7 @@ export function HeroFrame({
 
   return (
     <div
-      className={`gallinero-hero rounded-2xl border border-emerald-950/20 shadow-sm ring-1 ring-inset ring-white/10 ${
+      className={`gallinero-hero rounded-2xl border border-[var(--iw-color-forest-dark)]/25 shadow-[var(--iw-shadow-card)] ring-1 ring-inset ring-white/10 ${
         compact ? "px-5 py-4 sm:px-6 sm:py-5" : "px-5 py-5 sm:px-7 sm:py-6"
       } ${className}`}
     >
@@ -139,7 +141,7 @@ export function HeroFrame({
       >
         <div className="max-w-2xl">
           <div className="flex flex-wrap items-center gap-2 mb-2">
-            <span className="inline-flex items-center gap-1.5 rounded-full bg-white/12 backdrop-blur-[2px] border border-white/15 px-2.5 py-0.5 text-[11px] font-medium tracking-wide text-amber-100">
+            <span className="inline-flex items-center gap-1.5 rounded-full bg-white/12 backdrop-blur-[2px] border border-white/20 px-2.5 py-0.5 text-[11px] font-medium tracking-wide text-[var(--iw-color-paper)]">
               {renderedIcon ?? (
                 <span className={`w-1.5 h-1.5 rounded-full ${config.accentDotClass}`} aria-hidden="true" />
               )}
@@ -149,7 +151,7 @@ export function HeroFrame({
           </div>
 
           <h1
-            className={`${
+            className={`font-display ${
               compact ? "text-xl sm:text-2xl" : "text-2xl sm:text-[1.7rem]"
             } font-bold tracking-tight text-white drop-shadow-[0_1px_2px_rgba(0,0,0,0.35)] leading-tight`}
           >
@@ -157,20 +159,20 @@ export function HeroFrame({
           </h1>
 
           {metadata && (
-            <div className="mt-1 text-[10px] leading-tight text-white/70">
+            <div className="mt-1 text-[10px] leading-tight text-white/75">
               {metadata}
             </div>
           )}
 
           {description && (
-            <p className="mt-1.5 text-sm sm:text-[15px] text-emerald-50/90 leading-relaxed max-w-xl">
+            <p className="mt-1.5 text-sm sm:text-[15px] text-[var(--iw-color-paper)]/90 leading-relaxed max-w-xl">
               {description}
             </p>
           )}
         </div>
 
         {actions && (
-          <div className="relative z-10 flex flex-wrap items-end justify-start md:justify-end gap-2 shrink-0 [&_label]:!text-emerald-50 [&_select]:!min-h-[38px] [&_select]:!bg-white/95 [&_select]:!text-slate-800 [&_select]:!border-white/30 [&_input]:!min-h-[38px] [&_input]:!bg-white/95 [&_input]:!text-slate-800 [&_input]:!border-white/30">
+          <div className="relative z-10 flex flex-wrap items-end justify-start md:justify-end gap-2 shrink-0 [&_label]:!text-[var(--iw-color-paper)] [&_select]:!min-h-[42px] [&_select]:!bg-[var(--iw-semantic-bg-surface)] [&_select]:!text-[var(--iw-semantic-text-primary)] [&_select]:!border-white/30 [&_input]:!min-h-[42px] [&_input]:!bg-[var(--iw-semantic-bg-surface)] [&_input]:!text-[var(--iw-semantic-text-primary)] [&_input]:!border-white/30">
             {actions}
           </div>
         )}

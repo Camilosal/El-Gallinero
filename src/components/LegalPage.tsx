@@ -49,26 +49,35 @@ export function PublicPageShell({
     : null;
 
   return (
-    <div className="min-h-screen bg-[var(--cream,#faf6ec)] flex flex-col">
+    <div className="min-h-screen bg-[var(--iw-semantic-bg-page)] text-[var(--iw-semantic-text-primary)] flex flex-col">
       {jsonLd && <JsonLd data={jsonLd} />}
       <PublicNavigation action={resolvedHeaderAction} />
-      <main className="flex-1 max-w-[1080px] w-full mx-auto px-4 sm:px-7 py-8 sm:py-12">
+      <main className="flex-1 max-w-[var(--iw-size-container,1160px)] w-full mx-auto px-4 sm:px-7 py-8 sm:py-12">
         {resolvedBreadcrumbs && resolvedBreadcrumbs.length > 0 && (
-          <nav aria-label="Migas de pan" className="mb-3 flex flex-wrap items-center gap-1.5 text-xs text-slate-600">
-            <Link href="/" className="hover:text-slate-900 underline underline-offset-2">
+          <nav
+            aria-label="Migas de pan"
+            className="mb-3 flex flex-wrap items-center gap-1.5 text-xs text-[var(--iw-semantic-text-secondary)]"
+          >
+            <Link
+              href="/"
+              className="hover:text-[var(--iw-semantic-action-primary)] underline underline-offset-2"
+            >
               Inicio
             </Link>
             {resolvedBreadcrumbs.map((crumb, idx) => {
               const isLast = idx === resolvedBreadcrumbs.length - 1;
               return (
                 <span key={crumb.path} className="inline-flex items-center gap-1.5">
-                  <ChevronRight className="w-3.5 h-3.5 text-slate-400" aria-hidden="true" />
+                  <ChevronRight className="w-3.5 h-3.5 opacity-60" aria-hidden="true" />
                   {isLast ? (
-                    <span className="font-semibold text-slate-800" aria-current="page">
+                    <span className="font-semibold text-[var(--iw-semantic-text-primary)]" aria-current="page">
                       {crumb.name}
                     </span>
                   ) : (
-                    <Link href={crumb.path} className="hover:text-slate-900 underline underline-offset-2">
+                    <Link
+                      href={crumb.path}
+                      className="hover:text-[var(--iw-semantic-action-primary)] underline underline-offset-2"
+                    >
                       {crumb.name}
                     </Link>
                   )}
@@ -77,8 +86,14 @@ export function PublicPageShell({
             })}
           </nav>
         )}
-        <h1 className="text-2xl sm:text-3xl font-bold text-slate-900">{title}</h1>
-        {intro && <p className="mt-2 max-w-3xl text-slate-600 leading-relaxed">{intro}</p>}
+        <h1 className="font-display text-2xl sm:text-3xl font-bold text-[var(--iw-semantic-text-primary)] tracking-tight">
+          {title}
+        </h1>
+        {intro && (
+          <p className="mt-2 max-w-[var(--iw-size-reading,720px)] text-[var(--iw-semantic-text-secondary)] leading-relaxed">
+            {intro}
+          </p>
+        )}
         <div className="mt-6">{children}</div>
       </main>
       <LegalFooter />
@@ -105,19 +120,24 @@ export function LegalDocPage({
       {legalIsDraft() && (
         <div
           role="note"
-          className="mb-6 rounded-xl border border-amber-300 bg-amber-50 px-4 py-3 text-sm text-amber-950"
+          className="mb-6 rounded-[var(--iw-radius-control)] border border-[var(--iw-semantic-status-warning)]/40 bg-[var(--iw-semantic-bg-subtle)] px-4 py-3 text-sm text-[var(--iw-semantic-status-warning)]"
         >
           <strong>Borrador pendiente de revisión legal.</strong> Los datos marcados
           como «[por confirmar]» se completan con la información real del operador
           antes del primer pago.
         </div>
       )}
-      <div className="rounded-2xl border border-slate-200 bg-white p-6 sm:p-8 shadow-xs space-y-6">
+      <div className="rounded-2xl border border-[var(--iw-semantic-border-default)] bg-[var(--iw-semantic-bg-surface)] p-6 sm:p-8 shadow-[var(--iw-shadow-card)] space-y-6">
         {doc.sections.map((s) => (
-          <section key={s.title} className="border-b border-slate-100 pb-5 last:border-b-0 last:pb-0">
-            <h2 className="text-lg font-semibold text-slate-900">{s.title}</h2>
+          <section
+            key={s.title}
+            className="border-b border-[var(--iw-semantic-border-default)]/60 pb-5 last:border-b-0 last:pb-0"
+          >
+            <h2 className="font-display text-lg font-semibold text-[var(--iw-semantic-text-primary)]">
+              {s.title}
+            </h2>
             {s.paragraphs.map((p, i) => (
-              <p key={i} className="mt-2 text-slate-700 leading-relaxed">
+              <p key={i} className="mt-2 text-[var(--iw-semantic-text-primary)] leading-relaxed">
                 {p}
               </p>
             ))}

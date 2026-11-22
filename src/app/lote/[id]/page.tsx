@@ -57,7 +57,7 @@ export default async function LoteTraceabilityPage({ params }: Props) {
   };
 
   return (
-    <div className="bg-gray-50 min-h-screen">
+    <div className="bg-[var(--iw-semantic-bg-page)] min-h-screen text-[var(--iw-semantic-text-primary)]">
       <PublicNavigation sticky={false} />
       <div className="max-w-2xl mx-auto px-4 py-8">
         {/* Header */}
@@ -71,64 +71,64 @@ export default async function LoteTraceabilityPage({ params }: Props) {
         />
 
         {/* Batch Info Card */}
-        <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6 mb-6">
-          <h2 className="text-lg font-semibold text-green-700 mb-4">
+        <div className="bg-[var(--iw-semantic-bg-surface)] rounded-2xl shadow-[var(--iw-shadow-card)] border border-[var(--iw-semantic-border-default)] p-6 mb-6">
+          <h2 className="font-display text-xl font-semibold text-[var(--iw-semantic-action-primary)] mb-4">
             Lote {batch.code}
           </h2>
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-2 gap-4 tabular-nums">
             <div>
-              <p className="text-xs text-gray-500 uppercase tracking-wide">Raza</p>
-              <p className="text-sm font-medium text-gray-800">{batch.breed}</p>
+              <p className="text-xs text-[var(--iw-semantic-text-secondary)] uppercase tracking-wide">Raza</p>
+              <p className="text-sm font-medium text-[var(--iw-semantic-text-primary)]">{batch.breed}</p>
             </div>
             <div>
-              <p className="text-xs text-gray-500 uppercase tracking-wide">Fecha de inicio</p>
-              <p className="text-sm font-medium text-gray-800">{batch.startDate}</p>
+              <p className="text-xs text-[var(--iw-semantic-text-secondary)] uppercase tracking-wide">Fecha de inicio</p>
+              <p className="text-sm font-medium text-[var(--iw-semantic-text-primary)]">{batch.startDate}</p>
             </div>
             <div>
-              <p className="text-xs text-gray-500 uppercase tracking-wide">Edad actual</p>
-              <p className="text-sm font-medium text-gray-800">{ageWeeks} semanas ({ageDays} dias)</p>
+              <p className="text-xs text-[var(--iw-semantic-text-secondary)] uppercase tracking-wide">Edad actual</p>
+              <p className="text-sm font-medium text-[var(--iw-semantic-text-primary)]">{ageWeeks} semanas ({ageDays} dias)</p>
             </div>
             <div>
-              <p className="text-xs text-gray-500 uppercase tracking-wide">Estado</p>
-              <p className="text-sm font-medium text-gray-800">{statusLabel(batch.status)}</p>
+              <p className="text-xs text-[var(--iw-semantic-text-secondary)] uppercase tracking-wide">Estado</p>
+              <p className="text-sm font-medium text-[var(--iw-semantic-text-primary)]">{statusLabel(batch.status)}</p>
             </div>
             <div>
-              <p className="text-xs text-gray-500 uppercase tracking-wide">Cantidad inicial</p>
-              <p className="text-sm font-medium text-gray-800">{batch.initialQuantity} aves</p>
+              <p className="text-xs text-[var(--iw-semantic-text-secondary)] uppercase tracking-wide">Cantidad inicial</p>
+              <p className="text-sm font-medium text-[var(--iw-semantic-text-primary)]">{batch.initialQuantity} aves</p>
             </div>
             <div>
-              <p className="text-xs text-gray-500 uppercase tracking-wide">Cantidad actual</p>
-              <p className="text-sm font-medium text-gray-800">{batch.currentQuantity} aves</p>
+              <p className="text-xs text-[var(--iw-semantic-text-secondary)] uppercase tracking-wide">Cantidad actual</p>
+              <p className="text-sm font-medium text-[var(--iw-semantic-text-primary)]">{batch.currentQuantity} aves</p>
             </div>
             {batch.avgWeightKg && (
               <div>
-                <p className="text-xs text-gray-500 uppercase tracking-wide">Peso promedio</p>
-                <p className="text-sm font-medium text-gray-800">{batch.avgWeightKg} kg</p>
+                <p className="text-xs text-[var(--iw-semantic-text-secondary)] uppercase tracking-wide">Peso promedio</p>
+                <p className="text-sm font-medium text-[var(--iw-semantic-text-primary)]">{batch.avgWeightKg} kg</p>
               </div>
             )}
             <div>
-              <p className="text-xs text-gray-500 uppercase tracking-wide">Mortalidad</p>
-              <p className="text-sm font-medium text-gray-800">{totalMortality} aves ({mortalityRate}%)</p>
+              <p className="text-xs text-[var(--iw-semantic-text-secondary)] uppercase tracking-wide">Mortalidad</p>
+              <p className="text-sm font-medium text-[var(--iw-semantic-text-primary)]">{totalMortality} aves ({mortalityRate}%)</p>
             </div>
           </div>
         </div>
 
         {/* Mortality Summary */}
         {mortality.length > 0 && (
-          <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6 mb-6">
-            <h3 className="text-md font-semibold text-gray-700 mb-3">
+          <div className="bg-[var(--iw-semantic-bg-surface)] rounded-2xl shadow-[var(--iw-shadow-card)] border border-[var(--iw-semantic-border-default)] p-6 mb-6">
+            <h3 className="font-display text-lg font-semibold text-[var(--iw-semantic-text-primary)] mb-3">
               Registro de Mortalidad
             </h3>
-            <div className="space-y-2">
+            <div className="space-y-2 tabular-nums">
               {mortality.map((m) => (
-                <div key={m.id} className="flex justify-between items-center py-2 border-b border-gray-100 last:border-0">
+                <div key={m.id} className="flex justify-between items-center py-2 border-b border-[var(--iw-semantic-border-default)]/60 last:border-0">
                   <div>
-                    <p className="text-sm font-medium text-gray-700">{m.date}</p>
-                    <p className="text-xs text-gray-500 capitalize">
+                    <p className="text-sm font-medium text-[var(--iw-semantic-text-primary)]">{m.date}</p>
+                    <p className="text-xs text-[var(--iw-semantic-text-secondary)] capitalize">
                       {m.cause.replace("_", " ")}
                     </p>
                   </div>
-                  <span className="text-sm font-semibold text-red-600">{m.quantity}</span>
+                  <span className="text-sm font-semibold text-[var(--iw-semantic-status-danger)]">{m.quantity}</span>
                 </div>
               ))}
             </div>
@@ -136,17 +136,17 @@ export default async function LoteTraceabilityPage({ params }: Props) {
         )}
 
         {/* Footer */}
-        <div className="text-center mt-8 pt-6 border-t border-gray-200">
+        <div className="text-center mt-8 pt-6 border-t border-[var(--iw-semantic-border-default)]">
           <div className="flex justify-center mb-3">
-            <BrandLogo variant="square" size={80} className="rounded-2xl bg-[#faf6ec] p-1.5 border border-gray-200 shadow-xs" />
+            <BrandLogo variant="square" size={80} className="rounded-2xl bg-[var(--iw-semantic-bg-surface)] p-1.5 border border-[var(--iw-semantic-border-default)] shadow-xs" />
           </div>
-          <p className="text-sm text-gray-500">
-            Producto de <span className="font-semibold text-green-700">IwaGranja</span> - Granja Autosustentable
+          <p className="text-sm text-[var(--iw-semantic-text-secondary)]">
+            Producto de <span className="font-semibold text-[var(--iw-semantic-action-primary)]">IwaGranja</span> - Granja Autosustentable
           </p>
-          <p className="text-xs text-gray-400 mt-1">
-            Sistema integral de gestion avicola
+          <p className="text-xs text-[var(--iw-semantic-text-secondary)] mt-1">
+            Sistema integral de gestión pecuaria
           </p>
-          <DeveloperCredit variant="inline" className="mt-3 justify-center text-gray-500" />
+          <DeveloperCredit variant="inline" className="mt-3 justify-center text-[var(--iw-semantic-text-secondary)]" />
         </div>
       </div>
     </div>

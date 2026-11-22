@@ -150,27 +150,27 @@ export default function SipsaProductMappingPanel({
             resultCount={filtered.length}
             totalCount={products.length}
           />
-          <div className="overflow-x-auto rounded-lg border border-slate-200">
-            <table className="w-full min-w-[780px] text-left text-xs">
-              <thead className="bg-slate-50 text-[11px] uppercase text-slate-500">
+          <div className="overflow-x-auto rounded-[var(--iw-radius-control)] border border-[var(--iw-semantic-border-default)]">
+            <table className="w-full min-w-[780px] text-left text-xs tabular-nums">
+              <thead className="bg-[var(--iw-semantic-bg-subtle)] text-[11px] uppercase text-[var(--iw-semantic-text-secondary)]">
                 <tr>
-                  <th className="px-3 py-2">Artículo SIPSA-I</th>
-                  <th className="px-3 py-2">Presentación · CPC</th>
-                  <th className="px-3 py-2">Producto local de compra</th>
+                  <th className="px-3 py-2.5">Artículo SIPSA-I</th>
+                  <th className="px-3 py-2.5">Presentación · CPC</th>
+                  <th className="px-3 py-2.5">Producto local de compra</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-slate-100">
+              <tbody className="divide-y divide-[var(--iw-semantic-border-default)]/70">
                 {visible.map((item) => (
                   <tr key={item.key}>
                     <td className="px-3 py-2.5">
-                      <div className="font-medium text-slate-900">{item.article}</div>
-                      <div className="mt-0.5 text-[10px] text-slate-500">
+                      <div className="font-medium text-[var(--iw-semantic-text-primary)]">{item.article}</div>
+                      <div className="mt-0.5 text-[10px] text-[var(--iw-semantic-text-secondary)]">
                         {item.group || "SIPSA-I"} · {item.period} · {item.localities.size} municipios
                       </div>
                     </td>
-                    <td className="px-3 py-2.5 text-slate-700">
+                    <td className="px-3 py-2.5 text-[var(--iw-semantic-text-primary)]">
                       <div>{item.presentation}</div>
-                      <div className="mt-0.5 font-mono text-[10px] text-slate-500">CPC {item.cpcCode}</div>
+                      <div className="mt-0.5 font-mono text-[10px] text-[var(--iw-semantic-text-secondary)]">CPC {item.cpcCode}</div>
                     </td>
                     <td className="px-3 py-2.5">
                       <Select

@@ -163,7 +163,7 @@ function CierreYSensoresInner() {
 
       <FeatureGateBanner flagKey="genealogia_3gen_qr_iot" mode="gate">
       {closureMsg && (
-        <div className="p-3 rounded-xl bg-red-50 border border-red-200 text-sm text-red-700 font-medium">
+        <div role="alert" className="p-3 rounded-[var(--iw-radius-control)] bg-[var(--iw-semantic-bg-subtle)] border border-[var(--iw-semantic-status-danger)]/40 text-sm text-[var(--iw-semantic-status-danger)] font-medium">
           {closureMsg}
         </div>
       )}
@@ -172,44 +172,44 @@ function CierreYSensoresInner() {
         <Card>
           <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
             <div>
-              <h3 className="font-semibold text-slate-800 flex items-center gap-2">
-                {isClosedToday ? <Lock className="w-4 h-4 text-red-600" /> : <Unlock className="w-4 h-4 text-emerald-600" />}
+              <h3 className="font-display font-semibold text-[var(--iw-semantic-text-primary)] flex items-center gap-2">
+                {isClosedToday ? <Lock className="w-4 h-4 text-[var(--iw-semantic-status-danger)]" /> : <Unlock className="w-4 h-4 text-[var(--iw-semantic-status-success)]" />}
                 <span>Cierre Operativo del Día</span>
               </h3>
-              <p className="text-xs text-slate-500">Bloquea ediciones retroactivas una vez auditada la jornada.</p>
+              <p className="text-xs text-[var(--iw-semantic-text-secondary)]">Bloquea ediciones retroactivas una vez auditada la jornada.</p>
             </div>
             <Input type="date" value={targetDate} onChange={(e) => setTargetDate(e.target.value)} />
           </div>
 
           {preview && (
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 mb-4">
-              <div className="p-2.5 bg-slate-50 rounded-lg border">
-                <p className="text-[11px] text-slate-500">Huevos</p>
-                <p className="text-lg font-bold">{preview.eggsCollected || 0}</p>
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 mb-4 tabular-nums">
+              <div className="p-2.5 bg-[var(--iw-semantic-bg-subtle)] rounded-[var(--iw-radius-control)] border border-[var(--iw-semantic-border-default)]">
+                <p className="text-[11px] text-[var(--iw-semantic-text-secondary)]">Huevos</p>
+                <p className="text-lg font-bold text-[var(--iw-semantic-text-primary)]">{preview.eggsCollected || 0}</p>
               </div>
-              <div className="p-2.5 bg-slate-50 rounded-lg border">
-                <p className="text-[11px] text-slate-500">Bajas</p>
-                <p className="text-lg font-bold text-red-600">{preview.mortalityUnits || 0}</p>
+              <div className="p-2.5 bg-[var(--iw-semantic-bg-subtle)] rounded-[var(--iw-radius-control)] border border-[var(--iw-semantic-border-default)]">
+                <p className="text-[11px] text-[var(--iw-semantic-text-secondary)]">Bajas</p>
+                <p className="text-lg font-bold text-[var(--iw-semantic-status-danger)]">{preview.mortalityUnits || 0}</p>
               </div>
-              <div className="p-2.5 bg-slate-50 rounded-lg border">
-                <p className="text-[11px] text-slate-500">Ventas COP</p>
-                <p className="text-lg font-bold text-emerald-700">${Number(preview.salesTotalCop || 0).toLocaleString()}</p>
+              <div className="p-2.5 bg-[var(--iw-semantic-bg-subtle)] rounded-[var(--iw-radius-control)] border border-[var(--iw-semantic-border-default)]">
+                <p className="text-[11px] text-[var(--iw-semantic-text-secondary)]">Ventas COP</p>
+                <p className="text-lg font-bold text-[var(--iw-semantic-status-success)]">${Number(preview.salesTotalCop || 0).toLocaleString()}</p>
               </div>
-              <div className="p-2.5 bg-slate-50 rounded-lg border">
-                <p className="text-[11px] text-slate-500">Sanidad</p>
-                <p className="text-lg font-bold">{preview.sanitaryEvents || 0}</p>
+              <div className="p-2.5 bg-[var(--iw-semantic-bg-subtle)] rounded-[var(--iw-radius-control)] border border-[var(--iw-semantic-border-default)]">
+                <p className="text-[11px] text-[var(--iw-semantic-text-secondary)]">Sanidad</p>
+                <p className="text-lg font-bold text-[var(--iw-semantic-text-primary)]">{preview.sanitaryEvents || 0}</p>
               </div>
             </div>
           )}
 
-          <div className="flex items-center justify-between">
+          <div className="flex items-center justify-between gap-2">
             <Badge color={isClosedToday ? "red" : currentClosure?.status === "reabierto" ? "yellow" : "green"}>
               {currentClosure ? `Estado: ${currentClosure.status}` : "Jornada abierta"}
             </Badge>
             {isClosedToday && currentClosure ? (
-              <Button variant="secondary" onClick={() => setReopenTarget(currentClosure)}>Reabrir (Admin)</Button>
+              <Button variant="secondary" touchSize="field" onClick={() => setReopenTarget(currentClosure)}>Reabrir (Admin)</Button>
             ) : (
-              <Button onClick={closeDay}>Cerrar y Bloquear Jornada</Button>
+              <Button touchSize="field" onClick={closeDay}>Cerrar y Bloquear Jornada</Button>
             )}
           </div>
         </Card>

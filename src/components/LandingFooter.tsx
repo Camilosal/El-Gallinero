@@ -44,7 +44,7 @@ const FOOTER_LINK_CLASS =
  */
 export function LandingFooter() {
   return (
-    <footer className="land-footer border-t border-[var(--line)] bg-[var(--paper)]">
+    <footer className="land-footer border-t border-[var(--iw-semantic-border-default)] bg-[var(--iw-semantic-bg-page)]">
       <div className="land-wrap">
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-8 lg:gap-10">
           <div>

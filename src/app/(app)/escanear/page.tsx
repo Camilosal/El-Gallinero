@@ -592,16 +592,16 @@ export default function EscanearPage() {
       />
 
       {!online && (
-        <div className="mb-3 flex items-center gap-2 rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800">
-          <WifiOff className="h-4 w-4 shrink-0 text-amber-600" aria-hidden="true" />
+        <div className="mb-3 flex items-center gap-2 rounded-[var(--iw-radius-control)] border border-[var(--iw-semantic-status-warning)]/40 bg-[var(--iw-color-paper)] px-3 py-2 text-xs text-[var(--iw-semantic-status-warning)]">
+          <WifiOff className="h-4 w-4 shrink-0" aria-hidden="true" />
           <span>Modo sin conexión activo: puedes escanear y registrar usando tus catálogos guardados.</span>
         </div>
       )}
 
       {quickToast && (
-        <div className="mb-3 flex items-center justify-between rounded-xl border border-green-200 bg-green-50 px-3 py-2 text-xs font-medium text-green-800">
+        <div className="mb-3 flex items-center justify-between rounded-[var(--iw-radius-control)] border border-[var(--iw-semantic-status-success)]/40 bg-[var(--iw-semantic-bg-feature)] px-3 py-2 text-xs font-medium text-[var(--iw-semantic-status-success)]">
           <span className="inline-flex items-center gap-1.5">
-            <CheckCircle2 className="h-4 w-4 text-green-600" aria-hidden="true" />
+            <CheckCircle2 className="h-4 w-4 shrink-0" aria-hidden="true" />
             <span>{quickToast}</span>
           </span>
           <button type="button" onClick={() => setQuickToast("")} className="underline">Ocultar</button>
@@ -615,35 +615,35 @@ export default function EscanearPage() {
           <div className="space-y-4">
             {selected?.type === "ubicacion" && (
               <div className="text-left space-y-3">
-                <div className="rounded-xl bg-slate-50 p-4 border border-slate-200">
+                <div className="rounded-2xl bg-[var(--iw-semantic-bg-subtle)] p-4 border border-[var(--iw-semantic-border-default)]">
                   <div className="flex items-start justify-between gap-2">
                     <div className="flex items-center gap-3">
-                      <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-emerald-100 text-emerald-700">
+                      <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-[var(--iw-radius-control)] bg-[var(--iw-semantic-bg-feature)] text-[var(--iw-semantic-action-primary)]">
                         <MapPin className="h-6 w-6" aria-hidden="true" />
                       </div>
                       <div>
-                        <p className="text-xs font-semibold uppercase tracking-wide text-slate-400">
+                        <p className="text-xs font-semibold uppercase tracking-wide text-[var(--iw-semantic-text-secondary)]">
                           {selected.location.code} · {LOCATION_TYPE_LABELS[selected.location.type] || selected.location.type}
                         </p>
-                        <h2 className="text-lg font-bold text-slate-800">{selected.location.name}</h2>
+                        <h2 className="font-display text-lg font-bold text-[var(--iw-semantic-text-primary)]">{selected.location.name}</h2>
                       </div>
                     </div>
                     <Badge color={selected.location.status === "activa" ? "green" : "gray"}>
                       {selected.location.status === "activa" ? "Activa" : "Inactiva"}
                     </Badge>
                   </div>
-                  <div className="mt-3 grid grid-cols-3 gap-2 text-center text-xs">
-                    <div className="rounded-lg bg-white p-2 border border-slate-100">
-                      <p className="text-slate-500">Animales</p>
-                      <p className="text-sm font-bold text-slate-800">{selected.location.animals ?? 0}</p>
+                  <div className="mt-3 grid grid-cols-3 gap-2 text-center text-xs tabular-nums">
+                    <div className="rounded-[var(--iw-radius-control)] bg-[var(--iw-semantic-bg-surface)] p-2 border border-[var(--iw-semantic-border-default)]">
+                      <p className="text-[var(--iw-semantic-text-secondary)]">Animales</p>
+                      <p className="text-sm font-bold text-[var(--iw-semantic-text-primary)]">{selected.location.animals ?? 0}</p>
                     </div>
-                    <div className="rounded-lg bg-white p-2 border border-slate-100">
-                      <p className="text-slate-500">Huevos 30d</p>
-                      <p className="text-sm font-bold text-slate-800">{selected.location.eggsPeriod ?? 0}</p>
+                    <div className="rounded-[var(--iw-radius-control)] bg-[var(--iw-semantic-bg-surface)] p-2 border border-[var(--iw-semantic-border-default)]">
+                      <p className="text-[var(--iw-semantic-text-secondary)]">Huevos 30d</p>
+                      <p className="text-sm font-bold text-[var(--iw-semantic-text-primary)]">{selected.location.eggsPeriod ?? 0}</p>
                     </div>
-                    <div className="rounded-lg bg-white p-2 border border-slate-100">
-                      <p className="text-slate-500">Pendientes</p>
-                      <p className="text-sm font-bold text-slate-800">{selected.location.pendingMaintenance ?? 0}</p>
+                    <div className="rounded-[var(--iw-radius-control)] bg-[var(--iw-semantic-bg-surface)] p-2 border border-[var(--iw-semantic-border-default)]">
+                      <p className="text-[var(--iw-semantic-text-secondary)]">Pendientes</p>
+                      <p className="text-sm font-bold text-[var(--iw-semantic-text-primary)]">{selected.location.pendingMaintenance ?? 0}</p>
                     </div>
                   </div>
                 </div>
@@ -652,32 +652,32 @@ export default function EscanearPage() {
                   <button
                     type="button"
                     onClick={() => openQuickCapture({ mode: "huevos", locationId: selected.location.id })}
-                    className="flex flex-col items-center gap-1.5 rounded-xl border border-yellow-200 bg-yellow-50 p-3.5 text-yellow-900 hover:bg-yellow-100 transition-colors"
+                    className="flex min-h-[72px] flex-col items-center justify-center gap-1.5 rounded-2xl border border-[var(--iw-semantic-border-default)] bg-[var(--iw-color-paper)] p-3.5 text-[var(--iw-semantic-text-primary)] hover:bg-[var(--iw-semantic-bg-feature)] transition-colors"
                   >
-                    <Egg className="h-5 w-5 text-yellow-700" aria-hidden="true" />
+                    <Egg className="h-5 w-5 text-[var(--iw-semantic-action-primary)]" aria-hidden="true" />
                     <span className="text-xs font-semibold">Recoger huevos aquí</span>
                   </button>
                   <button
                     type="button"
                     onClick={() => openQuickCapture({ mode: "alimentacion", locationId: selected.location.id })}
-                    className="flex flex-col items-center gap-1.5 rounded-xl border border-amber-200 bg-amber-50 p-3.5 text-amber-900 hover:bg-amber-100 transition-colors"
+                    className="flex min-h-[72px] flex-col items-center justify-center gap-1.5 rounded-2xl border border-[var(--iw-semantic-border-default)] bg-[var(--iw-color-paper)] p-3.5 text-[var(--iw-semantic-text-primary)] hover:bg-[var(--iw-semantic-bg-feature)] transition-colors"
                   >
-                    <Wheat className="h-5 w-5 text-amber-700" aria-hidden="true" />
+                    <Wheat className="h-5 w-5 text-[var(--iw-semantic-status-warning)]" aria-hidden="true" />
                     <span className="text-xs font-semibold">Dar alimento aquí</span>
                   </button>
                   <button
                     type="button"
                     onClick={() => openQuickCapture({ mode: "mortalidad", locationId: selected.location.id })}
-                    className="flex flex-col items-center gap-1.5 rounded-xl border border-red-200 bg-red-50 p-3.5 text-red-800 hover:bg-red-100 transition-colors"
+                    className="flex min-h-[72px] flex-col items-center justify-center gap-1.5 rounded-2xl border border-[var(--iw-semantic-status-danger)]/35 bg-[var(--iw-semantic-bg-subtle)] p-3.5 text-[var(--iw-semantic-status-danger)] hover:bg-[var(--iw-color-paper)] transition-colors"
                   >
-                    <HeartPulse className="h-5 w-5 text-red-700" aria-hidden="true" />
+                    <HeartPulse className="h-5 w-5" aria-hidden="true" />
                     <span className="text-xs font-semibold">Reportar baja aquí</span>
                   </button>
                   <Link
                     href={`/ubicaciones/${selected.location.id}`}
-                    className="flex flex-col items-center justify-center gap-1.5 rounded-xl border border-slate-200 bg-slate-50 p-3.5 text-slate-700 hover:bg-slate-100 transition-colors"
+                    className="flex min-h-[72px] flex-col items-center justify-center gap-1.5 rounded-2xl border border-[var(--iw-semantic-border-default)] bg-[var(--iw-semantic-bg-subtle)] p-3.5 text-[var(--iw-semantic-text-primary)] hover:bg-[var(--iw-semantic-bg-page)] transition-colors"
                   >
-                    <ClipboardList className="h-5 w-5 text-slate-600" aria-hidden="true" />
+                    <ClipboardList className="h-5 w-5 text-[var(--iw-semantic-action-primary)]" aria-hidden="true" />
                     <span className="text-xs font-semibold">Ver ficha completa</span>
                   </Link>
                 </div>
@@ -685,7 +685,7 @@ export default function EscanearPage() {
                 <button
                   type="button"
                   onClick={() => { setSelected(null); void startScanner(); }}
-                  className="w-full text-center text-sm text-slate-500 hover:text-slate-700"
+                  className="min-h-[44px] w-full text-center text-sm font-medium text-[var(--iw-semantic-text-secondary)] hover:text-[var(--iw-semantic-action-primary)]"
                 >
                   ← Escanear otro código
                 </button>
@@ -927,17 +927,17 @@ export default function EscanearPage() {
 
             {!selected && (
               <div className="text-center space-y-3">
-                {error && <p className="text-red-600 text-sm">{error}</p>}
-                <Button onClick={() => void startScanner()}>
+                {error && <p role="alert" className="text-[var(--iw-semantic-status-danger)] text-sm font-medium">{error}</p>}
+                <Button touchSize="field" onClick={() => void startScanner()}>
                   <span className="inline-flex items-center gap-1.5">
                     <Camera className="w-4 h-4" aria-hidden="true" />
                     <span>Abrir cámara</span>
                   </span>
                 </Button>
                 <div className="flex items-center gap-2">
-                  <div className="flex-1 border-t border-slate-200" />
-                  <span className="text-xs text-slate-400">o busca lugar, lote, equipo o animal</span>
-                  <div className="flex-1 border-t border-slate-200" />
+                  <div className="flex-1 border-t border-[var(--iw-semantic-border-default)]" />
+                  <span className="text-xs text-[var(--iw-semantic-text-secondary)]">o busca lugar, lote, equipo o animal</span>
+                  <div className="flex-1 border-t border-[var(--iw-semantic-border-default)]" />
                 </div>
                 <div className="space-y-2 text-left">
                   <form
@@ -955,14 +955,14 @@ export default function EscanearPage() {
                       totalCount={locations.length + batches.length + assets.length + hens.length}
                       className="flex-1"
                     />
-                    <Button type="submit" variant="secondary" disabled={!manualInput.trim()}>
+                    <Button type="submit" variant="secondary" touchSize="field" disabled={!manualInput.trim()}>
                       Abrir ficha
                     </Button>
                   </form>
                   {manualInput.trim() && (
-                    <div className="rounded-lg border border-slate-200 bg-slate-50 p-2 space-y-1">
+                    <div className="rounded-[var(--iw-radius-control)] border border-[var(--iw-semantic-border-default)] bg-[var(--iw-semantic-bg-subtle)] p-2 space-y-1">
                       {unifiedMatches.length === 0 ? (
-                        <p className="px-2 py-1 text-xs text-slate-500">Sin coincidencias con “{manualInput}”</p>
+                        <p className="px-2 py-1 text-xs text-[var(--iw-semantic-text-secondary)]">Sin coincidencias con “{manualInput}”</p>
                       ) : (
                         unifiedMatches.map((item) => (
                           <button
@@ -973,11 +973,11 @@ export default function EscanearPage() {
                               setManualInput("");
                               setError("");
                             }}
-                            className="flex w-full items-center justify-between gap-2 rounded-md bg-white px-3 py-2 text-left text-xs shadow-2xs transition-colors hover:bg-green-50"
+                            className="flex min-h-[44px] w-full items-center justify-between gap-2 rounded-[var(--iw-radius-control)] bg-[var(--iw-semantic-bg-surface)] px-3 py-2 text-left text-xs shadow-2xs transition-colors hover:bg-[var(--iw-semantic-bg-feature)]"
                           >
                             <span className="min-w-0">
-                              <span className="block truncate font-semibold text-slate-800">{item.title}</span>
-                              <span className="block truncate text-[11px] text-slate-500">{item.subtitle}</span>
+                              <span className="block truncate font-semibold text-[var(--iw-semantic-text-primary)]">{item.title}</span>
+                              <span className="block truncate text-[11px] text-[var(--iw-semantic-text-secondary)]">{item.subtitle}</span>
                             </span>
                             <Badge color={item.badgeColor}>{item.badgeText}</Badge>
                           </button>
@@ -991,8 +991,8 @@ export default function EscanearPage() {
           </div>
         ) : (
           <div className="text-center">
-            <p className="text-sm text-slate-500 mb-2">Apunta la cámara al código QR de la puerta, lote, equipo o banda</p>
-            <Button variant="secondary" onClick={() => void stopScanner()}>Cancelar escaneo</Button>
+            <p className="text-sm text-[var(--iw-semantic-text-secondary)] mb-2">Apunta la cámara al código QR de la puerta, lote, equipo o banda</p>
+            <Button variant="secondary" touchSize="field" onClick={() => void stopScanner()}>Cancelar escaneo</Button>
           </div>
         )}
       </Card>
@@ -1002,10 +1002,10 @@ export default function EscanearPage() {
         <div className="space-y-3">
           <div className="flex flex-wrap items-center justify-between gap-2">
             <div>
-              <h2 className="text-sm font-bold text-slate-800">
+              <h2 className="font-display text-sm font-bold text-[var(--iw-semantic-text-primary)]">
                 Escáner OCR de Facturas, Etiquetas ICA y Comprobantes
               </h2>
-              <p className="text-xs text-slate-500">
+              <p className="text-xs text-[var(--iw-semantic-text-secondary)]">
                 Digitaliza soportes en campo (bultos de 40 kg, Reg. ICA con días de retiro, Nequi o RUT) y abre el módulo correspondiente.
               </p>
             </div>
@@ -1025,10 +1025,10 @@ export default function EscanearPage() {
                     setOcrScanMode(item.mode);
                     setLastOcrPayload(null);
                   }}
-                  className={`rounded-lg border px-2.5 py-1.5 text-xs font-semibold transition-colors ${
+                  className={`min-h-[40px] rounded-[var(--iw-radius-control)] border px-3 py-1.5 text-xs font-semibold transition-colors ${
                     ocrScanMode === item.mode
-                      ? "border-emerald-600 bg-emerald-600 text-white"
-                      : "border-slate-200 bg-slate-50 text-slate-700 hover:bg-slate-100"
+                      ? "border-[var(--iw-semantic-action-primary)] bg-[var(--iw-semantic-action-primary)] text-[var(--iw-semantic-action-primary-text)]"
+                      : "border-[var(--iw-semantic-border-default)] bg-[var(--iw-semantic-bg-subtle)] text-[var(--iw-semantic-text-primary)] hover:bg-[var(--iw-semantic-bg-page)]"
                   }`}
                 >
                   {item.label}
@@ -1056,7 +1056,7 @@ export default function EscanearPage() {
           />
 
           {lastOcrPayload && (
-            <div className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-emerald-200 bg-emerald-50 p-3 text-xs text-emerald-950">
+            <div className="flex flex-wrap items-center justify-between gap-2 rounded-2xl border border-[var(--iw-semantic-border-default)] bg-[var(--iw-semantic-bg-feature)] p-3 text-xs text-[var(--iw-semantic-text-primary)]">
               <div>
                 <p className="font-bold">Resultado detectado: {lastOcrPayload.summary}</p>
               </div>
@@ -1064,7 +1064,7 @@ export default function EscanearPage() {
                 {lastOcrPayload.mode === "factura_compra" && (
                   <Link
                     href="/finanzas/egresos?nuevo=1"
-                    className="rounded-lg bg-emerald-700 px-3 py-1.5 font-semibold text-white hover:bg-emerald-800"
+                    className="inline-flex min-h-[40px] items-center rounded-[var(--iw-radius-control)] bg-[var(--iw-semantic-action-primary)] px-3 py-1.5 font-semibold text-[var(--iw-semantic-action-primary-text)] hover:bg-[var(--iw-semantic-action-primary-hover)]"
                   >
                     Ir a Egresos / Compras →
                   </Link>
@@ -1072,7 +1072,7 @@ export default function EscanearPage() {
                 {lastOcrPayload.mode === "etiqueta_ica" && (
                   <Link
                     href="/sanidad/control?nuevo=1"
-                    className="rounded-lg bg-emerald-700 px-3 py-1.5 font-semibold text-white hover:bg-emerald-800"
+                    className="inline-flex min-h-[40px] items-center rounded-[var(--iw-radius-control)] bg-[var(--iw-semantic-action-primary)] px-3 py-1.5 font-semibold text-[var(--iw-semantic-action-primary-text)] hover:bg-[var(--iw-semantic-action-primary-hover)]"
                   >
                     Ir a Control Sanitario ICA →
                   </Link>
@@ -1080,7 +1080,7 @@ export default function EscanearPage() {
                 {lastOcrPayload.mode === "comprobante_pago" && (
                   <Link
                     href="/finanzas/cuentas"
-                    className="rounded-lg bg-emerald-700 px-3 py-1.5 font-semibold text-white hover:bg-emerald-800"
+                    className="inline-flex min-h-[40px] items-center rounded-[var(--iw-radius-control)] bg-[var(--iw-semantic-action-primary)] px-3 py-1.5 font-semibold text-[var(--iw-semantic-action-primary-text)] hover:bg-[var(--iw-semantic-action-primary-hover)]"
                   >
                     Ir a Cuentas y Pagos →
                   </Link>
@@ -1088,7 +1088,7 @@ export default function EscanearPage() {
                 {lastOcrPayload.mode === "rut_contacto" && (
                   <Link
                     href="/contactos"
-                    className="rounded-lg bg-emerald-700 px-3 py-1.5 font-semibold text-white hover:bg-emerald-800"
+                    className="inline-flex min-h-[40px] items-center rounded-[var(--iw-radius-control)] bg-[var(--iw-semantic-action-primary)] px-3 py-1.5 font-semibold text-[var(--iw-semantic-action-primary-text)] hover:bg-[var(--iw-semantic-action-primary-hover)]"
                   >
                     Ir a Directorio de Contactos →
                   </Link>

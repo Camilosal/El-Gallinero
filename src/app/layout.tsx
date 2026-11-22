@@ -38,7 +38,7 @@ export const metadata: Metadata = {
 };
 
 export const viewport: Viewport = {
-  themeColor: "#16a34a",
+  themeColor: "#315245",
   width: "device-width",
   initialScale: 1,
 };
@@ -50,8 +50,8 @@ export default function RootLayout({ children }: { children: ReactNode }) {
         <link rel="apple-touch-icon" href="/icon-192.png" />
       </head>
       <body
-        className="bg-earth-50 text-slate-900 antialiased"
-        style={{ fontFamily: "var(--font-inter, 'Inter'), sans-serif" }}
+        className="bg-[var(--iw-semantic-bg-page)] text-[var(--iw-semantic-text-primary)] antialiased"
+        style={{ fontFamily: "var(--iw-font-body)" }}
         suppressHydrationWarning
       >
         <PwaRegister />

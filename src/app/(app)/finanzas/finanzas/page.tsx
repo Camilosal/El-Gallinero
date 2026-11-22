@@ -104,7 +104,18 @@ const expenseCategories = [
   "Otro egreso",
 ];
 
-const COLORS = ["#22c55e", "#eab308", "#3b82f6", "#ef4444", "#a855f7", "#f97316", "#06b6d4", "#ec4899", "#84cc16", "#64748b"];
+const COLORS = [
+  "var(--iw-color-forest)",
+  "var(--iw-color-ochre)",
+  "var(--iw-color-info)",
+  "var(--iw-color-danger)",
+  "var(--iw-color-terracotta)",
+  "var(--iw-color-success)",
+  "var(--iw-color-warning)",
+  "var(--iw-color-muted)",
+  "var(--iw-color-outline-soft)",
+  "var(--iw-color-graphite)",
+];
 
 const defaultUnitByCategory: Record<string, string> = {
   "Compra de alimento": "kg",
@@ -365,39 +376,39 @@ export default function FinanzasPage() {
                   <AreaChart data={data.cashflow.series}>
                     <defs>
                       <linearGradient id="gInc" x1="0" y1="0" x2="0" y2="1">
-                        <stop offset="5%" stopColor="#22c55e" stopOpacity={0.6} />
-                        <stop offset="95%" stopColor="#22c55e" stopOpacity={0} />
+                        <stop offset="5%" stopColor="var(--iw-color-success)" stopOpacity={0.55} />
+                        <stop offset="95%" stopColor="var(--iw-color-success)" stopOpacity={0} />
                       </linearGradient>
                       <linearGradient id="gExp" x1="0" y1="0" x2="0" y2="1">
-                        <stop offset="5%" stopColor="#ef4444" stopOpacity={0.6} />
-                        <stop offset="95%" stopColor="#ef4444" stopOpacity={0} />
+                        <stop offset="5%" stopColor="var(--iw-color-danger)" stopOpacity={0.55} />
+                        <stop offset="95%" stopColor="var(--iw-color-danger)" stopOpacity={0} />
                       </linearGradient>
                     </defs>
-                    <CartesianGrid strokeDasharray="3 3" />
+                    <CartesianGrid strokeDasharray="3 3" stroke="var(--iw-color-border)" />
                     <XAxis dataKey="label" fontSize={11} />
                     <YAxis fontSize={11} />
                     <Tooltip formatter={(v, name) => [fmt(Number(v)), name]} />
                     <Legend />
-                    <Area type="monotone" dataKey="income" name="Ingresos" stroke="#22c55e" fill="url(#gInc)" />
-                    <Area type="monotone" dataKey="expense" name="Egresos" stroke="#ef4444" fill="url(#gExp)" />
+                    <Area type="monotone" dataKey="income" name="Ingresos" stroke="var(--iw-color-success)" fill="url(#gInc)" />
+                    <Area type="monotone" dataKey="expense" name="Egresos" stroke="var(--iw-color-danger)" fill="url(#gExp)" />
                   </AreaChart>
                 </ResponsiveContainer>
               </Card>
               <Card>
-                <h3 className="font-semibold text-slate-700 mb-4 flex items-center gap-2"><BarChart3 className="w-4 h-4 text-slate-500" aria-hidden="true" />Flujo neto acumulado</h3>
+                <h3 className="font-semibold text-[var(--iw-semantic-text-primary)] mb-4 flex items-center gap-2"><BarChart3 className="w-4 h-4 text-[var(--iw-semantic-text-secondary)]" aria-hidden="true" />Flujo neto acumulado</h3>
                 <ResponsiveContainer width="100%" height={280}>
                   <AreaChart data={data.cashflow.series}>
                     <defs>
                       <linearGradient id="gCum" x1="0" y1="0" x2="0" y2="1">
-                        <stop offset="5%" stopColor="#3b82f6" stopOpacity={0.6} />
-                        <stop offset="95%" stopColor="#3b82f6" stopOpacity={0} />
+                        <stop offset="5%" stopColor="var(--iw-color-info)" stopOpacity={0.55} />
+                        <stop offset="95%" stopColor="var(--iw-color-info)" stopOpacity={0} />
                       </linearGradient>
                     </defs>
-                    <CartesianGrid strokeDasharray="3 3" />
+                    <CartesianGrid strokeDasharray="3 3" stroke="var(--iw-color-border)" />
                     <XAxis dataKey="label" fontSize={11} />
                     <YAxis fontSize={11} />
                     <Tooltip formatter={(v, name) => [fmt(Number(v)), name]} />
-                    <Area type="monotone" dataKey="cumulative" name="Flujo acumulado" stroke="#3b82f6" fill="url(#gCum)" />
+                    <Area type="monotone" dataKey="cumulative" name="Flujo acumulado" stroke="var(--iw-color-info)" fill="url(#gCum)" />
                   </AreaChart>
                 </ResponsiveContainer>
               </Card>

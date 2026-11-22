@@ -174,19 +174,19 @@ export default function OpenSourcePage() {
               href="https://github.com/Camilosal/El-Gallinero"
               target="_blank"
               rel="noopener noreferrer"
-              className="inline-flex items-center gap-2 rounded-lg bg-[#132a1e] px-4 py-2.5 text-sm font-semibold text-white hover:bg-[#1e3d2b]"
+              className="inline-flex min-h-11 items-center gap-2 rounded-[var(--iw-radius-control)] bg-[var(--iw-semantic-action-primary)] px-4 py-2.5 text-sm font-semibold text-[var(--iw-semantic-action-primary-text)] hover:bg-[var(--iw-semantic-action-primary-hover)] transition"
             >
               Ver repositorio en GitHub ↗
             </a>
             <Link
               href="/registro"
-              className="inline-flex items-center gap-2 rounded-lg border border-slate-300 bg-white px-4 py-2.5 text-sm font-semibold text-slate-800 hover:bg-slate-50"
+              className="inline-flex min-h-11 items-center gap-2 rounded-[var(--iw-radius-control)] border border-[var(--iw-semantic-action-secondary-border)] bg-[var(--iw-semantic-action-secondary)] px-4 py-2.5 text-sm font-semibold text-[var(--iw-semantic-action-secondary-text)] hover:bg-[var(--iw-semantic-bg-feature)] transition"
             >
               Probar granja en la nube →
             </Link>
             <Link
               href="/guia/integraciones-erp-agentes"
-              className="inline-flex items-center gap-2 rounded-lg border border-slate-300 bg-white px-4 py-2.5 text-sm font-semibold text-slate-800 hover:bg-slate-50"
+              className="inline-flex min-h-11 items-center gap-2 rounded-[var(--iw-radius-control)] border border-[var(--iw-semantic-border-default)] bg-[var(--iw-semantic-bg-surface)] px-4 py-2.5 text-sm font-semibold text-[var(--iw-semantic-text-primary)] hover:bg-[var(--iw-semantic-bg-subtle)] transition"
             >
               Guía de API v1 y MCP →
             </Link>

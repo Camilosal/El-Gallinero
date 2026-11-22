@@ -415,7 +415,7 @@ function ShowcaseSimulation({ kind }: { kind: ShowcaseSimulationKind }) {
             max={80}
             value={eggWeight}
             onChange={(e) => setEggWeight(Number(e.target.value))}
-            className="w-full accent-[#1e3d2b]"
+            className="w-full accent-[var(--iw-semantic-action-primary)]"
           />
           <div className="flex justify-between text-[11px] font-mono text-[var(--moss)] mt-1">
             <span>46 g (B)</span>
@@ -797,14 +797,14 @@ export function LandingShowcase({
 
   const browserFrame = (
     <div className="land-browser-frame">
-      <div className="flex items-center justify-between gap-2 px-3.5 py-2.5 border-b border-[var(--line)] bg-[#f4ede0]">
+      <div className="flex items-center justify-between gap-2 px-3.5 py-2.5 border-b border-[var(--iw-semantic-border-default)] bg-[var(--iw-semantic-bg-page)]">
         <div className="flex items-center gap-1.5" aria-hidden="true">
-          <span className="w-2.5 h-2.5 rounded-full bg-[#d4a373]" />
-          <span className="w-2.5 h-2.5 rounded-full bg-[#e9c46a]" />
-          <span className="w-2.5 h-2.5 rounded-full bg-[#4f775d]" />
+          <span className="w-2.5 h-2.5 rounded-full bg-[var(--iw-color-terracotta)]" />
+          <span className="w-2.5 h-2.5 rounded-full bg-[var(--iw-color-ochre)]" />
+          <span className="w-2.5 h-2.5 rounded-full bg-[var(--iw-color-forest)]" />
         </div>
 
-        <span className="truncate font-mono text-[11px] text-[var(--moss)]">
+        <span className="truncate font-mono text-[11px] text-[var(--iw-semantic-text-secondary)]">
           {activeTab.routeLabel}
         </span>
 
@@ -812,14 +812,14 @@ export function LandingShowcase({
           type="button"
           onClick={() => setLightboxIndex(activeIndex)}
           aria-label="Ampliar captura de pantalla"
-          className="inline-flex items-center gap-1 rounded-md border border-[var(--line)] bg-white px-2 py-1 text-[11px] font-semibold text-[var(--ink)] hover:border-[var(--forest)] transition shrink-0"
+          className="inline-flex items-center gap-1 rounded-[var(--iw-radius-control)] border border-[var(--iw-semantic-border-default)] bg-[var(--iw-semantic-bg-surface)] px-2.5 py-1 text-[11px] font-semibold text-[var(--iw-semantic-text-primary)] hover:border-[var(--iw-semantic-action-primary)] transition shrink-0"
         >
           <Expand className="w-3 h-3" />
           Ampliar
         </button>
       </div>
 
-      <div className="relative bg-white overflow-hidden">
+      <div className="relative bg-[var(--iw-semantic-bg-surface)] overflow-hidden">
         <Image
           key={displayImage}
           src={displayImage}
@@ -833,18 +833,18 @@ export function LandingShowcase({
       </div>
 
       {activeTab.secondaryScreenshot && (
-        <div className="flex items-center justify-between gap-2 px-3.5 py-2 border-t border-[var(--line)] bg-[#fbf7ee]">
-          <span className="text-[11px] text-[var(--moss)]">
+        <div className="flex items-center justify-between gap-2 px-3.5 py-2 border-t border-[var(--iw-semantic-border-default)] bg-[var(--iw-semantic-bg-subtle)]">
+          <span className="text-[11px] text-[var(--iw-semantic-text-secondary)]">
             Vista: {secondaryView ? activeTab.secondaryLabel : "Principal"}
           </span>
           <div className="flex items-center gap-1.5">
             <button
               type="button"
               onClick={() => setSecondaryView(false)}
-              className={`rounded-md px-2.5 py-1 text-[11px] font-semibold transition ${
+              className={`rounded-[var(--iw-radius-control)] px-2.5 py-1 text-[11px] font-semibold transition ${
                 !secondaryView
-                  ? "bg-[var(--forest)] text-white"
-                  : "text-[var(--moss)] hover:text-[var(--ink)]"
+                  ? "bg-[var(--iw-semantic-action-primary)] text-[var(--iw-semantic-action-primary-text)]"
+                  : "text-[var(--iw-semantic-text-secondary)] hover:text-[var(--iw-semantic-text-primary)]"
               }`}
             >
               Principal
@@ -852,10 +852,10 @@ export function LandingShowcase({
             <button
               type="button"
               onClick={() => setSecondaryView(true)}
-              className={`rounded-md px-2.5 py-1 text-[11px] font-semibold transition ${
+              className={`rounded-[var(--iw-radius-control)] px-2.5 py-1 text-[11px] font-semibold transition ${
                 secondaryView
-                  ? "bg-[var(--forest)] text-white"
-                  : "text-[var(--moss)] hover:text-[var(--ink)]"
+                  ? "bg-[var(--iw-semantic-action-primary)] text-[var(--iw-semantic-action-primary-text)]"
+                  : "text-[var(--iw-semantic-text-secondary)] hover:text-[var(--iw-semantic-text-primary)]"
               }`}
             >
               {activeTab.secondaryLabel}
@@ -1142,20 +1142,20 @@ export function LandingShowcase({
                           loading="lazy"
                           className="w-full h-full object-cover object-top group-hover:scale-[1.02] transition-transform duration-300"
                         />
-                        <span className="absolute top-2.5 left-2.5 rounded-full bg-[#132a1e]/85 px-2.5 py-0.5 font-mono text-[10px] font-semibold uppercase tracking-wider text-[#f5efe2]">
+                        <span className="absolute top-2.5 left-2.5 rounded-full bg-[var(--iw-color-forest-dark)]/90 px-2.5 py-0.5 font-mono text-[10px] font-semibold uppercase tracking-wider text-[var(--iw-color-paper)]">
                           {item.moduleTag}
                         </span>
                       </div>
                       <div className="p-3.5 flex-1 flex flex-col justify-between gap-1.5">
                         <div>
-                          <p className="text-sm font-bold text-[var(--ink)] line-clamp-1">
+                          <p className="text-sm font-bold text-[var(--iw-semantic-text-primary)] line-clamp-1">
                             {item.title}
                           </p>
-                          <p className="mt-1 text-xs text-[var(--moss)] line-clamp-2 leading-relaxed">
+                          <p className="mt-1 text-xs text-[var(--iw-semantic-text-secondary)] line-clamp-2 leading-relaxed">
                             {item.summary}
                           </p>
                         </div>
-                        <p className="pt-1 font-mono text-[10px] text-[var(--forest)] truncate">
+                        <p className="pt-1 font-mono text-[10px] text-[var(--iw-semantic-action-primary)] truncate">
                           {item.routeLabel}
                         </p>
                       </div>
@@ -1199,16 +1199,16 @@ export function LandingShowcase({
           if (e.target === dialogRef.current) setLightboxIndex(null);
         }}
         aria-label={activeLightbox?.title ?? "Vista ampliada de pantalla"}
-        className="backdrop:bg-black/75 backdrop:backdrop-blur-xs bg-transparent p-0 m-auto max-w-5xl w-[94vw] rounded-2xl overflow-hidden shadow-2xl"
+        className="backdrop:bg-black/75 backdrop:backdrop-blur-xs bg-transparent p-0 m-auto max-w-5xl w-[94vw] rounded-2xl overflow-hidden shadow-[var(--iw-shadow-popover)]"
       >
         {activeLightbox && (
-          <div className="bg-[var(--paper)] border border-[var(--line)] rounded-2xl overflow-hidden">
-            <div className="flex items-center justify-between gap-3 px-4 py-3 border-b border-[var(--line)] bg-[#f4ede0]">
+          <div className="bg-[var(--iw-semantic-bg-surface)] border border-[var(--iw-semantic-border-default)] rounded-2xl overflow-hidden">
+            <div className="flex items-center justify-between gap-3 px-4 py-3 border-b border-[var(--iw-semantic-border-default)] bg-[var(--iw-semantic-bg-page)]">
               <div className="min-w-0">
-                <p className="font-mono text-[11px] text-[var(--moss)] truncate">
+                <p className="font-mono text-[11px] text-[var(--iw-semantic-text-secondary)] truncate">
                   {activeLightbox.routeLabel}
                 </p>
-                <h4 className="font-display text-base sm:text-lg font-bold text-[var(--ink)] truncate">
+                <h4 className="font-display text-base sm:text-lg font-bold text-[var(--iw-semantic-text-primary)] truncate">
                   {activeLightbox.title}
                 </h4>
               </div>
@@ -1223,7 +1223,7 @@ export function LandingShowcase({
                         : (prev - 1 + lightboxEntries.length) % lightboxEntries.length,
                     )
                   }
-                  className="p-1.5 rounded-lg border border-[var(--line)] bg-white hover:bg-[var(--cream)] text-[var(--ink)]"
+                  className="p-2 rounded-[var(--iw-radius-control)] border border-[var(--iw-semantic-border-default)] bg-[var(--iw-semantic-bg-surface)] hover:bg-[var(--iw-semantic-bg-subtle)] text-[var(--iw-semantic-text-primary)]"
                 >
                   <ChevronLeft className="w-4 h-4" />
                 </button>
@@ -1235,7 +1235,7 @@ export function LandingShowcase({
                       prev === null ? 0 : (prev + 1) % lightboxEntries.length,
                     )
                   }
-                  className="p-1.5 rounded-lg border border-[var(--line)] bg-white hover:bg-[var(--cream)] text-[var(--ink)]"
+                  className="p-2 rounded-[var(--iw-radius-control)] border border-[var(--iw-semantic-border-default)] bg-[var(--iw-semantic-bg-surface)] hover:bg-[var(--iw-semantic-bg-subtle)] text-[var(--iw-semantic-text-primary)]"
                 >
                   <ChevronRight className="w-4 h-4" />
                 </button>
@@ -1243,14 +1243,14 @@ export function LandingShowcase({
                   type="button"
                   aria-label="Cerrar vista ampliada"
                   onClick={() => setLightboxIndex(null)}
-                  className="p-1.5 rounded-lg border border-[var(--line)] bg-white hover:bg-[var(--cream)] text-[var(--ink)]"
+                  className="p-2 rounded-[var(--iw-radius-control)] border border-[var(--iw-semantic-border-default)] bg-[var(--iw-semantic-bg-surface)] hover:bg-[var(--iw-semantic-bg-subtle)] text-[var(--iw-semantic-text-primary)]"
                 >
                   <X className="w-4 h-4" />
                 </button>
               </div>
             </div>
 
-            <div className="bg-white max-h-[72vh] overflow-auto">
+            <div className="bg-[var(--iw-semantic-bg-surface)] max-h-[72vh] overflow-auto">
               <Image
                 src={activeLightbox.image}
                 alt={activeLightbox.alt}
@@ -1260,12 +1260,12 @@ export function LandingShowcase({
               />
             </div>
 
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 px-4 py-3 border-t border-[var(--line)] bg-[#f4ede0]">
-              <p className="text-xs text-[var(--moss)]">{activeLightbox.subtitle}</p>
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 px-4 py-3 border-t border-[var(--iw-semantic-border-default)] bg-[var(--iw-semantic-bg-page)]">
+              <p className="text-xs text-[var(--iw-semantic-text-secondary)]">{activeLightbox.subtitle}</p>
               <Link
                 href="/login"
                 onClick={() => setLightboxIndex(null)}
-                className="inline-flex items-center justify-center rounded-lg bg-[var(--forest)] px-3.5 py-1.5 text-xs font-semibold text-white hover:bg-[var(--forest-deep)] shrink-0"
+                className="inline-flex min-h-[38px] items-center justify-center rounded-[var(--iw-radius-control)] bg-[var(--iw-semantic-action-primary)] px-3.5 py-1.5 text-xs font-semibold text-[var(--iw-semantic-action-primary-text)] hover:bg-[var(--iw-semantic-action-primary-hover)] shrink-0"
               >
                 Abrir en la app →
               </Link>

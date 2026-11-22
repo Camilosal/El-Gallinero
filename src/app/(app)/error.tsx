@@ -68,23 +68,23 @@ export default function DashboardErrorBoundary({
   };
 
   return (
-    <div className="max-w-2xl mx-auto my-8 rounded-2xl border border-rose-300 bg-white p-6 shadow-md space-y-4">
+    <div className="max-w-2xl mx-auto my-8 rounded-2xl border border-[var(--iw-semantic-status-danger)]/45 bg-[var(--iw-semantic-bg-surface)] p-6 shadow-[var(--iw-shadow-card)] space-y-4">
       <div className="flex items-start gap-3">
-        <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-rose-100 text-rose-800">
+        <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-[var(--iw-radius-control)] bg-[var(--iw-semantic-bg-subtle)] text-[var(--iw-semantic-status-danger)]">
           <AlertTriangle className="w-5 h-5" aria-hidden="true" />
         </span>
         <div className="space-y-1">
-          <h1 className="text-lg font-bold text-slate-900">
+          <h1 className="font-display text-lg font-bold text-[var(--iw-semantic-text-primary)]">
             Ocurrió una falla inesperada en {origin.originModule}
           </h1>
-          <p className="text-sm text-slate-600">
+          <p className="text-sm text-[var(--iw-semantic-text-secondary)]">
             Puedes reintentar cargar la vista o enviar este incidente automáticamente con sus etiquetas de origen.
           </p>
           <div className="flex flex-wrap gap-1 pt-1">
             {previewTags.map((t) => (
               <span
                 key={t}
-                className="rounded bg-slate-100 border border-slate-200 px-1.5 py-0.5 font-mono text-[10px] text-slate-700"
+                className="rounded bg-[var(--iw-semantic-bg-subtle)] border border-[var(--iw-semantic-border-default)] px-1.5 py-0.5 font-mono text-[10px] text-[var(--iw-semantic-text-secondary)]"
               >
                 {t}
               </span>
@@ -94,15 +94,15 @@ export default function DashboardErrorBoundary({
       </div>
 
       {sentCode ? (
-        <div className="rounded-xl border border-emerald-300 bg-emerald-50 p-3 text-sm text-emerald-950 flex items-center gap-2">
-          <CheckCircle2 className="w-4 h-4 text-emerald-700 shrink-0" />
+        <div role="status" className="rounded-[var(--iw-radius-control)] border border-[var(--iw-semantic-status-success)]/40 bg-[var(--iw-semantic-bg-feature)] p-3 text-sm text-[var(--iw-semantic-status-success)] flex items-center gap-2">
+          <CheckCircle2 className="w-4 h-4 shrink-0" />
           <span>
             Falla enviada automáticamente con radicado <strong className="font-mono">{sentCode}</strong>.
           </span>
         </div>
       ) : (
         sendError && (
-          <div className="rounded-xl border border-amber-300 bg-amber-50 p-3 text-xs text-amber-950">
+          <div role="alert" className="rounded-[var(--iw-radius-control)] border border-[var(--iw-semantic-status-warning)]/40 bg-[var(--iw-color-paper)] p-3 text-xs text-[var(--iw-semantic-status-warning)]">
             {sendError}
           </div>
         )
@@ -112,7 +112,7 @@ export default function DashboardErrorBoundary({
         <button
           type="button"
           onClick={reset}
-          className="inline-flex items-center gap-1.5 rounded-lg bg-slate-900 hover:bg-slate-800 text-white px-4 py-2 text-sm font-semibold"
+          className="inline-flex min-h-[44px] items-center gap-1.5 rounded-[var(--iw-radius-control)] bg-[var(--iw-semantic-action-primary)] hover:bg-[var(--iw-semantic-action-primary-hover)] text-[var(--iw-semantic-action-primary-text)] px-4 py-2 text-sm font-semibold transition"
         >
           <RefreshCw className="w-4 h-4" />
           <span>Reintentar</span>
@@ -122,7 +122,7 @@ export default function DashboardErrorBoundary({
             type="button"
             disabled={sending}
             onClick={() => void handleQuickAutoReport()}
-            className="inline-flex items-center gap-1.5 rounded-lg bg-rose-700 hover:bg-rose-800 text-white px-4 py-2 text-sm font-semibold disabled:opacity-60"
+            className="inline-flex min-h-[44px] items-center gap-1.5 rounded-[var(--iw-radius-control)] bg-[var(--iw-semantic-status-danger)] hover:brightness-90 text-white px-4 py-2 text-sm font-semibold disabled:opacity-60 transition"
           >
             <Bug className="w-4 h-4" />
             <span>{sending ? "Enviando reporte..." : "Enviar falla etiquetada"}</span>

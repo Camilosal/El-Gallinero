@@ -59,10 +59,10 @@ export default function ClientAppLayout({ children }: { children: React.ReactNod
   const marginClass = collapsed ? "md:ml-16" : "md:ml-64";
 
   return (
-    <div className="flex min-h-screen">
+    <div className="flex min-h-screen bg-[var(--iw-semantic-bg-page)] text-[var(--iw-semantic-text-primary)]">
       <Sidebar />
       <main className={`flex-1 ${marginClass} p-4 pb-24 md:p-6 md:pb-6 overflow-auto transition-all duration-300`}>
-        <div className="mb-4 flex items-center md:justify-end gap-2 sm:gap-3 border-b border-slate-200 pb-3 pl-11 md:pl-0">
+        <div className="mb-4 flex items-center md:justify-end gap-2 sm:gap-3 border-b border-[var(--iw-semantic-border-default)] pb-3 pl-12 md:pl-0">
           <OfflineSyncStatus />
           <div className="flex-1 min-w-0 max-w-xs sm:max-w-sm md:max-w-xs lg:max-w-sm">
             <GlobalSearch variant="topbar" className="w-full" />
@@ -73,14 +73,14 @@ export default function ClientAppLayout({ children }: { children: React.ReactNod
             onClick={() => openBugReportModal({ triggerSource: "topbar" })}
             title="Reportar una falla o inconsistencia desde esta pantalla"
             aria-label="Reportar falla"
-            className="relative inline-flex items-center gap-1.5 rounded-lg border border-rose-200 bg-rose-50/90 hover:bg-rose-100 px-2.5 py-2 text-xs font-semibold text-rose-900 transition-colors shrink-0"
+            className="relative inline-flex min-h-[40px] items-center gap-1.5 rounded-[var(--iw-radius-control)] border border-[var(--iw-semantic-status-danger)]/35 bg-[var(--iw-semantic-bg-surface)] hover:bg-[var(--iw-semantic-bg-subtle)] px-2.5 py-2 text-xs font-semibold text-[var(--iw-semantic-status-danger)] transition-colors shrink-0"
           >
-            <Bug className="h-3.5 w-3.5 text-rose-700" aria-hidden="true" />
+            <Bug className="h-3.5 w-3.5 text-[var(--iw-semantic-status-danger)]" aria-hidden="true" />
             <span className="hidden lg:inline">Reportar falla</span>
             {queuedBugCount > 0 && (
               <span
                 title={`${queuedBugCount} reporte(s) pendientes por enviar`}
-                className="inline-flex h-4 min-w-4 items-center justify-center rounded-full bg-rose-700 px-1 text-[10px] font-bold text-white tabular-nums"
+                className="inline-flex h-4 min-w-4 items-center justify-center rounded-full bg-[var(--iw-semantic-status-danger)] px-1 text-[10px] font-bold text-white tabular-nums"
               >
                 {queuedBugCount}
               </span>
@@ -90,12 +90,12 @@ export default function ClientAppLayout({ children }: { children: React.ReactNod
         </div>
         <DashboardBreadcrumb />
         {children}
-        <footer className="mt-10 border-t border-slate-200/80 pt-4 flex flex-wrap items-center justify-between gap-3">
+        <footer className="mt-10 border-t border-[var(--iw-semantic-border-default)] pt-4 flex flex-wrap items-center justify-between gap-3">
           <DeveloperCredit variant="inline" showAppName />
           <button
             type="button"
             onClick={() => openBugReportModal({ triggerSource: "footer" })}
-            className="inline-flex items-center gap-1.5 text-xs font-medium text-slate-600 hover:text-rose-800 hover:underline"
+            className="inline-flex items-center gap-1.5 text-xs font-medium text-[var(--iw-semantic-text-secondary)] hover:text-[var(--iw-semantic-status-danger)] hover:underline"
           >
             <Bug className="h-3.5 w-3.5" aria-hidden="true" />
             <span>¿Notaste alguna falla en esta vista? Repórtala aquí</span>
@@ -108,7 +108,7 @@ export default function ClientAppLayout({ children }: { children: React.ReactNod
         <button
           type="button"
           onClick={() => openQuickCapture({ mode: "huevos" })}
-          className="inline-flex items-center gap-1.5 rounded-full bg-green-700 px-4 py-3 text-sm font-semibold text-white shadow-lg shadow-green-900/25 transition-transform active:scale-95"
+          className="inline-flex min-h-[48px] items-center gap-1.5 rounded-full bg-[var(--iw-semantic-action-primary)] hover:bg-[var(--iw-semantic-action-primary-hover)] px-5 py-3 text-sm font-semibold text-[var(--iw-semantic-action-primary-text)] shadow-[var(--iw-shadow-popover)] transition-transform active:scale-95"
           aria-label="Abrir registro rápido"
         >
           <Plus className="h-4 w-4" strokeWidth={2.75} aria-hidden="true" />
@@ -117,7 +117,7 @@ export default function ClientAppLayout({ children }: { children: React.ReactNod
         <button
           type="button"
           onClick={() => window.dispatchEvent(new CustomEvent(OPEN_ASSISTANT_VOICE_EVENT))}
-          className="flex h-11 w-11 items-center justify-center rounded-full border border-slate-200 bg-white text-green-700 shadow-lg transition-transform active:scale-95"
+          className="flex h-12 w-12 items-center justify-center rounded-full border border-[var(--iw-semantic-border-default)] bg-[var(--iw-semantic-bg-surface)] text-[var(--iw-semantic-action-primary)] shadow-[var(--iw-shadow-popover)] transition-transform active:scale-95"
           aria-label="Dictar nota de voz"
           title="Dictar nota de voz"
         >

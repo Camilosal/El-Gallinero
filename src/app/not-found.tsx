@@ -43,11 +43,11 @@ export default function NotFoundPage() {
           <Link
             key={item.href}
             href={item.href}
-            className="rounded-2xl border border-slate-200 bg-white p-5 hover:border-emerald-700 transition shadow-2xs"
+            className="rounded-2xl border border-[var(--iw-semantic-border-default)] bg-[var(--iw-semantic-bg-surface)] p-5 hover:border-[var(--iw-semantic-action-primary)] transition shadow-[var(--iw-shadow-card)]"
           >
-            <h2 className="text-base font-bold text-slate-900">{item.title}</h2>
-            <p className="mt-1.5 text-sm text-slate-600 leading-relaxed">{item.desc}</p>
-            <span className="mt-3 inline-block text-xs font-semibold text-emerald-800 underline underline-offset-4">
+            <h2 className="font-display text-base font-bold text-[var(--iw-semantic-text-primary)]">{item.title}</h2>
+            <p className="mt-1.5 text-sm text-[var(--iw-semantic-text-secondary)] leading-relaxed">{item.desc}</p>
+            <span className="mt-3 inline-block text-xs font-semibold text-[var(--iw-semantic-action-primary)] underline underline-offset-4">
               Ir a {item.title} →
             </span>
           </Link>

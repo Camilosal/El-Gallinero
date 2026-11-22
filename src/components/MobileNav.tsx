@@ -5,8 +5,10 @@ import { useState, useCallback } from "react";
 import { ChevronDown } from "lucide-react";
 import { BrandLogo } from "@/components/BrandLogo";
 
-const GROUP_LINK_CLASS = "!block !border-0 !py-2 !font-sans !text-sm !font-medium text-slate-700 hover:text-emerald-900";
-const SUMMARY_CLASS = "flex cursor-pointer list-none items-center justify-between gap-3 py-3 font-display text-base font-semibold text-[var(--ink)] [&::-webkit-details-marker]:hidden";
+const GROUP_LINK_CLASS =
+  "!block !border-0 !py-2 !font-sans !text-sm !font-medium text-[var(--iw-semantic-text-secondary)] hover:text-[var(--iw-semantic-action-primary)]";
+const SUMMARY_CLASS =
+  "flex min-h-[48px] cursor-pointer list-none items-center justify-between gap-3 py-3 font-display text-base font-semibold text-[var(--iw-semantic-text-primary)] [&::-webkit-details-marker]:hidden";
 
 export default function MobileNav() {
   const [open, setOpen] = useState(false);
@@ -28,12 +30,18 @@ export default function MobileNav() {
       </button>
 
       <div id="landing-mobile-navigation" className={`land-mobile-menu ${open ? "open" : ""}`}>
-        <div className="flex items-center gap-2.5 border-b border-[var(--line)] px-7 pb-3 pt-3">
-          <BrandLogo variant="square" size={42} className="rounded-xl border border-[var(--line)] bg-white/90 p-1" />
-          <span className="text-sm font-semibold text-[var(--ink)]">Explora IwaGranja</span>
+        <div className="flex items-center gap-2.5 border-b border-[var(--iw-semantic-border-default)] px-7 pb-3 pt-3">
+          <BrandLogo
+            variant="square"
+            size={42}
+            className="rounded-[var(--iw-radius-control)] border border-[var(--iw-semantic-border-default)] bg-[var(--iw-semantic-bg-surface)] p-1"
+          />
+          <span className="text-sm font-semibold text-[var(--iw-semantic-text-primary)]">
+            Explora IwaGranja
+          </span>
         </div>
         <nav aria-label="Navegación principal móvil" className="land-mobile-nav">
-          <details className="border-b border-[var(--line)]">
+          <details className="border-b border-[var(--iw-semantic-border-default)]">
             <summary className={SUMMARY_CLASS}>La app <ChevronDown className="h-4 w-4" /></summary>
             <div className="space-y-0.5 pb-2 pl-3">
               <Link href="/#como-funciona" onClick={close} className={GROUP_LINK_CLASS}>Cómo funciona</Link>
@@ -45,7 +53,7 @@ export default function MobileNav() {
 
           <Link href="/planes" onClick={close} className="!py-3">Planes</Link>
 
-          <details className="border-b border-[var(--line)]">
+          <details className="border-b border-[var(--iw-semantic-border-default)]">
             <summary className={SUMMARY_CLASS}>Recursos <ChevronDown className="h-4 w-4" /></summary>
             <div className="space-y-0.5 pb-2 pl-3">
               <Link href="/bitacora" onClick={close} className={GROUP_LINK_CLASS}>Artículos y bitácoras</Link>
@@ -55,16 +63,20 @@ export default function MobileNav() {
             </div>
           </details>
 
-          <details className="border-b border-[var(--line)]">
+          <details className="border-b border-[var(--iw-semantic-border-default)]">
             <summary className={SUMMARY_CLASS}>Más <ChevronDown className="h-4 w-4" /></summary>
             <div className="pb-2 pl-3">
-              <p className="pt-2 font-mono text-[10px] font-bold uppercase tracking-wider text-[var(--forest)]">Sobre IwaGranja</p>
+              <p className="pt-2 font-mono text-[10px] font-bold uppercase tracking-wider text-[var(--iw-semantic-action-primary)]">
+                Sobre IwaGranja
+              </p>
               <div className="space-y-0.5">
                 <Link href="/nosotros" onClick={close} className={GROUP_LINK_CLASS}>Quiénes somos</Link>
                 <Link href="/open-source" onClick={close} className={GROUP_LINK_CLASS}>Código abierto y participación</Link>
                 <Link href="/contacto" onClick={close} className={GROUP_LINK_CLASS}>Contacto y acompañamiento</Link>
               </div>
-              <p className="pt-2 font-mono text-[10px] font-bold uppercase tracking-wider text-[var(--forest)]">Ayuda y legal</p>
+              <p className="pt-2 font-mono text-[10px] font-bold uppercase tracking-wider text-[var(--iw-semantic-action-primary)]">
+                Ayuda y legal
+              </p>
               <div className="space-y-0.5">
                 <Link href="/ayuda" onClick={close} className={GROUP_LINK_CLASS}>Ayuda y preguntas frecuentes</Link>
                 <Link href="/terminos" onClick={close} className={GROUP_LINK_CLASS}>Términos y condiciones</Link>
@@ -74,9 +86,21 @@ export default function MobileNav() {
             </div>
           </details>
 
-          <div className="mt-4 flex flex-col gap-2 border-t border-[var(--line)] pt-4">
-            <Link href="/registro" onClick={close} className="rounded-full bg-[var(--forest)] px-4 py-2.5 text-center text-sm font-semibold text-white hover:bg-[var(--forest-deep)] transition">Crear granja gratis</Link>
-            <Link href="/login" onClick={close} className="rounded-full border border-[var(--line)] bg-[var(--paper)] px-4 py-2 text-center text-sm font-medium text-[var(--ink)] hover:border-[var(--forest)] transition">Entrar</Link>
+          <div className="mt-4 flex flex-col gap-2 border-t border-[var(--iw-semantic-border-default)] pt-4">
+            <Link
+              href="/registro"
+              onClick={close}
+              className="inline-flex min-h-12 items-center justify-center rounded-[var(--iw-radius-control)] bg-[var(--iw-semantic-action-primary)] px-4 py-2.5 text-center text-sm font-semibold text-[var(--iw-semantic-action-primary-text)] hover:bg-[var(--iw-semantic-action-primary-hover)] transition"
+            >
+              Crear granja gratis
+            </Link>
+            <Link
+              href="/login"
+              onClick={close}
+              className="inline-flex min-h-12 items-center justify-center rounded-[var(--iw-radius-control)] border border-[var(--iw-semantic-action-secondary-border)] bg-[var(--iw-semantic-action-secondary)] px-4 py-2 text-center text-sm font-medium text-[var(--iw-semantic-action-secondary-text)] hover:bg-[var(--iw-semantic-bg-feature)] transition"
+            >
+              Entrar
+            </Link>
           </div>
         </nav>
       </div>
