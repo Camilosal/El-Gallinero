@@ -150,11 +150,40 @@ export const billingPayments = pgTable("billing_payments", {
   method: varchar("method", { length: 30 }).notNull(), // nequi | daviplata | pse
   amountCop: integer("amount_cop").notNull(),
   planCode: varchar("plan_code", { length: 40 }).notNull(),
-  status: varchar("status", { length: 20 }).default("pending").notNull(), // pending | approved | declined
+  status: varchar("status", { length: 20 }).default("pending").notNull(), // Wompi: pending | approved | declined | error | voided; unknown signed values enter review. Expiration/refund/reversal are handled separately.
   rawPayload: jsonb("raw_payload").$type<Record<string, unknown>>(),
   paidAt: timestamp("paid_at"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
-});
+}, (t) => [
+  uniqueIndex("billing_payments_provider_tx_unique_idx")
+    .on(t.provider, t.providerTxId)
+    .where(sql`${t.providerTxId} IS NOT NULL`),
+]);
+
+/** Append-only subscription lifecycle log. Payment payloads/card data never belong here. */
+export const farmSubscriptionEvents = pgTable("farm_subscription_events", {
+  id: uuid("id").defaultRandom().primaryKey(),
+  farmId: farmIdCol(),
+  subscriptionId: uuid("subscription_id"),
+  eventKey: varchar("event_key", { length: 180 }).notNull().unique(),
+  eventType: varchar("event_type", { length: 48 }).notNull(),
+  actorType: varchar("actor_type", { length: 30 }).default("system").notNull(),
+  actorId: uuid("actor_id"),
+  source: varchar("source", { length: 48 }).notNull(),
+  reason: varchar("reason", { length: 500 }),
+  beforeSnapshot: jsonb("before_snapshot").$type<Record<string, unknown> | null>(),
+  afterSnapshot: jsonb("after_snapshot").$type<Record<string, unknown>>().notNull(),
+  policyVersion: varchar("policy_version", { length: 80 }),
+  termsVersion: varchar("terms_version", { length: 80 }),
+  paymentId: uuid("payment_id"),
+  externalReference: varchar("external_reference", { length: 120 }),
+  resultStatus: varchar("result_status", { length: 30 }).default("applied").notNull(),
+  occurredAt: timestamp("occurred_at").defaultNow().notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+}, (t) => [
+  index("farm_subscription_events_farm_time_idx").on(t.farmId, t.occurredAt.desc(), t.id.desc()),
+  index("farm_subscription_events_payment_idx").on(t.paymentId),
+]);
 
 // ─── Tokens de exportación (solo lectura, resuelven la granja antes del contexto RLS) ───
 export const exportTokens = pgTable("export_tokens", {

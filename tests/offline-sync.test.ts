@@ -270,6 +270,9 @@ describe("Offline Sync Architecture", () => {
   it("reglas de URL excluyen health/auth de caché y cobertura de rutas/endpoints del espejo es completa", () => {
     expect(shouldCacheApiGet("/api/health")).toBe(false);
     expect(shouldCacheApiGet("/api/auth/login")).toBe(false);
+    expect(shouldCacheApiGet("/api/billing/checkout")).toBe(false);
+    expect(shouldCacheApiGet("/api/billing/payments?beforeAt=2026-11-20T00%3A00%3A00.000Z")).toBe(false);
+    expect(shouldCacheApiGet("/api/superadmin/billing/reconciliation")).toBe(false);
     expect(shouldCacheApiGet("/api/dashboard")).toBe(true);
     expect(shouldQueueApiMutation("/api/auth/login", "POST")).toBe(false);
     expect(shouldQueueApiMutation("/api/ubicaciones", "POST")).toBe(true);

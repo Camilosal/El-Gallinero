@@ -52,6 +52,12 @@ const MAX_EXTRA_PLATES = policy.interface_limits.max_extra_plates_per_quote;
 const MAX_EXTRA_TRAINING_PACKAGES = policy.interface_limits.max_extra_training_packages;
 const COP_PERCENT_BASE = BigInt(10_000);
 
+export function isSupportedPricingTerm(segment: PricingSegment, months: number): boolean {
+  if (!Number.isSafeInteger(months)) return false;
+  const allowedTerms: readonly number[] = segment === "producer" ? ALLOWED_PRODUCER_TERMS : ALLOWED_AGGREGATOR_TERMS;
+  return allowedTerms.includes(months);
+}
+
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
 }

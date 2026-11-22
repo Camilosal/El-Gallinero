@@ -86,6 +86,7 @@ const PUBLIC_PREFIXES = [
   "/api/auth/register",
   "/api/auth/me",
   "/api/billing/webhook",
+  "/api/billing/reservas",
   "/api/contacto",
   "/api/health",
 ];

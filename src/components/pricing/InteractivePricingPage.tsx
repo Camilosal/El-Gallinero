@@ -142,6 +142,7 @@ export default function InteractivePricingPage() {
     loginRequired: false,
   });
   const checkoutReviewDialogRef = useRef<HTMLDialogElement | null>(null);
+  const checkoutAttemptRef = useRef<{ fingerprint: string; idempotencyKey: string } | null>(null);
   const [checkoutReviewOpen, setCheckoutReviewOpen] = useState(false);
   const [copySelectionStatus, setCopySelectionStatus] = useState("");
   const [activeCategory, setActiveCategory] = useState("functionalities");
@@ -439,6 +440,10 @@ export default function InteractivePricingPage() {
     }
     setCheckoutState({ loading: true, error: "", loginRequired: false });
     try {
+      const attemptFingerprint = JSON.stringify({ input, policyVersion: offer.policyVersion, renewalApplied, farmId: verifiedRenewalFarm?.id ?? null });
+      if (checkoutAttemptRef.current?.fingerprint !== attemptFingerprint) {
+        checkoutAttemptRef.current = { fingerprint: attemptFingerprint, idempotencyKey: crypto.randomUUID() };
+      }
       const response = await fetch("/api/billing/checkout", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -448,9 +453,13 @@ export default function InteractivePricingPage() {
           farmId: renewalApplied ? verifiedRenewalFarm?.id : undefined,
           acceptedTerms: true,
           acceptedPolicyVersion: offer.policyVersion,
+          idempotencyKey: checkoutAttemptRef.current.idempotencyKey,
         }),
       });
       const data = (await response.json()) as { redirectUrl?: string; error?: string; code?: string };
+      if (data.code === "CHECKOUT_ATTEMPT_EXPIRED" || data.code === "CHECKOUT_ATTEMPT_FINISHED") {
+        checkoutAttemptRef.current = null;
+      }
       if (response.status === 401) {
         setCheckoutState({
           loading: false,

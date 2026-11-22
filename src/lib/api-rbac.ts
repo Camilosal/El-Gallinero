@@ -65,6 +65,9 @@ export function getApiPermission(
     if (pathname === "/api/export/token") return "settings:manage";
     if (pathname === "/api/export") return "export:read";
     if (pathname === "/api/asistente/delegacion") return "assistant:manage";
+    if (pathname === "/api/billing/payments") return "settings:manage";
+    if (pathname === "/api/billing/history") return "settings:manage";
+    if (pathname === "/api/superadmin/billing/reconciliation") return "settings:manage";
     if (pathname === "/api/configuracion/usuarios") return "users:manage";
 
     if (startsWithPath(pathname, "/api/configuracion/fuentes-externas") || pathname === "/api/configuracion/integraciones") {

@@ -17,5 +17,8 @@ export const GET = withApiHandler(async () => {
     userId: user.id,
     entitlements: subscription.entitlements,
   });
-  return NextResponse.json({ planName: subscription.planName, quota });
+  return NextResponse.json(
+    { planName: subscription.planName, quota },
+    { headers: { "Cache-Control": "no-store, max-age=0" } },
+  );
 });

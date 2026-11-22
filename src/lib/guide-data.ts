@@ -2531,9 +2531,9 @@ export const guides: Guide[] = [
     module: "configuracion",
     icon: "banknote",
     summary:
-      "Consulta los cupos del plan, entiende cómo se diferencian de los roles y calcula el costo del plan con la política comercial vigente.",
+      "Consulta los cupos del plan, entiende cómo se diferencian de los roles y contrata o renueva según las condiciones comerciales vigentes.",
     estimatedMinutes: 3,
-    updatedAt: "2026-11-19",
+    updatedAt: "2026-11-20",
     tags: ["plan", "suscripcion", "pago", "usuarios", "localizaciones", "lotes", "gina", "freemium", "cupos", "facturacion"],
     relatedHrefs: [
       { href: "/configuracion/plan", label: "Plan y Facturación" },
@@ -2561,23 +2561,23 @@ export const guides: Guide[] = [
         title: "Elegir y contratar un plan",
         items: [
           "Abre Configuración → Plan y límites para revisar el nivel aplicado y los topes actuales.",
-          "En Planes, elige Mi granja o Agregadores y proyectos. Revisa Gratis, Productor, Agregador y A la medida.",
-          "Para Productor, indica usuarios y duración; revisa el total y las condiciones antes de continuar al pago. La suscripción se activa cuando el proveedor confirma el pago.",
-          "Agregador muestra un cálculo de referencia, pero el alta institucional requiere validar el padrón y los límites de beneficiarios antes de contratar.",
+          "En Planes, elige Mi granja o Agregadores y proyectos. Revisa Gratis y Productor para una granja, u Organización y A la medida para un proyecto.",
+          "Para Productor, indica usuarios y duración; revisa el resumen y acepta las condiciones antes de continuar al checkout. La suscripción se activa cuando Wompi confirma el pago.",
+          "Organización y A la medida requieren validar el alcance institucional y los beneficiarios antes de habilitar la contratación.",
         ],
       },
       {
         type: "warning",
         title: "Importante",
         items: [
-          "El checkout de Productor se habilita cuando Wompi está configurado en el servidor. Agregador requiere implementar el padrón y el control de beneficiarios antes de abrir pagos.",
+          "El checkout de Productor aparece cuando Wompi está configurado en el servidor. Organización requiere el padrón y el control de beneficiarios antes de abrir pagos.",
         ],
       },
       {
         type: "tip",
         title: "Consejo",
         items: [
-          "Los beneficiarios son distintos de las cuentas de usuario. Confirma con IwaGranja cuándo estará habilitada la contratación de Agregador.",
+          "Los beneficiarios son distintos de las cuentas de usuario. Organización no tiene checkout individual hasta que se implemente su registro y control en la app.",
         ],
       },
     ],

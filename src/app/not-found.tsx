@@ -22,7 +22,7 @@ export default function NotFoundPage() {
           {
             href: "/planes",
             title: "Planes y precios",
-            desc: "Plan Gratis para iniciar y cálculo de costos Productor o Agregador, sin cobros automáticos.",
+            desc: "Compara Gratis y Productor para tu granja u Organización y A la medida para proyectos. Productor no se renueva automáticamente.",
           },
           {
             href: "/bitacora",

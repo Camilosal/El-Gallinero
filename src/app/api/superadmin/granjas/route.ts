@@ -7,6 +7,7 @@ import {
   billingPayments,
   broilerBatches,
   farmLocations,
+  farmSubscriptionEvents,
   farmSubscriptions,
   farms,
   hens,
@@ -26,7 +27,8 @@ import {
 import { forbiddenResponse, normalizeRole } from "@/lib/rbac";
 import { seedStarterFeedsAndPrograms } from "@/lib/feeding/default-tenant-seed";
 import { invalidateSettingsCache } from "@/lib/settings";
-import { PLAN_CATALOG } from "@/lib/subscription";
+import { addCalendarMonths, PLAN_CATALOG } from "@/lib/subscription";
+import { getPlanEntitlements, resolveCommercialPlan } from "@/lib/pricing/entitlements";
 import { canManagePlatformTenants, SUPERADMIN_PLAN_OPTIONS } from "@/lib/superadmin-tenants";
 
 export const dynamic = "force-dynamic";
@@ -53,6 +55,27 @@ function toFarmSlug(farmName: string): string {
 }
 
 function resolvePlanMetadata(planCode: string) {
+  if (planCode === "PRODUCTOR") {
+    const entitlements = getPlanEntitlements("producer");
+    return {
+      code: "PRODUCTOR",
+      name: "Productor",
+      durationDays: 30,
+      amountCop: 0,
+      maxUsers: entitlements.maxUserSeats ?? 25,
+      maxActiveBatches: null as number | null,
+    };
+  }
+  if (planCode === "AGREGADOR" || planCode === "AGGREGATOR") {
+    return {
+      code: planCode,
+      name: "Organización",
+      durationDays: 30,
+      amountCop: 0,
+      maxUsers: 1,
+      maxActiveBatches: null as number | null,
+    };
+  }
   if (planCode in PLAN_CATALOG) {
     const p = PLAN_CATALOG[planCode as keyof typeof PLAN_CATALOG];
     return {
@@ -67,7 +90,7 @@ function resolvePlanMetadata(planCode: string) {
   if (planCode === "COMERCIAL_MEDIANO") {
     return {
       code: "COMERCIAL_MEDIANO",
-      name: "Comercial Mediano Productor",
+      name: "Productor",
       durationDays: 30,
       amountCop: 149000,
       maxUsers: 15,
@@ -92,9 +115,10 @@ function computeEffectiveSubscription(
   const planCode = sub?.planCode || farm.planCode || "FREEMIUM_SEMILLA";
   const meta = resolvePlanMetadata(planCode);
   const rawStatus = sub?.status || "trial";
-  const periodEnd = sub?.currentPeriodEnd || farm.trialEndsAt || null;
+  const periodEnd = planCode === "FREEMIUM_SEMILLA"
+    ? null
+    : sub?.currentPeriodEnd || farm.trialEndsAt || null;
   const periodStart = sub?.currentPeriodStart || farm.createdAt || now;
-  const maxUsers = sub?.maxUsers ?? meta.maxUsers;
   const maxActiveBatches =
     sub !== undefined ? sub.maxActiveBatches : meta.maxActiveBatches;
 
@@ -113,13 +137,19 @@ function computeEffectiveSubscription(
     effectiveStatus = "freemium";
   }
 
+  const paidAccess = effectiveStatus === "active" || effectiveStatus === "grace";
+  const entitlements = getPlanEntitlements(
+    resolveCommercialPlan(planCode, paidAccess),
+    sub?.maxUsers,
+  );
+
   return {
     planCode,
-    planName: meta.name,
+    planName: entitlements.planName,
     rawStatus,
     effectiveStatus,
-    maxUsers,
-    maxActiveBatches,
+    maxUsers: entitlements.maxUserSeats ?? meta.maxUsers,
+    maxActiveBatches: entitlements.maxActiveBatchesPerSpecies ?? maxActiveBatches,
     currentPeriodStart: periodStart ? new Date(periodStart).toISOString() : null,
     currentPeriodEnd: periodEnd ? new Date(periodEnd).toISOString() : null,
     daysRemaining,
@@ -347,30 +377,20 @@ export const POST = withApiHandler(async (req: NextRequest) => {
   const planCode =
     typeof body.planCode === "string" && body.planCode.trim()
       ? body.planCode.trim()
-      : scale === "MEDIANO"
-        ? "MEDIANO_MENSUAL"
-        : "FREEMIUM_SEMILLA";
+      : "FREEMIUM_SEMILLA";
+  if (planCode !== "FREEMIUM_SEMILLA") {
+    return NextResponse.json(
+      {
+        error: "Las cuentas nuevas empiezan con el plan Gratis. Productor se contrata desde Planes y se activa al confirmar el pago.",
+        code: "SUBSCRIPTION_REQUIRES_CHECKOUT",
+      },
+      { status: 409 },
+    );
+  }
   const planMeta = resolvePlanMetadata(planCode);
-  const status =
-    body.status === "active" || body.status === "trial" || body.status === "grace"
-      ? body.status
-      : planCode === "FREEMIUM_SEMILLA"
-        ? "trial"
-        : "active";
-  const durationDays =
-    typeof body.durationDays === "number" && body.durationDays > 0
-      ? Math.min(3650, Math.round(body.durationDays))
-      : planMeta.durationDays;
-  const maxUsers =
-    typeof body.maxUsers === "number" && body.maxUsers >= 1
-      ? Math.min(200, Math.round(body.maxUsers))
-      : planMeta.maxUsers;
-  const maxActiveBatches =
-    body.maxActiveBatches === null
-      ? null
-      : typeof body.maxActiveBatches === "number" && body.maxActiveBatches >= 1
-        ? Math.round(body.maxActiveBatches)
-        : planMeta.maxActiveBatches;
+  const status = "freemium";
+  const maxUsers = planMeta.maxUsers;
+  const maxActiveBatches = planMeta.maxActiveBatches;
   const allyCode =
     typeof body.allyCode === "string" && body.allyCode.trim()
       ? body.allyCode.trim().slice(0, 120)
@@ -420,7 +440,7 @@ export const POST = withApiHandler(async (req: NextRequest) => {
   }
 
   const now = new Date();
-  const periodEnd = new Date(now.getTime() + durationDays * 86400000);
+  const periodEnd = null;
   const passwordHash = await hashPassword(ownerPassword);
   const recoveryCode = `IWG-${crypto.randomBytes(6).toString("hex").toUpperCase()}`;
   const recoveryCodeHash = crypto.createHash("sha256").update(recoveryCode).digest("hex");
@@ -659,6 +679,16 @@ export const PATCH = withApiHandler(async (req: NextRequest) => {
     typeof body.planCode === "string" && body.planCode.trim()
       ? body.planCode.trim()
       : existingSub?.planCode || existingFarm.planCode || "FREEMIUM_SEMILLA";
+  const currentPlanCode = existingSub?.planCode || existingFarm.planCode || "FREEMIUM_SEMILLA";
+  if (nextPlanCode !== currentPlanCode && nextPlanCode !== "FREEMIUM_SEMILLA") {
+    return NextResponse.json(
+      {
+        error: "Para activar o cambiar a Productor, inicia la suscripción desde Planes. Los contratos anteriores se conservan con su código actual.",
+        code: "SUBSCRIPTION_REQUIRES_CHECKOUT",
+      },
+      { status: 409 },
+    );
+  }
   const planMeta = resolvePlanMetadata(nextPlanCode);
 
   const nextStatus =
@@ -667,15 +697,48 @@ export const PATCH = withApiHandler(async (req: NextRequest) => {
       ? body.status
       : existingSub?.status || "trial";
 
-  const nextMaxUsers =
-    typeof body.maxUsers === "number" && body.maxUsers >= 1
-      ? Math.min(200, Math.round(body.maxUsers))
+  if (
+    body.registerManualPayment &&
+    (typeof body.amountCop !== "number" || body.amountCop < 1000)
+  ) {
+    return NextResponse.json(
+      { error: "Ingresa el valor recibido (mínimo $1.000 COP) para registrar el pago." },
+      { status: 400 },
+    );
+  }
+
+  const nextPlanKey = resolveCommercialPlan(
+    nextPlanCode,
+    nextStatus === "active" || nextStatus === "grace",
+  );
+  const persistedStatus = nextPlanCode === "FREEMIUM_SEMILLA" ? "freemium" : nextStatus;
+  const nextEntitlements = getPlanEntitlements(nextPlanKey, existingSub?.maxUsers);
+  const activatingPaidPlan =
+    nextPlanKey !== "free" && nextStatus === "active" && existingSub?.status !== "active";
+  if (
+    activatingPaidPlan &&
+    (!body.registerManualPayment || typeof body.amountCop !== "number" || body.amountCop < 1000)
+  ) {
+    return NextResponse.json(
+      {
+        error: "Para activar una suscripción pagada desde esta administración, registra el pago recibido. El cliente también puede contratar desde Planes.",
+        code: "PAYMENT_REQUIRED_FOR_ACTIVATION",
+      },
+      { status: 409 },
+    );
+  }
+  const nextMaxUsers = nextPlanKey === "free"
+    ? nextEntitlements.maxUserSeats ?? 1
+    : typeof body.maxUsers === "number" && body.maxUsers >= 1
+      ? Math.min(nextEntitlements.maxUserSeats ?? 25, Math.round(body.maxUsers))
       : body.planCode && body.planCode !== existingSub?.planCode
         ? planMeta.maxUsers
         : existingSub?.maxUsers ?? planMeta.maxUsers;
 
   const nextMaxActiveBatches =
-    body.maxActiveBatches === null
+    nextPlanKey === "free"
+      ? nextEntitlements.maxActiveBatchesPerSpecies
+      : body.maxActiveBatches === null
       ? null
       : typeof body.maxActiveBatches === "number" && body.maxActiveBatches >= 1
         ? Math.round(body.maxActiveBatches)
@@ -685,16 +748,23 @@ export const PATCH = withApiHandler(async (req: NextRequest) => {
             ? existingSub.maxActiveBatches
             : planMeta.maxActiveBatches;
 
-  let nextPeriodEnd: Date | null =
-    existingSub?.currentPeriodEnd || existingFarm.trialEndsAt || null;
+  let nextPeriodEnd: Date | null = nextPlanCode === "FREEMIUM_SEMILLA"
+    ? null
+    : existingSub?.currentPeriodEnd || existingFarm.trialEndsAt || null;
 
-  if (typeof body.extendDays === "number" && body.extendDays !== 0) {
+  if (nextPlanCode !== "FREEMIUM_SEMILLA" && [3, 6, 12, 18].includes(Number(body.extendMonths))) {
+    const baseDate =
+      nextPeriodEnd && nextPeriodEnd.getTime() > now.getTime() && !body.extendFromNow
+        ? nextPeriodEnd
+        : now;
+    nextPeriodEnd = addCalendarMonths(baseDate, Number(body.extendMonths));
+  } else if (nextPlanCode !== "FREEMIUM_SEMILLA" && typeof body.extendDays === "number" && body.extendDays !== 0) {
     const baseTime =
       nextPeriodEnd && nextPeriodEnd.getTime() > now.getTime() && !body.extendFromNow
         ? nextPeriodEnd.getTime()
         : now.getTime();
     nextPeriodEnd = new Date(baseTime + Math.round(body.extendDays) * 86400000);
-  } else if (typeof body.currentPeriodEnd === "string" && body.currentPeriodEnd.trim()) {
+  } else if (nextPlanCode !== "FREEMIUM_SEMILLA" && typeof body.currentPeriodEnd === "string" && body.currentPeriodEnd.trim()) {
     const parsed = new Date(body.currentPeriodEnd);
     if (!Number.isNaN(parsed.getTime())) {
       nextPeriodEnd = parsed;
@@ -726,66 +796,127 @@ export const PATCH = withApiHandler(async (req: NextRequest) => {
         : null
       : existingFarm.qrSource;
 
-  const [updatedFarm] = await db
-    .update(farms)
-    .set({
-      name: nextName,
-      deploymentMode: nextDeploymentMode,
-      allyCode: nextAllyCode,
-      qrSource: nextQrSource,
-      planCode: nextPlanCode,
-      trialEndsAt: nextPeriodEnd,
-      updatedAt: now,
-    })
-    .where(eq(farms.id, farmId))
-    .returning();
+  const beforeSnapshot = existingSub
+    ? {
+        planCode: existingSub.planCode,
+        status: existingSub.status,
+        maxUsers: existingSub.maxUsers,
+        maxActiveBatches: existingSub.maxActiveBatches,
+        currentPeriodStart: existingSub.currentPeriodStart.toISOString(),
+        currentPeriodEnd: existingSub.currentPeriodEnd?.toISOString() ?? null,
+      }
+    : null;
+  const currentPeriodStart = existingSub?.currentPeriodStart || now;
+  const afterSnapshot = {
+    planCode: nextPlanCode,
+    status: persistedStatus,
+    maxUsers: nextMaxUsers,
+    maxActiveBatches: nextMaxActiveBatches,
+    currentPeriodStart: currentPeriodStart.toISOString(),
+    currentPeriodEnd: nextPeriodEnd?.toISOString() ?? null,
+  };
+  const subscriptionChanged = !existingSub ||
+    existingSub.planCode !== nextPlanCode ||
+    existingSub.status !== persistedStatus ||
+    existingSub.maxUsers !== nextMaxUsers ||
+    existingSub.maxActiveBatches !== nextMaxActiveBatches ||
+    existingSub.currentPeriodStart.getTime() !== currentPeriodStart.getTime() ||
+    (existingSub.currentPeriodEnd?.getTime() ?? null) !== (nextPeriodEnd?.getTime() ?? null);
 
-  const [updatedSub] = await db
-    .insert(farmSubscriptions)
-    .values({
-      farmId,
-      planCode: nextPlanCode,
-      status: nextStatus,
-      maxUsers: nextMaxUsers,
-      maxActiveBatches: nextMaxActiveBatches,
-      currentPeriodStart: existingSub?.currentPeriodStart || now,
-      currentPeriodEnd: nextPeriodEnd,
-      updatedAt: now,
-    })
-    .onConflictDoUpdate({
-      target: farmSubscriptions.farmId,
-      set: {
+  const { updatedFarm, updatedSub } = await runWithFarmContext(farmId, () => db.transaction(async (tx) => {
+    const [updatedFarm] = await tx
+      .update(farms)
+      .set({
+        name: nextName,
+        deploymentMode: nextDeploymentMode,
+        allyCode: nextAllyCode,
+        qrSource: nextQrSource,
         planCode: nextPlanCode,
-        status: nextStatus,
+        trialEndsAt: nextPeriodEnd,
+        updatedAt: now,
+      })
+      .where(eq(farms.id, farmId))
+      .returning();
+
+    const [updatedSub] = await tx
+      .insert(farmSubscriptions)
+      .values({
+        farmId,
+        planCode: nextPlanCode,
+        status: persistedStatus,
         maxUsers: nextMaxUsers,
         maxActiveBatches: nextMaxActiveBatches,
+        currentPeriodStart,
         currentPeriodEnd: nextPeriodEnd,
         updatedAt: now,
-      },
-    })
-    .returning();
+      })
+      .onConflictDoUpdate({
+        target: farmSubscriptions.farmId,
+        set: {
+          planCode: nextPlanCode,
+          status: persistedStatus,
+          maxUsers: nextMaxUsers,
+          maxActiveBatches: nextMaxActiveBatches,
+          currentPeriodEnd: nextPeriodEnd,
+          updatedAt: now,
+        },
+      })
+      .returning();
 
-  if (body.registerManualPayment) {
-    const amountCop =
-      typeof body.amountCop === "number" && body.amountCop > 0
-        ? Math.round(body.amountCop)
-        : planMeta.amountCop;
-    if (amountCop > 0) {
-      await db.insert(billingPayments).values({
+    let manualPayment: { id: string; externalReference: string } | undefined;
+    if (body.registerManualPayment) {
+      const amountCop =
+        typeof body.amountCop === "number" && body.amountCop > 0
+          ? Math.round(body.amountCop)
+          : planMeta.amountCop;
+      if (amountCop > 0) {
+        [manualPayment] = await tx.insert(billingPayments).values({
+          farmId,
+          provider: "manual_superadmin",
+          externalReference: `SA-${existingFarm.slug.slice(0, 24)}-${Date.now()}`,
+          method:
+            typeof body.paymentMethod === "string" && body.paymentMethod.trim()
+              ? body.paymentMethod.trim().slice(0, 30)
+              : "transferencia",
+          amountCop,
+          planCode: nextPlanCode,
+          status: "approved",
+          paidAt: now,
+        }).returning({ id: billingPayments.id, externalReference: billingPayments.externalReference });
+      }
+    }
+
+    if (subscriptionChanged) {
+      const changedFields = !existingSub
+        ? ["creación"]
+        : [
+            existingSub.planCode !== nextPlanCode ? "plan" : null,
+            existingSub.status !== persistedStatus ? "estado" : null,
+            existingSub.maxUsers !== nextMaxUsers ? "cupo de usuarios" : null,
+            existingSub.maxActiveBatches !== nextMaxActiveBatches ? "cupo de lotes" : null,
+            (existingSub.currentPeriodEnd?.getTime() ?? null) !== (nextPeriodEnd?.getTime() ?? null) ? "vigencia" : null,
+          ].filter((field): field is string => Boolean(field));
+      const suppliedReason = typeof body.changeReason === "string" ? body.changeReason.trim().slice(0, 500) : "";
+      await tx.insert(farmSubscriptionEvents).values({
         farmId,
-        provider: "manual_superadmin",
-        externalReference: `SA-${existingFarm.slug.slice(0, 24)}-${Date.now()}`,
-        method:
-          typeof body.paymentMethod === "string" && body.paymentMethod.trim()
-            ? body.paymentMethod.trim().slice(0, 30)
-            : "transferencia",
-        amountCop,
-        planCode: nextPlanCode,
-        status: "approved",
-        paidAt: now,
+        subscriptionId: updatedSub.id,
+        eventKey: `superadmin-subscription-change:${farmId}:${crypto.randomUUID()}`,
+        eventType: "subscription_changed",
+        actorType: "platform_admin",
+        actorId: user.id,
+        source: "superadmin_farm_update",
+        reason: suppliedReason || `Cambio manual de ${changedFields.join(", ")} desde Super-Administración.`,
+        beforeSnapshot,
+        afterSnapshot,
+        paymentId: manualPayment?.id ?? null,
+        externalReference: manualPayment?.externalReference ?? null,
+        resultStatus: "applied",
+        occurredAt: now,
       });
     }
-  }
+
+    return { updatedFarm, updatedSub };
+  }));
 
   if (
     body.name !== undefined ||

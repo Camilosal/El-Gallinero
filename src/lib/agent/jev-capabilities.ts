@@ -357,7 +357,7 @@ const RULE_GUIDANCE_MAP: Record<
   plan_semilla: {
     title: "Límite o alcance del plan actual",
     message:
-      "Los roles controlan el acceso a módulos; el plan Gratis, Productor o Agregador define los cupos de uso aplicables. Algunas capacidades aún requieren activación progresiva o no están disponibles en la aplicación.",
+      "Los roles controlan el acceso a módulos; el plan Gratis, Productor u Organización define los cupos de uso aplicables. Algunas capacidades aún requieren activación progresiva o no están disponibles en la aplicación.",
     guideHref: "/planes",
     guideLabel: "Comparar planes y alcances",
   },
