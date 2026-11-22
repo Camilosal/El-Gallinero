@@ -28,7 +28,7 @@ export function generateEntityQrPayload(type: QrEntityType, id: string): string 
 /** Build an in-app scanner deep-link URL for a farm entity */
 export function generateEntityQrUrl(type: QrEntityType, id: string, origin = ""): string {
   const payload = generateEntityQrPayload(type, id);
-  const path = `/dashboard/escanear?qr=${encodeURIComponent(payload)}`;
+  const path = `/escanear?qr=${encodeURIComponent(payload)}`;
   return origin ? `${origin.replace(/\/$/, "")}${path}` : path;
 }
 
@@ -70,11 +70,12 @@ export function parseQrTarget(rawData: string): ParsedQrTarget | null {
       if (loteMatch?.[1]) {
         return { type: "lote", id: decodeURIComponent(loteMatch[1]), raw: data };
       }
-      const ubicacionMatch = url.pathname.match(/\/dashboard\/ubicaciones\/([^/]+)/i);
+      // Handle direct entity links (/ubicaciones/<id>, /produccion/gallinas/<id> + legacy /dashboard/...)
+      const ubicacionMatch = url.pathname.match(/(?:\/dashboard)?\/ubicaciones\/([^/]+)/i);
       if (ubicacionMatch?.[1]) {
         return { type: "ubicacion", id: decodeURIComponent(ubicacionMatch[1]), raw: data };
       }
-      const gallinaMatch = url.pathname.match(/\/dashboard\/produccion\/gallinas\/([^/]+)/i);
+      const gallinaMatch = url.pathname.match(/(?:\/dashboard)?\/produccion\/gallinas\/([^/]+)/i);
       if (gallinaMatch?.[1]) {
         return { type: "gallina", id: decodeURIComponent(gallinaMatch[1]), raw: data };
       }

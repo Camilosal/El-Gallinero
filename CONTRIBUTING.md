@@ -1,6 +1,6 @@
-# Contribuyendo a El Gallinero (Core Abierto)
+# Contribuyendo a IwaGranja (Core Abierto)
 
-¡Gracias por tu interés en mejorar **El Gallinero**! Este repositorio aloja el **Core Abierto Operativo (GNU AGPLv3)** dentro de una arquitectura [Open-Core de 3 capas](docs/estrategia-open-core.md). Damos la bienvenida tanto a contribuciones de software como a mejoras zootécnicas, curvas productivas y adaptaciones normativas para Latinoamérica.
+¡Gracias por tu interés en mejorar **IwaGranja**! Este repositorio aloja el **Core Abierto Operativo (GNU AGPLv3)** dentro de una arquitectura [Open-Core de 3 capas](docs/estrategia-open-core.md). Damos la bienvenida tanto a contribuciones de software como a mejoras zootécnicas, curvas productivas y adaptaciones normativas para Latinoamérica.
 
 ---
 

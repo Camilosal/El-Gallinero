@@ -1,9 +1,12 @@
 import crypto from "node:crypto";
 import { and, desc, eq, gt, inArray, or, sql } from "drizzle-orm";
 import { db } from "@/db";
-import { billingPayments, broilerBatches, farmSubscriptions, farms } from "@/db/schema";
+import { billingPayments, broilerBatches, farmLocations, farmSubscriptions, farms } from "@/db/schema";
 import { DEFAULT_FARM_ID, getCurrentFarmId, runWithFarmContext } from "@/db/tenant-context";
 import { notifyPaymentApproved } from "@/lib/notifications";
+import { getPlanEntitlements, resolveCommercialPlan } from "@/lib/pricing/entitlements";
+import { isSupportedPricingTerm } from "@/lib/pricing/quote";
+import type { PricingPlanKey } from "@/lib/pricing/types";
 
 export type BillingPlanCode =
   | "FREEMIUM_SEMILLA"
@@ -12,64 +15,48 @@ export type BillingPlanCode =
   | "ANUAL_20"
   | "MEDIANO_MENSUAL";
 
-export type BillingPaymentMethod = "nequi" | "daviplata" | "pse";
-
 export interface BillingPlanDefinition {
   code: Exclude<BillingPlanCode, "FREEMIUM_SEMILLA">;
   name: string;
-  tagline: string;
   amountCop: number;
   durationDays: number;
   maxActiveBatches: number | null;
   maxUsers: number;
-  paymentMethods: BillingPaymentMethod[];
-  recommendedFor: string;
 }
 
+/** Historical metadata for existing subscription IDs and payment callbacks; new offers use the v2.3 pricing policy. */
 export const PLAN_CATALOG: Record<Exclude<BillingPlanCode, "FREEMIUM_SEMILLA">, BillingPlanDefinition> = {
   CICLO_60D: {
     code: "CICLO_60D",
     name: "Ciclo Pollo / Engorde (60 días)",
-    tagline: "Cubre un ciclo completo de engorde o crianza sin ataduras mensuales.",
     amountCop: 45000,
     durationDays: 60,
     maxActiveBatches: null,
     maxUsers: 3,
-    paymentMethods: ["nequi", "daviplata", "pse"],
-    recommendedFor: "Productores de pollo, pato, conejo o cuy",
   },
   SEMESTRAL_PONEDORA: {
     code: "SEMESTRAL_PONEDORA",
     name: "Semestral Ponedora (180 días)",
-    tagline: "6 meses continuos de control de postura, empaque NTC 1240 y utilidad diaria.",
     amountCop: 120000,
     durationDays: 180,
     maxActiveBatches: null,
     maxUsers: 3,
-    paymentMethods: ["nequi", "daviplata", "pse"],
-    recommendedFor: "Granjas de postura y codornices",
   },
   ANUAL_20: {
     code: "ANUAL_20",
     name: "Anual Cosecha Segura (365 días)",
-    tagline: "2 meses gratis al pagar el año completo con soporte prioritario.",
     amountCop: 210000,
     durationDays: 365,
     maxActiveBatches: null,
     maxUsers: 5,
-    paymentMethods: ["nequi", "daviplata", "pse"],
-    recommendedFor: "Pequeños y medianos productores establecidos",
   },
   MEDIANO_MENSUAL: {
     code: "MEDIANO_MENSUAL",
     name: "Plan Escala Mediano (Mensual)",
-    tagline: "Multi-galpón, roles completos, analítica anti-subsidio y hasta 15 usuarios.",
     amountCop: 149000,
     durationDays: 30,
     maxActiveBatches: null,
     maxUsers: 15,
-    paymentMethods: ["nequi", "daviplata", "pse"],
-    recommendedFor: "Granjas medianas con varios operarios y galpones",
   },
 };
 
@@ -78,6 +65,9 @@ export interface FarmSubscriptionStatus {
   farmName: string;
   deploymentMode: string;
   planCode: string;
+  planKey: PricingPlanKey;
+  planName: string;
+  entitlements: ReturnType<typeof getPlanEntitlements>;
   status: "trial" | "active" | "grace" | "expired" | "freemium";
   trialEndsAt: string | null;
   currentPeriodStart: string | null;
@@ -87,8 +77,12 @@ export interface FarmSubscriptionStatus {
   isPaidActive: boolean;
   isPostTrialFreemium: boolean;
   activeBatchesCount: number;
+  activeBatchesBySpecies: Record<string, number>;
+  activeLocationsCount: number;
   closedBatchesCount: number;
   maxActiveBatches: number | null;
+  maxActiveBatchesPerSpecies: number | null;
+  maxActiveLocations: number | null;
   maxUsers: number;
   canCreateNewBatch: boolean;
   promptPostHarvestRenewal: boolean;
@@ -104,23 +98,27 @@ export interface FarmSubscriptionStatus {
   }>;
 }
 
+export class PlanLimitExceededError extends Error {
+  statusCode = 402;
+  details: Record<string, unknown>;
+
+  constructor(message: string, details: Record<string, unknown>) {
+    super(message);
+    this.name = "PlanLimitExceededError";
+    this.details = details;
+  }
+}
+
 function getWompiSecrets() {
   return {
-    publicKey: process.env.WOMPI_PUBLIC_KEY || "pub_test_iwage_sandbox",
-    integritySecret: process.env.WOMPI_INTEGRITY_SECRET || "test_integrity_iwage_default_secret",
     eventsSecret: process.env.WOMPI_EVENTS_SECRET || "test_events_iwage_default_secret",
-    checkoutBaseUrl: process.env.WOMPI_CHECKOUT_URL || "https://checkout.wompi.co/p/",
-    redirectUrl:
-      process.env.WOMPI_REDIRECT_URL ||
-      "https://gallinero.iwage.co/dashboard/configuracion/plan?payment=return",
-    sandbox: !process.env.WOMPI_PUBLIC_KEY || process.env.WOMPI_PUBLIC_KEY.startsWith("pub_test_"),
   };
 }
 
 export async function getFarmSubscriptionStatus(targetFarmId?: string): Promise<FarmSubscriptionStatus> {
   const farmId = targetFarmId || getCurrentFarmId();
 
-  const [[farmRow], [subRow], [activeBatchAgg], [closedBatchAgg], paymentsRows] = await Promise.all([
+  const [[farmRow], [subRow], [activeBatchAgg], activeBatchSpeciesRows, [activeLocationAgg], [closedBatchAgg], paymentsRows] = await Promise.all([
     db.select().from(farms).where(eq(farms.id, farmId)).limit(1),
     db.select().from(farmSubscriptions).where(eq(farmSubscriptions.farmId, farmId)).limit(1),
     db
@@ -133,6 +131,21 @@ export async function getFarmSubscriptionStatus(targetFarmId?: string): Promise<
           gt(broilerBatches.currentQuantity, 0),
         ),
       ),
+    db
+      .select({ species: broilerBatches.species, count: sql<number>`count(*)::int` })
+      .from(broilerBatches)
+      .where(
+        and(
+          eq(broilerBatches.farmId, farmId),
+          inArray(broilerBatches.status, ["activo", "listo_sacrificio"]),
+          gt(broilerBatches.currentQuantity, 0),
+        ),
+      )
+      .groupBy(broilerBatches.species),
+    db
+      .select({ count: sql<number>`count(*)::int` })
+      .from(farmLocations)
+      .where(and(eq(farmLocations.farmId, farmId), eq(farmLocations.status, "activa"))),
     db
       .select({ count: sql<number>`count(*)::int` })
       .from(broilerBatches)
@@ -152,6 +165,7 @@ export async function getFarmSubscriptionStatus(targetFarmId?: string): Promise<
 
   const now = new Date();
   const activeBatchesCount = Number(activeBatchAgg?.count || 0);
+  const activeLocationsCount = Number(activeLocationAgg?.count || 0);
   const closedBatchesCount = Number(closedBatchAgg?.count || 0);
   const deploymentMode = farmRow?.deploymentMode || "saas";
   const planCode = subRow?.planCode || farmRow?.planCode || "FREEMIUM_SEMILLA";
@@ -188,15 +202,20 @@ export async function getFarmSubscriptionStatus(targetFarmId?: string): Promise<
         ? "grace"
         : isPostTrialFreemium
           ? "freemium"
-          : "trial";
+          : planCode === "FREEMIUM_SEMILLA" && !subRow && !farmRow?.trialEndsAt
+            ? "freemium"
+            : "trial";
 
-  const maxActiveBatches = isPostTrialFreemium
-    ? Math.max(1, subRow?.maxActiveBatches ?? 1)
-    : isPaidActive
-      ? null
-      : (subRow?.maxActiveBatches ?? null);
-
-  const canCreateNewBatch = maxActiveBatches === null || activeBatchesCount < maxActiveBatches;
+  const planKey = resolveCommercialPlan(planCode, isPaidActive || effectiveStatus === "grace");
+  const entitlements = getPlanEntitlements(planKey, subRow?.maxUsers);
+  const activeBatchesBySpecies = Object.fromEntries(
+    activeBatchSpeciesRows.map((row) => [row.species, Number(row.count || 0)]),
+  );
+  const maxActiveBatchesPerSpecies = entitlements.maxActiveBatchesPerSpecies;
+  const maxActiveBatches = maxActiveBatchesPerSpecies;
+  // Species is needed to decide the Gratis quota; this aggregate flag only
+  // means the plan itself has not disabled lot creation globally.
+  const canCreateNewBatch = maxActiveBatchesPerSpecies === null || maxActiveBatchesPerSpecies > 0;
   const daysRemaining =
     rawPeriodEnd && rawPeriodEnd.getTime() > now.getTime()
       ? Math.max(0, Math.ceil((rawPeriodEnd.getTime() - now.getTime()) / 86400000))
@@ -209,6 +228,9 @@ export async function getFarmSubscriptionStatus(targetFarmId?: string): Promise<
     farmName: farmRow?.name || "Mi Granja",
     deploymentMode,
     planCode,
+    planKey,
+    planName: entitlements.planName,
+    entitlements,
     status: effectiveStatus,
     trialEndsAt: farmRow?.trialEndsAt ? farmRow.trialEndsAt.toISOString() : null,
     currentPeriodStart: subRow?.currentPeriodStart ? subRow.currentPeriodStart.toISOString() : null,
@@ -218,9 +240,13 @@ export async function getFarmSubscriptionStatus(targetFarmId?: string): Promise<
     isPaidActive,
     isPostTrialFreemium,
     activeBatchesCount,
+    activeBatchesBySpecies,
+    activeLocationsCount,
     closedBatchesCount,
     maxActiveBatches,
-    maxUsers: subRow?.maxUsers ?? 2,
+    maxActiveBatchesPerSpecies,
+    maxActiveLocations: entitlements.maxActiveLocations,
+    maxUsers: entitlements.maxUserSeats ?? subRow?.maxUsers ?? 1,
     canCreateNewBatch,
     promptPostHarvestRenewal: isPostTrialFreemium && closedBatchesCount > 0,
     recentPayments: paymentsRows.map((p) => ({
@@ -236,106 +262,115 @@ export async function getFarmSubscriptionStatus(targetFarmId?: string): Promise<
   };
 }
 
-export async function assertCanCreateActiveBatch(targetFarmId?: string): Promise<{
+export async function assertCanCreateActiveBatch(
+  species: string,
+  targetFarmId?: string,
+  transaction?: any,
+): Promise<{
   allowed: boolean;
   code?: "UPGRADE_REQUIRED";
   error?: string;
-  status: FarmSubscriptionStatus;
+  planKey: PricingPlanKey;
+  planName: string;
+  activeCount?: number;
+  limit?: number | null;
 }> {
-  const status = await getFarmSubscriptionStatus(targetFarmId);
-  if (!status.canCreateNewBatch) {
-    return {
-      allowed: false,
-      code: "UPGRADE_REQUIRED",
-      error:
-        "Tu periodo de prueba terminó y el plan Freemium permite 1 lote activo simultáneo (puedes consultar histórico y cerrar/vender tu lote actual sin restricciones). Renueva por ciclo con Nequi, Daviplata o PSE para abrir otro lote.",
-      status,
-    };
-  }
-  return { allowed: true, status };
-}
+  const farmId = targetFarmId || getCurrentFarmId();
+  const check = async (client: any) => {
+    const entitlements = await getFarmPlanEntitlements(farmId, client);
+    const limit = entitlements.maxActiveBatchesPerSpecies;
+    if (limit === null) {
+      return { allowed: true as const, planKey: entitlements.plan, planName: entitlements.planName, limit };
+    }
+    await acquireActiveBatchQuotaLock(client, farmId, species);
+    const [row] = await client
+      .select({ count: sql<number>`count(*)::int` })
+      .from(broilerBatches)
+      .where(and(
+        eq(broilerBatches.farmId, farmId),
+        eq(broilerBatches.species, species as typeof broilerBatches.$inferSelect.species),
+        inArray(broilerBatches.status, ["activo", "listo_sacrificio"]),
+        gt(broilerBatches.currentQuantity, 0),
+      ));
+    const activeCount = Number(row?.count || 0);
 
-export function computeWompiIntegritySignature(params: {
-  reference: string;
-  amountInCents: number;
-  currency?: string;
-  integritySecret?: string;
-}): string {
-  const currency = params.currency || "COP";
-  const secret = params.integritySecret || getWompiSecrets().integritySecret;
-  return crypto
-    .createHash("sha256")
-    .update(`${params.reference}${params.amountInCents}${currency}${secret}`)
-    .digest("hex");
-}
-
-export async function createWompiCheckoutSession(input: {
-  farmId?: string;
-  planCode: string;
-  method: string;
-  redirectUrl?: string;
-}) {
-  const farmId = input.farmId || getCurrentFarmId();
-  const plan = PLAN_CATALOG[input.planCode as keyof typeof PLAN_CATALOG];
-  if (!plan) {
-    throw new Error("Plan de suscripción no válido.");
-  }
-  const method = input.method as BillingPaymentMethod;
-  if (!["nequi", "daviplata", "pse"].includes(method)) {
-    throw new Error("Método de pago inválido. Usa nequi, daviplata o pse.");
-  }
-
-  const secrets = getWompiSecrets();
-  const redirectUrl = input.redirectUrl || secrets.redirectUrl;
-  const externalReference = `IWG-${farmId.slice(0, 8)}-${Date.now()}-${crypto.randomBytes(3).toString("hex")}`.toUpperCase();
-  const amountInCents = plan.amountCop * 100;
-  const integritySignature = computeWompiIntegritySignature({
-    reference: externalReference,
-    amountInCents,
-    currency: "COP",
-    integritySecret: secrets.integritySecret,
-  });
-
-  const [payment] = await db
-    .insert(billingPayments)
-    .values({
-      farmId,
-      provider: "wompi",
-      externalReference,
-      method,
-      amountCop: plan.amountCop,
-      planCode: plan.code,
-      status: "pending",
-      rawPayload: {
-        sandbox: secrets.sandbox,
-        requestedMethod: method,
-        planDurationDays: plan.durationDays,
-        redirectUrl,
-      },
-    })
-    .returning();
-
-  const checkoutUrl =
-    `${secrets.checkoutBaseUrl}?public-key=${encodeURIComponent(secrets.publicKey)}` +
-    `&currency=COP&amount-in-cents=${amountInCents}` +
-    `&reference=${encodeURIComponent(externalReference)}` +
-    `&signature%3Aintegrity=${encodeURIComponent(integritySignature)}` +
-    `&redirect-url=${encodeURIComponent(redirectUrl)}`;
-
-  return {
-    paymentId: payment.id,
-    externalReference,
-    plan,
-    method,
-    amountCop: plan.amountCop,
-    amountInCents,
-    currency: "COP",
-    publicKey: secrets.publicKey,
-    integritySignature,
-    redirectUrl,
-    sandbox: secrets.sandbox,
-    checkoutUrl,
+    if (activeCount >= limit) {
+      return {
+        allowed: false as const,
+        code: "UPGRADE_REQUIRED" as const,
+        error:
+          `El plan Gratis permite ${limit} lote activo por especie. Puedes consultar el histórico y cerrar o vender tus lotes; para ampliar capacidad, revisa los planes de IwaGranja.`,
+        planKey: entitlements.plan,
+        planName: entitlements.planName,
+        activeCount,
+        limit,
+      };
+    }
+    return { allowed: true as const, planKey: entitlements.plan, planName: entitlements.planName, activeCount, limit };
   };
+  return transaction ? check(transaction) : db.transaction(check);
+}
+
+async function acquireActiveBatchQuotaLock(transaction: any, farmId: string, species: string) {
+  await transaction.execute(sql`SELECT pg_advisory_xact_lock(hashtext(${`batch-limit:${farmId}:${species}`}))`);
+}
+
+export async function lockActiveBatchQuota(transaction: any, species: string, targetFarmId?: string) {
+  const farmId = targetFarmId || getCurrentFarmId();
+  const entitlements = await getFarmPlanEntitlements(farmId, transaction);
+  if (entitlements.maxActiveBatchesPerSpecies !== null) {
+    await acquireActiveBatchQuotaLock(transaction, farmId, species);
+  }
+}
+
+export async function getFarmPlanEntitlements(targetFarmId?: string, transaction: any = db) {
+  const farmId = targetFarmId || getCurrentFarmId();
+  const [[farmRow], [subRow]] = await Promise.all([
+    transaction.select().from(farms).where(eq(farms.id, farmId)).limit(1),
+    transaction.select().from(farmSubscriptions).where(eq(farmSubscriptions.farmId, farmId)).limit(1),
+  ]);
+  const now = new Date();
+  const periodEnd = subRow ? subRow.currentPeriodEnd : farmRow?.trialEndsAt || null;
+  const periodIsCurrent = !periodEnd || periodEnd.getTime() >= now.getTime();
+  const isLegacyAccess = farmRow?.deploymentMode === "self_hosted" ||
+    (farmId === DEFAULT_FARM_ID && !subRow && !farmRow?.trialEndsAt);
+  const paidAccess = isLegacyAccess ||
+    (subRow?.status === "grace" || (subRow?.status === "active" && periodIsCurrent));
+  const planCode = subRow?.planCode || farmRow?.planCode || "FREEMIUM_SEMILLA";
+  const planKey = resolveCommercialPlan(planCode, paidAccess);
+  return getPlanEntitlements(planKey, subRow?.maxUsers);
+}
+
+export async function assertCanCreateFarmLocation(transaction?: any, targetFarmId?: string): Promise<{
+  allowed: boolean;
+  code?: "UPGRADE_REQUIRED";
+  error?: string;
+  activeCount?: number;
+  limit?: number | null;
+}> {
+  const farmId = targetFarmId || getCurrentFarmId();
+  const check = async (client: any) => {
+    const entitlements = await getFarmPlanEntitlements(farmId, client);
+    const limit = entitlements.maxActiveLocations;
+    if (limit === null) return { allowed: true as const, limit };
+    await client.execute(sql`SELECT pg_advisory_xact_lock(hashtext(${`location-limit:${farmId}`}))`);
+    const [row] = await client
+      .select({ count: sql<number>`count(*)::int` })
+      .from(farmLocations)
+      .where(and(eq(farmLocations.farmId, farmId), eq(farmLocations.status, "activa")));
+    const activeCount = Number(row?.count || 0);
+    if (activeCount >= limit) {
+      return {
+        allowed: false as const,
+        code: "UPGRADE_REQUIRED" as const,
+        error: `El plan Gratis permite ${limit} localización activa. Revisa los planes de IwaGranja para ampliar el alcance.`,
+        activeCount,
+        limit,
+      };
+    }
+    return { allowed: true as const, activeCount, limit };
+  };
+  return transaction ? check(transaction) : db.transaction(check);
 }
 
 function getNestedValue(obj: unknown, dotPath: string): string {
@@ -376,6 +411,70 @@ export function verifyWompiWebhookSignature(
   }
 }
 
+interface ProductorPurchaseSnapshot {
+  policyVersion: string;
+  termsVersion: string;
+  acceptedAt: string;
+  quote: {
+    segment: "producer";
+    users: number;
+    periodMonths: number;
+    totalBeforeLogisticsAndTaxCop: number;
+  };
+}
+
+function getProductorPurchaseSnapshot(rawPayload: Record<string, unknown> | null): ProductorPurchaseSnapshot | null {
+  const purchase = rawPayload?.pricingPurchase;
+  if (!purchase || typeof purchase !== "object" || Array.isArray(purchase)) return null;
+  const data = purchase as Record<string, unknown>;
+  const quote = data.quote;
+  if (!quote || typeof quote !== "object" || Array.isArray(quote)) return null;
+  const quoteData = quote as Record<string, unknown>;
+  if (
+    typeof data.policyVersion !== "string" ||
+    typeof data.termsVersion !== "string" ||
+    typeof data.acceptedAt !== "string" ||
+    data.acceptedTerms !== true ||
+    !Array.isArray(data.acceptedDocuments) ||
+    !data.acceptedDocuments.includes("terminos") ||
+    !data.acceptedDocuments.includes("retracto") ||
+    quoteData.segment !== "producer" ||
+    quoteData.policyVersion !== data.policyVersion ||
+    typeof quoteData.users !== "number" ||
+    !Number.isSafeInteger(quoteData.users) ||
+    (quoteData.users as number) < 1 ||
+    typeof quoteData.periodMonths !== "number" ||
+    !Number.isSafeInteger(quoteData.periodMonths) ||
+    !isSupportedPricingTerm("producer", quoteData.periodMonths as number) ||
+    typeof quoteData.totalBeforeLogisticsAndTaxCop !== "number" ||
+    !Number.isSafeInteger(quoteData.totalBeforeLogisticsAndTaxCop) ||
+    (quoteData.totalBeforeLogisticsAndTaxCop as number) <= 0
+  ) {
+    return null;
+  }
+  return {
+    policyVersion: data.policyVersion,
+    termsVersion: data.termsVersion,
+    acceptedAt: data.acceptedAt,
+    quote: {
+      segment: "producer",
+      users: quoteData.users as number,
+      periodMonths: quoteData.periodMonths as number,
+      totalBeforeLogisticsAndTaxCop: quoteData.totalBeforeLogisticsAndTaxCop as number,
+    },
+  };
+}
+
+function addCalendarMonths(value: Date, months: number): Date {
+  const result = new Date(value);
+  const originalDay = result.getDate();
+  result.setDate(1);
+  result.setMonth(result.getMonth() + months);
+  const lastDay = new Date(result.getFullYear(), result.getMonth() + 1, 0).getDate();
+  result.setDate(Math.min(originalDay, lastDay));
+  return result;
+}
+
 export async function processWompiWebhookEvent(
   payload: Record<string, unknown>,
   headerChecksum?: string | null,
@@ -406,6 +505,32 @@ export async function processWompiWebhookEvent(
   if (!payment) {
     return { ok: false as const, status: 404, error: "Pago no encontrado para la referencia enviada." };
   }
+  const eventAmountInCents = Number(txNode.amount_in_cents);
+  const eventCurrency = String(txNode.currency ?? "").toUpperCase();
+  if (
+    !Number.isSafeInteger(eventAmountInCents) ||
+    eventAmountInCents !== payment.amountCop * 100 ||
+    eventCurrency !== "COP"
+  ) {
+    return {
+      ok: false as const,
+      status: 409,
+      error: "El valor o la moneda confirmados por Wompi no coinciden con el pago registrado.",
+    };
+  }
+  const productorPurchase = payment.planCode === "PRODUCTOR"
+    ? getProductorPurchaseSnapshot(payment.rawPayload)
+    : null;
+  if (
+    payment.planCode === "PRODUCTOR" &&
+    (!productorPurchase || productorPurchase.quote.totalBeforeLogisticsAndTaxCop !== payment.amountCop)
+  ) {
+    return {
+      ok: false as const,
+      status: 409,
+      error: "La compra no conserva un cálculo y una aceptación válidos; no se activó la suscripción.",
+    };
+  }
 
   // Idempotencia: si ya fue aprobado previamente, devolver éxito sin extender dos veces el periodo.
   if (payment.status === "approved") {
@@ -428,13 +553,13 @@ export async function processWompiWebhookEvent(
       .set({
         status: mappedStatus,
         providerTxId: providerTxId || payment.providerTxId,
-        rawPayload: payload,
+        rawPayload: { ...(payment.rawPayload ?? {}), latestWebhook: payload },
         paidAt: mappedStatus === "approved" ? now : payment.paidAt,
       })
       .where(eq(billingPayments.id, payment.id));
 
     if (mappedStatus === "approved") {
-      const plan = PLAN_CATALOG[payment.planCode as keyof typeof PLAN_CATALOG] || PLAN_CATALOG.CICLO_60D;
+      const legacyPlan = PLAN_CATALOG[payment.planCode as keyof typeof PLAN_CATALOG] || PLAN_CATALOG.CICLO_60D;
       const [existingSub] = await tx
         .select()
         .from(farmSubscriptions)
@@ -445,16 +570,20 @@ export async function processWompiWebhookEvent(
         existingSub?.currentPeriodEnd && existingSub.currentPeriodEnd.getTime() > now.getTime()
           ? existingSub.currentPeriodEnd
           : now;
-      const nextPeriodEnd = new Date(baseDate.getTime() + plan.durationDays * 86400000);
+      const planCode = productorPurchase ? "PRODUCTOR" : legacyPlan.code;
+      const maxUsers = productorPurchase?.quote.users ?? legacyPlan.maxUsers;
+      const nextPeriodEnd = productorPurchase
+        ? addCalendarMonths(baseDate, productorPurchase.quote.periodMonths)
+        : new Date(baseDate.getTime() + legacyPlan.durationDays * 86400000);
 
       await tx
         .insert(farmSubscriptions)
         .values({
           farmId: payment.farmId,
-          planCode: plan.code,
+          planCode,
           status: "active",
-          maxActiveBatches: plan.maxActiveBatches,
-          maxUsers: plan.maxUsers,
+          maxActiveBatches: legacyPlan.maxActiveBatches,
+          maxUsers,
           currentPeriodStart: now,
           currentPeriodEnd: nextPeriodEnd,
           updatedAt: now,
@@ -462,10 +591,10 @@ export async function processWompiWebhookEvent(
         .onConflictDoUpdate({
           target: [farmSubscriptions.farmId],
           set: {
-            planCode: plan.code,
+            planCode,
             status: "active",
-            maxActiveBatches: plan.maxActiveBatches,
-            maxUsers: plan.maxUsers,
+            maxActiveBatches: legacyPlan.maxActiveBatches,
+            maxUsers,
             currentPeriodStart: now,
             currentPeriodEnd: nextPeriodEnd,
             updatedAt: now,
@@ -475,7 +604,7 @@ export async function processWompiWebhookEvent(
       await tx
         .update(farms)
         .set({
-          planCode: plan.code,
+          planCode,
           updatedAt: now,
         })
         .where(eq(farms.id, payment.farmId));
@@ -487,11 +616,12 @@ export async function processWompiWebhookEvent(
   );
 
   if (mappedStatus === "approved") {
-    const resolvedPlan = PLAN_CATALOG[payment.planCode as keyof typeof PLAN_CATALOG] || PLAN_CATALOG.CICLO_60D;
     void notifyPaymentApproved({
       farmId: payment.farmId,
       farmName: subscription.farmName,
-      planName: resolvedPlan.name,
+      planName: productorPurchase
+        ? "Productor"
+        : (PLAN_CATALOG[payment.planCode as keyof typeof PLAN_CATALOG] || PLAN_CATALOG.CICLO_60D).name,
       amountCop: payment.amountCop,
       externalReference: payment.externalReference,
       periodEnd: subscription.currentPeriodEnd,

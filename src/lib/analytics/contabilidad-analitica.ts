@@ -23,6 +23,8 @@ import {
   evaluateBiologicalPortfolio,
   loadFarmBiologicalContext,
 } from "@/lib/analytics/biological-db";
+import { computeSupplyWarehouseValuation } from "@/lib/analytics/payroll-tax-supplies";
+import { loadPeriodPayrollAndSupplies } from "@/lib/analytics/payroll-tax-supplies-db";
 import { syncMarketPricesSnapshot } from "@/lib/external-sources/wave1-territory-weather-market";
 import { syncColombianTaxAndHolidaysSnapshot } from "@/lib/external-sources/wave3-tax-holidays-iot";
 
@@ -90,6 +92,7 @@ export async function computeAnalyticalAccounting(opts: ComputeAnalyticsOptions)
     slaughterRows,
     meatSaleRows,
     bioCtx,
+    payrollSuppliesCtx,
   ] = await Promise.all([
     db.select().from(transactions).where(and(gte(transactions.date, from), lte(transactions.date, to))),
     db
@@ -128,10 +131,12 @@ export async function computeAnalyticalAccounting(opts: ComputeAnalyticsOptions)
     db.select().from(slaughter).where(and(gte(slaughter.date, from), lte(slaughter.date, to))),
     db.select().from(meatSales).where(and(gte(meatSales.date, from), lte(meatSales.date, to))),
     loadFarmBiologicalContext({ speciesFilter, locationIdFilter, batchIdFilter, referenceDate: to }),
+    loadPeriodPayrollAndSupplies({ from, to, speciesFilter, locationIdFilter }),
   ]);
 
   const assetsSummary = computeAssetsDepreciationSummary(bioCtx.assets, { fromDate: from, toDate: to });
   const warehouseSummary = computeFeedWarehouseValuation(bioCtx.feedRows);
+  const supplyWarehouseSummary = computeSupplyWarehouseValuation(bioCtx.supplyRows);
   const biologicalSummary = evaluateBiologicalPortfolio({
     flocks: bioCtx.flocks,
     broilerBatches: bioCtx.batches,
@@ -152,27 +157,28 @@ export async function computeAnalyticalAccounting(opts: ComputeAnalyticsOptions)
   const hasFeedConsumptionBasis = filteredFeedConsumptions.length > 0 && totalAccruedFeedCost > 0;
 
   const locNames = new Map(locations.map((l) => [l.id, l.name]));
+  const allocationsById = new Map(allocationRows.map((allocation) => [allocation.id, allocation]));
   const allocatedTxIds = new Set(
     allocationRows.map((a) => a.sourceTransactionId).filter((id): id is string => Boolean(id)),
   );
 
   const bySpeciesMap = new Map<
     string,
-    { label: string; directRevenue: number; directCost: number; proratedCost: number; feedCost: number }
+    { label: string; directRevenue: number; directCost: number; proratedCost: number; feedCost: number; supplyCost: number; imputedLaborCost: number }
   >();
   const byLocationMap = new Map<
     string,
-    { label: string; directRevenue: number; directCost: number; proratedCost: number; feedCost: number }
+    { label: string; directRevenue: number; directCost: number; proratedCost: number; feedCost: number; supplyCost: number; imputedLaborCost: number }
   >();
 
   const ensureBucket = (
-    map: Map<string, { label: string; directRevenue: number; directCost: number; proratedCost: number; feedCost: number }>,
+    map: Map<string, { label: string; directRevenue: number; directCost: number; proratedCost: number; feedCost: number; supplyCost: number; imputedLaborCost: number }>,
     key: string,
     label: string,
   ) => {
     let row = map.get(key);
     if (!row) {
-      row = { label, directRevenue: 0, directCost: 0, proratedCost: 0, feedCost: 0 };
+      row = { label, directRevenue: 0, directCost: 0, proratedCost: 0, feedCost: 0, supplyCost: 0, imputedLaborCost: 0 };
       map.set(key, row);
     }
     return row;
@@ -183,14 +189,18 @@ export async function computeAnalyticalAccounting(opts: ComputeAnalyticsOptions)
   let totalCashOutflow = 0;
   let capexExcluded = 0;
   let feedPurchasesExcluded = 0;
+  let supplyPurchasesExcluded = 0;
   let totalProratedCost = 0;
   let unallocatedSharedCost = 0;
+  const hasSupplyConsumptionBasis = payrollSuppliesCtx.hasSupplyConsumptionRecords;
+  const filteredTxs = txRows.filter((tx) => {
+    if (speciesFilter && tx.species !== speciesFilter) return false;
+    if (locationIdFilter && tx.locationId !== locationIdFilter) return false;
+    if (batchIdFilter && tx.batchId !== batchIdFilter) return false;
+    return true;
+  });
 
-  for (const tx of txRows) {
-    if (speciesFilter && tx.species !== speciesFilter) continue;
-    if (locationIdFilter && tx.locationId !== locationIdFilter) continue;
-    if (batchIdFilter && tx.batchId !== batchIdFilter) continue;
-
+  for (const tx of filteredTxs) {
     const amt = Number(tx.amount || 0);
     const nature = classifyTransactionNature(tx);
     const spKey = tx.species || UNASSIGNED;
@@ -214,6 +224,10 @@ export async function computeAnalyticalAccounting(opts: ComputeAnalyticsOptions)
       }
       if (nature === "feed_inventory_purchase" && hasFeedConsumptionBasis) {
         feedPurchasesExcluded += amt;
+        continue;
+      }
+      if (nature === "supply_inventory_purchase" && hasSupplyConsumptionBasis) {
+        supplyPurchasesExcluded += amt;
         continue;
       }
       const alreadySplit = includeProrated && allocatedTxIds.has(tx.id);
@@ -270,12 +284,96 @@ export async function computeAnalyticalAccounting(opts: ComputeAnalyticsOptions)
     }
   }
 
+  for (const sc of payrollSuppliesCtx.supplyConsumptions) {
+    const cost = Number(sc.quantity || 0) * Number(sc.unitCost ?? sc.fallbackCost ?? 0);
+    if (cost <= 0) continue;
+    const spKey = sc.species || UNASSIGNED;
+    const locKey = sc.locationId || UNASSIGNED;
+    const spBucket = ensureBucket(bySpeciesMap, spKey, speciesName(spKey));
+    const locBucket = ensureBucket(
+      byLocationMap,
+      locKey,
+      sc.locationId ? locNames.get(sc.locationId) || "Lugar" : "Sin asignar",
+    );
+    spBucket.supplyCost += cost;
+    locBucket.supplyCost += cost;
+    if (hasSupplyConsumptionBasis) {
+      totalDirectCost += cost;
+      spBucket.directCost += cost;
+      locBucket.directCost += cost;
+    }
+  }
+
+  let totalImputedOwnerLabor = 0;
+  let layerImputedOwnerLabor = 0;
+  let meatImputedOwnerLabor = 0;
+  let unassignedImputedOwnerLabor = 0;
+  if (payrollSuppliesCtx.taxConfig.includeImputedOwnerLabor) {
+    for (const pe of payrollSuppliesCtx.payrollEntries) {
+      if (pe.accountingMode !== "imputed_economic") continue;
+      const linkedAllocation = pe.linkedAllocationId ? allocationsById.get(pe.linkedAllocationId) : null;
+      if (linkedAllocation?.allocations?.length) {
+        const matchingAllocations = linkedAllocation.allocations.filter((allocation) => {
+          if (speciesFilter && allocation.species !== speciesFilter) return false;
+          if (locationIdFilter && allocation.locationId !== locationIdFilter) return false;
+          return true;
+        });
+        for (const allocation of matchingAllocations) {
+          const amount = Math.max(0, Number(allocation.amount || 0));
+          if (amount <= 0) continue;
+          totalImputedOwnerLabor += amount;
+          const spKey = allocation.species || UNASSIGNED;
+          const locKey = allocation.locationId || UNASSIGNED;
+          const spBucket = ensureBucket(bySpeciesMap, spKey, speciesName(spKey));
+          const locBucket = ensureBucket(
+            byLocationMap,
+            locKey,
+            allocation.locationId ? locNames.get(allocation.locationId) || "Lugar" : "Sin asignar",
+          );
+          spBucket.imputedLaborCost += amount;
+          locBucket.imputedLaborCost += amount;
+
+          if (allocation.species && ["gallina", "gallo", "codorniz", "pato"].includes(allocation.species)) {
+            layerImputedOwnerLabor += amount;
+          } else if (allocation.species && ["pollo", "conejo", "cuy"].includes(allocation.species)) {
+            meatImputedOwnerLabor += amount;
+          } else {
+            unassignedImputedOwnerLabor += amount;
+          }
+        }
+        continue;
+      }
+
+      const amt = Math.max(0, Number(pe.totalEmployerCostCop || 0));
+      if (amt <= 0) continue;
+      totalImputedOwnerLabor += amt;
+      const spKey = pe.species || UNASSIGNED;
+      const locKey = pe.locationId || UNASSIGNED;
+      const spBucket = ensureBucket(bySpeciesMap, spKey, speciesName(spKey));
+      const locBucket = ensureBucket(
+        byLocationMap,
+        locKey,
+        pe.locationId ? locNames.get(pe.locationId) || "Lugar" : "Sin asignar",
+      );
+      spBucket.imputedLaborCost += amt;
+      locBucket.imputedLaborCost += amt;
+
+      if (pe.species && ["gallina", "gallo", "codorniz", "pato"].includes(pe.species)) {
+        layerImputedOwnerLabor += amt;
+      } else if (pe.species && ["pollo", "conejo", "cuy"].includes(pe.species)) {
+        meatImputedOwnerLabor += amt;
+      } else {
+        unassignedImputedOwnerLabor += amt;
+      }
+    }
+  }
+
   const formatRows = (
-    map: Map<string, { label: string; directRevenue: number; directCost: number; proratedCost: number; feedCost: number }>,
+    map: Map<string, { label: string; directRevenue: number; directCost: number; proratedCost: number; feedCost: number; supplyCost: number; imputedLaborCost: number }>,
   ) =>
     Array.from(map.entries())
       .map(([key, v]) => {
-        const totalCost = v.directCost + v.proratedCost;
+        const totalCost = v.directCost + v.proratedCost + v.imputedLaborCost;
         const netProfit = v.directRevenue - totalCost;
         return {
           key,
@@ -285,6 +383,8 @@ export async function computeAnalyticalAccounting(opts: ComputeAnalyticsOptions)
           proratedCost: round2(v.proratedCost),
           totalCost: round2(totalCost),
           accruedFeedCost: round2(v.feedCost),
+          accruedSupplyCost: round2(v.supplyCost),
+          imputedLaborCost: round2(v.imputedLaborCost),
           netProfit: round2(netProfit),
           marginPct: v.directRevenue > 0 ? round2((netProfit / v.directRevenue) * 100) : null,
         };
@@ -311,6 +411,12 @@ export async function computeAnalyticalAccounting(opts: ComputeAnalyticsOptions)
       layerAccruedFeedCost += Number(fc.quantity || 0) * Number(fc.unitCost ?? fc.fallbackCost ?? 0);
     }
   }
+  let layerAccruedSupplyCost = 0;
+  for (const sc of payrollSuppliesCtx.supplyConsumptions) {
+    if (!sc.species || ["gallina", "codorniz", "pato"].includes(sc.species)) {
+      layerAccruedSupplyCost += Number(sc.quantity || 0) * Number(sc.unitCost ?? sc.fallbackCost ?? 0);
+    }
+  }
   const layerDirectExpenses = txRows
     .filter((t) => {
       if (t.type !== "egreso") return false;
@@ -321,6 +427,7 @@ export async function computeAnalyticalAccounting(opts: ComputeAnalyticsOptions)
       const nature = classifyTransactionNature(t);
       if (nature === "capex") return false;
       if (nature === "feed_inventory_purchase" && hasFeedConsumptionBasis) return false;
+      if (nature === "supply_inventory_purchase" && hasSupplyConsumptionBasis) return false;
       return isEggRelatedTx(t) || t.species === "gallina" || t.species === "codorniz";
     })
     .reduce((s, t) => s + Number(t.amount || 0), 0);
@@ -357,7 +464,10 @@ export async function computeAnalyticalAccounting(opts: ComputeAnalyticsOptions)
   const eggProductionPoolCost =
     layerDirectExpenses +
     layerAccruedFeedCost +
+    layerAccruedSupplyCost +
     layerProratedShare +
+    layerImputedOwnerLabor +
+    unassignedImputedOwnerLabor * layerShareOfAssets +
     assetsSummary.periodDepreciationCop * layerShareOfAssets;
   const costDenominatorEggs = netSaleableEggs > 0 ? netSaleableEggs : totalEggsCollected;
   const realCostPerEgg = costDenominatorEggs > 0 ? round2(eggProductionPoolCost / costDenominatorEggs) : 0;
@@ -409,6 +519,12 @@ export async function computeAnalyticalAccounting(opts: ComputeAnalyticsOptions)
       meatAccruedFeedCost += Number(fc.quantity || 0) * Number(fc.unitCost ?? fc.fallbackCost ?? 0);
     }
   }
+  let meatAccruedSupplyCost = 0;
+  for (const sc of payrollSuppliesCtx.supplyConsumptions) {
+    if (sc.species && ["pollo", "conejo", "cuy", "pato"].includes(sc.species)) {
+      meatAccruedSupplyCost += Number(sc.quantity || 0) * Number(sc.unitCost ?? sc.fallbackCost ?? 0);
+    }
+  }
   const meatDirectExpenses = txRows
     .filter((t) => {
       if (t.type !== "egreso") return false;
@@ -419,6 +535,7 @@ export async function computeAnalyticalAccounting(opts: ComputeAnalyticsOptions)
       const nature = classifyTransactionNature(t);
       if (nature === "capex") return false;
       if (nature === "feed_inventory_purchase" && hasFeedConsumptionBasis) return false;
+      if (nature === "supply_inventory_purchase" && hasSupplyConsumptionBasis) return false;
       return isMeatRelatedTx(t) || (t.species && ["pollo", "pato", "conejo", "cuy"].includes(t.species));
     })
     .reduce((s, t) => s + Number(t.amount || 0), 0);
@@ -442,7 +559,10 @@ export async function computeAnalyticalAccounting(opts: ComputeAnalyticsOptions)
   const meatPoolCost =
     meatDirectExpenses +
     meatAccruedFeedCost +
+    meatAccruedSupplyCost +
     meatProratedShare +
+    meatImputedOwnerLabor +
+    unassignedImputedOwnerLabor * meatShareOfAssets +
     assetsSummary.periodDepreciationCop * meatShareOfAssets;
   const realCostPerLiveKg = totalLiveKg > 0 ? round2(meatPoolCost / totalLiveKg) : 0;
   const realCostPerCarcassKg = totalCarcassKg > 0 ? round2(meatPoolCost / totalCarcassKg) : 0;
@@ -459,7 +579,8 @@ export async function computeAnalyticalAccounting(opts: ComputeAnalyticsOptions)
   const meatBreakevenAlert = soldMeatKg > 0 && realCostPerCarcassKg > 0 && avgMeatSalePrice < realCostPerCarcassKg;
 
   const totalAssetCapex = assetsSummary.totalAcquisitionCostCop;
-  const totalAccruedCostWithDepr = totalDirectCost + totalProratedCost + assetsSummary.periodDepreciationCop;
+  const totalAccruedCostWithDepr =
+    totalDirectCost + totalProratedCost + totalImputedOwnerLabor + assetsSummary.periodDepreciationCop;
   const netOperatingProfit = totalDirectRevenue - totalAccruedCostWithDepr;
   const days = Math.max(
     1,
@@ -471,24 +592,26 @@ export async function computeAnalyticalAccounting(opts: ComputeAnalyticsOptions)
   const paybackMonths = totalAssetCapex > 0 && monthlyProfit > 0 ? round2(totalAssetCapex / monthlyProfit) : null;
 
   const threeLayer = computeThreeLayerFinancials({
-    transactions: txRows
-      .filter((t) => !speciesFilter || t.species === speciesFilter)
-      .filter((t) => !locationIdFilter || t.locationId === locationIdFilter)
-      .filter((t) => !batchIdFilter || t.batchId === batchIdFilter)
-      .map((t) => ({
-        type: t.type,
-        category: t.category,
-        description: t.description,
-        sourceType: t.sourceType,
-        amount: t.amount,
-        date: t.date,
-      })),
+    transactions: filteredTxs.map((t) => ({
+      type: t.type,
+      category: t.category,
+      description: t.description,
+      sourceType: t.sourceType,
+      amount: t.amount,
+      date: t.date,
+    })),
     accruedFeedConsumedCostCop: totalAccruedFeedCost,
     hasFeedConsumptionRecords: hasFeedConsumptionBasis,
+    accruedSupplyConsumedCostCop: payrollSuppliesCtx.accruedSupplyCostCop,
+    hasSupplyConsumptionRecords: hasSupplyConsumptionBasis,
+    imputedOwnerLaborCop: totalImputedOwnerLabor,
+    warehouseSupplyAssetCop: supplyWarehouseSummary.totalValueCop,
     assetsSummary,
     warehouseSummary,
     biologicalSummary,
   });
+
+  const taxAndDeductions = payrollSuppliesCtx.summarizeTaxes(filteredTxs, totalCashOutflow);
 
   const [marketSnap, taxSnap] = await Promise.all([
     syncMarketPricesSnapshot().catch(() => null),
@@ -504,8 +627,8 @@ export async function computeAnalyticalAccounting(opts: ComputeAnalyticsOptions)
           taxPayload.uvtCop > 0
             ? round2((totalDirectCost + totalProratedCost) / taxPayload.uvtCop)
             : null,
-        agriculturalRetentionThresholdCop: taxPayload.retentionAgro92UvtCop,
-        purchasesRetentionThresholdCop: taxPayload.retentionPurchases27UvtCop,
+        agriculturalRetentionThresholdCop: taxPayload.retentionAgroThresholdCop,
+        purchasesRetentionThresholdCop: taxPayload.retentionPurchasesThresholdCop,
         finagroReferenceRateEaPct: taxPayload.finagroIbrEaPct,
         roiAboveFinagroRate:
           roiPercent !== null ? roiPercent >= taxPayload.finagroIbrEaPct : null,
@@ -548,6 +671,8 @@ export async function computeAnalyticalAccounting(opts: ComputeAnalyticsOptions)
       directRevenue: round2(totalDirectRevenue),
       directCost: round2(totalDirectCost),
       proratedCost: round2(totalProratedCost),
+      imputedOwnerLaborCost: round2(totalImputedOwnerLabor),
+      supplyCost: round2(payrollSuppliesCtx.accruedSupplyCostCop),
       depreciationCost: round2(assetsSummary.periodDepreciationCop),
       totalCost: round2(totalAccruedCostWithDepr),
       netProfit: round2(netOperatingProfit),
@@ -556,12 +681,15 @@ export async function computeAnalyticalAccounting(opts: ComputeAnalyticsOptions)
       cashNetFlow: round2(totalDirectRevenue - totalCashOutflow),
       capexExcluded: round2(capexExcluded),
       feedPurchasesExcluded: round2(feedPurchasesExcluded),
+      supplyPurchasesExcluded: round2(supplyPurchasesExcluded),
     },
     threeLayer,
     biologicalPortfolio: biologicalSummary,
     biologicalAlerts: biologicalSummary.alerts,
     assetsDepreciation: assetsSummary,
     warehouseFeed: warehouseSummary,
+    warehouseSupply: supplyWarehouseSummary,
+    taxAndDeductions,
     lifecycleMode: biologicalSummary.lifecycleMode,
     lifecycleLabel: biologicalSummary.lifecycleLabel,
     lifecycleDescription: biologicalSummary.lifecycleDescription,

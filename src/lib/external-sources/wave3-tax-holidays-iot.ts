@@ -99,8 +99,10 @@ export interface TaxHolidaysSnapshotPayload extends Record<string, unknown> {
   holidaysCount: number;
   nextHoliday: ColombianHoliday | null;
   uvtCop: number;
-  retentionPurchases27UvtCop: number;
-  retentionAgro92UvtCop: number;
+  reteComprasThresholdUvt: number;
+  reteAgroThresholdUvt: number;
+  retentionPurchasesThresholdCop: number;
+  retentionAgroThresholdCop: number;
   finagroIbrEaPct: number;
   finagroLines: Array<{ segment: string; rateNote: string; termNote: string }>;
 }
@@ -117,7 +119,13 @@ export async function syncColombianTaxAndHolidaysSnapshot(
     getTaxAndFinanceDefaults(),
   ]);
 
-  if (!options?.forceRefresh && existing && !isSnapshotExpired(existing) && existing.payload.uvtCop === taxDefaults.uvtCop) {
+  if (
+    !options?.forceRefresh && existing && !isSnapshotExpired(existing) &&
+    existing.providerName.includes("parámetros tributarios/financieros maestros") &&
+    existing.payload.uvtCop === taxDefaults.uvtCop &&
+    existing.payload.reteComprasThresholdUvt === taxDefaults.reteComprasThresholdUvt &&
+    existing.payload.reteAgroThresholdUvt === taxDefaults.reteAgroThresholdUvt
+  ) {
     return existing;
   }
 
@@ -162,24 +170,25 @@ export async function syncColombianTaxAndHolidaysSnapshot(
     holidaysCount: holidays.length,
     nextHoliday,
     uvtCop,
-    retentionPurchases27UvtCop: Math.round(uvtCop * 27),
-    retentionAgro92UvtCop: Math.round(uvtCop * 92),
+    reteComprasThresholdUvt: taxDefaults.reteComprasThresholdUvt,
+    reteAgroThresholdUvt: taxDefaults.reteAgroThresholdUvt,
+    retentionPurchasesThresholdCop: Math.round(uvtCop * taxDefaults.reteComprasThresholdUvt),
+    retentionAgroThresholdCop: Math.round(uvtCop * taxDefaults.reteAgroThresholdUvt),
     finagroIbrEaPct: taxDefaults.finagroIbrEaPct,
-    finagroLines: [
-      { segment: "Pequeño productor / Agricultura familiar", rateNote: "IBR - 2% a +2% E.A. (subsidio LEC)", termNote: "Capital de trabajo 24 meses / Inversión hasta 8 años" },
-      { segment: "Mediano productor agropecuario", rateNote: `IBR + 1.5% a +3.5% E.A. (ref. ${taxDefaults.finagroIbrEaPct}%)`, termNote: "Galpones, equipo solar, automatización hasta 10 años" },
-    ],
+    finagroLines: [],
   };
 
   return saveExternalSnapshot({
     sourceKey: "colombia_tax_holidays",
     wave: 3,
     status,
-    providerName: status === "ok" ? "Nager.Date Colombia + DIAN UVT / Finagro" : "Calendario Ley 51/83 + DIAN UVT / Finagro",
+    providerName: status === "ok"
+      ? "Nager.Date (festivos, referencia no oficial) + parámetros tributarios/financieros maestros"
+      : "Festivos calculados según Ley 51/83 + parámetros tributarios/financieros maestros",
     sourceUrl: `https://date.nager.at/api/v3/PublicHolidays/${currentYear}/CO`,
     scopeKey,
     payload,
-    summary: `${holidays.length} festivos CO ${currentYear} · UVT DIAN $${uvtCop.toLocaleString("es-CO")} · Tope agro 92 UVT ($${Math.round(uvtCop * 92).toLocaleString("es-CO")}) · Finagro ref. ${taxDefaults.finagroIbrEaPct}% E.A.`,
+    summary: `${holidays.length} festivos de referencia CO ${currentYear} · UVT configurada en maestros $${uvtCop.toLocaleString("es-CO")} · parámetros de retención y tasa financiera locales; sin consulta automática a DIAN o Finagro.`,
     ttlHours: 24 * 7,
     lastError,
   });

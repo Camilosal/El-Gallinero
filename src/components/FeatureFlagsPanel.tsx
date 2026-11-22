@@ -185,7 +185,7 @@ export default function FeatureFlagsPanel() {
             {
               scale: "PEQUENO" as const,
               title: "Pequeño Productor (Enfoque Diario)",
-              desc: "Activa las 4 funciones esenciales: captura offline, inventario en bultos 40 kg, sanidad/retiros/compostaje y WhatsApp diario. Mantiene ocultas auditorías complejas hasta crecer.",
+              desc: "Activa las 4 funciones esenciales: captura offline, inventario en bultos 40 kg, sanidad/retiros/compostaje y parte diario compartible (Telegram). Mantiene ocultas auditorías complejas hasta crecer.",
             },
             {
               scale: "MEDIANO" as const,

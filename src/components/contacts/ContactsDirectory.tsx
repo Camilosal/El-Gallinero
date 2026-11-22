@@ -897,7 +897,7 @@ export default function ContactsDirectory({
 
             <div className="flex flex-wrap justify-between items-center gap-2 pt-2">
               <Link
-                href="/dashboard/finanzas/cuentas"
+                href="/finanzas/cuentas"
                 className="text-xs font-medium text-blue-700 hover:underline"
               >
                 Ver cuentas por cobrar / pagar →

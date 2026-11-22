@@ -1,7 +1,7 @@
 import { isDateOnly } from "@/lib/date-validation";
 import { db } from "@/db";
 import { manureSales, transactions } from "@/db/schema";
-import { eq, desc, and } from "drizzle-orm";
+import { eq, desc, and, inArray } from "drizzle-orm";
 import { NextRequest, NextResponse } from "next/server";
 import { withApiHandler, safeParseJson } from "@/lib/api-handler";
 import { lockAndReadManureStock } from "@/lib/manure-stock";
@@ -10,6 +10,9 @@ import { createManureSale, deleteManureSale } from "@/lib/manure-operations";
 import { resolveDimensions } from "@/lib/analytics-dimensions";
 import { getCreditMetaBySourceIds, syncCreditReceivable } from "@/lib/financial-records";
 import { assertDateNotClosed } from "@/lib/sanitary-locks";
+import { resolveManagedTransactionTaxColumns } from "@/lib/analytics/payroll-tax-supplies";
+import { getTaxAndPayrollConfig } from "@/lib/settings";
+import { requirePermission } from "@/lib/rbac-server";
 
 export const dynamic = "force-dynamic";
 
@@ -17,12 +20,22 @@ export const dynamic = "force-dynamic";
 export const GET = withApiHandler(async () => {
   const data = await db.select().from(manureSales).orderBy(desc(manureSales.date));
   if (data.length === 0) return NextResponse.json([]);
-  const creditMetaMap = await getCreditMetaBySourceIds("gallinaza", data.map((s) => s.id));
+  const [creditMetaMap, taxRows] = await Promise.all([
+    getCreditMetaBySourceIds("gallinaza", data.map((s) => s.id)),
+    db.select().from(transactions).where(and(eq(transactions.sourceType, "gallinaza"), inArray(transactions.sourceId, data.map((s) => s.id)))),
+  ]);
+  const taxBySale = new Map(taxRows.map((row) => [row.sourceId, row]));
   return NextResponse.json(
     data.map((sale) => {
       const creditMeta = creditMetaMap.get(sale.id);
+      const tax = taxBySale.get(sale.id);
       return {
         ...sale,
+        ivaRate: tax?.ivaRate ?? null,
+        reteFuenteRate: tax?.reteFuenteRate ?? null,
+        icaRate: tax?.icaRate ?? null,
+        otherDeductionsAmount: tax?.otherDeductionsAmount ?? null,
+        taxNotes: tax?.taxNotes ?? null,
         transactionId: creditMeta?.transactionId || null,
         isCredit: creditMeta?.isCredit ?? false,
         dueDate: creditMeta?.dueDate || null,
@@ -32,6 +45,8 @@ export const GET = withApiHandler(async () => {
 });
 
 export const POST = withApiHandler(async (req: NextRequest) => {
+  const denied = await requirePermission("sales:write");
+  if (denied) return denied;
   const body = await safeParseJson(req);
   if (!body || typeof body !== "object") return NextResponse.json({ error: "Cuerpo inválido" }, { status: 400 });
 
@@ -41,6 +56,9 @@ export const POST = withApiHandler(async (req: NextRequest) => {
   if (body.isCredit && body.dueDate && !isDateOnly(body.dueDate)) return NextResponse.json({ error: "Fecha de vencimiento inválida" }, { status: 400 });
   if (!Number.isFinite(quantityKg) || quantityKg <= 0) return NextResponse.json({ error: "Cantidad kg inválida" }, { status: 400 });
   if (!Number.isFinite(pricePerKg) || pricePerKg < 0) return NextResponse.json({ error: "Precio/kg inválido" }, { status: 400 });
+  const totalAmount = (quantityKg * pricePerKg).toFixed(2);
+  const taxConfig = await getTaxAndPayrollConfig();
+  const taxResolved = resolveManagedTransactionTaxColumns(body, totalAmount, taxConfig, "agro");
 
   const created = await db.transaction((tx) => createManureSale(tx, {
       date: body.date,
@@ -54,12 +72,15 @@ export const POST = withApiHandler(async (req: NextRequest) => {
       notes: body.notes,
       isCredit: Boolean(body.isCredit),
       dueDate: body.dueDate || null,
+      taxColumns: taxResolved.columns,
   }));
 
   return NextResponse.json(created, { status: 201 });
 });
 
 export const PUT = withApiHandler(async (req: NextRequest) => {
+  const denied = await requirePermission("sales:write");
+  if (denied) return denied;
   const body = await safeParseJson(req);
   if (!body || typeof body !== "object") return NextResponse.json({ error: "Cuerpo inválido" }, { status: 400 });
   if (!body.id) return NextResponse.json({ error: "ID requerido" }, { status: 400 });
@@ -72,7 +93,6 @@ export const PUT = withApiHandler(async (req: NextRequest) => {
   if (!Number.isFinite(pricePerKg) || pricePerKg < 0) return NextResponse.json({ error: "Precio/kg inválido" }, { status: 400 });
 
   const totalAmount = (quantityKg * pricePerKg).toFixed(2);
-
   const updated = await db.transaction(async (tx) => {
     await assertDateNotClosed(tx, { date: body.date });
     const stock = await lockAndReadManureStock(tx);
@@ -102,6 +122,8 @@ export const PUT = withApiHandler(async (req: NextRequest) => {
 
     const [existingTx] = await tx.select().from(transactions)
       .where(and(eq(transactions.sourceType, "gallinaza"), eq(transactions.sourceId, body.id)));
+    const taxConfig = await getTaxAndPayrollConfig();
+    const taxResolved = resolveManagedTransactionTaxColumns(body, totalAmount, taxConfig, "agro", existingTx);
 
     const values = {
       date: body.date,
@@ -109,7 +131,8 @@ export const PUT = withApiHandler(async (req: NextRequest) => {
       locationId: dims.locationId,
       batchId: dims.batchId,
       description: `Venta de gallinaza (${quantityKg} kg)${body.buyer ? ` a ${body.buyer}` : ""}`,
-      amount: totalAmount,
+      amount: taxResolved.amount,
+      ...taxResolved.columns,
       quantity: quantityKg.toFixed(2),
       unitPrice: pricePerKg.toFixed(2),
       unit: "kg",
@@ -145,6 +168,8 @@ export const PUT = withApiHandler(async (req: NextRequest) => {
 });
 
 export const DELETE = withApiHandler(async (req: NextRequest) => {
+  const denied = await requirePermission("sales:write");
+  if (denied) return denied;
   const { searchParams } = new URL(req.url);
   const id = searchParams.get("id");
   if (!id) return NextResponse.json({ error: "ID requerido" }, { status: 400 });

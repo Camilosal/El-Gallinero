@@ -4,6 +4,7 @@ import { GET as locationsGET, POST as locationsPOST } from "@/app/api/ubicacione
 import { GET as movementsGET, POST as movementsPOST } from "@/app/api/ubicaciones/movimientos/route";
 import { POST as acquisitionsPOST } from "@/app/api/produccion/adquisiciones/route";
 import { hens } from "@/db/schema";
+import { DEFAULT_FARM_ID, runWithFarmContext } from "@/db/tenant-context";
 import { countHensByStageAndLocationForDate } from "@/lib/feeding/runProgram";
 import { cleanup, createCleanup, db, mockRequest, parseJson, type TestCleanup } from "./helpers";
 
@@ -61,7 +62,10 @@ describe("Lugares de manejo", () => {
     const [movedHen] = await db.select().from(hens).where(eq(hens.id, acquisition.createdBirdIds[0]));
     expect(movedHen.locationId).toBe(destination.id);
 
-    const stageCounts = await countHensByStageAndLocationForDate(new Date(`${today}T12:00:00`), db);
+    const stageCounts = await runWithFarmContext(
+      DEFAULT_FARM_ID,
+      () => countHensByStageAndLocationForDate(new Date(`${today}T12:00:00`), db),
+    );
     const countsAt = (locationId: string) => Object.values(stageCounts).flat()
       .filter((item) => item.locationId === locationId)
       .reduce((total, item) => total + item.count, 0);

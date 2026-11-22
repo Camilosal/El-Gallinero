@@ -3,14 +3,14 @@ import { test, expect } from "@playwright/test";
 
 // Rutas clave de la reorganización de navegación (requieren sesión)
 const RUTAS_ESPERADAS_200 = [
-  "/dashboard/animales",
-  "/dashboard/almacen",
-  "/dashboard/inventarios/balance",
-  "/dashboard/produccion",
-  "/dashboard/produccion?tab=alimentacion",
-  "/dashboard/planeacion",
-  "/dashboard/produccion/plan-parvada",
-  "/dashboard/soberania",
+  "/animales",
+  "/almacen",
+  "/inventarios/balance",
+  "/produccion",
+  "/produccion?tab=alimentacion",
+  "/planeacion",
+  "/produccion/plan-parvada",
+  "/soberania",
 ];
 
 test.describe("Navegación reorganizada (autenticado)", () => {
@@ -28,21 +28,21 @@ test.describe("Navegación reorganizada (autenticado)", () => {
   test("los redirects antiguos apuntan a los nuevos destinos", async ({
     page,
   }) => {
-    // /dashboard/inventarios -> /dashboard/inventarios/balance
-    await page.goto("/dashboard/inventarios", { waitUntil: "domcontentloaded" });
-    await expect(page).toHaveURL(/\/dashboard\/inventarios\/balance/);
+    // /inventarios -> /inventarios/balance
+    await page.goto("/inventarios", { waitUntil: "domcontentloaded" });
+    await expect(page).toHaveURL(/\/inventarios\/balance/);
 
-    // /dashboard/operaciones -> /dashboard/almacen
-    await page.goto("/dashboard/operaciones", {
+    // /operaciones -> /almacen
+    await page.goto("/operaciones", {
       waitUntil: "domcontentloaded",
     });
-    await expect(page).toHaveURL(/\/dashboard\/almacen/);
+    await expect(page).toHaveURL(/\/almacen/);
   });
 
   test("el grupo Planeación carga como índice de presentación", async ({
     page,
   }) => {
-    await page.goto("/dashboard/planeacion", {
+    await page.goto("/planeacion", {
       waitUntil: "networkidle",
     });
     // La página debe cargar con título de Planeación
@@ -54,7 +54,7 @@ test.describe("Alimentación sin duplicaciones (autenticado)", () => {
   test("la pestaña de alimentación no muestra proyección ni consumo esperado de etapas", async ({
     page,
   }) => {
-    await page.goto("/dashboard/produccion?tab=alimentacion", {
+    await page.goto("/produccion?tab=alimentacion", {
       waitUntil: "domcontentloaded",
     });
     await expect(page.locator("text=Gestión de Alimentación")).toBeVisible();

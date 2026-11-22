@@ -7,8 +7,6 @@ import { classifyNtc1240Caliber, computeAnalyticalAccounting } from "@/lib/analy
 
 export const dynamic = "force-dynamic";
 
-export { classifyNtc1240Caliber };
-
 export const GET = withApiHandler(async (req: NextRequest) => {
   const { searchParams } = new URL(req.url);
   const today = todayColombiaIso();
@@ -96,12 +94,15 @@ export const GET = withApiHandler(async (req: NextRequest) => {
           ["Período", `${from} a ${to}`],
           ["Ingresos directos", payload.totals.directRevenue],
           ["Costos operativos devengados", payload.totals.directCost],
+          ["Insumos consumidos devengados", payload.totals.supplyCost],
+          ["Trabajo propio del productor (valorado)", payload.totals.imputedOwnerLaborCost],
           ["Depreciación CapEx del período", payload.totals.depreciationCost],
           ["Costos prorrateados", payload.totals.proratedCost],
           ["Utilidad operativa devengada", payload.totals.netProfit],
           ["Flujo de caja neto (liquidez)", payload.totals.cashNetFlow],
           ["CapEx invertido (excluido del gasto directo)", payload.totals.capexExcluded],
           ["Alimento disponible en bodega", payload.warehouseFeed.totalValueCop],
+          ["Insumos disponibles en bodega", payload.warehouseSupply.totalValueCop],
           ["Valor neto equipos (patrimonio)", payload.assetsDepreciation.netBookValueCop],
           ["Capital biológico vivo en granja", payload.biologicalPortfolio.totalBiologicalValueCop],
           ["Etapa del ciclo", payload.lifecycleLabel],
@@ -191,6 +192,24 @@ export const GET = withApiHandler(async (req: NextRequest) => {
             c.grossMargin,
             c.marginPct ?? "",
           ]),
+        ],
+      },
+      {
+        name: "Tributario y Nomina",
+        rows: [
+          ["Concepto", "Valor COP"],
+          ["IVA generado en ventas", payload.taxAndDeductions.ivaGeneradoCop],
+          ["IVA descontable en compras", payload.taxAndDeductions.ivaDescontableCop],
+          ["Saldo estimado IVA", payload.taxAndDeductions.ivaSaldoEstimadoCop],
+          ["ReteFuente practicada (egresos + nómina)", payload.taxAndDeductions.reteFuentePracticadaCop],
+          ["ReteFuente sufrida en ventas", payload.taxAndDeductions.reteFuenteSufridaCop],
+          ["ICA municipal declarado", payload.taxAndDeductions.icaTotalCop],
+          ["Otras deducciones", payload.taxAndDeductions.otherDeductionsCop],
+          ["Nómina bruta devengada/pagada", payload.taxAndDeductions.payrollGrossCop],
+          ["Aportes y prestaciones empleador", payload.taxAndDeductions.payrollEmployerBurdenCop],
+          ["Deducciones al trabajador (salud/pensión)", payload.taxAndDeductions.payrollWorkerDeductionsCop],
+          ["Trabajo propio productor (no retirado)", payload.taxAndDeductions.imputedOwnerLaborCop],
+          ["GMF (4x1000) estimado", payload.taxAndDeductions.gmf4x1000EstimatedCop],
         ],
       },
     ]);

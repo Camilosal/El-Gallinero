@@ -9,7 +9,7 @@ import { NextResponse } from "next/server";
 export const dynamic = "force-dynamic";
 
 export const POST = withApiHandler(async () => {
-  const denied = await requirePermission("config:write");
+  const denied = await requirePermission("catalogs:write");
   if (denied) return denied;
 
   const missingSpecies = await db

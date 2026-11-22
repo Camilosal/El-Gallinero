@@ -1,4 +1,5 @@
 import { Globe } from "lucide-react";
+import { BrandLogo } from "@/components/BrandLogo";
 import { APP_BRAND, APP_DEVELOPER } from "@/lib/branding";
 
 interface DeveloperCreditProps {
@@ -57,16 +58,19 @@ export function DeveloperCredit({
           <p className="text-[11px] font-bold uppercase tracking-wider text-emerald-700">
             Desarrollo y soporte
           </p>
-          <h2 className="mt-1 text-base font-semibold text-slate-900">
-            {APP_BRAND.name} · Desarrollado por{" "}
-            <a
-              href={APP_DEVELOPER.url}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="text-emerald-800 hover:underline"
-            >
-              {APP_DEVELOPER.name}
-            </a>
+          <h2 className="mt-1 flex items-center gap-2 text-base font-semibold text-slate-900">
+            <BrandLogo variant="square" size={32} decorative className="rounded-lg border border-slate-200 p-0.5 bg-white" />
+            <span>
+              {APP_BRAND.name} · Desarrollado por{" "}
+              <a
+                href={APP_DEVELOPER.url}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-emerald-800 hover:underline"
+              >
+                {APP_DEVELOPER.name}
+              </a>
+            </span>
           </h2>
           <p className="mt-1 text-xs text-slate-600">
             ¿Necesitas soporte técnico, nuevas integraciones o implementación personalizada para tu granja?
@@ -80,6 +84,7 @@ export function DeveloperCredit({
     <div className={`flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-slate-500 ${className}`}>
       {showAppName && (
         <>
+          <BrandLogo variant="mark" size={20} decorative className="rounded-md border border-slate-200" />
           <span className="font-semibold text-slate-700">{APP_BRAND.name}</span>
           <span aria-hidden="true">·</span>
         </>

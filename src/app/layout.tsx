@@ -7,7 +7,7 @@ import { APP_DEVELOPER } from "@/lib/branding";
 import { SITE_NAME, SITE_URL } from "@/lib/seo";
 
 export const metadata: Metadata = {
-  title: "El Gallinero · Software libre para granjas avícolas",
+  title: "IwaGranja · Software libre para granjas avícolas",
   description:
     "Gestión de granja sin señal: huevos, alimento, sanidad, trazabilidad QR y finanzas por especie. Código abierto, en producción en Ibagué, Colombia.",
   authors: [{ name: APP_DEVELOPER.name, url: APP_DEVELOPER.url }],
@@ -18,7 +18,7 @@ export const metadata: Metadata = {
   icons: {
     icon: [
       { url: "/icon-192.png", sizes: "192x192", type: "image/png" },
-      { url: "/icon-192.svg", type: "image/svg+xml" },
+      { url: "/icon-512.png", sizes: "512x512", type: "image/png" },
     ],
     apple: [{ url: "/icon-192.png", sizes: "192x192", type: "image/png" }],
   },
@@ -33,7 +33,7 @@ export const metadata: Metadata = {
   appleWebApp: {
     capable: true,
     statusBarStyle: "default",
-    title: "Sistema Gallinero",
+    title: "IwaGranja",
   },
 };
 

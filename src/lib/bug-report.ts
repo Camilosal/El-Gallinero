@@ -123,24 +123,24 @@ const EXTRA_ORIGIN_ROUTES: ReadonlyArray<{
   moduleLabel: string;
   groupLabel: string;
 }> = [
-  { prefix: "/dashboard/escanear", moduleLabel: "Escáner QR de campo", groupLabel: "General" },
-  { prefix: "/dashboard/analisis/normas", moduleLabel: "Normas, estándares y guías aplicables", groupLabel: "Análisis" },
-  { prefix: "/dashboard/analisis/fuentes-externas", moduleLabel: "Clima, mercado y entorno", groupLabel: "Análisis" },
-  { prefix: "/dashboard/configuracion/fallas", moduleLabel: "Reportes de fallas y diagnóstico", groupLabel: "Configuración" },
-  { prefix: "/dashboard/configuracion/catalogos", moduleLabel: "Catálogos y Datos Maestros", groupLabel: "Configuración" },
-  { prefix: "/dashboard/configuracion/granjas", moduleLabel: "Panel Super-Admin de Granjas", groupLabel: "Configuración" },
-  { prefix: "/dashboard/configuracion/usuarios", moduleLabel: "Usuarios y Roles", groupLabel: "Configuración" },
-  { prefix: "/dashboard/configuracion/kit-campo", moduleLabel: "Kit de Campo y QR", groupLabel: "Configuración" },
-  { prefix: "/dashboard/configuracion/modulos", moduleLabel: "Módulos Progresivos y Escala", groupLabel: "Configuración" },
-  { prefix: "/dashboard/configuracion/plan", moduleLabel: "Plan y Pagos", groupLabel: "Configuración" },
-  { prefix: "/dashboard/configuracion", moduleLabel: "Configuración del sistema", groupLabel: "Configuración" },
-  { prefix: "/dashboard/exportar", moduleLabel: "Exportación de datos", groupLabel: "Configuración" },
-  { prefix: "/dashboard/guia", moduleLabel: "Manual y Guías de Usuario", groupLabel: "Guía" },
-  { prefix: "/dashboard/produccion/peso", moduleLabel: "Control de peso y biometría", groupLabel: "Animales" },
-  { prefix: "/dashboard/produccion/huevos", moduleLabel: "Producción · Huevos", groupLabel: "Producción" },
-  { prefix: "/dashboard/produccion/gallinas", moduleLabel: "Fichas de gallinas", groupLabel: "Animales" },
-  { prefix: "/dashboard/produccion/pollos", moduleLabel: "Lotes de engorde", groupLabel: "Animales" },
-  { prefix: "/dashboard/ubicaciones", moduleLabel: "Lugares de manejo", groupLabel: "Animales" },
+  { prefix: "/escanear", moduleLabel: "Escáner QR de campo", groupLabel: "General" },
+  { prefix: "/analisis/normas", moduleLabel: "Normas, estándares y guías aplicables", groupLabel: "Análisis" },
+  { prefix: "/analisis/fuentes-externas", moduleLabel: "Clima, mercado y entorno", groupLabel: "Análisis" },
+  { prefix: "/configuracion/fallas", moduleLabel: "Reportes de fallas y diagnóstico", groupLabel: "Configuración" },
+  { prefix: "/configuracion/catalogos", moduleLabel: "Catálogos y Datos Maestros", groupLabel: "Configuración" },
+  { prefix: "/configuracion/granjas", moduleLabel: "Panel Super-Admin de Granjas", groupLabel: "Configuración" },
+  { prefix: "/configuracion/usuarios", moduleLabel: "Usuarios y Roles", groupLabel: "Configuración" },
+  { prefix: "/configuracion/kit-campo", moduleLabel: "Kit de Campo y QR", groupLabel: "Configuración" },
+  { prefix: "/configuracion/modulos", moduleLabel: "Módulos Progresivos y Escala", groupLabel: "Configuración" },
+  { prefix: "/configuracion/plan", moduleLabel: "Plan y Pagos", groupLabel: "Configuración" },
+  { prefix: "/configuracion", moduleLabel: "Configuración del sistema", groupLabel: "Configuración" },
+  { prefix: "/exportar", moduleLabel: "Exportación de datos", groupLabel: "Configuración" },
+  { prefix: "/manual", moduleLabel: "Manual y Guías de Usuario", groupLabel: "Guía" },
+  { prefix: "/produccion/peso", moduleLabel: "Control de peso y biometría", groupLabel: "Animales" },
+  { prefix: "/produccion/huevos", moduleLabel: "Producción · Huevos", groupLabel: "Producción" },
+  { prefix: "/produccion/gallinas", moduleLabel: "Fichas de gallinas", groupLabel: "Animales" },
+  { prefix: "/produccion/pollos", moduleLabel: "Lotes de engorde", groupLabel: "Animales" },
+  { prefix: "/ubicaciones", moduleLabel: "Lugares de manejo", groupLabel: "Animales" },
   { prefix: "/lote/", moduleLabel: "Ficha pública/QR de lote", groupLabel: "Animales" },
   { prefix: "/guia", moduleLabel: "Manual público de uso", groupLabel: "Guía" },
 ];
@@ -150,7 +150,7 @@ export function resolveBugOriginInfo(
   searchQuery = "",
   triggerSource: BugTriggerSource = "topbar",
 ): BugOriginInfo {
-  const cleanPath = (pathname || "/dashboard").split("?")[0].replace(/\/+$/, "") || "/";
+  const cleanPath = (pathname || "/inicio").split("?")[0].replace(/\/+$/, "") || "/";
   const cleanQuery = searchQuery.startsWith("?") ? searchQuery.slice(1) : searchQuery;
   const fullWithQuery = cleanQuery ? `${cleanPath}?${cleanQuery}` : cleanPath;
 
@@ -205,9 +205,9 @@ export function resolveBugOriginInfo(
     }
   }
 
-  if (cleanPath === "/dashboard") {
+  if (cleanPath === "/inicio") {
     return {
-      originPath: "/dashboard",
+      originPath: "/inicio",
       originQuery: cleanQuery,
       originFullUrl: fullWithQuery,
       originModule: "Inicio · Panel principal",
@@ -295,7 +295,7 @@ export function formatBugReportPreviewText(input: {
   capturedErrors?: BugCapturedError[];
 }): string {
   const lines: string[] = [
-    `=== REPORTE DE FALLA · EL GALLINERO ===`,
+    `=== REPORTE DE FALLA · IWAGRANJA ===`,
     ...(input.reportCode ? [`Radicado: ${input.reportCode}`] : ["Estado: Borrador listo para envío"]),
     `Severidad: ${BUG_SEVERITY_LABELS[input.severity]} (${input.severity})`,
     `Categoría: ${BUG_CATEGORY_LABELS[input.category]}`,

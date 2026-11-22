@@ -1,6 +1,7 @@
 import { db } from "@/db";
-import { aiActions, aiConversations, aiMessages } from "@/db/schema";
+import { aiActions, aiConversations, aiMessages, appSettings } from "@/db/schema";
 import { and, asc, desc, eq } from "drizzle-orm";
+import crypto from "node:crypto";
 import { getAgentConfig, isSttConfigured, isVisionConfigured, type AgentConfig } from "./config";
 import { callLlm, type LlmMessage, type LlmToolCall } from "./llm";
 import { InternalApiClient, resolveInternalBaseUrl } from "./internal-api";
@@ -13,6 +14,12 @@ import {
   recallRelevantMemories,
 } from "./memory";
 import { formatSituationalBrief, getLiveSituationalSnapshot } from "./situational";
+import {
+  describeDelegationPolicy,
+  effectiveRequiresConfirmation,
+  getDelegationPolicy,
+  type DelegationPolicy,
+} from "./delegation";
 import {
   getAgentTool,
   llmToolDefinitions,
@@ -44,6 +51,8 @@ export interface AgentTurnInput {
   message: string;
   cookie: string | null;
   requestOrigin?: string;
+  /** Canal de entrada para auditoría en ai_actions.origin (assistant | telegram | external_agent). */
+  origin?: string;
 }
 
 export interface AgentTurnResult {
@@ -218,6 +227,8 @@ async function recordFailedAction(input: {
   args: unknown;
   summary: string;
   error: string;
+  origin?: string;
+  tokenId?: string | null;
 }) {
   await db.insert(aiActions).values({
     conversationId: input.conversationId,
@@ -227,6 +238,8 @@ async function recordFailedAction(input: {
     args: input.args as any,
     summary: input.summary,
     status: "failed",
+    origin: input.origin || "assistant",
+    tokenId: input.tokenId ?? null,
     error: input.error,
     executedAt: new Date(),
   });
@@ -243,6 +256,9 @@ async function handleToolCall(
   conversationId: string,
   userId: string,
   assistantMessageId: string,
+  policy: DelegationPolicy,
+  origin: string,
+  tokenId?: string | null,
 ): Promise<ToolCallOutcome> {
   const tool = getAgentTool(call.function.name);
   if (!tool) {
@@ -281,11 +297,14 @@ async function handleToolCall(
       args,
       summary: `No se pudo preparar ${tool.name}`,
       error: message,
+      origin,
+      tokenId,
     });
     return { content: { status: "error", error: message } };
   }
 
-  if (tool.requiresConfirmation) {
+  // Confirmación efectiva = piso duro inviolable || política de delegación de la granja.
+  if (effectiveRequiresConfirmation(tool.name, policy)) {
     const [action] = await db
       .insert(aiActions)
       .values({
@@ -296,6 +315,8 @@ async function handleToolCall(
         args: prepared.args as any,
         summary: prepared.summary,
         status: "pending",
+        origin,
+        tokenId: tokenId ?? null,
       })
       .returning();
 
@@ -319,7 +340,7 @@ async function handleToolCall(
 
   try {
     const result = await runPrepared(tool, prepared, ctx);
-    await db.insert(aiActions).values({
+    const [executedAction] = await db.insert(aiActions).values({
       conversationId,
       userId,
       messageId: assistantMessageId,
@@ -327,12 +348,18 @@ async function handleToolCall(
       args: prepared.args as any,
       summary: prepared.summary,
       status: "executed",
+      // Una escritura que por defecto pedía confirmación y se auto-ejecutó por
+      // política delegada queda auditada como delegated_auto. El canal externo
+      // (API v1 / MCP) conserva su origen explícito + tokenId.
+      origin: tool.requiresConfirmation && origin !== "external_agent" ? "delegated_auto" : origin,
+      tokenId: tokenId ?? null,
       result: result as any,
       executedAt: new Date(),
-    });
+    }).returning();
     return {
       content: {
         status: "executed",
+        actionId: executedAction.id,
         summary: prepared.summary,
         result: truncate(result),
       },
@@ -347,6 +374,8 @@ async function handleToolCall(
       args: prepared.args,
       summary: prepared.summary,
       error: message,
+      origin: tool.requiresConfirmation && origin !== "external_agent" ? "delegated_auto" : origin,
+      tokenId,
     });
     return { content: { status: "error", error: message, summary: prepared.summary } };
   }
@@ -432,6 +461,7 @@ async function executePendingActionById(input: {
   actionId: string;
   cookie: string | null;
   requestOrigin?: string;
+  origin?: string;
 }): Promise<{ action: typeof aiActions.$inferSelect; result: unknown; message: string }> {
   const [action] = await db
     .select()
@@ -471,7 +501,13 @@ async function executePendingActionById(input: {
     const result = await tool.execute((action.args || {}) as Record<string, any>, ctx);
     const [updated] = await db
       .update(aiActions)
-      .set({ status: "executed", result: result as any, error: null, executedAt: new Date() })
+      .set({
+        status: "executed",
+        result: result as any,
+        error: null,
+        executedAt: new Date(),
+        origin: input.origin || "human_confirmed",
+      })
       .where(eq(aiActions.id, action.id))
       .returning();
 
@@ -508,6 +544,7 @@ export async function confirmAction(input: {
   actionId: string;
   cookie: string | null;
   requestOrigin?: string;
+  origin?: string;
 }) {
   return executePendingActionById(input);
 }
@@ -535,6 +572,106 @@ export async function cancelAction(input: { userId: string; actionId: string; re
   });
   await touchConversation(action.conversationId);
   return { message };
+}
+
+// ─── D1: ejecución directa de herramientas para agentes externos (API v1 / MCP) ───
+
+const API_CONVERSATIONS_KEY = "agent.api_conversations.v1";
+
+async function getOrCreateApiConversation(userId: string, channelKey: string): Promise<string> {
+  const [row] = await db.select().from(appSettings).where(eq(appSettings.key, API_CONVERSATIONS_KEY)).limit(1);
+  let map: Record<string, string> = {};
+  try {
+    map = row ? JSON.parse(row.value) : {};
+  } catch {
+    map = {};
+  }
+  const existingId = map[channelKey];
+  if (existingId) {
+    const existing = await getConversationForUser(userId, existingId);
+    if (existing) return existing.id;
+  }
+  const [created] = await db
+    .insert(aiConversations)
+    .values({ userId, title: "Agente externo (API)" })
+    .returning();
+  map[channelKey] = created.id;
+  const value = JSON.stringify(map);
+  if (row) {
+    await db.update(appSettings).set({ value }).where(eq(appSettings.key, API_CONVERSATIONS_KEY));
+  } else {
+    await db.insert(appSettings).values({ key: API_CONVERSATIONS_KEY, value });
+  }
+  return created.id;
+}
+
+export interface ExternalToolResult {
+  conversationId: string;
+  status: "ok" | "executed" | "pending_confirmation" | "error";
+  actionId?: string;
+  summary?: string;
+  data?: unknown;
+  result?: unknown;
+  error?: string;
+  instruction?: string;
+}
+
+/**
+ * Ejecuta una herramienta del agente sin LLM, como el usuario delegante dueño
+ * del token. Reutiliza handleToolCall: mismos candados sanitarios, RBAC/RLS vía
+ * InternalApiClient, piso duro y política de delegación (B3). Las escrituras
+ * sensibles quedan pendientes (202) hasta confirmación humana o del propio
+ * agente externo vía /api/asistente/acciones/{id}/confirmar.
+ */
+export async function executeToolExternal(input: {
+  userId: string;
+  userName: string;
+  toolName: string;
+  args: Record<string, unknown>;
+  cookie: string | null;
+  requestOrigin?: string;
+  tokenId: string | null;
+}): Promise<ExternalToolResult> {
+  const tool = getAgentTool(input.toolName);
+  if (!tool) throw new Error(`Herramienta desconocida: ${input.toolName}`);
+
+  const channelKey = input.tokenId ? `token:${input.tokenId}` : `session:${input.userId}`;
+  const conversationId = await getOrCreateApiConversation(input.userId, channelKey);
+
+  const userMessage = await saveMessage({
+    conversationId,
+    role: "user",
+    content: `[API externa] ${input.toolName} ${JSON.stringify(input.args).slice(0, 800)}`,
+  });
+  await touchConversation(conversationId);
+
+  const policy = await getDelegationPolicy();
+  const ctx = makeContext(input, conversationId);
+  const call: LlmToolCall = {
+    id: `ext_${crypto.randomUUID()}`,
+    type: "function",
+    function: { name: input.toolName, arguments: JSON.stringify(input.args) },
+  };
+
+  const outcome = await handleToolCall(
+    call,
+    ctx,
+    conversationId,
+    input.userId,
+    userMessage.id,
+    policy,
+    "external_agent",
+    input.tokenId,
+  );
+
+  await saveMessage({
+    conversationId,
+    role: "assistant",
+    content: JSON.stringify(truncate(outcome.content, 10_000)),
+  });
+  await touchConversation(conversationId);
+
+  return { conversationId, ...(outcome.content as Omit<ExternalToolResult, "conversationId">) };
 }
 
 export async function runAgentTurn(input: AgentTurnInput): Promise<AgentTurnResult> {
@@ -586,7 +723,7 @@ export async function runAgentTurn(input: AgentTurnInput): Promise<AgentTurnResu
     };
   }
 
-  const [historyRows, convSummaryRow, recalledMemories, situationalSnapshot, routing] = await Promise.all([
+  const [historyRows, convSummaryRow, recalledMemories, situationalSnapshot, routing, delegationPolicy] = await Promise.all([
     db
       .select()
       .from(aiMessages)
@@ -603,6 +740,7 @@ export async function runAgentTurn(input: AgentTurnInput): Promise<AgentTurnResu
     recallRelevantMemories(input.userId, text, 6),
     getLiveSituationalSnapshot(),
     routeAgentTools(text, llmToolDefinitions()),
+    getDelegationPolicy(),
   ]);
 
   const history = toLlmHistory(historyRows.reverse());
@@ -610,10 +748,12 @@ export async function runAgentTurn(input: AgentTurnInput): Promise<AgentTurnResu
     situationalBrief: formatSituationalBrief(situationalSnapshot),
     memories: recalledMemories,
     conversationSummary: convSummaryRow,
+    delegationPolicy: describeDelegationPolicy(delegationPolicy),
   });
   const llmMessages: LlmMessage[] = [{ role: "system", content: systemPrompt }, ...history];
   const tools = routing.tools;
   const ctx = makeContext(input, conversationId);
+  const origin = input.origin || "assistant";
 
   let reply = "";
   let lastAssistantContent = "";
@@ -644,12 +784,12 @@ export async function runAgentTurn(input: AgentTurnInput): Promise<AgentTurnResu
     const allReads = assistant.tool_calls.every((c) => getAgentTool(c.function?.name)?.kind === "read");
     const outcomes: ToolCallOutcome[] = allReads
       ? await Promise.all(
-          assistant.tool_calls.map((call) => handleToolCall(call, ctx, conversationId, input.userId, assistantRow.id)),
+          assistant.tool_calls.map((call) => handleToolCall(call, ctx, conversationId, input.userId, assistantRow.id, delegationPolicy, origin)),
         )
       : await (async () => {
           const list: ToolCallOutcome[] = [];
           for (const call of assistant.tool_calls!) {
-            list.push(await handleToolCall(call, ctx, conversationId, input.userId, assistantRow.id));
+            list.push(await handleToolCall(call, ctx, conversationId, input.userId, assistantRow.id, delegationPolicy, origin));
           }
           return list;
         })();

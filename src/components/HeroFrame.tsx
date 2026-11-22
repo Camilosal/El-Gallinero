@@ -1,10 +1,70 @@
-import type { ReactNode } from "react";
+import type { AnchorHTMLAttributes, ButtonHTMLAttributes, ComponentProps, ReactNode } from "react";
+import Link from "next/link";
 import { AppIcon } from "@/components/AppIcon";
 import { HERO_THEMES, type HeroThemeKey } from "@/lib/hero-themes";
+
+export type HeroActionTone = "glass" | "solid" | "accent";
+
+const BASE_HERO_ACTION_CLS =
+  "inline-flex items-center justify-center gap-1.5 min-h-[38px] px-3.5 py-1.5 text-xs sm:text-[13px] font-semibold rounded-xl border transition-colors whitespace-nowrap cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed";
+
+const HERO_ACTION_TONE_CLS: Record<HeroActionTone, string> = {
+  glass: "bg-white/15 backdrop-blur-sm border-white/25 text-white hover:bg-white/25",
+  solid: "bg-white border-white/90 text-emerald-950 shadow-sm hover:bg-emerald-50",
+  accent: "bg-amber-400 border-amber-300 text-slate-950 shadow-sm hover:bg-amber-300",
+};
+
+/**
+ * Devuelve las clases estandarizadas para botones y enlaces de acceso/acción dentro de HeroFrame / HeroBanner.
+ */
+export function heroActionClassName(tone: HeroActionTone = "glass", className = ""): string {
+  return `${BASE_HERO_ACTION_CLS} ${HERO_ACTION_TONE_CLS[tone]} ${className}`.trim();
+}
+
+export function HeroActionButton({
+  tone = "glass",
+  type = "button",
+  className = "",
+  children,
+  ...props
+}: ButtonHTMLAttributes<HTMLButtonElement> & { tone?: HeroActionTone }) {
+  return (
+    <button type={type} className={heroActionClassName(tone, className)} {...props}>
+      {children}
+    </button>
+  );
+}
+
+export function HeroActionLink({
+  tone = "glass",
+  className = "",
+  children,
+  ...props
+}: ComponentProps<typeof Link> & { tone?: HeroActionTone }) {
+  return (
+    <Link className={heroActionClassName(tone, className)} {...props}>
+      {children}
+    </Link>
+  );
+}
+
+export function HeroActionAnchor({
+  tone = "glass",
+  className = "",
+  children,
+  ...props
+}: AnchorHTMLAttributes<HTMLAnchorElement> & { tone?: HeroActionTone }) {
+  return (
+    <a className={heroActionClassName(tone, className)} {...props}>
+      {children}
+    </a>
+  );
+}
 
 export interface HeroFrameProps {
   theme: HeroThemeKey;
   title: ReactNode;
+  metadata?: ReactNode;
   description?: ReactNode;
   eyebrow?: string;
   icon?: string | ReactNode;
@@ -23,6 +83,7 @@ export interface HeroFrameProps {
 export function HeroFrame({
   theme,
   title,
+  metadata,
   description,
   eyebrow,
   icon,
@@ -95,6 +156,12 @@ export function HeroFrame({
             {title}
           </h1>
 
+          {metadata && (
+            <div className="mt-1 text-[10px] leading-tight text-white/70">
+              {metadata}
+            </div>
+          )}
+
           {description && (
             <p className="mt-1.5 text-sm sm:text-[15px] text-emerald-50/90 leading-relaxed max-w-xl">
               {description}
@@ -103,7 +170,7 @@ export function HeroFrame({
         </div>
 
         {actions && (
-          <div className="relative z-10 flex flex-wrap items-end gap-2 shrink-0 [&_label]:!text-emerald-50 [&_select]:!bg-white/95 [&_select]:!text-slate-800 [&_select]:!border-white/30 [&_input]:!bg-white/95 [&_input]:!text-slate-800 [&_input]:!border-white/30">
+          <div className="relative z-10 flex flex-wrap items-end justify-start md:justify-end gap-2 shrink-0 [&_label]:!text-emerald-50 [&_select]:!min-h-[38px] [&_select]:!bg-white/95 [&_select]:!text-slate-800 [&_select]:!border-white/30 [&_input]:!min-h-[38px] [&_input]:!bg-white/95 [&_input]:!text-slate-800 [&_input]:!border-white/30">
             {actions}
           </div>
         )}

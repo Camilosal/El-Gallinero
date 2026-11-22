@@ -24,15 +24,15 @@ export const LEGAL = {
   email: env("LEGAL_EMAIL", "gallinero@iwage.co"),
   whatsapp: env("LEGAL_WHATSAPP", "3026693366"),
   /** Texto exacto sobre IVA mostrado junto a los precios. */
-  ivaNote: env("LEGAL_IVA_NOTE", "Precio incluye IVA"),
-  sitio: "gallinero.iwage.co",
-  marca: "El Gallinero · Iwagé Granja",
+  ivaNote: "IVA no cobrado",
+  sitio: "app.iwage.co",
+  marca: "IwaGranja",
 } as const;
 
 export const SIC_URL = "https://www.sic.gov.co";
 export const SIC_LABEL = "Superintendencia de Industria y Comercio (SIC)";
 export const RESPONSE_TIME = "1 día hábil";
-export const LEGAL_DOCS_VERSION = "2026-11-v1";
+export const LEGAL_DOCS_VERSION = "2026-11-v2";
 /** Clave en app_settings donde se guarda la aceptación registrada al crear la granja. */
 export const LEGAL_CONSENT_SETTING_KEY = "legal.consent.v1";
 

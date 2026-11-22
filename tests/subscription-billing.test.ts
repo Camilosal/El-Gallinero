@@ -131,10 +131,11 @@ describe("Suscripción por Ciclo Productivo y Pagos Wompi Nequi/Daviplata/PSE (T
     const blockedJson = (await parseJson(blockedRes)) as { code?: string };
     expect(blockedJson.code).toBe("UPGRADE_REQUIRED");
 
-    const pollosBlocked = await pollosPOST(
+    // /api/produccion/pollos redirige altas a /api/produccion/adquisiciones con 409
+    const pollosRedirect = await pollosPOST(
       mockRequest("http://localhost/api/produccion/pollos", { method: "POST", body: {} }),
     );
-    expect(pollosBlocked.status).toBe(402);
+    expect(pollosRedirect.status).toBe(409);
 
     // 4. Vender/cerrar el lote actual NUNCA se bloquea en Freemium
     const closeSaleRes = await ventaAvesPOST(
@@ -163,151 +164,193 @@ describe("Suscripción por Ciclo Productivo y Pagos Wompi Nequi/Daviplata/PSE (T
     expect(billingData.subscription.promptPostHarvestRenewal).toBe(true);
   });
 
-  it("checkout Nequi/Daviplata/PSE + webhook Wompi válido activa ciclo 60d idempotente y desbloquea 2+ lotes", async () => {
-    // Asegurar que hay 1 lote activo para probar desbloqueo real
-    await runWithFarmContext(farmId, async () => {
-      await db.insert(broilerBatches).values({
-        farmId,
-        code: `L-ACTIVO-B4-${farmId.slice(0, 4)}`,
-        species: "pollo",
-        purpose: "engorde_carne",
-        breed: "Ross 308",
-        startDate: "2026-11-12",
-        initialQuantity: 25,
-        currentQuantity: 25,
-        locationId,
-        status: "activo",
-      });
-    });
-
-    const checkoutRes = await checkoutPOST(
-      mockRequest("http://localhost/api/billing/checkout", {
-        method: "POST",
-        body: { planCode: "CICLO_60D", method: "nequi" },
-      }),
-    );
-    expect(checkoutRes.status).toBe(201);
-    const checkoutJson = (await parseJson(checkoutRes)) as {
-      checkout: {
-        externalReference: string;
-        amountCop: number;
-        amountInCents: number;
-        integritySignature: string;
-      };
+  it("checkout Productor + webhook Wompi válido activa suscripción idempotente y desbloquea 2+ lotes", async () => {
+    const prevEnv = {
+      WOMPI_ENVIRONMENT: process.env.WOMPI_ENVIRONMENT,
+      WOMPI_PUBLIC_KEY: process.env.WOMPI_PUBLIC_KEY,
+      WOMPI_INTEGRITY_SECRET: process.env.WOMPI_INTEGRITY_SECRET,
+      WOMPI_EVENTS_SECRET: process.env.WOMPI_EVENTS_SECRET,
+      WOMPI_CHECKOUT_URL: process.env.WOMPI_CHECKOUT_URL,
     };
+    const eventsSecret = "test_events_iwage_default_secret";
+    process.env.WOMPI_ENVIRONMENT = "sandbox";
+    process.env.WOMPI_PUBLIC_KEY = "pub_test_subscription_suite";
+    process.env.WOMPI_INTEGRITY_SECRET = "integrity-test-subscription-suite";
+    process.env.WOMPI_EVENTS_SECRET = eventsSecret;
+    process.env.WOMPI_CHECKOUT_URL = "https://checkout.wompi.co/p/";
 
-    expect(checkoutJson.checkout.amountCop).toBe(45000);
-    expect(checkoutJson.checkout.amountInCents).toBe(4500000);
-    expect(checkoutJson.checkout.integritySignature).toMatch(/^[a-f0-9]{64}$/);
+    try {
+      const { getPublicPricingOffer, createPricingQuote } = await import("@/lib/pricing/quote");
+      const offer = getPublicPricingOffer();
+      const expectedQuote = createPricingQuote({
+        segment: "producer",
+        users: 1,
+        months: 3,
+        renewal: false,
+        locations: 1,
+        areasPerLocation: 1,
+        extraPlates: 0,
+        extraTrainingPackages: 0,
+      });
 
-    // Webhook inválido rechazado con 401
-    const badWebhook = await webhookPOST(
-      mockRequest("http://localhost/api/billing/webhook", {
-        method: "POST",
-        body: {
-          timestamp: 1731500000,
-          data: {
-            transaction: {
-              id: "wompi-tx-bad",
-              reference: checkoutJson.checkout.externalReference,
-              status: "APPROVED",
-              amount_in_cents: 4500000,
+      // Asegurar que hay 1 lote activo para probar desbloqueo real
+      await runWithFarmContext(farmId, async () => {
+        await db.insert(broilerBatches).values({
+          farmId,
+          code: `L-ACTIVO-B4-${farmId.slice(0, 4)}`,
+          species: "pollo",
+          purpose: "engorde_carne",
+          breed: "Ross 308",
+          startDate: "2026-11-12",
+          initialQuantity: 25,
+          currentQuantity: 25,
+          locationId,
+          status: "activo",
+        });
+      });
+
+      const checkoutRes = await checkoutPOST(
+        mockRequest("http://localhost/api/billing/checkout", {
+          method: "POST",
+          body: {
+            segment: "producer",
+            users: 1,
+            months: 3,
+            renewal: false,
+            locations: 1,
+            areasPerLocation: 1,
+            acceptedTerms: true,
+            acceptedPolicyVersion: offer.policyVersion,
+          },
+        }),
+      );
+      expect(checkoutRes.status).toBe(200);
+      const checkoutJson = (await parseJson(checkoutRes)) as {
+        redirectUrl: string;
+        reference: string;
+      };
+      expect(checkoutJson.reference).toMatch(/^IWG-/);
+      const redirect = new URL(checkoutJson.redirectUrl);
+      expect(redirect.origin).toBe("https://checkout.wompi.co");
+      const amountInCents = expectedQuote.totalBeforeLogisticsAndTaxCop * 100;
+      expect(redirect.searchParams.get("amount-in-cents")).toBe(String(amountInCents));
+      expect(redirect.searchParams.get("signature:integrity")).toMatch(/^[a-f0-9]{64}$/);
+
+      // Webhook inválido rechazado con 401
+      const badWebhook = await webhookPOST(
+        mockRequest("http://localhost/api/billing/webhook", {
+          method: "POST",
+          body: {
+            timestamp: 1731500000,
+            data: {
+              transaction: {
+                id: "wompi-tx-bad",
+                reference: checkoutJson.reference,
+                status: "APPROVED",
+                amount_in_cents: amountInCents,
+                currency: "COP",
+              },
+            },
+            signature: {
+              properties: ["transaction.id", "transaction.status", "transaction.amount_in_cents"],
+              checksum: "0".repeat(64),
             },
           },
-          signature: {
-            properties: ["transaction.id", "transaction.status", "transaction.amount_in_cents"],
-            checksum: "0".repeat(64),
+        }),
+      );
+      expect(badWebhook.status).toBe(401);
+
+      // Webhook válido firmado con eventsSecret
+      const ts = 1731500123;
+      const txId = "wompi-tx-nequi-001";
+      const checksum = crypto
+        .createHash("sha256")
+        .update(`${txId}APPROVED${amountInCents}${ts}${eventsSecret}`)
+        .digest("hex");
+
+      const okWebhookPayload = {
+        timestamp: ts,
+        data: {
+          transaction: {
+            id: txId,
+            reference: checkoutJson.reference,
+            status: "APPROVED",
+            amount_in_cents: amountInCents,
+            currency: "COP",
           },
         },
-      }),
-    );
-    expect(badWebhook.status).toBe(401);
-
-    // Webhook válido firmado con eventsSecret
-    const eventsSecret = process.env.WOMPI_EVENTS_SECRET || "test_events_iwage_default_secret";
-    const ts = 1731500123;
-    const txId = "wompi-tx-nequi-001";
-    const checksum = crypto
-      .createHash("sha256")
-      .update(`${txId}APPROVED4500000${ts}${eventsSecret}`)
-      .digest("hex");
-
-    const okWebhookPayload = {
-      timestamp: ts,
-      data: {
-        transaction: {
-          id: txId,
-          reference: checkoutJson.checkout.externalReference,
-          status: "APPROVED",
-          amount_in_cents: 4500000,
+        signature: {
+          properties: ["transaction.id", "transaction.status", "transaction.amount_in_cents"],
+          checksum,
         },
-      },
-      signature: {
-        properties: ["transaction.id", "transaction.status", "transaction.amount_in_cents"],
-        checksum,
-      },
-    };
+      };
 
-    const okWebhook1 = await webhookPOST(
-      mockRequest("http://localhost/api/billing/webhook", {
-        method: "POST",
-        body: okWebhookPayload,
-      }),
-    );
-    expect(okWebhook1.status).toBe(200);
-    const okJson1 = (await parseJson(okWebhook1)) as {
-      ok: boolean;
-      idempotent: boolean;
-      subscription: { status: string; planCode: string; currentPeriodEnd: string };
-    };
-    expect(okJson1.ok).toBe(true);
-    expect(okJson1.idempotent).toBe(false);
-    expect(okJson1.subscription.status).toBe("active");
-    expect(okJson1.subscription.planCode).toBe("CICLO_60D");
+      const okWebhook1 = await webhookPOST(
+        mockRequest("http://localhost/api/billing/webhook", {
+          method: "POST",
+          body: okWebhookPayload,
+        }),
+      );
+      expect(okWebhook1.status).toBe(200);
+      const okJson1 = (await parseJson(okWebhook1)) as {
+        ok: boolean;
+        idempotent: boolean;
+        subscription: { status: string; planCode: string; currentPeriodEnd: string };
+      };
+      expect(okJson1.ok).toBe(true);
+      expect(okJson1.idempotent).toBe(false);
+      expect(okJson1.subscription.status).toBe("active");
+      expect(okJson1.subscription.planCode).toBe("PRODUCTOR");
 
-    const firstPeriodEnd = new Date(okJson1.subscription.currentPeriodEnd).getTime();
-    const diffDays = (firstPeriodEnd - Date.now()) / 86400000;
-    expect(diffDays).toBeGreaterThan(58);
-    expect(diffDays).toBeLessThanOrEqual(61);
+      const firstPeriodEnd = new Date(okJson1.subscription.currentPeriodEnd).getTime();
+      const diffDays = (firstPeriodEnd - Date.now()) / 86400000;
+      expect(diffDays).toBeGreaterThan(85);
+      expect(diffDays).toBeLessThanOrEqual(95);
 
-    // Reenvío del mismo webhook es idempotente
-    const okWebhook2 = await webhookPOST(
-      mockRequest("http://localhost/api/billing/webhook", {
-        method: "POST",
-        body: okWebhookPayload,
-      }),
-    );
-    expect(okWebhook2.status).toBe(200);
-    const okJson2 = (await parseJson(okWebhook2)) as {
-      idempotent: boolean;
-      subscription: { currentPeriodEnd: string };
-    };
-    expect(okJson2.idempotent).toBe(true);
-    expect(okJson2.subscription.currentPeriodEnd).toBe(okJson1.subscription.currentPeriodEnd);
+      // Reenvío del mismo webhook es idempotente
+      const okWebhook2 = await webhookPOST(
+        mockRequest("http://localhost/api/billing/webhook", {
+          method: "POST",
+          body: okWebhookPayload,
+        }),
+      );
+      expect(okWebhook2.status).toBe(200);
+      const okJson2 = (await parseJson(okWebhook2)) as {
+        idempotent: boolean;
+        subscription: { currentPeriodEnd: string };
+      };
+      expect(okJson2.idempotent).toBe(true);
+      expect(okJson2.subscription.currentPeriodEnd).toBe(okJson1.subscription.currentPeriodEnd);
 
-    // Ahora SÍ permite abrir un 2do lote activo simultáneo
-    const unlockedRes = await adquisicionesPOST(
-      mockRequest("http://localhost/api/produccion/adquisiciones", {
-        method: "POST",
-        body: {
-          date: "2026-11-13",
-          acquisitionType: "compra",
-          birdType: "lote_pollos",
-          quantity: 40,
-          unitCost: 2950,
-          breed: "Ross 308",
-          destinationLocationId: locationId,
-        },
-      }),
-    );
-    expect([200, 201]).toContain(unlockedRes.status);
+      // Ahora SÍ permite abrir un 2do lote activo simultáneo
+      const unlockedRes = await adquisicionesPOST(
+        mockRequest("http://localhost/api/produccion/adquisiciones", {
+          method: "POST",
+          body: {
+            date: "2026-11-13",
+            acquisitionType: "compra",
+            birdType: "lote_pollos",
+            quantity: 40,
+            unitCost: 2950,
+            breed: "Ross 308",
+            destinationLocationId: locationId,
+          },
+        }),
+      );
+      expect([200, 201]).toContain(unlockedRes.status);
 
-    const [payRow] = await db
-      .select()
-      .from(billingPayments)
-      .where(eq(billingPayments.externalReference, checkoutJson.checkout.externalReference))
-      .limit(1);
-    expect(payRow?.status).toBe("approved");
+      const [payRow] = await db
+        .select()
+        .from(billingPayments)
+        .where(eq(billingPayments.externalReference, checkoutJson.reference))
+        .limit(1);
+      expect(payRow?.status).toBe("approved");
+    } finally {
+      for (const [k, v] of Object.entries(prevEnv)) {
+        if (v === undefined) delete process.env[k];
+        else process.env[k] = v;
+      }
+    }
   });
 });
 

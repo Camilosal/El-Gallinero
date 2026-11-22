@@ -1,0 +1,533 @@
+"use client";
+
+import { Suspense, useEffect, useState, useCallback, useMemo } from "react";
+import { useSearchParams } from "next/navigation";
+import { useActionQuery } from "@/lib/useActionQuery";
+import { MapPin, MessageCircle, Pencil, Phone } from "lucide-react";
+import { PageHeader, HeroActionButton, HeroActionLink, Button, Card, Table, Badge, Modal, Input, Select, EmptyState, StatCard } from "@/components/ui";
+import ContactFormModal from "@/components/contacts/ContactFormModal";
+import AttachmentPanel from "@/components/attachments/AttachmentPanel";
+import {
+  bindDraftAttachments,
+  createDraftEntityId,
+  type OcrExtractedPayload,
+} from "@/lib/attachments-shared";
+import { buildWhatsAppUrl, formatContactLocation, type ContactRecord, type ContactRole } from "@/lib/contacts-shared";
+import { findContactByName, useContacts } from "@/lib/useContacts";
+import { apiFetch } from "@/lib/fetch";
+import TableSearch from "@/components/TableSearch";
+import { matchesTextQuery } from "@/lib/text";
+import { canPerformAction } from "@/lib/rbac";
+import { useAppRole } from "@/lib/useAppRole";
+
+interface ReceivableAccount {
+  id: string;
+  transactionId: string;
+  buyer: string;
+  totalAmount: string;
+  paidAmount: string;
+  pendingAmount: string;
+  dueDate: string | null;
+  status: string;
+  agingDays: number;
+  isOverdue: boolean;
+  transactionDate: string | null;
+  transactionCategory: string | null;
+  transactionDescription: string | null;
+}
+
+interface PayableAccount {
+  id: string;
+  transactionId: string;
+  supplier: string;
+  totalAmount: string;
+  paidAmount: string;
+  pendingAmount: string;
+  dueDate: string | null;
+  status: string;
+  agingDays: number;
+  isOverdue: boolean;
+  transactionDate: string | null;
+  transactionCategory: string | null;
+  transactionDescription: string | null;
+}
+
+interface Payment {
+  id: string;
+  date: string;
+  type: string;
+  receivableId: string | null;
+  payableId: string | null;
+  amount: string;
+  method: string | null;
+  reference: string | null;
+  notes: string | null;
+}
+
+const fmt = (n: number) => `$${Math.round(n).toLocaleString()}`;
+
+export default function CuentasPage() {
+  return (
+    <Suspense fallback={<div className="p-8 text-center text-slate-400">Cargando...</div>}>
+      <CuentasInner />
+    </Suspense>
+  );
+}
+
+function CuentasInner() {
+  const searchParams = useSearchParams();
+  const role = useAppRole();
+  const canCollect = canPerformAction(role, "sales:write");
+  const canViewPayables = canPerformAction(role, "finance:read");
+  const canPay = canPerformAction(role, "finance:write");
+  const requestedTab = searchParams.get("tab") === "pagar" && canViewPayables ? "pagar" : "cobrar";
+  const [tabOverride, setTabOverride] = useState<"cobrar" | "pagar" | null>(null);
+  const [lastSyncedTab, setLastSyncedTab] = useState(requestedTab);
+  if (requestedTab !== lastSyncedTab) {
+    setLastSyncedTab(requestedTab);
+    setTabOverride(null);
+  }
+  const tab = tabOverride ?? requestedTab;
+  const [receivables, setReceivables] = useState<ReceivableAccount[]>([]);
+  const [payables, setPayables] = useState<PayableAccount[]>([]);
+  const [payments, setPayments] = useState<Payment[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [accountSearch, setAccountSearch] = useState("");
+  const { allContacts, reload: reloadContacts } = useContacts("all", { includeInactive: true });
+  const [contactModalOpen, setContactModalOpen] = useState(false);
+  const [editingContact, setEditingContact] = useState<ContactRecord | null>(null);
+  const [prefillName, setPrefillName] = useState("");
+  const [prefillRole, setPrefillRole] = useState<ContactRole>("cliente");
+  const [paymentSearch, setPaymentSearch] = useState("");
+  const [paymentModalOpen, setPaymentModalOpen] = useState(false);
+  const [draftPaymentId, setDraftPaymentId] = useState(() => createDraftEntityId("pay"));
+  const [selectedAccount, setSelectedAccount] = useState<{ id: string; type: "cobrar" | "pagar"; pending: number } | null>(null);
+  const [payForm, setPayForm] = useState({ date: new Date().toISOString().split("T")[0], amount: "", method: "efectivo", reference: "", notes: "" });
+  const [error, setError] = useState("");
+
+  const load = useCallback(async () => {
+    const [recRes, payRes, paymRes] = await Promise.all([
+      apiFetch("/api/cuentas-cobrar"),
+      canViewPayables ? apiFetch("/api/cuentas-pagar") : Promise.resolve(null),
+      apiFetch("/api/pagos"),
+    ]);
+    if (recRes.ok) setReceivables(await recRes.json());
+    if (payRes?.ok) setPayables(await payRes.json());
+    if (paymRes.ok) setPayments(await paymRes.json());
+    setLoading(false);
+  }, [canViewPayables]);
+
+  useEffect(() => { void Promise.resolve().then(load); }, [load]);
+
+  const totalPendingCobrar = receivables.reduce((s, a) => s + Number(a.pendingAmount), 0);
+  const totalPendingPagar = payables.reduce((s, a) => s + Number(a.pendingAmount), 0);
+  const overdueCobrar = receivables.filter((a) => a.isOverdue).length;
+  const overduePagar = payables.filter((a) => a.isOverdue).length;
+
+  const openPayment = (accountId: string, type: "cobrar" | "pagar", pending: number) => {
+    setSelectedAccount({ id: accountId, type, pending });
+    setDraftPaymentId(createDraftEntityId("pay"));
+    setPayForm({ date: new Date().toISOString().split("T")[0], amount: String(pending), method: "efectivo", reference: "", notes: "" });
+    setError("");
+    setPaymentModalOpen(true);
+  };
+
+  const openQuickPaymentModal = useCallback(() => {
+    setSelectedAccount(null);
+    setDraftPaymentId(createDraftEntityId("pay"));
+    setPayForm({ date: new Date().toISOString().split("T")[0], amount: "", method: "efectivo", reference: "", notes: "" });
+    setError("");
+    setPaymentModalOpen(true);
+  }, []);
+
+  useActionQuery(searchParams.get("nuevo"), {
+    "1": openQuickPaymentModal,
+    pago: openQuickPaymentModal,
+  });
+
+  const handleOcrComprobante = (extracted: OcrExtractedPayload) => {
+    if (extracted.mode !== "comprobante_pago") return;
+    setPayForm((prev) => ({
+      ...prev,
+      date: extracted.date || prev.date,
+      amount: extracted.amount !== undefined ? String(extracted.amount) : prev.amount,
+      method: extracted.method || prev.method,
+      reference: extracted.reference || prev.reference,
+      notes: [prev.notes, extracted.counterparty ? `Beneficiario: ${extracted.counterparty}` : ""]
+        .filter(Boolean)
+        .join(" · "),
+    }));
+  };
+
+  const savePayment = async () => {
+    setError("");
+    if (!selectedAccount || !payForm.amount || Number(payForm.amount) <= 0) {
+      return setError("Monto debe ser mayor a 0");
+    }
+
+    const body: any = {
+      date: payForm.date,
+      type: selectedAccount.type === "cobrar" ? "cobro" : "pago",
+      amount: payForm.amount,
+      method: payForm.method,
+      reference: payForm.reference || null,
+      notes: payForm.notes || null,
+    };
+
+    if (selectedAccount.type === "cobrar") {
+      body.receivableId = selectedAccount.id;
+    } else {
+      body.payableId = selectedAccount.id;
+    }
+
+    const res = await apiFetch("/api/pagos", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+    });
+
+    const saved = await res.json().catch(() => ({}));
+    if (!res.ok) {
+      return setError(saved.error || "Error al registrar pago");
+    }
+    if (saved?.id) {
+      await bindDraftAttachments(draftPaymentId, saved.id, "payment");
+    }
+
+    setPaymentModalOpen(false);
+    load();
+  };
+
+  const removePayment = async (id: string) => {
+    if (!confirm("¿Eliminar este pago? Se revertirá el abono.")) return;
+    await apiFetch(`/api/pagos?id=${id}`, { method: "DELETE" });
+    load();
+  };
+
+  const statusBadge = (status: string) => {
+    switch (status) {
+      case "pagado": return <Badge color="green">Pagado</Badge>;
+      case "parcial": return <Badge color="yellow">Parcial</Badge>;
+      default: return <Badge color="red">Pendiente</Badge>;
+    }
+  };
+
+  const accounts = tab === "cobrar" ? receivables : payables;
+
+  const filteredAccounts = useMemo(() => {
+    if (!accountSearch.trim()) return accounts;
+    return accounts.filter((account) =>
+      matchesTextQuery(accountSearch, [
+        "buyer" in account ? account.buyer : account.supplier,
+        account.totalAmount,
+        account.paidAmount,
+        account.pendingAmount,
+        account.dueDate,
+        account.status,
+        account.agingDays,
+        account.transactionDate,
+        account.transactionCategory,
+        account.transactionDescription,
+        account.isOverdue ? "vencida" : "",
+      ]),
+    );
+  }, [accounts, accountSearch]);
+
+  const filteredPayments = useMemo(() => {
+    if (!paymentSearch.trim()) return payments;
+    return payments.filter((payment) =>
+      matchesTextQuery(paymentSearch, [
+        payment.date,
+        payment.type === "cobro" ? "cobro" : "pago",
+        payment.amount,
+        payment.method,
+        payment.reference,
+        payment.notes,
+      ]),
+    );
+  }, [payments, paymentSearch]);
+
+  return (
+    <div className="space-y-6">
+      <PageHeader
+        title="Cuentas"
+        description="Gestión de cuentas por cobrar y por pagar"
+        actions={
+          <>
+            <HeroActionLink href="/contactos" tone="glass">
+              Directorio completo
+            </HeroActionLink>
+            <HeroActionButton
+              tone="solid"
+              onClick={() => {
+                setEditingContact(null);
+                setPrefillName("");
+                setPrefillRole(tab === "cobrar" ? "cliente" : "proveedor");
+                setContactModalOpen(true);
+              }}
+            >
+              + Nuevo contacto
+            </HeroActionButton>
+          </>
+        }
+      />
+
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-2.5 sm:gap-4">
+        <StatCard icon="incoming" label="Por cobrar" value={fmt(totalPendingCobrar)} color="green" />
+        {canViewPayables && <StatCard icon="outgoing" label="Por pagar" value={fmt(totalPendingPagar)} color="red" />}
+        <StatCard icon="warning" label="Vencidas (cobrar)" value={String(overdueCobrar)} color="yellow" />
+        {canViewPayables && <StatCard icon="warning" label="Vencidas (pagar)" value={String(overduePagar)} color="purple" />}
+      </div>
+
+      {/* Tab selector */}
+      <div className="flex gap-2">
+        <button
+          onClick={() => setTabOverride("cobrar")}
+          className={`px-4 py-2 rounded-lg font-medium text-sm transition-colors ${tab === "cobrar" ? "bg-green-600 text-white" : "bg-slate-200 text-slate-700 hover:bg-slate-300"}`}
+        >
+          Por Cobrar ({receivables.length})
+        </button>
+        {canViewPayables && <button
+          onClick={() => setTabOverride("pagar")}
+          className={`px-4 py-2 rounded-lg font-medium text-sm transition-colors ${tab === "pagar" ? "bg-red-600 text-white" : "bg-slate-200 text-slate-700 hover:bg-slate-300"}`}
+        >
+          Por Pagar ({payables.length})
+        </button>}
+      </div>
+
+      {loading ? (
+        <Card><p className="text-center py-8 text-slate-400">Cargando...</p></Card>
+      ) : accounts.length === 0 ? (
+        <EmptyState icon="card" message={tab === "cobrar" ? "No hay cuentas por cobrar" : "No hay cuentas por pagar"} />
+      ) : (
+        <Card>
+          <TableSearch
+            value={accountSearch}
+            onChange={setAccountSearch}
+            placeholder={tab === "cobrar" ? "Buscar por comprador, estado o descripción..." : "Buscar por proveedor, estado o descripción..."}
+            resultCount={filteredAccounts.length}
+            totalCount={accounts.length}
+            className="mb-4"
+          />
+          {filteredAccounts.length === 0 ? (
+            <EmptyState
+              icon="card"
+              message={
+                accountSearch.trim()
+                  ? "No hay cuentas que coincidan con la búsqueda"
+                  : tab === "cobrar"
+                    ? "No hay cuentas por cobrar"
+                    : "No hay cuentas por pagar"
+              }
+            />
+          ) : (
+          <Table headers={[tab === "cobrar" ? "Comprador" : "Proveedor", "Total", "Pagado", "Pendiente", "Vencimiento", "Días", "Estado", "Acciones"]}>
+            {filteredAccounts.map((a) => {
+              const counterparty = "buyer" in a ? a.buyer : a.supplier;
+              const contact = findContactByName(allContacts, counterparty);
+              const waUrl = buildWhatsAppUrl(contact?.whatsapp || contact?.phone);
+              const location = contact ? formatContactLocation(contact) : "";
+              const phone = contact?.phone || contact?.whatsapp;
+              return (
+              <tr key={a.id} className={`hover:bg-slate-50 ${a.isOverdue ? "bg-red-50" : ""}`}>
+                <td className="px-4 py-3 text-sm">
+                  <div className="font-medium text-slate-900">{counterparty}</div>
+                  {contact && (phone || waUrl || location || contact.creditDays > 0) && (
+                    <div className="mt-1 flex flex-wrap items-center gap-1.5 text-[11px] text-slate-500">
+                      {phone && (
+                        <a href={`tel:${phone.replace(/\s+/g, "")}`} className="inline-flex items-center gap-0.5 hover:text-slate-800">
+                          <Phone className="w-3 h-3" /> {phone}
+                        </a>
+                      )}
+                      {waUrl && (
+                        <a href={waUrl} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-0.5 text-emerald-700 hover:underline">
+                          <MessageCircle className="w-3 h-3" /> WhatsApp
+                        </a>
+                      )}
+                      {location && (
+                        <span className="inline-flex items-center gap-0.5">
+                          <MapPin className="w-3 h-3" /> {location}
+                        </span>
+                      )}
+                      {contact.creditDays > 0 && (
+                        <span className="rounded bg-blue-50 px-1.5 py-0.5 text-blue-700 font-medium">
+                          {contact.creditDays}d plazo
+                        </span>
+                      )}
+                    </div>
+                  )}
+                </td>
+                <td className="px-4 py-3 text-sm">{fmt(Number(a.totalAmount))}</td>
+                <td className="px-4 py-3 text-sm text-green-600">{fmt(Number(a.paidAmount))}</td>
+                <td className="px-4 py-3 text-sm font-bold text-red-600">{fmt(Number(a.pendingAmount))}</td>
+                <td className="px-4 py-3 text-sm">{a.dueDate || "—"}</td>
+                <td className="px-4 py-3 text-sm">
+                  {a.isOverdue ? (
+                    <Badge color="red">{a.agingDays} días</Badge>
+                  ) : (
+                    <span className="text-slate-500">{a.agingDays}</span>
+                  )}
+                </td>
+                <td className="px-4 py-3">{statusBadge(a.status)}</td>
+                <td className="px-4 py-3">
+                  <div className="flex flex-col items-start gap-1">
+                    {a.status !== "pagado" && (tab === "cobrar" ? canCollect : canPay) && (
+                      <button
+                        onClick={() => openPayment(a.id, tab, Number(a.pendingAmount))}
+                        className="text-green-600 hover:underline text-xs font-medium"
+                      >
+                        Registrar pago
+                      </button>
+                    )}
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setEditingContact(contact);
+                        setPrefillName(contact ? "" : counterparty);
+                        setPrefillRole(tab === "cobrar" ? "cliente" : "proveedor");
+                        setContactModalOpen(true);
+                      }}
+                      className="inline-flex items-center gap-1 text-slate-500 hover:text-blue-700 text-xs"
+                    >
+                      <Pencil className="w-3 h-3" />
+                      <span>{contact ? "Editar ficha" : "Completar ficha"}</span>
+                    </button>
+                  </div>
+                </td>
+              </tr>
+              );
+            })}
+          </Table>
+          )}
+        </Card>
+      )}
+
+      {/* Recent payments */}
+      {payments.length > 0 && (
+        <Card>
+          <h3 className="font-semibold text-slate-700 mb-3">Últimos Pagos</h3>
+          <TableSearch
+            value={paymentSearch}
+            onChange={setPaymentSearch}
+            placeholder="Buscar por fecha, método o referencia..."
+            resultCount={filteredPayments.length}
+            totalCount={payments.length}
+            className="mb-4"
+          />
+          {filteredPayments.length === 0 ? (
+            <EmptyState
+              icon="card"
+              message={
+                paymentSearch.trim()
+                  ? "No hay pagos que coincidan con la búsqueda"
+                  : "Sin pagos registrados"
+              }
+            />
+          ) : (
+          <Table headers={["Fecha", "Tipo", "Monto", "Método", "Referencia", "Notas", "Acciones"]}>
+            {filteredPayments.slice(0, 20).map((p) => (
+              <tr key={p.id} className="hover:bg-slate-50">
+                <td className="px-4 py-3 text-sm">{p.date}</td>
+                <td className="px-4 py-3">
+                  <Badge color={p.type === "cobro" ? "green" : "red"}>
+                    {p.type === "cobro" ? "Cobro" : "Pago"}
+                  </Badge>
+                </td>
+                <td className="px-4 py-3 text-sm font-bold">{fmt(Number(p.amount))}</td>
+                <td className="px-4 py-3 text-sm">{p.method || "—"}</td>
+                <td className="px-4 py-3 text-sm text-slate-500">{p.reference || "—"}</td>
+                <td className="px-4 py-3 text-sm text-slate-500 max-w-[150px] truncate">{p.notes || "—"}</td>
+                <td className="px-4 py-3">
+                  {canPay && <button onClick={() => removePayment(p.id)} className="text-red-600 hover:underline text-xs">Revertir</button>}
+                </td>
+              </tr>
+            ))}
+          </Table>
+          )}
+        </Card>
+      )}
+
+      {/* Payment modal */}
+      <Modal open={paymentModalOpen} onClose={() => setPaymentModalOpen(false)} title="Registrar Pago">
+        <div className="space-y-4">
+          {error && <p className="text-sm text-red-600 bg-red-50 p-3 rounded-lg">{error}</p>}
+          {!selectedAccount ? (
+            <Select
+              label="Cuenta pendiente *"
+              value=""
+              onChange={(e) => {
+                const [accType, accId] = e.target.value.split("|");
+                if (!accId) return;
+                const list = accType === "cobrar" ? receivables : payables;
+                const found = list.find((a) => a.id === accId);
+                if (found) {
+                  const pend = Number(found.pendingAmount);
+                  setSelectedAccount({ id: found.id, type: accType === "cobrar" ? "cobrar" : "pagar", pending: pend });
+                  setPayForm((prev) => ({ ...prev, amount: String(pend) }));
+                }
+              }}
+            >
+              <option value="">Selecciona una cuenta por cobrar o pagar…</option>
+              {receivables.filter((a) => a.status !== "pagado").map((a) => (
+                <option key={`c-${a.id}`} value={`cobrar|${a.id}`}>
+                  Cobro · {a.buyer} · Pendiente {fmt(Number(a.pendingAmount))}
+                </option>
+              ))}
+              {canPay && payables.filter((a) => a.status !== "pagado").map((a) => (
+                <option key={`p-${a.id}`} value={`pagar|${a.id}`}>
+                  Pago · {a.supplier} · Pendiente {fmt(Number(a.pendingAmount))}
+                </option>
+              ))}
+            </Select>
+          ) : (
+            <div className="p-3 bg-slate-50 rounded-lg flex items-center justify-between gap-2">
+              <p className="text-sm text-slate-500">Pendiente ({selectedAccount.type === "cobrar" ? "Cobro" : "Pago"}): <strong className="text-lg text-red-600">{fmt(selectedAccount.pending)}</strong></p>
+              <button type="button" onClick={() => setSelectedAccount(null)} className="text-xs text-blue-600 hover:underline">Cambiar cuenta</button>
+            </div>
+          )}
+          <Input label="Fecha" type="date" value={payForm.date} onChange={(e) => setPayForm({ ...payForm, date: e.target.value })} />
+          <Input label="Monto ($)" type="number" step="0.01" min="0" value={payForm.amount} onChange={(e) => setPayForm({ ...payForm, amount: e.target.value })} required />
+          <Select label="Método" value={payForm.method} onChange={(e) => setPayForm({ ...payForm, method: e.target.value })}>
+            <option value="efectivo">Efectivo</option>
+            <option value="transferencia">Transferencia</option>
+            <option value="nequi">Nequi</option>
+            <option value="daviplata">Daviplata</option>
+            <option value="otro">Otro</option>
+          </Select>
+          <Input label="Referencia" value={payForm.reference} onChange={(e) => setPayForm({ ...payForm, reference: e.target.value })} placeholder="Nº de comprobante" />
+          <Input label="Notas" value={payForm.notes} onChange={(e) => setPayForm({ ...payForm, notes: e.target.value })} />
+          <AttachmentPanel
+            entityType="payment"
+            entityId={draftPaymentId}
+            defaultCategory="comprobante_pago"
+            ocrMode="comprobante_pago"
+            onOcrExtracted={handleOcrComprobante}
+            title="Comprobante Nequi, Daviplata o Transferencia"
+            helpText="Adjunta captura o recibo para extraer automáticamente monto, método y referencia."
+            compact
+          />
+          <div className="flex gap-3">
+            <Button onClick={savePayment}>Registrar</Button>
+            <Button variant="secondary" onClick={() => setPaymentModalOpen(false)}>Cancelar</Button>
+          </div>
+        </div>
+      </Modal>
+
+      <ContactFormModal
+        open={contactModalOpen}
+        onClose={() => {
+          setContactModalOpen(false);
+          setEditingContact(null);
+          setPrefillName("");
+        }}
+        initialContact={editingContact}
+        initialName={prefillName}
+        defaultRole={prefillRole}
+        onSaved={() => {
+          reloadContacts();
+          load();
+        }}
+      />
+    </div>
+  );
+}

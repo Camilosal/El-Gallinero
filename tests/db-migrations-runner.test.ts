@@ -15,10 +15,11 @@ describe("Automated Migration Runner & Normative Pack Version", () => {
     const schemaCheck = await pool.query<{ table_name: string }>(`
       SELECT table_name FROM information_schema.tables
       WHERE table_schema = 'public'
-        AND table_name IN ('schema_migrations', 'farms', 'farm_subscriptions', 'billing_payments')
+        AND table_name IN ('schema_migrations', 'farms', 'farm_subscriptions', 'billing_payments', 'external_source_observations')
     `);
     expect(schemaCheck.rows.map((r) => r.table_name).sort()).toEqual([
       "billing_payments",
+      "external_source_observations",
       "farm_subscriptions",
       "farms",
       "schema_migrations",
@@ -38,6 +39,15 @@ describe("Automated Migration Runner & Normative Pack Version", () => {
     `);
     expect(memoryIndexes.rows.map((r) => r.indexname)).toEqual([
       "agent_memories_farm_user_subject_idx",
+    ]);
+
+    const staffDocumentIndex = await pool.query<{ indexname: string }>(`
+      SELECT indexname FROM pg_indexes
+      WHERE schemaname = 'public' AND tablename = 'staff_profiles'
+        AND indexname = 'staff_profiles_farm_document_unique_idx'
+    `);
+    expect(staffDocumentIndex.rows.map((r) => r.indexname)).toEqual([
+      "staff_profiles_farm_document_unique_idx",
     ]);
   });
 

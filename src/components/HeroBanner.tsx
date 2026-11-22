@@ -3,9 +3,25 @@
 import { Suspense, useState, type ReactNode } from "react";
 import { usePathname } from "next/navigation";
 import { HelpCircle, Lightbulb } from "lucide-react";
-import { HeroFrame } from "@/components/HeroFrame";
+import {
+  HeroActionAnchor,
+  HeroActionButton,
+  HeroActionLink,
+  HeroFrame,
+  heroActionClassName,
+  type HeroActionTone,
+} from "@/components/HeroFrame";
 import BehavioralNudgeBanner from "@/components/BehavioralNudgeBanner";
 import { resolveHeroThemeByPath, type HeroThemeKey } from "@/lib/hero-themes";
+import { isAppRoutePath } from "@/lib/app-routes";
+
+export {
+  HeroActionAnchor,
+  HeroActionButton,
+  HeroActionLink,
+  heroActionClassName,
+  type HeroActionTone,
+};
 
 function renderHelpBody(text: string) {
   const normalized = text.replace(/\\n/g, "\n");
@@ -30,6 +46,7 @@ function renderHelpBody(text: string) {
 export interface HeroBannerProps {
   theme?: HeroThemeKey;
   title: ReactNode;
+  metadata?: ReactNode;
   description?: ReactNode;
   eyebrow?: string;
   icon?: string | ReactNode;
@@ -51,6 +68,7 @@ export interface HeroBannerProps {
 export function HeroBanner({
   theme,
   title,
+  metadata,
   description,
   eyebrow,
   icon,
@@ -67,22 +85,21 @@ export function HeroBanner({
   const [helpOpen, setHelpOpen] = useState(false);
 
   const resolvedTheme = theme ?? resolveHeroThemeByPath(pathname);
-  const showNudgeBelowHero = Boolean(pathname?.startsWith("/dashboard") && !hideNudge);
+  const showNudgeBelowHero = Boolean(isAppRoutePath(pathname) && !hideNudge);
 
   const combinedActions =
     help || actions ? (
       <>
         {help && (
-          <button
-            type="button"
+          <HeroActionButton
+            tone="glass"
             onClick={() => setHelpOpen((prev) => !prev)}
-            className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-lg border transition-colors bg-white/15 backdrop-blur-sm border-white/25 text-white hover:bg-white/25 cursor-pointer"
           >
-            <HelpCircle className="w-3.5 h-3.5" aria-hidden="true" />
+            <HelpCircle className="w-3.5 h-3.5 shrink-0" aria-hidden="true" />
             <span>{helpOpen ? "Ocultar ayuda" : "Ayuda"}</span>
-          </button>
+          </HeroActionButton>
         )}
-        {actions && <div className="flex flex-wrap items-end gap-2">{actions}</div>}
+        {actions}
       </>
     ) : undefined;
 
@@ -91,6 +108,7 @@ export function HeroBanner({
       <HeroFrame
         theme={resolvedTheme}
         title={title}
+        metadata={metadata}
         description={description}
         eyebrow={eyebrow}
         icon={icon}

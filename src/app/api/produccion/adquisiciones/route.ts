@@ -157,19 +157,6 @@ export const POST = withApiHandler(async (req: NextRequest) => {
   if (isBatchCreation && !(BATCH_PURPOSES as readonly string[]).includes(purpose)) {
     return NextResponse.json({ error: "Destino del lote inválido" }, { status: 400 });
   }
-  if (isBatchCreation) {
-    const quotaCheck = await assertCanCreateActiveBatch();
-    if (!quotaCheck.allowed) {
-      return NextResponse.json(
-        {
-          error: quotaCheck.error,
-          code: quotaCheck.code || "UPGRADE_REQUIRED",
-          subscription: quotaCheck.status,
-        },
-        { status: 402 },
-      );
-    }
-  }
   if (purpose === "postura_huevo" && !["codorniz", "pato"].includes(species)) {
     return NextResponse.json({ error: "Los lotes para postura deben ser de codornices o patos; las gallinas se registran individualmente" }, { status: 400 });
   }
@@ -189,6 +176,10 @@ export const POST = withApiHandler(async (req: NextRequest) => {
   const today = birthDate || new Date().toISOString().split("T")[0];
 
   const result = await db.transaction(async (tx) => {
+    if (isBatchCreation) {
+      const quota = await assertCanCreateActiveBatch(species, undefined, tx);
+      if (!quota.allowed) return { quota };
+    }
     const destination = await assertLocationEntryAllowed(tx, {
       locationId: String(body.destinationLocationId),
       species,
@@ -357,6 +348,12 @@ export const POST = withApiHandler(async (req: NextRequest) => {
     return { ...acquisition, createdBirdIds };
   });
 
+  if ("quota" in result && result.quota) {
+    return NextResponse.json(
+      { error: result.quota.error, code: result.quota.code, planName: result.quota.planName, activeCount: result.quota.activeCount, limit: result.quota.limit },
+      { status: 402 },
+    );
+  }
   return NextResponse.json(result, { status: 201 });
 });
 

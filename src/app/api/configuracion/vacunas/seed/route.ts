@@ -9,7 +9,7 @@ export const dynamic = "force-dynamic";
 
 /** POST /api/configuracion/vacunas/seed — carga idempotente de planes de referencia. */
 export const POST = withApiHandler(async () => {
-  const denied = await requirePermission("config:write");
+  const denied = await requirePermission("catalogs:write");
   if (denied) return denied;
   const rows = Object.entries(VACCINATION_SCHEDULES).flatMap(([breed, events]) =>
     events.map((event) => ({

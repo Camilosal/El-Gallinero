@@ -33,6 +33,8 @@ import { computeDailyGainG, computeUniformityStats, parseIndividualWeightsInput 
 import { resolveDimensions } from "@/lib/analytics-dimensions";
 import { assertDateNotClosed } from "@/lib/sanitary-locks";
 import { getSessionUser } from "@/lib/auth";
+import { canPerformAction, type RbacPermission } from "@/lib/rbac";
+import { loadSpeciesParams } from "@/lib/species-db";
 
 export const dynamic = "force-dynamic";
 
@@ -63,12 +65,29 @@ export const POST = withApiHandler(async (req: NextRequest) => {
   }
 
   const mutations: MutationItem[] = body.mutations;
+  const sessionUser = await getSessionUser();
   const results: Array<{ id: string; status: "synced" | "error"; error?: string; deduplicated?: boolean }> = [];
 
   for (const item of mutations) {
     try {
       if (!item.id || !item.entity) {
         results.push({ id: item.id || "unknown", status: "error", error: "Datos de mutación incompletos" });
+        continue;
+      }
+
+      const permissionByEntity: Partial<Record<BatchEntity, RbacPermission>> = {
+        huevos: "production:write",
+        mortalidad: "production:write",
+        alimentacion: "production:write",
+        reproduccion: "production:write",
+        pesaje: "animal_metrics:write",
+        sanidad: "sanitary:write",
+        bioseguridad: "biosecurity:write",
+        cierre_diario: "closure:close",
+      };
+      const requiredPermission = permissionByEntity[item.entity];
+      if (!requiredPermission || !canPerformAction(sessionUser?.role, requiredPermission)) {
+        results.push({ id: item.id, status: "error", error: "Tu rol no tiene permiso para sincronizar este tipo de registro" });
         continue;
       }
 
@@ -84,7 +103,20 @@ export const POST = withApiHandler(async (req: NextRequest) => {
       }
 
       if (item.entity === "huevos") {
-        await processHuevosMutation(item);
+        let effectiveItem = item;
+        if (!canPerformAction(sessionUser?.role, "sales:write")) {
+          const species = String(item.payload.species || "");
+          const params = await loadSpeciesParams(species);
+          const configuredPrice = params.find((row) => row.species === species)?.marketPriceEggUnitCOP;
+          effectiveItem = {
+            ...item,
+            payload: {
+              ...item.payload,
+              referenceUnitPrice: configuredPrice && configuredPrice > 0 ? String(configuredPrice) : null,
+            },
+          };
+        }
+        await processHuevosMutation(effectiveItem);
       } else if (item.entity === "mortalidad") {
         await processMortalidadMutation(item);
       } else if (item.entity === "alimentacion") {
@@ -120,6 +152,15 @@ export const POST = withApiHandler(async (req: NextRequest) => {
       console.error(`Error procesando mutación ${item.id} (${item.entity}):`, err);
       results.push({ id: item.id, status: "error", error: err.message || "Error procesando registro" });
     }
+  }
+
+  // C1: disparo por evento (no polling). Si el lote aplicó mortalidad, evalúa
+  // el umbral de anomalía y crea el briefing de anomalía del día si corresponde.
+  if (results.some((r) => r.status === "synced" && mutations.find((m) => m.id === r.id)?.entity === "mortalidad")) {
+    const { maybeTriggerMortalityAnomalyBriefing } = await import("@/lib/agent/proactive");
+    void maybeTriggerMortalityAnomalyBriefing().catch((err) => {
+      console.error("[agente-proactivo] No se pudo evaluar la anomalía de mortalidad:", err);
+    });
   }
 
   return NextResponse.json({ ok: true, results });

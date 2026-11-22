@@ -4,6 +4,8 @@ import { eggProduction, eggProductionDetails, catalogos, hens, autoconsumoLogs, 
 import { eq, desc, inArray, and, sql } from "drizzle-orm";
 import { NextRequest, NextResponse } from "next/server";
 import { getEggStorageThresholds, getEggValidationThreshold } from "@/lib/settings";
+import { getSessionUser } from "@/lib/auth";
+import { canPerformAction } from "@/lib/rbac";
 import { withApiHandler, safeParseJson } from "@/lib/api-handler";
 import { lockEggInventory } from "@/lib/inventory-locks";
 import { computeEggInventory, eggInventoryBookBalance } from "@/lib/inventory";
@@ -214,7 +216,17 @@ async function handleSave(req: NextRequest, isUpdate: boolean) {
   if (qtyAutoconsumo + qtyExcedente > goodTotal) {
     return NextResponse.json({ error: "La asignación al hogar y a la venta supera los huevos buenos disponibles" }, { status: 400 });
   }
-  const refPrice = body.referenceUnitPrice ? String(body.referenceUnitPrice) : null;
+  const canSetReferencePrice = canPerformAction((await getSessionUser())?.role, "sales:write");
+  const configuredEggPrice = (await loadSpeciesParams(species))
+    .find((params) => params.species === species)?.marketPriceEggUnitCOP;
+  const requestedReferencePrice = body.referenceUnitPrice == null || body.referenceUnitPrice === ""
+    ? null
+    : String(body.referenceUnitPrice);
+  const refPrice = canSetReferencePrice && requestedReferencePrice !== null
+    ? requestedReferencePrice
+    : configuredEggPrice && configuredEggPrice > 0
+      ? String(configuredEggPrice)
+      : null;
   if (refPrice !== null && (!Number.isFinite(Number(refPrice)) || Number(refPrice) < 0)) {
     return NextResponse.json({ error: "Precio de referencia inválido" }, { status: 400 });
   }

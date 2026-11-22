@@ -34,27 +34,6 @@ export interface ShowcaseGalleryItem {
   alt: string;
 }
 
-export type StandardDiagramType =
-  | "egg-peps"
-  | "biosecurity"
-  | "welfare"
-  | "withdrawal"
-  | "compost"
-  | "finance";
-
-export interface SectorStandardItem {
-  code: string;
-  authority: string;
-  title: string;
-  summary: string;
-  enforcement: string;
-  tags: string[];
-  sourceLabel: string;
-  sourceUrl: string;
-  diagramType: StandardDiagramType;
-  diagramSteps: [string, string, string];
-}
-
 export interface AiAutomationPillar {
   id: string;
   eyebrow: string;
@@ -112,83 +91,57 @@ export interface ExtraLandingModuleItem {
   guideHash: string;
 }
 
-/** Los 8 módulos adicionales que completan los 14 módulos de la plataforma. */
+/** 8 frentes operativos adicionales que completan el recorrido por los 8 módulos reales y 2 guías base de la plataforma. */
 export const EXTRA_LANDING_MODULES: ExtraLandingModuleItem[] = [
   {
     id: "qr",
     name: "Escáner QR y etiquetas",
     summary: "Escaneo en campo de galpones, jaulas, lotes y equipos.",
-    guideHash: "/guia#escanear-qr",
+    guideHash: "/guia/escanear-qr",
   },
   {
     id: "lugares",
     name: "Lugares de manejo",
     summary: "Galpones, jaulas, potreros, ocupación y vacío sanitario.",
-    guideHash: "/guia#ubicaciones",
+    guideHash: "/guia/lugares-manejo",
   },
   {
     id: "carne",
     name: "Producción de carne",
     summary: "Peso en pie, rendimiento en canal, sacrificio y lotes.",
-    guideHash: "/guia#produccion",
+    guideHash: "/guia#mod-produccion",
   },
   {
     id: "subproductos",
     name: "Compostaje y gallinaza",
     summary: "Control de pilas de 8 semanas, volteos y liberación.",
-    guideHash: "/guia#almacen",
+    guideHash: "/guia#mod-almacen",
   },
   {
     id: "planeacion",
     name: "Planeación y calendario",
     summary: "Rutinas automáticas, Plan de Parvada y reemplazos.",
-    guideHash: "/guia#planeacion",
+    guideHash: "/guia#mod-planeacion",
   },
   {
     id: "analisis",
     name: "Análisis y curvas",
     summary: "KPIs (HAA, EPEF, ROI) y curvas ajustadas por altitud.",
-    guideHash: "/guia#analisis",
+    guideHash: "/guia#mod-analisis",
   },
   {
     id: "cierre",
     name: "Cierre diario y sensores",
     summary: "Acta auditable de fin de jornada y lectura ambiental.",
-    guideHash: "/guia#almacen",
+    guideHash: "/guia#mod-almacen",
   },
   {
     id: "configuracion",
     name: "Configuración y escala",
     summary: "Activación progresiva, catálogos y copia de respaldo.",
-    guideHash: "/guia#configuracion",
+    guideHash: "/guia#mod-configuracion",
   },
 ];
-
-export interface CyclePlanShowcase {
-  id:
-    | "FREEMIUM_SEMILLA"
-    | "CICLO_60D"
-    | "SEMESTRAL_PONEDORA"
-    | "MEDIANO_MENSUAL";
-  slug: string;
-  badge: string;
-  name: string;
-  priceLabel: string;
-  durationLabel: string;
-  summary: string;
-  highlights: string[];
-  featured?: boolean;
-  detailSummary: string;
-  idealFor: string[];
-  includedFeatures: string[];
-  limits: {
-    lotes: string;
-    usuarios: string;
-    especies: string;
-    almacenamiento: string;
-  };
-  billingNote: string;
-}
 
 export const SHOWCASE_TABS: ShowcaseTabItem[] = [
   {
@@ -199,10 +152,10 @@ export const SHOWCASE_TABS: ShowcaseTabItem[] = [
     title: "Lo importante primero y tareas que se validan con hechos",
     description:
       "Al abrir la app ves las cifras clave, los avisos urgentes y la lista de tareas del día. Cada tarea se marca al guardar su registro real o confirmar el recorrido en campo.",
-    routeLabel: "gallinero.iwage.co/dashboard",
+    routeLabel: "app.iwage.co/inicio",
     screenshot: "/images/guia/inicio-dashboard.webp",
     screenshotAlt:
-      "Pantalla principal del tablero de El Gallinero con alertas del día, preparación de granja y estado de copia offline",
+      "Pantalla principal del tablero de IwaGranja con alertas del día, preparación de granja y estado de copia offline",
     highlights: [
       "Las tareas productivas se completan automáticamente al guardar huevos, alimento o pesajes.",
       "Los recorridos sin novedad piden confirmación breve en campo para evitar cierres falsos.",
@@ -219,7 +172,7 @@ export const SHOWCASE_TABS: ShowcaseTabItem[] = [
     title: "Escanea la entrada del galpón y anota la jornada en menos de 2 minutos",
     description:
       "Sin menús largos: lee el código QR del galpón o corral, suma cubetas de 30 huevos o bultos de 40 kg con botones grandes y recibe el resumen al instante.",
-    routeLabel: "gallinero.iwage.co/dashboard · Registro rápido",
+    routeLabel: "app.iwage.co/inicio · Registro rápido",
     screenshot: "/images/guia/captura-rapida-modal.webp",
     screenshotAlt:
       "Modal de Registro Rápido con pestañas de huevos, alimento, mortalidad, gasto y venta, y botones de incremento por cubeta",
@@ -242,8 +195,8 @@ export const SHOWCASE_TABS: ShowcaseTabItem[] = [
     eyebrow: "Ayuda cercana en campo",
     title: "Habla o escribe a Gina; la app ordena los datos por ti",
     description:
-      "Pregúntale a Gina (nuestra gallina asistente con gafas) cuántos huevos o animales tienes, qué vacunas se acercan o cómo va el mes. Si dictas un movimiento o envías foto de factura, lo estructura y te pide confirmar antes de guardar.",
-    routeLabel: "gallinero.iwage.co · Gina",
+      "Pregúntale a Gina (nuestra gallina asistente con gafas) cuántos huevos o animales tienes, qué vacunas se acercan o cómo va el mes. Dicta un movimiento o envía foto de factura y lo estructura para tu confirmación; también puedes hablarle por Telegram y recibir cada mañana un briefing proactivo con los hallazgos de tu granja.",
+    routeLabel: "app.iwage.co · Gina",
     screenshot: "/images/guia/asistente-ia.webp",
     screenshotAlt:
       "Panel lateral de Gina (asistente con gafas) mostrando qué puede hacer, sugerencias rápidas, cámara y dictado por voz",
@@ -253,10 +206,12 @@ export const SHOWCASE_TABS: ShowcaseTabItem[] = [
       "Buscador global Ctrl+K para saltar al instante a cualquier módulo, guía o creación rápida",
     highlights: [
       "Funciona por texto, dictado en vivo o nota de audio guardada cuando no hay señal.",
-      "Consulta datos de aves, conejos, cuyes, bodega, vacunas y cuentas.",
-      "Nunca registra ventas o gastos sin tu confirmación expresa.",
+      "Briefing diario proactivo con hallazgos de la granja, en la app, por push o por Telegram.",
+      "Canal Telegram bidireccional: notas de voz, botones Confirmar/Cancelar y parte diario con /parte.",
+      "API de herramientas y servidor MCP para agentes externos con tokens de alcance limitado.",
+      "Nunca registra ventas o gastos sin tu confirmación expresa, desde ningún canal.",
     ],
-    tags: ["Dictado por voz", "Consultas al instante", "Confirmación segura"],
+    tags: ["Dictado por voz", "Briefing proactivo", "Telegram", "API · MCP"],
     simulationKind: "ai-voice",
   },
   {
@@ -267,7 +222,7 @@ export const SHOWCASE_TABS: ShowcaseTabItem[] = [
     title: "Clasifica huevos por tamaño y compara el peso del lote con su raza",
     description:
       "Separa huevos aptos, rotos o para incubar desde la recolección, ordena las salidas del más antiguo al más nuevo y compara el crecimiento contra la curva esperada.",
-    routeLabel: "gallinero.iwage.co/dashboard/produccion",
+    routeLabel: "app.iwage.co/produccion",
     screenshot: "/images/guia/produccion-huevos.webp",
     screenshotAlt:
       "Módulo de Producción de Huevos Multiespecie con KPIs de huevos totales, promedio diario, ahorro hogar y postura esperada",
@@ -291,7 +246,7 @@ export const SHOWCASE_TABS: ShowcaseTabItem[] = [
     title: "Vacunas al día y bloqueo automático cuando hay tratamiento activo",
     description:
       "Registra aplicaciones veterinarias y sus días de retiro para evitar vender huevos o carne antes de tiempo, junto con alertas de reemplazo y listas de bioseguridad.",
-    routeLabel: "gallinero.iwage.co/dashboard/sanidad/control",
+    routeLabel: "app.iwage.co/sanidad/control",
     screenshot: "/images/guia/sanidad-control.webp",
     screenshotAlt:
       "Pantalla de Control Fitosanitario con resumen de registros, vacunaciones, próximos eventos programados e historial",
@@ -315,7 +270,7 @@ export const SHOWCASE_TABS: ShowcaseTabItem[] = [
     title: "Separa ingresos y gastos por especie y sigue trabajando sin internet",
     description:
       "Registra ventas de huevos, carne, animales en pie o abono, lee recibos con la cámara y sigue anotando en el galpón aunque no haya cobertura en la vereda.",
-    routeLabel: "gallinero.iwage.co/dashboard/finanzas · Modo offline",
+    routeLabel: "app.iwage.co/finanzas · Modo offline",
     screenshot: "/images/guia/finanzas-balance.webp",
     screenshotAlt:
       "Panel Financiero con ingresos, egresos, utilidad neta, margen y flujo de caja en el período",
@@ -338,7 +293,7 @@ export const SHOWCASE_GALLERY: ShowcaseGalleryItem[] = [
     id: "gal-adquisiciones",
     title: "Adquisiciones y origen",
     moduleTag: "Animales",
-    routeLabel: "/dashboard/produccion/adquisiciones",
+    routeLabel: "/produccion/adquisiciones",
     summary: "Historial de compras, nacimientos, procedencia y valor invertido.",
     image: "/images/guia/adquisiciones-genetica.webp",
     alt: "Pantalla de Adquisiciones y entradas de animales con historial, inversión total y detalle de linaje",
@@ -347,7 +302,7 @@ export const SHOWCASE_GALLERY: ShowcaseGalleryItem[] = [
     id: "gal-ubicacion",
     title: "Ficha por corral o galpón",
     moduleTag: "Lugares",
-    routeLabel: "/dashboard/ubicaciones/[id]",
+    routeLabel: "/ubicaciones/[id]",
     summary: "Ocupación, producción, sanidad y mantenimientos por espacio.",
     image: "/images/guia/ubicacion-ficha.webp",
     alt: "Ficha de Criadora y Enfermería Sur con KPIs de ocupación, producción por especie y traslados",
@@ -356,7 +311,7 @@ export const SHOWCASE_GALLERY: ShowcaseGalleryItem[] = [
     id: "gal-qr",
     title: "Escáner QR de campo",
     moduleTag: "Agilidad",
-    routeLabel: "/dashboard/escanear",
+    routeLabel: "/escanear",
     summary: "Escanea la placa del lugar para recoger huevos o servir alimento en segundos.",
     image: "/images/guia/escanear-qr.webp",
     alt: "Escáner QR de Granja mostrando acciones rápidas para el Galpón Principal",
@@ -365,7 +320,7 @@ export const SHOWCASE_GALLERY: ShowcaseGalleryItem[] = [
     id: "gal-peso",
     title: "Curvas de crecimiento",
     moduleTag: "Producción",
-    routeLabel: "/dashboard/produccion/peso",
+    routeLabel: "/produccion/peso",
     summary: "Compara el peso del lote frente a la meta esperada por semana.",
     image: "/images/guia/peso-biometria.webp",
     alt: "Curva de peso ISA Brown con banda de referencia combinada e indicadores semanales",
@@ -374,7 +329,7 @@ export const SHOWCASE_GALLERY: ShowcaseGalleryItem[] = [
     id: "gal-ventas",
     title: "Ventas de toda la finca",
     moduleTag: "Finanzas",
-    routeLabel: "/dashboard/finanzas/ventas",
+    routeLabel: "/finanzas/ventas",
     summary: "Registra ventas de huevos, animales, carne, gallinaza y productos.",
     image: "/images/guia/finanzas-ventas.webp",
     alt: "Módulo de Ventas con pestañas de Huevos, Aves, Carne y Gallinaza e inventario disponible por calibre",
@@ -383,7 +338,7 @@ export const SHOWCASE_GALLERY: ShowcaseGalleryItem[] = [
     id: "gal-kpis",
     title: "Indicadores del negocio",
     moduleTag: "Análisis",
-    routeLabel: "/dashboard/analisis/kpis",
+    routeLabel: "/analisis/kpis",
     summary: "Porcentaje de postura, mortalidad, costos unitarios y reportes.",
     image: "/images/guia/analisis-kpis.webp",
     alt: "Tablero de Indicadores Clave KPIs con tasa de mortalidad y tasa de postura sobre población elegible",
@@ -392,7 +347,7 @@ export const SHOWCASE_GALLERY: ShowcaseGalleryItem[] = [
     id: "gal-parvada",
     title: "Plan de parvada",
     moduleTag: "Planeación",
-    routeLabel: "/dashboard/produccion/plan-parvada",
+    routeLabel: "/produccion/plan-parvada",
     summary: "Seguimiento de aves aptas frente a la meta y programación de reemplazos.",
     image: "/images/guia/plan-parvada.webp",
     alt: "Plan de Parvada con cumplimiento del 117.9% y recomendaciones de reposición y sacrificio",
@@ -401,91 +356,10 @@ export const SHOWCASE_GALLERY: ShowcaseGalleryItem[] = [
     id: "gal-trazabilidad",
     title: "Trazabilidad pública QR",
     moduleTag: "Confianza",
-    routeLabel: "/trazabilidad/[lote]",
+    routeLabel: "/lote/[id]",
     summary: "Página pública compartible para respaldar origen, edad y cuidado del lote.",
     image: "/images/guia/trazabilidad-lote-publica.webp",
     alt: "Ficha pública de Trazabilidad del Lote L-001 raza Cobb 500 lista para consulta vía QR",
-  },
-];
-
-export const SECTOR_STANDARDS: SectorStandardItem[] = [
-  {
-    code: "NTC 1240",
-    authority: "Calidad de huevo",
-    title: "Clasificación por tamaño y salida por orden de llegada",
-    summary:
-      "Clasifica de Jumbo a C, descarta rotos antes de entrar a bodega y vende primero los lotes más antiguos.",
-    enforcement: "Convierte automáticamente cubetas de 30 huevos con inventario PEPS.",
-    tags: ["Jumbo a C", "PEPS"],
-    sourceLabel: "ICONTEC · Norma NTC 1240",
-    sourceUrl: "https://www.icontec.org/",
-    diagramType: "egg-peps",
-    diagramSteps: ["Recolección y descarte", "Clasifica Jumbo → C (30u)", "Salida PEPS obligatoria"],
-  },
-  {
-    code: "ICA 3650–3652 · 12486",
-    authority: "Bioseguridad avícola",
-    title: "Control de accesos, desinfección y separación por especie",
-    summary:
-      "Organiza registros de visitantes, limpieza periódica, vacío sanitario entre lotes y temperatura de vacunas.",
-    enforcement: "Recuerda descansos sanitarios y separa aves de mamíferos menores.",
-    tags: ["Bioseguridad", "Vacío sanitario"],
-    sourceLabel: "ICA · Resoluciones Avícolas",
-    sourceUrl: "https://www.ica.gov.co/normatividad/normas-ica/resoluciones",
-    diagramType: "biosecurity",
-    diagramSteps: ["Ingreso + arco sanitario", "Separación aves / mamíferos", "Vacío sanitario antes de repoblar"],
-  },
-  {
-    code: "Res. MADR 205 · ICA 8452",
-    authority: "Bienestar animal",
-    title: "Evaluación práctica de condiciones en granjas mixtas",
-    summary:
-      "Verifica agua, espacio, ventilación y cuidado animal por especie con alertas claras cuando algún punto baja del nivel esperado.",
-    enforcement: "Identifica brechas por especie antes de que afecten la certificación.",
-    tags: ["Granjas mixtas", "Bienestar"],
-    sourceLabel: "MinAgricultura · Res. 205",
-    sourceUrl: "https://www.minagricultura.gov.co/Normatividad/Paginas/Resoluciones.aspx",
-    diagramType: "welfare",
-    diagramSteps: ["Agua, espacio y ventilación", "Puntaje POE por especie", "Alerta preventiva de brecha"],
-  },
-  {
-    code: "PRAMSAC · INVIMA · GSMI",
-    authority: "Inocuidad alimentaria",
-    title: "Bloqueo preventivo durante tiempos de retiro",
-    summary:
-      "Cada tratamiento veterinario calcula la fecha de liberación e impide vender huevos o carne mientras el medicamento esté activo.",
-    enforcement: "Evita mezclar lotes en retiro con mercancía disponible para venta.",
-    tags: ["Cero residuos", "Retiros"],
-    sourceLabel: "INVIMA · Inocuidad Veterinaria",
-    sourceUrl: "https://www.invima.gov.co/",
-    diagramType: "withdrawal",
-    diagramSteps: ["Registro de tratamiento", "Bloqueo de venta por días", "Liberación automática segura"],
-  },
-  {
-    code: "ICA 30292 · AGROSAVIA",
-    authority: "Aprovechamiento orgánico",
-    title: "Compostaje controlado de mortalidad y gallinaza",
-    summary:
-      "Guía las mezclas, avisa cuándo voltear la pila y valida temperatura y maduración antes de liberar el abono.",
-    enforcement: "Controla tiempos de proceso de 8 semanas hasta obtener abono listo.",
-    tags: ["Compostaje", "Abono"],
-    sourceLabel: "AGROSAVIA · Compostaje",
-    sourceUrl: "https://www.agrosavia.co/",
-    diagramType: "compost",
-    diagramSteps: ["Mezcla C/N controlada", "Volteo y T° (8 semanas)", "Abono estabilizado y trazable"],
-  },
-  {
-    code: "DIAN · Crédito agro",
-    authority: "Gestión financiera",
-    title: "Costos claros por especie y reportes exportables",
-    summary:
-      "Separa gastos directos y compartidos para ver el costo real por huevo o kilo y avisa si vendes por debajo de tu punto de equilibrio.",
-    enforcement: "Exporta balances en Excel y PDF listos para contador o banco.",
-    tags: ["Punto de equilibrio", "Excel y PDF"],
-    sourceLabel: "DIAN · Normativa Contable",
-    sourceUrl: "https://www.dian.gov.co/",
-    diagramType: "finance",
-    diagramSteps: ["Gasto directo + prorrateo", "Costo unitario por especie", "Alerta de margen + Excel/PDF"],
   },
 ];
 
@@ -501,6 +375,7 @@ export const AI_AUTOMATION_PILLARS: AiAutomationPillar[] = [
     highlights: [
       "Dictado en vivo o nota de audio sin internet.",
       "Confirmación obligatoria en ventas y pagos.",
+      "Briefing diario proactivo, también por Telegram.",
     ],
   },
   {
@@ -574,156 +449,16 @@ export const ADOPTION_HIGHLIGHTS: AdoptionHighlightItem[] = [
   },
 ];
 
-export const CYCLE_PLANS_SHOWCASE: CyclePlanShowcase[] = [
-  {
-    id: "FREEMIUM_SEMILLA",
-    slug: "semilla",
-    badge: "Gratis siempre",
-    name: "Semilla (1 lote)",
-    priceLabel: "$0 COP",
-    durationLabel: "30 días full + 1 lote libre",
-    summary:
-      "Un lote activo gratis para siempre, con lectura y cierre de lote sin costo.",
-    highlights: [
-      "1 lote activo gratis permanente",
-      "Lectura y cierre/venta de lotes siempre libres",
-      "Modo sin señal cifrado en el celular",
-    ],
-    detailSummary:
-      "Arrancas con 30 días completos para probar toda la plataforma sin tarjeta y luego conservas 1 lote activo gratis de forma permanente.",
-    idealFor: [
-      "Productores familiares que están ordenando su primer galpón o corral.",
-      "Granjas que quieren validar el registro offline antes de escalar.",
-      "Proyectos escolares, huertas o unidades productivas de autoconsumo.",
-    ],
-    includedFeatures: [
-      "Los 6 módulos esenciales desde el Día 1 (Inicio, Huevos, Animales, Alimento, Sanidad, Ventas).",
-      "Registro rápido en menos de 2 minutos con modo offline en IndexedDB.",
-      "Lectura histórica, exportación de reportes y cierre o venta de lotes siempre libres.",
-      "Soporte para las 6 especies (ponedoras, engorde, codornices, patos, conejos y cuyes).",
-    ],
-    limits: {
-      lotes: "1 lote activo gratis permanente (30 días iniciales ilimitados)",
-      usuarios: "1 usuario administrador",
-      especies: "6 especies disponibles",
-      almacenamiento: "Copia local cifrada + respaldo en la nube",
-    },
-    billingNote:
-      "Sin tarjeta de crédito ni cobros automáticos. Si decides abrir más lotes al terminar los 30 días, eliges el plan de tu preferencia.",
-  },
-  {
-    id: "CICLO_60D",
-    slug: "ciclo-60d",
-    badge: "Por cosecha",
-    name: "Ciclo Engorde 60d",
-    priceLabel: "$45.000 COP",
-    durationLabel: "60 días por ciclo",
-    summary:
-      "Pensado para lotes de pollo de engorde, pato Pekín, conejo o cuy. Pagas solo cuando tienes lote en producción, sin mensualidades fijas.",
-    highlights: [
-      "Hasta 3 lotes y 3 operarios",
-      "Curva biológica y ventana óptima de venta",
-      "Pago único con Nequi, Daviplata o PSE",
-    ],
-    featured: true,
-    detailSummary:
-      "Licencia pensada para ciclos cortos de carne o cría: pagas un único valor por 60 días de cosecha, sin suscripciones que cobren mientras el galpón está en vacío sanitario.",
-    idealFor: [
-      "Productores de pollo de engorde (Cobb 500 / Ross 308) por tandas de 42 a 55 días.",
-      "Criadero de patos, conejos o cuyes con rotación bimestral.",
-      "Equipos pequeños de hasta 3 personas en campo y administración.",
-    ],
-    includedFeatures: [
-      "Todo lo de Semilla más hasta 3 lotes activos simultáneos y 3 operarios.",
-      "Curvas de crecimiento ajustadas por altitud, pesajes semanales con CV% y EPEF.",
-      "Control de bultos de 40 kg con alerta de días de cobertura restantes.",
-      "Bloqueo automático por tiempo de retiro farmacológico antes de sacrificio o venta.",
-    ],
-    limits: {
-      lotes: "Hasta 3 lotes activos simultáneos",
-      usuarios: "Hasta 3 usuarios / operarios",
-      especies: "Todas las especies de carne y postura",
-      almacenamiento: "Historial completo conservado al finalizar el ciclo",
-    },
-    billingNote:
-      "Pago único de $45.000 COP por Nequi, Daviplata o PSE. Al terminar los 60 días no hay débito automático; tus datos siguen visibles y listos para cerrar venta.",
-  },
-  {
-    id: "SEMESTRAL_PONEDORA",
-    slug: "semestral-ponedora",
-    badge: "Postura y mixtas",
-    name: "Semestral 180d",
-    priceLabel: "$120.000 COP",
-    durationLabel: "180 días continuos",
-    summary:
-      "Para gallinas ponedoras, codornices o granjas mixtas familiares. Opción anual disponible por $210.000 COP.",
-    highlights: [
-      "Hasta 3 usuarios",
-      "Clasificación NTC 1240 e inventario PEPS",
-      "Plan sanitario ICA precargado desde Día 1",
-    ],
-    detailSummary:
-      "Cobertura continua de 6 meses (180 días) diseñada para lotes de postura de ciclo largo o granjas familiares mixtas que producen todos los días.",
-    idealFor: [
-      "Granjas de gallina ponedora comercial o semi-pastoreo.",
-      "Productores de huevo de codorniz con despachos frecuentes.",
-      "Granjas mixtas que combinan postura con un lote adicional de carne o abono.",
-    ],
-    includedFeatures: [
-      "Clasificación automática de huevo NTC 1240 (Jumbo a C) en cubetas de 30 unidades.",
-      "Inventario PEPS (Primeras en Entrar, Primeras en Salir) para evitar mermas.",
-      "Calendario sanitario ICA precargado según edad de la parvada y altitud.",
-      "Punto de equilibrio diario por huevo/cubeta y compostaje de gallinaza (8 semanas).",
-    ],
-    limits: {
-      lotes: "Hasta 6 lotes activos (ideal para reemplazos escalonados)",
-      usuarios: "Hasta 3 usuarios",
-      especies: "Postura + granjas mixtas (6 especies)",
-      almacenamiento: "Exportación Excel y PDF ilimitada",
-    },
-    billingNote:
-      "Pago único semestral de $120.000 COP (también disponible anual por $210.000 COP). Sin permanencia ni renovaciones sorpresa.",
-  },
-  {
-    id: "MEDIANO_MENSUAL",
-    slug: "mediano-mensual",
-    badge: "Multi-galpón",
-    name: "Escala Mediano · cobro mensual",
-    priceLabel: "$149.000 COP",
-    durationLabel: "30 días · hasta 15 usuarios",
-    summary:
-      "Para granjas comerciales con varios galpones, cuadrillas con código QR, incubación y contabilidad analítica.",
-    highlights: [
-      "Lotes ilimitados y hasta 15 usuarios",
-      "Prorrateo anti-subsidio cruzado y DIAN",
-      "Auditoría de cierres diarios y roles",
-    ],
-    detailSummary:
-      "Plan completo para granjas medianas y multi-galpón con cuadrillas en campo, incubación simultánea, roles diferenciados y contabilidad analítica sin subsidio cruzado.",
-    idealFor: [
-      "Granjas comerciales con 2 o más galpones, jaulas o estaciones con código QR.",
-      "Operaciones con operarios de campo, supervisor veterinario y contador.",
-      "Unidades con planta de incubación, compostaje y múltiples líneas de venta.",
-    ],
-    includedFeatures: [
-      "Los 14 módulos habilitados (incluye Incubación, Escáner QR, Análisis de curvas y Auditoría).",
-      "Contabilidad analítica con prorrateo configurable de costos indirectos compartidos.",
-      "Control de roles, trazabilidad pública QR por lote y cierre diario auditable anti-fraude.",
-      "Reportes exportables en Excel/PDF listos para contador, DIAN y crédito agropecuario.",
-    ],
-    limits: {
-      lotes: "Lotes activos ilimitados",
-      usuarios: "Hasta 15 usuarios con roles por estación",
-      especies: "Multi-especie completo sin restricciones",
-      almacenamiento: "Auditoría completa y respaldos automáticos",
-    },
-    billingNote:
-      "Pago por período de 30 días ($149.000 COP) mediante Nequi, Daviplata o PSE. Puedes pausar o cambiar de escala sin perder ningún registro histórico.",
-  },
-];
+const LEGACY_PLAN_ROUTES = [
+  { slug: "semilla", legacyCode: "FREEMIUM_SEMILLA" },
+  { slug: "ciclo-60d", legacyCode: "CICLO_60D" },
+  { slug: "semestral-ponedora", legacyCode: "SEMESTRAL_PONEDORA" },
+  { slug: "mediano-mensual", legacyCode: "MEDIANO_MENSUAL" },
+] as const;
 
-export function getCyclePlanBySlug(slug: string): CyclePlanShowcase | undefined {
-  return CYCLE_PLANS_SHOWCASE.find((plan) => plan.slug === slug);
+/** Old public URLs remain aliases; their retired prices and descriptions are not exposed. */
+export function getCyclePlanBySlug(slug: string): { slug: string; legacyCode: string } | undefined {
+  return LEGACY_PLAN_ROUTES.find((plan) => plan.slug === slug);
 }
 
 export function getAllLandingShowcaseAssetUrls(): string[] {

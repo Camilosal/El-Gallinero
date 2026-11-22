@@ -52,8 +52,8 @@ const TECHNICAL_STANDARDS: TechnicalStandardSeed[] = [
     summary: "Pesos oficiales NTC 1240 (Jumbo, AAA, AA, A, B, C), equivalencias de cubeta (30) y docena (12), y conservación.",
     tags: ["ntc 1240", "huevo", "calibre", "jumbo", "aaa", "aa", "cubeta", "docena", "clasificacion"],
     relatedHrefs: [
-      { href: "/huevos", label: "Producción de Huevos" },
-      { href: "/ventas", label: "Ventas y Cartera" },
+      { href: "/produccion?tab=huevos", label: "Producción de Huevos" },
+      { href: "/finanzas/ventas", label: "Ventas y Cartera" },
     ],
     steps: [
       "Clasificar por peso unitario según NTC 1240: Jumbo (> 78 g), AAA (67.0–77.9 g), AA (60.0–66.9 g), A (53.0–59.9 g), B (46.0–52.9 g), C (< 46.0 g).",
@@ -111,7 +111,7 @@ const TECHNICAL_STANDARDS: TechnicalStandardSeed[] = [
     module: "compostaje",
     summary: "Relaciones 3:1:1 y 7:2:2, rango termofílico (55–65 °C), humedad (50–60 %) y ciclo de volteos.",
     tags: ["compostaje", "agrosavia", "3:1:1", "7:2:2", "mortalidad", "gallinaza", "volteo", "termofila"],
-    relatedHrefs: [{ href: "/gallinaza", label: "Gallinaza y Compostaje" }],
+    relatedHrefs: [{ href: "/produccion?tab=gallinaza", label: "Gallinaza y Compostaje" }],
     steps: [
       "Construir la pila por capas alternas siguiendo fórmula AGROSAVIA 3:1:1 o 7:2:2 (gallinaza/pollinaza/cuyinaza : mortalidad : material vegetal seco o cascarilla).",
       "Mantener humedad entre 50 % y 60 % (prueba de puño sin escurrimiento) y alcanzar fase termofílica de 55–65 °C durante al menos 3 días para sanitizar patógenos.",
@@ -127,7 +127,7 @@ const TECHNICAL_STANDARDS: TechnicalStandardSeed[] = [
     module: "operaciones",
     summary: "Cálculo e interpretación del ITH, umbrales críticos de temperatura, humedad relativa y NH3 ppm en cama.",
     tags: ["ith", "estres calorico", "amoniaco", "nh3", "sensor", "temperatura", "humedad", "ventilacion"],
-    relatedHrefs: [{ href: "/operaciones", label: "Sensores y Cierre Diario" }],
+    relatedHrefs: [{ href: "/operaciones/cierre", label: "Sensores y Cierre Diario" }],
     steps: [
       "Registrar lecturas de temperatura (°C), humedad relativa (%) y concentración de amoníaco NH3 (ppm) por galpón o módulo.",
       "El sistema calcula ITH = 1.8·T + 32 − (0.55 − 0.0055·HR)·(1.8·T − 26). ITH ≥ 72 indica alerta moderada; ITH ≥ 78 indica estrés calórico severo.",
@@ -143,7 +143,7 @@ const TECHNICAL_STANDARDS: TechnicalStandardSeed[] = [
     module: "produccion",
     summary: "Plazos fisiológicos de gestación en conejas y cuyes, empadre, parto, destete y días de incubación en aves.",
     tags: ["conejo", "cuy", "empadre", "palpacion", "nidal", "parto", "destete", "incubacion", "ovoscopia"],
-    relatedHrefs: [{ href: "/reproduccion", label: "Reproducción e Incubación" }],
+    relatedHrefs: [{ href: "/produccion?tab=reproduccion", label: "Reproducción e Incubación" }],
     steps: [
       "Conejos: gestación promedio 31 días; palpación de diagnóstico días 12–14 post-empadre; colocación de nidal día 27; destete habitual 30–35 días.",
       "Cuyes: gestación ~67 días; parto de crías precoces con pelo y ojos abiertos; destete recomendado entre días 14 y 21 separando machos y hembras.",
@@ -161,8 +161,8 @@ const TECHNICAL_STANDARDS: TechnicalStandardSeed[] = [
     tags: ["epef", "fcr", "conversion", "uniformidad", "prorrateo", "gastos compartidos", "cierre diario", "roi", "presupuesto", "capex", "patrimonio", "desgaste", "vida util", "valor animales"],
     relatedHrefs: [
       { href: "/finanzas", label: "Finanzas y Presupuestos" },
-      { href: "/operaciones", label: "Cierre Diario" },
-      { href: "/dashboard/analisis/kpis", label: "Indicadores de Granja" },
+      { href: "/operaciones/cierre", label: "Cierre Diario" },
+      { href: "/analisis/kpis", label: "Indicadores de Granja" },
     ],
     steps: [
       "Separar las 3 capas financieras: el dinero en caja refleja entradas y salidas de efectivo; la ganancia operativa real solo resta lo consumido en el período y el desgaste mensual o por ciclo de los equipos; y el patrimonio productivo suma alimento en bodega, valor restante de equipos y valor vivo de tus animales.",
@@ -172,6 +172,75 @@ const TECHNICAL_STANDARDS: TechnicalStandardSeed[] = [
     warnings: ["No confundas la compra inicial de equipos o bultos en bodega ni la etapa de cría/levante con una pérdida operativa del negocio."],
     tips: ["Comparar ejecución real vs presupuesto y revisar cartera vencida semanalmente mejora el flujo de caja."],
     body: "EPEF FCR conversion alimenticia uniformidad CV HAA prorrateo costos indirectos gastos compartidos cierre diario presupuesto capex depreciacion desgaste vida util patrimonio bodega valor animales",
+  },
+  {
+    id: "std-nomina-rural-colombia",
+    title: "Nómina y prestaciones rurales en Colombia: jornal, salario, trabajo propio y seguridad social",
+    module: "finanzas",
+    summary:
+      "Cómo se liquida el personal de granja en Colombia: tarifa por periodo, prestaciones sociales, seguridad social (salud, pensión, ARL), auxilio de transporte y la diferencia entre pago de caja y costo imputado del trabajo propio.",
+    tags: ["nomina", "personal", "jornal", "salario minimo", "prestaciones", "prima", "cesantias", "seguridad social", "arl", "auxilio de transporte", "uvt", "trabajo propio", "imputado", "liquidacion"],
+    relatedHrefs: [
+      { href: "/finanzas/personal", label: "Personal y Nómina" },
+      { href: "/configuracion/catalogos", label: "Parámetros Tributarios y de Nómina" },
+    ],
+    steps: [
+      "Registrar cada persona con su tipo (productor propio o apoyo), contrato (propio, jornal, salario fijo o prestación de servicios), periodo de pago (hora, día, semana, quincena, mes) y tarifa base; el salario mínimo legal vigente y los porcentajes de aportes se configuran en los parámetros maestros, no se inventan.",
+      "Cuando aplica seguridad social, la liquidación calcula aportes a salud y pensión (parte empleador y trabajador), ARL según clase de riesgo y auxilio de transporte para trabajadores de apoyo elegibles; las prestaciones (prima, cesantías e intereses) se provisionan según el régimen laboral configurado.",
+      "Distinguir los tres modos de pago: pagado (egreso real de caja), imputado (costo económico del trabajo propio del dueño o familia, sin salida de caja) y crédito (cuenta por pagar con fecha de vencimiento). Cada liquidación guarda snapshot de los parámetros vigentes para auditoría.",
+    ],
+    warnings: [
+      "Esto es información operativa de la app, no asesoría contable ni laboral profesional: ante dudas de régimen laboral, prestaciones o impuestos, consultar un contador o abogado laboralista.",
+      "El trabajo propio imputado no es dinero que salió de caja: mezclarlo con pagos reales distorsiona la ganancia operativa y el flujo de efectivo.",
+    ],
+    tips: ["Imputar la nómina a especie y lugar de manejo permite que la contabilidad analítica por lote incluya la mano de obra real."],
+    body: "Nomina personal jornal salario minimo prestaciones prima cesantias intereses seguridad social salud pension ARL riesgo auxilio transporte UVT retencion trabajo propio imputado economico caja credito cuenta por pagar liquidacion snapshot",
+  },
+  {
+    id: "std-fuentes-externas-interpretacion",
+    title: "Fuentes externas: qué son SIPSA, TRM, ITH, UVT y alertas ICA/IDEAM y cómo se interpretan",
+    module: "analisis",
+    summary:
+      "Interpretación de los datos públicos que alimentan el entorno de la granja: precios mayoristas DANE/SIPSA, TRM del dólar, índice ITH de estrés calórico, UVT y festivos DIAN, alertas epidemiológicas ICA e hidrológicas IDEAM y series macro Banrep.",
+    tags: ["sipsa", "dane", "trm", "ith", "uvt", "dian", "festivos", "ica", "ideam", "banrep", "open meteo", "clima", "mercado", "fuentes externas", "precio mayorista"],
+    relatedHrefs: [
+      { href: "/analisis/fuentes-externas", label: "Clima, Mercado y Entorno" },
+      { href: "/configuracion/catalogos", label: "Tablas Externas en Catálogos" },
+    ],
+    steps: [
+      "SIPSA (DANE) es el sistema de precios mayoristas agropecuarios: sirve como referencia de negociación, no como precio garantizado de tu vereda; la TRM es la tasa de cambio oficial del dólar publicada por la Superfinanciera y afecta insumos importados.",
+      "El ITH (índice de temperatura y humedad) combina calor y humedad para estimar estrés calórico: >= 72 alerta moderada, >= 78 severo; se calcula con el clima Open-Meteo del municipio de la finca y con los sensores de galpón cuando existen.",
+      "La UVT (unidad de valor tributario DIAN) y los festivos de Colombia contextualizan retenciones y calendarios fiscales; las alertas epidemiológicas del ICA y las hidrológicas del IDEAM avisan riesgos sanitarios o de inundación en la zona; Banrep aporta series macro (inflación, tasas) como contexto.",
+    ],
+    warnings: [
+      "Todos son datos públicos de contexto, NO cifras de tu finca ni pronósticos certificados: revisar siempre fecha de actualización y cobertura geográfica antes de decidir.",
+      "No constituyen asesoría financiera, tributaria ni veterinaria: ante decisiones críticas, verificar con la fuente oficial o un profesional.",
+    ],
+    tips: ["Sin internet, la app conserva el último snapshot sincronizado y lo marca como vencido cuando supera su vigencia."],
+    body: "SIPSA DANE precios mayoristas TRM dolar Superfinanciera ITH estres calórico Open-Meteo UVT DIAN festivos retencion ICA alertas epidemiologicas IDEAM hidrologicas Banrep macro inflacion fuentes externas publicas contexto snapshot vencido",
+  },
+  {
+    id: "std-delegacion-agentes",
+    title: "Delegación y agentes: qué puede automatizarse y qué NUNCA (piso duro de confirmación)",
+    module: "configuracion",
+    summary:
+      "Política de delegación del asistente y canales externos (Telegram, API v1, MCP): escrituras rutinarias automatizables, piso duro inviolable de confirmación humana y auditoría por origen.",
+    tags: ["delegacion", "agente", "automatizacion", "confirmacion", "piso duro", "telegram", "api", "mcp", "scopes", "token", "auditoria", "erp", "conectores"],
+    relatedHrefs: [
+      { href: "/configuracion/modulos", label: "Módulos, Canales y Delegación" },
+      { href: "/exportar", label: "Exportación y Conectores" },
+    ],
+    steps: [
+      "El propietario/administrador define la política de delegación (manual o gradual) en Configuración → Módulos; en gradual, las escrituras rutinarias de campo (producción de huevo, mortalidad, peso, consumo de alimento, movimientos de insumos, mantenimiento, sensores, reproducción, incubación, bioseguridad, compostaje, control sanitario y rutinas) pueden ejecutarse sin tarjeta previa.",
+      "El piso duro es inviolable desde cualquier canal (web, voz, Telegram, API v1 o MCP): ventas, gastos, ingresos, pagos/abonos de cartera, prorrateos, adquisiciones de animales, creación/edición de lugares, traslados, sacrificio/faena, ajustes de gallinaza, creación/edición de alimentos y cierres diarios SIEMPRE requieren confirmación humana explícita.",
+      "Los agentes externos se autentican con tokens de scopes agent:read (solo consulta) y agent:write (prepara escrituras pendientes de confirmación); el servidor MCP reutiliza el mismo ejecutor y las mismas reglas. Toda escritura delegada o remota queda auditada con su origen (delegated_auto, telegram, external_agent) y el usuario/token/chat responsable.",
+    ],
+    warnings: [
+      "Ninguna política de delegación, integración ERP o bot puede saltarse el piso duro: si una acción sensible queda pendiente, el agente resume qué está listo para confirmar y no la crea de nuevo.",
+      "Los conectores ERP son de solo lectura por diseño; el agente proactivo (briefings y alertas) solo lee y narra, nunca ejecuta herramientas de escritura.",
+    ],
+    tips: ["Empezar en manual y pasar a gradual cuando el equipo ya confía en las capturas de campo; revocar tokens de integraciones que dejen de usarse."],
+    body: "Delegacion politica manual gradual piso duro confirmacion humana ventas gastos ingresos pagos abonos prorrateo adquisiciones lugares traslados sacrificio gallinaza alimentos cierre diario Telegram API v1 MCP scopes agent:read agent:write token auditoria origen delegated_auto external_agent ERP solo lectura proactive",
   },
 ];
 
@@ -199,6 +268,9 @@ const DOMAIN_SYNONYMS: Array<[RegExp, string[]]> = [
   [/\b(sacrificio|faena|beneficio|canal|carne|despiece)\b/, ["sacrificio", "carne", "autoconsumo", "retiro"]],
   [/\b(fcr|conversion|epef|uniformidad|rentabilidad|margen|prorrateo|presupuesto|patrimonio|desgaste|depreciacion|capex|perdida|inversion|equipos)\b/, ["kpis", "analitica", "finanzas", "prorrateo", "presupuesto", "patrimonio", "desgaste", "equipos", "bodega"]],
   [/\b(norma|normas|estandar|estandares|resolucion|protocolo|falla|fallas|error|soporte|bug|incidencia)\b/, ["normas", "ica", "ntc", "1240", "fallas", "soporte", "guia"]],
+  [/\b(nomina|jornal|jornalero|salario|sueldo|empleado|trabajador|personal|prestaciones|arl|pagarle|liquidacion|quincena)\b/, ["nomina", "personal", "jornal", "prestaciones", "seguridad", "social", "arl", "imputado", "liquidacion"]],
+  [/\b(telegram|bot|briefing|parte diario|proactivo|delegacion|delegar|automatizar|token|mcp|erp|conector|conectores|api)\b/, ["telegram", "delegacion", "piso", "duro", "confirmacion", "api", "mcp", "token", "scopes", "briefing", "conectores"]],
+  [/\b(sipsa|trm|uvt|dian|festivo|festivos|ideam|banrep|precio mayorista|mayorista)\b/, ["sipsa", "dane", "trm", "uvt", "dian", "festivos", "ideam", "banrep", "fuentes", "externas", "mercado"]],
 ];
 
 function stemSpanishToken(token: string): string {
@@ -325,6 +397,9 @@ export function getKnowledgeDigest(): string {
     "Bioseguridad POE GAB (Res. ICA 3651/3652, 12486/2023) y Bienestar (Res. MADR 205/2022, ICA 8452/2025): zonas limpia/producción/sucia/cuarentena y respeto de vacío sanitario.",
     "Ambiente y Compostaje: ITH >=72 alerta moderada, >=78 estrés calórico severo; NH3 >=20 ppm crítico; compost AGROSAVIA 3:1:1 o 7:2:2 a 55-65°C y 50-60% humedad.",
     "Ciclos fisiológicos: coneja 31d (palpación d12-14, nidal d27, destete 30-35d); cuy 67d (destete 14-21d); incubación gallina 21d, codorniz 17d, pato 28d.",
+    "Nómina rural: jornal/salario con prestaciones y seguridad social según perfil; trabajo propio imputado ≠ salida de caja; parámetros legales vigentes configurables, no asesoría laboral.",
+    "Fuentes externas (SIPSA/TRM/ITH/UVT/ICA/IDEAM/Banrep): datos públicos de contexto con fecha y cobertura, nunca cifras de la finca ni pronósticos certificados.",
+    "Delegación: escrituras rutinarias automatizables según política; piso duro inviolable (ventas, gastos, pagos, traslados, sacrificio, cierres...) siempre con confirmación humana en web, voz, Telegram, API v1 y MCP.",
     `Manual operativo y catálogo normativo sincronizado: ${guides.length} guías de pantallas + ${NORMATIVE_CATALOG.length} normas, estándares y guías técnicas (consultar con consultar_conocimiento cuando pregunten por normativa, parámetros técnicos o flujos de la app).`,
   ].join("\n- ");
 }

@@ -3,19 +3,32 @@ import { supplyInventory, supplyMovements } from "@/db/schema";
 import { eq, desc, sql } from "drizzle-orm";
 import { NextRequest, NextResponse } from "next/server";
 import { withApiHandler, safeParseJson } from "@/lib/api-handler";
+import { requirePermission } from "@/lib/rbac-server";
+import { canPerformAction } from "@/lib/rbac";
+import { getSessionUser } from "@/lib/auth";
 
 export const dynamic = "force-dynamic";
 
 export const GET = withApiHandler(async () => {
+  const denied = await requirePermission("inventory:read");
+  if (denied) return denied;
   const items = await db
     .select()
     .from(supplyInventory)
     .orderBy(supplyInventory.name);
 
-  return NextResponse.json(items);
+  const user = await getSessionUser();
+  const canSeeCosts = canPerformAction(user?.role, "finance:read");
+  return NextResponse.json(canSeeCosts ? items : items.map(({ costPerUnit, supplier, ...item }) => ({
+    ...item,
+    costPerUnit: null,
+    supplier: null,
+  })));
 });
 
 export const POST = withApiHandler(async (req: NextRequest) => {
+  const denied = await requirePermission("finance:write");
+  if (denied) return denied;
   const body = await safeParseJson(req);
   if (!body || typeof body !== "object") return NextResponse.json({ error: "Cuerpo inválido" }, { status: 400 });
   const { name, category, unit, currentStock, minStock, costPerUnit, supplier, expiryDate } = body;
@@ -49,6 +62,7 @@ export const POST = withApiHandler(async (req: NextRequest) => {
         isEntry: true,
         movementType: "compra",
         date: new Date().toISOString().split("T")[0],
+        unitCost: Number(costPerUnit || 0).toFixed(2),
         notes: `Stock inicial de ${name}`,
       });
     }
@@ -60,6 +74,8 @@ export const POST = withApiHandler(async (req: NextRequest) => {
 });
 
 export const PUT = withApiHandler(async (req: NextRequest) => {
+  const denied = await requirePermission("finance:write");
+  if (denied) return denied;
   const body = await safeParseJson(req);
   if (!body || typeof body !== "object") return NextResponse.json({ error: "Cuerpo inválido" }, { status: 400 });
   if (!body.id) {
@@ -105,6 +121,8 @@ export const PUT = withApiHandler(async (req: NextRequest) => {
 });
 
 export const DELETE = withApiHandler(async (req: NextRequest) => {
+  const denied = await requirePermission("finance:write");
+  if (denied) return denied;
   const { searchParams } = new URL(req.url);
   const id = searchParams.get("id");
   if (!id) return NextResponse.json({ error: "ID requerido" }, { status: 400 });

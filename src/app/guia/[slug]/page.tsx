@@ -18,7 +18,7 @@ function getGuideOgImage(slug: string): { src: string; alt: string } {
   const shot = guide?.sections.find((s) => s.type === "screenshot" && s.image);
   return {
     src: shot?.image || "/images/guia/inicio-dashboard.webp",
-    alt: shot?.alt || guide?.title || "Manual de uso de El Gallinero",
+    alt: shot?.alt || guide?.title || "Manual de uso de IwaGranja",
   };
 }
 
@@ -34,7 +34,7 @@ export async function generateMetadata({
   const { slug } = await params;
   const guide = getGuide(slug);
   if (!guide) {
-    return { title: "Guía no encontrada · El Gallinero" };
+    return { title: "Guía no encontrada · IwaGranja" };
   }
   const image = getGuideOgImage(slug);
   return buildPageMetadata({

@@ -28,17 +28,19 @@ type ReasonId = (typeof REASONS)[number]["id"];
 export function ContactForm({
   email,
   whatsapp,
+  initialOrganizationRenewal,
 }: {
   email: string;
   whatsapp: string;
+  initialOrganizationRenewal: { farm: string; message: string } | null;
 }) {
   const headingId = useId();
-  const [reason, setReason] = useState<ReasonId>("soporte");
+  const [reason, setReason] = useState<ReasonId>(initialOrganizationRenewal ? "implementacion" : "soporte");
   const [name, setName] = useState("");
-  const [farm, setFarm] = useState("");
+  const [farm, setFarm] = useState(initialOrganizationRenewal?.farm ?? "");
   const [contactInfo, setContactInfo] = useState("");
   const [discoverySource, setDiscoverySource] = useState("");
-  const [message, setMessage] = useState("");
+  const [message, setMessage] = useState(initialOrganizationRenewal?.message ?? "");
   const [acceptPrivacy, setAcceptPrivacy] = useState(false);
   const [website, setWebsite] = useState("");
   const [touched, setTouched] = useState<Record<string, boolean>>({});

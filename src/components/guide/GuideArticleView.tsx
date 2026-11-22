@@ -34,7 +34,7 @@ import { getGuideHeroTheme } from "@/lib/hero-themes";
 
 interface GuideArticleViewProps {
   slug: string;
-  basePath: "/guia" | "/dashboard/guia";
+  basePath: "/guia" | "/manual";
 }
 
 function sectionAnchorLabel(section: GuideSection, index: number): string {
@@ -81,7 +81,7 @@ export function GuideArticleView({ slug, basePath }: GuideArticleViewProps) {
     [guide.sections],
   );
 
-  const isDashboard = basePath.startsWith("/dashboard");
+  const isDashboard = basePath.startsWith("/manual");
 
   return (
     <div className="mx-auto max-w-6xl space-y-6">

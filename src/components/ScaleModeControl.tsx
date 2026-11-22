@@ -163,7 +163,7 @@ export function ScaleModeControl({ variant = "topbar" }: ScaleModeControlProps) 
 
           <div className="mt-1.5 pt-1.5 border-t border-slate-100">
             <Link
-              href="/dashboard/configuracion/modulos"
+              href="/configuracion/modulos"
               onClick={() => setOpen(false)}
               className="flex items-center justify-between rounded-lg px-2.5 py-2 text-xs font-semibold text-emerald-800 hover:bg-emerald-50"
             >

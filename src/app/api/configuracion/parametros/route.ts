@@ -20,7 +20,7 @@ export const GET = withApiHandler(async () => {
 
 /** PUT /api/configuracion/parametros — actualiza uno o varios parámetros. */
 export const PUT = withApiHandler(async (req: NextRequest) => {
-  const denied = await requirePermission("config:write");
+  const denied = await requirePermission("catalogs:write");
   if (denied) return denied;
   const body = await safeParseJson(req);
   const updates = Array.isArray(body.updates)
@@ -103,12 +103,14 @@ export const PUT = withApiHandler(async (req: NextRequest) => {
         }
       }
 
-      await Promise.allSettled([
-        syncDivipolaSnapshot({ forceRefresh: true }),
-        syncWeatherSnapshot({ forceRefresh: true }),
-        syncMarketPricesSnapshot({ forceRefresh: true }),
-        syncIcaVademecumAndAlertsSnapshot({ forceRefresh: true }),
-      ]);
+      if (current["external.sync_enabled"] === "true") {
+        await Promise.allSettled([
+          syncDivipolaSnapshot({ forceRefresh: true }),
+          syncWeatherSnapshot({ forceRefresh: true }),
+          syncMarketPricesSnapshot({ forceRefresh: true }),
+          syncIcaVademecumAndAlertsSnapshot({ forceRefresh: true }),
+        ]);
+      }
     }
 
     return NextResponse.json(await getSettingsForApi());

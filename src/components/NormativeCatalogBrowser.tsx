@@ -30,6 +30,7 @@ import type {
   NormativeCatalogItem,
   NormativeCatalogMeta,
   NormativeDocumentKind,
+  NormativeVerificationStatus,
 } from "@/lib/normative-catalog";
 
 export interface NewNormativeItemInput {
@@ -58,13 +59,14 @@ interface NormativeCatalogBrowserProps {
   defaultExpanded?: boolean;
   onAddCustomItem?: (input: NewNormativeItemInput) => Promise<void> | void;
   onDeleteCustomItem?: (id: string) => Promise<void> | void;
+  onReviewCustomItem?: (id: string, status: NormativeVerificationStatus, note: string) => Promise<void> | void;
 }
 
 const KIND_FILTER_OPTIONS: Array<{ key: "" | NormativeDocumentKind; label: string }> = [
   { key: "", label: "Todas" },
-  { key: "norma", label: "Normas obligatorias" },
-  { key: "estandar", label: "Estándares técnicos" },
-  { key: "guia", label: "Guías de manejo" },
+  { key: "norma", label: "Requisitos legales" },
+  { key: "estandar", label: "Estándares y NTC" },
+  { key: "guia", label: "Guías técnicas" },
 ];
 
 const SPECIES_FILTER_OPTIONS: Array<{ value: string; label: string }> = [
@@ -78,14 +80,14 @@ const SPECIES_FILTER_OPTIONS: Array<{ value: string; label: string }> = [
 ];
 
 const MODULE_OPTIONS: Array<{ appRoute: string; moduleLabel: string }> = [
-  { appRoute: "/dashboard/sanidad/bioseguridad", moduleLabel: "Sanidad y Bioseguridad" },
-  { appRoute: "/dashboard/sanidad/control", moduleLabel: "Control Sanitario y Retiro" },
-  { appRoute: "/dashboard/produccion?tab=huevos", moduleLabel: "Producción de Huevos" },
-  { appRoute: "/dashboard/produccion?tab=animales", moduleLabel: "Gestión Animal" },
-  { appRoute: "/dashboard/produccion?tab=alimentacion", moduleLabel: "Nutrición y Raciones" },
-  { appRoute: "/dashboard/operaciones/compostaje", moduleLabel: "Compostaje y Residuos" },
-  { appRoute: "/dashboard/finanzas", moduleLabel: "Finanzas y Normativa" },
-  { appRoute: "/dashboard/configuracion/catalogos?tab=normas", moduleLabel: "Catálogos y Documentación" },
+  { appRoute: "/sanidad/bioseguridad", moduleLabel: "Sanidad y Bioseguridad" },
+  { appRoute: "/sanidad/control", moduleLabel: "Control Sanitario y Retiro" },
+  { appRoute: "/produccion?tab=huevos", moduleLabel: "Producción de Huevos" },
+  { appRoute: "/produccion?tab=animales", moduleLabel: "Gestión Animal" },
+  { appRoute: "/produccion?tab=alimentacion", moduleLabel: "Nutrición y Raciones" },
+  { appRoute: "/operaciones/compostaje", moduleLabel: "Compostaje y Residuos" },
+  { appRoute: "/finanzas", moduleLabel: "Finanzas y Normativa" },
+  { appRoute: "/configuracion/catalogos?tab=normas", moduleLabel: "Catálogos y Documentación" },
 ];
 
 const SPECIES_LABELS: Record<string, string> = {
@@ -110,8 +112,8 @@ function getKindIcon(kind: NormativeDocumentKind) {
   return <BookOpen className="w-3.5 h-3.5 text-emerald-600 shrink-0" />;
 }
 
-function formatVerifiedDate(iso?: string): string {
-  if (!iso) return "Reciente";
+function formatVerifiedDate(iso?: string | null): string {
+  if (!iso) return "Pendiente";
   try {
     return new Date(iso).toLocaleDateString("es-CO", {
       year: "numeric",
@@ -121,6 +123,22 @@ function formatVerifiedDate(iso?: string): string {
   } catch {
     return iso.slice(0, 10);
   }
+}
+
+function getVerificationBadge(
+  status?: NormativeCatalogItem["verificationStatus"],
+  lastVerifiedAt?: string | null,
+): { label: string; color: "green" | "yellow" | "gray" } {
+  if (status === "verificado" && lastVerifiedAt) {
+    return { label: `Verificada ${formatVerifiedDate(lastVerifiedAt)}`, color: "green" };
+  }
+  if (status === "reemplazado" || status === "derogado") {
+    return {
+      label: status === "reemplazado" ? "Antecedente reemplazado" : "Derogada",
+      color: "gray",
+    };
+  }
+  return { label: "Pendiente de verificación", color: "yellow" };
 }
 
 export default function NormativeCatalogBrowser({
@@ -133,6 +151,7 @@ export default function NormativeCatalogBrowser({
   defaultExpanded = false,
   onAddCustomItem,
   onDeleteCustomItem,
+  onReviewCustomItem,
 }: NormativeCatalogBrowserProps) {
   const searchParams = useSearchParams();
   const [search, setSearch] = useState("");
@@ -141,6 +160,9 @@ export default function NormativeCatalogBrowser({
   const [expandedMap, setExpandedMap] = useState<Record<string, boolean>>({});
   const [openAttachmentsMap, setOpenAttachmentsMap] = useState<Record<string, boolean>>({});
   const [attachmentCounts, setAttachmentCounts] = useState<Record<string, number>>({});
+  const [reviewOpenMap, setReviewOpenMap] = useState<Record<string, boolean>>({});
+  const [reviewStatusMap, setReviewStatusMap] = useState<Record<string, NormativeVerificationStatus>>({});
+  const [reviewNoteMap, setReviewNoteMap] = useState<Record<string, string>>({});
 
   // Modal de registro de norma / estándar / guía propia con adjuntos
   const [createOpen, setCreateOpen] = useState(false);
@@ -331,8 +353,10 @@ export default function NormativeCatalogBrowser({
   };
 
   const versionLabel = meta?.version || "Vigente";
-  const lastCheckedLabel = formatVerifiedDate(meta?.lastCheckedAt);
-  const frequencyLabel = meta?.updateFrequencyLabel || "Revisión semanal automática (7 días)";
+  const lastSyncLabel = formatVerifiedDate(meta?.lastSyncAt || meta?.lastCheckedAt);
+  const frequencyLabel = meta?.updateFrequencyLabel || "Sincronización semanal (7 días) · Revisión documental independiente";
+  const verifiedCount = meta?.verifiedCount ?? catalog.filter((i) => i.verificationStatus === "verificado").length;
+  const pendingCount = meta?.pendingCount ?? catalog.filter((i) => i.verificationStatus === "pendiente").length;
 
   return (
     <div className="space-y-4">
@@ -353,10 +377,10 @@ export default function NormativeCatalogBrowser({
               Consulta umbrales sanitarios, bienestar animal, clasificación de huevo, curvas zootécnicas y guías de manejo, adjunta PDFs oficiales o actas de respaldo en cada norma y pregúntale a <strong>Gina</strong> sobre cualquiera de estas referencias.
             </p>
             <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-slate-500 pt-0.5">
-              <span>Última verificación: <strong className="text-slate-700">{lastCheckedLabel}</strong></span>
+              <span>Última sincronización técnica: <strong className="text-slate-700">{lastSyncLabel}</strong></span>
               <span>Cadencia: <strong className="text-slate-700">{frequencyLabel}</strong></span>
               <span>
-                {countsByKind.norma} normas · {countsByKind.estandar} estándares · {countsByKind.guia} guías
+                {verifiedCount} verificadas · {pendingCount} pendientes · {countsByKind.norma} obligatorias · {countsByKind.estandar} estándares · {countsByKind.guia} guías
               </span>
             </div>
           </div>
@@ -503,7 +527,10 @@ export default function NormativeCatalogBrowser({
                       {item.isCustom && <Badge color="orange">Propia / Local</Badge>}
                     </div>
                     <div className="flex items-center gap-2 text-[11px] text-slate-500 font-mono">
-                      <span>{item.version} · Verif. {formatVerifiedDate(item.lastVerifiedAt)}</span>
+                      <span>{item.version}</span>
+                      <Badge color={getVerificationBadge(item.verificationStatus, item.lastVerifiedAt).color}>
+                        {getVerificationBadge(item.verificationStatus, item.lastVerifiedAt).label}
+                      </Badge>
                       {item.isCustom && onDeleteCustomItem && (
                         <button
                           type="button"
@@ -525,6 +552,21 @@ export default function NormativeCatalogBrowser({
                     <p className="mt-1 text-xs text-slate-600 leading-relaxed">
                       {item.summary}
                     </p>
+                    {item.applicableScope && (
+                      <p className="mt-1.5 text-[11px] text-slate-500">
+                        <strong className="text-slate-700">Alcance ({item.jurisdiction}):</strong> {item.applicableScope}
+                      </p>
+                    )}
+                    {item.verificationNote && (
+                      <p className="mt-1 text-[11px] text-amber-800 bg-amber-50/70 border border-amber-200/70 rounded-md px-2 py-1">
+                        {item.verificationNote}
+                      </p>
+                    )}
+                    {item.verifiedBy && item.lastVerifiedAt && (
+                      <p className="mt-1 text-[10px] text-slate-500">
+                        Revisión registrada por {item.verifiedBy} · {formatVerifiedDate(item.lastVerifiedAt)}
+                      </p>
+                    )}
                   </div>
 
                   <div className="flex flex-wrap items-center gap-1.5">
@@ -604,6 +646,59 @@ export default function NormativeCatalogBrowser({
                       />
                     </div>
                   )}
+                  {item.isCustom && onReviewCustomItem && reviewOpenMap[item.id] && (
+                    <div className="space-y-3 rounded-lg border border-amber-200 bg-amber-50/60 p-3">
+                      <p className="text-xs font-semibold text-amber-950">
+                        Registra la revisión de esta versión. El sistema guardará quién la hizo y cuándo.
+                      </p>
+                      <Select
+                        label="Estado de la revisión"
+                        value={reviewStatusMap[item.id] || item.verificationStatus}
+                        onChange={(event) => setReviewStatusMap((current) => ({
+                          ...current,
+                          [item.id]: event.target.value as NormativeVerificationStatus,
+                        }))}
+                      >
+                        <option value="pendiente">Pendiente de revisar</option>
+                        <option value="verificado">Vigente y revisada</option>
+                        <option value="reemplazado">Reemplazada por otra versión</option>
+                        <option value="derogado">Derogada</option>
+                      </Select>
+                      <Textarea
+                        label="Fuente consultada o resultado *"
+                        rows={2}
+                        value={reviewNoteMap[item.id] || ""}
+                        onChange={(event) => setReviewNoteMap((current) => ({ ...current, [item.id]: event.target.value }))}
+                        placeholder="Ej.: Resolución publicada por ICA; revisé los artículos aplicables a postura."
+                      />
+                      <div className="flex justify-end gap-2">
+                        <Button type="button" variant="secondary" onClick={() => setReviewOpenMap((current) => ({ ...current, [item.id]: false }))} className="px-3 py-1.5 text-xs">
+                          Cancelar
+                        </Button>
+                        <Button
+                          type="button"
+                          variant="primary"
+                          disabled={busy || (reviewNoteMap[item.id] || "").trim().length < 10}
+                          onClick={async () => {
+                            try {
+                              await onReviewCustomItem(
+                                item.id,
+                                reviewStatusMap[item.id] || item.verificationStatus,
+                                (reviewNoteMap[item.id] || "").trim(),
+                              );
+                              setReviewOpenMap((current) => ({ ...current, [item.id]: false }));
+                              setReviewNoteMap((current) => ({ ...current, [item.id]: "" }));
+                            } catch {
+                              // The catalog tab shows the save error; keep the review form open.
+                            }
+                          }}
+                          className="px-3 py-1.5 text-xs"
+                        >
+                          Guardar revisión
+                        </Button>
+                      </div>
+                    </div>
+                  )}
                 </div>
 
                 <div className="flex flex-wrap items-center justify-between gap-2 border-t border-slate-100 pt-3">
@@ -629,6 +724,19 @@ export default function NormativeCatalogBrowser({
                       <Paperclip className="w-3.5 h-3.5" />
                       {attachCount > 0 ? `Adjuntos (${attachCount})` : "Incluir adjunto"}
                     </button>
+                    {item.isCustom && onReviewCustomItem && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setReviewStatusMap((current) => ({ ...current, [item.id]: current[item.id] || item.verificationStatus }));
+                          setReviewOpenMap((current) => ({ ...current, [item.id]: !current[item.id] }));
+                        }}
+                        className="inline-flex items-center gap-1 rounded-lg border border-amber-300 bg-amber-50 px-2.5 py-1.5 text-xs font-medium text-amber-900 hover:bg-amber-100"
+                      >
+                        <ShieldCheck className="h-3.5 w-3.5" />
+                        {item.verificationStatus === "pendiente" ? "Registrar revisión" : "Actualizar revisión"}
+                      </button>
+                    )}
                     <button
                       type="button"
                       onClick={() => toggleItemExpanded(item.id)}
@@ -682,6 +790,9 @@ export default function NormativeCatalogBrowser({
         title="Agregar norma, estándar o guía al catálogo"
       >
         <div className="space-y-4">
+          <p className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-900">
+            Las referencias nuevas quedan pendientes hasta que una persona contraste la versión con su fuente y registre la revisión.
+          </p>
           {formError && (
             <div className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-700">
               {formError}

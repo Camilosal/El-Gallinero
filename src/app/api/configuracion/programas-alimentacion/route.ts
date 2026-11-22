@@ -54,7 +54,7 @@ function validate(data: ReturnType<typeof normalize>): string | null {
 }
 
 export const POST = withApiHandler(async (req: NextRequest) => {
-  const denied = await requirePermission("config:write");
+  const denied = await requirePermission("catalogs:write");
   if (denied) return denied;
   const body = await safeParseJson(req);
   const data = normalize(body);
@@ -78,7 +78,7 @@ export const POST = withApiHandler(async (req: NextRequest) => {
 });
 
 export const PUT = withApiHandler(async (req: NextRequest) => {
-  const denied = await requirePermission("config:write");
+  const denied = await requirePermission("catalogs:write");
   if (denied) return denied;
   const body = await safeParseJson(req);
   if (!body.id) return NextResponse.json({ error: "ID requerido" }, { status: 400 });
@@ -105,7 +105,7 @@ export const PUT = withApiHandler(async (req: NextRequest) => {
 });
 
 export const DELETE = withApiHandler(async (req: NextRequest) => {
-  const denied = await requirePermission("config:write");
+  const denied = await requirePermission("catalogs:write");
   if (denied) return denied;
   const id = new URL(req.url).searchParams.get("id");
   if (!id) return NextResponse.json({ error: "ID requerido" }, { status: 400 });

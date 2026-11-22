@@ -12,6 +12,6 @@ test("autenticación guardada", async ({ page }) => {
   await page.fill('input[placeholder="Ingresa tu usuario"]', username);
   await page.fill('input[type="password"]', password);
   await page.click('button:has-text("Iniciar Sesión")');
-  await expect(page).toHaveURL("/dashboard");
+  await expect(page).toHaveURL("/inicio");
   await page.context().storageState({ path: "tests/e2e/.auth/user.json" });
 });

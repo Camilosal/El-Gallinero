@@ -1,6 +1,6 @@
-# Guía de Desarrollo de El Gallinero
+# Guía de Desarrollo de IwaGranja
 
-Este documento proporciona instrucciones detalladas para configurar el entorno de desarrollo, ejecutar pruebas, y contribuir efectivamente al proyecto El Gallinero.
+Este documento proporciona instrucciones detalladas para configurar el entorno de desarrollo, ejecutar pruebas, y contribuir efectivamente al proyecto IwaGranja.
 
 ## Prerrequisitos
 
@@ -44,34 +44,29 @@ DATABASE_URL=postgresql://TU_USUARIO:TU_CONTRASENA@localhost:5432/app_db
 
 ### 4. Preparar la Base de Datos
 
-#### Opción A: Usar el script de configuración completa (recomendado para inicio)
+#### Opción A: Inicialización limpia y semilla base obligatoria (recomendado)
 
 ```bash
 # Crear la base de datos
 createdb app_db
 
-# Aplicar el esquema
-npm run db:push
-
-# Sembrar datos de demostración
-DEMO_ADMIN_PASSWORD='elige-una-clave-de-12-caracteres' npm run db:seed -- --allow-destructive
+# Aplicar migraciones unificadas (drizzle/), RLS y semilla base (y admin opcional)
+ADMIN_USERNAME='admin' ADMIN_PASSWORD='elige-una-clave-de-12-caracteres' npm run db:bootstrap
 ```
 
-#### Opción B: Paso a paso (para desarrollo activo)
+#### Opción B: Datos de demostración y prototipado rápido de esquema
 
 ```bash
-# 1. Crear base de datos
+# 1. Crear y bootstappear la base de datos local descartable
 createdb app_db
+npm run db:bootstrap
 
-# 2. Aplicar migraciones del esquema
-npm run db:push
-
-# 3. (Opcional) Reemplazar una base local descartable con datos de demostración
+# 2. (Opcional) Cargar datos sintéticos de demostración (bloqueado en producción)
 DEMO_ADMIN_PASSWORD='elige-una-clave-de-12-caracteres' npm run db:seed -- --allow-destructive
 
-# 4. Durante el desarrollo, cuando cambie el esquema:
-npm run db:generate   # Genera archivos de migración SQL
-npm run db:push       # Aplica los cambios a la BD
+# 3. Durante el desarrollo activo tras editar src/db/schema.ts:
+npm run db:push       # Sincroniza cambios rápidos en BD local
+npm run db:generate   # Genera el SQL definitivo en drizzle/
 ```
 
 ### 5. Iniciar el Servidor de Desarrollo
@@ -127,11 +122,14 @@ Revisa los archivos generados antes de aplicarlos.
 #### Aplicar Cambios
 
 ```bash
-# Aplica todas las migraciones pendientes
+# Inicializa o actualiza migraciones SQL + semilla base (idempotente)
+npm run db:bootstrap
+
+# En desarrollo iterativo rápido tras editar src/db/schema.ts (solo dev)
 npm run db:push
 ```
 
-Para vincular de forma segura los registros antiguos de autoconsumo de huevo con su cosecha, ejecuta después [`scripts/link_egg_autoconsumo_logs.sql`](../scripts/link_egg_autoconsumo_logs.sql). El script solo asocia casos sin ambigüedad; revisa manualmente los registros históricos que no queden vinculados.
+Cuando el cambio al esquema sea definitivo, genera la siguiente migración en `drizzle/` con `npm run db:generate` y agrégala a `src/db/migrate-prod.ts` si no se detecta automáticamente en la cadena unificada.
 
 #### Sembrar Datos
 
@@ -168,27 +166,17 @@ Las pruebas se ubican en:
 - `tests/` para pruebas de integración y de flujo
 - Junto a los archivos fuente como `*.test.ts` para pruebas unitarias
 
-Ejemplo de estructura de prueba:
+Ejemplo de estructura de prueba con Vitest:
 
 ```typescript
-import { describe, it, expect, beforeEach } from 'vitest'
-import { render, screen } from '@testing-library/react'
-import { MiComponente } from './MiComponente'
+import { describe, expect, it } from "vitest";
+import { calcularMiRegla } from "@/lib/mi-modulo";
 
-describe('MiComponente', () => {
-  beforeEach(() => {
-    // Configuración antes de cada prueba
-  })
-
-  it('debe renderizar correctamente', () => {
-    render(<MiComponente />)
-    expect(screen.getByText(/texto esperado/i)).toBeInTheDocument()
-  })
-
-  it('maneja el caso edge correctamente', () => {
-    // ... implementación
-  })
-})
+describe("mi-modulo", () => {
+  it("calcula el resultado esperado", () => {
+    expect(calcularMiRegla(10)).toBe(20);
+  });
+});
 ```
 
 ### Estilos y UI
@@ -299,6 +287,32 @@ Revise cuidadosamente los mensajes de error - suelen indicar exactamente qué es
 - [Documentación de Vitest](https://vitest.dev/guide/)
 - [React Testing Library](https://testing-library.com/docs/react-testing-library/intro/)
 
+## Arquitectura del agente (Gina) y canales
+
+Todo el comportamiento del agente vive en `src/lib/agent/`. Un solo ejecutor sirve a todos los canales (widget de la app, voz, Telegram, API v1 y MCP):
+
+| Pieza | Archivo | Responsabilidad |
+|---|---|---|
+| Herramientas | `tools.ts` | Catálogo `AGENT_TOOLS` (`AgentTool`: `name`, `description`, `parameters` JSON-Schema, `kind` read/write, `requiresConfirmation`, `prepare` puro + `execute`). Las consultas leen vía `InternalApiClient` con la sesión del usuario; nunca acceden a la base como superusuario. |
+| Ejecutor | `runtime.ts` | `runAgentTurn` (conversación), `handleToolCall` (prepare → confirmación efectiva → pendiente/auto → execute), `confirmAction`/`cancelAction`, `executeToolExternal` (API v1/MCP como usuario delegante). |
+| Enrutamiento Jev | `jev-routing.ts`, `jev-capabilities.ts` | Dominios de capacidad (`JevDomain`) y mapa `TOOL_ROUTES` dominio → herramientas; decide qué herramientas se ofrecen al modelo en cada turno. |
+| Delegación | `delegation.ts` | `HARD_FLOOR_TOOL_NAMES` (piso duro no delegable), política por granja en `assistant.delegation_policy.v1` y `effectiveRequiresConfirmation` = piso duro \|\| política ≠ auto. |
+| Memoria y conocimiento | `memory.ts`, `knowledge.ts` | Memoria persistente por usuario (`agent_memories`) y corpus de conocimiento derivado de `guide-data.ts` (`consultar_conocimiento`). |
+| Proactivo | `proactive.ts` | Briefings diario/anomalía idempotentes (`agent_briefings`), generados por `/api/cron/agente-proactivo` y entregados en inbox, push y Telegram. |
+| Telegram | `telegram-channel.ts` | Webhook bidireccional: pairing de un solo uso, notas de voz, tarjetas Confirmar/Cancelar, `/parte`; auditoría `origin: telegram` + `chat_id`. |
+| API externa | `external-api.ts`, `ephemeral-session.ts` | `withExternalAgentAuth` (token → scopes → rate limit 60/min → usuario delegante) y sesiones efímeras de 15 min para ejecutar como el usuario sin rotar sus sesiones reales. |
+| MCP | `mcp.ts` + `src/app/api/mcp/route.ts` | Adaptador JSON-RPC 2.0 (initialize, tools/list, tools/call) que delega en las rutas de la API v1: una sola puerta, sin lógica duplicada. |
+| Prompt y contexto | `prompt.ts`, `situational.ts`, `config.ts`, `llm.ts`, `stt.ts` | System prompt con corpus y reglas de confirmación, contexto situacional de la granja, proveedores LLM/STT configurables por env. |
+
+### Cómo agregar una herramienta nueva (obligatorio en este orden)
+
+1. **Definir el `AgentTool`** en `src/lib/agent/tools.ts` y registrarlo en `AGENT_TOOLS`. Escrituras sensibles: `kind: "write"` + `requiresConfirmation: true`; separa `prepare` (puro, construye el resumen y valida) de `execute` (efecto real vía API interna con la sesión del usuario).
+2. **Enrutarla en Jev:** agrega el nombre de la herramienta al dominio correspondiente en `TOOL_ROUTES` (`jev-routing.ts`). Si no pertenece a ningún dominio, declárala transversal de forma explícita; la prueba de armonización falla ante herramientas sin dominio.
+3. **Respetar el piso duro:** si la herramienta toca dinero, ventas, pagos, cierres, animales o lugares, agrégala a `HARD_FLOOR_TOOL_NAMES` en `delegation.ts`. El piso duro es inviolable desde UI, voz, Telegram, API v1 y MCP; ninguna política puede volverla auto-ejecutable.
+4. **Gating coherente:** si la herramienta opera un módulo progresivo, debe rechazar con explicación de hito cuando el módulo está bloqueado para la escala de la granja (igual que el menú y el buscador).
+5. **Prueba obligatoria en `tests/`:** consulta con datos, escritura pendiente de confirmación (no ejecutada), confirmación/cancelación y auditoría de origen. Usa la base `el_gallinero_test` (nunca la de producción) y los patrones de mock de `tests/integrations-api.test.ts` / `tests/agent-mcp.test.ts`.
+6. **Documentar:** guía en `guide-data.ts` si es funcionalidad de usuario, y la ficha correspondiente en `docs/features.md` / diccionario de datos si crea tablas o claves nuevas. La API v1 y el MCP exponen la herramienta automáticamente desde `AGENT_TOOLS` (manifiesto filtrado por scope `agent:read`/`agent:write`).
+
 ## Preguntas Frecuentes
 
 ### ¿Cómo contribuyo con una nueva característica?
@@ -310,9 +324,9 @@ Revise cuidadosamente los mensajes de error - suelen indicar exactamente qué es
 
 ### ¿Dónde debo colocar nuevos componentes?
 
-Siga la estructura existente en `src/app/(app)/[sección]/[submódulo]/`. Por ejemplo:
-- Nuevos componentes de producción van en `src/app/(app)/produccion/[submódulo]/components/`
-- Componentes reutilizables van en `src/components/`
+Siga la estructura existente en `src/app/(app)/[sección]/`:
+- Los componentes específicos de cada módulo van en `src/app/(app)/[sección]/_components/`
+- Los componentes reutilizables globales van en `src/components/`
 
 ### ¿Cómo agrego una nueva ruta API?
 
@@ -333,12 +347,11 @@ Use las variables de entorno en `.env.local` con prefijo `NEXT_PUBLIC_` para car
 
 Recuerde reiniciar el servidor de desarrollo después de cambiar variables de entorno.
 
-## Integridad de códigos y reversión de sanidad
+## Migraciones unificadas e integridad histórica
 
-La migración `scripts/enforce_animal_code_integrity.sql` agrega índices únicos a los códigos de gallinas, gallos y lotes, y crea la columna que conserva el estado anterior de las aves en controles sanitarios. Antes de aplicarla en otra base de datos, confirme que no existan códigos duplicados; la migración aborta sin cambios si encuentra alguno. Los controles sanitarios anteriores no tienen una instantánea y no pueden restaurar automáticamente su estado original.
+Todas las migraciones incrementales anteriores (`scripts/*.sql`) quedaron consolidadas en la cadena unificada dentro de `drizzle/`:
 
-La migración `scripts/enforce_manure_daily_integrity.sql` agrega un índice único parcial para impedir más de un registro de acumulación automática de gallinaza por fecha. La estimación diaria se guarda al consultar o modificar el inventario; los días en los que no se generó un registro no se reconstruyen con la población actual.
+1. [`drizzle/0000_baseline.sql`](../drizzle/0000_baseline.sql): esquema completo de tablas, enumeraciones, llaves foráneas e índices generados desde `src/db/schema.ts`.
+2. [`drizzle/0001_roles_constraints_and_rls.sql`](../drizzle/0001_roles_constraints_and_rls.sql): rol `gallinero_tenant_role`, restricciones `CHECK`, índices parciales únicos (como gallinaza automática diaria, factores por grupo y tokens activos) y políticas PostgreSQL RLS por granja (`tenant_isolation_policy`).
 
-La migración `scripts/enforce_manure_factor_integrity.sql` elimina factores duplicados por etapa o grupo global conservando el actualizado más recientemente y agrega índices únicos parciales para ambos casos. Aplícala antes de desplegar la versión que crea factores automáticamente.
-
-La migración `scripts/add_animal_exit_snapshots.sql` agrega instantáneas del estado previo a ventas, faenas y mortalidades vinculadas con gallinas, gallos o lotes. Los registros históricos anteriores no incluyen esa instantánea; al revertirlos se conserva el comportamiento de compatibilidad y no se puede recuperar un estado que nunca se guardó.
+Para inicializar una instancia nueva o actualizar una existente usa siempre `npm run db:bootstrap` (o `npm run db:migrate` seguido de `npm run db:seed-config`). En bases de datos que ya venían de versiones anteriores con tablas creadas manualmente o con `db:push`, `migrate-prod.ts` detecta las tablas existentes y adopta automáticamente `drizzle/0000_baseline.sql` en `schema_migrations` antes de aplicar `0001_roles_constraints_and_rls.sql`.

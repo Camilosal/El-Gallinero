@@ -4,6 +4,8 @@ import { db } from "@/db";
 import { DEFAULT_FARM_ID, runWithFarmContext } from "@/db/tenant-context";
 import { offlineMutationReceipts } from "@/db/schema";
 import { eq } from "drizzle-orm";
+import { canPerformAction, forbiddenResponse, isReadOnlyRole } from "@/lib/rbac";
+import { canReadApi, getApiPermission, hasApiPermission } from "@/lib/api-rbac";
 
 type Handler = (req: NextRequest, ...args: any[]) => Promise<NextResponse>;
 
@@ -16,6 +18,65 @@ export class ApiHttpError extends Error {
     this.statusCode = statusCode;
     this.details = details;
   }
+}
+
+const FINANCE_ONLY_FIELDS = new Set([
+  "acquisitioncost", "totalproductioncost", "cost", "costperunit", "unitcost", "totalcost",
+  "estimatedvalue", "totalvalue", "foodvalue", "eggvalue", "birdsvalue", "suppliesvalue",
+  "meatvalue", "manurevalue", "maintenancecost", "estimatedfeedcost", "weightedcostperkg",
+  "costperkggain", "costperegg", "costperkgmeat", "costperlivkgmeat", "totalexpenses",
+  "proratedcostsinperiod", "expensebycategory", "operatingcontext", "operatingnetprofitcop",
+  "accruedoperatingexpensecop", "cashnetflowcop", "warehousefeedassetcop", "netequipmentbookvaluecop",
+  "biologicalportfoliovaluecop", "totalproductivewealthcop", "capexrecoverypct",
+  "totalcapex", "roiannualizedpct", "paybackmonths", "costlast30d", "payroll", "payrollcost",
+  "salary", "wage", "withholding", "taxamount", "subtotalamount", "income", "expenses", "profit", "netprofit",
+  "feedcostperkgcop", "initialunitcostcop", "pointoflayunitvaluecop", "breederunitvaluecop",
+  "acquisitioncostcop", "costoalimentototal", "costoalimentoporcabeza", "costototal", "margenneto", "margenporcentaje",
+]);
+
+const SALES_OR_FINANCE_FIELDS = new Set([
+  "amount", "totalamount", "totalrevenue", "priceperkg", "priceperunit", "unitprice",
+  "buyer", "saleshistory",
+  "saleslast30d", "eggrevenue", "sales",
+]);
+
+function redactRoleFinancialFields(value: unknown, canReadFinance: boolean, canReadSales: boolean): unknown {
+  if (Array.isArray(value)) {
+    return value.map((item) => redactRoleFinancialFields(item, canReadFinance, canReadSales));
+  }
+  if (!value || typeof value !== "object") return value;
+
+  const safe: Record<string, unknown> = {};
+  for (const [key, fieldValue] of Object.entries(value as Record<string, unknown>)) {
+    const normalizedKey = key.toLowerCase().replace(/[_-]/g, "");
+    if (!canReadFinance && FINANCE_ONLY_FIELDS.has(normalizedKey)) continue;
+    if (!canReadFinance && !canReadSales && SALES_OR_FINANCE_FIELDS.has(normalizedKey)) continue;
+    safe[key] = redactRoleFinancialFields(fieldValue, canReadFinance, canReadSales);
+  }
+  return safe;
+}
+
+async function redactApiResponseForRole(response: NextResponse, role: string | null, pathname: string): Promise<NextResponse> {
+  if (!response.ok || !role) return response;
+  // These endpoints build their own role-aware aggregate projection.
+  if (pathname === "/api/dashboard" || pathname === "/api/finanzas/resumen" || pathname.startsWith("/api/analisis/")) {
+    return response;
+  }
+  if (!response.headers.get("content-type")?.includes("application/json")) return response;
+
+  const canReadFinance = canPerformAction(role, "finance:read");
+  const canReadSales = canPerformAction(role, "sales:read");
+  if (canReadFinance && canReadSales) return response;
+
+  const payload = await response.clone().json().catch(() => undefined);
+  if (payload === undefined) return response;
+  const headers = new Headers(response.headers);
+  headers.delete("content-length");
+  return NextResponse.json(redactRoleFinancialFields(payload, canReadFinance, canReadSales), {
+    status: response.status,
+    statusText: response.statusText,
+    headers,
+  });
 }
 
 /** Paths that do not require authentication */
@@ -40,6 +101,7 @@ export function withApiHandler(handler: Handler): Handler {
     const pathname = req?.nextUrl?.pathname ?? (req?.url ? new URL(req.url).pathname : "");
     const isPublic = PUBLIC_PREFIXES.includes(pathname);
     let sessionFarmId: string = DEFAULT_FARM_ID;
+    let sessionRole: string | null = null;
     if (!isPublic) {
       try {
         const user = await getSessionUser();
@@ -50,6 +112,7 @@ export function withApiHandler(handler: Handler): Handler {
           );
         }
         sessionFarmId = (user as { farmId?: string | null }).farmId || DEFAULT_FARM_ID;
+        sessionRole = user.role;
       } catch (error) {
         // Authentication failures must fail closed. A missing request context or
         // an unavailable session store must never grant access to a data route.
@@ -64,6 +127,37 @@ export function withApiHandler(handler: Handler): Handler {
     const executeInFarmScope = async () => {
       // ─── Idempotencia para mutaciones offline (X-Client-Mutation-Id) ───
       const method = req?.method?.toUpperCase?.() ?? "GET";
+      if (!isPublic && pathname.startsWith("/api/")) {
+        if (["GET", "HEAD", "OPTIONS"].includes(method)) {
+          if (!canReadApi(sessionRole, pathname)) {
+            return forbiddenResponse("Tu rol solo puede consultar el tablero y los análisis agregados");
+          }
+          const permission = getApiPermission(pathname, method);
+          if (!hasApiPermission(sessionRole, permission)) {
+            return forbiddenResponse();
+          }
+        }
+
+        if (!["GET", "HEAD", "OPTIONS"].includes(method)) {
+          const isBugReport = pathname === "/api/soporte/fallas" && method === "POST";
+          if (isReadOnlyRole(sessionRole) && !isBugReport) {
+            return forbiddenResponse("El rol Directivo es de solo consulta");
+          }
+
+          let requestBody: unknown;
+          if (
+            (pathname === "/api/pagos" || pathname === "/api/produccion/alimentacion/movimientos") &&
+            method !== "DELETE"
+          ) {
+            requestBody = await req.clone().json().catch(() => undefined);
+          }
+          const permission = getApiPermission(pathname, method, requestBody);
+          if (!hasApiPermission(sessionRole, permission)) {
+            return forbiddenResponse();
+          }
+        }
+      }
+
       const rawMutationId = req?.headers?.get?.("x-client-mutation-id")?.trim() ?? "";
       const shouldDedupe =
         Boolean(rawMutationId) &&
@@ -80,10 +174,11 @@ export function withApiHandler(handler: Handler): Handler {
             .where(eq(offlineMutationReceipts.mutationId, rawMutationId))
             .limit(1);
           if (existingReceipt && existingReceipt.method === method && existingReceipt.path === pathname.slice(0, 255)) {
-            return NextResponse.json(existingReceipt.responseBody ?? { ok: true }, {
+            const replay = NextResponse.json(existingReceipt.responseBody ?? { ok: true }, {
               status: existingReceipt.statusCode,
               headers: { "X-Idempotent-Replay": "1" },
             });
+            return await redactApiResponseForRole(replay, sessionRole, pathname);
           }
         } catch (receiptError) {
           console.warn("Offline receipt lookup skipped:", receiptError);
@@ -92,7 +187,8 @@ export function withApiHandler(handler: Handler): Handler {
 
       // ─── Error-handling wrapper ───
       try {
-        const response = await handler(req, ...args);
+        const handlerResponse = await handler(req, ...args);
+        const response = await redactApiResponseForRole(handlerResponse, sessionRole, pathname);
         if (shouldDedupe && response.ok) {
           try {
             const responseBody = await response.clone().json().catch(() => null);

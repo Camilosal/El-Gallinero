@@ -4,6 +4,7 @@ import { eq, and } from "drizzle-orm";
 import { NextRequest, NextResponse } from "next/server";
 import { withApiHandler, safeParseJson } from "@/lib/api-handler";
 import { findMissingFeeds, normalizeProgramEntries } from "@/lib/feeding/program-validation";
+import { markFeedingProgramsReviewed } from "@/lib/feeding/review";
 
 export const dynamic = "force-dynamic";
 
@@ -73,6 +74,7 @@ export const POST = withApiHandler(async (
       .returning();
   });
 
+  await markFeedingProgramsReviewed();
   return NextResponse.json(inserted, { status: 201 });
 });
 

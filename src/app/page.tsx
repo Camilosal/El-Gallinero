@@ -5,7 +5,6 @@ import Image from "next/image";
 import {
   ArrowRight,
   BookOpen,
-  Check,
   CheckCircle2,
   ChevronDown,
   Clock,
@@ -23,12 +22,15 @@ import {
   WifiOff,
   Bird,
 } from "lucide-react";
-import MobileNav from "@/components/MobileNav";
+import { PublicNavigation } from "@/components/PublicNavigation";
 import ScrollReveal from "@/components/ScrollReveal";
+import { BrandLogo } from "@/components/BrandLogo";
 import { LandingShowcase } from "@/components/LandingShowcase";
+import { LandingSubscriptionPlans } from "@/components/LandingSubscriptionPlans";
 import { LandingFooter } from "@/components/LandingFooter";
 import { ModulesAccordionShowcase } from "@/components/ModulesAccordionShowcase";
-import { SectorStandardsCarousel } from "@/components/SectorStandardsCarousel";
+import { AnimalRadar } from "@/components/landing/AnimalRadar";
+import { ChickenLifecycleAnimation } from "@/components/landing/ChickenLifecycleAnimation";
 import { JsonLd } from "@/components/JsonLd";
 import {
   buildFaqNode,
@@ -40,19 +42,18 @@ import {
 import {
   ADOPTION_HIGHLIGHTS,
   AI_AUTOMATION_PILLARS,
-  CYCLE_PLANS_SHOWCASE,
   EXTRA_LANDING_MODULES,
   LANDING_MODULES,
-  SECTOR_STANDARDS,
   type AdoptionHighlightItem,
 } from "@/lib/landing-showcase";
 import { APP_DEVELOPER } from "@/lib/branding";
 import { PLAN_PROMISES, priceNote } from "@/lib/legal";
 import { FAQS } from "@/lib/legal-content";
+import { getPublicPricingOffer } from "@/lib/pricing/quote";
 
 export const dynamic = "force-dynamic";
 
-const HOME_TITLE = "El Gallinero · Software libre para granjas avícolas";
+const HOME_TITLE = "IwaGranja · Software libre para granjas avícolas";
 const HOME_DESCRIPTION =
   "Gestión de granja sin señal: huevos, alimento, sanidad, trazabilidad QR y finanzas por especie. Código abierto, en producción en Ibagué, Colombia.";
 
@@ -62,7 +63,7 @@ export const metadata: Metadata = {
     description: HOME_DESCRIPTION,
     path: "/",
     ogImage: "/images/guia/inicio-dashboard.webp",
-    ogImageAlt: "Pantalla principal de El Gallinero con tareas de hoy, alertas y trazabilidad",
+    ogImageAlt: "Pantalla principal de IwaGranja con tareas de hoy, alertas y trazabilidad",
   }),
   authors: [{ name: APP_DEVELOPER.name, url: APP_DEVELOPER.url }],
 };
@@ -71,14 +72,14 @@ const HERO_DOCK_CARDS = [
   {
     id: "arranque",
     icon: Clock,
-    title: "Arranca en 3 minutos",
+    title: "Arranca en pocos minutos",
     summary: "Solo aves o animales vivos de hoy y guía precargada.",
   },
   {
     id: "offline",
     icon: WifiOff,
     title: "Funciona sin señal",
-    summary: "Registra en el galpón y sincroniza al volver a casa.",
+    summary: "Abre una vez con red, registra en el galpón y sincroniza al volver.",
   },
   {
     id: "productores",
@@ -91,21 +92,25 @@ const HERO_DOCK_CARDS = [
 const HERO_FRAGMENTS = [
   {
     id: "campo",
+    icon: Egg,
     label: "Captura en galpón",
-    detail: "Huevos NTC 1240, alimento, mortalidad y ventas.",
+    detail: "Huevos por tamaño, alimento, mortalidad y ventas.",
   },
   {
     id: "informativa",
+    icon: TrendingUp,
     label: "Herramienta informativa",
     detail: "Curvas de crecimiento, FCR y alertas biológicas.",
   },
   {
     id: "sanidad",
-    label: "Normativa y retiros",
-    detail: "Calendario ICA, tiempos de retiro y compostaje.",
+    icon: ShieldCheck,
+    label: "Sanidad y bioseguridad",
+    detail: "Registros sanitarios, tiempos de retiro y alertas.",
   },
   {
     id: "utilidad",
+    icon: Wallet,
     label: "Cierre diario",
     detail: "Resumen de caja por especie listo para WhatsApp.",
   },
@@ -137,13 +142,14 @@ const iconDelayStyle = (delaySeconds: number): CSSProperties =>
   ({ ["--icon-delay" as string]: `${delaySeconds}s` }) as CSSProperties;
 
 export default function HomePage() {
+  const pricingOffer = getPublicPricingOffer();
   const jsonLd = buildJsonLd({
     path: "/",
     title: HOME_TITLE,
     description: HOME_DESCRIPTION,
     pageType: "WebPage",
     ogImage: "/images/guia/inicio-dashboard.webp",
-    extraNodes: [buildSoftwareNode(), buildFaqNode(SITE_URL, FAQS.slice(0, 6))],
+    extraNodes: [buildSoftwareNode(), buildFaqNode(SITE_URL, FAQS)],
   });
 
   return (
@@ -151,57 +157,12 @@ export default function HomePage() {
       <JsonLd data={jsonLd} />
 
       <ScrollReveal>
-        <nav className="land-nav" aria-label="Navegación principal">
-          <div className="land-wrap flex items-center justify-between gap-4 py-3.5">
-            <Link
-              href="#top"
-              className="font-display text-lg font-bold tracking-tight text-[var(--ink)] flex items-center gap-2 shrink-0"
-            >
-              <span
-                className="w-2.5 h-2.5 rounded-full bg-[var(--forest)]"
-                aria-hidden="true"
-              />
-              El Gallinero
-            </Link>
-
-            <div className="hidden md:flex items-center gap-6 text-sm font-medium text-[var(--moss)]">
-              <a href="#como-funciona" className="hover:text-[var(--ink)] transition">
-                Cómo funciona
-              </a>
-              <a href="#modulos" className="hover:text-[var(--ink)] transition">
-                Módulos y Normas
-              </a>
-              <a href="#planes" className="hover:text-[var(--ink)] transition">
-                Planes
-              </a>
-              <Link href="/bitacora" className="hover:text-[var(--ink)] transition">
-                Bitácora
-              </Link>
-            </div>
-
-            <div className="flex items-center gap-2">
-              <Link
-                href="/login"
-                className="hidden sm:inline-flex items-center rounded-full border border-[var(--line)] bg-[var(--paper)] px-3.5 py-2 text-xs font-semibold text-[var(--ink)] hover:border-[var(--forest)] transition"
-              >
-                Entrar
-              </Link>
-              <Link
-                href="/registro"
-                className="hidden sm:inline-flex items-center gap-1.5 rounded-full bg-[var(--forest)] px-4 py-2 text-xs font-semibold text-white hover:bg-[var(--forest-deep)] transition"
-              >
-                Crear granja gratis
-                <ArrowRight className="w-3.5 h-3.5" />
-              </Link>
-              <MobileNav />
-            </div>
-          </div>
-        </nav>
+        <PublicNavigation brandHref="#top" />
 
         <header className="land-hero relative overflow-hidden bg-[var(--forest-deep)] text-[#f5efe2]">
           <Image
             src="/hero-illustration.png"
-            alt="Ilustración rural de El Gallinero en Ibagué, Tolima"
+            alt="Ilustración rural de IwaGranja en Ibagué, Tolima"
             fill
             priority
             sizes="100vw"
@@ -215,9 +176,17 @@ export default function HomePage() {
           <div className="land-wrap relative z-10 pt-14 sm:pt-16 lg:pt-20 pb-0">
             <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 lg:gap-10 items-center">
               <div className="lg:col-span-6 space-y-5">
-                <p className="inline-flex items-center rounded-full border border-white/15 bg-white/10 px-3 py-1 font-mono text-[11px] uppercase tracking-[0.14em] text-[#e7cf9e]">
-                  Plataforma digital y herramienta informativa
-                </p>
+                <div className="flex flex-wrap items-center gap-2.5">
+                  <BrandLogo
+                    variant="mark"
+                    size={28}
+                    decorative
+                    className="rounded-lg bg-white/95 p-0.5 border border-white/25 shadow-sm"
+                  />
+                  <p className="inline-flex items-center rounded-full border border-white/15 bg-white/10 px-3 py-1 font-mono text-[11px] uppercase tracking-[0.14em] text-[#e7cf9e]">
+                    Plataforma digital y herramienta informativa
+                  </p>
+                </div>
 
                 <h1 className="font-display text-3xl sm:text-4xl lg:text-[46px] font-bold tracking-tight text-white leading-[1.08]">
                   Tu granja al día,{" "}
@@ -250,9 +219,9 @@ export default function HomePage() {
 
               <div className="lg:col-span-6">
                 <a
-                  href="#vitrina"
-                  aria-label="Explorar capturas reales de El Gallinero"
-                  className="block land-browser-frame overflow-hidden rounded-2xl border border-white/15 bg-[var(--paper)] shadow-2xl group"
+                  href="#modulos"
+                  aria-label="Explorar las especies que puedes gestionar en IwaGranja"
+                  className="block land-browser-frame overflow-hidden rounded-2xl border border-white/15 bg-[var(--paper)] shadow-2xl"
                 >
                   <div className="flex items-center justify-between gap-2 px-3.5 py-2.5 border-b border-[var(--line)] bg-[#f4ede0]">
                     <div className="flex items-center gap-1.5" aria-hidden="true">
@@ -261,22 +230,15 @@ export default function HomePage() {
                       <span className="w-2.5 h-2.5 rounded-full bg-[#4f775d]" />
                     </div>
                     <span className="font-mono text-[11px] text-[var(--moss)] truncate">
-                      gallinero.iwage.co/dashboard
+                      app.iwage.co/animales
                     </span>
                     <span className="font-mono text-[10px] font-semibold uppercase tracking-wider text-[var(--forest)]">
-                      Vista real
+                      Vista ilustrativa
                     </span>
                   </div>
 
                   <div className="relative bg-white overflow-hidden">
-                    <Image
-                      src="/images/guia/inicio-dashboard.webp"
-                      alt="Pantalla principal real de El Gallinero con tareas de hoy, alertas y accesos rápidos"
-                      width={1280}
-                      height={800}
-                      priority
-                      className="w-full h-auto block group-hover:scale-[1.01] transition-transform duration-300"
-                    />
+                    <AnimalRadar />
                   </div>
                 </a>
               </div>
@@ -315,24 +277,20 @@ export default function HomePage() {
         </header>
 
         <section
-          aria-label="Qué puedes consultar y registrar cada día"
-          className="border-b border-[var(--line)] bg-[var(--paper)] py-5 sm:py-6"
+          aria-label="Herramientas de registro y consulta"
+          className="border-b border-[var(--line)] bg-[var(--paper)] py-4 sm:py-5"
         >
-          <div className="land-wrap grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3.5">
-            {HERO_FRAGMENTS.map((frag) => (
-              <div
-                key={frag.id}
-                className="rounded-xl border border-[var(--line)] bg-[var(--cream)]/60 px-4 py-3"
-              >
-                <p className="font-mono text-[11px] font-semibold uppercase tracking-wider text-[var(--forest)]">
-                  {frag.label}
-                </p>
-                <p className="mt-1 text-xs sm:text-sm text-[var(--ink)] leading-snug">
-                  {frag.detail}
-                </p>
-              </div>
-            ))}
-          </div>
+          <ul className="land-wrap land-floating-facts">
+            {HERO_FRAGMENTS.map((frag) => {
+              const Icon = frag.icon;
+              return (
+                <li key={frag.id} className="land-floating-fact">
+                  <Icon className="h-4 w-4 shrink-0 text-[var(--forest)]" aria-hidden="true" />
+                  <span><strong>{frag.label}:</strong> {frag.detail}</span>
+                </li>
+              );
+            })}
+          </ul>
         </section>
 
         <LandingShowcase />
@@ -450,11 +408,11 @@ export default function HomePage() {
             <div className="max-w-2xl mb-7">
               <p className="land-eyebrow">3 · Qué incluye el sistema</p>
               <h2 id="modulos-heading" className="land-h2">
-                14 módulos que crecen contigo
+                8 módulos reales que crecen contigo
               </h2>
               <p className="land-section-sub" style={{ marginBottom: 0 }}>
-                Empiezas con los 6 módulos esenciales desde el Día 1 y puedes activar los
-                otros 8 módulos avanzados cuando tu operación lo pida.
+                Empiezas con 6 frentes esenciales desde el Día 1 y puedes activar
+                las demás herramientas de los 8 módulos cuando tu operación lo pida.
               </p>
             </div>
 
@@ -462,18 +420,11 @@ export default function HomePage() {
               <div className="lg:col-span-5 space-y-4">
                 <figure className="land-trace-frame overflow-hidden rounded-2xl border border-[var(--line)] bg-[var(--paper)] p-3 shadow-sm">
                   <div className="overflow-hidden rounded-xl border border-[var(--line)] bg-white">
-                    <Image
-                      src="/traceability-flow.png"
-                      alt="Flujo conectado entre nacimientos, galpones, postura, sanidad, alimento y trazabilidad comercial"
-                      width={1200}
-                      height={620}
-                      loading="lazy"
-                      className="w-full h-auto block"
-                    />
+                    <ChickenLifecycleAnimation />
                   </div>
                   <figcaption className="mt-3 text-xs text-[var(--moss)]">
                     <span className="font-medium text-[var(--ink)]">
-                      Trazabilidad de punta a punta entre lotes, bodega y ventas.
+                      Ciclo de crecimiento: nacimiento, etapa productiva y postura.
                     </span>
                   </figcaption>
                 </figure>
@@ -487,7 +438,16 @@ export default function HomePage() {
               </div>
             </div>
 
-            <SectorStandardsCarousel standards={SECTOR_STANDARDS} />
+            <aside className="mt-8 flex flex-col gap-3 rounded-2xl border border-[var(--line)] bg-[var(--paper)] p-5 sm:flex-row sm:items-center sm:justify-between sm:p-6">
+              <div>
+                <p className="font-mono text-[10px] font-bold uppercase tracking-[0.14em] text-[var(--forest)]">Guía para consulta</p>
+                <h3 className="mt-1 font-display text-lg font-bold text-[var(--ink)]">Normas y guías para una granja mixta</h3>
+                <p className="mt-1 max-w-2xl text-sm leading-relaxed text-[var(--moss)]">Revisa qué fuentes oficiales consultar según la especie y cómo distinguir una guía de una obligación o certificación.</p>
+              </div>
+              <Link href="/bitacora/normas-y-guias-granja-mixta" className="inline-flex min-h-10 shrink-0 items-center gap-2 font-semibold text-[var(--forest)] underline underline-offset-4">
+                Leer el artículo <ArrowRight className="h-4 w-4" aria-hidden="true" />
+              </Link>
+            </aside>
           </div>
         </section>
 
@@ -503,7 +463,7 @@ export default function HomePage() {
               </span>
               <div>
                 <p className="font-mono text-[10px] font-bold uppercase tracking-[0.16em] text-[#e7cf9e]">
-                  Manual práctico · 14 módulos
+                  Manual práctico · 8 módulos y 2 guías base
                 </p>
                 <h2 className="font-display text-lg sm:text-xl font-bold text-white leading-snug">
                   ¿Quieres ver cada pantalla y flujo antes de registrarte?
@@ -531,80 +491,16 @@ export default function HomePage() {
         >
           <div className="land-wrap">
             <div className="max-w-2xl mb-8">
-              <p className="land-eyebrow">4 · Planes por ciclo productivo</p>
+              <p className="land-eyebrow">4 · Planes y suscripciones</p>
               <h2 id="planes-heading" className="land-h2">
-                Paga por cosecha o usa 1 lote gratis
+                Elige cómo quieres crecer
               </h2>
               <p className="land-section-sub" style={{ marginBottom: 0 }}>
-                Sin tarjeta, sin permanencia y sin cobros automáticos. Eliges el
-                plan cuando tu ciclo lo pida.
+                Dos modalidades: para administrar tu granja o para acompañar una organización y sus proyectos.
               </p>
             </div>
 
-            <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
-              {CYCLE_PLANS_SHOWCASE.map((plan) => (
-                <article
-                  key={plan.id}
-                  className={`land-reveal rounded-2xl border p-4 sm:p-5 flex flex-col justify-between gap-4 ${
-                    plan.featured
-                      ? "border-[var(--forest)] bg-white shadow-sm"
-                      : "border-[var(--line)] bg-[var(--cream)]"
-                  }`}
-                >
-                  <div className="space-y-2.5">
-                    <div className="flex items-center justify-between gap-2">
-                      <span className="font-mono text-[10px] font-bold uppercase tracking-wider text-[var(--forest)]">
-                        {plan.badge}
-                      </span>
-                      <span className="font-mono text-[10px] text-[var(--moss)]">
-                        {plan.durationLabel}
-                      </span>
-                    </div>
-
-                    <div>
-                      <h3 className="font-display text-base sm:text-lg font-bold text-[var(--ink)]">
-                        {plan.name}
-                      </h3>
-                      <p className="font-display text-xl sm:text-2xl font-bold text-[var(--forest)] mt-1">
-                        {plan.priceLabel}
-                      </p>
-                    </div>
-
-                    <p className="text-xs sm:text-sm text-[var(--moss)] leading-relaxed">
-                      {plan.summary}
-                    </p>
-                  </div>
-
-                  <ul className="space-y-1.5 pt-3 border-t border-[var(--line)] text-xs text-[var(--ink)]">
-                    {plan.highlights.map((hl) => (
-                      <li key={hl} className="flex items-start gap-1.5 leading-snug">
-                        <Check className="w-3.5 h-3.5 text-[var(--forest)] shrink-0 mt-0.5" />
-                        <span>{hl}</span>
-                      </li>
-                    ))}
-                  </ul>
-                  <div className="mt-4 space-y-2">
-                    <Link
-                      href="/registro"
-                      className={`w-full inline-flex items-center justify-center gap-2 rounded-full px-4 py-2 text-xs font-semibold transition ${
-                        plan.featured
-                          ? "bg-[var(--forest)] text-white hover:bg-[var(--forest-deep)] shadow-sm"
-                          : "border border-[var(--line)] bg-[var(--paper)] text-[var(--ink)] hover:border-[var(--forest)] hover:bg-white/50"
-                      }`}
-                    >
-                      {plan.featured ? "Empezar ciclo" : "Unirme al plan"}
-                      <ArrowRight className="w-3 h-3" />
-                    </Link>
-                    <Link
-                      href={`/planes/${plan.slug}`}
-                      className="w-full inline-flex items-center justify-center text-xs font-semibold text-[var(--forest)] underline underline-offset-4 hover:text-[var(--forest-deep)] py-1"
-                    >
-                      Ver detalle del plan →
-                    </Link>
-                  </div>
-                </article>
-              ))}
-            </div>
+            <LandingSubscriptionPlans offer={pricingOffer} />
 
             <div className="land-guarantees mt-5 grid grid-cols-1 gap-3 rounded-xl border border-[var(--line)] bg-[var(--cream)] p-4 text-xs sm:text-sm md:grid-cols-2 md:gap-0 md:p-0">
               <div className="flex items-start gap-2.5 md:p-4">
@@ -614,7 +510,7 @@ export default function HomePage() {
                 />
                 <div>
                   <p className="font-semibold text-[var(--ink)]">
-                    Tus datos nunca se bloquean al vencer un ciclo
+                    Tu historial nunca se bloquea al vencer un ciclo
                   </p>
                   <p className="mt-1 text-[var(--moss)] leading-relaxed">
                     {PLAN_PROMISES.expiry}
@@ -628,7 +524,7 @@ export default function HomePage() {
                 />
                 <div>
                   <p className="font-semibold text-[var(--ink)]">
-                    Pago único por Nequi, Daviplata o PSE
+                    Período prepago, sin renovación automática
                   </p>
                   <p className="mt-1 text-[var(--moss)] leading-relaxed">
                     {PLAN_PROMISES.noAutoCharge}
@@ -638,7 +534,7 @@ export default function HomePage() {
             </div>
 
             <p className="mt-4 text-xs text-[var(--moss)]">
-              {priceNote()}{" "}
+              {priceNote()} Los costos logísticos extraordinarios se confirman antes de contratar.{" "}
               <Link href="/terminos" className="underline underline-offset-2">
                 Términos y condiciones
               </Link>{" "}
@@ -675,11 +571,10 @@ export default function HomePage() {
             </div>
 
             <div className="grid gap-3 md:grid-cols-2">
-              {FAQS.slice(0, 6).map((faq, idx) => (
+              {FAQS.map((faq) => (
                 <details
                   key={faq.q}
                   className="land-accordion rounded-xl border border-[var(--line)] bg-[var(--paper)]"
-                  open={idx < 2}
                 >
                   <summary className="flex cursor-pointer list-none items-center justify-between gap-3 px-4 py-3.5 text-sm font-semibold text-[var(--ink)] hover:bg-[#f4ede0] rounded-xl transition-colors">
                     <span>{faq.q}</span>
@@ -761,7 +656,7 @@ export default function HomePage() {
               </div>
 
               <p className="mt-3 text-xs text-[#c7cebb]">
-                30 días full · sin tarjeta · datos siempre disponibles
+                Plan Gratis · 1 usuario · 1 localización · sin tarjeta
               </p>
             </div>
           </div>

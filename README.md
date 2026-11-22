@@ -1,4 +1,4 @@
-# Granja Iwa — Core Abierto Multi-Especie
+# IwaGranja — Core Abierto Multi-Especie
 
 **Infraestructura Digital Offline-First para la Gestión Zootécnica, Sanitaria y Financiera de Granjas de Aves y Especies Menores en Latinoamérica.**
 
@@ -9,7 +9,7 @@
 
 ---
 
-**El Gallinero** consolida en este repositorio el **Core Abierto Operativo (Community Edition)** de la plataforma desarrollada por **[Camilo Saldarriaga](https://camilosaldarriaga.com)**: una aplicación web progresiva (*offline-first*) diseñada para granjas familiares, productores medianos, asistentes técnicos y proyectos rurales multi-especie.
+**IwaGranja** consolida en este repositorio el **Core Abierto Operativo (Community Edition)** de la plataforma desarrollada por **[Camilo Saldarriaga](https://camilosaldarriaga.com)**: una aplicación web progresiva (*offline-first*) diseñada para granjas familiares, productores medianos, asistentes técnicos y proyectos rurales multi-especie.
 
 Toda operación productiva, sanitaria o de mantenimiento alimenta automáticamente las finanzas e inventarios (FIFO/PEPS) con trazabilidad completa a su origen.
 
@@ -19,7 +19,7 @@ Toda operación productiva, sanitaria o de mantenimiento alimenta automáticamen
 
 No necesitas instalar servidores ni saber programación para empezar en tu granja o formular un proyecto institucional:
 
-1. **Pequeños y Medianos Productores (en la nube o en campo):** Prueba la instancia en producción en **[gallinero.iwage.co](https://gallinero.iwage.co)** o conoce el proyecto en **[camilosaldarriaga.com](https://camilosaldarriaga.com)**. Arranca en menos de 5 minutos con el **Asistente inicial de 3 pasos** sin historial atrasado y opera incluso sin internet desde tu celular.
+1. **Pequeños y Medianos Productores (en la nube o en campo):** Prueba la instancia en producción en **[app.iwage.co](https://app.iwage.co)** o conoce el proyecto en **[camilosaldarriaga.com](https://camilosaldarriaga.com)**. Arranca en menos de 5 minutos con el **Asistente inicial de 3 pasos** sin historial atrasado y opera incluso sin internet desde tu celular.
 2. **Granjas Comerciales (Implementación Llave en Mano):** Para operación multi-galpón o multi-especie con kits físicos de placas QR resistentes al lavado, ajuste zootécnico inicial y soporte técnico, solicita acompañamiento en **[camilosaldarriaga.com](https://camilosaldarriaga.com)**.
 3. **ONGs, Cooperativas, Fundaciones y Agencias de Cooperación:** Este repositorio es software libre certificado bajo **GNU AGPLv3** con madurez verificable (**TRL 8–9**), sin bloqueo de proveedor (*vendor lock-in*) y alineado con los principios de **Bienes Públicos Digitales (DPGA)**. Para cohortes de **50 a 500+ predios**, **Torre de Control Multi-Predio (M&E)**, WhatsApp Cloud API o despliegues soberanos Docker bajo contrato B2B2C, consulta [COMMERCIAL-LICENSE.md](COMMERCIAL-LICENSE.md) y [docs/estrategia-open-core.md](docs/estrategia-open-core.md).
 4. **Investigadores, Zootecnistas y Desarrolladores AgroTech:** Revisa [CONTRIBUTING.md](CONTRIBUTING.md) para aportar curvas genéticas, ajustes por altitud o adaptaciones normativas locales (ICA/NTC en Colombia, SENASA Perú, AGROCALIDAD Ecuador, SENASICA México, entre otros).
@@ -64,11 +64,12 @@ El proyecto opera bajo una estrategia **Open-Core + Licenciamiento Dual** pensad
 
 - **Inicio Progresivo sin Fricción (Pequeño vs. Mediano):**
   - **Asistente inicial (Día 1 · 3 pasos):** carga finca, lugares, inventario vivo actual y alimento en bultos/kg (manual o mediante **plantilla CSV**).
-  - **Selector de Escala en tiempo real:** alterna entre **Modo Pequeño (Operación Simple)** y **Modo Mediano (Tecnificado)** desde la barra superior sin perder historial; los 4 módulos esenciales están siempre activos y los 5 módulos avanzados se desbloquean manual o automáticamente según el crecimiento de la finca (`/dashboard/configuracion/modulos`).
+  - **Selector de Escala en tiempo real:** alterna entre **Modo Pequeño (Operación Simple)** y **Modo Mediano (Tecnificado)** desde la barra superior sin perder historial; los 4 módulos esenciales están siempre activos y los 5 módulos avanzados se desbloquean manual o automáticamente según el crecimiento de la finca (`/configuracion/modulos`).
   - **Creación Directa (`+ Crear` y Captura Rápida):** cada acceso rápido abre directamente su modal o formulario sin rodeos, y cada registro muestra microcápsulas con costo unitario, días de autonomía o margen.
 - **Gina, tu asistente de la granja:** interfaz cercana con avatar propio que consulta datos reales en vivo, lee fotos de facturas o etiquetas con la cámara, graba dictado o notas de voz *offline*, guarda reglas en **Memoria de la granja** y exige confirmación explícita en tarjeta antes de ejecutar cualquier escritura.
-- **Escáner QR Unificado (`/dashboard/escanear`):** lee códigos QR o códigos manuales de lugares (`LOC-`), ejemplares (`G-`), lotes (`L-`) y equipos (`ACT-`) para ejecutar movimientos en campo y generar fichas públicas de trazabilidad (`/lote/[id]`).
-- **Guía de Usuario Integrada (45 artículos):** accesible dentro de la sesión (`/dashboard/guia`) y como manual público sin login (`/guia`) para capacitación en campo con buscador instantáneo, diagramas y capturas reales.
+- **Escáner QR Unificado (`/escanear`):** lee códigos QR o códigos manuales de lugares (`LOC-`), ejemplares (`G-`), lotes (`L-`) y equipos (`ACT-`) para ejecutar movimientos en campo y generar fichas públicas de trazabilidad (`/lote/[id]`).
+- **Guía de Usuario Integrada (45+ artículos):** accesible dentro de la sesión (`/manual`) y como manual público sin login (`/guia`) para capacitación en campo con buscador instantáneo, diagramas y capturas reales.
+- **Exportación y Conectores ERP (`/exportar`):** descarga directa en CSV/XLSX y generación de tokens con permisos granulares para integrar catálogos, movimientos, inventarios y transacciones vía `/api/v1/integrations/*`.
 
 ---
 
@@ -82,19 +83,19 @@ flowchart LR
     F --> A[KPIs, Curvas por Altitud y P&L]
 ```
 
-Las pantallas del tablero principal (`/dashboard`) se agrupan en **7 módulos** más **Inicio**, **Escanear** y **Guía de Usuario**:
+Las pantallas principales de la aplicación se agrupan en **7 módulos operativos** más **Inicio**, **Escanear**, **Exportar** y **Manual de Usuario**:
 
 | Sección | Rutas principales | Qué cubre |
 | --- | --- | --- |
-| **Inicio y Escáner** | `/dashboard`, `/dashboard/escanear` | Tablero en grupos enmarcados (**Resumen del día**, **Tareas de hoy**, **Accesos directos**, **Resumen del mes / Tablero técnico** y **Completar configuración**), Asistente Día 1 y escáner QR multiespecie. |
-| **Animales y Lugares** | `/dashboard/animales`, `/dashboard/ubicaciones`, `/dashboard/ubicaciones/[id]` | Inventario multiespecie, fichas individuales/lote, capacidad por galpón/jaula/potrero, mapa de ocupación, traslados y etiquetas QR. |
-| **Producción** | `/dashboard/produccion`, `adquisiciones`, `peso`, `mortalidad`, `plan-parvada` | Postura NTC 1240, carne/sacrificio, reproducción conejos/cuyes, incubación, alimentación, gallinaza, entradas/linaje 3 gen, biometría CV%/EPEF y proyecciones. |
-| **Inventarios** | `/dashboard/inventarios/balance`, `huevos`, `carne`, `gallinaza`, `alimentacion`, `insumos` | Balance patrimonial, stock PEPS/FIFO, días de autonomía de alimento y alertas de reposición. |
-| **Almacén y Operaciones** | `/dashboard/almacen`, `/dashboard/operaciones/activos`, `mantenimiento`, `compostaje`, `cierre` | Activos/equipos con CAPEX/ROI y QR, mantenimientos periódicos, pilas térmicas AGROSAVIA, cierre diario auditable y telemetría IoT (ITH, NH3, báscula). |
-| **Planeación** | `/dashboard/planeacion`, `calendario`, `/dashboard/soberania` | Calendario Maestro unificado, rutinas auto-ajustables y balance de autoconsumo / soberanía alimentaria. |
-| **Sanidad** | `/dashboard/sanidad`, `control`, `calendario`, `alertas`, `bioseguridad` | Plan sanitario por etapa, tratamientos con candado de retiro farmacológico, vacunación automática, bajas y listas POE GAB / Bienestar ICA. |
-| **Finanzas y Contactos** | `/dashboard/finanzas`, `ventas`, `egresos`, `finanzas`, `presupuestos`, `cuentas`, `/dashboard/contactos` | 5 líneas de venta, compras con presentación y OCR, catálogo frecuente, CxC/CxP con abonos, presupuestos, flujo acumulado y directorio con crédito/WhatsApp. |
-| **Análisis y Configuración** | `/dashboard/analisis`, `kpis`, `razas`, `reportes`, `/dashboard/configuracion`, `modulos`, `catalogos` | KPIs, curvas por raza/altitud, contabilidad analítica Excel/PDF, escala Pequeño/Mediano, 5 flags progresivos y catálogos maestros en 8 pestañas. |
+| **Inicio y Escáner** | `/inicio`, `/escanear` | Tablero en grupos enmarcados (**Resumen del día**, **Tareas de hoy**, **Accesos directos**, **Resumen del mes / Tablero técnico** y **Completar configuración**), Asistente Día 1 y escáner QR multiespecie. |
+| **Animales y Lugares** | `/animales`, `/ubicaciones`, `/ubicaciones/[id]` | Inventario multiespecie, fichas individuales/lote, capacidad por galpón/jaula/potrero, mapa de ocupación, traslados y etiquetas QR. |
+| **Producción** | `/produccion`, `adquisiciones`, `peso`, `mortalidad`, `plan-parvada` | Postura NTC 1240, carne/sacrificio, reproducción conejos/cuyes, incubación, alimentación, gallinaza, entradas/linaje 3 gen, biometría CV%/EPEF y proyecciones. |
+| **Inventarios** | `/inventarios/balance`, `huevos`, `carne`, `gallinaza`, `alimentacion`, `insumos` | Balance patrimonial, stock PEPS/FIFO, días de autonomía de alimento y alertas de reposición. |
+| **Almacén y Operaciones** | `/almacen`, `/operaciones/activos`, `mantenimiento`, `compostaje`, `cierre` | Activos/equipos con CAPEX/ROI y QR, mantenimientos periódicos, pilas térmicas AGROSAVIA, cierre diario auditable y telemetría IoT (ITH, NH3, báscula). |
+| **Planeación y Soberanía** | `/planeacion`, `/planeacion/calendario`, `/soberania` | Calendario Maestro unificado, rutinas auto-ajustables y balance de autoconsumo / soberanía alimentaria. |
+| **Sanidad** | `/sanidad`, `control`, `calendario`, `alertas`, `bioseguridad` | Plan sanitario por etapa, tratamientos con candado de retiro farmacológico, vacunación automática, bajas y listas POE GAB / Bienestar ICA. |
+| **Finanzas y Contactos** | `/finanzas`, `ventas`, `egresos`, `finanzas`, `presupuestos`, `cuentas`, `/contactos` | 5 líneas de venta, compras con presentación y OCR, catálogo frecuente, CxC/CxP con abonos, presupuestos, flujo acumulado y directorio con crédito/WhatsApp. |
+| **Análisis, Exportación y Config** | `/analisis`, `kpis`, `razas`, `reportes`, `/exportar`, `/configuracion`, `modulos`, `catalogos`, `usuarios`, `plan`, `kit-campo`, `granjas` | KPIs, curvas por raza/altitud, contabilidad analítica Excel/PDF, conectores ERP v1, escala Pequeño/Mediano, módulos progresivos, usuarios/roles y catálogos maestros. |
 
 Para una guía detallada de cada módulo, consulta **[docs/features.md](docs/features.md)**, **[docs/data-dictionary.md](docs/data-dictionary.md)** o entra directamente al manual web en `/guia`.
 
@@ -133,22 +134,32 @@ createdb app_db
 cp .env.example .env.local
 ```
 
-Edita `.env.local` con tu conexión:
+Edita `.env.local` con tus credenciales locales y las integraciones opcionales que utilices (todas documentadas con valores de ejemplo en [`.env.example`](.env.example)):
 
 ```env
 DATABASE_URL=postgresql://TU_USUARIO:TU_CONTRASENA@127.0.0.1:5432/app_db
 ```
 
-> `.env.local` está ignorado en `.gitignore`. Nunca subas secretos o cadenas de conexión reales al repositorio.
+> `.env.local` tiene prioridad local y está ignorado en `.gitignore`. De este modo cada proyecto se configura de forma autónoma sin depender de un `.env` global externo y sin exponer secretos en Git.
 
-### 3. Aplicar esquema y sembrar datos sintéticos
+Variables opcionales principales incluidas en [`.env.example`](.env.example):
+- **Gina (IA, Voz STT y Cámara/OCR):** `ASSISTANT_AI_*`, `ASSISTANT_STT_*`, `ASSISTANT_VISION_*` (o `DEEPSEEK_API_KEY`, `OPENAI_API_KEY`, `GEMINI_API_KEY`) y `ASSISTANT_INTERNAL_BASE_URL`.
+- **Correo y alertas:** `SMTP_*`, `NOTIFY_EMAIL`, `TELEGRAM_BOT_TOKEN`, `TELEGRAM_CHAT_ID`.
+- **Pagos, IoT y analítica:** `WOMPI_*`, `SENSOR_WEBHOOK_TOKEN`, `NEXT_PUBLIC_SWETRIX_*`.
+- **Datos legales:** `LEGAL_RAZON_SOCIAL`, `LEGAL_NIT`, `LEGAL_EMAIL`, `LEGAL_WHATSAPP`, `LEGAL_IVA_NOTE`.
+
+### 3. Aplicar esquema, roles/RLS y semilla base en un solo comando
 
 ```bash
-npm run db:push          # Crea tablas según src/db/schema.ts
-npm run db:seed-config   # Catálogos base (razas, vacunas, parámetros idempotentes)
+npm run db:bootstrap
 ```
 
-Opcionalmente, solo en una base **local descartable de pruebas** (bloqueado en producción):
+`db:bootstrap` es idempotente y realiza en orden:
+1. Aplica `drizzle/0000_baseline.sql` + `drizzle/0001_roles_constraints_and_rls.sql` (y adopta automáticamente la línea base si la BD venía de despliegues previos).
+2. Ejecuta `db:seed-config` (granja por defecto, catálogos maestros, etapas, estándares de peso, vacunas, factores de compostaje y alimentos/planes iniciales).
+3. Si defines `ADMIN_USERNAME` y `ADMIN_PASSWORD` (mínimo 12 caracteres) y la tabla `users` está vacía, crea el administrador inicial.
+
+Si quieres crear o agregar un proyecto con datos sintéticos de demostración en una base **local descartable de pruebas** (bloqueado en producción):
 
 ```bash
 DEMO_ADMIN_PASSWORD='elige-una-clave-de-12-caracteres' npm run db:seed -- --allow-destructive
@@ -171,19 +182,24 @@ npm run build && npm start
 Para levantar aplicación + PostgreSQL localmente o en un servidor propio:
 
 ```bash
-docker compose --profile migrate run --rm migrate
-docker compose run --rm -e ADMIN_USERNAME='admin' -e ADMIN_PASSWORD='elige-una-clave-segura-de-12-caracteres' --entrypoint npm app run db:create-admin
+ADMIN_USERNAME='admin' ADMIN_PASSWORD='elige-una-clave-segura-de-12-caracteres' docker compose up -d
+```
+
+O ejecutar explícitamente el perfil de inicialización antes de levantar la app:
+
+```bash
+ADMIN_USERNAME='admin' ADMIN_PASSWORD='elige-una-clave-segura-de-12-caracteres' docker compose --profile migrate run --rm migrate
 docker compose up -d
 ```
 
 - La aplicación queda expuesta en `http://localhost:3000` (y en despliegues con proxy inverso detrás de TLS en tu dominio).
-- Para operación en producción, actualización de esquema SQL idempotente y variables opcionales de **Gina** (modelo IA, voz y lectura de documentos), sigue paso a paso **[docs/deployment.md](docs/deployment.md)**.
+- Para operación en producción, actualizaciones futuras con Drizzle y variables opcionales de **Gina** (modelo IA, voz y lectura de documentos), sigue paso a paso **[docs/deployment.md](docs/deployment.md)**.
 
 ### Acceso inicial y recuperación de administrador
 
-- **Primer usuario en producción:** `ADMIN_USERNAME='admin' ADMIN_PASSWORD='...' npm run db:create-admin` (mínimo 12 caracteres; aborta si ya existen usuarios).
+- **Primer usuario automático o manual:** pasa `ADMIN_USERNAME` + `ADMIN_PASSWORD` a `npm run db:bootstrap`, o ejecuta `ADMIN_USERNAME='admin' ADMIN_PASSWORD='...' npm run db:create-admin` (mínimo 12 caracteres; aborta si ya existen usuarios).
 - **Rotar contraseña:** `npm run db:rotate-admin-password` (revoca sesiones activas).
-- **Código de recuperación de un solo uso:** tras aplicar `scripts/add_admin_recovery_code.sql`, ejecuta `ADMIN_USERNAME='admin' npm run db:issue-admin-recovery-code` y utilízalo en `/login/recuperar`.
+- **Código de recuperación de un solo uso:** ejecuta `ADMIN_USERNAME='admin' npm run db:issue-admin-recovery-code` y utilízalo en `/login/recuperar`.
 
 ---
 

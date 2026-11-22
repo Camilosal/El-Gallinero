@@ -1,0 +1,1290 @@
+"use client";
+
+import { Suspense, useEffect, useState, useCallback, useMemo, useRef } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
+import { AlertTriangle, BarChart3, Banknote, Bird, Egg, Info, Package, Sprout, Tag, Utensils } from "lucide-react";
+import { AppIcon } from "@/components/AppIcon";
+import { PageHeader, HeroActionButton, Button, Card, Table, Modal, Input, Select, Textarea, EmptyState, StatCard, Badge, Tooltip as FieldTooltip } from "@/components/ui";
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from "recharts";
+import { apiFetch } from "@/lib/fetch";
+import { useCatalog } from "@/lib/useCatalog";
+import ContactField from "@/components/contacts/ContactField";
+import MicroInsightCard from "@/components/MicroInsightCard";
+import { computeCreditDueDate } from "@/lib/contacts-shared";
+import { buildSaleMicroInsight, type MicroInsightPayload } from "@/lib/micro-insights";
+import KgSaleTab from "./_components/KgSaleTab";
+import OtherSalesTab from "./_components/OtherSalesTab";
+import TableSearch from "@/components/TableSearch";
+import { matchesTextQuery } from "@/lib/text";
+import { useActionQuery } from "@/lib/useActionQuery";
+import { loadMasterSettings, useMasterSettings } from "@/lib/use-master-settings";
+import { loadSpeciesMasterParamsClient, useSpeciesCatalog } from "@/lib/use-species-params";
+import { TaxDeductionsFields, emptyTaxFields, type TaxFieldsState } from "@/components/TaxDeductionsFields";
+
+// ─── Types ───
+interface SaleItem {
+  id?: string;
+  size: string;
+  quantity: number;
+  pricePerUnit: number;
+  totalAmount: string;
+  presentation: string | null;
+}
+
+interface Sale {
+  id: string;
+  date: string;
+  quantity: number;
+  pricePerUnit: string;
+  totalAmount: string;
+  size: string | null;
+  presentation: string | null;
+  buyer: string | null;
+  notes: string | null;
+  ivaRate?: string | null;
+  reteFuenteRate?: string | null;
+  icaRate?: string | null;
+  otherDeductionsAmount?: string | null;
+  taxNotes?: string | null;
+  isCredit?: boolean;
+  items: SaleItem[];
+}
+
+interface ChickenSale {
+  id: string;
+  date: string;
+  birdType: string;
+  quantity: number;
+  weightKg: string | null;
+  pricePerUnit: string;
+  priceMode: string;
+  totalAmount: string;
+  buyer: string | null;
+  presentation: string | null;
+  henId: string | null;
+  roosterId?: string | null;
+  batchId?: string | null;
+  isCredit?: boolean;
+  dueDate?: string | null;
+  notes: string | null;
+  ivaRate?: string | null;
+  reteFuenteRate?: string | null;
+  icaRate?: string | null;
+  otherDeductionsAmount?: string | null;
+  taxNotes?: string | null;
+  hen?: {
+    id: string;
+    code: string;
+    weight: string;
+    status: string;
+  } | null;
+  rooster?: {
+    id: string;
+    code: string;
+    status: string;
+  } | null;
+  batch?: {
+    id: string;
+    code: string;
+    status: string;
+  } | null;
+}
+
+interface Hen {
+  id: string;
+  code: string;
+  weight: string;
+  status: string;
+  birthDate: string;
+}
+
+interface Rooster {
+  id: string;
+  code: string;
+  weight: string | null;
+  status: string;
+}
+
+interface Batch {
+  id: string;
+  code: string;
+  species?: string;
+  currentQuantity: number;
+  status: string;
+}
+
+interface InventorySize {
+  size: string;
+  price: number | null;
+  produced: number;
+  sold: number;
+  available: number;
+}
+
+interface SaleFormItem {
+  key: string;
+  size: string;
+  presentations: number;
+  presentation: string;
+  pricePerUnit: string;
+}
+
+const birdTypeLabels: Record<string, string> = {
+  gallina_descarte: "Gallina descarte",
+  pollo: "Pollo",
+  gallo: "Gallo",
+  pollito: "Pollito",
+  codorniz: "Codorniz",
+  pato: "Pato",
+  conejo: "Conejo",
+  cuy: "Cuy",
+};
+
+type Tab = "huevos" | "aves" | "carne" | "gallinaza" | "otros";
+
+function parseSalesTab(value: string | null): Tab {
+  if (value === "animales" || value === "aves") return "aves";
+  return value === "huevos" || value === "carne" || value === "gallinaza" || value === "otros"
+    ? value
+    : "huevos";
+}
+
+interface ChartAmountRow {
+  date: string;
+  totalAmount: string;
+}
+
+const EXCLUDED_TX_SOURCES = new Set(["venta", "venta_ave", "venta_carne", "gallinaza"]);
+
+export default function VentasPage() {
+  return (
+    <Suspense fallback={<div className="p-8 text-center text-slate-400">Cargando ventas...</div>}>
+      <VentasContent />
+    </Suspense>
+  );
+}
+
+function VentasContent() {
+  const searchParams = useSearchParams();
+  const router = useRouter();
+  const requestedTab = searchParams.get("tab");
+  const tab = parseSalesTab(requestedTab);
+
+  const selectTab = (nextTab: Tab) => {
+    const params = new URLSearchParams(searchParams.toString());
+    params.set("tab", nextTab);
+    params.delete("nuevo");
+    router.replace(`/finanzas/ventas?${params.toString()}`, { scroll: false });
+  };
+
+  // ─── Egg sales state ───
+  const [sales, setSales] = useState<Sale[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [modalOpen, setModalOpen] = useState(false);
+  const [editing, setEditing] = useState<Sale | null>(null);
+  const [lastInsight, setLastInsight] = useState<MicroInsightPayload | null>(null);
+  const [error, setError] = useState("");
+  const [inventory, setInventory] = useState<InventorySize[]>([]);
+  const [pepsLots, setPepsLots] = useState<Array<{ id: string; lotCode?: string | null; date: string; size: string; remaining: number }>>([]);
+  const [locations, setLocations] = useState<Array<{ id: string; name: string }>>([]);
+  const [form, setForm] = useState({
+    date: new Date().toISOString().split("T")[0],
+    species: "gallina",
+    locationId: "",
+    lotCode: "",
+    buyer: "",
+    notes: "",
+    items: [{ key: "1", size: "", presentations: 1, presentation: "", pricePerUnit: "" }] as SaleFormItem[],
+  });
+  const [isCredit, setIsCredit] = useState(false);
+  const [dueDate, setDueDate] = useState("");
+  const [eggTaxFields, setEggTaxFields] = useState<TaxFieldsState>(emptyTaxFields);
+  const [savingEggSale, setSavingEggSale] = useState(false);
+  const eggSaleSavingRef = useRef(false);
+  const eggSaleMutationIdRef = useRef<string | null>(null);
+  const [meatChartRows, setMeatChartRows] = useState<ChartAmountRow[]>([]);
+  const [manureChartRows, setManureChartRows] = useState<ChartAmountRow[]>([]);
+  const [otherChartRows, setOtherChartRows] = useState<ChartAmountRow[]>([]);
+  const [eggSearch, setEggSearch] = useState("");
+
+  // ─── Chicken sales state ───
+  const [chickenSales, setChickenSales] = useState<ChickenSale[]>([]);
+  const [hens, setHens] = useState<Hen[]>([]);
+  const [roosters, setRoosters] = useState<Rooster[]>([]);
+  const [batches, setBatches] = useState<Batch[]>([]);
+  const [loadingBirds, setLoadingBirds] = useState(true);
+  const [birdModalOpen, setBirdModalOpen] = useState(false);
+  const [editingBird, setEditingBird] = useState<ChickenSale | null>(null);
+  const [birdError, setBirdError] = useState("");
+  const [birdForm, setBirdForm] = useState({
+    date: new Date().toISOString().split("T")[0],
+    birdType: "gallina_descarte",
+    quantity: "1",
+    weightKg: "",
+    priceMode: "por_ave",
+    pricePerUnit: "",
+    buyer: "",
+    presentation: "",
+    henId: "",
+    roosterId: "",
+    batchId: "",
+    notes: "",
+  });
+  const [birdIsCredit, setBirdIsCredit] = useState(false);
+  const [birdDueDate, setBirdDueDate] = useState("");
+  const [birdTaxFields, setBirdTaxFields] = useState<TaxFieldsState>(emptyTaxFields);
+  const [savingBirdSale, setSavingBirdSale] = useState(false);
+  const birdSaleSavingRef = useRef(false);
+  const birdSaleMutationIdRef = useRef<string | null>(null);
+  const [eggBuyerCreditDays, setEggBuyerCreditDays] = useState(0);
+  const [birdBuyerCreditDays, setBirdBuyerCreditDays] = useState(0);
+  const [birdSearch, setBirdSearch] = useState("");
+  const { values: masterSettings } = useMasterSettings();
+  const { priceEgg, masterParams } = useSpeciesCatalog();
+  const liveBirdPricePerKg = Number(masterSettings["inventory.bird_price_per_kg"] || 0);
+  const getBirdDefaultPrice = (birdType: string, measuredWeightKg?: string | number | null, priceMode: string = "por_ave") => {
+    if (priceMode === "por_kg") return liveBirdPricePerKg > 0 ? String(Math.round(liveBirdPricePerKg)) : "";
+    const species = birdType === "gallina_descarte" || birdType === "gallo" ? "gallina" : birdType === "pollito" ? "pollo" : birdType;
+    const speciesWeight = masterParams.find((row) => row.species === species)?.targetWeightKg || 0;
+    const weight = Number(measuredWeightKg) || speciesWeight;
+    return liveBirdPricePerKg > 0 && weight > 0 ? String(Math.round(liveBirdPricePerKg * weight)) : "";
+  };
+
+  // ─── Catalogs ───
+  const { items: sizeOptions } = useCatalog("tamano_huevo");
+  const { items: presentOptions } = useCatalog("presentacion_venta");
+  const { values: rawBirdTypeOptions } = useCatalog("tipo_ave", ["gallina_descarte", "pollo", "gallo", "pollito", "codorniz", "pato", "conejo", "cuy"]);
+  const birdTypeOptions = useMemo(() => {
+    const merged = [...rawBirdTypeOptions];
+    for (const sp of ["codorniz", "pato", "conejo", "cuy"]) {
+      if (!merged.includes(sp)) merged.push(sp);
+    }
+    return merged;
+  }, [rawBirdTypeOptions]);
+  const saleableSizeOptions = useMemo(() => {
+    const bySize = new Map<string, { id: string; value: string; price: string | null }>();
+    sizeOptions.forEach((option) => bySize.set(option.value, option));
+    inventory.forEach((item) => {
+      if (!bySize.has(item.size)) {
+        bySize.set(item.size, {
+          id: `inventory-${item.size}`,
+          value: item.size,
+          price: item.price === null ? null : String(item.price),
+        });
+      }
+    });
+    return [...bySize.values()];
+  }, [inventory, sizeOptions]);
+
+  // ─── Load data ───
+  const load = useCallback(() => {
+    Promise.all([
+      apiFetch("/api/finanzas/finanzas/ventas").then((r) => r.json()),
+      apiFetch("/api/produccion/huevos/inventario").then((r) => r.json()),
+      apiFetch("/api/finanzas/finanzas/ventas-aves").then((r) => r.json()),
+      apiFetch("/api/produccion/gallinas").then((r) => r.json()),
+      apiFetch("/api/produccion/gallos").then((r) => r.json()),
+      apiFetch("/api/produccion/pollos").then((r) => r.json()),
+      apiFetch("/api/ubicaciones").then((r) => r.json()),
+      apiFetch("/api/produccion/carne/ventas").then((r) => r.json()).catch(() => []),
+      apiFetch("/api/produccion/gallinaza/ventas").then((r) => r.json()).catch(() => []),
+      apiFetch("/api/finanzas/finanzas?period=3650").then((r) => r.json()).catch(() => ({ transactions: [] })),
+    ]).then(([salesData, invData, birdData, hensData, gallosData, lotesData, locsData, meatData, manureData, finData]) => {
+      setLocations(Array.isArray(locsData) ? locsData : []);
+      setSales(salesData);
+      setInventory(invData.summary?.sizes || []);
+      setPepsLots(Array.isArray(invData.lots) ? invData.lots.filter((l: { remaining: number; lotCode?: string | null }) => l.remaining > 0 && l.lotCode) : []);
+      setChickenSales(Array.isArray(birdData) ? birdData : []);
+      setMeatChartRows(Array.isArray(meatData) ? meatData : []);
+      setManureChartRows(Array.isArray(manureData) ? manureData : []);
+      const txList = Array.isArray(finData?.transactions) ? finData.transactions : [];
+      setOtherChartRows(
+        txList
+          .filter((tx: { type?: string; sourceType?: string | null }) => tx.type === "ingreso" && !EXCLUDED_TX_SOURCES.has(tx.sourceType || ""))
+          .map((tx: { date: string; amount: string }) => ({ date: tx.date, totalAmount: tx.amount })),
+      );
+      setHens(Array.isArray(hensData) ? hensData
+        .filter((h: Hen) => h.status === "activa" || h.status === "empollando" || h.status === "recomendada_sacrificio")
+        .sort((a: Hen, b: Hen) => Number(b.status === "recomendada_sacrificio") - Number(a.status === "recomendada_sacrificio")) : []);
+      setRoosters(Array.isArray(gallosData) ? gallosData.filter((r: Rooster) => r.status === "activo" || r.status === "enfermo") : []);
+      setBatches(Array.isArray(lotesData) ? lotesData.filter((b: Batch) => b.status === "activo" || b.status === "listo_sacrificio") : []);
+      setLoading(false);
+      setLoadingBirds(false);
+    }).catch(() => { setLoading(false); setLoadingBirds(false); });
+  }, []);
+
+  useEffect(() => { load(); }, [load]);
+
+  // ─── Egg sale helpers ───
+  const getItemUnits = (item: SaleFormItem) => presentOptions.find((o) => o.value === item.presentation)?.units ?? 1;
+  const getItemEggs = (item: SaleFormItem) => item.presentations * getItemUnits(item);
+  const getItemTotal = (item: SaleFormItem) => item.presentations * Number(item.pricePerUnit);
+  const getPresentationLabel = (item: SaleFormItem) => {
+    if (!item.presentation) return "unid.";
+    return item.presentation.toLowerCase();
+  };
+  const getAvailable = (size: string) => inventory.find((i) => i.size === size)?.available ?? 0;
+  const totalEggsAllItems = form.items.reduce((sum, item) => sum + getItemEggs(item), 0);
+  const totalAmountAllItems = form.items.reduce((sum, item) => sum + getItemTotal(item), 0);
+
+  // ─── Egg sale CRUD ───
+  const openNew = async () => {
+    const masterSpecies = await loadSpeciesMasterParamsClient(true);
+    const masterEggPrice = masterSpecies.find((row) => row.species === "gallina")?.marketPriceEggUnitCOP || 0;
+    eggSaleMutationIdRef.current = null;
+    setEditing(null);
+    setError("");
+    setIsCredit(false);
+    setDueDate("");
+    setEggTaxFields(emptyTaxFields());
+    setForm({
+      date: new Date().toISOString().split("T")[0],
+      species: "gallina",
+      locationId: "",
+      lotCode: "",
+      buyer: "",
+      notes: "",
+      items: [{ key: "1", size: "", presentations: 1, presentation: "", pricePerUnit: masterEggPrice > 0 ? String(masterEggPrice) : "" }],
+    });
+    setModalOpen(true);
+  };
+
+  const openEdit = (s: Sale) => {
+    eggSaleMutationIdRef.current = null;
+    setEditing(s);
+    setError("");
+    setEggTaxFields({
+      ivaRate: s.ivaRate || "",
+      reteFuenteRate: s.reteFuenteRate || "",
+      icaRate: s.icaRate || "",
+      otherDeductionsAmount: s.otherDeductionsAmount || "",
+      taxNotes: s.taxNotes || "",
+    });
+    const editItems: SaleFormItem[] = s.items.length > 0
+      ? s.items.map((item, idx) => {
+        const units = presentOptions.find((o) => o.value === item.presentation)?.units ?? null;
+        const presentations = item.presentation && units && units > 0 && item.quantity % units === 0
+          ? item.quantity / units
+          : item.quantity;
+        return { key: String(idx + 1), size: item.size, presentations, presentation: item.presentation || "", pricePerUnit: String(item.pricePerUnit) };
+      })
+      : [{ key: "1", size: s.size || "", presentations: 1, presentation: s.presentation || "", pricePerUnit: s.pricePerUnit }];
+    setForm({ date: s.date, species: (s as Sale & { species?: string }).species || "gallina", locationId: (s as Sale & { locationId?: string | null }).locationId || "", lotCode: (s as Sale & { lotCode?: string | null }).lotCode || "", buyer: s.buyer || "", notes: s.notes || "", items: editItems });
+    setModalOpen(true);
+  };
+
+  const updateItem = (key: string, changes: Partial<SaleFormItem>) => {
+    setForm((f) => ({
+      ...f,
+      items: f.items.map((item) => {
+        if (item.key !== key) return item;
+        const updated = { ...item, ...changes };
+        if (changes.size) {
+          const sizeOpt = saleableSizeOptions.find((o) => o.value === changes.size);
+          if (sizeOpt?.price) {
+            const units = getItemUnits(updated);
+            updated.pricePerUnit = String(Number(sizeOpt.price) * units);
+          } else {
+            const masterEggPrice = priceEgg(form.species);
+            if (masterEggPrice > 0) updated.pricePerUnit = String(Math.round(masterEggPrice * getItemUnits(updated)));
+          }
+        }
+        if (changes.presentation) {
+          const sizeOpt = saleableSizeOptions.find((o) => o.value === updated.size);
+          const newUnits = presentOptions.find((o) => o.value === changes.presentation)?.units ?? 1;
+          if (sizeOpt?.price) {
+            updated.pricePerUnit = String(Number(sizeOpt.price) * newUnits);
+          } else {
+            const masterEggPrice = priceEgg(form.species);
+            if (masterEggPrice > 0) updated.pricePerUnit = String(Math.round(masterEggPrice * newUnits));
+          }
+        }
+        return updated;
+      }),
+    }));
+  };
+
+  const addItem = () => {
+    const masterEggPrice = priceEgg(form.species);
+    setForm((f) => ({ ...f, items: [...f.items, { key: String(Date.now()), size: "", presentations: 1, presentation: "", pricePerUnit: masterEggPrice > 0 ? String(masterEggPrice) : "" }] }));
+  };
+
+  const removeItem = (key: string) => {
+    setForm((f) => ({ ...f, items: f.items.length > 1 ? f.items.filter((i) => i.key !== key) : f.items }));
+  };
+
+  const getRemainingAvailable = (size: string, currentKey?: string) => {
+    const base = getAvailable(size);
+    const usedByOtherItems = form.items
+      .filter((i) => i.size === size && i.key !== currentKey)
+      .reduce((sum, i) => sum + getItemEggs(i), 0);
+    return base - usedByOtherItems;
+  };
+
+  const saveEggSale = async () => {
+    if (eggSaleSavingRef.current) return;
+    setError("");
+    for (const item of form.items) {
+      if (!item.size) { setError("Selecciona el tamaño del huevo en cada línea"); return; }
+      const eggs = getItemEggs(item);
+      if (eggs < 1) { setError(`Cantidad inválida para tamaño ${item.size}`); return; }
+      const remaining = getRemainingAvailable(item.size, item.key);
+      if (eggs > remaining) { setError(`No hay suficientes huevos tamaño ${item.size}. Disponibles: ${remaining}`); return; }
+    }
+    const payload = {
+      date: form.date,
+      species: form.species || "gallina",
+      locationId: form.locationId || null,
+      lotCode: form.lotCode || null,
+      buyer: form.buyer || null,
+      notes: form.notes || null,
+      ivaRate: Number(eggTaxFields.ivaRate || 0),
+      reteFuenteRate: Number(eggTaxFields.reteFuenteRate || 0),
+      icaRate: Number(eggTaxFields.icaRate || 0),
+      otherDeductionsAmount: Number(eggTaxFields.otherDeductionsAmount || 0),
+      taxNotes: eggTaxFields.taxNotes || null,
+      isCredit, dueDate: dueDate || null,
+      items: form.items.map((item) => ({ size: item.size, quantity: getItemEggs(item), presentations: item.presentations, pricePerUnit: Number(item.pricePerUnit), presentation: item.presentation || null })),
+    };
+    const method = editing ? "PUT" : "POST";
+    const body = editing ? { ...payload, id: editing.id } : payload;
+    eggSaleSavingRef.current = true;
+    setSavingEggSale(true);
+    eggSaleMutationIdRef.current ||= crypto.randomUUID();
+    let res: Response;
+    try {
+      res = await apiFetch("/api/finanzas/finanzas/ventas", {
+        method,
+        headers: { "Content-Type": "application/json", "X-Client-Mutation-Id": eggSaleMutationIdRef.current },
+        body: JSON.stringify(body),
+      });
+    } catch (err) {
+      eggSaleSavingRef.current = false;
+      setSavingEggSale(false);
+      throw err;
+    }
+    eggSaleSavingRef.current = false;
+    setSavingEggSale(false);
+    if (!res.ok) { const data = await res.json().catch(() => ({})); setError(data.error || "Error al guardar la venta"); return; }
+    eggSaleMutationIdRef.current = null;
+    const summaryText = form.items.map((item) => `${getItemEggs(item)} huevos ${item.size}`).join(" + ");
+    const unitPriceAvg = totalEggsAllItems > 0 ? totalAmountAllItems / totalEggsAllItems : 0;
+    setLastInsight(
+      buildSaleMicroInsight({
+        date: form.date,
+        itemSummary: summaryText,
+        totalUnits: totalEggsAllItems,
+        unitPrice: unitPriceAvg,
+        totalAmount: totalAmountAllItems,
+        buyer: form.buyer || null,
+        species: form.species || "gallina",
+        isBirdSale: false,
+      }),
+    );
+    setModalOpen(false);
+    setIsCredit(false);
+    setDueDate("");
+    load();
+  };
+
+  const removeEggSale = async (id: string) => {
+    if (!confirm("¿Eliminar esta venta?")) return;
+    await apiFetch(`/api/finanzas/finanzas/ventas?id=${id}`, { method: "DELETE" });
+    load();
+  };
+
+  // ─── Chicken sale CRUD ───
+  const openNewBird = async () => {
+    const [masterSpecies, settings] = await Promise.all([loadSpeciesMasterParamsClient(true), loadMasterSettings(true)]);
+    const liveBirdRate = Number(settings["inventory.bird_price_per_kg"] || 0);
+    const defaultWeight = masterSpecies.find((row) => row.species === "gallina")?.targetWeightKg || 0;
+    const defaultBirdPrice = liveBirdRate > 0 && defaultWeight > 0 ? String(Math.round(liveBirdRate * defaultWeight)) : "";
+    birdSaleMutationIdRef.current = null;
+    setEditingBird(null);
+    setBirdError("");
+    setBirdIsCredit(false);
+    setBirdDueDate("");
+    setBirdTaxFields(emptyTaxFields());
+    setBirdForm({ date: new Date().toISOString().split("T")[0], birdType: "gallina_descarte", quantity: "1", weightKg: defaultWeight > 0 ? String(defaultWeight) : "", priceMode: "por_ave", pricePerUnit: defaultBirdPrice, buyer: "", presentation: "", henId: "", roosterId: "", batchId: "", notes: "" });
+    setBirdModalOpen(true);
+  };
+  const activeTab = searchParams.get("tab");
+  useActionQuery(
+    activeTab === "aves" || activeTab === "animales" || activeTab === "huevos" ? searchParams.get("nuevo") : null,
+    {
+      "1": () => {
+        if (activeTab === "aves" || activeTab === "animales") openNewBird();
+        else if (activeTab === "huevos") openNew();
+      },
+    },
+  );
+
+  const openEditBird = (s: ChickenSale) => {
+    birdSaleMutationIdRef.current = null;
+    setEditingBird(s);
+    setBirdError("");
+    setBirdIsCredit(!!s.isCredit);
+    setBirdDueDate(s.dueDate || "");
+    setBirdTaxFields({
+      ivaRate: s.ivaRate || "",
+      reteFuenteRate: s.reteFuenteRate || "",
+      icaRate: s.icaRate || "",
+      otherDeductionsAmount: s.otherDeductionsAmount || "",
+      taxNotes: s.taxNotes || "",
+    });
+    setBirdForm({ date: s.date, birdType: s.birdType, quantity: String(s.quantity), weightKg: s.weightKg || "", priceMode: s.priceMode, pricePerUnit: s.pricePerUnit, buyer: s.buyer || "", presentation: s.presentation || "", henId: s.henId || "", roosterId: s.roosterId || "", batchId: s.batchId || "", notes: s.notes || "" });
+    setBirdModalOpen(true);
+  };
+
+  const handleBirdHenSelect = (henId: string) => {
+    if (henId) {
+      const hen = hens.find((h) => h.id === henId);
+      if (hen) {
+        setBirdForm({ ...birdForm, birdType: "gallina_descarte", henId, roosterId: "", batchId: "", weightKg: hen.weight, pricePerUnit: getBirdDefaultPrice("gallina_descarte", hen.weight), quantity: "1" });
+      }
+    } else {
+      setBirdForm({ ...birdForm, henId: "" });
+    }
+  };
+
+  const handleBirdRoosterSelect = (roosterId: string) => {
+    if (roosterId) {
+      const rooster = roosters.find((r) => r.id === roosterId);
+      setBirdForm({ ...birdForm, roosterId, henId: "", batchId: "", birdType: "gallo", weightKg: rooster?.weight || "", pricePerUnit: getBirdDefaultPrice("gallo", rooster?.weight), quantity: "1" });
+    } else {
+      setBirdForm({ ...birdForm, roosterId: "" });
+    }
+  };
+
+  const handleBirdBatchSelect = (batchId: string) => {
+    if (batchId) {
+      const batch = batches.find((b) => b.id === batchId);
+      const species = batch?.species || "pollo";
+      setBirdForm({ ...birdForm, batchId, henId: "", roosterId: "", birdType: species, pricePerUnit: getBirdDefaultPrice(species), quantity: String(batch?.currentQuantity || 1) });
+    } else {
+      setBirdForm({ ...birdForm, batchId: "" });
+    }
+  };
+
+  const birdTotal = () => {
+    const qty = Number(birdForm.quantity) || 0;
+    const price = Number(birdForm.pricePerUnit) || 0;
+    if (birdForm.priceMode === "por_kg" && birdForm.weightKg) {
+      return (price * Number(birdForm.weightKg)).toFixed(0);
+    }
+    return (price * qty).toFixed(0);
+  };
+
+  const saveBirdSale = async () => {
+    if (birdSaleSavingRef.current) return;
+    setBirdError("");
+    const qty = Number(birdForm.quantity);
+    if (!birdForm.birdType) { setBirdError("Tipo de ave requerido"); return; }
+    if (!birdForm.henId && !birdForm.roosterId && !birdForm.batchId) { setBirdError("Debe seleccionar una gallina, un gallo o un lote para descontar del inventario"); return; }
+    if (!Number.isSafeInteger(qty) || qty < 1) { setBirdError("La cantidad debe ser un entero mayor que cero"); return; }
+    if ((birdForm.henId || birdForm.roosterId) && qty !== 1) { setBirdError("La venta de una gallina o un gallo debe tener cantidad 1"); return; }
+    const price = Number(birdForm.pricePerUnit);
+    if (!price || price <= 0) { setBirdError("Precio inválido"); return; }
+
+    const payload = {
+      date: birdForm.date,
+      birdType: birdForm.birdType,
+      quantity: qty,
+      weightKg: birdForm.weightKg ? Number(birdForm.weightKg) : null,
+      priceMode: birdForm.priceMode,
+      pricePerUnit: price,
+      buyer: birdForm.buyer || null,
+      presentation: birdForm.presentation || null,
+      notes: birdForm.notes || null,
+      ivaRate: Number(birdTaxFields.ivaRate || 0),
+      reteFuenteRate: Number(birdTaxFields.reteFuenteRate || 0),
+      icaRate: Number(birdTaxFields.icaRate || 0),
+      otherDeductionsAmount: Number(birdTaxFields.otherDeductionsAmount || 0),
+      taxNotes: birdTaxFields.taxNotes || null,
+      isCredit: birdIsCredit,
+      dueDate: birdDueDate || null,
+      ...(birdForm.henId ? { henId: birdForm.henId } : {}),
+      ...(birdForm.roosterId ? { roosterId: birdForm.roosterId } : {}),
+      ...(birdForm.batchId ? { batchId: birdForm.batchId } : {}),
+      ...(editingBird ? { id: editingBird.id } : {}),
+    };
+
+    const method = editingBird ? "PUT" : "POST";
+    birdSaleSavingRef.current = true;
+    setSavingBirdSale(true);
+    birdSaleMutationIdRef.current ||= crypto.randomUUID();
+    let res: Response;
+    try {
+      res = await apiFetch("/api/finanzas/finanzas/ventas-aves", {
+        method,
+        headers: { "Content-Type": "application/json", "X-Client-Mutation-Id": birdSaleMutationIdRef.current },
+        body: JSON.stringify(payload),
+      });
+    } catch (err) {
+      birdSaleSavingRef.current = false;
+      setSavingBirdSale(false);
+      throw err;
+    }
+    birdSaleSavingRef.current = false;
+    setSavingBirdSale(false);
+    if (!res.ok) { const data = await res.json().catch(() => ({})); setBirdError(data.error || "Error al guardar"); return; }
+    birdSaleMutationIdRef.current = null;
+    const totalAmt = Number(birdTotal() || 0);
+    setLastInsight(
+      buildSaleMicroInsight({
+        date: birdForm.date,
+        itemSummary: `${qty} ${birdTypeLabels[birdForm.birdType] || birdForm.birdType}`,
+        totalUnits: qty,
+        unitPrice: qty > 0 ? totalAmt / qty : price,
+        totalAmount: totalAmt,
+        buyer: birdForm.buyer || null,
+        isBirdSale: true,
+        saleKind: "animales",
+      }),
+    );
+    setBirdModalOpen(false);
+    setBirdIsCredit(false);
+    setBirdDueDate("");
+    load();
+  };
+
+  const removeBirdSale = async (id: string) => {
+    if (!confirm("¿Eliminar esta venta?")) return;
+    await apiFetch(`/api/finanzas/finanzas/ventas-aves?id=${id}`, { method: "DELETE" });
+    load();
+  };
+
+  // ─── Stats ───
+  const totalRevenue = sales.reduce((s, r) => s + Number(r.totalAmount), 0);
+  const totalEggs = sales.reduce((s, r) => s + r.quantity, 0);
+  const avgPrice = totalEggs > 0 ? (totalRevenue / totalEggs).toFixed(0) : "0";
+
+  const totalBirdRevenue = chickenSales.reduce((s, r) => s + Number(r.totalAmount), 0);
+  const totalBirds = chickenSales.reduce((s, r) => s + r.quantity, 0);
+  const totalBirdWeight = chickenSales.reduce((s, r) => s + (Number(r.weightKg) || 0), 0);
+
+  // Chart data (all 5 sales streams sorted chronologically)
+  const chartMap = new Map<string, { huevos: number; animales: number; carne: number; gallinaza: number; otros: number }>();
+  const addChartSeries = (rows: ChartAmountRow[], field: "huevos" | "animales" | "carne" | "gallinaza" | "otros") => {
+    rows.forEach((r) => {
+      const prev = chartMap.get(r.date) || { huevos: 0, animales: 0, carne: 0, gallinaza: 0, otros: 0 };
+      prev[field] += Number(r.totalAmount) || 0;
+      chartMap.set(r.date, prev);
+    });
+  };
+  addChartSeries(sales, "huevos");
+  addChartSeries(chickenSales, "animales");
+  addChartSeries(meatChartRows, "carne");
+  addChartSeries(manureChartRows, "gallinaza");
+  addChartSeries(otherChartRows, "otros");
+  const chartData = Array.from(chartMap.entries())
+    .sort(([a], [b]) => a.localeCompare(b))
+    .slice(-30)
+    .map(([iso, v]) => ({
+      fecha: new Date(iso + "T12:00:00").toLocaleDateString("es", { day: "2-digit", month: "short" }),
+      ...v,
+    }));
+
+  const formatSaleItems = (s: Sale) => {
+    if (s.items.length > 0) return s.items.map((i) => `${i.quantity} ${i.size}`).join(", ");
+    return `${s.quantity} ${s.size || "—"}`;
+  };
+
+  const filteredSales = useMemo(() => {
+    if (!eggSearch.trim()) return sales;
+    return sales.filter((sale) => {
+      const detail =
+        sale.items.length > 0
+          ? sale.items
+            .map((item) => `${item.quantity} ${item.size} ${item.presentation ?? ""}`)
+            .join(" ")
+          : `${sale.quantity} ${sale.size ?? ""}`;
+      return matchesTextQuery(eggSearch, [
+        sale.date,
+        new Date(sale.date + "T12:00:00").toLocaleDateString("es"),
+        detail,
+        sale.totalAmount,
+        sale.buyer,
+        sale.notes,
+        sale.isCredit ? "credito" : "",
+      ]);
+    });
+  }, [sales, eggSearch]);
+
+  const filteredChickenSales = useMemo(() => {
+    if (!birdSearch.trim()) return chickenSales;
+    return chickenSales.filter((sale) =>
+      matchesTextQuery(birdSearch, [
+        sale.date,
+        new Date(sale.date + "T12:00:00").toLocaleDateString("es"),
+        sale.hen?.code,
+        sale.rooster?.code,
+        sale.batch?.code,
+        birdTypeLabels[sale.birdType] || sale.birdType,
+        sale.weightKg,
+        sale.pricePerUnit,
+        sale.priceMode === "por_kg" ? "por kg" : "por ave",
+        sale.totalAmount,
+        sale.buyer,
+        sale.presentation,
+        sale.notes,
+      ]),
+    );
+  }, [chickenSales, birdSearch]);
+
+  return (
+    <div>
+      <PageHeader
+        title="Ventas"
+        description="Gestión de ventas de huevos, animales en pie, carne, gallinaza y otros productos"
+        help="Registra todas las ventas de la granja organizadas por línea comercial.\n\n• Huevos: venta por tamaño NTC 1240 (descuento PEPS del inventario).\n• Animales en pie: venta de gallinas, gallos o lotes (pollos, codornices, patos, conejos y cuyes).\n• Carne: venta en canal o despiece por kilogramos.\n• Gallinaza: venta de abono y subproductos compostados.\n• Otras ventas: subproductos, plumas, humus u otro producto comercial.\n• Todos los canales soportan ventas a crédito en Cuentas."
+        actions={
+          <>
+            {tab === "huevos" && <HeroActionButton tone="solid" onClick={openNew}>+ Nueva Venta de Huevos</HeroActionButton>}
+            {tab === "aves" && <HeroActionButton tone="solid" onClick={openNewBird}>+ Nueva Venta de Animales</HeroActionButton>}
+          </>
+        }
+      />
+
+      {lastInsight && (
+        <div className="mb-6">
+          <MicroInsightCard
+            insight={lastInsight}
+            onAnother={tab === "aves" ? openNewBird : tab === "huevos" ? openNew : undefined}
+            onDismiss={() => setLastInsight(null)}
+            doneLabel="Entendido"
+          />
+        </div>
+      )}
+
+      {/* Tabs */}
+      <div className="flex flex-wrap gap-1 mb-6 bg-slate-100 p-1 rounded-lg w-fit">
+        <button onClick={() => selectTab("huevos")} className={`inline-flex items-center gap-1.5 px-4 py-2 rounded-md text-sm font-medium transition-colors ${tab === "huevos" ? "bg-white text-green-700 shadow-sm" : "text-slate-600 hover:text-slate-800"}`}>
+          <Egg className="w-4 h-4" aria-hidden="true" /> Huevos
+        </button>
+        <button onClick={() => selectTab("aves")} className={`inline-flex items-center gap-1.5 px-4 py-2 rounded-md text-sm font-medium transition-colors ${tab === "aves" ? "bg-white text-green-700 shadow-sm" : "text-slate-600 hover:text-slate-800"}`}>
+          <Bird className="w-4 h-4" aria-hidden="true" /> Animales en pie
+        </button>
+        <button onClick={() => selectTab("carne")} className={`inline-flex items-center gap-1.5 px-4 py-2 rounded-md text-sm font-medium transition-colors ${tab === "carne" ? "bg-white text-green-700 shadow-sm" : "text-slate-600 hover:text-slate-800"}`}>
+          <Utensils className="w-4 h-4" aria-hidden="true" /> Carne
+        </button>
+        <button onClick={() => selectTab("gallinaza")} className={`inline-flex items-center gap-1.5 px-4 py-2 rounded-md text-sm font-medium transition-colors ${tab === "gallinaza" ? "bg-white text-green-700 shadow-sm" : "text-slate-600 hover:text-slate-800"}`}>
+          <Sprout className="w-4 h-4" aria-hidden="true" /> Gallinaza
+        </button>
+        <button onClick={() => selectTab("otros")} className={`inline-flex items-center gap-1.5 px-4 py-2 rounded-md text-sm font-medium transition-colors ${tab === "otros" ? "bg-white text-green-700 shadow-sm" : "text-slate-600 hover:text-slate-800"}`}>
+          <Tag className="w-4 h-4" aria-hidden="true" /> Otras ventas
+        </button>
+      </div>
+
+      {chartData.length > 0 && (
+        <Card className="mb-6">
+          <h3 className="font-semibold text-slate-700 mb-4 flex items-center gap-2"><BarChart3 className="w-4 h-4 text-slate-500" aria-hidden="true" />Ingresos por Ventas (Todas las líneas)</h3>
+          <ResponsiveContainer width="100%" height={240}>
+            <BarChart data={chartData}>
+              <CartesianGrid strokeDasharray="3 3" />
+              <XAxis dataKey="fecha" fontSize={11} />
+              <YAxis fontSize={11} />
+              <Tooltip formatter={(v) => `$${Number(v).toLocaleString()}`} />
+              <Legend />
+              <Bar dataKey="huevos" fill="#eab308" name="Huevos" stackId="a" />
+              <Bar dataKey="animales" fill="#22c55e" name="Animales en pie" stackId="a" />
+              <Bar dataKey="carne" fill="#ef4444" name="Carne" stackId="a" />
+              <Bar dataKey="gallinaza" fill="#84cc16" name="Gallinaza" stackId="a" />
+              <Bar dataKey="otros" fill="#6366f1" radius={[4, 4, 0, 0]} name="Otras ventas" stackId="a" />
+            </BarChart>
+          </ResponsiveContainer>
+        </Card>
+      )}
+
+      {/* ─── TAB: HUEVOS ─── */}
+      {tab === "huevos" && (
+        <>
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-2.5 sm:gap-4 mb-6">
+            <StatCard icon="banknote" label="Ingresos Huevos" value={`$${totalRevenue.toLocaleString()}`} color="green" />
+            <StatCard icon="egg" label="Huevos Vendidos" value={totalEggs} color="yellow" />
+            <StatCard icon="chart" label="Precio Prom./Huevo" value={`$${avgPrice}`} color="blue" />
+            <StatCard icon="cart" label="Total Ventas" value={sales.length} color="purple" />
+          </div>
+
+          {inventory.some((i) => i.available > 0) && (
+            <Card className="mb-6">
+              <h3 className="font-semibold text-slate-700 mb-3 flex items-center gap-2"><Package className="w-4 h-4 text-slate-500" aria-hidden="true" />Inventario Disponible</h3>
+              <div className="flex flex-wrap gap-3">
+                {inventory.filter((i) => i.available > 0).map((i) => (
+                  <div key={i.size} className="px-4 py-2 bg-green-50 border border-green-200 rounded-lg">
+                    <span className="text-sm text-green-700 font-medium">{i.size}</span>
+                    <span className="ml-2 text-lg font-bold text-green-800">{i.available}</span>
+                    <span className="text-xs text-green-600 ml-1">uds</span>
+                    {i.price && <span className="text-xs text-green-600 ml-2">${i.price}/u</span>}
+                  </div>
+                ))}
+              </div>
+            </Card>
+          )}
+
+          <Card>
+            <TableSearch
+              value={eggSearch}
+              onChange={setEggSearch}
+              placeholder="Buscar por fecha, detalle o comprador..."
+              resultCount={filteredSales.length}
+              totalCount={sales.length}
+              className="mb-4"
+            />
+            {loading ? (
+              <p className="text-center py-8 text-slate-400">Cargando...</p>
+            ) : filteredSales.length === 0 ? (
+              <EmptyState
+                icon="egg"
+                message={
+                  eggSearch.trim()
+                    ? "No hay ventas que coincidan con la búsqueda"
+                    : "No hay ventas de huevos registradas"
+                }
+              />
+            ) : (
+              <Table headers={["Fecha", "Detalle", "Total", "Comprador", ""]}>
+                {filteredSales.map((s) => (
+                  <tr key={s.id} className="hover:bg-slate-50">
+                    <td className="px-4 py-3">{new Date(s.date + "T12:00:00").toLocaleDateString("es")}</td>
+                    <td className="px-4 py-3 font-semibold text-sm">{formatSaleItems(s)}</td>
+                    <td className="px-4 py-3 font-bold text-green-600">${Number(s.totalAmount).toLocaleString()}</td>
+                    <td className="px-4 py-3 text-sm">
+                      {s.buyer || "—"}
+                      {s.isCredit && <Badge color="orange">Crédito</Badge>}
+                    </td>
+                    <td className="px-4 py-3">
+                      <div className="flex gap-1">
+                        <button onClick={() => openEdit(s)} className="text-blue-600 hover:underline text-xs">Editar</button>
+                        <button onClick={() => removeEggSale(s.id)} className="text-red-600 hover:underline text-xs">Eliminar</button>
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </Table>
+            )}
+          </Card>
+        </>
+      )}
+
+      {/* ─── TAB: ANIMALES EN PIE ─── */}
+      {tab === "aves" && (
+        <>
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-2.5 sm:gap-4 mb-6">
+            <StatCard icon="banknote" label="Ingresos Animales" value={`$${totalBirdRevenue.toLocaleString()}`} color="green" />
+            <StatCard icon="hen" label="Animales Vendidos" value={totalBirds} color="yellow" />
+            <StatCard icon="scale" label="Peso Total" value={`${totalBirdWeight.toFixed(1)} kg`} color="blue" />
+            <StatCard icon="cart" label="Total Ventas" value={chickenSales.length} color="purple" />
+          </div>
+
+          <Card>
+            <TableSearch
+              value={birdSearch}
+              onChange={setBirdSearch}
+              placeholder="Buscar por fecha, animal, lote o comprador..."
+              resultCount={filteredChickenSales.length}
+              totalCount={chickenSales.length}
+              className="mb-4"
+            />
+            {loadingBirds ? (
+              <p className="text-center py-8 text-slate-400">Cargando...</p>
+            ) : filteredChickenSales.length === 0 ? (
+              <EmptyState
+                icon="hen"
+                message={
+                  birdSearch.trim()
+                    ? "No hay ventas que coincidan con la búsqueda"
+                    : "No hay ventas de animales registradas"
+                }
+              />
+            ) : (
+              <Table headers={["Fecha", "Animal / Lote", "Tipo", "Peso", "Precio", "Total", "Comprador", ""]}>
+                {filteredChickenSales.map((s) => (
+                  <tr key={s.id} className="hover:bg-slate-50">
+                    <td className="px-4 py-3">{new Date(s.date + "T12:00:00").toLocaleDateString("es")}</td>
+                    <td className="px-4 py-3">
+                      {s.hen ? (
+                        <span className="inline-flex items-center gap-1 text-sm font-medium text-blue-600"><AppIcon icon="hen" className="w-3.5 h-3.5" /> {s.hen.code}</span>
+                      ) : s.rooster ? (
+                        <span className="inline-flex items-center gap-1 text-sm font-medium text-red-600"><AppIcon icon="rooster" className="w-3.5 h-3.5" /> {s.rooster.code}</span>
+                      ) : s.batch ? (
+                        <span className="inline-flex items-center gap-1 text-sm font-medium text-orange-600"><Package className="w-3.5 h-3.5" aria-hidden="true" /> {s.batch.code}</span>
+                      ) : (
+                        <span className="text-sm text-slate-400">—</span>
+                      )}
+                    </td>
+                    <td className="px-4 py-3 text-sm">{birdTypeLabels[s.birdType] || s.birdType}</td>
+                    <td className="px-4 py-3 text-sm">{s.weightKg ? `${s.weightKg} kg` : "—"}</td>
+                    <td className="px-4 py-3 text-sm">${Number(s.pricePerUnit).toLocaleString()}/{s.priceMode === "por_kg" ? "kg" : "u."}</td>
+                    <td className="px-4 py-3 font-bold text-green-600">${Number(s.totalAmount).toLocaleString()}</td>
+                    <td className="px-4 py-3 text-sm">
+                      <div className="flex items-center gap-1.5">
+                        <span>{s.buyer || "—"}</span>
+                        {s.isCredit && <Badge color="orange">Crédito</Badge>}
+                      </div>
+                    </td>
+                    <td className="px-4 py-3">
+                      <div className="flex gap-1">
+                        <button onClick={() => openEditBird(s)} className="text-blue-600 hover:underline text-xs">Editar</button>
+                        <button onClick={() => removeBirdSale(s.id)} className="text-red-600 hover:underline text-xs">Eliminar</button>
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </Table>
+            )}
+          </Card>
+        </>
+      )}
+
+      {/* ─── TAB: CARNE ─── */}
+      {tab === "carne" && (
+        <KgSaleTab
+          apiEndpoint="/api/produccion/carne/ventas"
+          onSaved={load}
+          labels={{
+            emptyIcon: "drumstick",
+            emptyMessage: "No hay ventas de carne registradas",
+            revenueLabel: "Ingresos Carne",
+            kgLabel: "Total Kg Vendidos",
+            newButton: "+ Nueva Venta de Carne",
+            modalTitleNew: "Nueva Venta de Carne",
+            modalTitleEdit: "Editar Venta de Carne",
+            quantityLabel: "Cantidad (kg)",
+            priceLabel: "Precio por kg ($)",
+            tableHeaders: ["Fecha", "Cantidad", "Precio/kg", "Total", "Comprador", ""],
+          }}
+        />
+      )}
+
+      {/* ─── TAB: GALLINAZA ─── */}
+      {tab === "gallinaza" && (
+        <KgSaleTab
+          apiEndpoint="/api/produccion/gallinaza/ventas"
+          onSaved={load}
+          labels={{
+            emptyIcon: "sprout",
+            emptyMessage: "No hay ventas de gallinaza registradas",
+            revenueLabel: "Ingresos Gallinaza",
+            kgLabel: "Total Kg Vendidos",
+            newButton: "+ Nueva Venta de Gallinaza",
+            modalTitleNew: "Nueva Venta de Gallinaza",
+            modalTitleEdit: "Editar Venta de Gallinaza",
+            quantityLabel: "Cantidad (kg)",
+            priceLabel: "Precio por kg ($)",
+            tableHeaders: ["Fecha", "Cantidad", "Precio/kg", "Total", "Comprador", ""],
+          }}
+        />
+      )}
+
+      {/* ─── TAB: OTRAS VENTAS ─── */}
+      {tab === "otros" && <OtherSalesTab onSaved={load} />}
+
+      {/* ─── Modal: Egg Sale ─── */}
+      <Modal open={modalOpen} onClose={() => setModalOpen(false)} title={editing ? "Editar Venta de Huevos" : "Nueva Venta de Huevos"}>
+        <div className="space-y-4">
+          {error && <p className="text-sm text-red-600 bg-red-50 p-3 rounded-lg">{error}</p>}
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <Input label="Fecha" type="date" value={form.date} onChange={(e) => setForm({ ...form, date: e.target.value })} />
+            <Select label="Especie" value={form.species} onChange={(e) => {
+              const species = e.target.value;
+              const masterPrice = priceEgg(species);
+              setForm((previous) => ({
+                ...previous,
+                species,
+                items: previous.items.map((item) => !item.size && masterPrice > 0
+                  ? { ...item, pricePerUnit: String(Math.round(masterPrice * getItemUnits(item))) }
+                  : item),
+              }));
+            }}>
+              <option value="gallina">Gallina</option>
+              <option value="codorniz">Codorniz</option>
+              <option value="pato">Pato</option>
+            </Select>
+          </div>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <Select label="Lugar / Galpón (opcional)" value={form.locationId} onChange={(e) => setForm({ ...form, locationId: e.target.value })}>
+              <option value="">— Sin asignar —</option>
+              {locations.map((l) => (
+                <option key={l.id} value={l.id}>{l.name}</option>
+              ))}
+            </Select>
+            {pepsLots.length > 0 && (
+              <Select label="Lote PEPS (trazabilidad)" value={form.lotCode} onChange={(e) => setForm({ ...form, lotCode: e.target.value })}>
+                <option value="">Automático PEPS (más antiguo)</option>
+                {Array.from(new Map(pepsLots.map((l) => [l.lotCode!, l])).values()).map((l) => (
+                  <option key={l.lotCode} value={l.lotCode!}>
+                    {l.lotCode} · {l.date} ({l.size}: {l.remaining} uds)
+                  </option>
+                ))}
+              </Select>
+            )}
+            <ContactField
+              role="cliente"
+              label="Comprador"
+              value={form.buyer}
+              onChange={(name, contact) => {
+                const days = contact?.creditDays || 0;
+                setEggBuyerCreditDays(days);
+                setForm({ ...form, buyer: name });
+                if (isCredit && days > 0 && !dueDate) {
+                  setDueDate(computeCreditDueDate(form.date, days));
+                }
+              }}
+            />
+          </div>
+
+          <div className="flex items-center gap-2">
+            <input
+              type="checkbox"
+              id="isCredit"
+              checked={isCredit}
+              onChange={(e) => {
+                const checked = e.target.checked;
+                setIsCredit(checked);
+                if (checked && eggBuyerCreditDays > 0 && !dueDate) {
+                  setDueDate(computeCreditDueDate(form.date, eggBuyerCreditDays));
+                }
+              }}
+              className="rounded"
+            />
+            <label htmlFor="isCredit" className="text-sm font-medium text-gray-700">Venta a crédito</label>
+            <FieldTooltip text="Actívala si el cliente queda debiendo este valor para cobrarlo después." />
+          </div>
+          {isCredit && (
+            <div>
+              <div className="flex items-center gap-1">
+                <label className="text-sm font-medium text-gray-700">Fecha vencimiento</label>
+                <FieldTooltip text="Día límite acordado con el cliente para pagar esta venta." />
+              </div>
+              <input type="date" value={dueDate} onChange={(e) => setDueDate(e.target.value)} className="mt-1 block w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm focus:border-green-500 focus:ring-1 focus:ring-green-500" />
+            </div>
+          )}
+
+          <div>
+            <div className="flex items-center justify-between mb-2">
+              <div className="flex items-center gap-1">
+                <label className="text-sm font-medium text-slate-700">Tamaños y cantidades</label>
+                <FieldTooltip text="Elige cada talla o calibre de huevo que estás entregando, cuántas cubetas/unidades y el precio." />
+              </div>
+              <button type="button" onClick={addItem} className="text-xs text-blue-600 hover:underline font-medium">+ Agregar tamaño</button>
+            </div>
+            <div className="space-y-3">
+              {form.items.map((item, idx) => {
+                const eggs = getItemEggs(item);
+                const remaining = item.size ? getRemainingAvailable(item.size, item.key) : 0;
+                const exceeds = item.size && eggs > remaining;
+                const units = getItemUnits(item);
+                const catalogPrice = saleableSizeOptions.find((o) => o.value === item.size)?.price
+                  ? Number(saleableSizeOptions.find((o) => o.value === item.size)!.price)
+                  : null;
+
+                return (
+                  <div key={item.key} className={`p-3 rounded-lg border ${exceeds ? "border-red-300 bg-red-50" : "border-slate-200 bg-slate-50"}`}>
+                    <div className="flex items-center justify-between mb-2">
+                      <span className="text-xs font-medium text-slate-500">Tamaño {idx + 1}</span>
+                      {form.items.length > 1 && (
+                        <button type="button" onClick={() => removeItem(item.key)} className="text-xs text-red-500 hover:underline">Quitar</button>
+                      )}
+                    </div>
+                    <div className="grid grid-cols-2 gap-2">
+                      <Select label="Tamaño" value={item.size} onChange={(e) => updateItem(item.key, { size: e.target.value })}>
+                        <option value="">— Selecciona —</option>
+                        {saleableSizeOptions.map((o) => (
+                          <option key={o.id} value={o.value}>{o.value}{o.price ? ` ($${Number(o.price).toLocaleString()})` : ""}</option>
+                        ))}
+                      </Select>
+                      <div>
+                        <Input label="Cantidad (presentaciones)" type="number" min="1" value={item.presentations} onChange={(e) => updateItem(item.key, { presentations: parseInt(e.target.value) || 0 })} />
+                        <div className="flex flex-wrap gap-1 mt-1">
+                          {[1, 2, 3, 5, 10].map((n) => (
+                            <button key={n} type="button" onClick={() => updateItem(item.key, { presentations: n })} className={`px-1.5 py-0.5 text-xs rounded border transition-colors ${item.presentations === n ? "bg-green-600 text-white border-green-600" : "bg-white text-slate-600 border-slate-300 hover:bg-slate-50"}`}>{n}</button>
+                          ))}
+                        </div>
+                      </div>
+                      <Select label="Presentación" value={item.presentation} onChange={(e) => updateItem(item.key, { presentation: e.target.value })}>
+                        <option value="">Unidad (1)</option>
+                        {item.presentation && !presentOptions.some((o) => o.value === item.presentation) && (
+                          <option value={item.presentation}>{item.presentation}</option>
+                        )}
+                        {presentOptions.map((o) => (
+                          <option key={o.id} value={o.value}>{o.value} ({o.units ?? 1} uds)</option>
+                        ))}
+                      </Select>
+                      <div>
+                        <Input label={`Precio por ${getPresentationLabel(item)} ($)`} type="number" step="1" value={item.pricePerUnit} onChange={(e) => updateItem(item.key, { pricePerUnit: e.target.value })} />
+                        {catalogPrice !== null && Number(item.pricePerUnit) !== catalogPrice && (
+                          <button type="button" onClick={() => updateItem(item.key, { pricePerUnit: String(catalogPrice) })} className="text-xs text-blue-600 hover:underline mt-1">Usar precio catálogo: ${catalogPrice}/unid.</button>
+                        )}
+                      </div>
+                    </div>
+                    <div className="flex items-center justify-between mt-2 text-sm">
+                      <span className="text-slate-600">
+                        = <strong>{eggs}</strong> huevos ({item.presentations} {getPresentationLabel(item)} × {units} uds) → <strong>${getItemTotal(item).toLocaleString()}</strong>
+                      </span>
+                      {item.size && (
+                        <span className={`text-xs font-medium ${exceeds ? "text-red-600" : "text-green-600"}`}>
+                          Disp: {remaining}{" "}
+                          {exceeds && (
+                            <span className="inline-flex items-center gap-0.5">
+                              <AlertTriangle className="w-3 h-3" aria-hidden="true" /> Excede disponible
+                            </span>
+                          )}
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+
+          <div className="p-3 bg-green-50 rounded-lg text-sm text-green-700">
+            <p className="flex items-center gap-1.5"><Egg className="w-4 h-4 shrink-0" aria-hidden="true" /> Total de huevos: <strong className="text-lg">{totalEggsAllItems.toLocaleString()}</strong></p>
+            <p className="mt-1 flex items-center gap-1.5"><Banknote className="w-4 h-4 shrink-0" aria-hidden="true" /> Total de la venta: <strong className="text-xl">${totalAmountAllItems.toLocaleString()}</strong></p>
+            {totalEggsAllItems >= 12 && (
+              <p className="mt-1 text-xs">≈ ${Math.round(totalAmountAllItems / totalEggsAllItems * 12).toLocaleString()} por docena</p>
+            )}
+          </div>
+
+          <Textarea label="Notas" value={form.notes} onChange={(e) => setForm({ ...form, notes: e.target.value })} />
+          <TaxDeductionsFields
+            grossAmount={totalAmountAllItems}
+            value={eggTaxFields}
+            onChange={setEggTaxFields}
+            mode="ingreso"
+            profile="agro"
+            isExisting={Boolean(editing)}
+          />
+          <div className="flex gap-3">
+            <Button onClick={saveEggSale} disabled={savingEggSale || totalEggsAllItems < 1 || form.items.some((i) => !i.size) || form.items.some((i) => i.size && getItemEggs(i) > getRemainingAvailable(i.size, i.key))}>
+              {savingEggSale ? "Guardando..." : editing ? "Actualizar Venta" : "Registrar Venta"}
+            </Button>
+            <Button variant="secondary" onClick={() => setModalOpen(false)}>Cancelar</Button>
+          </div>
+        </div>
+      </Modal>
+
+      {/* ─── Modal: Live Animal Sale ─── */}
+      <Modal open={birdModalOpen} onClose={() => setBirdModalOpen(false)} title={editingBird ? "Editar Venta de Animal" : "Nueva Venta de Animal"}>
+        <div className="space-y-4">
+          {birdError && <p className="text-sm text-red-600 bg-red-50 p-3 rounded-lg">{birdError}</p>}
+          <div className="grid grid-cols-2 gap-3">
+            <Input label="Fecha" type="date" value={birdForm.date} onChange={(e) => setBirdForm({ ...birdForm, date: e.target.value })} />
+            <Select label="Tipo / Especie" value={birdForm.birdType} onChange={(e) => {
+              const birdType = e.target.value;
+              setBirdForm((previous) => ({ ...previous, birdType, pricePerUnit: getBirdDefaultPrice(birdType, previous.weightKg, previous.priceMode) }));
+            }}>
+              {birdTypeOptions.map((t) => (
+                <option key={t} value={t}>{birdTypeLabels[t] || t}</option>
+              ))}
+            </Select>
+          </div>
+          <Select label="Gallina" value={birdForm.henId} onChange={(e) => handleBirdHenSelect(e.target.value)}>
+            <option value="">— Sin seleccionar —</option>
+            {hens.map((h) => (
+              <option key={h.id} value={h.id}>{h.code} — {h.weight} kg{h.status === "recomendada_sacrificio" ? " (Recomendada sacrificio)" : ""}</option>
+            ))}
+          </Select>
+          {birdForm.henId && (
+            <div className="p-3 bg-blue-50 rounded-lg text-sm text-blue-700 flex items-start gap-2">
+              <Info className="w-4 h-4 shrink-0 mt-0.5" aria-hidden="true" />
+              <span>Se seleccionó la gallina <strong>{hens.find((h) => h.id === birdForm.henId)?.code}</strong>. El peso se pre-llenó con su peso actual.</span>
+            </div>
+          )}
+          <Select label="Gallo" value={birdForm.roosterId} onChange={(e) => handleBirdRoosterSelect(e.target.value)}>
+            <option value="">— Sin gallo —</option>
+            {roosters.map((r) => (
+              <option key={r.id} value={r.id}>{r.code}{r.weight ? ` — ${r.weight} kg` : ""}</option>
+            ))}
+          </Select>
+          <Select label="Lote multiespecie" value={birdForm.batchId} onChange={(e) => handleBirdBatchSelect(e.target.value)}>
+            <option value="">— Sin lote —</option>
+            {batches.map((b) => (
+              <option key={b.id} value={b.id}>{b.code}{b.species ? ` (${birdTypeLabels[b.species] || b.species})` : ""} — {b.currentQuantity} disponibles{b.status === "listo_sacrificio" ? " (Listo)" : ""}</option>
+            ))}
+          </Select>
+          {!birdForm.henId && !birdForm.roosterId && !birdForm.batchId && (
+            <p className="text-xs text-slate-500">Seleccione una gallina, un gallo o un lote (obligatorio para descontar del inventario).</p>
+          )}
+          <div className="grid grid-cols-2 gap-3">
+            <Input label="Cantidad (animales)" type="number" min="1" value={birdForm.quantity} onChange={(e) => setBirdForm({ ...birdForm, quantity: e.target.value })} />
+              <Input label="Peso total (kg)" type="number" step="0.1" value={birdForm.weightKg} onChange={(e) => setBirdForm({ ...birdForm, weightKg: e.target.value, ...(birdForm.priceMode === "por_ave" ? { pricePerUnit: getBirdDefaultPrice(birdForm.birdType, e.target.value, birdForm.priceMode) } : {}) })} placeholder="Opcional" />
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <Select label="Precio por" value={birdForm.priceMode} onChange={(e) => setBirdForm({ ...birdForm, priceMode: e.target.value, pricePerUnit: getBirdDefaultPrice(birdForm.birdType, birdForm.weightKg, e.target.value) })}>
+              <option value="por_ave">Por animal</option>
+              <option value="por_kg">Por kg</option>
+            </Select>
+            <Input label={`Precio ($ ${birdForm.priceMode === "por_kg" ? "/kg" : "/animal"})`} type="number" step="1" value={birdForm.pricePerUnit} onChange={(e) => setBirdForm({ ...birdForm, pricePerUnit: e.target.value })} />
+          </div>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <ContactField
+              role="cliente"
+              label="Comprador"
+              value={birdForm.buyer}
+              onChange={(name, contact) => {
+                const days = contact?.creditDays || 0;
+                setBirdBuyerCreditDays(days);
+                setBirdForm({ ...birdForm, buyer: name });
+                if (birdIsCredit && days > 0 && !birdDueDate) {
+                  setBirdDueDate(computeCreditDueDate(birdForm.date, days));
+                }
+              }}
+            />
+            <Input label="Presentación" value={birdForm.presentation} onChange={(e) => setBirdForm({ ...birdForm, presentation: e.target.value })} placeholder="Ej: entera, despresada, por kg" />
+          </div>
+
+          <div className="flex items-center gap-2">
+            <input
+              type="checkbox"
+              id="birdIsCredit"
+              checked={birdIsCredit}
+              onChange={(e) => {
+                const checked = e.target.checked;
+                setBirdIsCredit(checked);
+                if (checked && birdBuyerCreditDays > 0 && !birdDueDate) {
+                  setBirdDueDate(computeCreditDueDate(birdForm.date, birdBuyerCreditDays));
+                }
+              }}
+              className="rounded"
+            />
+            <label htmlFor="birdIsCredit" className="text-sm font-medium text-gray-700">Venta a crédito</label>
+            <FieldTooltip text="Marca esta opción si la venta queda fiada o por cobrar." />
+          </div>
+          {birdIsCredit && (
+            <div>
+              <div className="flex items-center gap-1">
+                <label className="text-sm font-medium text-gray-700">Fecha vencimiento</label>
+                <FieldTooltip text="Plazo máximo en que el comprador debe pagar." />
+              </div>
+              <input type="date" value={birdDueDate} onChange={(e) => setBirdDueDate(e.target.value)} className="mt-1 block w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm focus:border-green-500 focus:ring-1 focus:ring-green-500" />
+            </div>
+          )}
+
+          <div className="p-3 bg-green-50 rounded-lg text-sm text-green-700">
+            <p className="flex items-center gap-1.5"><AppIcon icon="hen" className="w-4 h-4 shrink-0" /> Total aves: <strong className="text-lg">{birdForm.quantity}</strong></p>
+            {birdForm.weightKg && <p>Peso: <strong>{birdForm.weightKg} kg</strong></p>}
+            <p className="mt-1 flex items-center gap-1.5"><Banknote className="w-4 h-4 shrink-0" aria-hidden="true" /> Total de la venta: <strong className="text-xl">${birdTotal()}</strong></p>
+          </div>
+
+          <Textarea label="Notas" value={birdForm.notes} onChange={(e) => setBirdForm({ ...birdForm, notes: e.target.value })} />
+          <TaxDeductionsFields
+            grossAmount={Number(birdTotal())}
+            value={birdTaxFields}
+            onChange={setBirdTaxFields}
+            mode="ingreso"
+            profile="agro"
+            isExisting={Boolean(editingBird)}
+          />
+          <div className="flex gap-3">
+            <Button onClick={saveBirdSale} disabled={savingBirdSale || (!birdForm.henId && !birdForm.roosterId && !birdForm.batchId)}>
+              {savingBirdSale ? "Guardando..." : editingBird ? "Actualizar Venta" : "Registrar Venta"}
+            </Button>
+            <Button variant="secondary" onClick={() => setBirdModalOpen(false)}>Cancelar</Button>
+          </div>
+        </div>
+      </Modal>
+    </div>
+  );
+}

@@ -69,11 +69,13 @@ export async function transcribeVoiceNoteOnServer(
 ): Promise<{ configured: boolean; text?: string; error?: string }> {
   const form = new FormData();
   form.append("audio", note.audioBlob, `nota-${note.id}.webm`);
+  form.append("durationSec", String(note.durationSec));
 
   try {
     const res = await fetch("/api/asistente/transcribir", {
       method: "POST",
       credentials: "include",
+      headers: { "X-Gina-Request-Id": note.id },
       body: form,
     });
     const data = await res.json().catch(() => ({}));

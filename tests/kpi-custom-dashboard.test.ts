@@ -190,10 +190,10 @@ describe("API /api/analisis/kpis y /api/analisis/kpis/config conectados a granja
         {
           id: operatorId,
           farmId,
-          username: `oper_${operatorId.slice(0, 8)}`,
+          username: `fin_${operatorId.slice(0, 8)}`,
           passwordHash: "hash",
-          name: "Operario Test",
-          role: "operario",
+          name: "Financiero Test",
+          role: "financiero",
         },
       ]);
 
@@ -391,16 +391,28 @@ describe("API /api/analisis/kpis y /api/analisis/kpis/config conectados a granja
     expect(putOwnerBody.seededDefault).toBe(true);
     expect(putOwnerBody.config.preset).toBe("gerencial");
 
-    // Second user (operator) without own key inherits farm_default
+    // Operario sin analytics:read sigue bloqueado en /api/analisis/kpis/config
     vi.mocked(authMod.getSessionUser).mockResolvedValue({
       id: operatorId,
       farmId,
       username: `oper_${operatorId.slice(0, 8)}`,
-      name: "Operario Test",
+      name: "Operario Sin Acceso",
       role: "operario",
+    });
+    const operDeniedRes = await configGET(mockRequest("http://localhost/api/analisis/kpis/config"));
+    expect(operDeniedRes.status).toBe(403);
+
+    // Second user (financiero, con analytics:read y sin settings:manage) inherits farm_default
+    vi.mocked(authMod.getSessionUser).mockResolvedValue({
+      id: operatorId,
+      farmId,
+      username: `fin_${operatorId.slice(0, 8)}`,
+      name: "Financiero Test",
+      role: "financiero",
     });
 
     const opInitialRes = await configGET(mockRequest("http://localhost/api/analisis/kpis/config"));
+    expect(opInitialRes.status).toBe(200);
     const opInitial = await parseJson(opInitialRes);
     expect(opInitial.source).toBe("farm_default");
     expect(opInitial.config.preset).toBe("gerencial");

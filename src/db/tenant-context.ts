@@ -23,6 +23,8 @@ export function hasActiveFarmContext(): boolean {
  */
 export function runWithFarmContext<T>(farmId: string, fn: () => Promise<T>): Promise<T> {
   const cleanId = String(farmId || DEFAULT_FARM_ID).trim() || DEFAULT_FARM_ID;
-  return farmStorage.run({ farmId: cleanId, enforceRls: true }, fn);
+  // Envolver en `async () => await fn()` garantiza que incluso thenables perezosos (Drizzle)
+  // ejecuten su I/O antes de salir del contexto AsyncLocalStorage.
+  return farmStorage.run({ farmId: cleanId, enforceRls: true }, async () => await fn());
 }
 

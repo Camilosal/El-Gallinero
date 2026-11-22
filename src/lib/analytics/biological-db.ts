@@ -7,6 +7,7 @@ import {
   feedInventory,
   hens,
   roosters,
+  supplyInventory,
   weightLogs,
 } from "@/db/schema";
 import {
@@ -19,17 +20,21 @@ import {
   type FeedInventoryLike,
   type FlockLike,
   type LocationLike,
+  type BiologicalMarketPrices,
 } from "@/lib/analytics/biological-valuation";
+import type { SupplyWarehouseLike } from "@/lib/analytics/payroll-tax-supplies";
 import { syncMarketPricesSnapshot } from "@/lib/external-sources/wave1-territory-weather-market";
 import { computeUniformityStats } from "@/lib/zootechnics";
+import { loadSpeciesValuationPriceMaps } from "@/lib/species-db";
 
 export interface LoadedFarmBiologicalContext {
   locations: LocationLike[];
   assets: AssetLike[];
   feedRows: FeedInventoryLike[];
+  supplyRows: SupplyWarehouseLike[];
   batches: BroilerBatchLike[];
   flocks: FlockLike[];
-  marketOverrides: ReturnType<typeof buildMarketPriceOverridesFromSipsa>;
+  marketOverrides: BiologicalMarketPrices;
 }
 
 /**
@@ -52,7 +57,7 @@ export async function loadFarmBiologicalContext(options?: {
   } = options || {};
   const today = referenceDate || new Date().toISOString().slice(0, 10);
 
-  const [locRows, assetRows, feedInvRows, batchRows, henRows, roosterRows, recentWeights, marketSnap] =
+  const [locRows, assetRows, feedInvRows, supplyInvRows, batchRows, henRows, roosterRows, recentWeights, marketSnap, masterPrices] =
     await Promise.all([
       db
         .select({
@@ -79,6 +84,18 @@ export async function loadFarmBiologicalContext(options?: {
         .from(feedInventory)
         .where(farmId ? eq(feedInventory.farmId, farmId) : undefined),
       db
+        .select({
+          id: supplyInventory.id,
+          name: supplyInventory.name,
+          category: supplyInventory.category,
+          unit: supplyInventory.unit,
+          currentStock: supplyInventory.currentStock,
+          minStock: supplyInventory.minStock,
+          costPerUnit: supplyInventory.costPerUnit,
+        })
+        .from(supplyInventory)
+        .where(farmId ? eq(supplyInventory.farmId, farmId) : undefined),
+      db
         .select()
         .from(broilerBatches)
         .where(farmId ? and(eq(broilerBatches.farmId, farmId), eq(broilerBatches.status, "activo")) : eq(broilerBatches.status, "activo")),
@@ -97,6 +114,13 @@ export async function loadFarmBiologicalContext(options?: {
         .orderBy(desc(weightLogs.date))
         .limit(80),
       syncMarketPricesSnapshot().catch(() => null),
+      loadSpeciesValuationPriceMaps().catch(() => ({
+        meatKgCopBySpecies: {},
+        eggUnitCopBySpecies: {},
+        initialUnitCostCopBySpecies: {},
+        pointOfLayValueCopBySpecies: {},
+        breederUnitValueCopBySpecies: {},
+      })),
     ]);
 
   const latestWeightByBatch = new Map<string, { weightG: number; cvPct: number | null }>();
@@ -142,6 +166,16 @@ export async function loadFarmBiologicalContext(options?: {
     currentKg: f.currentStock,
     unitCost: f.costPerUnit,
     reorderLevelKg: f.minStock,
+  }));
+
+  const supplyRows: SupplyWarehouseLike[] = supplyInvRows.map((s) => ({
+    id: s.id,
+    name: s.name,
+    category: s.category,
+    unit: s.unit,
+    currentStock: s.currentStock,
+    minStock: s.minStock,
+    costPerUnit: s.costPerUnit,
   }));
 
   const batches: BroilerBatchLike[] = [];
@@ -248,9 +282,19 @@ export async function loadFarmBiologicalContext(options?: {
     locations,
     assets,
     feedRows,
+    supplyRows,
     batches,
     flocks,
-    marketOverrides: buildMarketPriceOverridesFromSipsa(marketSnap?.payload),
+    marketOverrides: (() => {
+      const sipsa = buildMarketPriceOverridesFromSipsa(marketSnap?.payload);
+      return {
+        meatKgCopBySpecies: { ...sipsa.meatKgCopBySpecies, ...masterPrices.meatKgCopBySpecies },
+        eggUnitCopBySpecies: { ...sipsa.eggUnitCopBySpecies, ...masterPrices.eggUnitCopBySpecies },
+        initialUnitCostCopBySpecies: masterPrices.initialUnitCostCopBySpecies,
+        pointOfLayValueCopBySpecies: masterPrices.pointOfLayValueCopBySpecies,
+        breederUnitValueCopBySpecies: masterPrices.breederUnitValueCopBySpecies,
+      };
+    })(),
   };
 }
 

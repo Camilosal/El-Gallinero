@@ -3,16 +3,16 @@ import Link from "next/link";
 import { PublicPageShell } from "@/components/LegalPage";
 import { buildPageMetadata, buildSoftwareNode } from "@/lib/seo";
 
-const TITLE = "Código abierto y soberanía de datos · El Gallinero";
+const TITLE = "Código abierto y soberanía de datos · IwaGranja";
 const DESCRIPTION =
-  "Modelo Open Source de El Gallinero: fórmulas zootécnicas auditables, despliegue propio con Docker y PostgreSQL y aportes desde campo o código.";
+  "Modelo Open Source de IwaGranja: fórmulas zootécnicas auditables, despliegue propio con Docker y PostgreSQL y aportes desde campo o código.";
 
 export const metadata: Metadata = buildPageMetadata({
   title: TITLE,
   description: DESCRIPTION,
   path: "/open-source",
   ogImage: "/images/guia/inicio-dashboard.webp",
-  ogImageAlt: "Plataforma abierta El Gallinero para granjas mixtas",
+  ogImageAlt: "Plataforma abierta IwaGranja para granjas mixtas",
 });
 
 const PILLARS = [
@@ -20,13 +20,13 @@ const PILLARS = [
     code: "01 · TRANSPARENCIA",
     title: "Fórmulas y reglas auditables",
     detail:
-      "Puedes revisar cómo se calcula la conversión alimenticia (FCR), el punto de equilibrio por especie, la salida PEPS de cubetas NTC 1240 y los bloqueos por tiempo de retiro sanitario.",
+      "Puedes revisar cómo se calcula la conversión alimenticia (FCR), el punto de equilibrio por especie, la salida PEPS de cubetas NTC 1240 y los bloqueos por tiempo de retiro sanitario. También la capa agéntica: las herramientas del asistente, la API v1 y el servidor MCP comparten un mismo ejecutor con piso duro de confirmación para escrituras sensibles.",
   },
   {
     code: "02 · SOBERANÍA",
     title: "Tus datos son tuyos, siempre",
     detail:
-      "Puedes desplegar El Gallinero en tu propio servidor con Docker y PostgreSQL o usar la nube gestionada en gallinero.iwage.co, sin quedar amarrado a un proveedor ni perder tus registros.",
+      "Puedes desplegar IwaGranja en tu propio servidor con Docker y PostgreSQL o usar la nube gestionada en app.iwage.co, sin quedar amarrado a un proveedor ni perder tus registros.",
   },
   {
     code: "03 · EVOLUCIÓN EN CAMPO",
@@ -57,7 +57,7 @@ const CONTRIBUTE_WAYS = [
     role: "Desarrolladores y diseñadores",
     action: "Envía Issues y Pull Requests",
     summary:
-      "Stack moderno en Next.js (App Router), TypeScript, Drizzle ORM, PostgreSQL y Tailwind CSS, listo para levantar en local con pruebas automatizadas.",
+      "Stack moderno en Next.js (App Router), TypeScript, Drizzle ORM, PostgreSQL y Tailwind CSS, listo para levantar en local con pruebas automatizadas. Puedes aportar herramientas al agente o conectar clientes vía API v1 y MCP.",
     href: "https://github.com/Camilosal/El-Gallinero",
     cta: "Ir al repositorio en GitHub ↗",
     external: true,
@@ -68,7 +68,7 @@ export default function OpenSourcePage() {
   return (
     <PublicPageShell
       title="Open Source y participación"
-      intro="El Gallinero es software abierto pensado para que las granjas pequeñas y medianas tengan control total sobre su operación y sus datos."
+      intro="IwaGranja es software abierto pensado para que las granjas pequeñas y medianas tengan control total sobre su operación y sus datos."
       path="/open-source"
       description={DESCRIPTION}
       extraJsonLdNodes={[buildSoftwareNode()]}
@@ -107,7 +107,7 @@ export default function OpenSourcePage() {
             Cómo puedes participar (con o sin código)
           </h2>
           <p className="mt-2 text-sm text-slate-700">
-            No necesitas saber programar para aportar. Gran parte del valor de El Gallinero viene de quienes trabajan
+            No necesitas saber programar para aportar. Gran parte del valor de IwaGranja viene de quienes trabajan
             todos los días con aves, conejos, cuyes y compostaje.
           </p>
           <div className="mt-5 grid gap-4 md:grid-cols-3">
@@ -183,6 +183,12 @@ export default function OpenSourcePage() {
               className="inline-flex items-center gap-2 rounded-lg border border-slate-300 bg-white px-4 py-2.5 text-sm font-semibold text-slate-800 hover:bg-slate-50"
             >
               Probar granja en la nube →
+            </Link>
+            <Link
+              href="/guia/integraciones-erp-agentes"
+              className="inline-flex items-center gap-2 rounded-lg border border-slate-300 bg-white px-4 py-2.5 text-sm font-semibold text-slate-800 hover:bg-slate-50"
+            >
+              Guía de API v1 y MCP →
             </Link>
           </div>
         </section>

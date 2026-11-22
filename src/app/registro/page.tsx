@@ -9,13 +9,14 @@ import {
   Check,
   CheckCircle2,
   Copy,
-  Egg,
   KeyRound,
   Leaf,
   ShieldCheck,
 } from "lucide-react";
+import { BrandLogo } from "@/components/BrandLogo";
 import { DeveloperCredit } from "@/components/DeveloperCredit";
 import { LegalLinksBar } from "@/components/LegalLinksBar";
+import { PublicNavigation } from "@/components/PublicNavigation";
 import { trackAnalyticsEvent } from "@/components/AnalyticsTracker";
 
 function fallbackCopyText(text: string): boolean {
@@ -153,12 +154,12 @@ export default function RegistroPage() {
           farmName: data.farm?.name || farmName,
           username: data.user?.username || username,
           recoveryCode: String(data.recoveryCode),
-          redirectTo: data.redirectTo || "/dashboard?wizard=1",
+          redirectTo: data.redirectTo || "/inicio?wizard=1",
         });
         setLoading(false);
         return;
       }
-      router.push(data.redirectTo || "/dashboard?wizard=1");
+      router.push(data.redirectTo || "/inicio?wizard=1");
       router.refresh();
     } catch {
       setError("Error de conexión. Revisa tu señal e intenta de nuevo.");
@@ -167,14 +168,18 @@ export default function RegistroPage() {
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-earth-100 via-earth-50 to-amber-50 p-4">
+    <div className="flex min-h-screen flex-col bg-gradient-to-br from-earth-100 via-earth-50 to-amber-50">
+      <PublicNavigation sticky={false} action={null} />
+      <main className="flex flex-1 items-center justify-center p-4">
       <div className="w-full max-w-md bg-white rounded-2xl shadow-xl border border-earth-200 p-6 sm:p-8">
         <div className="text-center mb-6">
-          <div className="inline-flex items-center justify-center w-14 h-14 rounded-2xl bg-gradient-to-br from-emerald-700 to-amber-600 shadow-md mb-3">
-            <Egg className="w-7 h-7 text-white" />
-          </div>
+          <BrandLogo
+            variant="square"
+            size={96}
+            className="mx-auto mb-3 rounded-2xl bg-[#faf6ec] p-1.5 border border-earth-200 shadow-sm"
+          />
           <p className="text-xs font-bold uppercase tracking-wider text-emerald-700">
-            Iwagé Granja · Plan Semilla
+            IwaGranja · Plan Gratis
           </p>
           <h1 className="text-2xl font-bold text-slate-900 mt-1">
             {createdAccount
@@ -380,7 +385,7 @@ export default function RegistroPage() {
             <ul className="mt-5 space-y-1.5 text-xs text-slate-600">
               <li className="flex items-center gap-1.5">
                 <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
-                1 lote o unidad productiva gratis para siempre + 30 días de prueba completa
+                1 usuario, 1 localización y hasta 1 lote activo por especie · sin periodo de prueba
               </li>
               <li className="flex items-center gap-1.5">
                 <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
@@ -400,12 +405,13 @@ export default function RegistroPage() {
         <div className="mt-6 text-center space-y-1.5">
           <div className="inline-flex items-center gap-1.5 text-xs text-slate-500">
             <Leaf className="w-3.5 h-3.5" />
-            <span>Iwagé Granja · Estándar ICA / NTC 1240</span>
+            <span>IwaGranja · Estándar ICA / NTC 1240</span>
           </div>
           <DeveloperCredit variant="inline" className="justify-center" />
           <LegalLinksBar className="pt-1" />
         </div>
       </div>
+      </main>
     </div>
   );
 }

@@ -12,6 +12,8 @@ import { computeAnimalInventory } from "@/lib/animal-inventory";
 import { summarizeHens, summarizeRoosters } from "@/lib/animal-status";
 import { getInventoryPrices } from "@/lib/settings";
 import { withApiHandler, safeParseJson } from "@/lib/api-handler";
+import { getSessionUser } from "@/lib/auth";
+import { canPerformAction } from "@/lib/rbac";
 
 export const dynamic = "force-dynamic";
 
@@ -267,6 +269,19 @@ export const GET = withApiHandler(async (req: NextRequest) => {
   // Valor total del inventario
   const totalValue = Math.round((totalFoodValue + eggValue + totalSuppliesValue + totalMeatValue + birdsValue + manureValue) * 100) / 100;
 
+  const user = await getSessionUser();
+  const canSeePrices = canPerformAction(user?.role, "sales:read");
+  const canSeeValues = canPerformAction(user?.role, "finance:read");
+  const visibleAnimals = canSeeValues
+    ? animalInv
+    : {
+        ...animalInv,
+        summary: { ...animalInv.summary, totalValue: null },
+        species: animalInv.species.map((species) => ({ ...species, estimatedValue: null })),
+        groups: animalInv.groups.map((group) => ({ ...group, pricePerKg: null, estimatedValue: null })),
+      };
+  const visibleBirds = { ...birds, animals: visibleAnimals, species: visibleAnimals.species };
+
   return NextResponse.json({
     generatedAt: today.toISOString(),
     periodDays: days,
@@ -281,23 +296,31 @@ export const GET = withApiHandler(async (req: NextRequest) => {
       totalBirdsActive: animalInv.summary.totalBirds,
       totalEggsAvailable: eggInv.summary.available,
       totalManureKg: manure.currentStockKg,
-      totalValue,
-      foodValue: Math.round(totalFoodValue * 100) / 100,
-      eggValue: Math.round(eggValue * 100) / 100,
-      birdsValue: Math.round(birdsValue * 100) / 100,
+      totalValue: canSeeValues ? totalValue : null,
+      foodValue: canSeeValues ? Math.round(totalFoodValue * 100) / 100 : null,
+      eggValue: canSeeValues ? Math.round(eggValue * 100) / 100 : null,
+      birdsValue: canSeeValues ? Math.round(birdsValue * 100) / 100 : null,
       totalBirdsWeightKg: Math.round(totalBirdsWeightKg * 100) / 100,
       totalSupplies: supplies.length,
       lowStockSupplies: supplies.filter((s) => s.isLow).length,
       totalMeatKg: Math.round(totalMeatKg * 100) / 100,
-      suppliesValue: Math.round(totalSuppliesValue * 100) / 100,
-      meatValue: Math.round(totalMeatValue * 100) / 100,
-      manureValue: Math.round(manureValue * 100) / 100,
+      suppliesValue: canSeeValues ? Math.round(totalSuppliesValue * 100) / 100 : null,
+      meatValue: canSeeValues ? Math.round(totalMeatValue * 100) / 100 : null,
+      manureValue: canSeeValues ? Math.round(manureValue * 100) / 100 : null,
       totalDeaths,
     },
-    foods: foodItems,
-    eggs: eggSummary,
-    birds,
-    animals: animalInv,
+    foods: foodItems.map((food) => ({
+      ...food,
+      costPerUnit: canSeeValues ? food.costPerUnit : null,
+      estimatedValue: canSeeValues ? food.estimatedValue : null,
+    })),
+    eggs: eggSummary.map((egg) => ({
+      ...egg,
+      price: canSeePrices ? egg.price : null,
+      value: canSeeValues ? egg.value : null,
+    })),
+    birds: visibleBirds,
+    animals: visibleAnimals,
     manure,
     movements: {
       entriesByType,
@@ -305,8 +328,17 @@ export const GET = withApiHandler(async (req: NextRequest) => {
       totalEntries: Math.round(totalEntries * 100) / 100,
       totalExits: Math.round(totalExits * 100) / 100,
     },
-    supplies,
-    meat,
+    supplies: supplies.map((supply) => ({
+      ...supply,
+      costPerUnit: canSeeValues ? supply.costPerUnit : null,
+      estimatedValue: canSeeValues ? supply.estimatedValue : null,
+      supplier: canSeeValues ? supply.supplier : null,
+    })),
+    meat: meat.map((lot) => ({
+      ...lot,
+      estimatedPriceKg: canSeePrices ? lot.estimatedPriceKg : null,
+      estimatedValue: canSeeValues ? lot.estimatedValue : null,
+    })),
     mortality: {
       byCause: mortalityByCause,
       totalDeaths,

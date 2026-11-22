@@ -6,7 +6,7 @@ import { ChevronRight, Home } from "lucide-react";
 import { resolveDashboardBreadcrumb } from "@/lib/breadcrumbs";
 
 export default function DashboardBreadcrumb({ className = "mb-3" }: { className?: string }) {
-  const pathname = usePathname() || "/dashboard";
+  const pathname = usePathname() || "/inicio";
   const searchParams = useSearchParams();
   const query = searchParams.toString();
   const items = resolveDashboardBreadcrumb(pathname, query);

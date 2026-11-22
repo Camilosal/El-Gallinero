@@ -55,7 +55,7 @@ export const GET = withApiHandler(async () => {
 
 export const POST = withApiHandler(async () => NextResponse.json({
   error: "Registra las nuevas gallinas desde Adquisiciones para conservar su origen.",
-  href: "/dashboard/produccion/adquisiciones?nuevo=gallina",
+  href: "/produccion/adquisiciones?nuevo=gallina",
 }, { status: 409 }));
 
 export const PUT = withApiHandler(async (req: NextRequest) => {

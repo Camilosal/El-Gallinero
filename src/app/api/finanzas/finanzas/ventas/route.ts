@@ -14,6 +14,8 @@ import {
 } from "@/lib/financial-records";
 import { resolveDimensions } from "@/lib/analytics-dimensions";
 import { assertDateNotClosed, assertNoActiveWithdrawal } from "@/lib/sanitary-locks";
+import { resolveManagedTransactionTaxColumns } from "@/lib/analytics/payroll-tax-supplies";
+import { getTaxAndPayrollConfig } from "@/lib/settings";
 
 export const dynamic = "force-dynamic";
 
@@ -64,10 +66,12 @@ export const GET = withApiHandler(async () => {
   const data = await db.select().from(eggSales).orderBy(desc(eggSales.date)).limit(100);
   if (data.length === 0) return NextResponse.json([]);
   const saleIds = data.map((sale) => sale.id);
-  const [items, creditMetaMap] = await Promise.all([
+  const [items, creditMetaMap, taxRows] = await Promise.all([
     db.select().from(eggSalesItems).where(inArray(eggSalesItems.saleId, saleIds)),
     getCreditMetaBySourceIds("venta", saleIds),
+    db.select().from(transactions).where(and(eq(transactions.sourceType, "venta"), inArray(transactions.sourceId, saleIds))),
   ]);
+  const taxBySale = new Map(taxRows.map((row) => [row.sourceId, row]));
   const itemsBySale = new Map<string, typeof items>();
   for (const item of items) {
     const saleItems = itemsBySale.get(item.saleId) || [];
@@ -77,8 +81,14 @@ export const GET = withApiHandler(async () => {
   return NextResponse.json(
     data.map((sale) => {
       const creditMeta = creditMetaMap.get(sale.id);
+      const tax = taxBySale.get(sale.id);
       return {
         ...sale,
+        ivaRate: tax?.ivaRate ?? null,
+        reteFuenteRate: tax?.reteFuenteRate ?? null,
+        icaRate: tax?.icaRate ?? null,
+        otherDeductionsAmount: tax?.otherDeductionsAmount ?? null,
+        taxNotes: tax?.taxNotes ?? null,
         transactionId: creditMeta?.transactionId || null,
         isCredit: creditMeta?.isCredit ?? false,
         dueDate: creditMeta?.dueDate || null,
@@ -90,7 +100,7 @@ export const GET = withApiHandler(async () => {
 
 // POST /api/finanzas/finanzas/ventas
 export const POST = withApiHandler(async (req: NextRequest) => {
-  const denied = await requirePermission("finance:write");
+  const denied = await requirePermission("sales:write");
   if (denied) return denied;
   const body = await safeParseJson(req);
   if (!body || typeof body !== "object") return NextResponse.json({ error: "Cuerpo inválido" }, { status: 400 });
@@ -109,6 +119,8 @@ export const POST = withApiHandler(async (req: NextRequest) => {
   if (!Number.isFinite(grandTotal) || grandTotal <= 0 || !Number.isSafeInteger(totalQuantity)) {
     return NextResponse.json({ error: "Total de venta inválido" }, { status: 400 });
   }
+  const taxConfig = await getTaxAndPayrollConfig();
+  const taxResolved = resolveManagedTransactionTaxColumns(body, grandTotal, taxConfig, "agro");
 
   const result = await db.transaction(async (tx) => {
     await lockEggInventory(tx);
@@ -170,7 +182,8 @@ export const POST = withApiHandler(async (req: NextRequest) => {
       type: "ingreso",
       category: "Venta de huevos",
       description: `Venta de ${sizeDesc}${body.buyer ? ` a ${body.buyer}` : ""}`,
-      amount: grandTotal.toFixed(2),
+      amount: taxResolved.amount,
+      ...taxResolved.columns,
       quantity: String(totalQuantity),
       unitPrice: items.length === 1 ? String(items[0].pricePerUnit) : null,
       unit: "unidades",
@@ -185,7 +198,7 @@ export const POST = withApiHandler(async (req: NextRequest) => {
     if (body.isCredit) {
       await syncCreditReceivable(tx, {
         transactionId: txRow.id,
-        totalAmount: grandTotal,
+        totalAmount: grandTotal.toFixed(2),
         isCredit: true,
         dueDate: body.dueDate || null,
         buyer: body.buyer || null,
@@ -199,7 +212,7 @@ export const POST = withApiHandler(async (req: NextRequest) => {
 
 // PUT /api/finanzas/finanzas/ventas
 export const PUT = withApiHandler(async (req: NextRequest) => {
-  const denied = await requirePermission("finance:write");
+  const denied = await requirePermission("sales:write");
   if (denied) return denied;
   const body = await safeParseJson(req);
   if (!body || typeof body !== "object") return NextResponse.json({ error: "Cuerpo inválido" }, { status: 400 });
@@ -219,7 +232,6 @@ export const PUT = withApiHandler(async (req: NextRequest) => {
   if (!Number.isFinite(grandTotal) || grandTotal <= 0 || !Number.isSafeInteger(totalQuantity)) {
     return NextResponse.json({ error: "Total de venta inválido" }, { status: 400 });
   }
-
   const result = await db.transaction(async (tx) => {
     await lockEggInventory(tx);
     const [currentSale] = await tx.select({ id: eggSales.id }).from(eggSales).where(eq(eggSales.id, body.id));
@@ -277,6 +289,8 @@ export const PUT = withApiHandler(async (req: NextRequest) => {
 
     const [existing] = await tx.select().from(transactions)
       .where(and(eq(transactions.sourceType, "venta"), eq(transactions.sourceId, body.id)));
+    const taxConfig = await getTaxAndPayrollConfig();
+    const taxResolved = resolveManagedTransactionTaxColumns(body, grandTotal, taxConfig, "agro", existing);
 
     const sizeDesc = items.length === 1
       ? items[0].size
@@ -284,7 +298,8 @@ export const PUT = withApiHandler(async (req: NextRequest) => {
     const values = {
       date: body.date,
       description: `Venta de ${sizeDesc}${body.buyer ? ` a ${body.buyer}` : ""}`,
-      amount: grandTotal.toFixed(2),
+      amount: taxResolved.amount,
+      ...taxResolved.columns,
       quantity: String(totalQuantity),
       unitPrice: items.length === 1 ? String(items[0].pricePerUnit) : null,
       unit: "unidades",
@@ -306,7 +321,7 @@ export const PUT = withApiHandler(async (req: NextRequest) => {
     if (currentTx) {
       await syncCreditReceivable(tx, {
         transactionId: currentTx.id,
-        totalAmount: grandTotal,
+        totalAmount: grandTotal.toFixed(2),
         isCredit: Boolean(body.isCredit),
         dueDate: body.dueDate,
         buyer: body.buyer || null,
@@ -320,7 +335,7 @@ export const PUT = withApiHandler(async (req: NextRequest) => {
 
 // DELETE /api/finanzas/finanzas/ventas
 export const DELETE = withApiHandler(async (req: NextRequest) => {
-  const denied = await requirePermission("finance:write");
+  const denied = await requirePermission("sales:write");
   if (denied) return denied;
   const { searchParams } = new URL(req.url);
   const id = searchParams.get("id");

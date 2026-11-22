@@ -7,6 +7,8 @@ import { withApiHandler, safeParseJson } from "@/lib/api-handler";
 import { deleteTransactionsAndUnpaidAccounts } from "@/lib/financial-records";
 import { normalizeFeedCategory, normalizeFeedType } from "@/lib/feed-classification";
 import { parseOptionalPercent } from "@/lib/feeding/ration";
+import { getSessionUser } from "@/lib/auth";
+import { canPerformAction } from "@/lib/rbac";
 
 export const dynamic = "force-dynamic";
 
@@ -17,8 +19,14 @@ export const GET = withApiHandler(async (req: NextRequest) => {
 
   const items = await getFeedInventoryProjection(days);
 
+  const user = await getSessionUser();
+  const canSeeCosts = canPerformAction(user?.role, "finance:read");
+  const visibleItems = canSeeCosts
+    ? items
+    : items.map((item) => ({ ...item, costPerUnit: null, supplier: null }));
+
   // Contrato histórico del endpoint: array plano de alimentos.
-  return NextResponse.json(items);
+  return NextResponse.json(visibleItems);
 });
 
 export const POST = withApiHandler(async (req: NextRequest) => {

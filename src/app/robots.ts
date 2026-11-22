@@ -1,10 +1,12 @@
 import type { MetadataRoute } from "next";
 import { SITE_URL } from "@/lib/seo";
+import { APP_ROUTE_PREFIXES } from "@/lib/app-routes";
 
 const PRIVATE_DISALLOW = [
   "/api/",
   "/admin",
   "/dashboard",
+  ...APP_ROUTE_PREFIXES,
   "/login",
   "/*?s=",
   "/*?busqueda=",

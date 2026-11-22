@@ -3,7 +3,6 @@ import {
   SPECIES_PARAMS,
   getSpeciesParams,
   calcularRentabilidadLote,
-  MARKET_PRICE_PER_KG,
 } from "@/lib/species-params";
 import { batchReadiness } from "@/lib/flock";
 import { computeMeatInventory } from "@/lib/inventory";
@@ -26,6 +25,8 @@ describe("Parámetros Zootécnicos Multiespecie y Calculadoras", () => {
     expect(codorniz?.cycleWeeks).toBe(6);
     expect(codorniz?.targetWeightKg).toBe(0.16);
     expect(codorniz?.carcassYieldPercent).toBe(65);
+    expect(codorniz?.feedCostPerKgCOP).toBe(0);
+    expect(codorniz?.marketPriceKgCanalCOP).toBe(0);
 
     const conejo = getSpeciesParams("conejo");
     expect(conejo).toBeDefined();
@@ -41,7 +42,11 @@ describe("Parámetros Zootécnicos Multiespecie y Calculadoras", () => {
   });
 
   it("calcularRentabilidadLote debe calcular correctamente costo de alimento, canal, ahorro e ingresos", () => {
-    const polloParams = getSpeciesParams("pollo")!;
+    const polloParams = {
+      ...getSpeciesParams("pollo")!,
+      feedCostPerKgCOP: 2800,
+      marketPriceKgCanalCOP: 14000,
+    };
     // Lote de 20 pollos, 5 para hogar (autoconsumo), 15 para venta
     const calc = calcularRentabilidadLote(polloParams, 20, 40000, 5, 15);
 
@@ -52,7 +57,7 @@ describe("Parámetros Zootécnicos Multiespecie y Calculadoras", () => {
     // 15 para venta = 27 kg canal
     expect(calc.kgCanalExcedente).toBeCloseTo(27, 1);
 
-    // Ahorro familiar: 9 kg * $14.000 = $126.000
+    // El ahorro usa el precio maestro entregado en los parámetros del cálculo.
     expect(calc.ahorroAutoconsumo).toBeCloseTo(126000, 0);
     // Ingreso excedente: 27 kg * $14.000 = $378.000
     expect(calc.ingresoExcedentes).toBeCloseTo(378000, 0);

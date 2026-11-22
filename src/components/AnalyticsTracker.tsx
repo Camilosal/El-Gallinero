@@ -47,7 +47,7 @@ export function detectAttributionSource(): string | null {
 
     if (ref.includes("google.")) return "buscador:google";
     if (ref.includes("bing.")) return "buscador:bing";
-    if (ref.includes("iwage.co") && !ref.includes("gallinero.iwage.co")) {
+    if (ref.includes("iwage.co") && !ref.includes("app.iwage.co")) {
       return "ecosistema:iwage.co";
     }
     if (ref.includes("camilosaldarriaga.com")) {
@@ -58,7 +58,7 @@ export function detectAttributionSource(): string | null {
     }
 
     const hostname = new URL(ref).hostname;
-    if (hostname && !hostname.includes("gallinero.iwage.co")) {
+    if (hostname && !hostname.includes("app.iwage.co")) {
       return `referente:${hostname}`;
     }
     return null;

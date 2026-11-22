@@ -1,6 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
 import { safeParseJson, withApiHandler } from "@/lib/api-handler";
+import { createHash } from "node:crypto";
+import { getSessionUser } from "@/lib/auth";
+import { getCurrentFarmId } from "@/db/tenant-context";
 import { getVisionConfig } from "@/lib/agent/config";
+import { getFarmSubscriptionStatus } from "@/lib/subscription";
+import { finishGinaUsage, getGinaQuotaSnapshot, reserveGinaUsage } from "@/lib/pricing/gina-quota";
 import {
   OCR_MODES,
   parseColombianAgroDocument,
@@ -97,13 +102,15 @@ export const POST = withApiHandler(async (req: NextRequest) => {
     return NextResponse.json({ error: "Cuerpo JSON inválido." }, { status: 400 });
   }
 
-  const mode = (typeof body.mode === "string" ? body.mode.trim() : "") as OcrExtractionMode;
-  if (!(OCR_MODES as readonly string[]).includes(mode)) {
+  const rawMode = typeof body.mode === "string" ? body.mode.trim() : "";
+  const wantsAutoMode = !rawMode || rawMode === "auto";
+  if (!wantsAutoMode && !(OCR_MODES as readonly string[]).includes(rawMode)) {
     return NextResponse.json(
-      { error: "Modo OCR inválido. Usa factura_compra, etiqueta_ica, comprobante_pago o rut_contacto." },
+      { error: "Modo OCR inválido. Usa auto, factura_compra, etiqueta_ica, comprobante_pago o rut_contacto." },
       { status: 400 },
     );
   }
+  let mode = (wantsAutoMode ? "factura_compra" : rawMode) as OcrExtractionMode;
 
   const dataUrl = typeof body.dataUrl === "string" ? body.dataUrl.trim() : "";
   const textHint = typeof body.textHint === "string" ? body.textHint.trim() : "";
@@ -116,17 +123,92 @@ export const POST = withApiHandler(async (req: NextRequest) => {
     );
   }
 
+  const user = await getSessionUser();
+  if (!user) return NextResponse.json({ error: "No autenticado" }, { status: 401 });
+  const farmId = (user as { farmId?: string | null }).farmId || getCurrentFarmId();
+  const subscription = await getFarmSubscriptionStatus(farmId);
+  let reservation: Awaited<ReturnType<typeof reserveGinaUsage>> | null = null;
+  if (dataUrl) {
+    reservation = await reserveGinaUsage({
+      farmId,
+      userId: user.id,
+      entitlements: subscription.entitlements,
+      modality: "attachment",
+      requestId: req.headers.get("x-gina-request-id"),
+      requestFingerprint: createHash("sha256").update(dataUrl).digest("hex"),
+    });
+    if (!reservation.allowed) {
+      const status = reservation.code === "GINA_QUOTA_EXCEEDED" ? 429 : 409;
+      return NextResponse.json({ error: reservation.error, code: reservation.code, quota: reservation.quota }, { status });
+    }
+  }
+
+  try {
+  const [{ classifyOcrDocumentWithJev }, { ICA_VETERINARY_VADEMECUM }] = await Promise.all([
+    import("@/lib/agent/jev-capabilities"),
+    import("@/lib/external-sources/wave2-standards-sanitary-ica"),
+  ]);
+
+  if (wantsAutoMode) {
+    const preDetect = await classifyOcrDocumentWithJev({
+      requestedMode: "auto",
+      text: textHint,
+      fileName,
+    });
+    mode = preDetect.detectedMode;
+  }
+
   const visionResult = dataUrl ? await callMultimodalVision(mode, dataUrl, textHint) : null;
   const combinedText = [textHint, visionResult?.rawText || ""].filter(Boolean).join("\n");
+  const jevSuggestions = await classifyOcrDocumentWithJev({
+    requestedMode: wantsAutoMode ? "auto" : mode,
+    text: combinedText,
+    fileName,
+    vademecumItems: ICA_VETERINARY_VADEMECUM,
+  });
+  if (wantsAutoMode) {
+    mode = jevSuggestions.detectedMode;
+  }
+
   const deterministic = parseColombianAgroDocument(mode, combinedText, fileName);
   const extracted = mergeVisionWithDeterministic(deterministic, visionResult?.parsedJson);
 
+  if (mode === "factura_compra" && extracted && typeof extracted === "object") {
+    const rec = extracted as unknown as Record<string, unknown>;
+    if (!rec.suggestedCategory && jevSuggestions.suggestedExpenseCategory) {
+      rec.suggestedCategory = jevSuggestions.suggestedExpenseCategory;
+    }
+    if (!rec.suggestedSpecies && jevSuggestions.suggestedSpecies) {
+      rec.suggestedSpecies = jevSuggestions.suggestedSpecies;
+    }
+  } else if (mode === "etiqueta_ica" && jevSuggestions.matchedIcaItem && extracted && typeof extracted === "object") {
+    const rec = extracted as unknown as Record<string, unknown>;
+    if (!rec.productName) rec.productName = jevSuggestions.matchedIcaItem.commercialName;
+    if (!rec.icaRegistration) rec.icaRegistration = jevSuggestions.matchedIcaItem.icaRegistration;
+    if (rec.withdrawalDays === undefined || rec.withdrawalDays === null) {
+      rec.withdrawalDays = Math.max(
+        jevSuggestions.matchedIcaItem.withdrawalDaysEggs,
+        jevSuggestions.matchedIcaItem.withdrawalDaysMeat,
+      );
+    }
+  }
+
+  if (reservation?.allowed) await finishGinaUsage(reservation.eventId, true);
+  const quota = reservation?.allowed
+    ? await getGinaQuotaSnapshot({ farmId, userId: user.id, entitlements: subscription.entitlements })
+    : null;
   return NextResponse.json({
     ok: true,
     mode,
     provider: visionResult ? "vision+deterministic" : "deterministic",
     extractedText: combinedText || fileName || null,
     extracted,
+    jevSuggestions,
+    ...(quota ? { ginaQuota: quota } : {}),
   });
+  } catch (error) {
+    if (reservation?.allowed) await finishGinaUsage(reservation.eventId, false).catch(() => undefined);
+    throw error;
+  }
 });
 

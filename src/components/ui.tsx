@@ -12,9 +12,24 @@ import {
 } from "react";
 import { X } from "lucide-react";
 import { AppIcon } from "@/components/AppIcon";
-import { HeroBanner } from "@/components/HeroBanner";
+import {
+  HeroActionAnchor,
+  HeroActionButton,
+  HeroActionLink,
+  HeroBanner,
+  heroActionClassName,
+  type HeroActionTone,
+} from "@/components/HeroBanner";
 import type { HeroThemeKey } from "@/lib/hero-themes";
 import { resolveDefaultFieldHelp } from "@/lib/field-help";
+
+export {
+  HeroActionAnchor,
+  HeroActionButton,
+  HeroActionLink,
+  heroActionClassName,
+  type HeroActionTone,
+};
 
 // ─── Tooltip (accesible por mouse, teclado y toque en celular) ───
 export function Tooltip({ text, children }: { text: string; children?: ReactNode }) {

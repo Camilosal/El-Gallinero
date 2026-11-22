@@ -42,6 +42,7 @@ import {
   type QueuedOfflineBugReport,
 } from "@/lib/bug-report";
 import { apiFetch } from "@/lib/fetch";
+import type { BugTriageGuidance } from "@/lib/agent/jev-capabilities";
 import { Badge, Button, Input, Select, Textarea } from "@/components/ui";
 
 interface UserContextLite {
@@ -65,7 +66,7 @@ const STATUS_BADGE_COLOR: Record<string, string> = {
 };
 
 export default function BugReportModal() {
-  const pathname = usePathname() || "/dashboard";
+  const pathname = usePathname() || "/inicio";
   const searchParams = useSearchParams();
   const queryString = searchParams.toString();
 
@@ -91,6 +92,7 @@ export default function BugReportModal() {
     reportCode?: string;
     tags: string[];
     originModule: string;
+    guidance?: BugTriageGuidance | null;
   } | null>(null);
 
   const [historyLoading, setHistoryLoading] = useState(false);
@@ -344,7 +346,12 @@ export default function BugReportModal() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload),
       });
-      const json = (await res.json()) as { ok?: boolean; error?: string; report?: BugReportRecord };
+      const json = (await res.json()) as {
+        ok?: boolean;
+        error?: string;
+        report?: BugReportRecord;
+        guidance?: BugTriageGuidance | null;
+      };
       if (!res.ok) {
         throw new Error(json?.error || "No se pudo enviar el reporte.");
       }
@@ -354,6 +361,7 @@ export default function BugReportModal() {
         reportCode: json.report?.reportCode,
         tags: json.report?.tags || tags,
         originModule: json.report?.originModule || origin.originModule,
+        guidance: json.guidance ?? null,
       });
       window.dispatchEvent(new CustomEvent(BUG_REPORT_UPDATED_EVENT));
       void loadHistory();
@@ -458,7 +466,7 @@ export default function BugReportModal() {
             </button>
           </div>
           <Link
-            href="/dashboard/configuracion/fallas"
+            href="/configuracion/fallas"
             onClick={() => setOpen(false)}
             className="text-xs font-semibold text-green-800 hover:underline pb-2"
           >
@@ -508,6 +516,25 @@ export default function BugReportModal() {
                     </div>
                   </div>
                 </div>
+
+                {submittedResult.guidance ? (
+                  <div className="rounded-xl border border-sky-200 bg-sky-50/80 p-4 text-sky-950 space-y-2">
+                    <p className="text-xs font-bold uppercase tracking-wide text-sky-800">
+                      Orientación automática mientras revisamos tu caso
+                    </p>
+                    <p className="text-sm font-bold">{submittedResult.guidance.title}</p>
+                    <p className="text-xs text-sky-900 leading-relaxed">
+                      {submittedResult.guidance.message}
+                    </p>
+                    <Link
+                      href={submittedResult.guidance.guideHref}
+                      onClick={() => setOpen(false)}
+                      className="inline-flex items-center gap-1.5 text-xs font-semibold text-sky-800 underline underline-offset-2 hover:text-sky-950"
+                    >
+                      {submittedResult.guidance.guideLabel} →
+                    </Link>
+                  </div>
+                ) : null}
 
                 <div className="flex flex-wrap justify-between gap-2">
                   <Button

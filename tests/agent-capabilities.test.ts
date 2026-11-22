@@ -32,10 +32,25 @@ function context(
 
 describe("nuevas funciones de búsqueda y del agente", () => {
   it("encuentra la guía genética, los lugares y los equipos con términos de uso cotidiano", () => {
-    expect(searchNavigation("linaje").some((entry) => entry.href === "/dashboard/guia/trazabilidad-genetica")).toBe(true);
-    expect(searchNavigation("potrero").some((entry) => entry.href === "/dashboard/ubicaciones")).toBe(true);
-    expect(searchNavigation("equipos").some((entry) => entry.href === "/dashboard/guia/infraestructura-equipos")).toBe(true);
-    expect(searchNavigation("equipos").some((entry) => entry.href === "/dashboard/operaciones/activos")).toBe(true);
+    expect(searchNavigation("linaje").some((entry) => entry.href === "/manual/trazabilidad-genetica")).toBe(true);
+    expect(searchNavigation("potrero").some((entry) => entry.href === "/ubicaciones")).toBe(true);
+    expect(searchNavigation("equipos").some((entry) => entry.href === "/manual/infraestructura-equipos")).toBe(true);
+    expect(searchNavigation("equipos").some((entry) => entry.href === "/operaciones/activos")).toBe(true);
+  });
+
+  it("navegar_app devuelve deep-links exactos con sinónimos de campo, sin inventar rutas", async () => {
+    const tool = findTool("navegar_app");
+    const ctx = context(async (path) => {
+      expect(path).toBe("/api/onboarding");
+      return { flags: null };
+    });
+    const plata = await tool.execute({ consulta: "plata del día" }, ctx) as any;
+    expect(plata.resultados.some((item: any) => item.href === "/finanzas/ventas")).toBe(true);
+    const vacuna = await tool.execute({ consulta: "vacuna que toca" }, ctx) as any;
+    expect(vacuna.resultados.some((item: any) => item.href === "/sanidad/calendario")).toBe(true);
+    for (const resultado of [...plata.resultados, ...vacuna.resultados]) {
+      expect(resultado.href.startsWith("/")).toBe(true);
+    }
   });
 
   it("consulta una ficha con datos desglosados por lugar", async () => {

@@ -200,16 +200,23 @@ describe("exportación CSV/XLSX del modelo de operación", () => {
   });
 
   it("mantiene la tabla de tokens fuera de RLS y con el hash indexado", () => {
-    const migration = fs.readFileSync(
-      path.join(process.cwd(), "scripts/add_export_tokens.sql"),
+    const baseline = fs.readFileSync(
+      path.join(process.cwd(), "drizzle/0000_baseline.sql"),
       "utf8",
     );
-    expect(migration).toContain("CREATE TABLE IF NOT EXISTS export_tokens");
-    expect(migration).toContain("token_hash varchar(64) NOT NULL UNIQUE");
-    expect(migration).not.toContain("ENABLE ROW LEVEL SECURITY");
+    expect(baseline).toContain('CREATE TABLE "export_tokens"');
+    expect(baseline).toContain('CONSTRAINT "export_tokens_token_hash_unique" UNIQUE("token_hash")');
+
+    const rlsMigration = fs.readFileSync(
+      path.join(process.cwd(), "drizzle/0001_roles_constraints_and_rls.sql"),
+      "utf8",
+    );
+    expect(rlsMigration).toContain("export_tokens_active_idx");
+    expect(rlsMigration).not.toContain("'export_tokens'");
 
     const runner = fs.readFileSync(path.join(process.cwd(), "src/db/migrate-prod.ts"), "utf8");
-    expect(runner).toContain("scripts/add_export_tokens.sql");
+    expect(runner).toContain("drizzle/0000_baseline.sql");
+    expect(runner).toContain("drizzle/0001_roles_constraints_and_rls.sql");
 
     const proxy = fs.readFileSync(path.join(process.cwd(), "src/proxy.ts"), "utf8");
     expect(proxy).toContain('"/api/export"');

@@ -1,14 +1,14 @@
 {
-  "name": "Sistema Gallinero",
-  "short_name": "Gallinero",
-  "description": "Gestión de animales, producción, sanidad, inventarios y finanzas de la granja",
+  "name": "IwaGranja",
+  "short_name": "IwaGranja",
+  "description": "Tu granja, todo bajo control. Gestión de animales, producción, sanidad, inventarios y finanzas.",
   "start_url": "/",
   "display": "standalone",
-  "background_color": "#14532d",
+  "background_color": "#faf6ec",
   "theme_color": "#16a34a",
   "orientation": "any",
   "icons": [
-    { "src": "/icon-192.svg", "sizes": "192x192", "type": "image/svg+xml" },
-    { "src": "/icon-512.svg", "sizes": "512x512", "type": "image/svg+xml" }
+    { "src": "/icon-192.png", "sizes": "192x192", "type": "image/png" },
+    { "src": "/icon-512.png", "sizes": "512x512", "type": "image/png" }
   ]
 }

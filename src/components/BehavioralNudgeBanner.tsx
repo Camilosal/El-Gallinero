@@ -57,13 +57,13 @@ export default function BehavioralNudgeBanner({
   compact = false,
   className,
 }: BehavioralNudgeBannerProps = {}) {
-  const pathname = usePathname() || "/dashboard";
+  const pathname = usePathname() || "/inicio";
   const searchParams = useSearchParams();
   const query = searchParams.toString();
 
   const group = useMemo(() => resolvePageNudgeGroup(pathname, query), [pathname, query]);
   const pageKey = useMemo(() => {
-    const cleanPath = pathname.split("?")[0].replace(/\/+$/, "") || "/dashboard";
+    const cleanPath = pathname.split("?")[0].replace(/\/+$/, "") || "/inicio";
     const tab = searchParams.get("tab") || "";
     const subtab = searchParams.get("subtab") || "";
     return `${group.key}:${cleanPath}${tab ? `?tab=${tab}` : ""}${subtab ? `&subtab=${subtab}` : ""}`;

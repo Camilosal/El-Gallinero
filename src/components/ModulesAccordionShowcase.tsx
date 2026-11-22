@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { CheckCircle2 } from "lucide-react";
 import type { ExtraLandingModuleItem, LandingModuleItem } from "@/lib/landing-showcase";
 
 export function ModulesAccordionShowcase({
@@ -13,14 +14,15 @@ export function ModulesAccordionShowcase({
   return (
     <div className="space-y-4">
       <div className="grid sm:grid-cols-2 gap-3 content-start">
-        {coreModules.map((mod, idx) => (
+        {coreModules.map((mod) => (
           <div
             key={mod.id}
             className="rounded-xl border border-[var(--line)] bg-[var(--paper)] p-4"
           >
             <div className="flex items-center justify-between gap-2">
-              <span className="font-mono text-[10px] font-bold uppercase tracking-wider text-[var(--forest)]">
-                0{idx + 1} · Esencial
+              <span className="inline-flex items-center text-[var(--forest)]">
+                <CheckCircle2 className="h-4 w-4" aria-hidden="true" />
+                <span className="sr-only">Módulo esencial desde el primer día</span>
               </span>
               <span className="rounded-full bg-emerald-100 px-2 py-0.5 font-mono text-[10px] font-semibold text-emerald-900">
                 Día 1
@@ -35,10 +37,10 @@ export function ModulesAccordionShowcase({
       <details className="land-accordion rounded-xl border border-[var(--line)] bg-[var(--paper)]">
         <summary className="flex cursor-pointer list-none items-center justify-between gap-3 px-4 py-3 text-sm font-semibold text-[var(--forest)] hover:bg-[#f4ede0] rounded-xl transition-colors">
           <span>
-            Ver los {totalCount} módulos completos (incluye los {extraModules.length} módulos avanzados)
+            Explorar los {totalCount} frentes operativos (incluye {extraModules.length} herramientas avanzadas)
           </span>
           <span className="rounded-full border border-[var(--line)] bg-white px-2.5 py-0.5 font-mono text-[11px] font-semibold text-[var(--ink)]">
-            +{extraModules.length} módulos
+            +{extraModules.length} herramientas
           </span>
         </summary>
 

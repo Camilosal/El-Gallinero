@@ -1,6 +1,8 @@
 import { NextResponse } from "next/server";
 import { computeAnimalInventory } from "@/lib/animal-inventory";
 import { withApiHandler } from "@/lib/api-handler";
+import { getSessionUser } from "@/lib/auth";
+import { canPerformAction } from "@/lib/rbac";
 
 export const dynamic = "force-dynamic";
 
@@ -11,5 +13,20 @@ export const dynamic = "force-dynamic";
  */
 export const GET = withApiHandler(async () => {
   const inventory = await computeAnimalInventory();
-  return NextResponse.json(inventory);
+  const user = await getSessionUser();
+  if (canPerformAction(user?.role, "finance:read")) return NextResponse.json(inventory);
+
+  return NextResponse.json({
+    ...inventory,
+    summary: { ...inventory.summary, totalValue: null },
+    species: inventory.species.map((species) => ({
+      ...species,
+      estimatedValue: null,
+    })),
+    groups: inventory.groups.map((group) => ({
+      ...group,
+      pricePerKg: null,
+      estimatedValue: null,
+    })),
+  });
 });

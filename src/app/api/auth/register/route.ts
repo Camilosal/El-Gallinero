@@ -7,6 +7,7 @@ import { runWithFarmContext } from "@/db/tenant-context";
 import { safeParseJson, withApiHandler } from "@/lib/api-handler";
 import { createSession, hashPassword, sessionCookieName } from "@/lib/auth";
 import { createDefaultProgressiveConfig, PROGRESSIVE_CONFIG_SETTING_KEY } from "@/lib/onboarding";
+import { seedStarterFeedsAndPrograms } from "@/lib/feeding/default-tenant-seed";
 import { LEGAL_CONSENT_SETTING_KEY, LEGAL_DOCS_VERSION } from "@/lib/legal";
 import { notifyNewFarmRegistration } from "@/lib/notifications";
 import { isRequestRateLimited } from "@/lib/rate-limit";
@@ -103,7 +104,6 @@ export const POST = withApiHandler(async (req: NextRequest) => {
   }
 
   const now = new Date();
-  const trialEndsAt = new Date(now.getTime() + 30 * 86400000);
   const passwordHash = await hashPassword(password);
   const recoveryCode = generateRecoveryCode();
   const recoveryCodeHash = sha256(recoveryCode);
@@ -119,7 +119,7 @@ export const POST = withApiHandler(async (req: NextRequest) => {
         qrSource,
         allyCode,
         planCode: "FREEMIUM_SEMILLA",
-        trialEndsAt,
+        trialEndsAt: null,
       })
       .returning();
 
@@ -150,11 +150,11 @@ export const POST = withApiHandler(async (req: NextRequest) => {
     await tx.insert(farmSubscriptions).values({
       farmId: farm.id,
       planCode: "FREEMIUM_SEMILLA",
-      status: "trial",
+      status: "freemium",
       maxActiveBatches: 1,
-      maxUsers: 2,
+      maxUsers: 1,
       currentPeriodStart: now,
-      currentPeriodEnd: trialEndsAt,
+      currentPeriodEnd: null,
     });
 
     const initialConfig = {
@@ -205,9 +205,10 @@ export const POST = withApiHandler(async (req: NextRequest) => {
 
   invalidateSettingsCache();
 
-  const rawToken = await runWithFarmContext(created.farm.id, () =>
-    createSession(created.owner.id, created.farm.id),
-  );
+  const rawToken = await runWithFarmContext(created.farm.id, async () => {
+    await seedStarterFeedsAndPrograms(created.farm.id);
+    return createSession(created.owner.id, created.farm.id);
+  });
 
   void notifyNewFarmRegistration({
     farmName: created.farm.name,
@@ -229,7 +230,7 @@ export const POST = withApiHandler(async (req: NextRequest) => {
       },
       user: created.owner,
       recoveryCode,
-      redirectTo: "/dashboard?wizard=1",
+      redirectTo: "/inicio?wizard=1",
     },
     { status: 201 },
   );

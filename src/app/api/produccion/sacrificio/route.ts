@@ -13,6 +13,9 @@ import { withApiHandler, safeParseJson } from "@/lib/api-handler";
 import { lockMeatInventory } from "@/lib/inventory-locks";
 import { computeMeatInventory, meatInventoryBookBalance } from "@/lib/inventory";
 import { assertDateNotClosed, assertNoActiveWithdrawal } from "@/lib/sanitary-locks";
+import { getSessionUser } from "@/lib/auth";
+import { canPerformAction } from "@/lib/rbac";
+import { loadSpeciesParams } from "@/lib/species-db";
 
 export const dynamic = "force-dynamic";
 
@@ -28,6 +31,12 @@ function normalizeExitReferences(body: Record<string, any>, quantity: number): s
   if (references.length !== 1) return "Seleccione exactamente una gallina, un gallo o un lote";
   if ((body.henId || body.roosterId) && quantity !== 1) return "La faena de una gallina o un gallo debe tener cantidad 1";
   return null;
+}
+
+async function configuredMarketReferencePrice(species: string): Promise<number> {
+  const params = await loadSpeciesParams(species);
+  const value = Number(params.find((item) => item.species === species)?.marketPriceKgCanalCOP ?? 0);
+  return Number.isFinite(value) && value > 0 ? value : 0;
 }
 
 // GET /api/produccion/sacrificio — lista de registros de sacrificio (producción de carne)
@@ -120,7 +129,12 @@ export const POST = withApiHandler(async (req: NextRequest) => {
     weightKgExcedente = weightKg;
   }
 
-  const refPricePerKg = body.marketReferencePricePerKg ? Number(body.marketReferencePricePerKg) : 0;
+  const sessionUser = await getSessionUser();
+  const canRecordSalesValues = canPerformAction(sessionUser?.role, "sales:write");
+  const requestedReferencePrice = Number(body.marketReferencePricePerKg);
+  const refPricePerKg = canRecordSalesValues && Number.isFinite(requestedReferencePrice) && requestedReferencePrice > 0
+    ? requestedReferencePrice
+    : await configuredMarketReferencePrice(species);
   const savingsAmount = refPricePerKg > 0 && weightKgAutoconsumo > 0
     ? (weightKgAutoconsumo * refPricePerKg).toFixed(2)
     : (body.estimatedSavingsAmount ? String(body.estimatedSavingsAmount) : null);
@@ -169,8 +183,8 @@ export const POST = withApiHandler(async (req: NextRequest) => {
       weightKgAutoconsumo: String(weightKgAutoconsumo),
       headsExcedente,
       weightKgExcedente: String(weightKgExcedente),
-      pricePerKg: body.pricePerKg ? String(body.pricePerKg) : null,
-      totalAmount: body.totalAmount ? String(body.totalAmount) : null,
+      pricePerKg: canRecordSalesValues && body.pricePerKg ? String(body.pricePerKg) : null,
+      totalAmount: canRecordSalesValues && body.totalAmount ? String(body.totalAmount) : null,
       marketReferencePricePerKg: refPricePerKg > 0 ? String(refPricePerKg) : null,
       estimatedSavingsAmount: savingsAmount,
       henId: body.henId || null,
@@ -260,7 +274,12 @@ export const PUT = withApiHandler(async (req: NextRequest) => {
     weightKgExcedente = weightKg;
   }
 
-  const refPricePerKg = body.marketReferencePricePerKg ? Number(body.marketReferencePricePerKg) : 0;
+  const sessionUser = await getSessionUser();
+  const canRecordSalesValues = canPerformAction(sessionUser?.role, "sales:write");
+  const requestedReferencePrice = Number(body.marketReferencePricePerKg);
+  const refPricePerKg = canRecordSalesValues && Number.isFinite(requestedReferencePrice) && requestedReferencePrice > 0
+    ? requestedReferencePrice
+    : await configuredMarketReferencePrice(species);
   const savingsAmount = refPricePerKg > 0 && weightKgAutoconsumo > 0
     ? (weightKgAutoconsumo * refPricePerKg).toFixed(2)
     : (body.estimatedSavingsAmount ? String(body.estimatedSavingsAmount) : null);
@@ -341,8 +360,8 @@ export const PUT = withApiHandler(async (req: NextRequest) => {
         weightKgAutoconsumo: String(weightKgAutoconsumo),
         headsExcedente,
         weightKgExcedente: String(weightKgExcedente),
-        pricePerKg: body.pricePerKg ? String(body.pricePerKg) : null,
-        totalAmount: body.totalAmount ? String(body.totalAmount) : null,
+        pricePerKg: canRecordSalesValues && body.pricePerKg ? String(body.pricePerKg) : null,
+        totalAmount: canRecordSalesValues && body.totalAmount ? String(body.totalAmount) : null,
         marketReferencePricePerKg: refPricePerKg > 0 ? String(refPricePerKg) : null,
         estimatedSavingsAmount: savingsAmount,
         henId: body.henId || null,

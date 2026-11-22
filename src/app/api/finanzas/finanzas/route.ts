@@ -9,6 +9,8 @@ import {
   accountsReceivable,
   payments,
   purchaseProducts,
+  supplyInventory,
+  supplyMovements,
 } from "@/db/schema";
 import { eq, desc, sql, gte, lte, and, inArray } from "drizzle-orm";
 import { NextRequest, NextResponse } from "next/server";
@@ -26,6 +28,14 @@ import {
   evaluateBiologicalPortfolio,
   loadFarmBiologicalContext,
 } from "@/lib/analytics/biological-db";
+import {
+  computeSupplyWarehouseValuation,
+  inferManagedTaxProfile,
+  resolveManagedTransactionTaxColumns,
+  computeWeightedAverageUnitCost,
+} from "@/lib/analytics/payroll-tax-supplies";
+import { loadPeriodPayrollAndSupplies } from "@/lib/analytics/payroll-tax-supplies-db";
+import { getTaxAndPayrollConfig } from "@/lib/settings";
 
 export const dynamic = "force-dynamic";
 
@@ -45,7 +55,7 @@ export const GET = withApiHandler(async (req: NextRequest) => {
   const todayStr = new Date().toISOString().split("T")[0];
   const periodFilter = and(gte(transactions.date, dateStr), lte(transactions.date, todayStr));
 
-  const [data, summary, byCategory, paymentRows, feedMovRows, bioCtx] = await Promise.all([
+  const [data, summary, byCategory, paymentRows, feedMovRows, bioCtx, payrollSuppliesCtx] = await Promise.all([
     db.select().from(transactions).where(periodFilter).orderBy(desc(transactions.date)),
     db.select({
       type: transactions.type,
@@ -68,6 +78,7 @@ export const GET = withApiHandler(async (req: NextRequest) => {
       .innerJoin(feedInventory, eq(feedMovements.feedId, feedInventory.id))
       .where(and(eq(feedMovements.isEntry, false), gte(feedMovements.date, dateStr), lte(feedMovements.date, todayStr))),
     loadFarmBiologicalContext({ referenceDate: todayStr }),
+    loadPeriodPayrollAndSupplies({ from: dateStr, to: todayStr }),
   ]);
 
   // Enriquecer compras de alimento con el feedId del movimiento vinculado y fechas de vencimiento CxC/CxP
@@ -121,6 +132,7 @@ export const GET = withApiHandler(async (req: NextRequest) => {
   );
   const assetsSummary = computeAssetsDepreciationSummary(bioCtx.assets, { fromDate: dateStr, toDate: todayStr });
   const warehouseSummary = computeFeedWarehouseValuation(bioCtx.feedRows);
+  const supplyWarehouseSummary = computeSupplyWarehouseValuation(bioCtx.supplyRows);
   const biologicalSummary = evaluateBiologicalPortfolio({
     flocks: bioCtx.flocks,
     broilerBatches: bioCtx.batches,
@@ -140,10 +152,18 @@ export const GET = withApiHandler(async (req: NextRequest) => {
       })),
       accruedFeedConsumedCostCop: accruedFeedCost,
       hasFeedConsumptionRecords: feedMovRows.length > 0 && accruedFeedCost > 0,
+      accruedSupplyConsumedCostCop: payrollSuppliesCtx.accruedSupplyCostCop,
+      hasSupplyConsumptionRecords: payrollSuppliesCtx.hasSupplyConsumptionRecords,
+      imputedOwnerLaborCop: payrollSuppliesCtx.imputedOwnerLaborCop,
+      warehouseSupplyAssetCop: supplyWarehouseSummary.totalValueCop,
       assetsSummary,
       warehouseSummary,
       biologicalSummary,
     }),
+    taxAndDeductions: payrollSuppliesCtx.summarizeTaxes(
+      data,
+      data.filter((t) => t.type === "egreso").reduce((s, t) => s + Number(t.amount || 0), 0),
+    ),
     capexRecoveryPct: assetsSummary.capexRecoveryPct,
     lifecycleMode: biologicalSummary.lifecycleMode,
     lifecycleLabel: biologicalSummary.lifecycleLabel,
@@ -320,6 +340,13 @@ export const POST = withApiHandler(async (req: NextRequest) => {
   if (!amount) {
     return NextResponse.json({ error: "Defina el monto o cantidad y valor unitario" }, { status: 400 });
   }
+  const taxConfig = await getTaxAndPayrollConfig();
+  const taxResolved = resolveManagedTransactionTaxColumns(
+    body as Record<string, unknown>,
+    amount,
+    taxConfig,
+    inferManagedTaxProfile(body.type || "egreso", body.category),
+  );
 
   // Determine if this is a purchase with presentation data
   const hasPresentationInputs = [body.presentations, body.pricePerPresentation]
@@ -372,6 +399,7 @@ export const POST = withApiHandler(async (req: NextRequest) => {
           description: body.description,
           counterparty: body.counterparty || null,
           amount: presentationAmount,
+          ...taxResolved.columns,
           quantity: String(quantityInBaseUnit),
           unitPrice: String(unitPricePerBaseUnit),
           unit: feed.unit,
@@ -428,9 +456,48 @@ export const POST = withApiHandler(async (req: NextRequest) => {
       return NextResponse.json(result, { status: 201 });
     }
     
-    // Non-feed purchase with presentation — just save the transaction
+    // Non-feed purchase with presentation — optionally links to supplyInventory with weighted average cost
     const isCapexCategory = (body.type || "egreso") === "egreso" && /equipamiento|infraestructura|maquinaria/i.test(String(body.category || ""));
     const result = await db.transaction(async (tx) => {
+      let linkedSupplyMovId: string | null = null;
+      if (!isCapexCategory && body.supplyId && (body.type || "egreso") === "egreso") {
+        const [supply] = await tx
+          .select()
+          .from(supplyInventory)
+          .where(eq(supplyInventory.id, body.supplyId))
+          .for("update");
+        if (!supply) throw new Error("Insumo no encontrado");
+        const nextAvgCost = computeWeightedAverageUnitCost(
+          Number(supply.currentStock),
+          Number(supply.costPerUnit),
+          quantityInBaseUnit,
+          unitPricePerBaseUnit,
+        );
+        const [supplyMov] = await tx
+          .insert(supplyMovements)
+          .values({
+            supplyId: supply.id,
+            quantity: String(quantityInBaseUnit),
+            isEntry: true,
+            movementType: "compra",
+            date: body.date,
+            species: dims.species ?? null,
+            locationId: dims.locationId ?? null,
+            unitCost: unitPricePerBaseUnit.toFixed(2),
+            notes: body.notes || `Compra de ${body.description}`,
+          })
+          .returning();
+        linkedSupplyMovId = supplyMov.id;
+        await tx
+          .update(supplyInventory)
+          .set({
+            currentStock: sql`(${supplyInventory.currentStock}::numeric + ${quantityInBaseUnit})`,
+            costPerUnit: nextAvgCost.toFixed(2),
+            updatedAt: new Date(),
+          })
+          .where(eq(supplyInventory.id, supply.id));
+      }
+
       const [created] = await tx.insert(transactions).values({
         ...dims,
         date: body.date,
@@ -439,13 +506,22 @@ export const POST = withApiHandler(async (req: NextRequest) => {
         description: body.description,
         counterparty: body.counterparty || null,
         amount: presentationAmount,
+        ...taxResolved.columns,
         quantity: String(quantityInBaseUnit),
         unitPrice: String(unitPricePerBaseUnit),
         unit: body.unit || null,
         presentation: body.presentation || null,
         notes: body.notes || null,
-        ...(isCapexCategory ? { sourceType: "capex" } : {}),
+        ...(isCapexCategory
+          ? { sourceType: "capex" }
+          : linkedSupplyMovId
+            ? { sourceType: "supply_purchase", sourceId: linkedSupplyMovId }
+            : {}),
       }).returning();
+
+      // La deuda se registra por el valor bruto de la factura; las retenciones
+      // e ICA quedan como snapshot tributario en la transacción, no reducen la CxC/CxP.
+      const creditTotalStr = presentationAmount;
 
       if (body.isCredit) {
         if ((body.type || "egreso") === "egreso") {
@@ -453,16 +529,16 @@ export const POST = withApiHandler(async (req: NextRequest) => {
           await tx.insert(accountsPayable).values({
             transactionId: created.id,
             supplier: body.counterparty || body.description || "Sin nombre",
-            totalAmount: presentationAmount,
+            totalAmount: creditTotalStr,
             paidAmount: "0",
-            pendingAmount: presentationAmount,
+            pendingAmount: creditTotalStr,
             dueDate: body.dueDate || null,
             status: "pendiente",
           });
         } else {
           await syncCreditReceivable(tx, {
             transactionId: created.id,
-            totalAmount: presentationAmount,
+            totalAmount: creditTotalStr,
             isCredit: true,
             dueDate: body.dueDate || null,
             buyer: body.counterparty || body.description || null,
@@ -497,7 +573,8 @@ export const POST = withApiHandler(async (req: NextRequest) => {
       category: body.category,
       description: body.description,
       counterparty: body.counterparty || null,
-      amount,
+      amount: taxResolved.amount,
+      ...taxResolved.columns,
       quantity: body.quantity || null,
       unitPrice: body.unitPrice || null,
       unit: body.unit || null,
@@ -506,22 +583,24 @@ export const POST = withApiHandler(async (req: NextRequest) => {
       ...(isCapexCategory ? { sourceType: "capex" } : {}),
     }).returning();
 
+    const legacyCreditStr = taxResolved.amount;
+
     if (body.isCredit) {
       if ((body.type || "egreso") === "egreso") {
         await tx.update(transactions).set({ isCredit: true }).where(eq(transactions.id, created.id));
         await tx.insert(accountsPayable).values({
           transactionId: created.id,
           supplier: body.counterparty || body.description || "Sin nombre",
-          totalAmount: String(amount),
+          totalAmount: legacyCreditStr,
           paidAmount: "0",
-          pendingAmount: String(amount),
+          pendingAmount: legacyCreditStr,
           dueDate: body.dueDate || null,
           status: "pendiente",
         });
       } else {
         await syncCreditReceivable(tx, {
           transactionId: created.id,
-          totalAmount: amount,
+          totalAmount: legacyCreditStr,
           isCredit: true,
           dueDate: body.dueDate || null,
           buyer: body.counterparty || body.description || null,
@@ -623,6 +702,14 @@ export const PUT = withApiHandler(async (req: NextRequest) => {
     if ((current.sourceType || current.sourceId) && !(current.sourceType === "alimento" && current.sourceId)) {
       throw new Error("Transacción vinculada: debe editarse desde el módulo que la creó");
     }
+    const taxConfig = await getTaxAndPayrollConfig();
+    const taxResolved = resolveManagedTransactionTaxColumns(
+      body as Record<string, unknown>,
+      amount,
+      taxConfig,
+      inferManagedTaxProfile(body.type ?? current.type, body.category ?? current.category),
+      current,
+    );
     const [updated] = await tx.update(transactions).set({
       ...(hasDimensions ? dims : {}),
       date: body.date,
@@ -630,7 +717,8 @@ export const PUT = withApiHandler(async (req: NextRequest) => {
       category: body.category,
       description: body.description,
       counterparty: body.counterparty || null,
-      amount,
+      amount: taxResolved.amount,
+      ...taxResolved.columns,
       quantity: quantityValue,
       unitPrice: unitPriceValue,
       unit: unitValue,

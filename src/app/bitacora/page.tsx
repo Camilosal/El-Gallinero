@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Image from "next/image";
 import Link from "next/link";
 import { PublicPageShell } from "@/components/LegalPage";
+import { ResourceVisualCard } from "@/components/ResourceVisualCard";
 import {
   BITACORA_ARTICLES,
   BITACORA_CADENCE_NOTE,
@@ -10,7 +11,7 @@ import {
 } from "@/lib/bitacora-content";
 import { buildPageMetadata } from "@/lib/seo";
 
-const TITLE = "Bitácora de campo · El Gallinero · Iwagé Granja";
+const TITLE = "Bitácora de campo · IwaGranja";
 const DESCRIPTION =
   "Guías prácticas de avicultura y granjas mixtas: costo por huevo, tiempos de retiro, NTC 1240, operación sin señal y compostaje de gallinaza.";
 
@@ -19,7 +20,7 @@ export const metadata: Metadata = buildPageMetadata({
   description: DESCRIPTION,
   path: "/bitacora",
   ogImage: "/images/guia/finanzas-balance.webp",
-  ogImageAlt: "Bitácora técnica de campo de El Gallinero",
+  ogImageAlt: "Bitácora técnica de campo de IwaGranja",
 });
 
 export default function BitacoraPage() {
@@ -30,6 +31,11 @@ export default function BitacoraPage() {
       path="/bitacora"
       description={DESCRIPTION}
       pageType="CollectionPage"
+      breadcrumbs={[
+        { name: "Recursos", path: "/recursos" },
+        { name: "Artículos y bitácoras", path: "/bitacora" },
+      ]}
+      headerAction={{ href: "/recursos", label: "Todos los recursos" }}
     >
       <div className="mb-6 flex flex-col gap-3 rounded-2xl border border-emerald-200 bg-emerald-50/70 p-4 sm:flex-row sm:items-center sm:justify-between">
         <p className="text-sm font-medium text-emerald-950">{BITACORA_CADENCE_NOTE}</p>
@@ -100,6 +106,43 @@ export default function BitacoraPage() {
           );
         })}
       </div>
+
+      <section aria-labelledby="bitacora-materiales" className="mt-10">
+        <div className="mb-4 border-b border-slate-200 pb-3">
+          <p className="font-mono text-[11px] font-bold uppercase tracking-[0.14em] text-emerald-800">Material relacionado</p>
+          <h2 id="bitacora-materiales" className="mt-1 text-xl font-bold text-slate-900">Guías y documentación disponibles</h2>
+          <p className="mt-1 max-w-2xl text-sm leading-relaxed text-slate-600">Otros materiales existentes en el sitio para conocer el uso de la aplicación, el contexto de campo y el proyecto abierto.</p>
+        </div>
+        <div className="grid gap-5 md:grid-cols-2 xl:grid-cols-3">
+          <ResourceVisualCard
+            href="/guia"
+            category="Manual de uso"
+            title="Guía paso a paso de IwaGranja"
+            summary="Recorre los módulos con instrucciones y capturas de referencia disponibles."
+            image="/images/guia/inicio-dashboard.webp"
+            imageAlt="Captura real del panel de inicio incluida en el manual de uso"
+            actionLabel="Abrir la guía"
+          />
+          <ResourceVisualCard
+            href="/realidad-campo"
+            category="Contexto de campo"
+            title="La realidad del campo y cómo se aborda"
+            summary="Consulta los problemas operativos descritos y las respuestas que se pueden explorar en la aplicación."
+            image="/images/heroes/guia-1x.webp"
+            imageAlt="Imagen de portada usada en las páginas de guía de IwaGranja"
+            actionLabel="Leer la página"
+          />
+          <ResourceVisualCard
+            href="/open-source"
+            category="Documentación del proyecto"
+            title="Código abierto y participación"
+            summary="Conoce el repositorio, las formas de participar y las opciones documentadas para desplegar el proyecto."
+            image="/images/guia/configuracion-modulos.webp"
+            imageAlt="Captura real de la configuración de módulos de IwaGranja incluida como referencia del proyecto"
+            actionLabel="Conocer el proyecto"
+          />
+        </div>
+      </section>
     </PublicPageShell>
   );
 }

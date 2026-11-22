@@ -4,16 +4,15 @@ import { describe, expect, it } from "vitest";
 import {
   ADOPTION_HIGHLIGHTS,
   AI_AUTOMATION_PILLARS,
-  CYCLE_PLANS_SHOWCASE,
   EXTRA_LANDING_MODULES,
   LANDING_MODULES,
-  SECTOR_STANDARDS,
   SHOWCASE_GALLERY,
   SHOWCASE_TABS,
+  getCyclePlanBySlug,
   getAllLandingShowcaseAssetUrls,
 } from "@/lib/landing-showcase";
 
-describe("página de presentación — pantallazos, estándares y adopción", () => {
+describe("página de presentación — pantallazos y adopción", () => {
   it("todos los pantallazos referenciados existen físicamente en public/", () => {
     const publicDir = path.join(process.cwd(), "public");
     const assets = getAllLandingShowcaseAssetUrls();
@@ -54,15 +53,7 @@ describe("página de presentación — pantallazos, estándares y adopción", ()
     }
   });
 
-  it("documenta estándares del sector, pilares IA/automatización y los 6 módulos", () => {
-    const codes = SECTOR_STANDARDS.map((s) => s.code).join(" ");
-    expect(codes).toContain("NTC 1240");
-    expect(codes).toContain("ICA 3650");
-    expect(codes).toContain("8452");
-    expect(codes).toContain("PRAMSAC");
-    expect(codes).toContain("30292");
-    expect(codes).toContain("DIAN");
-
+  it("documenta pilares IA/automatización y los 6 módulos", () => {
     expect(AI_AUTOMATION_PILLARS.length).toBe(3);
     expect(ADOPTION_HIGHLIGHTS.length).toBe(4);
     for (const item of ADOPTION_HIGHLIGHTS) {
@@ -75,10 +66,6 @@ describe("página de presentación — pantallazos, estándares y adopción", ()
     for (const mod of LANDING_MODULES) {
       expect(mod.name.trim().length).toBeGreaterThan(5);
       expect(mod.summary.trim().split(/\s+/).length).toBeLessThanOrEqual(10);
-    }
-    for (const std of SECTOR_STANDARDS) {
-      expect(std.sourceUrl.startsWith("https://")).toBe(true);
-      expect(std.diagramSteps.length).toBe(3);
     }
   });
 
@@ -111,7 +98,7 @@ describe("página de presentación — pantallazos, estándares y adopción", ()
     expect(page).not.toContain("1 · ");
     expect(page).toContain("2 · Fácil de adoptar");
     expect(page).toContain("3 · Qué incluye el sistema");
-    expect(page).toContain("4 · Planes por ciclo productivo");
+    expect(page).toContain("4 · Planes y suscripciones");
     expect(page).toContain("5 · Comienza hoy");
 
     // Galería rotativa accesible y encabezado horizontal completo en vitrina
@@ -120,7 +107,9 @@ describe("página de presentación — pantallazos, estándares y adopción", ()
     expect(showcase).toContain("lg:col-span-12");
 
     expect(page).toContain("<ModulesAccordionShowcase");
-    expect(page).toContain("<SectorStandardsCarousel");
+    expect(page).toContain("<LandingSubscriptionPlans");
+    expect(page).toContain('href="/bitacora/normas-y-guias-granja-mixta"');
+    expect(page).not.toContain("<SectorStandardsCarousel");
     expect(page).toContain('href="/guia"');
     expect(page).toContain('href="/open-source"');
     expect(
@@ -145,21 +134,13 @@ describe("página de presentación — pantallazos, estándares y adopción", ()
     ).toBe(true);
   });
 
-  it("presenta los 4 planes por ciclo productivo y medios de pago locales", () => {
-    expect(CYCLE_PLANS_SHOWCASE.length).toBe(4);
-    const ids = CYCLE_PLANS_SHOWCASE.map((p) => p.id);
-    expect(ids).toEqual([
-      "FREEMIUM_SEMILLA",
-      "CICLO_60D",
-      "SEMESTRAL_PONEDORA",
-      "MEDIANO_MENSUAL",
-    ]);
-
-    const joined = CYCLE_PLANS_SHOWCASE.map(
-      (p) => `${p.priceLabel} ${p.summary} ${p.highlights.join(" ")}`,
-    ).join(" ");
-    expect(joined).toContain("$45.000");
-    expect(joined).toContain("Nequi");
+  it("conserva rutas antiguas como redirecciones sin publicar sus tarifas retiradas", () => {
+    expect(getCyclePlanBySlug("ciclo-60d")).toMatchObject({ legacyCode: "CICLO_60D" });
+    expect(getCyclePlanBySlug("semestral-ponedora")).toMatchObject({ legacyCode: "SEMESTRAL_PONEDORA" });
+    expect(getCyclePlanBySlug("desconocido")).toBeUndefined();
+    const legacySource = fs.readFileSync(path.join(process.cwd(), "src/lib/landing-showcase.ts"), "utf8");
+    expect(legacySource).not.toContain("$45.000");
+    expect(legacySource).not.toContain("$120.000");
   });
 });
 

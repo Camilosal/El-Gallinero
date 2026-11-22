@@ -1,17 +1,22 @@
-const CACHE_VERSION = 'v8';
+const CACHE_VERSION = 'v13';
 const APP_CACHE = `gallinero-app-${CACHE_VERSION}`;
+const IS_DEVELOPMENT_ORIGIN =
+  self.location.hostname === 'localhost' ||
+  self.location.hostname === '127.0.0.1' ||
+  Boolean(self.location.port);
 const PRECACHE = [
   '/',
   '/login',
   '/login/recuperar',
   '/guia',
-  '/dashboard',
-  '/dashboard/escanear',
-  '/dashboard/operaciones/cierre',
-  '/dashboard/guia',
+  '/inicio',
+  '/escanear',
+  '/operaciones/cierre',
+  '/manual',
   '/manifest.json',
-  '/icon-192.svg',
-  '/icon-512.svg',
+  '/logo-iwagranja-horizontal.webp',
+  '/logo-iwagranja.webp',
+  '/logo-iwagranja-mark.webp',
   '/icon-192.png',
   '/icon-512.png',
 ];
@@ -76,6 +81,10 @@ self.addEventListener('fetch', (e) => {
 
   const url = new URL(request.url);
   if (url.origin !== self.location.origin) return;
+
+  // Turbopack reuses development chunk URLs while replacing their factories.
+  // Never serve or store those mutable assets through the offline cache.
+  if (IS_DEVELOPMENT_ORIGIN && url.pathname.startsWith('/_next/')) return;
 
   // Los datos de la API se gestionan de forma estructurada e idempotente en IndexedDB.
   if (url.pathname.startsWith('/api/')) return;
@@ -143,9 +152,28 @@ self.addEventListener('fetch', (e) => {
           const cachedPage = await caches.match(canonicalPageKey, { ignoreVary: true });
           if (cachedPage) return cachedPage;
 
-          if (url.pathname.startsWith('/dashboard')) {
-            const cachedDashboard = await caches.match(url.origin + '/dashboard', { ignoreVary: true });
-            if (cachedDashboard) return cachedDashboard;
+          if (
+            url.pathname === '/inicio' ||
+            url.pathname.startsWith('/inicio/') ||
+            url.pathname.startsWith('/almacen') ||
+            url.pathname.startsWith('/analisis') ||
+            url.pathname.startsWith('/animales') ||
+            url.pathname.startsWith('/configuracion') ||
+            url.pathname.startsWith('/contactos') ||
+            url.pathname.startsWith('/escanear') ||
+            url.pathname.startsWith('/exportar') ||
+            url.pathname.startsWith('/finanzas') ||
+            url.pathname.startsWith('/manual') ||
+            url.pathname.startsWith('/inventarios') ||
+            url.pathname.startsWith('/operaciones') ||
+            url.pathname.startsWith('/planeacion') ||
+            url.pathname.startsWith('/produccion') ||
+            url.pathname.startsWith('/sanidad') ||
+            url.pathname.startsWith('/soberania') ||
+            url.pathname.startsWith('/ubicaciones')
+          ) {
+            const cachedAppShell = await caches.match(url.origin + '/inicio', { ignoreVary: true });
+            if (cachedAppShell) return cachedAppShell;
           }
 
           const rootFallback = await caches.match(url.origin + '/', { ignoreVary: true });
@@ -204,4 +232,68 @@ self.addEventListener('message', (event) => {
   if (event.data && event.data.type === 'SKIP_WAITING') {
     self.skipWaiting();
   }
+  // C2: push local de briefings, solo si el cliente ya verificó el permiso del usuario.
+  if (event.data && event.data.type === 'SHOW_BRIEFING_NOTIFICATION') {
+    const payload = sanitizeBriefingPushPayload(event.data.payload);
+    event.waitUntil(
+      self.registration.showNotification(payload.title, {
+        body: payload.body,
+        tag: payload.tag,
+        icon: '/icon-192.png',
+        badge: '/icon-192.png',
+        data: { url: payload.url },
+      })
+    );
+  }
+});
+
+// C2: privacidad — la notificación nunca lleva datos sensibles de la granja
+// (hallazgos, cifras, nombres). Solo título genérico + conteo de novedades.
+function sanitizeBriefingPushPayload(raw) {
+  const count = Math.max(0, Math.floor(Number(raw && raw.unreadCount) || 0));
+  return {
+    title: 'Gina te informa',
+    body:
+      count === 1
+        ? 'Tienes 1 novedad de tu granja. Ábrela en IwaGranja.'
+        : 'Tienes ' + count + ' novedades de tu granja. Ábrelas en IwaGranja.',
+    url: '/inicio',
+    tag: 'gina-briefing',
+  };
+}
+
+self.addEventListener('push', (event) => {
+  let raw = null;
+  try {
+    raw = event.data ? event.data.json() : null;
+  } catch {
+    raw = null;
+  }
+  const payload = sanitizeBriefingPushPayload(raw);
+  event.waitUntil(
+    self.registration.showNotification(payload.title, {
+      body: payload.body,
+      tag: payload.tag,
+      icon: '/icon-192.png',
+      badge: '/icon-192.png',
+      data: { url: payload.url },
+    })
+  );
+});
+
+self.addEventListener('notificationclick', (event) => {
+  event.notification.close();
+  const targetUrl = (event.notification.data && event.notification.data.url) || '/inicio';
+  event.waitUntil(
+    self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then((clients) => {
+      for (const client of clients) {
+        if ('focus' in client) {
+          client.focus();
+          if ('navigate' in client) client.navigate(targetUrl).catch(() => undefined);
+          return;
+        }
+      }
+      return self.clients.openWindow(targetUrl);
+    })
+  );
 });

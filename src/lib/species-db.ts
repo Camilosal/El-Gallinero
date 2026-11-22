@@ -1,7 +1,7 @@
 import { db } from "@/db";
 import { catalogos } from "@/db/schema";
 import { and, asc, eq } from "drizzle-orm";
-import { SPECIES_PARAMS, type SpeciesProductionParams } from "./species-params";
+import { SPECIES_BIOLOGY_FALLBACKS, type SpeciesProductionParams } from "./species-params";
 
 /** Orden canónico de especies para reportes y desgloses. */
 export const SPECIES_ORDER = ["gallina", "pollo", "codorniz", "pato", "conejo", "cuy"] as const;
@@ -91,11 +91,6 @@ export interface SpeciesDbParams extends SpeciesProductionParams {
   isActive?: boolean;
 }
 
-export function defaultEggPrice(species: string): number {
-  const prices: Record<string, number> = { gallina: 600, codorniz: 300, pato: 800 };
-  return prices[species] || 500;
-}
-
 function rowToParams(row: typeof catalogos.$inferSelect): SpeciesDbParams {
   const species = row.tipo || "gallina";
   const cycleWeeks = row.minWeeks ?? 8;
@@ -110,14 +105,13 @@ function rowToParams(row: typeof catalogos.$inferSelect): SpeciesDbParams {
     targetWeightKg: Number(row.targetWeightKg ?? 2),
     carcassYieldPercent: row.units ?? 70,
     dailyFeedGPerHead: row.dailyFeedG ?? 100,
-    feedCostPerKgCOP: Number(row.feedCostPerKg ?? 2800),
+    feedCostPerKgCOP: Number(row.feedCostPerKg ?? 0),
+    initialUnitCostCOP: row.initialUnitCostCop == null ? undefined : Number(row.initialUnitCostCop),
+    pointOfLayUnitValueCOP: row.pointOfLayUnitValueCop == null ? undefined : Number(row.pointOfLayUnitValueCop),
+    breederUnitValueCOP: row.breederUnitValueCop == null ? undefined : Number(row.breederUnitValueCop),
     feedConversionRatio: Number(row.feedConversionRatio ?? 2.5),
-    marketPriceKgCanalCOP: Number(row.price ?? 14000),
-    marketPriceEggUnitCOP: row.eggPrice
-      ? Number(row.eggPrice)
-      : row.expectedEggsPerHen && Number(row.expectedEggsPerHen) > 0
-        ? defaultEggPrice(species)
-        : undefined,
+    marketPriceKgCanalCOP: Number(row.price ?? 0),
+    marketPriceEggUnitCOP: row.eggPrice == null ? undefined : Number(row.eggPrice),
     eggsPerDayPerFemale: row.expectedEggsPerHen ? Number(row.expectedEggsPerHen) : undefined,
     systemType: row.systemType || "piso",
     notes: row.description || "",
@@ -127,12 +121,12 @@ function rowToParams(row: typeof catalogos.$inferSelect): SpeciesDbParams {
 
 /**
  * Carga los parámetros productivos desde Catálogos (params_especie).
- * Si la tabla está vacía o falla, usa la referencia estática como respaldo.
+ * Si la tabla está vacía o falla, usa datos biológicos de referencia sin precios ni costos.
  */
 export async function loadSpeciesParams(species?: string): Promise<SpeciesDbParams[]> {
   const fallback = species
-    ? SPECIES_PARAMS.filter((p) => p.species === species)
-    : SPECIES_PARAMS;
+    ? SPECIES_BIOLOGY_FALLBACKS.filter((p) => p.species === species)
+    : SPECIES_BIOLOGY_FALLBACKS;
 
   try {
     const conditions = [eq(catalogos.category, "params_especie"), eq(catalogos.isActive, true)];
@@ -154,6 +148,18 @@ export async function loadSpeciesParams(species?: string): Promise<SpeciesDbPara
   }
 }
 
+/** Lee solo precios configurados en Catálogos, sin referencias estáticas ni sustitutos. */
+export async function loadSpeciesMasterParams(species?: string): Promise<SpeciesDbParams[]> {
+  const conditions = [eq(catalogos.category, "params_especie"), eq(catalogos.isActive, true)];
+  if (species) conditions.push(eq(catalogos.tipo, species));
+  const rows = await db
+    .select()
+    .from(catalogos)
+    .where(and(...conditions))
+    .orderBy(asc(catalogos.sortOrder), asc(catalogos.value));
+  return rows.map(rowToParams);
+}
+
 /** Primer registro (registro base) por especie. */
 export async function loadDefaultSpeciesParams(species: string): Promise<SpeciesDbParams | undefined> {
   const rows = await loadSpeciesParams(species);
@@ -162,24 +168,66 @@ export async function loadDefaultSpeciesParams(species: string): Promise<Species
 
 /** Precio de mercado por kg canal, tomando el primer registro activo de cada especie. */
 export async function loadSpeciesPriceMap(): Promise<Record<string, number>> {
-  const rows = await loadSpeciesParams();
+  const rows = await loadSpeciesMasterParams();
   const map: Record<string, number> = {};
+  const seen = new Set<string>();
   for (const row of rows) {
-    if (map[row.species] === undefined) {
-      map[row.species] = row.marketPriceKgCanalCOP;
-    }
+    if (seen.has(row.species)) continue;
+    seen.add(row.species);
+    if (row.marketPriceKgCanalCOP > 0) map[row.species] = row.marketPriceKgCanalCOP;
   }
   return map;
 }
 
 /** Precio de referencia por huevo, tomando el primer registro activo de cada especie. */
 export async function loadEggPriceMap(): Promise<Record<string, number>> {
-  const rows = await loadSpeciesParams();
+  const rows = await loadSpeciesMasterParams();
   const map: Record<string, number> = {};
+  const seen = new Set<string>();
   for (const row of rows) {
-    if (map[row.species] === undefined) {
-      map[row.species] = row.marketPriceEggUnitCOP ?? defaultEggPrice(row.species);
-    }
+    if (seen.has(row.species)) continue;
+    seen.add(row.species);
+    if (row.marketPriceEggUnitCOP !== undefined && row.marketPriceEggUnitCOP > 0) map[row.species] = row.marketPriceEggUnitCOP;
   }
   return map;
+}
+
+export async function loadSpeciesValuationPriceMaps(): Promise<{
+  meatKgCopBySpecies: Record<string, number>;
+  eggUnitCopBySpecies: Record<string, number>;
+  initialUnitCostCopBySpecies: Record<string, number>;
+  pointOfLayValueCopBySpecies: Record<string, number>;
+  breederUnitValueCopBySpecies: Record<string, number>;
+}> {
+  const rows = await loadSpeciesMasterParams();
+  const result = {
+    meatKgCopBySpecies: {} as Record<string, number>,
+    eggUnitCopBySpecies: {} as Record<string, number>,
+    initialUnitCostCopBySpecies: {} as Record<string, number>,
+    pointOfLayValueCopBySpecies: {} as Record<string, number>,
+    breederUnitValueCopBySpecies: {} as Record<string, number>,
+  };
+  const seen = new Set<string>();
+  for (const row of rows) {
+    if (seen.has(row.species)) continue;
+    seen.add(row.species);
+    if (row.marketPriceKgCanalCOP > 0) {
+      result.meatKgCopBySpecies[row.species] = Math.round(
+        row.marketPriceKgCanalCOP * Math.max(0, row.carcassYieldPercent) / 100,
+      );
+    }
+    if ((row.marketPriceEggUnitCOP ?? 0) > 0) {
+      result.eggUnitCopBySpecies[row.species] = row.marketPriceEggUnitCOP!;
+    }
+    if ((row.initialUnitCostCOP ?? 0) > 0) {
+      result.initialUnitCostCopBySpecies[row.species] = row.initialUnitCostCOP!;
+    }
+    if ((row.pointOfLayUnitValueCOP ?? 0) > 0) {
+      result.pointOfLayValueCopBySpecies[row.species] = row.pointOfLayUnitValueCOP!;
+    }
+    if ((row.breederUnitValueCOP ?? 0) > 0) {
+      result.breederUnitValueCopBySpecies[row.species] = row.breederUnitValueCOP!;
+    }
+  }
+  return result;
 }

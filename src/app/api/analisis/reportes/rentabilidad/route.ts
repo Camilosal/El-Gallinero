@@ -3,6 +3,8 @@ import { farmLocations, feedInventory, feedMovements, transactions } from "@/db/
 import { eq, gte, lte, and } from "drizzle-orm";
 import { NextRequest, NextResponse } from "next/server";
 import { withApiHandler } from "@/lib/api-handler";
+import { getSessionUser } from "@/lib/auth";
+import { isReadOnlyRole } from "@/lib/rbac";
 import { isDateOnly } from "@/lib/date-validation";
 import { normalizeFeedingSpecies } from "@/lib/species";
 import { computeThreeLayerFinancials } from "@/lib/analytics/biological-valuation";
@@ -12,6 +14,8 @@ import {
   evaluateBiologicalPortfolio,
   loadFarmBiologicalContext,
 } from "@/lib/analytics/biological-db";
+import { computeSupplyWarehouseValuation } from "@/lib/analytics/payroll-tax-supplies";
+import { loadPeriodPayrollAndSupplies } from "@/lib/analytics/payroll-tax-supplies-db";
 
 export const dynamic = "force-dynamic";
 
@@ -69,6 +73,7 @@ function toDimensionLines(map: Map<string, { label: string; revenue: number; cos
  * lugar se agrupan en "sin_asignar" para que el total siempre cuadre.
  */
 export const GET = withApiHandler(async (req: NextRequest) => {
+  const directivo = isReadOnlyRole((await getSessionUser())?.role);
   const { searchParams } = new URL(req.url);
   const from = searchParams.get("from") || new Date(new Date().getFullYear(), 0, 1).toISOString().split("T")[0];
   const to = searchParams.get("to") || new Date().toISOString().split("T")[0];
@@ -84,7 +89,7 @@ export const GET = withApiHandler(async (req: NextRequest) => {
   if (species) conditions.push(eq(transactions.species, species));
   if (locationId) conditions.push(eq(transactions.locationId, locationId));
 
-  const [txs, locations, feedMovRows, bioCtx] = await Promise.all([
+  const [txs, locations, feedMovRows, bioCtx, payrollSuppliesCtx] = await Promise.all([
     db.select().from(transactions).where(and(...conditions)).orderBy(transactions.date),
     db.select({ id: farmLocations.id, name: farmLocations.name }).from(farmLocations),
     db
@@ -102,6 +107,12 @@ export const GET = withApiHandler(async (req: NextRequest) => {
       speciesFilter: species,
       locationIdFilter: locationId || null,
       referenceDate: to,
+    }),
+    loadPeriodPayrollAndSupplies({
+      from,
+      to,
+      speciesFilter: species,
+      locationIdFilter: locationId || null,
     }),
   ]);
   const locationNames = new Map(locations.map((l) => [l.id, l.name]));
@@ -164,6 +175,7 @@ export const GET = withApiHandler(async (req: NextRequest) => {
   );
   const assetsSummary = computeAssetsDepreciationSummary(bioCtx.assets, { fromDate: from, toDate: to });
   const warehouseSummary = computeFeedWarehouseValuation(bioCtx.feedRows);
+  const supplyWarehouseSummary = computeSupplyWarehouseValuation(bioCtx.supplyRows);
   const biologicalSummary = evaluateBiologicalPortfolio({
     flocks: bioCtx.flocks,
     broilerBatches: bioCtx.batches,
@@ -182,6 +194,10 @@ export const GET = withApiHandler(async (req: NextRequest) => {
     })),
     accruedFeedConsumedCostCop: accruedFeedCost,
     hasFeedConsumptionRecords: filteredFeedMovs.length > 0 && accruedFeedCost > 0,
+    accruedSupplyConsumedCostCop: payrollSuppliesCtx.accruedSupplyCostCop,
+    hasSupplyConsumptionRecords: payrollSuppliesCtx.hasSupplyConsumptionRecords,
+    imputedOwnerLaborCop: payrollSuppliesCtx.imputedOwnerLaborCop,
+    warehouseSupplyAssetCop: supplyWarehouseSummary.totalValueCop,
     assetsSummary,
     warehouseSummary,
     biologicalSummary,
@@ -197,13 +213,15 @@ export const GET = withApiHandler(async (req: NextRequest) => {
     totalRevenue: money(totalRevenue),
     totalCost: money(totalCost),
     totalProfit: money(totalRevenue - totalCost),
-    operatingContext: {
-      ...threeLayer,
-      lifecycleMode: biologicalSummary.lifecycleMode,
-      lifecycleLabel: biologicalSummary.lifecycleLabel,
-      capexRecoveryPct: assetsSummary.capexRecoveryPct,
-      alertsCount: biologicalSummary.alerts.length,
-    },
+    ...(!directivo ? {
+      operatingContext: {
+        ...threeLayer,
+        lifecycleMode: biologicalSummary.lifecycleMode,
+        lifecycleLabel: biologicalSummary.lifecycleLabel,
+        capexRecoveryPct: assetsSummary.capexRecoveryPct,
+        alertsCount: biologicalSummary.alerts.length,
+      },
+    } : {}),
   });
 });
 

@@ -5,6 +5,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { ApiHttpError, safeParseJson, withApiHandler } from "@/lib/api-handler";
 import { addDaysIso, isDateOnly } from "@/lib/date-validation";
 import { assertLocationEntryAllowed } from "@/lib/sanitary-locks";
+import { assertCanCreateActiveBatch } from "@/lib/subscription";
 
 export const dynamic = "force-dynamic";
 
@@ -266,6 +267,15 @@ export const POST = withApiHandler(async (req: NextRequest) => {
     let weanedBatchCode: string | null = null;
 
     if (eventType === "destete" && body.createWeanedBatch !== false && (weanedTotal || 0) > 0) {
+      const quota = await assertCanCreateActiveBatch(species, undefined, tx);
+      if (!quota.allowed) {
+        throw new ApiHttpError(402, quota.error || "El plan alcanzó el cupo de lotes activos por especie.", {
+          code: quota.code,
+          planName: quota.planName,
+          activeCount: quota.activeCount,
+          limit: quota.limit,
+        });
+      }
       if (!effectiveLocationId) {
         throw new Error("Selecciona el lugar de alojamiento para crear el lote destetado");
       }

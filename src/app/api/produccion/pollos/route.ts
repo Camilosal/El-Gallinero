@@ -9,7 +9,6 @@ import { deleteChickenSalesAndLinkedFinance } from "@/lib/animal-sales";
 import { computeEggInventory, eggInventoryBookBalance, computeMeatInventory, meatInventoryBookBalance } from "@/lib/inventory";
 import { validateBreedAssociation } from "@/lib/animal-breed-validation";
 import { normalizeManagedSpecies } from "@/lib/animal-breeds";
-import { assertCanCreateActiveBatch } from "@/lib/subscription";
 
 export const dynamic = "force-dynamic";
 
@@ -42,20 +41,9 @@ export const GET = withApiHandler(async (req: NextRequest) => {
 
 /** Las nuevas altas de lotes deben registrarse en Adquisiciones. */
 export const POST = withApiHandler(async () => {
-  const quotaCheck = await assertCanCreateActiveBatch();
-  if (!quotaCheck.allowed) {
-    return NextResponse.json(
-      {
-        error: quotaCheck.error,
-        code: quotaCheck.code || "UPGRADE_REQUIRED",
-        subscription: quotaCheck.status,
-      },
-      { status: 402 },
-    );
-  }
   return NextResponse.json({
     error: "Registra los nuevos lotes desde Adquisiciones para conservar su especie, destino y origen.",
-    href: "/dashboard/produccion/adquisiciones?nuevo=lote_pollos",
+    href: "/produccion/adquisiciones?nuevo=lote_pollos",
   }, { status: 409 });
 });
 

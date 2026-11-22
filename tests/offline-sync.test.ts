@@ -71,7 +71,7 @@ describe("Offline Sync Architecture", () => {
     vi.stubGlobal("window", {
       location: {
         origin: "https://gallinero.test",
-        href: "https://gallinero.test/dashboard",
+        href: "https://gallinero.test/inicio",
         assign: vi.fn(),
       },
       addEventListener: vi.fn(),
@@ -276,13 +276,13 @@ describe("Offline Sync Architecture", () => {
     expect(describeOfflineMutation("DELETE", "/api/sanidad/control")).toContain("Eliminar");
 
     const routes = buildStaticDashboardRoutes();
-    expect(routes).toContain("/dashboard");
-    expect(routes).toContain("/dashboard/almacen");
-    expect(routes).toContain("/dashboard/inventarios");
-    expect(routes).toContain("/dashboard/produccion");
-    expect(routes).toContain("/dashboard/animales");
-    expect(routes).toContain("/dashboard/escanear");
-    expect(routes).toContain("/dashboard/guia/primeros-pasos");
+    expect(routes).toContain("/inicio");
+    expect(routes).toContain("/almacen");
+    expect(routes).toContain("/inventarios");
+    expect(routes).toContain("/produccion");
+    expect(routes).toContain("/animales");
+    expect(routes).toContain("/escanear");
+    expect(routes).toContain("/manual/primeros-pasos");
 
     const endpoints = buildCoreApiEndpoints(new Date("2026-11-12T12:00:00Z"));
     expect(endpoints).toContain("/api/dashboard");
@@ -306,16 +306,24 @@ describe("Offline Sync Architecture", () => {
       expect(fs.existsSync(routeFile), `Falta handler para ${ep}: ${routeFile}`).toBe(true);
     }
 
-    // Verificar que todas las rutas estáticas del dashboard existen en src/app/**/page.tsx (incluyendo [slug])
+    // Verificar que todas las rutas estáticas de la app existen en src/app/(app)/**/page.tsx o src/app/**/page.tsx (incluyendo [slug])
     for (const route of routes) {
       const rel = route === "/" ? "" : route.replace(/^\//, "");
       const pageFile = path.join(process.cwd(), "src", "app", rel, "page.tsx");
+      const appGroupPageFile = path.join(process.cwd(), "src", "app", "(app)", rel, "page.tsx");
       const parentRel = rel.includes("/") ? rel.slice(0, rel.lastIndexOf("/")) : "";
       const dynamicSlugFile = parentRel
         ? path.join(process.cwd(), "src", "app", parentRel, "[slug]", "page.tsx")
         : "";
-      const exists = fs.existsSync(pageFile) || (dynamicSlugFile !== "" && fs.existsSync(dynamicSlugFile));
-      expect(exists, `Falta página para ${route}: ${pageFile}`).toBe(true);
+      const appGroupDynamicSlugFile = parentRel
+        ? path.join(process.cwd(), "src", "app", "(app)", parentRel, "[slug]", "page.tsx")
+        : "";
+      const exists =
+        fs.existsSync(pageFile) ||
+        fs.existsSync(appGroupPageFile) ||
+        (dynamicSlugFile !== "" && fs.existsSync(dynamicSlugFile)) ||
+        (appGroupDynamicSlugFile !== "" && fs.existsSync(appGroupDynamicSlugFile));
+      expect(exists, `Falta página para ${route}: ${appGroupPageFile}`).toBe(true);
     }
 
     expect(assets).toEqual(["/_next/static/chunks/app-123.js", "/_next/static/css/main.css"]);

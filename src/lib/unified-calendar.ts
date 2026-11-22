@@ -227,7 +227,7 @@ export const DEFAULT_ROUTINE_TASKS: RoutineTaskConfig[] = [
     enabled: true,
     autoDetectSource: "feed_consumption",
     quickCaptureMode: "alimentacion",
-    actionHref: "/dashboard/produccion?tab=alimentacion&subtab=movimientos&nuevo=movimiento",
+    actionHref: "/produccion?tab=alimentacion&subtab=movimientos&nuevo=movimiento",
     actionLabel: "Registrar alimento",
     icon: "wheat",
   },
@@ -241,7 +241,7 @@ export const DEFAULT_ROUTINE_TASKS: RoutineTaskConfig[] = [
     enabled: true,
     autoDetectSource: "egg_production",
     quickCaptureMode: "huevos",
-    actionHref: "/dashboard/produccion?tab=huevos&nuevo=1",
+    actionHref: "/produccion?tab=huevos&nuevo=1",
     actionLabel: "Recoger huevos",
     icon: "egg",
   },
@@ -255,7 +255,7 @@ export const DEFAULT_ROUTINE_TASKS: RoutineTaskConfig[] = [
     enabled: true,
     autoDetectSource: "mortality_or_check",
     quickCaptureMode: "mortalidad",
-    actionHref: "/dashboard/produccion/mortalidad",
+    actionHref: "/produccion/mortalidad",
     actionLabel: "Reportar o confirmar OK",
     icon: "health",
   },
@@ -269,7 +269,7 @@ export const DEFAULT_ROUTINE_TASKS: RoutineTaskConfig[] = [
     enabled: true,
     autoDetectSource: "sales_or_expenses",
     quickCaptureMode: "venta",
-    actionHref: "/dashboard/finanzas/ventas",
+    actionHref: "/finanzas/ventas",
     actionLabel: "Registrar venta",
     icon: "money",
   },
@@ -282,7 +282,7 @@ export const DEFAULT_ROUTINE_TASKS: RoutineTaskConfig[] = [
     frequency: "diaria",
     enabled: false,
     autoDetectSource: "daily_closure",
-    actionHref: "/dashboard/operaciones/cierre",
+    actionHref: "/operaciones/cierre",
     actionLabel: "Cerrar jornada",
     icon: "clipboard",
   },
@@ -296,7 +296,7 @@ export const DEFAULT_ROUTINE_TASKS: RoutineTaskConfig[] = [
     daysOfWeek: [1], // Lunes
     enabled: true,
     autoDetectSource: "biosecurity_log",
-    actionHref: "/dashboard/sanidad/bioseguridad",
+    actionHref: "/sanidad/bioseguridad",
     actionLabel: "Registrar bioseguridad",
     icon: "shield",
   },
@@ -310,7 +310,7 @@ export const DEFAULT_ROUTINE_TASKS: RoutineTaskConfig[] = [
     daysOfWeek: [6], // Sábado
     enabled: true,
     autoDetectSource: "weight_records",
-    actionHref: "/dashboard/produccion/peso?nuevo=1",
+    actionHref: "/produccion/peso?nuevo=1",
     actionLabel: "Registrar pesaje",
     icon: "scale",
   },
@@ -365,8 +365,8 @@ export function normalizeRoutineTaskConfig(task: RoutineTaskConfig): RoutineTask
       ...task,
       autoDetectSource: effectiveSource,
       actionHref:
-        !task.actionHref || task.actionHref === "/dashboard/produccion?tab=animales"
-          ? "/dashboard/produccion/peso?nuevo=1"
+        !task.actionHref || task.actionHref === "/produccion?tab=animales"
+          ? "/produccion/peso?nuevo=1"
           : task.actionHref,
       actionLabel:
         !task.actionLabel || task.actionLabel === "Ver lotes"

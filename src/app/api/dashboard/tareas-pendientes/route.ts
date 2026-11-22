@@ -6,10 +6,12 @@ import {
 import { eq, and, sql, inArray, asc, desc, ne } from "drizzle-orm";
 import { NextResponse } from "next/server";
 import { withApiHandler } from "@/lib/api-handler";
+import { getSessionUser } from "@/lib/auth";
+import { canPerformAction } from "@/lib/rbac";
 import { ageInWeeks, stageForAge } from "@/lib/lifecycle";
 import { isHenPresent, isRoosterPresent, isBatchPresent } from "@/lib/animal-status";
 import { loadSpeciesParams } from "@/lib/species-db";
-import { SANITARY_CALENDAR_REVIEW_KEY } from "@/lib/onboarding";
+import { SANITARY_CALENDAR_REVIEW_KEY, FEEDING_PROGRAMS_REVIEW_KEY } from "@/lib/onboarding";
 
 export const dynamic = "force-dynamic";
 
@@ -19,7 +21,7 @@ export const GET = withApiHandler(async () => {
   }).format(new Date());
   const [stages, henRows, roosterRows, batchRows, speciesParams, programRows, eggRows, feedRows,
     pendingSanitary, maintenanceDue, maintenanceDueCount, assetsNeedAttention,
-    locationsCount, feedStockCount, supplyStockCount, registeredAssetsCount, sanitaryCount, sanitaryReview,
+    locationsCount, feedStockCount, supplyStockCount, registeredAssetsCount, sanitaryCount, sanitaryReview, feedingReview,
     clientCount, supplierCount, contactClientCount, contactSupplierCount, farmProfileValues, budgetCount, lastEggRows, lastFeedRows] = await Promise.all([
     db.select().from(catalogos).where(and(eq(catalogos.category, "etapa_crecimiento"), eq(catalogos.isActive, true))),
     db.select({ birthDate: hens.birthDate, status: hens.status }).from(hens),
@@ -79,6 +81,8 @@ export const GET = withApiHandler(async () => {
       .where(eq(sanitaryCalendar.isActive, true)),
     db.select({ value: appSettings.value }).from(appSettings)
       .where(eq(appSettings.key, SANITARY_CALENDAR_REVIEW_KEY)).limit(1),
+    db.select({ value: appSettings.value }).from(appSettings)
+      .where(eq(appSettings.key, FEEDING_PROGRAMS_REVIEW_KEY)).limit(1),
     db.select({ total: sql<number>`count(*)::int` }).from(catalogos)
       .where(and(eq(catalogos.category, "comprador"), eq(catalogos.isActive, true))),
     db.select({ total: sql<number>`count(*)::int` }).from(catalogos)
@@ -159,6 +163,11 @@ export const GET = withApiHandler(async () => {
     || presentBatches.some((batch) => hasFeedingProgram(batch.species, ageInWeeks(batch.startDate, referenceDate)));
   const sanitaryEvent = pendingSanitary[0] || null;
   const lastFeed = lastFeedRows[0] || null;
+  const user = await getSessionUser();
+  const canSeeSanitaryDetails = canPerformAction(user?.role, "sanitary:write");
+  const canSeeOperationsDetails = canPerformAction(user?.role, "operations:manage");
+  const canSeeSalesPrices = canPerformAction(user?.role, "sales:read");
+  const canSeeProductionDetails = canPerformAction(user?.role, "production:write");
 
   return NextResponse.json({
     eggApplicable,
@@ -178,8 +187,9 @@ export const GET = withApiHandler(async () => {
       budgetConfigured: (budgetCount[0]?.total || 0) > 0,
       assetsRegistered: (registeredAssetsCount[0]?.total || 0) > 0,
       sanitaryConfigured: (sanitaryCount[0]?.total || 0) > 0 && Boolean(sanitaryReview[0]?.value),
+      feedingProgramsValidated: programRows.length > 0 && Boolean(feedingReview[0]?.value),
     },
-    pendingSanitary: sanitaryEvent ? {
+    pendingSanitary: canSeeSanitaryDetails && sanitaryEvent ? {
       id: sanitaryEvent.id,
       name: sanitaryEvent.name,
       type: sanitaryEvent.type,
@@ -189,7 +199,7 @@ export const GET = withApiHandler(async () => {
       dueDate: sanitaryEvent.nextDueDate,
       isOverdue: sanitaryEvent.nextDueDate < today,
     } : null,
-    pendingSanitaryList: pendingSanitary.map((ev) => ({
+    pendingSanitaryList: canSeeSanitaryDetails ? pendingSanitary.map((ev) => ({
       id: ev.id,
       name: ev.name,
       type: ev.type,
@@ -198,8 +208,12 @@ export const GET = withApiHandler(async () => {
       frequencyDays: ev.frequencyDays,
       dueDate: ev.nextDueDate,
       isOverdue: ev.nextDueDate < today,
-    })),
-    maintenanceDue: maintenanceDue.map((task) => ({ ...task, isOverdue: task.scheduledDate < today })),
+    })) : [],
+    maintenanceDue: canSeeOperationsDetails ? maintenanceDue.map(({ cost, ...task }) => ({
+      ...task,
+      ...(canPerformAction(user?.role, "finance:read") ? { cost } : {}),
+      isOverdue: task.scheduledDate < today,
+    })) : [],
     maintenanceDueCount: maintenanceDueCount[0]?.total || 0,
     assetsNeedAttention: assetsNeedAttention[0]?.total || 0,
     lastEggRecord: lastEgg ? {
@@ -209,10 +223,10 @@ export const GET = withApiHandler(async () => {
       totalCollected: lastEgg.totalCollected,
       broken: lastEgg.broken,
       forIncubation: lastEgg.forIncubation,
-      referenceUnitPrice: lastEgg.referenceUnitPrice,
+      ...(canSeeSalesPrices ? { referenceUnitPrice: lastEgg.referenceUnitPrice } : {}),
       details: lastEggDetails,
     } : null,
-    lastFeedRecord: lastFeed ? {
+    lastFeedRecord: canSeeProductionDetails && lastFeed ? {
       feedId: lastFeed.feedId,
       feedName: lastFeed.feedName,
       feedUnit: lastFeed.feedUnit,

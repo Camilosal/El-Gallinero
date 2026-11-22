@@ -1,4 +1,5 @@
 export const SANITARY_CALENDAR_REVIEW_KEY = "onboarding.sanitary_calendar_reviewed_at";
+export const FEEDING_PROGRAMS_REVIEW_KEY = "onboarding.feeding_programs_reviewed_at";
 export const PROGRESSIVE_CONFIG_SETTING_KEY = "onboarding.progressive_config.v1";
 export const ACTIVATION_HISTORY_SETTING_KEY = "onboarding.activation_history.v1";
 export const ONBOARDING_UPDATED_EVENT = "gallinero:onboarding-updated";
@@ -139,8 +140,8 @@ export const FEATURE_FLAG_CATALOG: FeatureFlagDefinition[] = [
     autoTriggerExpr: null,
     autoTriggerDescription: "Siempre activo en todas las escalas productivas.",
     category: "core",
-    affectedRoutes: ["/dashboard", "/dashboard/produccion", "/dashboard/escanear"],
-    configHref: "/dashboard/produccion",
+    affectedRoutes: ["/inicio", "/produccion", "/escanear"],
+    configHref: "/produccion",
   },
   {
     key: "inventario_bodega_cobertura",
@@ -152,8 +153,8 @@ export const FEATURE_FLAG_CATALOG: FeatureFlagDefinition[] = [
     autoTriggerExpr: null,
     autoTriggerDescription: "Siempre activo en todas las escalas productivas.",
     category: "core",
-    affectedRoutes: ["/dashboard/almacen", "/dashboard/produccion?tab=alimentacion"],
-    configHref: "/dashboard/almacen",
+    affectedRoutes: ["/almacen", "/produccion?tab=alimentacion"],
+    configHref: "/almacen",
   },
   {
     key: "sanidad_retiros_compostaje",
@@ -165,21 +166,21 @@ export const FEATURE_FLAG_CATALOG: FeatureFlagDefinition[] = [
     autoTriggerExpr: null,
     autoTriggerDescription: "Siempre activo en todas las escalas productivas.",
     category: "core",
-    affectedRoutes: ["/dashboard/sanidad", "/dashboard/operaciones/compostaje"],
-    configHref: "/dashboard/sanidad",
+    affectedRoutes: ["/sanidad", "/operaciones/compostaje"],
+    configHref: "/sanidad",
   },
   {
     key: "whatsapp_parte_diario",
-    name: "Resumen y Alertas por WhatsApp",
-    description: "Parte operativo diario y recordatorios rápidos de rutina o stock crítico.",
+    name: "Parte diario · Telegram/compartir",
+    description: "Parte operativo diario y recordatorios rápidos de rutina o stock crítico, listos para Telegram o compartir.",
     defaultPequeno: true,
     defaultMediano: true,
     manualUnlock: false,
     autoTriggerExpr: null,
     autoTriggerDescription: "Siempre activo en todas las escalas productivas.",
     category: "core",
-    affectedRoutes: ["/dashboard/planeacion/calendario"],
-    configHref: "/dashboard/planeacion/calendario",
+    affectedRoutes: ["/planeacion/calendario"],
+    configHref: "/planeacion/calendario",
   },
   {
     key: "auditoria_poe_gab_ica",
@@ -191,8 +192,8 @@ export const FEATURE_FLAG_CATALOG: FeatureFlagDefinition[] = [
     autoTriggerExpr: "aves_activas_totales > 200",
     autoTriggerDescription: "Se activa automáticamente cuando las aves activas superan 200 ejemplares.",
     category: "sanidad",
-    affectedRoutes: ["/dashboard/sanidad/bioseguridad"],
-    configHref: "/dashboard/sanidad/bioseguridad",
+    affectedRoutes: ["/sanidad/bioseguridad"],
+    configHref: "/sanidad/bioseguridad",
   },
   {
     key: "centros_costo_prorrateo",
@@ -204,8 +205,8 @@ export const FEATURE_FLAG_CATALOG: FeatureFlagDefinition[] = [
     autoTriggerExpr: "especies_activas >= 2",
     autoTriggerDescription: "Se activa automáticamente al operar 2 o más especies activas en la granja.",
     category: "finanzas",
-    affectedRoutes: ["/dashboard/analisis/reportes?tab=analitica"],
-    configHref: "/dashboard/analisis/reportes?tab=analitica",
+    affectedRoutes: ["/analisis/reportes?tab=analitica"],
+    configHref: "/analisis/reportes?tab=analitica",
   },
   {
     key: "clasificacion_ntc1240_calibres",
@@ -217,8 +218,8 @@ export const FEATURE_FLAG_CATALOG: FeatureFlagDefinition[] = [
     autoTriggerExpr: "gallinas_ponedoras_activas >= 150",
     autoTriggerDescription: "Se activa automáticamente al alcanzar 150 o más gallinas ponedoras activas.",
     category: "produccion",
-    affectedRoutes: ["/dashboard/produccion?tab=huevos", "/dashboard/inventarios/huevos"],
-    configHref: "/dashboard/produccion?tab=huevos",
+    affectedRoutes: ["/produccion?tab=huevos", "/inventarios/huevos"],
+    configHref: "/produccion?tab=huevos",
   },
   {
     key: "reportes_dian_roi_credito",
@@ -230,8 +231,8 @@ export const FEATURE_FLAG_CATALOG: FeatureFlagDefinition[] = [
     autoTriggerExpr: "solicita_reporte_formal == true",
     autoTriggerDescription: "Se activa automáticamente al habilitar la solicitud de reportes formales DIAN/crédito.",
     category: "finanzas",
-    affectedRoutes: ["/dashboard/finanzas/presupuestos", "/dashboard/analisis/reportes"],
-    configHref: "/dashboard/analisis/reportes",
+    affectedRoutes: ["/finanzas/presupuestos", "/analisis/reportes"],
+    configHref: "/analisis/reportes",
   },
   {
     key: "genealogia_3gen_qr_iot",
@@ -243,8 +244,8 @@ export const FEATURE_FLAG_CATALOG: FeatureFlagDefinition[] = [
     autoTriggerExpr: "reproductores_mamiferos >= 30",
     autoTriggerDescription: "Se activa automáticamente al registrar 30 o más animales mamíferos (conejos/cuyes) o pie de cría.",
     category: "tecnologia",
-    affectedRoutes: ["/dashboard/operaciones/cierre", "/dashboard/produccion?tab=reproduccion"],
-    configHref: "/dashboard/operaciones/cierre",
+    affectedRoutes: ["/operaciones/cierre", "/produccion?tab=reproduccion"],
+    configHref: "/operaciones/cierre",
   },
 ];
 
@@ -258,18 +259,18 @@ export const PROGRESSIVE_ROUTE_GATES: ReadonlyArray<{
   flag: ProgressiveUnlockableFlagKey;
   exactMatch?: boolean;
 }> = [
-  { prefix: "/dashboard/sanidad/bioseguridad", flag: "auditoria_poe_gab_ica" },
-  { prefix: "/dashboard/guia/bioseguridad-bienestar", flag: "auditoria_poe_gab_ica" },
-  { prefix: "/dashboard/analisis/reportes?tab=analitica", flag: "centros_costo_prorrateo" },
-  { prefix: "/dashboard/analisis/kpis", flag: "centros_costo_prorrateo" },
-  { prefix: "/dashboard/inventarios/huevos", flag: "clasificacion_ntc1240_calibres" },
-  { prefix: "/dashboard/analisis/razas", flag: "clasificacion_ntc1240_calibres" },
-  { prefix: "/dashboard/finanzas/presupuestos", flag: "reportes_dian_roi_credito" },
-  { prefix: "/dashboard/guia/presupuestos", flag: "reportes_dian_roi_credito" },
-  { prefix: "/dashboard/operaciones/activos", flag: "reportes_dian_roi_credito" },
-  { prefix: "/dashboard/operaciones/mantenimiento", flag: "reportes_dian_roi_credito" },
-  { prefix: "/dashboard/operaciones/cierre", flag: "genealogia_3gen_qr_iot" },
-  { prefix: "/dashboard/guia/cierre-sensores", flag: "genealogia_3gen_qr_iot" },
+  { prefix: "/sanidad/bioseguridad", flag: "auditoria_poe_gab_ica" },
+  { prefix: "/manual/bioseguridad-bienestar", flag: "auditoria_poe_gab_ica" },
+  { prefix: "/analisis/reportes?tab=analitica", flag: "centros_costo_prorrateo" },
+  { prefix: "/analisis/kpis", flag: "centros_costo_prorrateo" },
+  { prefix: "/inventarios/huevos", flag: "clasificacion_ntc1240_calibres" },
+  { prefix: "/analisis/razas", flag: "clasificacion_ntc1240_calibres" },
+  { prefix: "/finanzas/presupuestos", flag: "reportes_dian_roi_credito" },
+  { prefix: "/manual/presupuestos", flag: "reportes_dian_roi_credito" },
+  { prefix: "/operaciones/activos", flag: "reportes_dian_roi_credito" },
+  { prefix: "/operaciones/mantenimiento", flag: "reportes_dian_roi_credito" },
+  { prefix: "/operaciones/cierre", flag: "genealogia_3gen_qr_iot" },
+  { prefix: "/manual/cierre-sensores", flag: "genealogia_3gen_qr_iot" },
 ];
 
 export function buildScaleDefaultFlags(

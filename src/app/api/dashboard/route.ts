@@ -10,6 +10,8 @@ import { computeManureInventory, computeEggInventory } from "@/lib/inventory";
 import { computeAnimalInventory } from "@/lib/animal-inventory";
 import { getFlockRules } from "@/lib/settings";
 import { withApiHandler, safeParseJson } from "@/lib/api-handler";
+import { getSessionUser } from "@/lib/auth";
+import { canPerformAction } from "@/lib/rbac";
 import { computeThreeLayerFinancials } from "@/lib/analytics/biological-valuation";
 import {
   computeAssetsDepreciationSummary,
@@ -346,7 +348,7 @@ export const GET = withApiHandler(async () => {
       .sort(([a], [b]) => a.localeCompare(b))
       .map(([, v]) => v);
 
-    const [txDetailRows, feedCostRows, bioCtx] = await Promise.all([
+    const [txDetailRows, feedCostRows, bioCtx, payrollSuppliesCtx] = await Promise.all([
       db
         .select({
           type: transactions.type,
@@ -368,7 +370,11 @@ export const GET = withApiHandler(async () => {
         .innerJoin(feedInventory, eq(feedMovements.feedId, feedInventory.id))
         .where(and(eq(feedMovements.isEntry, false), gte(feedMovements.date, dateStr), lte(feedMovements.date, todayStr))),
       loadFarmBiologicalContext({ referenceDate: todayStr }),
+      import("@/lib/analytics/payroll-tax-supplies-db").then((m) =>
+        m.loadPeriodPayrollAndSupplies({ from: dateStr, to: todayStr }),
+      ),
     ]);
+    const { computeSupplyWarehouseValuation } = await import("@/lib/analytics/payroll-tax-supplies");
     const accruedFeedCost30d = feedCostRows.reduce(
       (s, fc) => s + Number(fc.quantity || 0) * Number(fc.unitCost ?? fc.fallbackCost ?? 0),
       0,
@@ -378,6 +384,7 @@ export const GET = withApiHandler(async () => {
       toDate: todayStr,
     });
     const warehouseSummary = computeFeedWarehouseValuation(bioCtx.feedRows);
+    const supplyWarehouseSummary = computeSupplyWarehouseValuation(bioCtx.supplyRows);
     const biologicalSummary = evaluateBiologicalPortfolio({
       flocks: bioCtx.flocks,
       broilerBatches: bioCtx.batches,
@@ -390,6 +397,10 @@ export const GET = withApiHandler(async () => {
         transactions: txDetailRows,
         accruedFeedConsumedCostCop: accruedFeedCost30d,
         hasFeedConsumptionRecords: feedCostRows.length > 0 && accruedFeedCost30d > 0,
+        accruedSupplyConsumedCostCop: payrollSuppliesCtx.accruedSupplyCostCop,
+        hasSupplyConsumptionRecords: payrollSuppliesCtx.hasSupplyConsumptionRecords,
+        imputedOwnerLaborCop: payrollSuppliesCtx.imputedOwnerLaborCop,
+        warehouseSupplyAssetCop: supplyWarehouseSummary.totalValueCop,
         assetsSummary,
         warehouseSummary,
         biologicalSummary,
@@ -401,7 +412,7 @@ export const GET = withApiHandler(async () => {
       alerts: biologicalSummary.alerts.slice(0, 4),
     };
 
-    return NextResponse.json({
+    const dashboardData = {
       hens: {
         total: henSummary.registered,
         active: henSummary.present,
@@ -478,6 +489,52 @@ export const GET = withApiHandler(async () => {
       sanitaryAlerts: sanitaryAlerts[0]?.count || 0,
       supplyAlerts: supplyAlerts[0]?.count || 0,
       operatingContext,
+    };
+
+    const user = await getSessionUser();
+    const canReadSales = canPerformAction(user?.role, "sales:read");
+    const canReadFinanceSummary = canPerformAction(user?.role, "finance_summary:read")
+      || canPerformAction(user?.role, "finance:read");
+    const canReadFinanceDetails = canPerformAction(user?.role, "finance:read");
+    const canReadInventory = canPerformAction(user?.role, "inventory:read");
+    const {
+      sales: salesSummary,
+      finance: financeSummary,
+      operatingContext: financialContext,
+      stockProjection: inventoryProjection,
+      animals: animalSummary,
+      species: speciesSummary,
+      fcr: performanceSummary,
+      manure: manureSummary,
+      ...publicDashboardData
+    } = dashboardData;
+
+    const safeAnimalSummary = canReadFinanceDetails
+      ? animalSummary
+      : { ...animalSummary, totalValue: 0 };
+    const safeSpeciesSummary = canReadFinanceDetails
+      ? speciesSummary
+      : speciesSummary.map(({ estimatedValue, ...species }) => ({ ...species, estimatedValue: 0 }));
+    const safePerformanceSummary = canReadSales
+      ? performanceSummary
+      : { ...performanceSummary, totalMeatRevenue: "0" };
+    const safeManureSummary = canReadSales
+      ? manureSummary
+      : {
+        ...manureSummary,
+        salesLast30d: { ...manureSummary.salesLast30d, totalRevenue: "0" },
+      };
+
+    return NextResponse.json({
+      ...publicDashboardData,
+      animals: safeAnimalSummary,
+      species: safeSpeciesSummary,
+      fcr: safePerformanceSummary,
+      manure: safeManureSummary,
+      ...(canReadSales ? { sales: salesSummary } : {}),
+      finance: canReadFinanceSummary ? financeSummary : { income: "0", expenses: "0", profit: "0" },
+      ...(canReadFinanceDetails ? { operatingContext: financialContext } : {}),
+      stockProjection: canReadInventory ? inventoryProjection : [],
     });
   } catch (error) {
     console.error("Dashboard error:", error);

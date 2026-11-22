@@ -1,0 +1,309 @@
+"use client";
+
+import { useEffect, useState, useCallback, useMemo } from "react";
+import { AlertTriangle, BarChart3, Clock, Egg, FolderOpen } from "lucide-react";
+import { PageHeader, Card, Table, Badge, StatCard, EmptyState } from "@/components/ui";
+import { apiFetch } from "@/lib/fetch";
+import TableSearch from "@/components/TableSearch";
+import { matchesTextQuery } from "@/lib/text";
+import { canPerformAction } from "@/lib/rbac";
+import { useAppRole } from "@/lib/useAppRole";
+
+interface EggLot {
+  id: string;
+  date: string;
+  size: string;
+  initial: number;
+  sold: number;
+  remaining: number;
+  ageDays: number;
+  lotCode?: string | null;
+  storageTempC?: number | null;
+  storageHumidityPct?: number | null;
+  storageWarnings?: string[];
+}
+
+interface SizeSummary {
+  size: string;
+  price: number | null;
+  produced: number;
+  saleableProduced: number;
+  sold: number;
+  lost: number;
+  available: number;
+  value: number | null;
+}
+
+interface InventoryData {
+  summary: {
+    produced: number;
+    saleableProduced: number;
+    sold: number;
+    lost: number;
+    available: number;
+    sizes: SizeSummary[];
+  };
+  lots: EggLot[];
+  aging: { label: string; count: number }[];
+  oldestLot: EggLot | null;
+  estimatedValue: number | null;
+  storageAlerts?: Array<{
+    id: string;
+    lotCode: string | null;
+    date: string;
+    tempC: number | null;
+    humidityPct: number | null;
+    warnings: string[];
+  }>;
+}
+
+export default function InventarioPage() {
+  const role = useAppRole();
+  const canSeeFinancials = canPerformAction(role, "finance:read");
+  const canSeeSalesPrices = canPerformAction(role, "sales:read");
+  const [data, setData] = useState<InventoryData | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [summarySearch, setSummarySearch] = useState("");
+  const [lotSearch, setLotSearch] = useState("");
+
+  const load = useCallback(() => {
+    apiFetch("/api/produccion/huevos/inventario").then((r) => r.json()).then(setData).finally(() => setLoading(false));
+  }, []);
+
+  useEffect(() => { load(); }, [load]);
+
+  const riskLots = data?.lots.filter((l) => l.remaining > 0 && l.ageDays > 14) || [];
+  const expiring = data?.aging.find((a) => a.label === ">21 días")?.count || 0;
+
+  const filteredSizes = useMemo(() => {
+    const sizes = data?.summary.sizes ?? [];
+    if (!summarySearch.trim()) return sizes;
+    return sizes.filter((size) =>
+      matchesTextQuery(summarySearch, [
+        size.size,
+        size.price,
+        size.produced,
+        size.sold,
+        size.lost,
+        size.available,
+        size.value,
+      ]),
+    );
+  }, [data, summarySearch]);
+
+  const filteredLots = useMemo(() => {
+    const lots = data?.lots ?? [];
+    if (!lotSearch.trim()) return lots;
+    return lots.filter((lot) =>
+      matchesTextQuery(lotSearch, [
+        lot.date,
+        lot.lotCode,
+        new Date(lot.date + "T12:00:00").toLocaleDateString("es"),
+        lot.size,
+        lot.initial,
+        lot.sold,
+        lot.remaining,
+        lot.ageDays,
+        lot.remaining === 0
+          ? "agotado"
+          : lot.ageDays > 21
+            ? "por vencer"
+            : lot.ageDays > 14
+              ? "vender pronto"
+              : "disponible",
+      ]),
+    );
+  }, [data, lotSearch]);
+
+  return (
+    <div>
+      <PageHeader
+        title="Inventario de Huevos"
+        description="Cruce entre producción, ventas y disponibilidad por tamaño, con consumo PEPS (primero lo más antiguo)"
+        help="Muestra el stock de huevos disponible cruzando producción y ventas. Usa consumo PEPS (Primero en Entrar, Primero en Salir): se consume primero lo más antiguo para evitar mermas. Los lotes muestran cuántos huevos quedan por tamaño y su edad en días."
+      />
+
+      <div className={`grid grid-cols-2 gap-2.5 sm:gap-4 mb-6 ${canSeeFinancials ? "lg:grid-cols-4" : "lg:grid-cols-3"}`}>
+        <StatCard icon="egg" label="Huevos buenos producidos" value={data?.summary.produced ?? 0} color="blue" />
+        <StatCard icon="money" label="Huevos Vendidos" value={data?.summary.sold ?? 0} color="purple" />
+        <StatCard icon="package" label="Disponibles" value={data?.summary.available ?? 0} color="green" />
+        {canSeeFinancials && <StatCard icon="clock" label="Valor Estimado" value={`$${(data?.estimatedValue ?? 0).toLocaleString()}`} color="yellow" />}
+      </div>
+      {(data?.summary.lost ?? 0) > 0 && (
+        <div className="mb-6">
+          <StatCard icon="trash" label="Huevos Perdidos" value={data?.summary.lost ?? 0} color="red" />
+        </div>
+      )}
+
+      {loading ? (
+        <Card><p className="text-center py-8 text-slate-400">Cargando...</p></Card>
+      ) : data && data.summary.produced > 0 ? (
+        <>
+          {(data.storageAlerts?.length ?? 0) > 0 && (
+            <div className="mb-4 p-4 bg-amber-50 border border-amber-200 rounded-xl text-sm text-amber-800">
+              <p className="font-semibold flex items-center gap-1.5">
+                <AlertTriangle className="w-4 h-4 shrink-0" aria-hidden="true" />
+                <span>Alerta de conservación de huevo (ideal 10–15 °C y 75–85 % HR)</span>
+              </p>
+              <ul className="mt-1 list-disc list-inside text-xs space-y-0.5">
+                {data.storageAlerts!.map((a) => (
+                  <li key={a.id}>
+                    <strong>{a.lotCode || a.date}</strong>: {a.warnings.join(" · ")}
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+
+          {expiring > 0 && (
+            <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-xl text-sm text-red-700">
+              <p className="font-semibold flex items-center gap-1.5">
+                <AlertTriangle className="w-4 h-4 shrink-0" aria-hidden="true" />
+                <span>Atención: {expiring} huevos tienen más de 21 días de edad.</span>
+              </p>
+              <p className="mt-1">Prioriza su venta o uso antes de que pierdan calidad. El sistema PEPS ya los marca como siguientes en salir.</p>
+            </div>
+          )}
+
+          <Card className="mb-6">
+            <h3 className="font-semibold text-slate-700 mb-4 flex items-center gap-2">
+              <Clock className="w-4 h-4 text-slate-500" aria-hidden="true" />
+              <span>Edad del Inventario Disponible</span>
+            </h3>
+            {data.aging.every((a) => a.count === 0) ? (
+              <p className="text-sm text-slate-500">No hay huevos disponibles en inventario.</p>
+            ) : (
+              <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
+                {data.aging.map((b) => {
+                  const pct = data.summary.available > 0 ? Math.round((b.count / data.summary.available) * 100) : 0;
+                  const isOld = b.label === ">21 días" || b.label === "15-21 días";
+                  return (
+                    <div key={b.label} className={`p-3 rounded-xl border ${isOld && b.count > 0 ? "bg-red-50 border-red-200" : "bg-slate-50 border-slate-200"}`}>
+                      <p className="text-xs text-slate-500">{b.label}</p>
+                      <p className={`text-2xl font-bold ${isOld && b.count > 0 ? "text-red-600" : "text-slate-700"}`}>{b.count}</p>
+                      <p className="text-xs text-slate-400">{pct}%</p>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+            {data.oldestLot && (
+              <p className="mt-4 text-sm text-slate-500 flex items-center gap-1.5">
+                <Egg className="w-4 h-4 text-amber-500 shrink-0" aria-hidden="true" />
+                <span>Lote más antiguo: <strong>{new Date(data.oldestLot.date + "T12:00:00").toLocaleDateString("es")}</strong> ({data.oldestLot.size}, {data.oldestLot.ageDays} días, {data.oldestLot.remaining} disponibles)</span>
+              </p>
+            )}
+          </Card>
+
+          <Card className="mb-6">
+            <h3 className="font-semibold text-slate-700 mb-4 flex items-center gap-2">
+              <BarChart3 className="w-4 h-4 text-slate-500" aria-hidden="true" />
+              <span>Resumen por Tamaño</span>
+            </h3>
+            <TableSearch
+              value={summarySearch}
+              onChange={setSummarySearch}
+              placeholder="Buscar por tamaño o cantidad..."
+              resultCount={filteredSizes.length}
+              totalCount={data.summary.sizes.length}
+              className="mb-4"
+            />
+            {filteredSizes.length === 0 ? (
+              <EmptyState
+                icon="bar-chart"
+                message={
+                  summarySearch.trim()
+                    ? "No hay tamaños que coincidan con la búsqueda"
+                    : "Sin datos por tamaño"
+                }
+              />
+            ) : (
+            <Table headers={["Tamaño", ...(canSeeSalesPrices ? ["Precio"] : []), "Producido", "Apto venta", "Vendido", "Perdido", "Disponible", ...(canSeeFinancials ? ["Valor"] : [])]}>
+              {filteredSizes.map((s) => (
+                <tr key={s.size} className="hover:bg-slate-50">
+                  <td className="px-4 py-3"><Badge color="green">{s.size}</Badge></td>
+                  {canSeeSalesPrices && <td className="px-4 py-3">{s.price != null ? `$${s.price.toLocaleString()}` : "—"}</td>}
+                  <td className="px-4 py-3">{s.produced}</td>
+                  <td className="px-4 py-3">{s.saleableProduced}</td>
+                  <td className="px-4 py-3">{s.sold}</td>
+                  <td className="px-4 py-3 text-red-600">{s.lost}</td>
+                  <td className="px-4 py-3 font-bold text-green-600">{s.available}</td>
+                  {canSeeFinancials && <td className="px-4 py-3">${(s.value ?? 0).toLocaleString()}</td>}
+                </tr>
+              ))}
+            </Table>
+            )}
+          </Card>
+
+          <Card>
+            <h3 className="font-semibold text-slate-700 mb-1 flex items-center gap-2">
+              <FolderOpen className="w-4 h-4 text-slate-500" aria-hidden="true" />
+              <span>Movimiento de Inventario (PEPS)</span>
+            </h3>
+            <p className="text-xs text-slate-400 mb-4">Las ventas se descuentan primero de los lotes más antiguos de cada tamaño</p>
+            <TableSearch
+              value={lotSearch}
+              onChange={setLotSearch}
+              placeholder="Buscar por fecha, tamaño o estado..."
+              resultCount={filteredLots.length}
+              totalCount={data.lots.length}
+              className="mb-4"
+            />
+            {filteredLots.length === 0 ? (
+              <EmptyState
+                icon="folder"
+                message={
+                  lotSearch.trim()
+                    ? "No hay lotes que coincidan con la búsqueda"
+                    : "No hay lotes en inventario"
+                }
+              />
+            ) : (
+            <Table headers={["Fecha / Lote PEPS", "Tamaño", "Inicial", "Vendido", "Disponible", "Bodega (T° / HR)", "Edad", "Estado"]}>
+              {filteredLots.map((l) => {
+                const isOld = l.remaining > 0 && l.ageDays > 14;
+                const isExpiring = l.remaining > 0 && l.ageDays > 21;
+                return (
+                  <tr key={l.id + l.size} className="hover:bg-slate-50">
+                    <td className="px-4 py-3">
+                      <div>{new Date(l.date + "T12:00:00").toLocaleDateString("es")}</div>
+                      {l.lotCode && <div className="text-[11px] font-mono text-slate-500">{l.lotCode}</div>}
+                    </td>
+                    <td className="px-4 py-3"><Badge color="green">{l.size}</Badge></td>
+                    <td className="px-4 py-3">{l.initial}</td>
+                    <td className="px-4 py-3 text-slate-500">{l.sold}</td>
+                    <td className="px-4 py-3 font-semibold">{l.remaining}</td>
+                    <td className="px-4 py-3 text-xs">
+                      {l.storageTempC != null || l.storageHumidityPct != null ? (
+                        <span className={(l.storageWarnings?.length ?? 0) > 0 ? "text-amber-700 font-semibold" : "text-slate-600"}>
+                          {l.storageTempC != null ? `${l.storageTempC}°C` : "—"} / {l.storageHumidityPct != null ? `${l.storageHumidityPct}%` : "—"}
+                        </span>
+                      ) : "—"}
+                    </td>
+                    <td className="px-4 py-3 text-sm">{l.ageDays} días</td>
+                    <td className="px-4 py-3">
+                      {l.remaining === 0 ? (
+                        <Badge color="gray">Agotado</Badge>
+                      ) : isExpiring ? (
+                        <Badge color="red">Por vencer</Badge>
+                      ) : isOld ? (
+                        <Badge color="orange">Vender pronto</Badge>
+                      ) : (
+                        <Badge color="green">Disponible</Badge>
+                      )}
+                    </td>
+                  </tr>
+                );
+              })}
+            </Table>
+            )}
+          </Card>
+        </>
+      ) : (
+        <Card>
+          <EmptyState icon="package" message="Registra producción de huevos para ver el inventario PEPS" />
+        </Card>
+      )}
+    </div>
+  );
+}

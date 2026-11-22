@@ -3,7 +3,8 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { ArrowLeft, Bird, Leaf } from "lucide-react";
+import { Leaf } from "lucide-react";
+import { BrandLogo } from "@/components/BrandLogo";
 import { HeroFrame } from "@/components/HeroFrame";
 import { DeveloperCredit } from "@/components/DeveloperCredit";
 import { LegalLinksBar } from "@/components/LegalLinksBar";
@@ -30,7 +31,11 @@ export default function LoginPage() {
         setError(data.error || "Error al iniciar sesión");
         return;
       }
-      router.push("/dashboard");
+      const requestedPath = new URLSearchParams(window.location.search).get("next");
+      const nextPath = requestedPath?.startsWith("/") && !requestedPath.startsWith("//")
+        ? requestedPath
+        : "/inicio";
+      router.push(nextPath);
       router.refresh();
     } catch {
       setError("Error de conexión");
@@ -40,18 +45,7 @@ export default function LoginPage() {
   };
 
   return (
-    <div className="min-h-screen flex flex-col bg-gradient-to-br from-earth-50 via-white to-earth-100">
-      {/* Header */}
-      <div className="p-4">
-        <Link
-          href="/"
-          className="inline-flex items-center gap-2 text-earth-600 hover:text-earth-700 transition-colors font-medium"
-        >
-          <ArrowLeft className="w-4 h-4" />
-          Volver al inicio
-        </Link>
-      </div>
-
+    <div className="flex min-h-[calc(100dvh-74px)] flex-col bg-gradient-to-br from-earth-50 via-white to-earth-100">
       {/* Main Content */}
       <div className="flex-1 flex items-center justify-center px-4 pb-12">
         <div className="w-full max-w-md">
@@ -59,15 +53,22 @@ export default function LoginPage() {
           <HeroFrame
             theme="inicio"
             compact
-            icon={<Bird className="w-4 h-4 text-amber-200" aria-hidden="true" />}
+            icon={<BrandLogo variant="mark" size={18} decorative className="rounded-sm bg-white/95 p-0.5" />}
             eyebrow="Acceso al sistema"
-            title="El Gallinero"
-            description="Sistema de Gestión Avícola"
+            title="IwaGranja"
+            description="Tu granja, todo bajo control."
             className="mb-6"
           />
 
           {/* Login Form */}
           <div className="bg-white rounded-2xl shadow-xl p-8 border border-earth-100">
+            <div className="flex justify-center mb-5">
+              <BrandLogo
+                variant="square"
+                size={96}
+                className="rounded-2xl bg-[#faf6ec] p-1.5 border border-earth-100 shadow-xs"
+              />
+            </div>
             <form onSubmit={submit} className="space-y-5">
               <div>
                 <label className="block text-sm font-semibold text-earth-800 mb-2">

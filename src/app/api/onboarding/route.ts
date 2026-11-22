@@ -38,7 +38,7 @@ export const GET = withApiHandler(async () => {
 
 /** PATCH /api/onboarding — cambio de escala, toggle manual de flag o solicitud de reportes formales. */
 export const PATCH = withApiHandler(async (req: NextRequest) => {
-  const denied = await requirePermission("config:write");
+  const denied = await requirePermission("settings:manage");
   if (denied) return denied;
   const body = await safeParseJson(req);
   const user = await getSessionUser();
@@ -88,7 +88,7 @@ export const PATCH = withApiHandler(async (req: NextRequest) => {
 
 /** POST /api/onboarding — ejecuta el Wizard "Día 1 sin Fricción" (formulario o CSV de arranque). */
 export const POST = withApiHandler(async (req: NextRequest) => {
-  const denied = await requirePermission("config:write");
+  const denied = await requirePermission("settings:manage");
   if (denied) return denied;
   const body = await safeParseJson(req);
   const user = await getSessionUser();

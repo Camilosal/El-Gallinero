@@ -19,7 +19,12 @@ import {
   formatBugReportPreviewText,
   resolveBugOriginInfo,
 } from "@/lib/bug-report";
-import { filterNavigationGroups, navigationGroups, searchNavigation } from "@/lib/navigation";
+import {
+  CONFIGURACION_MENU_GROUP,
+  filterNavigationGroups,
+  navigationGroups,
+  searchNavigation,
+} from "@/lib/navigation";
 import { clearSentNotificationsLog, getSentNotificationsLog } from "@/lib/notifications";
 import { buildScaleDefaultFlags } from "@/lib/onboarding";
 import { mockRequest, parseJson } from "./helpers";
@@ -54,45 +59,65 @@ describe("Análisis con Normas/Guías, Nudges Conductuales Rotativos y Reporte d
   it("incluye Normas y guías aplicables dentro del grupo Análisis en la barra lateral y en escala Pequeño/Mediano", () => {
     const analisisGroup = navigationGroups.find((g) => g.id === "analisis");
     expect(analisisGroup).toBeDefined();
-    expect(analisisGroup?.items.some((item) => item.href === "/dashboard/analisis/normas")).toBe(true);
-    expect(analisisGroup?.items.some((item) => item.href === "/dashboard/analisis/fuentes-externas")).toBe(true);
+    expect(analisisGroup?.items.some((item) => item.href === "/analisis/normas")).toBe(true);
+    expect(analisisGroup?.items.some((item) => item.href === "/analisis/fuentes-externas")).toBe(true);
 
     for (const scale of ["PEQUENO", "MEDIANO"] as const) {
       const visibleGroups = filterNavigationGroups(buildScaleDefaultFlags(scale));
       const visibleAnalisis = visibleGroups.find((g) => g.id === "analisis");
-      expect(visibleAnalisis?.items.some((i) => i.href === "/dashboard/analisis/normas")).toBe(true);
+      expect(visibleAnalisis?.items.some((i) => i.href === "/analisis/normas")).toBe(true);
     }
 
     expect(
-      fs.existsSync(path.join(process.cwd(), "src/app/dashboard/analisis/normas/page.tsx")),
+      fs.existsSync(path.join(process.cwd(), "src/app/(app)/analisis/normas/page.tsx")),
     ).toBe(true);
     expect(
-      searchNavigation("normas y guias").some((entry) => entry.href === "/dashboard/analisis/normas"),
+      searchNavigation("normas y guias").some((entry) => entry.href === "/analisis/normas"),
     ).toBe(true);
     expect(
-      searchNavigation("fallas").some((entry) => entry.href === "/dashboard/configuracion/fallas"),
+      searchNavigation("fallas").some((entry) => entry.href === "/configuracion/fallas"),
     ).toBe(true);
+    expect(
+      searchNavigation("exportar").some((entry) => entry.href === "/exportar"),
+    ).toBe(true);
+    expect(
+      searchNavigation("erp").some((entry) => entry.href === "/exportar?tab=conectores"),
+    ).toBe(true);
+    expect(
+      searchNavigation("usuarios").some((entry) => entry.href === "/configuracion/usuarios"),
+    ).toBe(true);
+    expect(
+      searchNavigation("llave").some((entry) => entry.href === "/configuracion/kit-campo"),
+    ).toBe(true);
+    expect(
+      searchNavigation("granjas").some((entry) => entry.href === "/configuracion/granjas"),
+    ).toBe(true);
+    expect(analisisGroup?.items.some((item) => item.href === "/exportar")).toBe(true);
+    expect(CONFIGURACION_MENU_GROUP.items.some((item) => item.href === "/configuracion/usuarios")).toBe(true);
+    expect(CONFIGURACION_MENU_GROUP.items.some((item) => item.href === "/configuracion/kit-campo")).toBe(true);
+    expect(CONFIGURACION_MENU_GROUP.items.some((item) => item.href === "/configuracion/granjas")).toBe(true);
+    expect(CONFIGURACION_MENU_GROUP.items.some((item) => item.href === "/configuracion/fallas")).toBe(true);
   });
 
   it("resuelve nudges conductuales específicos por página y rota secuencialmente en cada recarga o apertura", () => {
     const sampleRoutes: Array<[string, string, string]> = [
-      ["/dashboard", "", "inicio"],
-      ["/dashboard/escanear", "", "escanear"],
-      ["/dashboard/animales", "", "animales"],
-      ["/dashboard/produccion", "tab=huevos", "produccion_huevos"],
-      ["/dashboard/produccion", "tab=carne", "produccion_carne"],
-      ["/dashboard/produccion", "tab=gallinaza", "produccion_gallinaza"],
-      ["/dashboard/produccion", "tab=alimentacion", "alimentacion"],
-      ["/dashboard/produccion/mortalidad", "", "mortalidad"],
-      ["/dashboard/ubicaciones", "", "ubicaciones"],
-      ["/dashboard/sanidad/control", "", "sanidad"],
-      ["/dashboard/finanzas/ventas", "", "finanzas"],
-      ["/dashboard/inventarios/balance", "", "inventarios"],
-      ["/dashboard/operaciones/cierre", "", "almacen_operaciones"],
-      ["/dashboard/planeacion/calendario", "", "planeacion"],
-      ["/dashboard/analisis/normas", "", "analisis"],
-      ["/dashboard/configuracion/catalogos", "tab=normas", "configuracion"],
-      ["/dashboard/guia", "", "guia"],
+      ["/inicio", "", "inicio"],
+      ["/escanear", "", "escanear"],
+      ["/animales", "", "animales"],
+      ["/produccion", "tab=huevos", "produccion_huevos"],
+      ["/produccion", "tab=carne", "produccion_carne"],
+      ["/produccion", "tab=gallinaza", "produccion_gallinaza"],
+      ["/produccion", "tab=alimentacion", "alimentacion"],
+      ["/produccion/mortalidad", "", "mortalidad"],
+      ["/ubicaciones", "", "ubicaciones"],
+      ["/sanidad/control", "", "sanidad"],
+      ["/finanzas/ventas", "", "finanzas"],
+      ["/inventarios/balance", "", "inventarios"],
+      ["/operaciones/cierre", "", "almacen_operaciones"],
+      ["/planeacion/calendario", "", "planeacion"],
+      ["/analisis/normas", "", "analisis"],
+      ["/configuracion/catalogos", "tab=normas", "configuracion"],
+      ["/manual", "", "guia"],
     ];
 
     for (const [pathname, query, expectedKey] of sampleRoutes) {
@@ -109,7 +134,7 @@ describe("Análisis con Normas/Guías, Nudges Conductuales Rotativos y Reporte d
     const huevosPool = BEHAVIORAL_NUDGE_GROUPS.produccion_huevos.nudges;
     const pickedIds: string[] = [];
     for (let i = 0; i < huevosPool.length + 1; i++) {
-      const res = pickNextRotatingNudge("produccion_huevos:/dashboard/produccion?tab=huevos", huevosPool, storage);
+      const res = pickNextRotatingNudge("produccion_huevos:/produccion?tab=huevos", huevosPool, storage);
       pickedIds.push(res.nudge.id);
     }
     expect(pickedIds[0]).not.toBe(pickedIds[1]);
@@ -118,7 +143,7 @@ describe("Análisis con Normas/Guías, Nudges Conductuales Rotativos y Reporte d
     expect(pickedIds[huevosPool.length]).toBe(pickedIds[0]);
 
     const layoutSrc = fs.readFileSync(
-      path.join(process.cwd(), "src/app/dashboard/_client-layout.tsx"),
+      path.join(process.cwd(), "src/app/(app)/_client-layout.tsx"),
       "utf8",
     );
     const heroBannerSrc = fs.readFileSync(
@@ -135,16 +160,16 @@ describe("Análisis con Normas/Guías, Nudges Conductuales Rotativos y Reporte d
 
   it("etiqueta automáticamente el origen de cada falla y formatea vista previa", () => {
     const origin = resolveBugOriginInfo(
-      "/dashboard/produccion",
+      "/produccion",
       "tab=huevos",
       "topbar",
     );
-    expect(origin.originPath).toBe("/dashboard/produccion");
+    expect(origin.originPath).toBe("/produccion");
     expect(origin.originQuery).toBe("tab=huevos");
     expect(origin.originGroup).toBe("Producción");
     expect(origin.originModule).toContain("Huevos");
 
-    const normasOrigin = resolveBugOriginInfo("/dashboard/analisis/normas", "", "sidebar");
+    const normasOrigin = resolveBugOriginInfo("/analisis/normas", "", "sidebar");
     expect(normasOrigin.originGroup).toBe("Análisis");
     expect(normasOrigin.originModule).toContain("Normas");
 
@@ -161,7 +186,7 @@ describe("Análisis con Normas/Guías, Nudges Conductuales Rotativos y Reporte d
       farmName: "Iwagé Granja Piloto",
     });
 
-    expect(tags).toContain("ruta:/dashboard/produccion");
+    expect(tags).toContain("ruta:/produccion");
     expect(tags).toContain("grupo:produccion");
     expect(tags).toContain("origen:topbar");
     expect(tags).toContain("categoria:calculo");
@@ -183,7 +208,7 @@ describe("Análisis con Normas/Guías, Nudges Conductuales Rotativos y Reporte d
       tags,
     });
     expect(preview).toContain("FAIL-20261114-ABCD");
-    expect(preview).toContain("[ruta:/dashboard/produccion]");
+    expect(preview).toContain("[ruta:/produccion]");
     expect(preview).toContain("Producción · Huevos");
   });
 
@@ -203,12 +228,12 @@ describe("Análisis con Normas/Guías, Nudges Conductuales Rotativos y Reporte d
         method: "POST",
         body: {
           title: "Error de prueba etiquetado en Normas de Análisis",
-          description: "Prueba automatizada verificando envío etiquetado desde /dashboard/analisis/normas.",
+          description: "Prueba automatizada verificando envío etiquetado desde /analisis/normas.",
           stepsToReproduce: "1. Entrar a Análisis -> Normas. 2. Hacer clic en verificar.",
           expectedBehavior: "Mostrar la última versión vigente.",
           category: "norma_dato",
           severity: "alta",
-          originPath: "/dashboard/analisis/normas",
+          originPath: "/analisis/normas",
           originQuery: "",
           triggerSource: "sidebar",
           customTags: ["qa-auto", "normas"],
@@ -235,9 +260,9 @@ describe("Análisis con Normas/Guías, Nudges Conductuales Rotativos y Reporte d
     expect(report.reportCode).toMatch(/^FAIL-\d{8}-[A-F0-9]{4}$/);
     createdReportCodes.push(report.reportCode);
 
-    expect(report.originPath).toBe("/dashboard/analisis/normas");
+    expect(report.originPath).toBe("/analisis/normas");
     expect(report.originGroup).toBe("Análisis");
-    expect(report.tags).toContain("ruta:/dashboard/analisis/normas");
+    expect(report.tags).toContain("ruta:/analisis/normas");
     expect(report.tags).toContain("grupo:analisis");
     expect(report.tags).toContain("origen:sidebar");
     expect(report.tags).toContain("categoria:norma_dato");
@@ -249,10 +274,10 @@ describe("Análisis con Normas/Guías, Nudges Conductuales Rotativos y Reporte d
     expect(sent.length).toBeGreaterThanOrEqual(1);
     expect(sent[0].subject).toContain(report.reportCode);
     expect(sent[0].subject).toContain("[ALTA]");
-    expect(sent[0].text).toContain("ruta:/dashboard/analisis/normas");
+    expect(sent[0].text).toContain("ruta:/analisis/normas");
 
     const listRes = await fallasGET(
-      mockRequest("http://localhost/api/soporte/fallas?tag=ruta:/dashboard/analisis/normas"),
+      mockRequest("http://localhost/api/soporte/fallas?tag=ruta:/analisis/normas"),
     );
     expect(listRes.status).toBe(200);
     const listJson = await parseJson(listRes);

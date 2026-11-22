@@ -10,8 +10,11 @@ import { db } from "@/db";
 import {
   appSettings,
   billingPayments,
+  catalogos,
   farms,
   farmSubscriptions,
+  feedInventory,
+  feedPrograms,
   sessions,
   users,
 } from "@/db/schema";
@@ -21,7 +24,6 @@ import {
   BITACORA_CTA_LABEL,
   countArticleWords,
 } from "@/lib/bitacora-content";
-import { CYCLE_PLANS_SHOWCASE } from "@/lib/landing-showcase";
 import { LEGAL, LEGAL_LINKS, PLAN_PROMISES, SIC_URL, whatsappLink } from "@/lib/legal";
 import {
   FAQS,
@@ -34,7 +36,7 @@ import {
   clearSentNotificationsLog,
   getSentNotificationsLog,
 } from "@/lib/notifications";
-import { createWompiCheckoutSession } from "@/lib/subscription";
+import { POST as startCheckout } from "@/app/api/billing/checkout/route";
 
 const root = process.cwd();
 const read = (rel: string) => fs.readFileSync(path.join(root, rel), "utf8");
@@ -51,6 +53,10 @@ describe("Lanzamiento: legal, confianza, soporte, recuperación y bitácora", ()
 
     for (const farmId of createdFarmIds) {
       await runWithFarmContext(farmId, async () => {
+        await db.delete(feedPrograms).where(eq(feedPrograms.farmId, farmId));
+        await db.delete(feedInventory).where(eq(feedInventory.farmId, farmId));
+        await db.delete(catalogos).where(eq(catalogos.farmId, farmId));
+        await db.delete(appSettings).where(eq(appSettings.farmId, farmId));
         await db.delete(sessions).where(eq(sessions.farmId, farmId));
         await db.delete(billingPayments).where(eq(billingPayments.farmId, farmId));
         await db.delete(users).where(eq(users.farmId, farmId));
@@ -77,8 +83,8 @@ describe("Lanzamiento: legal, confianza, soporte, recuperación y bitácora", ()
     }
   });
 
-  it("las 10 preguntas frecuentes tienen máximo 80 palabras, captura real y /nosotros máximo 120", () => {
-    expect(FAQS).toHaveLength(10);
+  it("las preguntas frecuentes tienen máximo 80 palabras, captura real y /nosotros máximo 120", () => {
+    expect(FAQS.length).toBeGreaterThanOrEqual(10);
     for (const f of FAQS) {
       expect(words(f.a), f.q).toBeLessThanOrEqual(80);
       expect(f.image?.src, `Imagen faltante en FAQ: ${f.q}`).toBeTruthy();
@@ -95,10 +101,11 @@ describe("Lanzamiento: legal, confianza, soporte, recuperación y bitácora", ()
     expect(whatsappLink()).toBe("https://wa.me/573026693366");
   });
 
-  it("los términos cubren los puntos exigidos y usan las mismas frases que los planes", () => {
+  it("los términos dejan claro que el cálculo de precio no contrata ni procesa pagos", () => {
     const t = flat(getTerminos());
-    expect(t).toContain(PLAN_PROMISES.noAutoCharge);
-    expect(t).toContain(PLAN_PROMISES.expiry);
+    expect(t).toContain("no constituye contrato");
+    expect(t).toContain("no inicia cobros");
+    expect(t).toContain("Las suscripciones pagadas anteriores conservan las condiciones aceptadas");
     for (const needle of [
       "NIT/RUT",
       "COP",
@@ -115,6 +122,7 @@ describe("Lanzamiento: legal, confianza, soporte, recuperación y bitácora", ()
     expect(landing).toContain("PLAN_PROMISES.noAutoCharge");
     expect(landing).toContain("PLAN_PROMISES.expiry");
     expect(landing).toContain("priceNote()");
+    expect(read("src/lib/legal.ts")).toContain("PLAN_PROMISES.pricesCop");
     expect(landing).toContain("<LandingFooter />");
   });
 
@@ -130,19 +138,17 @@ describe("Lanzamiento: legal, confianza, soporte, recuperación y bitácora", ()
     expect(p).toContain("Decreto 090");
   });
 
-  it("el pie legal, login, registro y el pago enlazan los tres documentos", () => {
+  it("las pantallas de acceso conservan enlaces legales y ya no ofrecen el checkout anterior", () => {
     expect(LEGAL_LINKS.map((l) => l.href)).toEqual([
       "/terminos",
       "/retracto",
       "/privacidad",
     ]);
     expect(read("src/components/LegalFooter.tsx")).not.toContain("SIC_URL");
-    for (const f of [
-      "src/app/login/page.tsx",
-      "src/components/SubscriptionUpgradeModal.tsx",
-    ]) {
-      expect(read(f)).toContain("LegalLinksBar");
-    }
+    expect(read("src/app/login/page.tsx")).toContain("LegalLinksBar");
+    expect(read("src/app/(app)/configuracion/plan/page.tsx")).toContain("/planes");
+    expect(read("src/app/api/billing/checkout/route.ts")).toContain("CHECKOUT_PROVIDER_NOT_CONFIGURED");
+    expect(read("src/app/api/billing/checkout/route.ts")).toContain("createPricingQuote");
     const registro = read("src/app/registro/page.tsx");
     for (const href of ["/terminos", "/retracto", "/privacidad"]) {
       expect(registro).toContain(href);
@@ -150,12 +156,13 @@ describe("Lanzamiento: legal, confianza, soporte, recuperación y bitácora", ()
     expect(registro).toContain("useState(false)");
   });
 
-  it("la bitácora tiene 5 artículos completos (600-900 palabras), datos reales, capturas y CTA", () => {
-    expect(BITACORA_ARTICLES).toHaveLength(5);
+  it("la bitácora tiene artículos completos (600-900 palabras), datos reales, capturas y CTA", () => {
+    expect(BITACORA_ARTICLES.length).toBeGreaterThanOrEqual(5);
     for (const article of BITACORA_ARTICLES) {
       const count = countArticleWords(article);
+      const maxWords = article.relatedNormIds.length > 0 ? 1400 : 900;
       expect(count, `${article.slug}: ${count} palabras`).toBeGreaterThanOrEqual(600);
-      expect(count, `${article.slug}: ${count} palabras`).toBeLessThanOrEqual(900);
+      expect(count, `${article.slug}: ${count} palabras`).toBeLessThanOrEqual(maxWords);
       expect(article.realFarmData.fact.length, article.slug).toBeGreaterThan(20);
       const imgPath = path.join(root, "public", article.image.src.replace(/^\//, ""));
       expect(fs.existsSync(imgPath), `Falta imagen ${imgPath}`).toBe(true);
@@ -198,13 +205,15 @@ describe("Lanzamiento: legal, confianza, soporte, recuperación y bitácora", ()
     }
   });
 
-  it("la landing aclara cobro mensual, tiene 3 chips y 2 botones en el hero", () => {
-    expect(
-      CYCLE_PLANS_SHOWCASE.find((p) => p.id === "MEDIANO_MENSUAL")?.name,
-    ).toContain("cobro mensual");
+  it("la landing orienta a productor y agregador hacia el cálculo del costo", () => {
     const landing = read("src/app/page.tsx");
     expect(landing).not.toContain("Entrar al sistema");
-    expect(landing).toContain("<ol");
+    expect(landing).toContain("Tu granja");
+    const plansCards = read("src/components/LandingSubscriptionPlans.tsx");
+    expect(landing).toContain("<LandingSubscriptionPlans");
+    expect(landing).toContain("organización y sus proyectos");
+    expect(plansCards).toContain("Calcular mi plan");
+    expect(plansCards).toContain("Calcular un proyecto");
   });
 
   it("el registro exige la autorización y guarda constancia", async () => {
@@ -281,7 +290,7 @@ describe("Lanzamiento: legal, confianza, soporte, recuperación y bitácora", ()
     expect(sent.some((n) => n.subject.includes(payload.ticketCode))).toBe(true);
   });
 
-  it("propietario registrado recibe recoveryCode, recupera acceso y checkout incluye redirect-url", async () => {
+  it("propietario registrado recibe recoveryCode, recupera acceso y el checkout rechaza payloads sin segmento válido", async () => {
     clearSentNotificationsLog();
     const suffix = `${Date.now()}_${Math.random().toString(36).slice(2, 6)}`;
     const username = `prop_${suffix}`;
@@ -323,13 +332,18 @@ describe("Lanzamiento: legal, confianza, soporte, recuperación y bitácora", ()
     const recoverJson = await recoverRes.json();
     expect(recoverJson).toEqual({ ok: true });
 
-    const checkout = await runWithFarmContext(farmId, async () =>
-      createWompiCheckoutSession({
-        farmId,
-        planCode: "CICLO_60D",
-        method: "nequi",
+    const checkout = await startCheckout(
+      new NextRequest("http://localhost:3000/api/billing/checkout", { method: "POST" }),
+    );
+    expect(checkout.status).toBe(400);
+    const legacyCheckout = await startCheckout(
+      new NextRequest("http://localhost:3000/api/billing/checkout", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ planCode: "CICLO_60D", method: "nequi" }),
       }),
     );
-    expect(checkout.checkoutUrl).toContain("redirect-url=");
+    expect(legacyCheckout.status).toBe(409);
+    expect((await legacyCheckout.json()).code).toBe("AGGREGATOR_CHECKOUT_UNAVAILABLE");
   });
 });

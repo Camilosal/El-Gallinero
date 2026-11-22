@@ -61,7 +61,7 @@ async function withRole<T>(
   }
 }
 
-describe("Integración de Fuentes Externas Offline-First (Olas 1, 2 y 3)", () => {
+describe("Integración de Fuentes Externas Offline-First (Olas 1 a 5 y catálogos manuales)", () => {
   const createdHealthIds: string[] = [];
   const createdSensorIds: string[] = [];
   const createdLocationIds: string[] = [];
@@ -97,7 +97,7 @@ describe("Integración de Fuentes Externas Offline-First (Olas 1, 2 y 3)", () =>
     );
   });
 
-  it("API /api/configuracion/fuentes-externas inicializa los 7 conectores y soporta ?section=vademecum", async () => {
+  it("API /api/configuracion/fuentes-externas inicializa fuentes conectadas y soporta ?section=vademecum", async () => {
     const vadRes = await fuentesGET(
       mockRequest("http://localhost/api/configuracion/fuentes-externas?section=vademecum"),
     );
@@ -112,14 +112,23 @@ describe("Integración de Fuentes Externas Offline-First (Olas 1, 2 y 3)", () =>
     expect(fullRes.status).toBe(200);
     const fullJson = await parseJson(fullRes);
     expect(Array.isArray(fullJson.snapshots)).toBe(true);
-    expect(fullJson.snapshots.length).toBe(7);
+    expect(fullJson.snapshots.length).toBeGreaterThanOrEqual(6);
+    expect(fullJson.snapshots.some((snapshot: { sourceKey: string }) => snapshot.sourceKey === "ideam_hydro_alerts")).toBe(true);
+    expect(fullJson.banrepSeriesCatalog.map((series: { flowId: string }) => series.flowId)).toContain("DF_IBR");
+    expect(fullJson.selectedBanrepFlowIds).toContain("DF_IBR");
+    const scheduledKeys = fullJson.syncSchedule.map((item: { sourceKey: string }) => item.sourceKey);
+    expect(scheduledKeys).toContain("ideam_hydro_alerts");
+    expect(scheduledKeys).not.toContain("ica_vademecum_alerts");
+    expect(scheduledKeys).not.toContain("standards_normative_feed");
+    expect(scheduledKeys).not.toContain("iot_telemetry_bridge");
+    expect(fullJson.ideamHydroAlerts.datasetId).toBe("h4gs-wsmg");
     expect(fullJson.divipolaCatalog.length).toBeGreaterThanOrEqual(25);
     expect(fullJson.nutritionTables.length).toBeGreaterThanOrEqual(6);
     expect(fullJson.colombianHolidays.length).toBeGreaterThanOrEqual(17);
     expect(fullJson.taxContext?.uvtCop).toBeGreaterThan(40000);
 
     const dbSnapshots = await db.select().from(externalDataSnapshots);
-    expect(dbSnapshots.length).toBeGreaterThanOrEqual(7);
+    expect(dbSnapshots.length).toBeGreaterThanOrEqual(6);
   });
 
   it("Ola 1: DIVIPOLA, clima Open-Meteo/ITH, predicción de ración, curvas, alertas y precios SIPSA/TRM", async () => {
@@ -149,10 +158,9 @@ describe("Integración de Fuentes Externas Offline-First (Olas 1, 2 y 3)", () =>
           body: { action: "apply_market_prices", overwriteCustom: false },
         }),
       );
-      expect(marketRes.status).toBe(200);
+      expect(marketRes.status).toBe(409);
       const marketJson = await parseJson(marketRes);
-      expect(marketJson.ok).toBe(true);
-      expect(marketJson.result.trmCopPerUsd).toBeGreaterThan(3000);
+      expect(marketJson.code).toBe("manual_master_update_required");
 
       const predRes = await prediccionGET(
         mockRequest("http://localhost/api/produccion/alimentacion/prediccion?days=14"),
@@ -373,7 +381,9 @@ describe("Integración de Fuentes Externas Offline-First (Olas 1, 2 y 3)", () =>
       expect(autoRes.status).toBe(200);
       const autoJson = await parseJson(autoRes);
       expect(Array.isArray(autoJson.syncSchedule)).toBe(true);
-      expect(autoJson.syncSchedule.length).toBe(7);
+      // 9 fuentes automáticas tras la ola de índices/GEIH/Banrep/IDEAM (el catálogo
+      // normativo, vademécum e IoT quedan como sync manual, fuera del calendario).
+      expect(autoJson.syncSchedule.length).toBe(9);
       expect(autoJson.autoRefreshedKeys).toContain("open_meteo");
 
       // 5. PUT /api/configuracion/parametros cambiando ciudad -> autocompleta DANE/depto y actualiza zona activa
@@ -455,7 +465,7 @@ describe("Integración de Fuentes Externas Offline-First (Olas 1, 2 y 3)", () =>
       expect(item.id).toBeTruthy();
       expect(item.code).toBeTruthy();
       expect(item.sourceUrl).toMatch(/^https?:\/\//);
-      expect(item.appRoute).toMatch(/^\/dashboard/);
+      expect(item.appRoute).toMatch(/^\/.+/);
       expect(Array.isArray(item.keyReferences) && item.keyReferences.length).toBeGreaterThan(0);
       expect(Array.isArray(item.complianceChecklist) && item.complianceChecklist.length).toBeGreaterThan(0);
       expect(Array.isArray(item.ginaPrompts) && item.ginaPrompts.length).toBeGreaterThan(0);
@@ -510,6 +520,12 @@ describe("Integración de Fuentes Externas Offline-First (Olas 1, 2 y 3)", () =>
     expect(directAttachJson.entityType).toBe("normative_doc");
     expect(directAttachJson.entityId).toBe("norm-ntc-1240");
 
+    // Se declara fuera del try para poder limpiar la norma propia en el finally
+    // aunque el test falle a mitad: si quedara residuo en normative.custom_items_json,
+    // la prueba del catálogo interactivo (que exige sourceUrl https) fallaría en la
+    // siguiente corrida contra el mismo DB de test.
+    let createdNormId: string | null = null;
+
     try {
       const listDirectRes = await adjuntosGET(
         mockRequest("http://localhost/api/adjuntos?entityType=normative_doc&entityId=norm-ntc-1240"),
@@ -551,7 +567,7 @@ describe("Integración de Fuentes Externas Offline-First (Olas 1, 2 y 3)", () =>
             version: "v1.0",
             species: ["gallina", "pollo"],
             moduleLabel: "Sanidad y Bioseguridad",
-            appRoute: "/dashboard/sanidad/bioseguridad",
+            appRoute: "/sanidad/bioseguridad",
             summary: "Procedimiento operativo estandarizado con soporte PDF.",
             keyReferences: ["Dosis de cloro residual 2-3 ppm"],
             complianceChecklist: ["Registrar lavado semanal en bitácora"],
@@ -562,8 +578,10 @@ describe("Integración de Fuentes Externas Offline-First (Olas 1, 2 y 3)", () =>
       expect(addNormRes.status).toBe(200);
       const addNormJson = await parseJson(addNormRes);
       expect(addNormJson.ok).toBe(true);
-      const createdNormId = addNormJson.item?.id as string;
+      const createdNormIdLocal = addNormJson.item?.id as string;
+      createdNormId = createdNormIdLocal || null;
       expect(createdNormId).toBeTruthy();
+      if (!createdNormId) throw new Error("No se creó el identificador de la norma personalizada.");
 
       // Confirmar que la referencia personalizada aparece en ?section=normas
       const sectionRes = await fuentesGET(
@@ -607,6 +625,16 @@ describe("Integración de Fuentes Externas Offline-First (Olas 1, 2 y 3)", () =>
           method: "DELETE",
         }),
       );
+      // Limpieza garantizada de la norma propia aunque el test haya fallado a mitad,
+      // para no dejar residuo en normative.custom_items_json entre corridas.
+      if (createdNormId) {
+        await fuentesPOST(
+          mockRequest("http://localhost/api/configuracion/fuentes-externas", {
+            method: "POST",
+            body: { action: "delete_normative_item", id: createdNormId },
+          }),
+        ).catch(() => null);
+      }
     }
   });
 });

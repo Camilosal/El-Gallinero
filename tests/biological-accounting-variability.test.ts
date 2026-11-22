@@ -8,6 +8,27 @@ import {
 } from "@/lib/analytics/biological-valuation";
 
 describe("Contabilidad AgroIntegral y Variabilidad Biológica Multi-Especie", () => {
+  it("advierte cuando una valoración no tiene precios maestros para no confundir cero con un precio real", () => {
+    const portfolio = evaluateBiologicalPortfolio({
+      flocks: [],
+      broilerBatches: [{
+        id: "batch-without-master-prices",
+        batchCode: "POLLO-SIN-PRECIO",
+        species: "pollo",
+        initialCount: 100,
+        currentCount: 100,
+        status: "activo",
+      }],
+    });
+
+    expect(portfolio.units[0].biologicalValueCop).toBe(0);
+    expect(portfolio.alerts.some((alert) =>
+      alert.id === "batch-without-master-prices-missing-master-price" &&
+      alert.title.includes("Faltan precios maestros") &&
+      alert.detail.includes("costo inicial por animal"),
+    )).toBe(true);
+  });
+
   it("reproduce el caso práctico de 200 pollos (Semana 1 y Semana 6): separa CapEx, bodega y activo biológico de caja", () => {
     // Equipos: $1,800,000 COP / 18 ciclos de 42 días -> $100,000 COP por ciclo (~$16,666.67 / semana)
     const assetsSummaryWeek1 = computeAssetsDepreciationSummary(
@@ -184,6 +205,10 @@ describe("Contabilidad AgroIntegral y Variabilidad Biológica Multi-Especie", ()
           locationId: "loc-alta",
         },
       ],
+      marketPrices: {
+        initialUnitCostCopBySpecies: { gallina: 4500 },
+        pointOfLayValueCopBySpecies: { gallina: 29000 },
+      },
       referenceDate: "2026-03-22", // 80 days after Jan 1 (for cuy 80d, pato 80d >= 49d)
     });
 

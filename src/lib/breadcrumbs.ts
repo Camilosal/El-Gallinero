@@ -7,114 +7,115 @@ export interface BreadcrumbItem {
 }
 
 const PATH_OVERRIDES: Record<string, BreadcrumbItem[]> = {
-  "/dashboard": [{ label: "Inicio" }],
-  "/dashboard/animales": [
-    { label: "Inicio", href: "/dashboard" },
+  "/inicio": [{ label: "Inicio" }],
+  "/animales": [
+    { label: "Inicio", href: "/inicio" },
     { label: "Animales" },
   ],
-  "/dashboard/produccion": [
-    { label: "Inicio", href: "/dashboard" },
+  "/produccion": [
+    { label: "Inicio", href: "/inicio" },
     { label: "Producción" },
   ],
-  "/dashboard/almacen": [
-    { label: "Inicio", href: "/dashboard" },
+  "/almacen": [
+    { label: "Inicio", href: "/inicio" },
     { label: "Almacén" },
   ],
-  "/dashboard/planeacion": [
-    { label: "Inicio", href: "/dashboard" },
+  "/planeacion": [
+    { label: "Inicio", href: "/inicio" },
     { label: "Planeación" },
   ],
-  "/dashboard/sanidad": [
-    { label: "Inicio", href: "/dashboard" },
+  "/sanidad": [
+    { label: "Inicio", href: "/inicio" },
     { label: "Sanidad" },
   ],
-  "/dashboard/finanzas": [
-    { label: "Inicio", href: "/dashboard" },
+  "/finanzas": [
+    { label: "Inicio", href: "/inicio" },
     { label: "Finanzas" },
   ],
-  "/dashboard/analisis": [
-    { label: "Inicio", href: "/dashboard" },
+  "/analisis": [
+    { label: "Inicio", href: "/inicio" },
     { label: "Análisis" },
   ],
-  "/dashboard/escanear": [
-    { label: "Inicio", href: "/dashboard" },
+  "/escanear": [
+    { label: "Inicio", href: "/inicio" },
     { label: "Escanear QR" },
   ],
-  "/dashboard/exportar": [
-    { label: "Inicio", href: "/dashboard" },
-    { label: "Exportar datos" },
+  "/exportar": [
+    { label: "Inicio", href: "/inicio" },
+    { label: "Análisis", href: "/analisis" },
+    { label: "Exportación y Conectores ERP" },
   ],
-  "/dashboard/guia": [
-    { label: "Inicio", href: "/dashboard" },
+  "/manual": [
+    { label: "Inicio", href: "/inicio" },
     { label: "Guía de Usuario" },
   ],
-  "/dashboard/configuracion": [
-    { label: "Inicio", href: "/dashboard" },
+  "/configuracion": [
+    { label: "Inicio", href: "/inicio" },
     { label: "Configuración" },
   ],
-  "/dashboard/configuracion/catalogos": [
-    { label: "Inicio", href: "/dashboard" },
-    { label: "Configuración", href: "/dashboard/configuracion" },
-    { label: "Catálogos del sistema" },
+  "/configuracion/catalogos": [
+    { label: "Inicio", href: "/inicio" },
+    { label: "Configuración", href: "/configuracion" },
+    { label: "Catálogos Maestros" },
   ],
-  "/dashboard/configuracion/modulos": [
-    { label: "Inicio", href: "/dashboard" },
-    { label: "Configuración", href: "/dashboard/configuracion" },
-    { label: "Escala y módulos visibles" },
+  "/configuracion/modulos": [
+    { label: "Inicio", href: "/inicio" },
+    { label: "Configuración", href: "/configuracion" },
+    { label: "Escala y Módulos" },
   ],
-  "/dashboard/configuracion/fallas": [
-    { label: "Inicio", href: "/dashboard" },
-    { label: "Configuración", href: "/dashboard/configuracion" },
+  "/configuracion/fallas": [
+    { label: "Inicio", href: "/inicio" },
+    { label: "Configuración", href: "/configuracion" },
     { label: "Reportes de fallas" },
   ],
-  "/dashboard/configuracion/granjas": [
-    { label: "Inicio", href: "/dashboard" },
-    { label: "Configuración", href: "/dashboard/configuracion" },
-    { label: "Granjas" },
+  "/configuracion/granjas": [
+    { label: "Inicio", href: "/inicio" },
+    { label: "Configuración", href: "/configuracion" },
+    { label: "Panel de Granjas" },
   ],
-  "/dashboard/configuracion/usuarios": [
-    { label: "Inicio", href: "/dashboard" },
-    { label: "Configuración", href: "/dashboard/configuracion" },
-    { label: "Usuarios" },
+  "/configuracion/usuarios": [
+    { label: "Inicio", href: "/inicio" },
+    { label: "Configuración", href: "/configuracion" },
+    { label: "Usuarios y Roles" },
   ],
-  "/dashboard/configuracion/plan": [
-    { label: "Inicio", href: "/dashboard" },
-    { label: "Configuración", href: "/dashboard/configuracion" },
-    { label: "Plan y suscripción" },
+  "/configuracion/plan": [
+    { label: "Inicio", href: "/inicio" },
+    { label: "Configuración", href: "/configuracion" },
+    { label: "Plan y Pagos" },
   ],
-  "/dashboard/configuracion/kit-campo": [
-    { label: "Inicio", href: "/dashboard" },
-    { label: "Configuración", href: "/dashboard/configuracion" },
-    { label: "Kit de campo e impresión" },
+  "/configuracion/kit-campo": [
+    { label: "Inicio", href: "/inicio" },
+    { label: "Configuración", href: "/configuracion" },
+    { label: "Llave en Mano y Kit QR" },
   ],
-  "/dashboard/produccion/peso": [
-    { label: "Inicio", href: "/dashboard" },
-    { label: "Animales", href: "/dashboard/animales" },
+  "/produccion/peso": [
+    { label: "Inicio", href: "/inicio" },
+    { label: "Animales", href: "/animales" },
     { label: "Control de peso y biometría" },
   ],
-  "/dashboard/inventarios/balance": [
-    { label: "Inicio", href: "/dashboard" },
-    { label: "Inventarios", href: "/dashboard/inventarios/balance" },
+  "/inventarios/balance": [
+    { label: "Inicio", href: "/inicio" },
+    { label: "Inventarios", href: "/inventarios/balance" },
     { label: "Valorización total" },
   ],
 };
 
 const PRODUCCION_TAB_MAP: Record<string, { groupLabel: string; groupHref: string; label: string }> = {
-  huevos: { groupLabel: "Producción", groupHref: "/dashboard/produccion", label: "Huevos" },
-  carne: { groupLabel: "Producción", groupHref: "/dashboard/produccion", label: "Carne" },
-  gallinaza: { groupLabel: "Producción", groupHref: "/dashboard/produccion", label: "Gallinaza" },
-  alimentacion: { groupLabel: "Almacén", groupHref: "/dashboard/almacen", label: "Gestión de alimentación" },
-  incubacion: { groupLabel: "Animales", groupHref: "/dashboard/animales", label: "Incubación" },
-  reproduccion: { groupLabel: "Animales", groupHref: "/dashboard/animales", label: "Reproducción" },
-  animales: { groupLabel: "Animales", groupHref: "/dashboard/animales", label: "Gestión de Animales" },
-  gallinas: { groupLabel: "Animales", groupHref: "/dashboard/animales", label: "Gallinas ponedoras" },
-  gallos: { groupLabel: "Animales", groupHref: "/dashboard/animales", label: "Gallos reproductores" },
-  pollos: { groupLabel: "Animales", groupHref: "/dashboard/animales", label: "Lotes de pollos" },
-  codornices: { groupLabel: "Animales", groupHref: "/dashboard/animales", label: "Codornices" },
-  patos: { groupLabel: "Animales", groupHref: "/dashboard/animales", label: "Patos" },
-  conejos: { groupLabel: "Animales", groupHref: "/dashboard/animales", label: "Conejos" },
-  cuyes: { groupLabel: "Animales", groupHref: "/dashboard/animales", label: "Cuyes" },
-  lotes: { groupLabel: "Animales", groupHref: "/dashboard/animales", label: "Lotes y animales" },
+  huevos: { groupLabel: "Producción", groupHref: "/produccion", label: "Huevos" },
+  carne: { groupLabel: "Producción", groupHref: "/produccion", label: "Carne" },
+  gallinaza: { groupLabel: "Producción", groupHref: "/produccion", label: "Gallinaza" },
+  alimentacion: { groupLabel: "Almacén", groupHref: "/almacen", label: "Gestión de alimentación" },
+  incubacion: { groupLabel: "Animales", groupHref: "/animales", label: "Incubación" },
+  reproduccion: { groupLabel: "Animales", groupHref: "/animales", label: "Reproducción" },
+  animales: { groupLabel: "Animales", groupHref: "/animales", label: "Gestión de Animales" },
+  gallinas: { groupLabel: "Animales", groupHref: "/animales", label: "Gallinas ponedoras" },
+  gallos: { groupLabel: "Animales", groupHref: "/animales", label: "Gallos reproductores" },
+  pollos: { groupLabel: "Animales", groupHref: "/animales", label: "Lotes de pollos" },
+  codornices: { groupLabel: "Animales", groupHref: "/animales", label: "Codornices" },
+  patos: { groupLabel: "Animales", groupHref: "/animales", label: "Patos" },
+  conejos: { groupLabel: "Animales", groupHref: "/animales", label: "Conejos" },
+  cuyes: { groupLabel: "Animales", groupHref: "/animales", label: "Cuyes" },
+  lotes: { groupLabel: "Animales", groupHref: "/animales", label: "Lotes y animales" },
 };
 
 const SUBTAB_LABELS: Record<string, string> = {
@@ -157,66 +158,66 @@ function formatSegmentFallback(segment: string): string {
 }
 
 /**
- * Resuelve el camino de migajas (breadcrumbs) para cualquier ruta dentro de /dashboard,
+ * Resuelve el camino de migajas (breadcrumbs) para cualquier ruta dentro de /inicio,
  * alineado con la estructura real de los 8 módulos, subtabs y páginas de configuración/guía.
  */
 export function resolveDashboardBreadcrumb(
   pathname: string,
   searchQuery = "",
 ): BreadcrumbItem[] {
-  const cleanPath = (pathname || "/dashboard").split("?")[0].replace(/\/+$/, "") || "/dashboard";
+  const cleanPath = (pathname || "/inicio").split("?")[0].replace(/\/+$/, "") || "/inicio";
   const params = new URLSearchParams(searchQuery.startsWith("?") ? searchQuery.slice(1) : searchQuery);
   const tab = params.get("tab")?.trim() || "";
   const subtab = params.get("subtab")?.trim() || "";
 
-  if (cleanPath === "/dashboard") {
-    return PATH_OVERRIDES["/dashboard"];
+  if (cleanPath === "/inicio") {
+    return PATH_OVERRIDES["/inicio"];
   }
 
   // Guías individuales: Inicio / Guía de Usuario / Módulo / Guía
-  if (cleanPath.startsWith("/dashboard/guia/")) {
-    const slug = cleanPath.slice("/dashboard/guia/".length);
+  if (cleanPath.startsWith("/manual/")) {
+    const slug = cleanPath.slice("/manual/".length);
     const guide = getGuide(slug);
     const mod = guide ? guideModules.find((m) => m.id === guide.module) : null;
     if (guide) {
       return [
-        { label: "Inicio", href: "/dashboard" },
-        { label: "Guía de Usuario", href: "/dashboard/guia" },
-        ...(mod ? [{ label: mod.label, href: "/dashboard/guia" }] : []),
+        { label: "Inicio", href: "/inicio" },
+        { label: "Guía de Usuario", href: "/manual" },
+        ...(mod ? [{ label: mod.label, href: "/manual" }] : []),
         { label: guide.title },
       ];
     }
   }
 
   // Detalle dinámico de lugar de manejo
-  if (cleanPath.startsWith("/dashboard/ubicaciones/")) {
+  if (cleanPath.startsWith("/ubicaciones/")) {
     return [
-      { label: "Inicio", href: "/dashboard" },
-      { label: "Animales", href: "/dashboard/animales" },
-      { label: "Lugares de manejo", href: "/dashboard/ubicaciones" },
+      { label: "Inicio", href: "/inicio" },
+      { label: "Animales", href: "/animales" },
+      { label: "Lugares de manejo", href: "/ubicaciones" },
       { label: "Detalle del lugar" },
     ];
   }
 
   // Hoja de vida de ave / gallina
-  if (cleanPath.startsWith("/dashboard/produccion/gallinas/")) {
+  if (cleanPath.startsWith("/produccion/gallinas/")) {
     return [
-      { label: "Inicio", href: "/dashboard" },
-      { label: "Animales", href: "/dashboard/animales" },
-      { label: "Gestión de Animales", href: "/dashboard/produccion?tab=animales" },
+      { label: "Inicio", href: "/inicio" },
+      { label: "Animales", href: "/animales" },
+      { label: "Gestión de Animales", href: "/produccion?tab=animales" },
       { label: "Hoja de vida" },
     ];
   }
 
   // Producción con ?tab=... (distribuye Animales / Producción / Almacén correctamente)
-  if (cleanPath === "/dashboard/produccion" && tab) {
+  if (cleanPath === "/produccion" && tab) {
     const tabMeta = PRODUCCION_TAB_MAP[tab];
     if (tabMeta) {
       const items: BreadcrumbItem[] = [
-        { label: "Inicio", href: "/dashboard" },
+        { label: "Inicio", href: "/inicio" },
         { label: tabMeta.groupLabel, href: tabMeta.groupHref },
         subtab && SUBTAB_LABELS[subtab]
-          ? { label: tabMeta.label, href: `/dashboard/produccion?tab=${tab}` }
+          ? { label: tabMeta.label, href: `/produccion?tab=${tab}` }
           : { label: tabMeta.label },
       ];
       if (subtab && SUBTAB_LABELS[subtab]) {
@@ -243,7 +244,7 @@ export function resolveDashboardBreadcrumb(
     for (const item of group.items) {
       if (item.href === fullTarget || item.href === cleanPath) {
         const items: BreadcrumbItem[] = [
-          { label: "Inicio", href: "/dashboard" },
+          { label: "Inicio", href: "/inicio" },
           { label: group.label, href: group.indexHref },
         ];
         const tabLabel = tab ? SUBTAB_LABELS[tab] : undefined;
@@ -259,9 +260,9 @@ export function resolveDashboardBreadcrumb(
   }
 
   // Fallback estructurado por segmentos
-  const segments = cleanPath.replace(/^\/dashboard\/?/, "").split("/").filter(Boolean);
-  const items: BreadcrumbItem[] = [{ label: "Inicio", href: "/dashboard" }];
-  let acc = "/dashboard";
+  const segments = cleanPath.replace(/^\/+/, "").split("/").filter(Boolean);
+  const items: BreadcrumbItem[] = [{ label: "Inicio", href: "/inicio" }];
+  let acc = "";
   segments.forEach((seg, idx) => {
     acc += `/${seg}`;
     const isLast = idx === segments.length - 1 && !(tab && SUBTAB_LABELS[tab]);

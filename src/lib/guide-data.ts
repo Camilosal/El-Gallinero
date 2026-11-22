@@ -1,5 +1,5 @@
 // ─── Guide content data & search helpers ───
-// Cada guía refleja la estructura real de navegación y pantallas de El Gallinero.
+// Cada guía refleja la estructura real de navegación y pantallas de IwaGranja.
 // Todas las capturas en `type: "screenshot"` apuntan a archivos verificados en `public/images/guia/`.
 
 export type SectionType = "intro" | "steps" | "tip" | "warning" | "note" | "diagram" | "screenshot";
@@ -35,6 +35,8 @@ export interface GuideSection {
   targetLabel?: string;
 }
 
+export const GUIDE_DEFAULT_UPDATED_AT = "2026-11-14";
+
 export interface Guide {
   slug: string;
   title: string;
@@ -42,6 +44,7 @@ export interface Guide {
   icon: string;
   summary: string;
   estimatedMinutes: number;
+  updatedAt?: string;
   tags: string[];
   relatedHrefs: { href: string; label: string }[];
   sections: GuideSection[];
@@ -182,14 +185,15 @@ export const guides: Guide[] = [
     module: "primeros-pasos",
     icon: "rocket",
     summary:
-      "Recorre el tablero Inicio en grupos enmarcados, barra superior con Pequeño/Mediano y Crear + directo, buscador Ctrl+K y Gina.",
+      "Recorre el tablero Inicio en grupos enmarcados, barra superior con Pequeño/Mediano y Crear + directo, buscador inteligente Ctrl+K y Gina.",
     estimatedMinutes: 4,
+    updatedAt: "2026-11-15",
     tags: ["inicio", "dashboard", "rutinas", "microcápsulas", "ctrl+k", "buscar", "crear", "móvil", "atajos", "gina"],
     relatedHrefs: [
-      { href: "/dashboard", label: "Ir a Inicio" },
-      { href: "/dashboard/configuracion/modulos", label: "Escala y Módulos Progresivos" },
-      { href: "/dashboard/planeacion/calendario", label: "Calendario Maestro y Rutinas" },
-      { href: "/dashboard/configuracion/catalogos", label: "Catálogos del sistema" },
+      { href: "/inicio", label: "Ir a Inicio" },
+      { href: "/configuracion/modulos", label: "Escala y Módulos Progresivos" },
+      { href: "/planeacion/calendario", label: "Calendario Maestro y Rutinas" },
+      { href: "/configuracion/catalogos", label: "Catálogos del sistema" },
     ],
     sections: [
       {
@@ -200,18 +204,18 @@ export const guides: Guide[] = [
         type: "screenshot",
         title: "Tablero principal Inicio y barra de herramientas superior",
         image: "/images/guia/inicio-dashboard.webp",
-        alt: "Captura del tablero principal Inicio de El Gallinero con grupos enmarcados, selector de escala superior y botón Crear +",
+        alt: "Captura del tablero principal Inicio de IwaGranja con grupos enmarcados, selector de escala superior y botón Crear +",
         caption:
           "En la barra superior tienes estado En línea/Offline, buscador global Ctrl+K, selector de escala Pequeño / Mediano y el botón Crear +, que abre directamente el modal o formulario de cada registro sin pantallas intermedias. Abajo a la derecha te acompaña Gina, tu asistente de granja.",
         badge: "Pantalla principal",
-        targetHref: "/dashboard",
+        targetHref: "/inicio",
         targetLabel: "Abrir Inicio",
       },
       {
         type: "steps",
         title: "Orientarte en 4 pasos el primer día",
         items: [
-          "Usa «Abrir asistente inicial» en Inicio (o Configuración) para completar en 3 pasos el nombre de tu finca, lugares, animales vivos hoy y saldo de alimento —manual o importado por CSV.",
+          "Usa «Abrir asistente inicial» en Inicio (o Configuración) para completar en 3 pasos el nombre de tu finca, lugares, animales vivos hoy y saldo de alimento —escribiendo una frase corta sobre tu finca para preconfigurarla rápido, o llenando/importando por CSV.",
           "Alterna en un toque entre Modo Pequeño (interfaz simple) y Modo Mediano (tableros técnicos) desde la barra superior sin perder historial.",
           "Cada registro de huevos, alimento, ventas, egresos, pesos o reproducción entrega una Microcápsula inmediata con costo unitario, días de alimento o margen.",
           "Pulsa Crear + arriba (o + Registrar en móvil) para abrir de inmediato el formulario exacto de adquisición, traslado, venta, pago, plan de parvada o cierre diario.",
@@ -223,9 +227,9 @@ export const guides: Guide[] = [
         image: "/images/guia/buscar-global-modal.webp",
         alt: "Modal del buscador global Ctrl+K filtrando resultados para el término huev",
         caption:
-          "Pulsa Ctrl+K (o Cmd+K en Mac) o haz clic en «Buscar» para saltar a cualquier módulo o formulario buscando incluso por sinónimos cotidianos como «potrero», «gastos», «equipos» o «linaje».",
+          "Pulsa Ctrl+K (o Cmd+K en Mac) o haz clic en «Buscar» para saltar a cualquier módulo o formulario. Si escribes palabras cotidianas sin coincidencia exacta (como «donde pongo las vacunas» o «precio del bulto»), el sistema sugiere los accesos más cercanos en «Quizás buscas».",
         badge: "Navegación rápida",
-        targetHref: "/dashboard",
+        targetHref: "/inicio",
         targetLabel: "Probar Ctrl+K",
       },
       {
@@ -236,7 +240,7 @@ export const guides: Guide[] = [
         caption:
           "Desde la barra inferior en móvil («Registrar») o tras escanear un QR se abre este formulario ultracorto que guarda en un toque y funciona también sin internet.",
         badge: "Captura ágil",
-        targetHref: "/dashboard/escanear",
+        targetHref: "/escanear",
         targetLabel: "Ver acciones rápidas",
       },
       {
@@ -273,9 +277,9 @@ export const guides: Guide[] = [
     estimatedMinutes: 4,
     tags: ["asistente inicial", "día 1", "csv", "pequeño", "mediano", "escala", "módulos progresivos", "feature flags", "onboarding"],
     relatedHrefs: [
-      { href: "/dashboard/configuracion/modulos", label: "Escala y Módulos Progresivos" },
-      { href: "/dashboard?wizard=1", label: "Abrir Asistente inicial" },
-      { href: "/dashboard/configuracion", label: "Panel Configuración" },
+      { href: "/configuracion/modulos", label: "Escala y Módulos Progresivos" },
+      { href: "/inicio?wizard=1", label: "Abrir Asistente inicial" },
+      { href: "/configuracion", label: "Panel Configuración" },
     ],
     sections: [
       {
@@ -288,9 +292,9 @@ export const guides: Guide[] = [
         image: "/images/guia/configuracion-modulos.webp",
         alt: "Pantalla de Onboarding Progresivo, Escala y Módulos mostrando Modo Pequeño vs Mediano, 4 módulos core y 5 progresivos",
         caption:
-          "Los 4 módulos esenciales (Captura Diaria Offline, Inventario y Cobertura, Sanidad/Retiros/Compostaje y Resumen WhatsApp) están siempre activos; los 5 módulos avanzados se encienden manualmente o al superar umbrales reales de tu finca.",
+          "Los 4 módulos esenciales (Captura Diaria Offline, Inventario y Cobertura, Sanidad/Retiros/Compostaje y Parte diario compartible) están siempre activos; los 5 módulos avanzados se encienden manualmente o al superar umbrales reales de tu finca.",
         badge: "Escala gradual",
-        targetHref: "/dashboard/configuracion/modulos",
+        targetHref: "/configuracion/modulos",
         targetLabel: "Abrir Escala y Módulos",
       },
       {
@@ -330,13 +334,13 @@ export const guides: Guide[] = [
     estimatedMinutes: 3,
     tags: ["offline", "sin conexión", "pwa", "copia", "sincronizar", "outbox", "voz", "audio"],
     relatedHrefs: [
-      { href: "/dashboard", label: "Abrir estado En línea" },
-      { href: "/dashboard/escanear", label: "Escáner QR offline" },
+      { href: "/inicio", label: "Abrir estado En línea" },
+      { href: "/escanear", label: "Escáner QR offline" },
     ],
     sections: [
       {
         type: "intro",
-        text: "El Gallinero incluye un motor PWA + IndexedDB diseñado para fincas con señal intermitente. Guarda pantallas, activos visuales y datos en el dispositivo para que puedas abrir módulos, escanear QR y capturar registros sin recibir «Error cargando datos» cuando estás fuera de cobertura.",
+        text: "IwaGranja incluye un motor PWA + IndexedDB diseñado para fincas con señal intermitente. Guarda pantallas, activos visuales y datos en el dispositivo para que puedas abrir módulos, escanear QR y capturar registros sin recibir «Error cargando datos» cuando estás fuera de cobertura.",
       },
       {
         type: "screenshot",
@@ -346,7 +350,7 @@ export const guides: Guide[] = [
         caption:
           "Haz clic en la píldora «En línea» (o «Sin conexión / Offline») en la barra superior para ver cuántas pantallas y módulos están replicados, forzar una copia actualizada o revisar la cola local antes de sincronizar.",
         badge: "Resiliencia rural",
-        targetHref: "/dashboard",
+        targetHref: "/inicio",
         targetLabel: "Revisar estado de copia",
       },
       {
@@ -376,12 +380,13 @@ export const guides: Guide[] = [
     module: "primeros-pasos",
     icon: "sparkles",
     summary:
-      "Conversa con Gina (la gallina con gafas) por texto, voz o foto de facturas para consultar datos en vivo, recordar reglas de tu finca y confirmar registros.",
+      "Conversa con Gina (la gallina con gafas) por texto, voz o foto de documentos para consultar datos en vivo, clasificar adjuntos y confirmar registros.",
     estimatedMinutes: 3,
+    updatedAt: "2026-11-15",
     tags: ["gina", "asistente", "ia", "chat", "voz", "dictado", "memoria", "fotos", "confirmación"],
     relatedHrefs: [
-      { href: "/dashboard", label: "Hablar con Gina en Inicio" },
-      { href: "/dashboard/escanear", label: "Complementar con Escanear QR" },
+      { href: "/inicio", label: "Hablar con Gina en Inicio" },
+      { href: "/escanear", label: "Complementar con Escanear QR" },
     ],
     sections: [
       {
@@ -396,7 +401,7 @@ export const guides: Guide[] = [
         caption:
           "Incluye memoria persistente de la granja (ícono del cerebro), historial de conversaciones, preguntas sugeridas, cámara para facturas/etiquetas ICA, dictado por voz en tiempo real y notas de voz offline.",
         badge: "Gina + confirmación",
-        targetHref: "/dashboard",
+        targetHref: "/inicio",
         targetLabel: "Abrir el dashboard",
       },
       {
@@ -411,7 +416,7 @@ export const guides: Guide[] = [
       },
       {
         type: "note",
-        text: "Toda acción que altera inventario, animales o finanzas exige confirmación humana en tarjeta. Si te quedas sin señal, el botón de micrófono graba audio localmente para procesarlo al reconectar.",
+        text: "Toda acción que altera inventario, animales o finanzas exige confirmación humana en tarjeta. Además, la lectura automática identifica si tu adjunto es factura, etiqueta veterinaria ICA, comprobante de pago o RUT. Si te quedas sin señal, el micrófono graba audio localmente para procesarlo al reconectar.",
       },
     ],
   },
@@ -429,9 +434,9 @@ export const guides: Guide[] = [
     estimatedMinutes: 4,
     tags: ["qr", "escanear", "cámara", "etiqueta", "imprimir", "lote", "trazabilidad pública"],
     relatedHrefs: [
-      { href: "/dashboard/escanear", label: "Abrir Escáner" },
-      { href: "/dashboard/ubicaciones", label: "Etiquetas de lugares" },
-      { href: "/dashboard/operaciones/activos", label: "Etiquetas de equipos" },
+      { href: "/escanear", label: "Abrir Escáner" },
+      { href: "/ubicaciones", label: "Etiquetas de lugares" },
+      { href: "/operaciones/activos", label: "Etiquetas de equipos" },
     ],
     sections: [
       {
@@ -446,7 +451,7 @@ export const guides: Guide[] = [
         caption:
           "Una vez identificado un lugar, lote, ejemplar o activo, aparecen métricas inmediatas (animales, producción, mantenimientos) y botones en un clic para recoger huevos, dar alimento, trasladar, pesar o registrar sanidad.",
         badge: "Campo + QR",
-        targetHref: "/dashboard/escanear",
+        targetHref: "/escanear",
         targetLabel: "Abrir Escanear",
       },
       {
@@ -457,7 +462,7 @@ export const guides: Guide[] = [
         caption:
           "En Lugares de manejo, Animales, Lotes y Activos puedes abrir el botón «QR» para descargar o imprimir una etiqueta resistente con código legible y enlace directo.",
         badge: "Impresión rápida",
-        targetHref: "/dashboard/ubicaciones",
+        targetHref: "/ubicaciones",
         targetLabel: "Ver lugares con QR",
       },
       {
@@ -477,7 +482,7 @@ export const guides: Guide[] = [
         caption:
           "Cada lote cuenta con una URL pública sin sesión (/lote/[id]) accesible escaneando su QR comercial para mostrar procedencia, edad y métricas básicas.",
         badge: "Trazabilidad comercial",
-        targetHref: "/dashboard/animales",
+        targetHref: "/animales",
         targetLabel: "Ver lotes en Animales",
       },
       {
@@ -501,9 +506,9 @@ export const guides: Guide[] = [
     estimatedMinutes: 4,
     tags: ["animales", "gallinas", "gallos", "pollos", "codornices", "patos", "conejos", "cuyes", "especies"],
     relatedHrefs: [
-      { href: "/dashboard/animales", label: "Resumen de Animales" },
-      { href: "/dashboard/produccion?tab=animales", label: "Pestañas por especie" },
-      { href: "/dashboard/ubicaciones", label: "Lugares de manejo" },
+      { href: "/animales", label: "Resumen de Animales" },
+      { href: "/produccion?tab=animales", label: "Pestañas por especie" },
+      { href: "/ubicaciones", label: "Lugares de manejo" },
     ],
     sections: [
       {
@@ -518,7 +523,7 @@ export const guides: Guide[] = [
         caption:
           "Filtra rápidamente por tipo de animal, identifica ejemplares sin lugar asignado y navega a la ficha individual o pestaña de manejo de cada especie.",
         badge: "Multiespecie",
-        targetHref: "/dashboard/animales",
+        targetHref: "/animales",
         targetLabel: "Abrir Animales",
       },
       {
@@ -548,9 +553,9 @@ export const guides: Guide[] = [
     estimatedMinutes: 4,
     tags: ["adquisiciones", "entradas", "linaje", "genética", "padres", "origen", "generación"],
     relatedHrefs: [
-      { href: "/dashboard/produccion/adquisiciones", label: "Adquisiciones y entradas" },
-      { href: "/dashboard/produccion?tab=incubacion", label: "Incubación" },
-      { href: "/dashboard/analisis/razas", label: "Curvas y desempeño" },
+      { href: "/produccion/adquisiciones", label: "Adquisiciones y entradas" },
+      { href: "/produccion?tab=incubacion", label: "Incubación" },
+      { href: "/analisis/razas", label: "Curvas y desempeño" },
     ],
     sections: [
       {
@@ -565,7 +570,7 @@ export const guides: Guide[] = [
         caption:
           "Cada fila conserva la trazabilidad de origen, el tipo de entrada (compra, cría en casa, incubación), los códigos asignados automáticamente y el galpón/corral donde ingresaron.",
         badge: "Origen y linaje",
-        targetHref: "/dashboard/produccion/adquisiciones",
+        targetHref: "/produccion/adquisiciones",
         targetLabel: "Abrir Adquisiciones",
       },
       {
@@ -595,9 +600,9 @@ export const guides: Guide[] = [
     estimatedMinutes: 3,
     tags: ["peso", "biometría", "curva", "cv%", "uniformidad", "epef", "ganancia", "muestra", "estándar"],
     relatedHrefs: [
-      { href: "/dashboard/produccion/peso", label: "Control de Peso" },
-      { href: "/dashboard/analisis/razas", label: "Curvas por Raza" },
-      { href: "/dashboard/configuracion/catalogos?tab=pesos", label: "Pesos de referencia" },
+      { href: "/produccion/peso", label: "Control de Peso" },
+      { href: "/analisis/razas", label: "Curvas por Raza" },
+      { href: "/configuracion/catalogos?tab=pesos", label: "Pesos de referencia" },
     ],
     sections: [
       {
@@ -612,7 +617,7 @@ export const guides: Guide[] = [
         caption:
           "La zona sombreada muestra el rango esperado (mínimo a máximo) para la especie y raza seleccionadas, mientras los puntos revelan si la ganancia semanal está alineada.",
         badge: "Biometría zootécnica",
-        targetHref: "/dashboard/produccion/peso",
+        targetHref: "/produccion/peso",
         targetLabel: "Registrar pesaje",
       },
       {
@@ -642,9 +647,9 @@ export const guides: Guide[] = [
     estimatedMinutes: 4,
     tags: ["reproducción", "conejos", "cuyes", "empadre", "palpación", "nidal", "parto", "destete", "consanguinidad"],
     relatedHrefs: [
-      { href: "/dashboard/produccion?tab=reproduccion", label: "Abrir Reproducción" },
-      { href: "/dashboard/planeacion/calendario", label: "Ver fechas en Calendario Maestro" },
-      { href: "/dashboard/animales", label: "Ver lotes activos" },
+      { href: "/produccion?tab=reproduccion", label: "Abrir Reproducción" },
+      { href: "/planeacion/calendario", label: "Ver fechas en Calendario Maestro" },
+      { href: "/animales", label: "Ver lotes activos" },
     ],
     sections: [
       {
@@ -659,7 +664,7 @@ export const guides: Guide[] = [
         caption:
           "Administra hembras y machos reproductores desde Animales y sigue sus empadres, tasas de fertilidad, gazapos/crías nacidas vivas y destetadas.",
         badge: "Conejos y cuyes",
-        targetHref: "/dashboard/produccion?tab=reproduccion",
+        targetHref: "/produccion?tab=reproduccion",
         targetLabel: "Ir a Reproducción",
       },
       {
@@ -688,8 +693,8 @@ export const guides: Guide[] = [
     estimatedMinutes: 3,
     tags: ["incubación", "eclosión", "clueca", "pollitos", "tasa de nacimiento"],
     relatedHrefs: [
-      { href: "/dashboard/produccion?tab=incubacion", label: "Ir a Incubación" },
-      { href: "/dashboard/produccion/adquisiciones", label: "Ver ingresos derivados" },
+      { href: "/produccion?tab=incubacion", label: "Ir a Incubación" },
+      { href: "/produccion/adquisiciones", label: "Ver ingresos derivados" },
     ],
     sections: [
       {
@@ -704,7 +709,7 @@ export const guides: Guide[] = [
         caption:
           "Controla lotes en curso con progreso de días (por ejemplo 21 días en gallinas) y consulta la tasa histórica de eclosión.",
         badge: "Nacimientos",
-        targetHref: "/dashboard/produccion?tab=incubacion",
+        targetHref: "/produccion?tab=incubacion",
         targetLabel: "Abrir Incubación",
       },
       {
@@ -733,9 +738,9 @@ export const guides: Guide[] = [
     estimatedMinutes: 5,
     tags: ["ubicaciones", "lugares", "galpón", "potrero", "traslados", "capacidad", "qr"],
     relatedHrefs: [
-      { href: "/dashboard/ubicaciones", label: "Lugares de manejo" },
-      { href: "/dashboard/escanear", label: "Escanear QR de puerta" },
-      { href: "/dashboard/operaciones/mantenimiento", label: "Mantenimiento por lugar" },
+      { href: "/ubicaciones", label: "Lugares de manejo" },
+      { href: "/escanear", label: "Escanear QR de puerta" },
+      { href: "/operaciones/mantenimiento", label: "Mantenimiento por lugar" },
     ],
     sections: [
       {
@@ -750,7 +755,7 @@ export const guides: Guide[] = [
         caption:
           "Desde la vista general controlas ocupación actual contra capacidad máxima, ves si cumple estado sanitario y generas con un clic la etiqueta QR para la puerta.",
         badge: "Espacios físicos",
-        targetHref: "/dashboard/ubicaciones",
+        targetHref: "/ubicaciones",
         targetLabel: "Ver lugares",
       },
       {
@@ -761,7 +766,7 @@ export const guides: Guide[] = [
         caption:
           "Dentro de cada ubicación revisas la ocupación por especie, los resultados de los últimos 30 días (huevos, carne, pesajes, bajas y tareas) y trasladas aves o lotes conservando el historial origen-destino.",
         badge: "Resultados por lugar",
-        targetHref: "/dashboard/ubicaciones",
+        targetHref: "/ubicaciones",
         targetLabel: "Abrir una ficha",
       },
       {
@@ -794,9 +799,9 @@ export const guides: Guide[] = [
     estimatedMinutes: 3,
     tags: ["huevos", "postura", "ntc 1240", "AA", "AAA", "Jumbo", "temperatura", "humedad", "autoconsumo", "microcápsulas"],
     relatedHrefs: [
-      { href: "/dashboard/produccion?tab=huevos", label: "Producción de Huevos" },
-      { href: "/dashboard/inventarios/huevos", label: "Inventario PEPS de Huevos" },
-      { href: "/dashboard/soberania", label: "Ver en Soberanía" },
+      { href: "/produccion?tab=huevos", label: "Producción de Huevos" },
+      { href: "/inventarios/huevos", label: "Inventario PEPS de Huevos" },
+      { href: "/soberania", label: "Ver en Soberanía" },
     ],
     sections: [
       {
@@ -811,7 +816,7 @@ export const guides: Guide[] = [
         caption:
           "Visualiza producción de hoy, acumulada de 7 días, promedio diario y partición entre consumo del hogar y stock comercial PEPS.",
         badge: "Postura diaria NTC 1240",
-        targetHref: "/dashboard/produccion?tab=huevos",
+        targetHref: "/produccion?tab=huevos",
         targetLabel: "Ir a Huevos",
       },
       {
@@ -851,8 +856,8 @@ export const guides: Guide[] = [
     estimatedMinutes: 3,
     tags: ["carne", "canal", "rendimiento", "peso vivo", "lotes", "autoconsumo"],
     relatedHrefs: [
-      { href: "/dashboard/produccion?tab=carne", label: "Producción de Carne" },
-      { href: "/dashboard/inventarios/carne", label: "Inventario de Carne FIFO" },
+      { href: "/produccion?tab=carne", label: "Producción de Carne" },
+      { href: "/inventarios/carne", label: "Inventario de Carne FIFO" },
     ],
     sections: [
       {
@@ -867,7 +872,7 @@ export const guides: Guide[] = [
         caption:
           "Incluye métricas de rendimiento en canal (%), resumen por especie y botón directo para registrar nuevos beneficios.",
         badge: "Cosecha de carne",
-        targetHref: "/dashboard/produccion?tab=carne",
+        targetHref: "/produccion?tab=carne",
         targetLabel: "Abrir Carne",
       },
       {
@@ -891,8 +896,8 @@ export const guides: Guide[] = [
     estimatedMinutes: 3,
     tags: ["sacrificio", "faena", "beneficio", "descarte", "pollo", "conejo", "cuy"],
     relatedHrefs: [
-      { href: "/dashboard/produccion?tab=carne", label: "Registrar en Carne / Beneficio" },
-      { href: "/dashboard/inventarios/carne", label: "Inventario de Carne" },
+      { href: "/produccion?tab=carne", label: "Registrar en Carne / Beneficio" },
+      { href: "/inventarios/carne", label: "Inventario de Carne" },
     ],
     sections: [
       {
@@ -907,7 +912,7 @@ export const guides: Guide[] = [
         caption:
           "Pulsa el botón superior de registro en Producción → Carne (o accede desde el menú Crear + → Registrar Beneficio) para capturar peso vivo, peso en canal y destino hogar/venta.",
         badge: "Beneficio",
-        targetHref: "/dashboard/produccion?tab=carne",
+        targetHref: "/produccion?tab=carne",
         targetLabel: "Registrar beneficio",
       },
       {
@@ -936,8 +941,8 @@ export const guides: Guide[] = [
     estimatedMinutes: 3,
     tags: ["gallinaza", "abono", "compost", "cama", "estiércol"],
     relatedHrefs: [
-      { href: "/dashboard/produccion?tab=gallinaza", label: "Producción de Gallinaza" },
-      { href: "/dashboard/inventarios/gallinaza", label: "Inventario de Gallinaza" },
+      { href: "/produccion?tab=gallinaza", label: "Producción de Gallinaza" },
+      { href: "/inventarios/gallinaza", label: "Inventario de Gallinaza" },
     ],
     sections: [
       {
@@ -952,7 +957,7 @@ export const guides: Guide[] = [
         caption:
           "Combina la estimación automática por población animal con tus pesajes reales de recolección y ajustes de compostaje.",
         badge: "Economía circular",
-        targetHref: "/dashboard/produccion?tab=gallinaza",
+        targetHref: "/produccion?tab=gallinaza",
         targetLabel: "Abrir Gallinaza",
       },
       {
@@ -976,8 +981,8 @@ export const guides: Guide[] = [
     estimatedMinutes: 2,
     tags: ["factores", "humedad", "ajustes", "gallinaza", "configuración"],
     relatedHrefs: [
-      { href: "/dashboard/configuracion/catalogos?tab=gallinaza", label: "Factores en Catálogos" },
-      { href: "/dashboard/inventarios/gallinaza", label: "Ajustes en Inventario" },
+      { href: "/configuracion/catalogos?tab=gallinaza", label: "Factores en Catálogos" },
+      { href: "/inventarios/gallinaza", label: "Ajustes en Inventario" },
     ],
     sections: [
       {
@@ -992,7 +997,7 @@ export const guides: Guide[] = [
         caption:
           "Ajusta los parámetros base en Configuración → Catálogos (pestaña Gallinaza) y concilia inventarios físicos desde Inventarios → Gallinaza.",
         badge: "Calibración",
-        targetHref: "/dashboard/inventarios/gallinaza",
+        targetHref: "/inventarios/gallinaza",
         targetLabel: "Ver Inventario Gallinaza",
       },
       {
@@ -1019,8 +1024,8 @@ export const guides: Guide[] = [
     estimatedMinutes: 3,
     tags: ["balance", "valorización", "patrimonio", "stock", "alertas"],
     relatedHrefs: [
-      { href: "/dashboard/inventarios/balance", label: "Balance de Inventarios" },
-      { href: "/dashboard/finanzas/finanzas", label: "Balance Financiero" },
+      { href: "/inventarios/balance", label: "Balance de Inventarios" },
+      { href: "/finanzas/finanzas", label: "Balance Financiero" },
     ],
     sections: [
       {
@@ -1035,7 +1040,7 @@ export const guides: Guide[] = [
         caption:
           "Identifica qué porcentaje de tu capital está inmovilizado en animales, producto terminado o bodega y accede a cada inventario específico desde sus tarjetas.",
         badge: "Patrimonio actual",
-        targetHref: "/dashboard/inventarios/balance",
+        targetHref: "/inventarios/balance",
         targetLabel: "Abrir Balance Inventarios",
       },
       {
@@ -1060,9 +1065,9 @@ export const guides: Guide[] = [
     estimatedMinutes: 3,
     tags: ["inventario", "huevos", "fifo", "antigüedad", "lotes", "merma"],
     relatedHrefs: [
-      { href: "/dashboard/inventarios/huevos", label: "Inventario de Huevos" },
-      { href: "/dashboard/produccion?tab=huevos", label: "Recoger Huevos" },
-      { href: "/dashboard/finanzas/ventas", label: "Vender Huevos" },
+      { href: "/inventarios/huevos", label: "Inventario de Huevos" },
+      { href: "/produccion?tab=huevos", label: "Recoger Huevos" },
+      { href: "/finanzas/ventas", label: "Vender Huevos" },
     ],
     sections: [
       {
@@ -1077,7 +1082,7 @@ export const guides: Guide[] = [
         caption:
           "Vigila en un vistazo los días acumulados del lote más antiguo y prioriza su despacho o promoción antes de que pierda frescura.",
         badge: "Control FIFO",
-        targetHref: "/dashboard/inventarios/huevos",
+        targetHref: "/inventarios/huevos",
         targetLabel: "Ver Inventario Huevos",
       },
       {
@@ -1101,9 +1106,9 @@ export const guides: Guide[] = [
     estimatedMinutes: 3,
     tags: ["carne", "inventario", "congelador", "fifo", "descuento"],
     relatedHrefs: [
-      { href: "/dashboard/inventarios/carne", label: "Inventario de Carne" },
-      { href: "/dashboard/produccion?tab=carne", label: "Registrar Beneficio" },
-      { href: "/dashboard/finanzas/ventas?tab=carne", label: "Vender Carne" },
+      { href: "/inventarios/carne", label: "Inventario de Carne" },
+      { href: "/produccion?tab=carne", label: "Registrar Beneficio" },
+      { href: "/finanzas/ventas?tab=carne", label: "Vender Carne" },
     ],
     sections: [
       {
@@ -1118,7 +1123,7 @@ export const guides: Guide[] = [
         caption:
           "Controla kilogramos disponibles por especie (pollo, gallina de descarte, pato, codorniz, conejo, cuy), valor estimado en cava y días desde el beneficio.",
         badge: "Trazabilidad canal",
-        targetHref: "/dashboard/inventarios/carne",
+        targetHref: "/inventarios/carne",
         targetLabel: "Abrir Inventario Carne",
       },
       {
@@ -1146,10 +1151,10 @@ export const guides: Guide[] = [
     estimatedMinutes: 4,
     tags: ["alimentación", "ración", "concentrado", "forraje", "dieta combinada", "vitamina c", "bultos", "programa", "consumo"],
     relatedHrefs: [
-      { href: "/dashboard/produccion?tab=alimentacion", label: "Gestión de Alimentación" },
-      { href: "/dashboard/inventarios/alimentacion", label: "Inventario de Alimentos" },
-      { href: "/dashboard/configuracion/catalogos?tab=alimentacion", label: "Tabla Nutricional" },
-      { href: "/dashboard/almacen", label: "Centro Almacén" },
+      { href: "/produccion?tab=alimentacion", label: "Gestión de Alimentación" },
+      { href: "/inventarios/alimentacion", label: "Inventario de Alimentos" },
+      { href: "/configuracion/catalogos?tab=alimentacion", label: "Tabla Nutricional" },
+      { href: "/almacen", label: "Centro Almacén" },
     ],
     sections: [
       {
@@ -1164,7 +1169,7 @@ export const guides: Guide[] = [
         caption:
           "Administra concentrados y forrajes locales, programa entregas automáticas por etapa/especie y revisa días de cobertura y bultos requeridos.",
         badge: "Nutrición diaria",
-        targetHref: "/dashboard/produccion?tab=alimentacion",
+        targetHref: "/produccion?tab=alimentacion",
         targetLabel: "Abrir Alimentación",
       },
       {
@@ -1175,7 +1180,7 @@ export const guides: Guide[] = [
         caption:
           "La entrada principal de Almacén unifica alimentos, insumos, activos, mantenimiento, compostaje y cierre diario en una sola vista.",
         badge: "Almacén",
-        targetHref: "/dashboard/almacen",
+        targetHref: "/almacen",
         targetLabel: "Ir a Almacén",
       },
       {
@@ -1199,8 +1204,8 @@ export const guides: Guide[] = [
     estimatedMinutes: 2,
     tags: ["inventario alimentos", "días restantes", "proyección", "bodega", "stock mínimo"],
     relatedHrefs: [
-      { href: "/dashboard/inventarios/alimentacion", label: "Inventario de Alimentos" },
-      { href: "/dashboard/produccion?tab=alimentacion", label: "Registrar movimientos" },
+      { href: "/inventarios/alimentacion", label: "Inventario de Alimentos" },
+      { href: "/produccion?tab=alimentacion", label: "Registrar movimientos" },
     ],
     sections: [
       {
@@ -1215,7 +1220,7 @@ export const guides: Guide[] = [
         caption:
           "Selecciona el horizonte de análisis (7, 30 o 90 días) arriba a la derecha; los ítems con 7 días o menos de cobertura se marcan en alerta roja.",
         badge: "Abastecimiento",
-        targetHref: "/dashboard/inventarios/alimentacion",
+        targetHref: "/inventarios/alimentacion",
         targetLabel: "Ver Proyección de Alimentos",
       },
       {
@@ -1239,8 +1244,8 @@ export const guides: Guide[] = [
     estimatedMinutes: 3,
     tags: ["insumos", "medicamentos", "vacunas", "desinfectante", "empaques", "stock"],
     relatedHrefs: [
-      { href: "/dashboard/inventarios/insumos", label: "Abrir Insumos" },
-      { href: "/dashboard/sanidad", label: "Plan Sanitario" },
+      { href: "/inventarios/insumos", label: "Abrir Insumos" },
+      { href: "/sanidad", label: "Plan Sanitario" },
     ],
     sections: [
       {
@@ -1255,7 +1260,7 @@ export const guides: Guide[] = [
         caption:
           "Cuando aplicas un tratamiento o vacuna desde Sanidad con el insumo enlazado, el sistema descuenta el consumo automáticamente de este stock.",
         badge: "Bodega general",
-        targetHref: "/dashboard/inventarios/insumos",
+        targetHref: "/inventarios/insumos",
         targetLabel: "Abrir Insumos",
       },
       {
@@ -1279,9 +1284,9 @@ export const guides: Guide[] = [
     estimatedMinutes: 3,
     tags: ["activos", "equipos", "herramientas", "serial", "garantía", "qr", "vida útil", "depreciación", "desgaste"],
     relatedHrefs: [
-      { href: "/dashboard/operaciones/activos", label: "Activos y Equipos" },
-      { href: "/dashboard/operaciones/mantenimiento", label: "Mantenimiento" },
-      { href: "/dashboard/escanear", label: "Escanear equipo QR" },
+      { href: "/operaciones/activos", label: "Activos y Equipos" },
+      { href: "/operaciones/mantenimiento", label: "Mantenimiento" },
+      { href: "/escanear", label: "Escanear equipo QR" },
     ],
     sections: [
       {
@@ -1296,7 +1301,7 @@ export const guides: Guide[] = [
         caption:
           "Visualiza de un vistazo qué equipos están operativos, su valor actual restante después del desgaste y cuáles están en garantía.",
         badge: "Patrimonio en equipos",
-        targetHref: "/dashboard/operaciones/activos",
+        targetHref: "/operaciones/activos",
         targetLabel: "Ver Activos",
       },
       {
@@ -1325,8 +1330,8 @@ export const guides: Guide[] = [
     estimatedMinutes: 3,
     tags: ["mantenimiento", "tareas", "preventivo", "correctivo", "recurrencia", "limpieza"],
     relatedHrefs: [
-      { href: "/dashboard/operaciones/mantenimiento", label: "Abrir Mantenimiento" },
-      { href: "/dashboard/operaciones/activos", label: "Equipos vinculados" },
+      { href: "/operaciones/mantenimiento", label: "Abrir Mantenimiento" },
+      { href: "/operaciones/activos", label: "Equipos vinculados" },
     ],
     sections: [
       {
@@ -1341,7 +1346,7 @@ export const guides: Guide[] = [
         caption:
           "Incluye plantillas rápidas de tareas frecuentes en avicultura, filtros por estado y enlace con equipos y lugares de manejo.",
         badge: "Preventivo",
-        targetHref: "/dashboard/operaciones/mantenimiento",
+        targetHref: "/operaciones/mantenimiento",
         targetLabel: "Ver Mantenimiento",
       },
       {
@@ -1366,9 +1371,9 @@ export const guides: Guide[] = [
     estimatedMinutes: 3,
     tags: ["compostaje", "agrosavia", "pila", "temperatura", "volteo", "gallinaza", "mortalidad", "abono"],
     relatedHrefs: [
-      { href: "/dashboard/operaciones/compostaje", label: "Abrir Compostaje" },
-      { href: "/dashboard/inventarios/gallinaza", label: "Inventario de Gallinaza" },
-      { href: "/dashboard/planeacion/calendario", label: "Ver volteos en Calendario" },
+      { href: "/operaciones/compostaje", label: "Abrir Compostaje" },
+      { href: "/inventarios/gallinaza", label: "Inventario de Gallinaza" },
+      { href: "/planeacion/calendario", label: "Ver volteos en Calendario" },
     ],
     sections: [
       {
@@ -1383,7 +1388,7 @@ export const guides: Guide[] = [
         caption:
           "Sigue el avance térmico de cada pila activa, registra volteos periódicos para aireación y cosecha el compost maduro listo para huerta o venta.",
         badge: "Economía circular",
-        targetHref: "/dashboard/operaciones/compostaje",
+        targetHref: "/operaciones/compostaje",
         targetLabel: "Ir a Compostaje",
       },
       {
@@ -1408,9 +1413,9 @@ export const guides: Guide[] = [
     estimatedMinutes: 3,
     tags: ["cierre diario", "antifraude", "auditoría", "sensores", "iot", "ith", "amoniaco", "nh3", "temperatura", "humedad", "báscula"],
     relatedHrefs: [
-      { href: "/dashboard/operaciones/cierre", label: "Cierre Diario y Sensores" },
-      { href: "/dashboard/planeacion/calendario", label: "Calendario Maestro" },
-      { href: "/dashboard", label: "Panel Inicio" },
+      { href: "/operaciones/cierre", label: "Cierre Diario y Sensores" },
+      { href: "/planeacion/calendario", label: "Calendario Maestro" },
+      { href: "/inicio", label: "Panel Inicio" },
     ],
     sections: [
       {
@@ -1425,7 +1430,7 @@ export const guides: Guide[] = [
         caption:
           "Centraliza el cierre al final del turno, revisa alertas por estrés calórico (ITH) o NH3 alto y descarga evidencia auditable de cada jornada.",
         badge: "Control diario",
-        targetHref: "/dashboard/operaciones/cierre",
+        targetHref: "/operaciones/cierre",
         targetLabel: "Abrir Cierre Diario",
       },
       {
@@ -1454,9 +1459,9 @@ export const guides: Guide[] = [
     estimatedMinutes: 4,
     tags: ["calendario maestro", "rutinas", "autoajustable", "inicio", "cumplimiento", "incumplidas", "horizonte", "agenda"],
     relatedHrefs: [
-      { href: "/dashboard/planeacion/calendario", label: "Abrir Calendario Maestro" },
-      { href: "/dashboard", label: "Ver Rutina en Inicio" },
-      { href: "/dashboard/sanidad/calendario", label: "Calendario Sanitario" },
+      { href: "/planeacion/calendario", label: "Abrir Calendario Maestro" },
+      { href: "/inicio", label: "Ver Rutina en Inicio" },
+      { href: "/sanidad/calendario", label: "Calendario Sanitario" },
     ],
     sections: [
       {
@@ -1471,7 +1476,7 @@ export const guides: Guide[] = [
         caption:
           "Alterna entre Hoy, Horizonte a mediano/largo plazo, Configurar Rutinas y Cumplimiento e Incumplimiento para no dejar tareas vencidas sin atender.",
         badge: "Agenda unificada",
-        targetHref: "/dashboard/planeacion/calendario",
+        targetHref: "/planeacion/calendario",
         targetLabel: "Abrir Calendario Maestro",
       },
       {
@@ -1496,8 +1501,8 @@ export const guides: Guide[] = [
     estimatedMinutes: 3,
     tags: ["planeación", "parvada", "reemplazo", "proyección", "gallos", "metas"],
     relatedHrefs: [
-      { href: "/dashboard/produccion/plan-parvada", label: "Plan de Parvada" },
-      { href: "/dashboard/planeacion", label: "Resumen Planeación" },
+      { href: "/produccion/plan-parvada", label: "Plan de Parvada" },
+      { href: "/planeacion", label: "Resumen Planeación" },
     ],
     sections: [
       {
@@ -1512,7 +1517,7 @@ export const guides: Guide[] = [
         caption:
           "Contrasta en tiempo real la postura promedio de los últimos 7 días frente a lo esperado para la edad de tus gallinas y planifica tu fecha de reemplazo.",
         badge: "Estrategia avícola",
-        targetHref: "/dashboard/produccion/plan-parvada",
+        targetHref: "/produccion/plan-parvada",
         targetLabel: "Abrir Plan de Parvada",
       },
       {
@@ -1536,8 +1541,8 @@ export const guides: Guide[] = [
     estimatedMinutes: 3,
     tags: ["soberanía", "autoconsumo", "hogar", "ahorro", "familia", "proteína"],
     relatedHrefs: [
-      { href: "/dashboard/soberania", label: "Soberanía Alimentaria" },
-      { href: "/dashboard/produccion?tab=huevos", label: "Separar huevos de hogar" },
+      { href: "/soberania", label: "Soberanía Alimentaria" },
+      { href: "/produccion?tab=huevos", label: "Separar huevos de hogar" },
     ],
     sections: [
       {
@@ -1552,7 +1557,7 @@ export const guides: Guide[] = [
         caption:
           "Cada vez que destinas huevos en Recolección o kilos en Sacrificio hacia el hogar se registra aquí su valor equivalente al precio de mercado.",
         badge: "Autoconsumo",
-        targetHref: "/dashboard/soberania",
+        targetHref: "/soberania",
         targetLabel: "Abrir Soberanía",
       },
       {
@@ -1580,11 +1585,11 @@ export const guides: Guide[] = [
     estimatedMinutes: 4,
     tags: ["sanidad", "plan sanitario", "bioseguridad", "retiro", "carencia", "protocolo", "vacunas", "etapas"],
     relatedHrefs: [
-      { href: "/dashboard/sanidad", label: "Plan Sanitario Integral" },
-      { href: "/dashboard/sanidad/bioseguridad", label: "Bioseguridad y Bienestar ICA" },
-      { href: "/dashboard/sanidad/calendario", label: "Calendario de Vacunación" },
-      { href: "/dashboard/sanidad/control", label: "Control Sanitario" },
-      { href: "/dashboard/inventarios/insumos", label: "Stock de Vacunas" },
+      { href: "/sanidad", label: "Plan Sanitario Integral" },
+      { href: "/sanidad/bioseguridad", label: "Bioseguridad y Bienestar ICA" },
+      { href: "/sanidad/calendario", label: "Calendario de Vacunación" },
+      { href: "/sanidad/control", label: "Control Sanitario" },
+      { href: "/inventarios/insumos", label: "Stock de Vacunas" },
     ],
     sections: [
       {
@@ -1599,7 +1604,7 @@ export const guides: Guide[] = [
         caption:
           "Consulta en un mismo sitio qué protocolo toca según las semanas de vida de tus gallinas y confirma si tienes stock suficiente del biológico en almacén.",
         badge: "Prevención integral",
-        targetHref: "/dashboard/sanidad",
+        targetHref: "/sanidad",
         targetLabel: "Abrir Plan Sanitario",
       },
       {
@@ -1622,10 +1627,11 @@ export const guides: Guide[] = [
     summary:
       "Registra vacunaciones aplicadas, desparasitaciones o tratamientos curativos, asociando costo, lugar de manejo y días de carencia.",
     estimatedMinutes: 3,
+    updatedAt: "2026-11-15",
     tags: ["control sanitario", "tratamiento", "carencia", "medicamento", "enfermedad"],
     relatedHrefs: [
-      { href: "/dashboard/sanidad/control", label: "Control Sanitario" },
-      { href: "/dashboard/sanidad/alertas", label: "Ver Alertas" },
+      { href: "/sanidad/control", label: "Control Sanitario" },
+      { href: "/sanidad/alertas", label: "Ver Alertas" },
     ],
     sections: [
       {
@@ -1640,7 +1646,7 @@ export const guides: Guide[] = [
         caption:
           "Incluye filtro por tipo de evento, enlace con lugares de manejo y generación automática del gasto o recordatorio de refuerzo.",
         badge: "Bitácora médica",
-        targetHref: "/dashboard/sanidad/control",
+        targetHref: "/sanidad/control",
         targetLabel: "Abrir Control Sanitario",
       },
       {
@@ -1649,8 +1655,13 @@ export const guides: Guide[] = [
         items: [
           "Abre Sanidad → Control sanitario y haz clic en «+ Nuevo Evento».",
           "Elige tipo (vacunación, desparasitación, tratamiento, inspección o limpieza), describe el cuadro clínico o procedimiento y selecciona las aves o lugar afectados.",
-          "Indica producto usado y costo; si aplica un medicamento con retiro, anota los días de carencia o próxima revisión para seguimiento.",
+          "Indica producto usado y costo; si adjuntas foto o texto de la etiqueta veterinaria, el sistema la compara con el vademécum ICA para sugerirte registro sanitario y días de carencia automáticamente antes de confirmar.",
         ],
+      },
+      {
+        type: "tip",
+        title: "Bloqueo automático por tiempo de retiro",
+        text: "Si un tratamiento tiene días de carencia vigentes, la app bloquea temporalmente la salida comercial de huevos o carne de ese lote hasta que cumpla el plazo sanitario.",
       },
     ],
   },
@@ -1664,8 +1675,8 @@ export const guides: Guide[] = [
     estimatedMinutes: 3,
     tags: ["vacunación", "calendario", "newcastle", "gumboro", "refuerzo", "vencida"],
     relatedHrefs: [
-      { href: "/dashboard/sanidad/calendario", label: "Calendario de Vacunación" },
-      { href: "/dashboard/configuracion/catalogos?tab=vacunas", label: "Plantillas de vacunas" },
+      { href: "/sanidad/calendario", label: "Calendario de Vacunación" },
+      { href: "/configuracion/catalogos?tab=vacunas", label: "Plantillas de vacunas" },
     ],
     sections: [
       {
@@ -1680,7 +1691,7 @@ export const guides: Guide[] = [
         caption:
           "Los eventos vencidos destacan en rojo y los próximos en ámbar para priorizar compras de biológico antes de la fecha límite.",
         badge: "Inmunización",
-        targetHref: "/dashboard/sanidad/calendario",
+        targetHref: "/sanidad/calendario",
         targetLabel: "Abrir Calendario",
       },
       {
@@ -1704,8 +1715,8 @@ export const guides: Guide[] = [
     estimatedMinutes: 3,
     tags: ["alertas", "mortalidad", "bajas", "pérdidas", "huevos rotos", "causas"],
     relatedHrefs: [
-      { href: "/dashboard/sanidad/alertas", label: "Alertas Sanitarias" },
-      { href: "/dashboard/produccion/mortalidad", label: "Registro de Mortalidad" },
+      { href: "/sanidad/alertas", label: "Alertas Sanitarias" },
+      { href: "/produccion/mortalidad", label: "Registro de Mortalidad" },
     ],
     sections: [
       {
@@ -1720,7 +1731,7 @@ export const guides: Guide[] = [
         caption:
           "Consolida avisos críticos por vacunas atrasadas, caídas repentinas de postura o variaciones significativas en el peso frente a la referencia.",
         badge: "Detección temprana",
-        targetHref: "/dashboard/sanidad/alertas",
+        targetHref: "/sanidad/alertas",
         targetLabel: "Ver Alertas",
       },
       {
@@ -1731,7 +1742,7 @@ export const guides: Guide[] = [
         caption:
           "Permite identificar si predominan causas infecciosas, accidentes, depredadores o rotura en nidal para tomar medidas físicas en galpones.",
         badge: "Control de bajas",
-        targetHref: "/dashboard/produccion/mortalidad",
+        targetHref: "/produccion/mortalidad",
         targetLabel: "Registrar Baja",
       },
       {
@@ -1755,9 +1766,9 @@ export const guides: Guide[] = [
     estimatedMinutes: 4,
     tags: ["bioseguridad", "poe", "gab", "ica", "res 8452", "bienestar", "visitantes", "desinfección", "capacitación", "retiro"],
     relatedHrefs: [
-      { href: "/dashboard/sanidad/bioseguridad", label: "Abrir Bioseguridad" },
-      { href: "/dashboard/sanidad/control", label: "Control Sanitario y Retiros" },
-      { href: "/dashboard/sanidad/alertas", label: "Ver Alertas Sanitarias" },
+      { href: "/sanidad/bioseguridad", label: "Abrir Bioseguridad" },
+      { href: "/sanidad/control", label: "Control Sanitario y Retiros" },
+      { href: "/sanidad/alertas", label: "Ver Alertas Sanitarias" },
     ],
     sections: [
       {
@@ -1772,7 +1783,7 @@ export const guides: Guide[] = [
         caption:
           "Documenta ingresos a granja, procedimientos POE GAB, protocolos de bienestar animal multi-especie y bloqueos activos mientras vence un período de retiro.",
         badge: "Normativa ICA",
-        targetHref: "/dashboard/sanidad/bioseguridad",
+        targetHref: "/sanidad/bioseguridad",
         targetLabel: "Abrir Bioseguridad",
       },
       {
@@ -1801,11 +1812,11 @@ export const guides: Guide[] = [
     estimatedMinutes: 4,
     tags: ["ventas", "5 líneas", "huevos", "carne", "animales en pie", "gallinaza", "otros", "crédito", "cxc", "clientes", "microcápsulas"],
     relatedHrefs: [
-      { href: "/dashboard/finanzas", label: "Centro de Finanzas" },
-      { href: "/dashboard/finanzas/ventas", label: "Ir a Ventas (5 líneas)" },
-      { href: "/dashboard/finanzas/cuentas", label: "Ver CxC pendientes" },
-      { href: "/dashboard/contactos", label: "Directorio de Clientes" },
-      { href: "/dashboard/inventarios/huevos", label: "Stock disponible" },
+      { href: "/finanzas", label: "Centro de Finanzas" },
+      { href: "/finanzas/ventas", label: "Ir a Ventas (5 líneas)" },
+      { href: "/finanzas/cuentas", label: "Ver CxC pendientes" },
+      { href: "/contactos", label: "Directorio de Clientes" },
+      { href: "/inventarios/huevos", label: "Stock disponible" },
     ],
     sections: [
       {
@@ -1820,7 +1831,7 @@ export const guides: Guide[] = [
         caption:
           "Elige cliente del directorio para aplicar automáticamente su plazo de crédito, combina presentaciones/tallas o kilos y alterna entre Contado y Crédito CxC.",
         badge: "5 líneas de venta",
-        targetHref: "/dashboard/finanzas/ventas",
+        targetHref: "/finanzas/ventas",
         targetLabel: "Registrar Venta",
       },
       {
@@ -1843,11 +1854,12 @@ export const guides: Guide[] = [
     summary:
       "Registra gastos operativos y compras por bultos, adjunta fotos/PDF de facturas con lectura automática OCR y actualiza bodega o CxP en un paso.",
     estimatedMinutes: 4,
+    updatedAt: "2026-11-15",
     tags: ["egresos", "gastos", "compras", "adjuntos", "ocr", "factura", "bultos", "alimentación", "cxp"],
     relatedHrefs: [
-      { href: "/dashboard/finanzas/egresos", label: "Abrir Egresos" },
-      { href: "/dashboard/finanzas/cuentas", label: "Ver CxP por pagar" },
-      { href: "/dashboard/inventarios/alimentacion", label: "Almacén de Alimentos" },
+      { href: "/finanzas/egresos", label: "Abrir Egresos" },
+      { href: "/finanzas/cuentas", label: "Ver CxP por pagar" },
+      { href: "/inventarios/alimentacion", label: "Almacén de Alimentos" },
     ],
     sections: [
       {
@@ -1862,7 +1874,7 @@ export const guides: Guide[] = [
         caption:
           "Incluye adjuntos de comprobantes con OCR, centro de costos por especie o galpón, barra de búsqueda y enlace con Productos frecuentes.",
         badge: "Costos y OCR",
-        targetHref: "/dashboard/finanzas/egresos",
+        targetHref: "/finanzas/egresos",
         targetLabel: "Abrir Egresos",
       },
       {
@@ -1870,7 +1882,7 @@ export const guides: Guide[] = [
         title: "Registrar una compra separando gasto diario, bodega y equipos",
         items: [
           "Entra a Finanzas → Egresos y pulsa «+ Nuevo Egreso» (o «Subir factura OCR» desde Captura Rápida).",
-          "Adjunta la foto del recibo o PDF si la tienes para leer datos automáticamente y conservar el soporte.",
+          "Adjunta la foto del recibo o PDF si la tienes para leer datos automáticamente (monto, proveedor, fecha y categoría sugerida de gasto o especie) y conservar el soporte.",
           "Si compras bultos de alimento, entran directo a tu bodega sin mostrar pérdida falsa hasta que los sirves al galpón. Si compras equipos o infraestructura, se separan como inversión de la finca y solo cargan su desgaste mensual.",
           "Elige si va directo a una especie o lugar, o a gastos compartidos, y define si fue de contado o a crédito para actualizar Cuentas por Pagar.",
         ],
@@ -1887,8 +1899,8 @@ export const guides: Guide[] = [
     estimatedMinutes: 2,
     tags: ["productos de compra", "proveedores", "presentaciones", "atajo", "precios"],
     relatedHrefs: [
-      { href: "/dashboard/finanzas/egresos?nuevo=producto", label: "Nuevo Producto de Compra" },
-      { href: "/dashboard/contactos?nuevo=proveedor", label: "Agregar Proveedor" },
+      { href: "/finanzas/egresos?nuevo=producto", label: "Nuevo Producto de Compra" },
+      { href: "/contactos?nuevo=proveedor", label: "Agregar Proveedor" },
     ],
     sections: [
       {
@@ -1903,7 +1915,7 @@ export const guides: Guide[] = [
         caption:
           "Usa Crear + → Producto de compra (o el acceso directo dentro de Egresos) para almacenar presentaciones, unidades base, proveedor favorito y precio de referencia.",
         badge: "Compras ágiles",
-        targetHref: "/dashboard/finanzas/egresos?nuevo=producto",
+        targetHref: "/finanzas/egresos?nuevo=producto",
         targetLabel: "Crear Producto",
       },
       {
@@ -1927,10 +1939,10 @@ export const guides: Guide[] = [
     estimatedMinutes: 3,
     tags: ["cuentas por cobrar", "cuentas por pagar", "cxc", "cxp", "cartera", "abonos", "crédito"],
     relatedHrefs: [
-      { href: "/dashboard/finanzas/cuentas", label: "Cuentas por Cobrar y Pagar" },
-      { href: "/dashboard/contactos", label: "Clientes y Proveedores" },
-      { href: "/dashboard/finanzas/ventas", label: "Ventas a crédito" },
-      { href: "/dashboard/finanzas/egresos", label: "Compras a crédito" },
+      { href: "/finanzas/cuentas", label: "Cuentas por Cobrar y Pagar" },
+      { href: "/contactos", label: "Clientes y Proveedores" },
+      { href: "/finanzas/ventas", label: "Ventas a crédito" },
+      { href: "/finanzas/egresos", label: "Compras a crédito" },
     ],
     sections: [
       {
@@ -1945,7 +1957,7 @@ export const guides: Guide[] = [
         caption:
           "Alterna entre pestañas de CxC, CxP e historial de pagos; las cuentas vencidas destacan de inmediato para gestionar cobro o desembolso.",
         badge: "Cartera y pagos",
-        targetHref: "/dashboard/finanzas/cuentas",
+        targetHref: "/finanzas/cuentas",
         targetLabel: "Abrir CxC / CxP",
       },
       {
@@ -1970,9 +1982,9 @@ export const guides: Guide[] = [
     estimatedMinutes: 3,
     tags: ["clientes", "proveedores", "contactos", "directorio", "whatsapp", "mapa", "plazo crédito"],
     relatedHrefs: [
-      { href: "/dashboard/contactos", label: "Abrir Directorio" },
-      { href: "/dashboard/finanzas/ventas", label: "Usar clientes en Ventas" },
-      { href: "/dashboard/finanzas/egresos", label: "Usar proveedores en Egresos" },
+      { href: "/contactos", label: "Abrir Directorio" },
+      { href: "/finanzas/ventas", label: "Usar clientes en Ventas" },
+      { href: "/finanzas/egresos", label: "Usar proveedores en Egresos" },
     ],
     sections: [
       {
@@ -1987,7 +1999,7 @@ export const guides: Guide[] = [
         caption:
           "Cuando seleccionas un contacto en Ventas, Egresos o Captura Rápida se precargan sus condiciones de pago y plazo para calcular vencimientos CxC/CxP.",
         badge: "CRM de granja",
-        targetHref: "/dashboard/contactos",
+        targetHref: "/contactos",
         targetLabel: "Abrir Contactos",
       },
       {
@@ -2012,8 +2024,8 @@ export const guides: Guide[] = [
     estimatedMinutes: 3,
     tags: ["balance", "utilidad", "ganancia real", "flujo", "caja", "patrimonio", "margen", "ingresos", "egresos"],
     relatedHrefs: [
-      { href: "/dashboard/finanzas/finanzas", label: "Balance Financiero" },
-      { href: "/dashboard/analisis/reportes", label: "Reportes de Ganancia" },
+      { href: "/finanzas/finanzas", label: "Balance Financiero" },
+      { href: "/analisis/reportes", label: "Reportes de Ganancia" },
     ],
     sections: [
       {
@@ -2028,7 +2040,7 @@ export const guides: Guide[] = [
         caption:
           "Visualiza ventas, gasto real usado, margen de ganancia y el valor vivo de tus animales para nunca confundir una inversión con una pérdida.",
         badge: "Salud financiera clara",
-        targetHref: "/dashboard/finanzas/finanzas",
+        targetHref: "/finanzas/finanzas",
         targetLabel: "Abrir Balance",
       },
       {
@@ -2052,8 +2064,8 @@ export const guides: Guide[] = [
     estimatedMinutes: 3,
     tags: ["presupuestos", "metas", "tope", "variación", "planeación"],
     relatedHrefs: [
-      { href: "/dashboard/finanzas/presupuestos", label: "Abrir Presupuestos" },
-      { href: "/dashboard/finanzas/finanzas", label: "Balance real" },
+      { href: "/finanzas/presupuestos", label: "Abrir Presupuestos" },
+      { href: "/finanzas/finanzas", label: "Balance real" },
     ],
     sections: [
       {
@@ -2068,7 +2080,7 @@ export const guides: Guide[] = [
         caption:
           "Detecta desvíos porcentuales por categoría antes de cerrar el mes para ajustar compras o precios de venta.",
         badge: "Control de metas",
-        targetHref: "/dashboard/finanzas/presupuestos",
+        targetHref: "/finanzas/presupuestos",
         targetLabel: "Ver Presupuestos",
       },
       {
@@ -2096,9 +2108,9 @@ export const guides: Guide[] = [
     estimatedMinutes: 4,
     tags: ["kpis", "indicadores", "reportes", "p&l", "contabilidad analítica", "prorrateo", "gastos compartidos", "haa", "epef", "capex", "roi", "punto de equilibrio", "excel", "pdf", "valor animales"],
     relatedHrefs: [
-      { href: "/dashboard/analisis", label: "Centro de Análisis" },
-      { href: "/dashboard/analisis/kpis", label: "Indicadores de la Granja" },
-      { href: "/dashboard/analisis/reportes", label: "Reportes y Ganancia por Especie" },
+      { href: "/analisis", label: "Centro de Análisis" },
+      { href: "/analisis/kpis", label: "Indicadores de la Granja" },
+      { href: "/analisis/reportes", label: "Reportes y Ganancia por Especie" },
     ],
     sections: [
       {
@@ -2113,7 +2125,7 @@ export const guides: Guide[] = [
         caption:
           "Filtra por período y especie para vigilar mortalidad, cuánto alimento gasta por kilo ganado, qué tan parejos crecen tus lotes y la ventana ideal de cosecha.",
         badge: "Indicadores clave",
-        targetHref: "/dashboard/analisis/kpis",
+        targetHref: "/analisis/kpis",
         targetLabel: "Ver KPIs",
       },
       {
@@ -2124,7 +2136,7 @@ export const guides: Guide[] = [
         caption:
           "Consulta cuánto gana cada especie repartiendo los gastos compartidos de forma transparente y descarga soportes listos para contador o crédito agropecuario.",
         badge: "Excel / PDF",
-        targetHref: "/dashboard/analisis/reportes",
+        targetHref: "/analisis/reportes",
         targetLabel: "Abrir Reportes",
       },
       {
@@ -2148,9 +2160,9 @@ export const guides: Guide[] = [
     estimatedMinutes: 3,
     tags: ["razas", "curvas", "estándar", "altitud", "clima", "isa brown", "cobb 500", "cuyes", "conejos", "postura", "desempeño"],
     relatedHrefs: [
-      { href: "/dashboard/analisis/razas", label: "Curvas y Desempeño" },
-      { href: "/dashboard/produccion/peso", label: "Registrar pesajes" },
-      { href: "/dashboard/ubicaciones", label: "Altitud por Lugar" },
+      { href: "/analisis/razas", label: "Curvas y Desempeño" },
+      { href: "/produccion/peso", label: "Registrar pesajes" },
+      { href: "/ubicaciones", label: "Altitud por Lugar" },
     ],
     sections: [
       {
@@ -2165,7 +2177,7 @@ export const guides: Guide[] = [
         caption:
           "Selecciona especie, raza y lugar de manejo para ver CV%, uniformidad, ganancia diaria y el estado de alineación frente a la curva ajustada.",
         badge: "Benchmark multi-especie",
-        targetHref: "/dashboard/analisis/razas",
+        targetHref: "/analisis/razas",
         targetLabel: "Abrir Curvas por Raza",
       },
       {
@@ -2193,15 +2205,15 @@ export const guides: Guide[] = [
     estimatedMinutes: 4,
     tags: ["catálogos", "configuración", "10 pestañas", "parámetros", "razas", "especies", "cuyes", "precios", "nutrición", "fuentes externas", "normas"],
     relatedHrefs: [
-      { href: "/dashboard/configuracion/catalogos", label: "Abrir Catálogos (10 pestañas)" },
-      { href: "/dashboard/contactos", label: "Directorio Clientes y Proveedores" },
-      { href: "/dashboard/analisis/normas", label: "Normas y Guías en Análisis" },
-      { href: "/dashboard/configuracion", label: "Resumen Configuración" },
+      { href: "/configuracion/catalogos", label: "Abrir Catálogos (10 pestañas)" },
+      { href: "/contactos", label: "Directorio Clientes y Proveedores" },
+      { href: "/analisis/normas", label: "Normas y Guías en Análisis" },
+      { href: "/configuracion", label: "Resumen Configuración" },
     ],
     sections: [
       {
         type: "intro",
-        text: "El corazón configurable de El Gallinero vive en Configuración → Catálogos. Organizado en 10 pestañas (Listas, Clientes y Proveedores, Parámetros, Especies, Vacunas, Pesos, Gallinaza, Alimentación, Fuentes Externas y Normas y Guías), gobierna razas de las 6 especies (incluyendo cuyes), tamaños de huevo, reglas de reparto de gastos, vacunas, clima/precios de referencia y biblioteca de normas con adjuntos.",
+        text: "El corazón configurable de IwaGranja vive en Configuración → Catálogos. Organizado en 10 pestañas (Listas, Clientes y Proveedores, Parámetros, Especies, Vacunas, Pesos, Gallinaza, Alimentación, Fuentes Externas y Normas y Guías), gobierna razas de las 6 especies (incluyendo cuyes), tamaños de huevo, reglas de reparto de gastos, vacunas, clima/precios de referencia y biblioteca de normas con adjuntos.",
       },
       {
         type: "screenshot",
@@ -2211,7 +2223,7 @@ export const guides: Guide[] = [
         caption:
           "Incluye Listas, Contactos, Parámetros, Especies, Vacunas, Pesos estándar, Gallinaza, Nutrición, Fuentes Externas y Normas/Guías propias.",
         badge: "Configuración maestra",
-        targetHref: "/dashboard/configuracion/catalogos",
+        targetHref: "/configuracion/catalogos",
         targetLabel: "Abrir Catálogos",
       },
       {
@@ -2240,10 +2252,10 @@ export const guides: Guide[] = [
     estimatedMinutes: 3,
     tags: ["configuración", "recuperación", "contraseña", "respaldo", "backup", "código abierto", "soberanía", "licencia"],
     relatedHrefs: [
-      { href: "/dashboard/configuracion", label: "Abrir Configuración" },
-      { href: "/dashboard/configuracion/modulos", label: "Escala y Módulos" },
-      { href: "/dashboard/configuracion/catalogos", label: "Catálogos Maestros" },
-      { href: "/dashboard/contactos", label: "Clientes y Proveedores" },
+      { href: "/configuracion", label: "Abrir Configuración" },
+      { href: "/configuracion/modulos", label: "Escala y Módulos" },
+      { href: "/configuracion/catalogos", label: "Catálogos Maestros" },
+      { href: "/contactos", label: "Clientes y Proveedores" },
     ],
     sections: [
       {
@@ -2258,7 +2270,7 @@ export const guides: Guide[] = [
         caption:
           "Desde aquí puedes buscar apartados de ajuste con el filtro superior o relanzar el Asistente inicial cuando quieras añadir nuevas instalaciones o especies.",
         badge: "Centro de ajustes",
-        targetHref: "/dashboard/configuracion",
+        targetHref: "/configuracion",
         targetLabel: "Ir a Configuración",
       },
       {
@@ -2282,9 +2294,9 @@ export const guides: Guide[] = [
     estimatedMinutes: 3,
     tags: ["normas", "estándares", "guías", "ica", "ntc 1240", "bienestar", "adjuntos", "pdf", "protocolos"],
     relatedHrefs: [
-      { href: "/dashboard/analisis/normas", label: "Ver Normas y Guías en Análisis" },
-      { href: "/dashboard/configuracion/catalogos?tab=normas", label: "Administrar en Catálogos" },
-      { href: "/dashboard/sanidad/bioseguridad", label: "Bioseguridad y Bienestar" },
+      { href: "/analisis/normas", label: "Ver Normas y Guías en Análisis" },
+      { href: "/configuracion/catalogos?tab=normas", label: "Administrar en Catálogos" },
+      { href: "/sanidad/bioseguridad", label: "Bioseguridad y Bienestar" },
     ],
     sections: [
       {
@@ -2299,7 +2311,7 @@ export const guides: Guide[] = [
         caption:
           "Filtra por tipo (Norma, Estándar o Guía) o especie, adjunta tus PDFs o fotos de respaldo y pregúntale a Gina cómo verificar cada punto en el galpón.",
         badge: "Cumplimiento y Guías",
-        targetHref: "/dashboard/analisis/normas",
+        targetHref: "/analisis/normas",
         targetLabel: "Abrir Normas y Guías",
       },
       {
@@ -2324,9 +2336,9 @@ export const guides: Guide[] = [
     estimatedMinutes: 3,
     tags: ["clima", "calor", "lluvia", "ith", "mercado", "precios", "sipsa", "trm", "festivos", "fuentes externas"],
     relatedHrefs: [
-      { href: "/dashboard/analisis/fuentes-externas", label: "Clima, Mercado y Entorno" },
-      { href: "/dashboard/configuracion/catalogos?tab=fuentes", label: "Tablas Externas en Catálogos" },
-      { href: "/dashboard/analisis/razas", label: "Curvas Ajustadas por Altura" },
+      { href: "/analisis/fuentes-externas", label: "Clima, Mercado y Entorno" },
+      { href: "/configuracion/catalogos?tab=fuentes", label: "Tablas Externas en Catálogos" },
+      { href: "/analisis/razas", label: "Curvas Ajustadas por Altura" },
     ],
     sections: [
       {
@@ -2341,7 +2353,7 @@ export const guides: Guide[] = [
         caption:
           "Cuando cambias el municipio o la altitud de la finca, la app ajusta las alertas de calor y los ritmos esperados de crecimiento.",
         badge: "Entorno vivo",
-        targetHref: "/dashboard/analisis/fuentes-externas",
+        targetHref: "/analisis/fuentes-externas",
         targetLabel: "Ver Clima y Mercado",
       },
       {
@@ -2361,12 +2373,13 @@ export const guides: Guide[] = [
     module: "configuracion",
     icon: "alert",
     summary:
-      "Envía un reporte desde cualquier pantalla usando el botón inferior o superior; llega etiquetado automáticamente con el lugar exacto donde ocurrió.",
+      "Envía un reporte desde cualquier pantalla usando el botón inferior o superior; llega etiquetado automáticamente y te orienta al instante si corresponde a una regla sanitaria o de inventario.",
     estimatedMinutes: 2,
+    updatedAt: "2026-11-15",
     tags: ["fallas", "reporte", "soporte", "bug", "error", "etiquetas", "incidencia", "ayuda"],
     relatedHrefs: [
-      { href: "/dashboard/configuracion/fallas", label: "Ver Reportes de Fallas" },
-      { href: "/dashboard/configuracion", label: "Panel Configuración" },
+      { href: "/configuracion/fallas", label: "Ver Reportes de Fallas" },
+      { href: "/configuracion", label: "Panel Configuración" },
     ],
     sections: [
       {
@@ -2381,7 +2394,7 @@ export const guides: Guide[] = [
         caption:
           "Cada incidencia recibe un código único (como FAIL-2026...) y etiquetas de origen para atenderla rápido sin perder contexto.",
         badge: "Soporte con contexto",
-        targetHref: "/dashboard/configuracion/fallas",
+        targetHref: "/configuracion/fallas",
         targetLabel: "Ir a Reportes de Fallas",
       },
       {
@@ -2390,8 +2403,362 @@ export const guides: Guide[] = [
         items: [
           "Haz clic en «Reportar falla» en la barra superior o al pie del menú lateral (o usa «Presentar falla o incidencia» en Crear +).",
           "Escribe un título breve y cuenta qué estabas intentando hacer y qué pasó.",
-          "Verifica la vista previa de etiquetas automáticas (pantalla, red, errores recientes capturados) y envía el reporte.",
+          "Verifica la vista previa de etiquetas automáticas (pantalla, red, errores recientes capturados) y envía el reporte; si el caso obedece a un bloqueo sanitario (carencia) o de inventario PEPS, verás de una vez el enlace a la guía correspondiente.",
           "Consulta el estado (Abierto, En revisión o Resuelto) en Configuración → Reportes de fallas.",
+        ],
+      },
+    ],
+  },
+  {
+    slug: "kit-campo-llave-en-mano",
+    title: "Kit de campo llave en mano: las 4 semanas de la Ruta 2",
+    module: "configuracion",
+    icon: "package",
+    summary:
+      "Acompaña la implementación llave en mano del mediano productor: qué entrega cada una de las 4 semanas, cómo imprimir la plancha QR y los entregables PDF, y con qué KPIs se firma el acta de entrega.",
+    estimatedMinutes: 4,
+    updatedAt: "2026-11-17",
+    tags: ["kit de campo", "llave en mano", "ruta 2", "semanas", "acta de entrega", "plancha qr", "entregables", "marcha blanca", "zonificacion"],
+    relatedHrefs: [
+      { href: "/configuracion/kit-campo", label: "Kit de Campo y Entregables" },
+      { href: "/analisis/adopcion", label: "Tablero de Adopción" },
+      { href: "/escanear", label: "Escáner QR de Campo" },
+    ],
+    sections: [
+      {
+        type: "intro",
+        text: "La Ruta 2 (llave en mano) deja la granja mediana operando en 4 semanas con acompañamiento: Semana 1 arranque Día 1 y zonificación biosegura, Semana 2 rutinas y sanidad al día, Semana 3 costos y reportes formales, Semana 4 marcha blanca y acta de entrega. En Configuración → Kit de campo ves el avance real de cada semana y descargas los entregables.",
+      },
+      {
+        type: "screenshot",
+        title: "Avance por semanas y entregables del kit",
+        image: "/images/guia/configuracion-modulos.webp",
+        alt: "Panel de configuración con el estado de módulos y escala de la granja durante la implementación llave en mano",
+        caption:
+          "El kit muestra qué está listo, qué falta y quién es responsable en cada semana; los PDF se descargan listos para imprimir y plastificar.",
+        badge: "Ruta 2 · 4 semanas",
+        targetHref: "/configuracion/kit-campo",
+        targetLabel: "Abrir Kit de Campo",
+      },
+      {
+        type: "steps",
+        title: "Recorrer las 4 semanas y firmar el acta",
+        items: [
+          "Semana 1: completa el arranque Día 1 (predio, lugares, animales vivos y bodega) y descarga el mapa de zonificación biosegura para ubicar zonas limpia, producción, sucia y cuarentena.",
+          "Semana 2: deja las rutinas del calendario y el plan sanitario al día; imprime la guía rápida de galpón y la plancha de etiquetas QR desde Inicio → Plancha QR y pégalas en cada lugar.",
+          "Semana 3: activa centros de costo, revisa el balance real y los reportes Excel/PDF; descarga el POE de compostaje térmico para la zona sucia.",
+          "Semana 4 (marcha blanca): opera sin ayuda externa y verifica los KPIs en Análisis → Adopción; el acta de entrega se firma cuando la captura en galpón es menor a 2 minutos, la adherencia semanal es >= 85% y la sanidad está al día.",
+        ],
+      },
+      {
+        type: "tip",
+        title: "Consejos de campo",
+        items: [
+          "Plastifica la plancha QR y la guía rápida de galpón: resisten humedad y desinfección.",
+          "Gina también consulta el kit: pregúntale «¿cómo va el kit de campo?» y te resume semanas, acta y enlaces a los PDF.",
+        ],
+      },
+      {
+        type: "warning",
+        title: "Importante",
+        items: [
+          "El acta de entrega no se firma con promesas: se firma con los KPIs de adopción en vivo. Si un indicador no cumple, el kit muestra exactamente qué corregir.",
+        ],
+      },
+    ],
+  },
+  {
+    slug: "personal-y-nomina",
+    title: "Personal y nómina: jornales, trabajo propio y prestaciones",
+    module: "finanzas",
+    icon: "money",
+    summary:
+      "Registra al personal de la granja (productor propio o apoyo), sus documentos, tarifas y seguridad social; liquida pagos con prestaciones e impuestos de ley y distingue el trabajo propio imputado del dinero que realmente sale de caja.",
+    estimatedMinutes: 4,
+    updatedAt: "2026-11-17",
+    tags: ["personal", "nomina", "jornal", "salario", "prestaciones", "seguridad social", "arl", "auxilio de transporte", "liquidacion", "trabajo propio", "imputado"],
+    relatedHrefs: [
+      { href: "/finanzas/personal", label: "Personal y Nómina" },
+      { href: "/finanzas", label: "Panel de Finanzas" },
+      { href: "/analisis/reportes", label: "Reportes y Exportación" },
+    ],
+    sections: [
+      {
+        type: "intro",
+        text: "En Finanzas → Personal y nómina registras a cada persona que trabaja en la granja: el productor propio (dueño o familia) y el personal de apoyo (jornalero, salario fijo o prestación de servicios). Cada perfil guarda tarifa base, periodo de pago, documento, especie y lugar por defecto, y si aplica seguridad social y auxilio de transporte.",
+      },
+      {
+        type: "screenshot",
+        title: "Nómina dentro del balance real de la granja",
+        image: "/images/guia/finanzas-balance.webp",
+        alt: "Panel de balance financiero donde se refleja la nómina del mes separada entre trabajo propio imputado y pagos de apoyo",
+        caption:
+          "El resumen del mes separa el costo económico del trabajo propio (imputado, sin salida de caja) de los pagos reales al personal de apoyo y lo que queda por pagar.",
+        badge: "Caja vs. costo económico",
+        targetHref: "/finanzas/personal",
+        targetLabel: "Ir a Personal y Nómina",
+      },
+      {
+        type: "steps",
+        title: "Registrar personal y liquidar un pago",
+        items: [
+          "Crea el perfil con nombre completo, documento (opcional pero recomendado para evitar duplicados), tipo de trabajador, contrato, periodo de pago (hora, día, semana, quincena o mes) y tarifa base mayor a cero.",
+          "Activa seguridad social solo cuando corresponda: el sistema calcula aportes de empleador y trabajador, ARL según riesgo y auxilio de transporte para apoyo elegible; cada liquidación guarda un snapshot de los parámetros vigentes ese día.",
+          "Registra la liquidación indicando unidades trabajadas y bonificaciones; elige el modo: pagado (salió de caja), imputado (costo económico del trabajo propio) o crédito (queda como cuenta por pagar con vencimiento).",
+          "Gina puede preparar el pago por ti («págale 2 días a Juan con bono de 10 mil»): siempre verás una tarjeta de confirmación con el bruto estimado antes de registrar, y la liquidación final aplica prestaciones y deducciones de ley.",
+        ],
+      },
+      {
+        type: "warning",
+        title: "Importante",
+        items: [
+          "Los cálculos usan los parámetros tributarios y laborales vigentes configurados en la app (UVT, porcentajes de aportes): son información operativa, no asesoría contable ni laboral profesional.",
+          "El trabajo propio imputado NO es un gasto de caja: mezclarlo con los pagos reales distorsiona la ganancia operativa y el flujo de efectivo.",
+        ],
+      },
+      {
+        type: "tip",
+        title: "Consejo",
+        items: [
+          "Imputa el costo de nómina a la especie y al lugar de manejo para que la contabilidad analítica por lote refleje la mano de obra real.",
+        ],
+      },
+    ],
+  },
+  {
+    slug: "plan-y-pagos",
+    title: "Plan, límites de uso y costo",
+    module: "configuracion",
+    icon: "banknote",
+    summary:
+      "Consulta los cupos del plan, entiende cómo se diferencian de los roles y calcula el costo del plan con la política comercial vigente.",
+    estimatedMinutes: 3,
+    updatedAt: "2026-11-19",
+    tags: ["plan", "suscripcion", "pago", "usuarios", "localizaciones", "lotes", "gina", "freemium", "cupos", "facturacion"],
+    relatedHrefs: [
+      { href: "/configuracion/plan", label: "Plan y Facturación" },
+      { href: "/configuracion", label: "Panel Configuración" },
+      { href: "/configuracion/usuarios", label: "Usuarios y Cupos" },
+    ],
+    sections: [
+      {
+        type: "intro",
+        text: "En Configuración → Plan y límites de uso ves el nivel comercial activo y los cupos de usuarios, localizaciones, lotes por especie y Gina. Los roles determinan a qué módulos puede acceder cada persona; el plan determina los cupos y límites de uso de la granja. Calcular el costo de otro plan no cambia los roles.",
+      },
+      {
+        type: "screenshot",
+        title: "Estado del plan y cupos desde configuración",
+        image: "/images/guia/configuracion-panel.webp",
+        alt: "Panel de configuración de la granja con acceso a plan, facturación y usuarios",
+        caption:
+          "Desde configuración revisas el plan vigente y los cupos. El historial conserva pagos anteriores.",
+        badge: "Límites por plan",
+        targetHref: "/configuracion/plan",
+        targetLabel: "Ver Plan y límites",
+      },
+      {
+        type: "steps",
+        title: "Elegir y contratar un plan",
+        items: [
+          "Abre Configuración → Plan y límites para revisar el nivel aplicado y los topes actuales.",
+          "En Planes, elige Mi granja o Agregadores y proyectos. Revisa Gratis, Productor, Agregador y A la medida.",
+          "Para Productor, indica usuarios y duración; revisa el total y las condiciones antes de continuar al pago. La suscripción se activa cuando el proveedor confirma el pago.",
+          "Agregador muestra un cálculo de referencia, pero el alta institucional requiere validar el padrón y los límites de beneficiarios antes de contratar.",
+        ],
+      },
+      {
+        type: "warning",
+        title: "Importante",
+        items: [
+          "El checkout de Productor se habilita cuando Wompi está configurado en el servidor. Agregador requiere implementar el padrón y el control de beneficiarios antes de abrir pagos.",
+        ],
+      },
+      {
+        type: "tip",
+        title: "Consejo",
+        items: [
+          "Los beneficiarios son distintos de las cuentas de usuario. Confirma con IwaGranja cuándo estará habilitada la contratación de Agregador.",
+        ],
+      },
+    ],
+  },
+  {
+    slug: "usuarios-y-roles",
+    title: "Usuarios y roles: quién puede hacer qué en la granja",
+    module: "configuracion",
+    icon: "shield",
+    summary:
+      "Invita al equipo con accesos separados para operación, sanidad, ventas, finanzas, gerencia y consulta directiva; cupos por plan y recuperación de acceso.",
+    estimatedMinutes: 3,
+    updatedAt: "2026-11-17",
+    tags: ["usuarios", "roles", "permisos", "propietario", "administrador", "gerente", "veterinario", "operario", "comercial", "financiero", "directivo", "cupos", "invitar", "recuperar acceso", "contrasena"],
+    relatedHrefs: [
+      { href: "/configuracion/usuarios", label: "Usuarios de la Granja" },
+      { href: "/configuracion", label: "Panel Configuración" },
+      { href: "/configuracion/plan", label: "Cupos del Plan" },
+    ],
+    sections: [
+      {
+        type: "intro",
+        text: "Cada persona que entra tiene un rol ajustado a su trabajo. El operario registra producción y bioseguridad; el veterinario lleva sanidad y mediciones; el perfil Comercial gestiona clientes, ventas y cobros; Finanzas administra pagos, nómina, costos e impuestos; Gerencia coordina la operación, cierra la jornada y asigna perfiles de alcance igual o menor; Directivo consulta el tablero y los informes agregados. El Propietario administra todo. El Administrador de plataforma es una cuenta protegida y no se asigna desde la granja. Cada granja conserva sus datos aislados.",
+      },
+      {
+        type: "screenshot",
+        title: "Gestión de usuarios desde configuración",
+        image: "/images/guia/configuracion-panel.webp",
+        alt: "Panel de configuración con acceso a la gestión de usuarios y roles de la granja",
+        caption:
+          "Propietario y Gerencia pueden gestionar el equipo según sus permisos. Gerencia no puede crear propietarios ni asignar perfiles de Finanzas; los cupos dependen del plan activo.",
+        badge: "Aislamiento por granja",
+        targetHref: "/configuracion/usuarios",
+        targetLabel: "Administrar Usuarios",
+      },
+      {
+        type: "steps",
+        title: "Invitar y recuperar acceso",
+        items: [
+          "En Configuración → Usuarios, crea la cuenta con nombre, correo y rol; el sistema valida que no excedas los cupos de tu plan.",
+          "Asigna el rol mínimo necesario: quien solo registra en galpón no necesita permisos de venta ni de cierre diario.",
+          "Ventas y Finanzas están separadas: Comercial puede cobrar a clientes, pero no registrar pagos a proveedores ni consultar nómina o costos. Directivo es de solo lectura.",
+          "Si alguien olvida su contraseña, usa la recuperación de acceso desde el login (correo de restablecimiento) o el administrador la restablece desde Usuarios.",
+          "Al salir una persona de la granja, desactiva su usuario: el historial de lo que registró se conserva intacto para auditoría.",
+        ],
+      },
+      {
+        type: "warning",
+        title: "Importante",
+        items: [
+          "Las acciones sensibles (ventas, gastos, pagos, cierres, configuración) exigen rol con permiso y confirmación humana cuando el agente las prepara: un operario nunca puede confirmar una venta por ti.",
+        ],
+      },
+    ],
+  },
+  {
+    slug: "integraciones-erp-agentes",
+    title: "Integraciones: ERP, tokens, API de herramientas y MCP",
+    module: "configuracion",
+    icon: "globe",
+    summary:
+      "Conecta sistemas externos de solo lectura (ERP, contabilidad) y agentes de IA mediante tokens con scopes, la API v1 de herramientas del agente y el servidor MCP; conoce la política de delegación y el piso duro de acciones que NUNCA se automatizan.",
+    estimatedMinutes: 4,
+    updatedAt: "2026-11-17",
+    tags: ["integraciones", "erp", "conectores", "api", "token", "scopes", "mcp", "agente externo", "delegacion", "automatizacion", "solo lectura", "webhook"],
+    relatedHrefs: [
+      { href: "/exportar", label: "Exportación y Conectores" },
+      { href: "/configuracion/modulos", label: "Módulos y Canales" },
+      { href: "/configuracion/usuarios", label: "Usuarios y Roles" },
+    ],
+    sections: [
+      {
+        type: "intro",
+        text: "En Exportar → Conectores administras las integraciones de la granja. Los conectores ERP son de solo lectura: traen o llevan información sin modificar tus registros. Para agentes de IA externos (tu propio asistente, un orquestador o una herramienta MCP) la app expone las mismas herramientas que usa Gina, protegidas por tokens con scopes de lectura (agent:read) y escritura (agent:write).",
+      },
+      {
+        type: "screenshot",
+        title: "Exportación, reportes y conectores",
+        image: "/images/guia/analisis-reportes.webp",
+        alt: "Pantalla de reportes y exportación con pestañas de conectores e integraciones externas",
+        caption:
+          "Desde Exportar controlas qué sale de la granja: reportes Excel/PDF, conectores ERP de solo lectura y tokens para agentes externos.",
+        badge: "Tokens con scopes",
+        targetHref: "/exportar",
+        targetLabel: "Abrir Exportación y Conectores",
+      },
+      {
+        type: "steps",
+        title: "Conectar un agente externo con seguridad",
+        items: [
+          "Crea un token en Exportar → Conectores y elige sus scopes: agent:read solo consulta; agent:write permite preparar escrituras, que SIEMPRE quedan pendientes de confirmación humana.",
+          "Consume la API v1 de herramientas (/api/v1/agent/tools) con el token; cada llamada queda auditada con origen external_agent, usuario y token.",
+          "Si tu herramienta habla MCP (Model Context Protocol), conéctala al servidor MCP de la granja (/api/mcp): lista y ejecuta las mismas herramientas sobre el mismo ejecutor, sin lógica duplicada.",
+          "Revisa la política de delegación en Configuración → Módulos: define qué escrituras rutinarias puede ejecutar el agente por su cuenta; el piso duro de confirmación no es configurable.",
+        ],
+      },
+      {
+        type: "note",
+        title: "Ejemplo: conectar un cliente MCP (Claude u otro)",
+        text: "En Claude web o Claude Desktop, agrega un conector remoto desde Customize → Connectors → Add custom connector. Usa https://app.iwage.co/api/mcp, selecciona No sign in y añade el encabezado Authorization con el valor Bearer <TOKEN>. Luego conecta el conector y habilítalo en la conversación. En planes Team/Enterprise, un propietario debe agregarlo primero en Organization settings → Connectors. Para otros clientes compatibles con Streamable HTTP, configura esa misma URL y el encabezado Bearer según el formato del cliente; Claude usa Connectors para servidores remotos, no claude_desktop_config.json. El cliente hace initialize, tools/list y tools/call sobre las herramientas de Gina. Las acciones sensibles llegan como pendientes con actionId y se confirman con el mismo token o desde la app. Los tokens con agent:write vencen obligatoriamente en máximo 90 días.",
+      },
+      {
+        type: "warning",
+        title: "Piso duro: esto NUNCA se automatiza",
+        items: [
+          "Ventas, gastos, ingresos, pagos y abonos de cartera, prorrateos, adquisiciones de animales, creación/edición de lugares, traslados, sacrificio/faena, ajustes de gallinaza, creación/edición de alimentos y cierres diarios siempre requieren confirmación humana explícita, sin importar el canal (web, voz, Telegram, API o MCP) ni la política de delegación.",
+          "Los conectores ERP son de solo lectura por diseño: ninguna integración externa modifica inventarios ni finanzas directamente.",
+        ],
+      },
+      {
+        type: "tip",
+        title: "Consejo",
+        items: [
+          "Usa un token por integración y revócalo al dejar de usarla; los scopes mínimos reducen el riesgo si un token se filtra.",
+        ],
+      },
+    ],
+  },
+  {
+    slug: "asistente-avanzado",
+    title: "Gina avanzada: briefing diario, memoria, delegación y Telegram",
+    module: "primeros-pasos",
+    icon: "rocket",
+    summary:
+      "Sácale el jugo al asistente: briefing diario proactivo con hallazgos de la granja, memoria persistente de preferencias, confirmación por voz o texto, delegación gradual de escrituras rutinarias, deep-links a pantallas y el canal bidireccional de Telegram con comandos y notas de voz.",
+    estimatedMinutes: 5,
+    updatedAt: "2026-11-17",
+    tags: ["gina", "asistente", "briefing", "proactivo", "memoria", "delegacion", "telegram", "voz", "confirmacion", "deep links", "comandos", "parte diario"],
+    relatedHrefs: [
+      { href: "/configuracion/modulos", label: "Módulos y Canales" },
+      { href: "/inicio", label: "Inicio y Briefing" },
+      { href: "/manual", label: "Manual de Guías" },
+    ],
+    sections: [
+      {
+        type: "intro",
+        text: "Gina no solo responde: también vigila. Cada mañana prepara un briefing determinista con los hallazgos de tu granja (alimento por acabarse, vacunas atrasadas, mortalidad fuera de lo normal, desviación de presupuesto, rutinas vencidas) y lo deja en tu bandeja de Inicio; si hay señal y clave de IA configurada, lo narra en español de granja. El agente proactivo SOLO lee y narra: nunca registra datos por su cuenta.",
+      },
+      {
+        type: "screenshot",
+        title: "Gina por voz y texto en cualquier pantalla",
+        image: "/images/guia/asistente-ia.webp",
+        alt: "Widget del asistente Gina conversando por voz y texto con tarjetas de confirmación de acciones",
+        caption:
+          "Las escrituras sensibles llegan como tarjeta de confirmación: revisas el resumen y confirmas con un toque o escribiendo «confirmo».",
+        badge: "Confirmación humana",
+        targetHref: "/inicio",
+        targetLabel: "Abrir Inicio",
+      },
+      {
+        type: "steps",
+        title: "Memoria, delegación y pantallas exactas",
+        items: [
+          "Dile «recuerda que...» para guardar preferencias duraderas (compradores frecuentes, reglas de la finca, proveedores): Gina las usa en adelante sin que las repitas.",
+          "Pide que te lleve a una pantalla («¿dónde registro el linaje?») y Gina responde con el enlace exacto; si el módulo está bloqueado por tu escala, te explica el hito que lo desbloquea.",
+          "En Configuración → Módulos ajusta la política de delegación: manual (todo se confirma), gradual (escrituras rutinarias como producción, mortalidad o alimento se ejecutan solas) o el piso duro, que siempre exige confirmación para ventas, gastos, pagos, traslados, sacrificio y cierres.",
+          "El briefing diario aparece como tarjeta en Inicio; márcalo leído y revisa los hallazgos con un toque en el enlace de cada uno.",
+        ],
+      },
+      {
+        type: "steps",
+        title: "Canal Telegram bidireccional",
+        items: [
+          "Vincula tu Telegram desde Configuración → Módulos → Telegram: la app genera un código de un solo uso (vigente 10 minutos) que envías al bot para emparejar tu chat con tu usuario de la granja.",
+          "Escribe o manda notas de voz al bot: Gina responde con las mismas herramientas y permisos de tu rol, y las acciones sensibles llegan con botones de confirmar/cancelar.",
+          "Comandos rápidos: /resumen (estado de la granja), /parte (parte diario), /estado (alertas y pendientes), /ayuda (qué puede hacer Gina).",
+          "Recibe por Telegram el briefing diario y las alertas; puedes silenciar o desvincular el chat cuando quieras desde Módulos.",
+        ],
+      },
+      {
+        type: "warning",
+        title: "Importante",
+        items: [
+          "El canal Telegram lo activa el administrador de la granja (requiere configurar el bot); cada chat emparejado queda auditado y hereda exactamente los permisos de tu usuario: nada de saltarse el piso duro desde el celular.",
+        ],
+      },
+      {
+        type: "tip",
+        title: "Consejo",
+        items: [
+          "En el galpón, una nota de voz de Telegram («se murieron dos pollitas en el galpón 2») registra la mortalidad con la misma validación que la captura rápida de la app.",
         ],
       },
     ],
@@ -2489,4 +2856,14 @@ export function searchGuides(query: string, moduleId?: string): Guide[] {
 
   scored.sort((a, b) => b.score - a.score);
   return scored.map((item) => item.guide);
+}
+
+/** Enlace canónico al encabezado de módulo dentro del índice /guia. */
+export function guideModuleAnchorHref(moduleId: GuideModule["id"], basePath = "/guia"): string {
+  return `${basePath}#mod-${moduleId}`;
+}
+
+/** Enlace canónico a la ficha individual de una guía. */
+export function guideDetailHref(slug: string, basePath = "/guia"): string {
+  return `${basePath}/${slug}`;
 }

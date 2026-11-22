@@ -2,22 +2,29 @@ import { db } from "@/db";
 import { catalogos, feedPrograms, feedInventory } from "@/db/schema";
 import { eq, and, sql } from "drizzle-orm";
 import { NextRequest, NextResponse } from "next/server";
+import { getCurrentFarmId } from "@/db/tenant-context";
 import { withApiHandler, safeParseJson } from "@/lib/api-handler";
 import { countAnimalsByStageForDate } from "@/lib/feeding/runProgram";
 import { getStageSpecies } from "@/lib/feeding/stage-species";
-import { ANIMAL_SPECIES } from "@/lib/species";
+import { ANIMAL_SPECIES, FEEDING_SPECIES } from "@/lib/species";
 import { findMissingFeeds, normalizeProgramEntries } from "@/lib/feeding/program-validation";
 import { summarizeRation } from "@/lib/feeding/ration";
+import { markFeedingProgramsReviewed } from "@/lib/feeding/review";
 
 export const dynamic = "force-dynamic";
 
 /** Lista todas las etapas de crecimiento con conteo de animales por especie y etapa. */
 export const GET = withApiHandler(async () => {
-  const stages = await db
+  const currentFarmId = getCurrentFarmId();
+  const allStages = await db
     .select()
     .from(catalogos)
     .where(and(eq(catalogos.category, "etapa_crecimiento"), eq(catalogos.isActive, true)))
     .orderBy(sql`${catalogos.sortOrder}`);
+
+  // Evita mezclar las 4 etapas heredadas de DEFAULT_FARM_ID cuando la granja ya tiene su propio catálogo sembrado.
+  const ownStages = allStages.filter((stage) => stage.farmId === currentFarmId);
+  const stages = ownStages.length > 0 ? ownStages : allStages;
 
   const animalCounts = await countAnimalsByStageForDate(new Date());
   const result = [];
@@ -67,7 +74,7 @@ export const POST = withApiHandler(async (req: NextRequest) => {
   if (!body || typeof body !== "object") return NextResponse.json({ error: "Cuerpo inválido" }, { status: 400 });
   const value = typeof body.value === "string" ? body.value.trim() : "";
   if (!value) return NextResponse.json({ error: "Nombre del plan o etapa requerido" }, { status: 400 });
-  const supportedSpecies = ANIMAL_SPECIES;
+  const supportedSpecies = FEEDING_SPECIES;
   const requestedSpecies = typeof body.species === "string" ? body.species.trim().toLocaleLowerCase("es") : "";
   if (requestedSpecies && !supportedSpecies.includes(requestedSpecies as typeof supportedSpecies[number])) {
     return NextResponse.json({ error: "Especie del plan no válida" }, { status: 400 });
@@ -108,5 +115,6 @@ export const POST = withApiHandler(async (req: NextRequest) => {
     return stage;
   });
 
+  await markFeedingProgramsReviewed();
   return NextResponse.json(createdStage, { status: 201 });
 });

@@ -3,8 +3,9 @@ import { NextRequest } from "next/server";
 import { eq } from "drizzle-orm";
 import crypto from "node:crypto";
 import { db } from "@/db";
-import { farms, farmSubscriptions, sessions, users } from "@/db/schema";
+import { appSettings, catalogos, farms, farmSubscriptions, feedInventory, feedPrograms, sessions, users } from "@/db/schema";
 import { runWithFarmContext } from "@/db/tenant-context";
+import { getPlanEntitlements, resolveCommercialPlan } from "@/lib/pricing/entitlements";
 import * as authMod from "@/lib/auth";
 import { proxy } from "@/proxy";
 import { POST as registerFarm } from "@/app/api/auth/register/route";
@@ -12,7 +13,6 @@ import {
   GET as listUsers,
   PATCH as patchUser,
   POST as createUser,
-  resolveMaxUsersFromPlan,
 } from "@/app/api/configuracion/usuarios/route";
 
 describe("Day 0 Registration (/registro) & Farm User/Role Management", () => {
@@ -28,6 +28,12 @@ describe("Day 0 Registration (/registro) & Farm User/Role Management", () => {
     });
 
     for (const farmId of createdFarmIds) {
+      await runWithFarmContext(farmId, async () => {
+        await db.delete(feedPrograms).where(eq(feedPrograms.farmId, farmId));
+        await db.delete(feedInventory).where(eq(feedInventory.farmId, farmId));
+        await db.delete(catalogos).where(eq(catalogos.farmId, farmId));
+        await db.delete(appSettings).where(eq(appSettings.farmId, farmId));
+      });
       await db.delete(sessions).where(eq(sessions.farmId, farmId));
       await db.delete(users).where(eq(users.farmId, farmId));
       await db.delete(farmSubscriptions).where(eq(farmSubscriptions.farmId, farmId));
@@ -50,7 +56,7 @@ describe("Day 0 Registration (/registro) & Farm User/Role Management", () => {
     expect(resApi.status).toBe(200);
   });
 
-  it("POST /api/auth/register crea farm + propietario + suscripcion Freemium y permite hasta 2 usuarios", async () => {
+  it("POST /api/auth/register crea farm + propietario + suscripción Gratis de un usuario", async () => {
     const uniqueSuffix = crypto.randomBytes(4).toString("hex");
     const ownerUsername = `owner_${uniqueSuffix}`;
 
@@ -72,7 +78,7 @@ describe("Day 0 Registration (/registro) & Farm User/Role Management", () => {
     expect(regRes.status).toBe(201);
     const regBody = await regRes.json();
     expect(regBody.ok).toBe(true);
-    expect(regBody.redirectTo).toBe("/dashboard?wizard=1");
+    expect(regBody.redirectTo).toBe("/inicio?wizard=1");
     expect(regBody.farm.planCode).toBe("FREEMIUM_SEMILLA");
     expect(regBody.user.role).toBe("propietario");
     expect(regRes.cookies.get(authMod.sessionCookieName)?.value).toBeTruthy();
@@ -93,7 +99,7 @@ describe("Day 0 Registration (/registro) & Farm User/Role Management", () => {
       farmId,
     });
 
-    // Crear 2º usuario (operario) -> permitido (tope = 2 en FREEMIUM_SEMILLA)
+    // El propietario ocupa la única plaza Gratis; el segundo usuario queda sujeto a un plan con más plazas.
     const addOpReq = new NextRequest("http://localhost:3000/api/configuracion/usuarios", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -105,31 +111,17 @@ describe("Day 0 Registration (/registro) & Farm User/Role Management", () => {
       }),
     });
     const addOpRes = await runWithFarmContext(farmId, () => createUser(addOpReq));
-    expect(addOpRes.status).toBe(201);
-
-    // Intentar 3º usuario -> bloqueado con USER_LIMIT_REACHED
-    const addThirdReq = new NextRequest("http://localhost:3000/api/configuracion/usuarios", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        name: "Tercer Usuario",
-        username: `extra_${uniqueSuffix}`,
-        password: "ExtraClave99",
-        role: "veterinario",
-      }),
-    });
-    const addThirdRes = await runWithFarmContext(farmId, () => createUser(addThirdReq));
-    expect(addThirdRes.status).toBe(403);
-    const addThirdBody = await addThirdRes.json();
-    expect(addThirdBody.code).toBe("USER_LIMIT_REACHED");
+    expect(addOpRes.status).toBe(403);
+    const addOpBody = await addOpRes.json();
+    expect(addOpBody.code).toBe("USER_LIMIT_REACHED");
 
     const listRes = await runWithFarmContext(farmId, () =>
       listUsers(new NextRequest("http://localhost:3000/api/configuracion/usuarios")),
     );
     expect(listRes.status).toBe(200);
     const listBody = await listRes.json();
-    expect(listBody.users).toHaveLength(2);
-    expect(listBody.maxUsers).toBe(2);
+    expect(listBody.users).toHaveLength(1);
+    expect(listBody.maxUsers).toBe(1);
   });
 
   it("rechaza emitir el rol admin desde la gestión de usuarios de una granja", async () => {
@@ -150,13 +142,13 @@ describe("Day 0 Registration (/registro) & Farm User/Role Management", () => {
     expect(body.error).toMatch(/Rol inválido/);
   });
 
-  it("resuelve cupos de PLAN_CATALOG (MEDIANO_MENSUAL=15), permite >2 usuarios y actualiza nombre/rol/clave via PATCH", async () => {
-    expect(resolveMaxUsersFromPlan("CICLO_60D", null)).toBe(3);
-    expect(resolveMaxUsersFromPlan("SEMESTRAL_PONEDORA", null)).toBe(3);
-    expect(resolveMaxUsersFromPlan("ANUAL_20", null)).toBe(5);
-    expect(resolveMaxUsersFromPlan("MEDIANO_MENSUAL", null)).toBe(15);
-    expect(resolveMaxUsersFromPlan("COMERCIAL_MEDIANO", null)).toBe(15);
-    expect(resolveMaxUsersFromPlan("FREEMIUM_SEMILLA", null)).toBe(2);
+  it("mapea suscripciones históricas activas a Productor, limita plazas y actualiza nombre/rol/clave via PATCH", async () => {
+    expect(getPlanEntitlements(resolveCommercialPlan("CICLO_60D", true), 3).maxUserSeats).toBe(3);
+    expect(getPlanEntitlements(resolveCommercialPlan("SEMESTRAL_PONEDORA", true), 3).maxUserSeats).toBe(3);
+    expect(getPlanEntitlements(resolveCommercialPlan("ANUAL_20", true), 5).maxUserSeats).toBe(5);
+    expect(getPlanEntitlements(resolveCommercialPlan("MEDIANO_MENSUAL", true), 15).maxUserSeats).toBe(15);
+    expect(getPlanEntitlements(resolveCommercialPlan("COMERCIAL_MEDIANO", true), 15).maxUserSeats).toBe(15);
+    expect(getPlanEntitlements(resolveCommercialPlan("FREEMIUM_SEMILLA", false)).maxUserSeats).toBe(1);
 
     const uniqueSuffix = `${Date.now()}_${crypto.randomBytes(2).toString("hex")}`;
     const ownerUsername = `mediano_${uniqueSuffix}`;
@@ -178,10 +170,10 @@ describe("Day 0 Registration (/registro) & Farm User/Role Management", () => {
     const farmId = String(regBody.farmId);
     createdFarmIds.push(farmId);
 
-    // Actualizar suscripción de prueba a MEDIANO_MENSUAL (15 usuarios)
+    // Simular una suscripción histórica pagada y activa con 15 plazas de equipo.
     await db
       .update(farmSubscriptions)
-      .set({ planCode: "MEDIANO_MENSUAL", maxUsers: 15 })
+      .set({ planCode: "MEDIANO_MENSUAL", status: "active", maxUsers: 15 })
       .where(eq(farmSubscriptions.farmId, farmId));
 
     vi.mocked(authMod.getSessionUser).mockResolvedValue({

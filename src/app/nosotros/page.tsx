@@ -5,9 +5,9 @@ import { PublicPageShell } from "@/components/LegalPage";
 import { NOSOTROS_TEXT } from "@/lib/legal-content";
 import { buildPageMetadata } from "@/lib/seo";
 
-const TITLE = "Quiénes somos: historia en Ibagué · El Gallinero";
+const TITLE = "Quiénes somos: historia en Ibagué · IwaGranja";
 const DESCRIPTION =
-  "Historia de El Gallinero en Ibagué, Tolima: herramienta abierta de Iwagé Granja probada en Ambalá para granjas avícolas y multiespecie.";
+  "Historia de IwaGranja en Ibagué, Tolima: herramienta abierta probada en la granja piloto de Ambalá para producción avícola y multiespecie.";
 
 export const metadata: Metadata = buildPageMetadata({
   title: TITLE,
@@ -75,7 +75,7 @@ export default function NosotrosPage() {
               href="/planes"
               className="font-semibold text-emerald-800 underline underline-offset-2"
             >
-              Ver planes por ciclo →
+              Calcular el costo del plan →
             </Link>
             <Link
               href="/bitacora"

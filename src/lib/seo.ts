@@ -2,16 +2,72 @@ import type { Metadata } from "next";
 import { APP_DEVELOPER } from "@/lib/branding";
 import { LEGAL } from "@/lib/legal";
 
-export const SITE_URL = "https://gallinero.iwage.co";
-export const SITE_NAME = "El Gallinero · Iwagé Granja";
+export const SITE_URL = "https://app.iwage.co";
+export const SITE_NAME = "IwaGranja";
 export const DEFAULT_OG_IMAGE = `${SITE_URL}/images/guia/inicio-dashboard.webp`;
 
+/** Rutas públicas estáticas del sitio comercial con su fecha real de última actualización (sitemap). */
+export const STATIC_ROUTE_LAST_MODIFIED: Record<string, string> = {
+  "": "2026-11-18",
+  "/funcionalidades": "2026-11-18",
+  "/recursos": "2026-11-18",
+  "/recursos/herramientas": "2026-11-18",
+  "/recursos/novedades": "2026-11-18",
+  "/recursos/herramientas/p1": "2026-11-18",
+  "/registro": "2026-11-18",
+  "/guia": "2026-11-18",
+  "/ayuda": "2026-11-18",
+  "/open-source": "2026-11-18",
+  "/realidad-campo": "2026-11-18",
+  "/planes": "2026-11-19",
+  "/nosotros": "2026-11-18",
+  "/contacto": "2026-11-18",
+  "/bitacora": "2026-11-18",
+  "/terminos": "2026-11-18",
+  "/retracto": "2026-11-18",
+  "/privacidad": "2026-11-18",
+};
+
+/** Dimensiones reales medidas en disco para los activos OG y diagramas en public/. */
+export const OG_IMAGE_DIMENSIONS: Record<string, { width: number; height: number }> = {
+  "/images/guia/inicio-dashboard.webp": { width: 1366, height: 860 },
+  "/images/guia/asistente-ia.webp": { width: 1366, height: 860 },
+  "/images/guia/configuracion-modulos.webp": { width: 1366, height: 860 },
+  "/images/guia/configuracion-panel.webp": { width: 1366, height: 860 },
+  "/images/heroes/inicio-2x.webp": { width: 1600, height: 560 },
+  "/images/heroes/inicio-1x.webp": { width: 800, height: 280 },
+  "/traceability-flow.png": { width: 1792, height: 1024 },
+  "/hero-illustration.png": { width: 1024, height: 768 },
+  "/modules-diagram.png": { width: 1024, height: 1024 },
+  "/logo-iwagranja-horizontal.webp": { width: 680, height: 201 },
+  "/logo-iwagranja.webp": { width: 512, height: 512 },
+  "/logo-iwagranja-mark.webp": { width: 256, height: 256 },
+  "/icon-192.png": { width: 192, height: 192 },
+  "/icon-512.png": { width: 512, height: 512 },
+};
+
+export function resolveOgImageDimensions(pathOrUrl?: string): { width: number; height: number } {
+  const raw = (pathOrUrl || DEFAULT_OG_IMAGE).trim();
+  const normalizedPath = raw.startsWith(SITE_URL) ? raw.slice(SITE_URL.length) : raw;
+  if (OG_IMAGE_DIMENSIONS[normalizedPath]) {
+    return OG_IMAGE_DIMENSIONS[normalizedPath];
+  }
+  if (normalizedPath.startsWith("/images/heroes/") && normalizedPath.endsWith("-2x.webp")) {
+    return { width: 1600, height: 560 };
+  }
+  if (normalizedPath.startsWith("/images/heroes/") && normalizedPath.endsWith("-1x.webp")) {
+    return { width: 800, height: 280 };
+  }
+  // Todas las capturas restantes en public/images/guia/*.webp son 1200x750
+  return { width: 1200, height: 750 };
+}
+
 export const ENTITY_IDS = {
-  person: "https://camilosaldarriaga.com/#person",
+  person: "https://iwage.co/#founder",
   organization: "https://iwage.co/#organization",
   website: `${SITE_URL}/#website`,
   software: `${SITE_URL}/#software`,
-  project: "https://iwage.co/granja#project",
+  project: "https://iwage.co/granja/#organization",
 } as const;
 
 export function canonicalUrlFor(path: string): string {
@@ -36,7 +92,7 @@ export function toAbsoluteUrl(pathOrUrl?: string): string {
   return `${SITE_URL}${normalized}`;
 }
 
-export function fitSeoTitle(rawTitle: string, suffix = " · El Gallinero", maxLen = 62): string {
+export function fitSeoTitle(rawTitle: string, suffix = " · IwaGranja", maxLen = 62): string {
   const clean = rawTitle.trim().replace(/\s+/g, " ");
   if (clean.length + suffix.length <= maxLen) {
     return `${clean}${suffix}`;
@@ -88,43 +144,45 @@ export function buildPageMetadata(options: BuildPageMetadataOptions): Metadata {
   const absoluteOgImage = toAbsoluteUrl(ogImage);
   const imageAlt = ogImageAlt ?? title;
 
+  const ogDims = resolveOgImageDimensions(absoluteOgImage);
+
   const openGraph: Metadata["openGraph"] =
     ogType === "article"
       ? {
-          title,
-          description,
-          url: canonical,
-          siteName: SITE_NAME,
-          locale: "es_CO",
-          type: "article",
-          publishedTime,
-          modifiedTime,
-          authors: [APP_DEVELOPER.url],
-          images: [
-            {
-              url: absoluteOgImage,
-              width: 1200,
-              height: 630,
-              alt: imageAlt,
-            },
-          ],
-        }
+        title,
+        description,
+        url: canonical,
+        siteName: SITE_NAME,
+        locale: "es_CO",
+        type: "article",
+        publishedTime,
+        modifiedTime,
+        authors: [APP_DEVELOPER.url],
+        images: [
+          {
+            url: absoluteOgImage,
+            width: ogDims.width,
+            height: ogDims.height,
+            alt: imageAlt,
+          },
+        ],
+      }
       : {
-          title,
-          description,
-          url: canonical,
-          siteName: SITE_NAME,
-          locale: "es_CO",
-          type: "website",
-          images: [
-            {
-              url: absoluteOgImage,
-              width: 1200,
-              height: 630,
-              alt: imageAlt,
-            },
-          ],
-        };
+        title,
+        description,
+        url: canonical,
+        siteName: SITE_NAME,
+        locale: "es_CO",
+        type: "website",
+        images: [
+          {
+            url: absoluteOgImage,
+            width: ogDims.width,
+            height: ogDims.height,
+            alt: imageAlt,
+          },
+        ],
+      };
 
   return {
     title,
@@ -165,13 +223,19 @@ export function buildBaseEntities(): Record<string, unknown>[] {
         addressRegion: "Tolima",
         addressCountry: "CO",
       },
-      sameAs: ["https://github.com/Camilosal", "https://iwage.co"],
+      sameAs: [
+        "https://camilosaldarriaga.com",
+        "https://www.linkedin.com/in/camilosaldarriaga",
+        "https://github.com/Camilosal",
+        "https://iwage.co",
+        "https://espaciosplus.com",
+      ],
     },
     {
       "@type": "Organization",
       "@id": ENTITY_IDS.organization,
       name: "Iwagé",
-      url: "https://iwage.co",
+      url: "https://iwage.co/",
       logo: `${SITE_URL}/icon-512.png`,
       description:
         "Ecosistema Iwagé en Ibagué, Tolima: Iwagé Granja, meliponicultura, café, tierras y software agropecuario abierto.",
@@ -198,6 +262,7 @@ export function buildBaseEntities(): Record<string, unknown>[] {
       ],
       sameAs: [
         "https://iwage.co",
+        "https://iwage.co/granja",
         "https://camilosaldarriaga.com",
         "https://espaciosplus.com",
         "https://github.com/Camilosal/El-Gallinero",
@@ -218,14 +283,15 @@ export function buildSoftwareNode(): Record<string, unknown> {
   return {
     "@type": "SoftwareApplication",
     "@id": ENTITY_IDS.software,
-    name: "El Gallinero",
+    name: "IwaGranja",
     description:
-      "Gestión avícola y multiespecie de código abierto: identidad individual por ave, trazabilidad financiera automática, sanidad ICA, clasificación NTC 1240, inventarios y modo simple/avanzado. Funciona sin conexión. En producción en Iwagé Granja, Ibagué, Colombia.",
+      "Gestión de granjas multiespecie: identificación animal, trazabilidad financiera, sanidad, inventarios y modo sin conexión. En producción en Ibagué, Colombia.",
     applicationCategory: "BusinessApplication",
     applicationSubCategory: "Farm Management Software",
     operatingSystem: "Web, PWA",
     inLanguage: "es-CO",
     url: SITE_URL,
+    image: `${SITE_URL}/logo-iwagranja.webp`,
     codeRepository: "https://github.com/Camilosal/El-Gallinero",
     license: "https://github.com/Camilosal/El-Gallinero/blob/main/LICENSE",
     programmingLanguage: ["TypeScript"],
@@ -234,7 +300,7 @@ export function buildSoftwareNode(): Record<string, unknown> {
       price: "0",
       priceCurrency: "COP",
       description:
-        "Plan Semilla gratuito con 1 lote activo; planes por ciclo de pago con Nequi, Daviplata y PSE",
+        "Calcula el costo del plan Productor o Agregador según usuarios, beneficiarios, plazo y servicios seleccionados",
     },
     creator: { "@id": ENTITY_IDS.organization },
     author: { "@id": ENTITY_IDS.person },

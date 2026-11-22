@@ -1,3 +1,4 @@
+import { BrandLogo } from "@/components/BrandLogo";
 import { DeveloperCredit } from "@/components/DeveloperCredit";
 import { db } from "@/db";
 import { broilerBatches, mortalityRecords } from "@/db/schema";
@@ -6,9 +7,10 @@ import { notFound } from "next/navigation";
 import { daysSince } from "@/lib/manure";
 import { isUuid } from "@/lib/ids";
 import { HeroFrame } from "@/components/HeroFrame";
+import { PublicNavigation } from "@/components/PublicNavigation";
 
 export const metadata = {
-  title: "Trazabilidad de lote | El Gallinero",
+  title: "Trazabilidad de lote | IwaGranja",
   robots: { index: false, follow: false },
 };
 
@@ -56,19 +58,16 @@ export default async function LoteTraceabilityPage({ params }: Props) {
 
   return (
     <div className="bg-gray-50 min-h-screen">
+      <PublicNavigation sticky={false} />
       <div className="max-w-2xl mx-auto px-4 py-8">
         {/* Header */}
         <HeroFrame
           theme="aves"
           eyebrow="Trazabilidad pública"
-          title="Trazabilidad - Sistema Gallinero"
+          title="Trazabilidad - IwaGranja"
           description="Información de producción avícola y ciclo del lote"
           className="mb-8"
-          icon={
-            <svg className="w-4 h-4 text-amber-200" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-            </svg>
-          }
+          icon={<BrandLogo variant="mark" size={18} decorative className="rounded-sm" />}
         />
 
         {/* Batch Info Card */}
@@ -138,8 +137,11 @@ export default async function LoteTraceabilityPage({ params }: Props) {
 
         {/* Footer */}
         <div className="text-center mt-8 pt-6 border-t border-gray-200">
+          <div className="flex justify-center mb-3">
+            <BrandLogo variant="square" size={80} className="rounded-2xl bg-[#faf6ec] p-1.5 border border-gray-200 shadow-xs" />
+          </div>
           <p className="text-sm text-gray-500">
-            Producto de <span className="font-semibold text-green-700">El Gallinero</span> - Granja Autosustentable
+            Producto de <span className="font-semibold text-green-700">IwaGranja</span> - Granja Autosustentable
           </p>
           <p className="text-xs text-gray-400 mt-1">
             Sistema integral de gestion avicola

@@ -81,7 +81,14 @@ export const POST = withApiHandler(async (req: NextRequest) => {
 
   const now = new Date();
   const ticketCode = buildTicketCode(now);
-  const ticket: ContactTicketPayload = {
+  const { classifyContactLeadWithJev } = await import("@/lib/agent/jev-capabilities");
+  const jevRouting = await classifyContactLeadWithJev({
+    reason,
+    farm,
+    message,
+  });
+
+  const ticket = {
     ticketCode,
     reason,
     reasonLabel: REASON_LABELS[reason],
@@ -89,10 +96,11 @@ export const POST = withApiHandler(async (req: NextRequest) => {
     farm,
     contactInfo,
     message,
+    jevRouting,
     ...(discoverySource ? { discoverySource } : {}),
     ...(attributionSource ? { attributionSource } : {}),
     createdAt: now.toISOString(),
-  };
+  } satisfies ContactTicketPayload & { jevRouting: typeof jevRouting };
 
   const settingKey = `contact.ticket.${now.getTime()}_${crypto.randomBytes(3).toString("hex")}`;
   await runWithFarmContext(DEFAULT_FARM_ID, async () => {

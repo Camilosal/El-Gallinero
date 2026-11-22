@@ -5,14 +5,14 @@ export default function NotFoundPage() {
   return (
     <PublicPageShell
       title="Página no encontrada (404)"
-      intro="La dirección que buscaste no existe o cambió de ubicación en El Gallinero. Puedes retomar desde las secciones principales:"
+      intro="La dirección que buscaste no existe o cambió de ubicación en IwaGranja. Puedes retomar desde las secciones principales:"
     >
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
         {[
           {
             href: "/",
             title: "Inicio y vitrina",
-            desc: "Conoce los 14 módulos, el modo sin señal y cómo empezar hoy en tu granja.",
+            desc: "Conoce los 8 módulos reales, el modo sin señal y cómo empezar hoy en tu granja.",
           },
           {
             href: "/guia",
@@ -22,7 +22,7 @@ export default function NotFoundPage() {
           {
             href: "/planes",
             title: "Planes y precios",
-            desc: "Plan gratuito Semilla y ciclos productivos en COP sin cobros automáticos.",
+            desc: "Plan Gratis para iniciar y cálculo de costos Productor o Agregador, sin cobros automáticos.",
           },
           {
             href: "/bitacora",

@@ -250,7 +250,7 @@ export function buildFlockPlanLive(input: BuildFlockPlanInput): FlockPlanLive {
       level: "warning",
       title: `${dueNow} gallina${dueNow > 1 ? "s" : ""} fuera del ciclo de postura`,
       detail: `Ya cumplieron ${input.finPosturaWeeks} semanas. Venderlas o reemplazarlas libera espacio y evita gastar alimento en aves de baja postura.`,
-      action: { label: "Ver gallinas", href: "/dashboard/produccion?tab=gallinas" },
+      action: { label: "Ver gallinas", href: "/produccion?tab=gallinas" },
     });
   }
   if (henSummary.recommendedForSlaughter > 0) {
@@ -260,7 +260,7 @@ export function buildFlockPlanLive(input: BuildFlockPlanInput): FlockPlanLive {
       detail: "Revisa el listado de gallinas: el sistema las marcó por peso o por haber terminado su etapa productiva.",
       action: {
         label: "Ver recomendadas",
-        href: "/dashboard/produccion?tab=gallinas&estado=recomendada_sacrificio",
+        href: "/produccion?tab=gallinas&estado=recomendada_sacrificio",
       },
     });
   }
@@ -269,14 +269,14 @@ export function buildFlockPlanLive(input: BuildFlockPlanInput): FlockPlanLive {
       level: "warning",
       title: `Postura ${compliancePct}% de lo esperado`,
       detail: "Los últimos 7 días están por debajo de la curva para la edad del lote. Revisa alimento, agua, sanidad y conteo de huevos.",
-      action: { label: "Revisar producción", href: "/dashboard/produccion/huevos" },
+      action: { label: "Revisar producción", href: "/produccion/huevos" },
     });
   } else if (compliancePct > 110) {
     alerts.push({
       level: "info",
       title: `Postura ${compliancePct}% de lo esperado`,
       detail: "La producción supera el estándar del catálogo. Verifica el conteo o ajusta el estándar de postura si tu genética rinde más.",
-      action: { label: "Revisar producción", href: "/dashboard/produccion/huevos" },
+      action: { label: "Revisar producción", href: "/produccion/huevos" },
     });
   } else if (compliancePct >= 90) {
     alerts.push({
@@ -290,14 +290,14 @@ export function buildFlockPlanLive(input: BuildFlockPlanInput): FlockPlanLive {
       level: "warning",
       title: `Faltan ${deficit} gallo${deficit > 1 ? "s" : ""} para la relación ${input.hensPerRooster}:1`,
       detail: `Hay ${presentHens.length} gallinas y ${activeRoosters} gallos. La meta es ${requiredRoosters} gallos reproductores.`,
-      action: { label: "Ver gallos", href: "/dashboard/produccion?tab=pollos" },
+      action: { label: "Ver gallos", href: "/produccion?tab=pollos" },
     });
   } else if (surplus > 0) {
     alerts.push({
       level: "info",
       title: `Hay ${surplus} gallo${surplus > 1 ? "s" : ""} por encima de la relación ${input.hensPerRooster}:1`,
       detail: `Con ${presentHens.length} gallinas bastan ${requiredRoosters} gallos. Los excedentes pueden destinarse a venta o sacrificio.`,
-      action: { label: "Ver gallos", href: "/dashboard/produccion?tab=pollos" },
+      action: { label: "Ver gallos", href: "/produccion?tab=pollos" },
     });
   } else {
     alerts.push({

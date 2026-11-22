@@ -11,3 +11,11 @@ yarn-error.log*
 coverage
 tests
 *.md
+.qoder
+.agents
+docs
+playwright-report
+test-results
+playwright.config.ts
+vitest.config.ts
+tsconfig.tsbuildinfo

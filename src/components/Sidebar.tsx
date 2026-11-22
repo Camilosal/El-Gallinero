@@ -4,28 +4,40 @@ import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useState, useEffect } from "react";
 import { AppIcon } from "@/components/AppIcon";
-import { filterNavigationGroups, navigationGroups, type MenuGroup } from "@/lib/navigation";
+import {
+  CONFIGURACION_MENU_GROUP,
+  filterMenuGroupForRole,
+  filterNavigationGroups,
+  type MenuGroup,
+} from "@/lib/navigation";
 import { useOnboardingState } from "@/lib/useOnboardingState";
+import { clearCachedAppRole, useAppRole } from "@/lib/useAppRole";
+import { canAccessAppRoute } from "@/lib/rbac";
+import { BrandLogo } from "@/components/BrandLogo";
 import { DeveloperCredit } from "@/components/DeveloperCredit";
 import { clearOfflineCryptoKey } from "@/lib/offline/crypto";
 import {
   BarChart3,
-  Bird,
   BookOpen,
-  Bug,
   ChevronLeft,
   ChevronRight,
   ExternalLink,
   LogOut,
   Menu,
   QrCode,
-  Settings,
   X,
 } from "lucide-react";
-import { openBugReportModal } from "@/lib/bug-report";
 
 const STORAGE_KEY = "sidebar-expanded-groups";
 const COLLAPSED_KEY = "sidebar-collapsed";
+
+const ACTIVE_FARM_META_STORAGE_KEY = "galli-active-farm-meta";
+
+interface ActiveFarmMeta {
+  farmId: string;
+  farmName?: string | null;
+  farmSlug?: string | null;
+}
 
 export default function Sidebar() {
   const pathname = usePathname();
@@ -35,12 +47,15 @@ export default function Sidebar() {
   const [mobileOpenAt, setMobileOpenAt] = useState<string | null>(null);
   const [collapsed, setCollapsed] = useState(false);
   const [settingsLoaded, setSettingsLoaded] = useState(false);
+  const [farmMeta, setFarmMeta] = useState<ActiveFarmMeta | null>(null);
   const query = searchParams.toString();
   const locationKey = query ? `${pathname}?${query}` : pathname;
   const mobileOpen = mobileOpenAt === locationKey;
   const setMobileOpen = (open: boolean) => setMobileOpenAt(open ? locationKey : null);
   const { flags } = useOnboardingState();
-  const visibleGroups = flags ? filterNavigationGroups(flags) : navigationGroups;
+  const role = useAppRole();
+  const visibleGroups = filterNavigationGroups(flags, role);
+  const visibleConfigGroup = filterMenuGroupForRole(CONFIGURACION_MENU_GROUP, role);
 
   useEffect(() => {
     let active = true;
@@ -53,7 +68,7 @@ export default function Sidebar() {
         if (stored) {
           const parsed: unknown = JSON.parse(stored);
           if (Array.isArray(parsed) && parsed.every((value): value is string => typeof value === "string")) {
-            groups = parsed;
+            groups = parsed.length > 0 ? [parsed[parsed.length - 1]] : [];
           }
         }
       } catch {
@@ -73,6 +88,28 @@ export default function Sidebar() {
     });
     return () => { active = false; };
   }, []);
+
+  useEffect(() => {
+    if (!settingsLoaded) return;
+    const allGroups = [...visibleGroups, ...(visibleConfigGroup ? [visibleConfigGroup] : [])];
+    const activeGroup = allGroups
+      .map((group) => {
+        const matchingPaths = [group.indexHref, ...group.items.map((item) => item.href.split("?")[0])]
+          .filter((path) => pathname === path || (path !== "/" && pathname.startsWith(`${path}/`)));
+        return {
+          id: group.id,
+          score: matchingPaths.length > 0 ? Math.max(...matchingPaths.map((path) => path.length)) : 0,
+        };
+      })
+      .filter((group) => group.score > 0)
+      .sort((a, b) => b.score - a.score)[0];
+    if (!activeGroup) return;
+    queueMicrotask(() => {
+      setExpandedGroups((prev) => {
+        return prev.size === 1 && prev.has(activeGroup.id) ? prev : new Set([activeGroup.id]);
+      });
+    });
+  }, [locationKey, pathname, settingsLoaded, visibleConfigGroup, visibleGroups]);
 
   useEffect(() => {
     if (!settingsLoaded) return;
@@ -96,18 +133,59 @@ export default function Sidebar() {
 
   const toggleGroup = (groupId: string) => {
     setExpandedGroups((prev) => {
-      const next = new Set(prev);
-      if (next.has(groupId)) {
-        next.delete(groupId);
-      } else {
-        next.add(groupId);
-      }
-      return next;
+      return prev.has(groupId) ? new Set() : new Set([groupId]);
     });
   };
 
+  useEffect(() => {
+    let active = true;
+    try {
+      const cached = localStorage.getItem(ACTIVE_FARM_META_STORAGE_KEY);
+      if (cached) {
+        const parsed = JSON.parse(cached) as ActiveFarmMeta;
+        if (parsed?.farmId) {
+          queueMicrotask(() => {
+            if (active) setFarmMeta(parsed);
+          });
+        }
+      }
+    } catch {
+      // Ignore storage read errors
+    }
+
+    fetch("/api/auth/me", { credentials: "same-origin" })
+      .then((res) => (res.ok ? res.json() : null))
+      .then((data) => {
+        if (!active || !data?.farmId) return;
+        const nextMeta: ActiveFarmMeta = {
+          farmId: String(data.farmId),
+          farmName: data.farmName ?? null,
+          farmSlug: data.farmSlug ?? null,
+        };
+        setFarmMeta(nextMeta);
+        try {
+          localStorage.setItem(ACTIVE_FARM_META_STORAGE_KEY, JSON.stringify(nextMeta));
+        } catch {
+          // Ignore storage write errors
+        }
+      })
+      .catch(() => {
+        // Offline / unauthenticated fallback keeps cached FarmID if available
+      });
+
+    return () => {
+      active = false;
+    };
+  }, []);
+
   const logout = async () => {
     clearOfflineCryptoKey(true);
+    try {
+      localStorage.removeItem(ACTIVE_FARM_META_STORAGE_KEY);
+    } catch {
+      // Ignore storage clear errors
+    }
+    clearCachedAppRole();
     await fetch("/api/auth/logout", { method: "POST" });
     router.push("/login");
     router.refresh();
@@ -127,7 +205,7 @@ export default function Sidebar() {
     }
 
     // Las páginas con pestañas activan su índice solo cuando no hay pestaña.
-    if (path === "/dashboard/produccion" && searchParams.get("tab")) return false;
+    if (path === "/produccion" && searchParams.get("tab")) return false;
     return true;
   };
 
@@ -171,23 +249,25 @@ export default function Sidebar() {
         </button>
 
         {/* Header */}
-        <div className={`border-b border-green-700 ${collapsed ? "px-2 py-4" : "p-5"}`}>
+        <div className={`border-b border-green-700 ${collapsed ? "px-2 py-3.5" : "px-4 py-3.5"}`}>
           {collapsed ? (
             <div className="flex flex-col items-center">
-              <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-green-800 text-farm-300 border border-green-700">
-                <Bird className="w-5 h-5" />
-              </div>
+              <Link
+                href="/inicio"
+                className="flex h-9 w-9 items-center justify-center rounded-xl bg-white/95 p-1 border border-white/25 shadow-sm"
+                title={farmMeta?.farmName ? `IwaGranja · ${farmMeta.farmName}` : "IwaGranja — Tu granja, todo bajo control."}
+              >
+                <BrandLogo variant="mark" size={28} decorative />
+              </Link>
             </div>
           ) : (
-            <>
-              <h1 className="text-xl font-bold flex items-center gap-2.5">
-                <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-green-800 text-farm-300 border border-green-700 shrink-0">
-                  <Bird className="w-5 h-5" />
-                </span>
-                <span>El Gallinero</span>
-              </h1>
-              <p className="text-green-300 text-xs mt-1.5">Granja Autosustentable</p>
-            </>
+            <Link
+              href="/inicio"
+              aria-label="IwaGranja — Inicio del panel"
+              className="block rounded-xl bg-white/95 px-2.5 py-2 shadow-sm border border-white/25 hover:bg-white transition-colors"
+            >
+              <BrandLogo variant="horizontal" height={42} priority className="mx-auto max-w-full" />
+            </Link>
           )}
         </div>
 
@@ -204,9 +284,9 @@ export default function Sidebar() {
         <nav className="flex-1 overflow-y-auto overflow-x-hidden py-4">
           {/* Dashboard link */}
           <Link
-            href="/dashboard"
+            href="/inicio"
             className={`flex items-center gap-3 py-3 text-sm transition-all hover:bg-green-800 ${collapsed ? "justify-center px-2" : "px-5"
-              } ${pathname === "/dashboard" ? "bg-green-700 border-r-4 border-farm-400 font-semibold" : ""}`}
+              } ${pathname === "/inicio" ? "bg-green-700 border-r-4 border-farm-400 font-semibold" : ""}`}
             title={collapsed ? "Inicio" : undefined}
           >
             <BarChart3 className="w-4 h-4 flex-shrink-0 text-green-200" />
@@ -214,10 +294,10 @@ export default function Sidebar() {
           </Link>
 
           {/* QR Scanner */}
-          <Link
-            href="/dashboard/escanear"
+          {canAccessAppRoute(role, "/escanear") && <Link
+            href="/escanear"
             className={`flex items-center gap-3 py-3 text-sm transition-all hover:bg-green-800 ${collapsed ? "justify-center px-2" : "px-5"
-              } ${pathname === "/dashboard/escanear" || pathname.startsWith("/dashboard/escanear")
+              } ${pathname === "/escanear" || pathname.startsWith("/escanear")
                 ? "bg-green-700 border-r-4 border-farm-400 font-semibold"
                 : ""
               }`}
@@ -225,7 +305,7 @@ export default function Sidebar() {
           >
             <QrCode className="w-4 h-4 flex-shrink-0 text-green-200" />
             {!collapsed && <span>Escanear</span>}
-          </Link>
+          </Link>}
 
           {/* Progressive navigation groups (single-codebase feature flags) */}
           {visibleGroups.map((group) => (
@@ -240,35 +320,35 @@ export default function Sidebar() {
               collapsed={collapsed}
             />
           ))}
+
+          {/* Configuración unificada dentro del mismo árbol de navegación */}
+          {visibleConfigGroup && (
+            <div className="mt-2 pt-2 border-t border-green-800/80">
+              <GroupItem
+                group={visibleConfigGroup}
+                pathname={pathname}
+                expandedGroups={expandedGroups}
+                toggleGroup={toggleGroup}
+                isItemActive={isItemActive}
+                isGroupActive={isGroupActive}
+                collapsed={collapsed}
+              />
+            </div>
+          )}
         </nav>
 
-        {/* Footer: configuracion + guide/logout in one row */}
+        {/* Footer: guide, logout and developer credit */}
         <div className={`border-t border-green-700 space-y-2 ${collapsed ? "p-2" : "p-3.5"}`}>
-          <Link
-            href="/dashboard/configuracion"
-            className={`w-full py-1.5 rounded-lg text-xs font-medium transition-colors flex items-center justify-center gap-2 ${collapsed ? "px-1" : "px-3"} ${
-              pathname.startsWith("/dashboard/configuracion")
-                ? "bg-green-600 text-white"
-                : "bg-green-800/90 hover:bg-green-700 text-green-100"
-            }`}
-            title={collapsed ? "Configuración" : "Ir a Configuración, Catálogos y Módulos"}
-          >
-            <Settings className="w-3.5 h-3.5 shrink-0" aria-hidden="true" />
-            {!collapsed && <span className="flex-1 text-left">Configuración</span>}
-          </Link>
-
           <div className={collapsed ? "flex flex-col gap-1.5" : "grid grid-cols-2 gap-1.5"}>
             <a
               href="/guia"
               target="_blank"
               rel="noopener noreferrer"
-              className={`py-1.5 rounded-lg text-xs font-medium transition-colors flex items-center justify-center gap-1.5 ${
-                collapsed ? "w-full px-1" : "px-2"
-              } ${
-                pathname.startsWith("/dashboard/guia") || pathname.startsWith("/guia")
+              className={`py-1.5 rounded-lg text-xs font-medium transition-colors flex items-center justify-center gap-1.5 ${collapsed ? "w-full px-1" : "px-2"
+                } ${pathname.startsWith("/manual") || pathname.startsWith("/guia")
                   ? "bg-green-600 text-white"
                   : "bg-green-800 hover:bg-green-700 text-green-100"
-              }`}
+                }`}
               title={collapsed ? "Guía de Usuario (abre en hoja aparte)" : "Abrir manual de usuario"}
               aria-label="Guía de Usuario"
             >
@@ -282,9 +362,8 @@ export default function Sidebar() {
             </a>
             <button
               onClick={logout}
-              className={`py-1.5 rounded-lg bg-green-700 hover:bg-green-600 text-green-100 text-[11px] font-medium transition-colors flex items-center justify-center gap-1 ${
-                collapsed ? "w-full px-1" : "px-2"
-              }`}
+              className={`py-1.5 rounded-lg bg-green-700 hover:bg-green-600 text-green-100 text-[11px] font-medium transition-colors flex items-center justify-center gap-1 ${collapsed ? "w-full px-1" : "px-2"
+                }`}
               title="Cerrar Sesión"
               aria-label="Cerrar Sesión"
             >
@@ -292,18 +371,6 @@ export default function Sidebar() {
               {!collapsed && <span className="truncate">Cerrar sesión</span>}
             </button>
           </div>
-          <button
-            type="button"
-            onClick={() => openBugReportModal({ triggerSource: "sidebar" })}
-            className={`w-full py-1.5 rounded-lg text-xs font-medium transition-colors flex items-center justify-center gap-2 bg-rose-950/60 hover:bg-rose-900/80 text-rose-100 border border-rose-800/50 ${
-              collapsed ? "px-1" : "px-3"
-            }`}
-            title={collapsed ? "Reportar falla" : "Reportar falla con origen etiquetado"}
-            aria-label="Reportar falla"
-          >
-            <Bug className="w-3.5 h-3.5 shrink-0 text-rose-200" aria-hidden="true" />
-            {!collapsed && <span className="flex-1 text-left text-[11px]">Reportar falla</span>}
-          </button>
           <DeveloperCredit variant="sidebar" collapsed={collapsed} />
         </div>
       </aside>

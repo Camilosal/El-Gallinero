@@ -1,7 +1,3 @@
-import { and, eq } from "drizzle-orm";
-import { db } from "@/db";
-import { catalogos } from "@/db/schema";
-import { getCurrentFarmId } from "@/db/tenant-context";
 import {
   getEggStorageThresholds,
   getExternalSyncConfig,
@@ -10,11 +6,15 @@ import {
 } from "@/lib/settings";
 import {
   fetchJsonWithTimeout,
+  fetchSipsaCityPricesWithTimeout,
+  saveExternalObservations,
   getExternalSnapshot,
   isSnapshotExpired,
   saveExternalSnapshot,
   type StoredExternalSnapshot,
 } from "./snapshot-store";
+import { createHash } from "node:crypto";
+import { fetchLatestSipsaDailyWorkbook, parseSipsaDailyWorkbook } from "./wave6-dane-files";
 
 import {
   COLOMBIA_DEPARTMENTS,
@@ -97,24 +97,19 @@ export interface DivipolaSnapshotPayload extends Record<string, unknown> {
 }
 
 export interface RegionalMarketBenchmarkRow {
-  plaza: string;
-  departments: string[];
-  region: string;
-  eggAaCopUnit: number;
-  eggACopUnit: number;
-  polloPieKgCop: number;
-  polloCanalKgCop: number;
-  gallinaDescarteUnitCop: number;
-  conejoCanalKgCop: number;
-  quailEggCopUnit: number;
-  concentrado40KgBagCop: number;
-  maizAmarilloKgCop: number;
-  tortaSoyaKgCop: number;
-  periodLabel: string;
+  recordId: string;
+  productCode: string;
+  product: string;
+  city: string;
+  capturedAt: string;
+  averagePriceCop: number;
+  unit: string | null;
 }
 
 export interface MarketPricesPayload extends Record<string, unknown> {
+  schemaVersion: number;
   regionDepartment: string;
+  sourceStatus: { sipsa: "ok" | "fallback"; trm: "ok" | "fallback" };
   coverageScope: ZoneCoverageScope;
   coverageLabel: string;
   periodLabel: string;
@@ -158,12 +153,7 @@ export interface MarketPricesPayload extends Record<string, unknown> {
     balancedFeed40KgCop: number;
   };
   regionalPrices: RegionalMarketBenchmarkRow[];
-  sipsaSampleRows: Array<{
-    product: string;
-    market: string;
-    avgPriceCop: number;
-    unit: string;
-  }>;
+  sipsaSampleRows: RegionalMarketBenchmarkRow[];
   note: string;
 }
 
@@ -505,72 +495,6 @@ export async function syncDivipolaSnapshot(
         });
       }
 
-        const SIPSA_REGIONAL_HUBS: Array<{
-          plaza: string;
-          departments: string[];
-          region: string;
-          mult: number;
-        }> = [
-            { plaza: "Corabastos Bogotá / Cundinamarca", departments: ["Cundinamarca", "Bogotá D.C."], region: "Andina", mult: 1.02 },
-            { plaza: "Central Mayorista Medellín / Antioquia", departments: ["Antioquia"], region: "Andina", mult: 1.02 },
-            { plaza: "Centroabastos Bucaramanga / Santander", departments: ["Santander"], region: "Andina", mult: 1.0 },
-            { plaza: "Cavasa Cali / Valle del Cauca", departments: ["Valle del Cauca"], region: "Pacífica", mult: 1.01 },
-            { plaza: "Mercasa Pereira / Eje Cafetero", departments: ["Risaralda", "Quindío", "Caldas"], region: "Andina", mult: 1.0 },
-            { plaza: "Tunja / Boyacá", departments: ["Boyacá"], region: "Andina", mult: 0.96 },
-            { plaza: "Plaza La 21 Ibagué / Surabastos Neiva", departments: ["Tolima", "Huila"], region: "Andina", mult: 0.98 },
-            { plaza: "El Potrerillo Pasto / Popayán", departments: ["Nariño", "Cauca"], region: "Andina", mult: 0.96 },
-            { plaza: "Granabastos Barranquilla / Costa Caribe", departments: ["Atlántico", "Bolívar", "Córdoba", "Sucre", "Magdalena", "Cesar"], region: "Caribe", mult: 1.05 },
-            { plaza: "Central Abastos Villavicencio / Orinoquía", departments: ["Meta", "Casanare"], region: "Orinoquía", mult: 1.01 },
-            { plaza: "Cenabastos Cúcuta / Norte de Santander", departments: ["Norte de Santander"], region: "Andina", mult: 0.99 },
-          ];
-
-        function buildRegionalPricesTable(
-          trmFeedFactor: number,
-          periodLabel: string,
-        ): RegionalMarketBenchmarkRow[] {
-          const rows: RegionalMarketBenchmarkRow[] = SIPSA_REGIONAL_HUBS.map((hub) => {
-            const bag = Math.round(108000 * trmFeedFactor * (0.97 + (hub.mult - 1) * 0.4));
-            return {
-              plaza: hub.plaza,
-              departments: hub.departments,
-              region: hub.region,
-              eggAaCopUnit: Math.round(490 * hub.mult),
-              eggACopUnit: Math.round(445 * hub.mult),
-              polloPieKgCop: Math.round(8600 * hub.mult),
-              polloCanalKgCop: Math.round(12400 * hub.mult),
-              gallinaDescarteUnitCop: Math.round(21000 * hub.mult),
-              conejoCanalKgCop: Math.round(26500 * hub.mult),
-              quailEggCopUnit: Math.round(170 * hub.mult),
-              concentrado40KgBagCop: bag,
-              maizAmarilloKgCop: Math.round(1680 * trmFeedFactor),
-              tortaSoyaKgCop: Math.round(2950 * trmFeedFactor),
-              periodLabel,
-            };
-          });
-
-          const avg = (fn: (r: RegionalMarketBenchmarkRow) => number) =>
-            Math.round(rows.reduce((s, r) => s + fn(r), 0) / rows.length);
-
-          rows.push({
-            plaza: "Promedio Nacional Colombia (último periodo SIPSA)",
-            departments: ["Promedio Nacional"],
-            region: "Nacional",
-            eggAaCopUnit: avg((r) => r.eggAaCopUnit),
-            eggACopUnit: avg((r) => r.eggACopUnit),
-            polloPieKgCop: avg((r) => r.polloPieKgCop),
-            polloCanalKgCop: avg((r) => r.polloCanalKgCop),
-            gallinaDescarteUnitCop: avg((r) => r.gallinaDescarteUnitCop),
-            conejoCanalKgCop: avg((r) => r.conejoCanalKgCop),
-            quailEggCopUnit: avg((r) => r.quailEggCopUnit),
-            concentrado40KgBagCop: avg((r) => r.concentrado40KgBagCop),
-            maizAmarilloKgCop: avg((r) => r.maizAmarilloKgCop),
-            tortaSoyaKgCop: avg((r) => r.tortaSoyaKgCop),
-            periodLabel,
-          });
-
-          return rows;
-        }
-
         export async function syncMarketPricesSnapshot(
           options?: { forceRefresh?: boolean },
         ): Promise<StoredExternalSnapshot<MarketPricesPayload>> {
@@ -580,264 +504,187 @@ export async function syncDivipolaSnapshot(
             getExternalSnapshot<MarketPricesPayload>("dane_sipsa_trm"),
           ]);
           const configuredFarmZone = buildFarmZoneRef(settings);
+          if (
+            !options?.forceRefresh &&
+            existing &&
+            existing.payload.schemaVersion === 2 &&
+            !isSnapshotExpired(existing) &&
+            isSameFarmZone(existing.payload.configuredFarmZone, configuredFarmZone)
+          ) {
+            return existing;
+          }
 
-            if (
-              !options?.forceRefresh &&
-              existing &&
-              !isSnapshotExpired(existing) &&
-              isSameFarmZone(existing.payload.configuredFarmZone, configuredFarmZone)
-            ) {
-              return existing;
-            }
+          const endpoint = process.env.SIPSA_SOAP_URL || "http://appweb.dane.gov.co:9001/sipsaWS/SrvSipsaUpraBeanService";
+          const trmUrl = "https://www.datos.gov.co/resource/32sa-8pi3.json?$limit=1&$order=vigenciadesde%20DESC";
+          const zone = resolveZoneWithFallback({ ...configuredFarmZone, periodLabel: "Último dato SIPSA disponible" });
+          const errors: string[] = [];
+          let observations: RegionalMarketBenchmarkRow[] = [];
+          let sipsaOk = false;
+          let trmCopPerUsd = 0;
+          let trmDate = "";
+          let trmOk = false;
+          let sipsaProviderName = "DANE SIPSA vía servicio web";
+          let sipsaSourceUrl = endpoint;
 
-            const periodLabel = "Último periodo disponible";
-            const zone = resolveZoneWithFallback({ ...configuredFarmZone, periodLabel });
-            const department = zone.matchedDepartment || settings["farm.department"] || "Promedio Nacional";
-
-            let trmCopPerUsd = 4280;
-            let trmDate = new Date().toISOString().slice(0, 10);
-            let trmOk = false;
-            let sipsaOk = false;
-            const sipsaSampleRows: MarketPricesPayload["sipsaSampleRows"] = [];
-            const errors: string[] = [];
-
-            if (syncConfig.syncEnabled) {
-              const [trmRes, sipsaRes] = await Promise.all([
-                fetchJsonWithTimeout<Array<{ valor?: string; vigenciadesde?: string }>>(
-                  "https://www.datos.gov.co/resource/32sa-8pi3.json?$limit=1&$order=vigenciadesde%20DESC",
-                  3800,
-                ),
-                fetchJsonWithTimeout<Array<Record<string, unknown>>>(
-                  "https://www.datos.gov.co/resource/2pnw-mmge.json?$limit=40",
-                  3800,
-                ),
-              ]);
-
-              if (trmRes.ok && Array.isArray(trmRes.data) && trmRes.data[0]?.valor) {
-                const parsedTrm = Number(trmRes.data[0].valor);
-                if (Number.isFinite(parsedTrm) && parsedTrm > 1000) {
-                  trmCopPerUsd = Number(parsedTrm.toFixed(2));
-                  trmDate = String(trmRes.data[0].vigenciadesde || trmDate).slice(0, 10);
-                  trmOk = true;
-                }
-              } else if (!trmRes.ok) {
-                errors.push(`TRM: ${trmRes.error}`);
-              }
-
-              if (sipsaRes.ok && Array.isArray(sipsaRes.data) && sipsaRes.data.length > 0) {
-                sipsaOk = true;
-                for (const row of sipsaRes.data) {
-                  const prod = String(row.producto || row.arti_nombre || row.nombre || "").trim();
-                  const priceRaw = Number(row.promedio || row.precio_promedio || row.promediokg || row.valor || 0);
-                  const market = String(row.fuente || row.mercado || row.ciudad || "Central SIPSA").trim();
-                  if (prod && Number.isFinite(priceRaw) && priceRaw > 0) {
-                    sipsaSampleRows.push({
-                      product: prod,
-                      market,
-                      avgPriceCop: Math.round(priceRaw),
-                      unit: String(row.unidad || "kg"),
-                    });
-                  }
-                  if (sipsaSampleRows.length >= 10) break;
-                }
-              } else if (!sipsaRes.ok) {
-                errors.push(`SIPSA: ${sipsaRes.error}`);
-              }
-            }
-
-            const trmFeedFactor = Math.max(0.9, Math.min(1.15, trmCopPerUsd / 4250));
-            const regionalPrices = buildRegionalPricesTable(trmFeedFactor, periodLabel);
-            const nationalRow = regionalPrices[regionalPrices.length - 1];
-
-            // Resolución en cascada Local/Plaza directa -> Promedio regional -> Promedio nacional
-            const normDept = normalizeText(department);
-            const directHub =
-              zone.coverageScope === "nacional"
-                ? undefined
-                : regionalPrices.find(
-                  (r) =>
-                    r.region !== "Nacional" &&
-                    r.departments.some(
-                      (d) => normalizeText(d) === normDept || (normDept && normalizeText(d).includes(normDept)),
-                    ),
-                );
-
-            let mult = 1.0;
-            let marketCoverageScope: ZoneCoverageScope = zone.coverageScope;
-            let marketCoverageLabel = zone.coverageLabel;
-
-            if (directHub) {
-              mult = directHub.eggAaCopUnit / 490;
-              marketCoverageScope = zone.coverageScope === "local" ? "local" : "regional";
-              marketCoverageLabel =
-                zone.coverageScope === "local"
-                  ? `Zona local: ${zone.municipality.municipality}, ${department} (Plaza ${directHub.plaza})`
-                  : `Promedio regional: ${department} (Plaza ${directHub.plaza} · ${periodLabel})`;
-            } else if (zone.coverageScope !== "nacional") {
-              const regionRows = regionalPrices.filter(
-                (r) => r.region !== "Nacional" && normalizeText(r.region) === normalizeText(zone.matchedRegion),
+          if (syncConfig.syncEnabled) {
+            const [sipsaRes, trmRes] = await Promise.all([
+              fetchSipsaCityPricesWithTimeout(endpoint, 10000),
+              fetchJsonWithTimeout<Array<{ valor?: string; vigenciadesde?: string }>>(trmUrl, 12000),
+            ]);
+            if (sipsaRes.ok && sipsaRes.data.length > 0) {
+              sipsaOk = true;
+              observations = sipsaRes.data
+                .sort((a, b) => Date.parse(b.capturedAt) - Date.parse(a.capturedAt))
+                .slice(0, 1000)
+                .map((row) => ({
+                  recordId: row.recordId,
+                  productCode: row.productCode,
+                  product: row.product,
+                  city: row.city,
+                  capturedAt: row.capturedAt,
+                  averagePriceCop: row.averagePriceCop,
+                  unit: null,
+                }));
+              await saveExternalObservations(
+                sipsaRes.data.map((row) => ({
+                  sourceKey: "dane_sipsa_trm",
+                  observationKey: `sipsa-${row.recordId}`,
+                  observedAt: new Date(row.capturedAt),
+                  value: row.averagePriceCop,
+                  unit: null,
+                  providerName: "DANE SIPSA, promedio de precio por ciudad",
+                  sourceUrl: endpoint,
+                  dimensions: { city: row.city, product: row.product, productCode: row.productCode },
+                  metadata: { createdAt: row.createdAt },
+                })),
               );
-              if (regionRows.length > 0) {
-                const avgEggAa = regionRows.reduce((s, r) => s + r.eggAaCopUnit, 0) / regionRows.length;
-                mult = avgEggAa / 490;
-                marketCoverageScope = "regional";
-                marketCoverageLabel = `Promedio regional: Región ${zone.matchedRegion} (${periodLabel})`;
-              } else {
-                mult = nationalRow.eggAaCopUnit / 490;
-                marketCoverageScope = "nacional";
-                marketCoverageLabel = `Promedio nacional Colombia (${periodLabel})`;
-              }
             } else {
-              mult = nationalRow.eggAaCopUnit / 490;
-              marketCoverageScope = "nacional";
-              marketCoverageLabel = `Promedio nacional Colombia (${periodLabel})`;
+              const apiError = sipsaRes.ok ? "SIPSA respondió sin observaciones utilizables" : sipsaRes.error;
+              try {
+                const publication = await fetchLatestSipsaDailyWorkbook();
+                const dailyObservations = parseSipsaDailyWorkbook(publication.bytes);
+                const fileName = decodeURIComponent(new URL(publication.url).pathname.split("/").at(-1) || "anexo.xlsx");
+                const checksumSha256 = createHash("sha256").update(publication.bytes).digest("hex");
+                await saveExternalObservations(dailyObservations.map((row) => ({
+                  sourceKey: "dane_sipsa_trm",
+                  observationKey: `sipsa-p-${createHash("sha256").update(JSON.stringify([row.period, row.market, row.product])).digest("hex")}`,
+                  observedAt: new Date(`${row.period}T00:00:00.000Z`),
+                  value: row.priceCopKg,
+                  unit: "COP/kg",
+                  providerName: "DANE SIPSA-P · boletín diario XLSX",
+                  sourceUrl: publication.url,
+                  dimensions: {
+                    period: row.period,
+                    market: row.market,
+                    product: row.product,
+                    category: row.category,
+                    variationRatio: row.variationRatio,
+                    sourceType: "SIPSA-P",
+                  },
+                  metadata: { sourceFile: fileName, checksumSha256, parserVersion: "dane-openxml-v1" },
+                })));
+                sipsaOk = true;
+                observations = dailyObservations.slice(0, 1000).map((row) => ({
+                  recordId: `sipsa-p-${row.period}-${row.market}-${row.product}`,
+                  productCode: "",
+                  product: row.product,
+                  city: row.market,
+                  capturedAt: `${row.period}T00:00:00.000Z`,
+                  averagePriceCop: row.priceCopKg,
+                  unit: "COP/kg",
+                }));
+                sipsaProviderName = "DANE SIPSA-P · boletín diario oficial XLSX";
+                sipsaSourceUrl = publication.url;
+              } catch (fileError) {
+                const message = fileError instanceof Error ? fileError.message : "error desconocido al procesar el XLSX";
+                errors.push(`SIPSA API: ${apiError}; archivo oficial: ${message}`);
+              }
             }
 
-            const aaEggBase = Math.round(490 * mult);
-            const bag40KgCop = Math.round(108000 * trmFeedFactor);
-            const maizAmarilloKgCop = Math.round(1680 * trmFeedFactor);
-            const tortaSoyaKgCop = Math.round(2950 * trmFeedFactor);
+            if (trmRes.ok && Array.isArray(trmRes.data) && trmRes.data[0]?.valor) {
+              const parsedTrm = Number(trmRes.data[0].valor);
+              if (Number.isFinite(parsedTrm) && parsedTrm > 1000) {
+                trmCopPerUsd = Number(parsedTrm.toFixed(2));
+                trmDate = String(trmRes.data[0].vigenciadesde || "").slice(0, 10);
+                trmOk = Boolean(trmDate);
+                if (trmOk) {
+                  await saveExternalObservations([{
+                    sourceKey: "dane_sipsa_trm",
+                    observationKey: `trm-${trmDate}`,
+                    observedAt: new Date(trmDate),
+                    value: trmCopPerUsd,
+                    unit: "COP/USD",
+                    providerName: "Superintendencia Financiera de Colombia, TRM",
+                    sourceUrl: trmUrl,
+                    dimensions: { indicator: "TRM" },
+                    metadata: {},
+                  }]);
+                }
+              }
+            }
+            if (!trmOk) errors.push(`TRM: ${trmRes.ok ? "dato ausente o inválido" : trmRes.error}`);
+          }
 
-            const selectedZonePrices = {
-              eggAaCopUnit: aaEggBase,
-              eggACopUnit: Math.round(445 * mult),
-              broilerLiveCopKg: Math.round(8600 * mult),
-              broilerCarcassCopKg: Math.round(12400 * mult),
-              cullHenCopUnit: Math.round(21000 * mult),
-              rabbitCopKg: Math.round(26500 * mult),
-              quailEggCopUnit: Math.round(170 * mult),
-              cornYellowCopKg: maizAmarilloKgCop,
-              soybeanMealCopKg: tortaSoyaKgCop,
-              balancedFeed40KgCop: bag40KgCop,
-            };
+          if (!sipsaOk && existing?.payload.schemaVersion === 2) {
+            observations = existing.payload.sipsaSampleRows || [];
+          }
+          if (!trmOk && existing?.payload.schemaVersion === 2) {
+            trmCopPerUsd = existing.payload.trmCopPerUsd || 0;
+            trmDate = existing.payload.trmDate || "";
+          }
 
-            const payload: MarketPricesPayload = {
-              regionDepartment: department,
-              coverageScope: marketCoverageScope,
-              coverageLabel: marketCoverageLabel,
-              periodLabel,
-              configuredFarmZone,
-              trmCopPerUsd,
-              trmDate,
-              eggs: {
-                jumboUnitCop: Math.round(620 * mult),
-                aaaUnitCop: Math.round(545 * mult),
-                aaUnitCop: aaEggBase,
-                aUnitCop: Math.round(445 * mult),
-                bUnitCop: Math.round(390 * mult),
-                aaTray30Cop: aaEggBase * 30,
-                quailEggUnitCop: Math.round(170 * mult),
-              },
-              meat: {
-                polloCanalKgCop: Math.round(12400 * mult),
-                polloPieKgCop: Math.round(8600 * mult),
-                gallinaDescarteUnitCop: Math.round(21000 * mult),
-                patoCanalKgCop: Math.round(19500 * mult),
-                conejoCanalKgCop: Math.round(26500 * mult),
-                cuyPieUnitCop: Math.round(36000 * mult),
-                cuyCanalKgCop: Math.round(32000 * mult),
-              },
-              feed: {
-                maizAmarilloKgCop,
-                tortaSoyaKgCop,
-                concentrado40KgBagCop: bag40KgCop,
-                concentradoKgCop: Math.round(bag40KgCop / 40),
-              },
-              selectedZonePrices,
-              regionalPrices,
-              sipsaSampleRows,
-              note: trmOk || sipsaOk
-      ? `Sincronizado con fuentes oficiales (${trmOk ? "TRM SFC" : "TRM respaldo"}${sipsaOk ? " + DANE SIPSA" : ""}) · ${marketCoverageLabel}.`
-              : `Referencia ${marketCoverageLabel} (respaldo local SIPSA/FENAVI).`,
+          const capturedDates = observations.map((row) => row.capturedAt.slice(0, 10)).filter(Boolean).sort();
+          const periodLabel = capturedDates.at(-1) || "Sin observaciones SIPSA";
+          const normalizedCity = normalizeText(configuredFarmZone.city);
+          const cityMatch = observations.some((row) => normalizeText(row.city) === normalizedCity && normalizedCity);
+          const coverageScope: ZoneCoverageScope = cityMatch ? "local" : "nacional";
+          const coverageLabel = cityMatch
+            ? `SIPSA por ciudad: ${configuredFarmZone.city} · dato más reciente ${periodLabel}`
+            : `Observaciones SIPSA disponibles por ciudad · dato más reciente ${periodLabel}`;
+          const emptyPrices = {
+            jumboUnitCop: 0, aaaUnitCop: 0, aaUnitCop: 0, aUnitCop: 0, bUnitCop: 0,
+            aaTray30Cop: 0, quailEggUnitCop: 0,
           };
-
-          const status: "ok" | "fallback" = trmOk || sipsaOk ? "ok" : "fallback";
-
+          const emptyMeat = {
+            polloCanalKgCop: 0, polloPieKgCop: 0, gallinaDescarteUnitCop: 0, patoCanalKgCop: 0,
+            conejoCanalKgCop: 0, cuyPieUnitCop: 0, cuyCanalKgCop: 0,
+          };
+          const emptyFeed = {
+            maizAmarilloKgCop: 0, tortaSoyaKgCop: 0, concentrado40KgBagCop: 0, concentradoKgCop: 0,
+          };
+          const payload: MarketPricesPayload = {
+            schemaVersion: 2,
+            regionDepartment: configuredFarmZone.department || "Colombia",
+            coverageScope,
+            coverageLabel,
+            periodLabel,
+            configuredFarmZone,
+            sourceStatus: { sipsa: sipsaOk ? "ok" : "fallback", trm: trmOk ? "ok" : "fallback" },
+            trmCopPerUsd,
+            trmDate,
+            eggs: emptyPrices,
+            meat: emptyMeat,
+            feed: emptyFeed,
+            selectedZonePrices: {
+              eggAaCopUnit: 0, eggACopUnit: 0, broilerLiveCopKg: 0, broilerCarcassCopKg: 0,
+              cullHenCopUnit: 0, rabbitCopKg: 0, quailEggCopUnit: 0, cornYellowCopKg: 0,
+              soybeanMealCopKg: 0, balancedFeed40KgCop: 0,
+            },
+            regionalPrices: observations,
+            sipsaSampleRows: observations,
+            note: "SIPSA entrega observaciones de producto y ciudad, pero este servicio no informa unidad comercial ni categoría operativa para todos los productos. Los valores se muestran como observaciones y no se convierten en precios maestros ni se usan como costos calculados. La TRM se consulta por separado.",
+          };
+          const status = sipsaOk && trmOk ? "ok" : "fallback";
+          const summary = `${observations.length} observaciones SIPSA · ${trmOk ? `TRM ${trmDate}: $${trmCopPerUsd.toLocaleString("es-CO")}` : "TRM pendiente"}`;
           return saveExternalSnapshot({
             sourceKey: "dane_sipsa_trm",
             wave: 1,
             status,
-            providerName: "DANE SIPSA + TRM Oficial Colombia",
-            sourceUrl: "https://www.datos.gov.co/resource/32sa-8pi3.json",
+            providerName: `${sipsaProviderName} + TRM SFC`,
+            sourceUrl: sipsaSourceUrl,
             payload,
-            summary: `${marketCoverageLabel} · Huevo AA: $${payload.eggs.aaUnitCop} · Pollo canal: $${payload.meat.polloCanalKgCop.toLocaleString("es-CO")}/kg · TRM: $${trmCopPerUsd.toLocaleString("es-CO")}`,
+            summary,
             ttlHours: syncConfig.marketTtlHours,
             lastError: errors.length > 0 ? errors.join(" | ") : null,
           });
-        }
-
-        export async function applyMarketPricesToSpeciesCatalog(): Promise<{
-          updatedCount: number;
-          prices: MarketPricesPayload;
-        }> {
-          const farmId = getCurrentFarmId();
-          const snapshot = await syncMarketPricesSnapshot({ forceRefresh: true });
-          const p = snapshot.payload;
-
-          const updatesBySpecies: Record<string, { eggPrice?: string; price: string; feedCostPerKg: string }> = {
-            gallina: { eggPrice: String(p.eggs.aaUnitCop), price: String(p.meat.gallinaDescarteUnitCop), feedCostPerKg: String(p.feed.concentradoKgCop) },
-            pollo: { price: String(p.meat.polloCanalKgCop), feedCostPerKg: String(p.feed.concentradoKgCop) },
-            codorniz: { eggPrice: String(p.eggs.quailEggUnitCop), price: String(Math.round(p.eggs.quailEggUnitCop * 24)), feedCostPerKg: String(Math.round(p.feed.concentradoKgCop * 1.15)) },
-            pato: { eggPrice: String(Math.round(p.eggs.aaUnitCop * 1.5)), price: String(p.meat.patoCanalKgCop), feedCostPerKg: String(p.feed.concentradoKgCop) },
-            conejo: { price: String(p.meat.conejoCanalKgCop), feedCostPerKg: String(Math.round(p.feed.concentradoKgCop * 0.85)) },
-            cuy: { price: String(p.meat.cuyPieUnitCop), feedCostPerKg: String(Math.round(p.feed.concentradoKgCop * 0.72)) },
-          };
-
-          const rows = await db
-            .select()
-            .from(catalogos)
-            .where(eq(catalogos.category, "params_especie"));
-
-          let updatedCount = 0;
-          const processedValues = new Set<string>();
-          for (const row of rows) {
-            if (processedValues.has(row.value)) continue;
-            const sp = (row.tipo || "").toLowerCase();
-            const specUpdate = updatesBySpecies[sp];
-            if (!specUpdate) continue;
-            processedValues.add(row.value);
-
-            // Si pertenece a esta granja actualizamos directo; si es catálogo base compartido, clonamos a la granja para respetar RLS.
-            const existingOwn = rows.find(
-              (r) => r.farmId === farmId && r.category === "params_especie" && r.value === row.value,
-            );
-            if (existingOwn) {
-              await db
-                .update(catalogos)
-                .set({
-                  eggPrice: specUpdate.eggPrice ?? existingOwn.eggPrice,
-                  price: specUpdate.price,
-                  feedCostPerKg: specUpdate.feedCostPerKg,
-                })
-                .where(and(eq(catalogos.id, existingOwn.id), eq(catalogos.farmId, farmId)));
-              updatedCount++;
-            } else if (row.farmId !== farmId) {
-              await db
-                .insert(catalogos)
-                .values({
-                  farmId,
-                  category: "params_especie",
-                  value: row.value,
-                  tipo: row.tipo,
-                  units: row.units,
-                  minWeeks: row.minWeeks,
-                  maxWeeks: row.maxWeeks,
-                  expectedEggsPerHen: row.expectedEggsPerHen,
-                  dailyFeedG: row.dailyFeedG,
-                  targetWeightKg: row.targetWeightKg,
-                  feedConversionRatio: row.feedConversionRatio,
-                  systemType: row.systemType,
-                  description: row.description,
-                  sortOrder: row.sortOrder,
-                  isActive: row.isActive,
-                  eggPrice: specUpdate.eggPrice ?? row.eggPrice,
-                  price: specUpdate.price,
-                  feedCostPerKg: specUpdate.feedCostPerKg,
-                })
-                .onConflictDoNothing();
-              updatedCount++;
-            }
-          }
-
-          return { updatedCount, prices: p };
         }

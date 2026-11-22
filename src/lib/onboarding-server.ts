@@ -16,6 +16,7 @@ import { getSettings, invalidateSettingsCache } from "@/lib/settings";
 import { speciesLabel } from "@/lib/species-db";
 import { todayColombiaIso } from "@/lib/date-validation";
 import { seedBiologicalPreloadInTx } from "@/lib/biological-preload";
+import { assertCanCreateActiveBatch, assertCanCreateFarmLocation, PlanLimitExceededError } from "@/lib/subscription";
 import {
   ACTIVATION_HISTORY_SETTING_KEY,
   DAY1_ONBOARDING_RULES,
@@ -565,6 +566,13 @@ export async function executeDay1Setup(
 
       let location = locationByName.get(locationKey);
       if (!location) {
+        const locationQuota = await assertCanCreateFarmLocation(tx);
+        if (!locationQuota.allowed) {
+          throw new PlanLimitExceededError(
+            locationQuota.error || "El plan alcanzó el cupo de localizaciones activas.",
+            { code: locationQuota.code, activeCount: locationQuota.activeCount, limit: locationQuota.limit },
+          );
+        }
         const nextLocCode = await nextCodeInTx(tx, farmLocations, "LOC", "-");
         const [createdLoc] = await tx
           .insert(farmLocations)
@@ -673,6 +681,13 @@ export async function executeDay1Setup(
           })),
         );
       } else {
+        const batchQuota = await assertCanCreateActiveBatch(batchSpecies, undefined, tx);
+        if (!batchQuota.allowed) {
+          throw new PlanLimitExceededError(
+            batchQuota.error || "El plan alcanzó el cupo de lotes activos por especie.",
+            { code: batchQuota.code, planName: batchQuota.planName, activeCount: batchQuota.activeCount, limit: batchQuota.limit },
+          );
+        }
         await tx.execute(sql`LOCK TABLE ${broilerBatches} IN EXCLUSIVE MODE`);
         const batchPrefix =
           species === "codorniz"
