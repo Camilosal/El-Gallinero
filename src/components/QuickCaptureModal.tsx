@@ -41,7 +41,7 @@ import {
   type MicroInsightPayload,
 } from "@/lib/micro-insights";
 import { useOnboardingState } from "@/lib/useOnboardingState";
-import { apiFetch } from "@/lib/fetch";
+import { apiFetch, getApiCacheKey } from "@/lib/fetch";
 import { todayColombiaIso } from "@/lib/date-validation";
 import { useCatalog } from "@/lib/useCatalog";
 import { useFarmLocations } from "@/lib/useFarmLocations";
@@ -438,10 +438,10 @@ export default function QuickCaptureModal() {
       cachedEggInv,
     ] = await Promise.all([
       getCachedRecords<EggRecordCache[]>("produccion_huevos"),
-      getCachedRecords<EggRecordCache[]>("api:/api/produccion/huevos"),
+      getCachedRecords<EggRecordCache[]>(getApiCacheKey("/api/produccion/huevos")),
       getCachedCatalog<unknown>("feed_inventory"),
       getCachedRecords<FeedMovementCache[]>("feed_movements"),
-      getCachedRecords<FeedMovementCache[]>("api:/api/produccion/alimentacion/movimientos"),
+      getCachedRecords<FeedMovementCache[]>(getApiCacheKey("/api/produccion/alimentacion/movimientos")),
       getCachedCatalog<HenItem[]>("hens_all"),
       getCachedCatalog<RoosterItem[]>("roosters_all"),
       getCachedCatalog<BatchItem[]>("broiler_batches_all"),

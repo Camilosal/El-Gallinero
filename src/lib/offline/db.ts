@@ -10,9 +10,12 @@ import {
   encryptBlobPayload,
   encryptJsonPayload,
 } from "./crypto";
+import { readCachedActiveFarmMeta } from "../active-farm-client";
 
 export interface OutboxMutation {
   id: string; // UUID v4 único
+  farmId?: string | null; // Granja origen para aislamiento multi-finca (OFF-01)
+  userId?: string | null; // Usuario origen opcional
   endpoint: string; // ej: '/api/produccion/huevos'
   method: "POST" | "PUT" | "DELETE";
   entity:
@@ -66,6 +69,35 @@ let dbPromise: Promise<IDBDatabase> | null = null;
 
 function isIndexedDBSupported(): boolean {
   return typeof window !== "undefined" && "indexedDB" in window && window.indexedDB !== null;
+}
+
+export function resolveEffectiveOfflineFarmId(farmId?: string | null): string | null {
+  const candidate = farmId !== undefined ? farmId : readCachedActiveFarmMeta()?.id ?? null;
+  if (typeof candidate !== "string") return null;
+  const trimmed = candidate.trim();
+  return trimmed.length > 0 ? trimmed : null;
+}
+
+export function resolveScopedOfflineKey(rawKey: string, farmId?: string | null): string {
+  if (!rawKey || rawKey.startsWith("__offline_") || rawKey.startsWith("farm:")) {
+    return rawKey;
+  }
+  const effectiveFarmId = resolveEffectiveOfflineFarmId(farmId);
+  if (!effectiveFarmId) return rawKey;
+  if (rawKey.startsWith(`api:${effectiveFarmId}:`)) {
+    return rawKey;
+  }
+  return `farm:${effectiveFarmId}:${rawKey}`;
+}
+
+export function mutationMatchesFarm(
+  mutation: Pick<OutboxMutation, "farmId">,
+  farmId?: string | null,
+): boolean {
+  const effectiveFarmId = resolveEffectiveOfflineFarmId(farmId);
+  if (!effectiveFarmId) return true;
+  if (!mutation.farmId) return true;
+  return mutation.farmId === effectiveFarmId;
 }
 
 /**
@@ -134,6 +166,8 @@ async function serializeOutboxMutation(mutation: OutboxMutation): Promise<Record
   ]);
   return {
     ...mutation,
+    farmId: mutation.farmId ?? null,
+    userId: mutation.userId ?? null,
     payload: encryptedPayload,
     description: encryptedDescription,
   };
@@ -146,6 +180,8 @@ async function deserializeOutboxMutation(raw: Record<string, any>): Promise<Outb
   ]);
   return {
     ...(raw as OutboxMutation),
+    farmId: typeof raw.farmId === "string" ? raw.farmId : null,
+    userId: typeof raw.userId === "string" ? raw.userId : null,
     payload,
     description,
   };
@@ -160,8 +196,11 @@ export async function addOutboxMutation(
     throw new Error("No hay soporte de IndexedDB");
   }
 
+  const resolvedFarmId = item.farmId !== undefined ? item.farmId : resolveEffectiveOfflineFarmId();
   const mutation: OutboxMutation = {
     ...item,
+    farmId: resolvedFarmId,
+    userId: item.userId ?? null,
     status: item.status || "pending",
     retries: 0,
     createdAt: Date.now(),
@@ -179,9 +218,10 @@ export async function addOutboxMutation(
   });
 }
 
-export async function getPendingMutations(): Promise<OutboxMutation[]> {
+export async function getPendingMutations(farmId?: string | null): Promise<OutboxMutation[]> {
   if (!isIndexedDBSupported()) return [];
   const db = await getOfflineDB();
+  const effectiveFarmId = resolveEffectiveOfflineFarmId(farmId);
 
   const rawPending = await new Promise<Record<string, any>[]>((resolve, reject) => {
     const tx = db.transaction("outbox", "readonly");
@@ -190,9 +230,13 @@ export async function getPendingMutations(): Promise<OutboxMutation[]> {
 
     req.onsuccess = () => {
       const all: Record<string, any>[] = req.result || [];
-      // Ordenar por createdAt FIFO (más antiguo primero)
+      // Ordenar por createdAt FIFO (más antiguo primero) y aislar por granja
       const pending = all
-        .filter((m) => m.status === "pending" || m.status === "failed")
+        .filter(
+          (m) =>
+            (m.status === "pending" || m.status === "failed") &&
+            mutationMatchesFarm({ farmId: typeof m.farmId === "string" ? m.farmId : null }, effectiveFarmId),
+        )
         .sort((a, b) => a.createdAt - b.createdAt);
       resolve(pending);
     };
@@ -202,9 +246,10 @@ export async function getPendingMutations(): Promise<OutboxMutation[]> {
   return Promise.all(rawPending.map(deserializeOutboxMutation));
 }
 
-export async function getAllOutboxMutations(): Promise<OutboxMutation[]> {
+export async function getAllOutboxMutations(farmId?: string | null): Promise<OutboxMutation[]> {
   if (!isIndexedDBSupported()) return [];
   const db = await getOfflineDB();
+  const effectiveFarmId = resolveEffectiveOfflineFarmId(farmId);
 
   const rawAll = await new Promise<Record<string, any>[]>((resolve, reject) => {
     const tx = db.transaction("outbox", "readonly");
@@ -213,7 +258,10 @@ export async function getAllOutboxMutations(): Promise<OutboxMutation[]> {
 
     req.onsuccess = () => {
       const all: Record<string, any>[] = req.result || [];
-      resolve(all.sort((a, b) => b.createdAt - a.createdAt));
+      const filtered = all
+        .filter((m) => mutationMatchesFarm({ farmId: typeof m.farmId === "string" ? m.farmId : null }, effectiveFarmId))
+        .sort((a, b) => b.createdAt - a.createdAt);
+      resolve(filtered);
     };
     req.onerror = () => reject(req.error);
   });
@@ -221,8 +269,8 @@ export async function getAllOutboxMutations(): Promise<OutboxMutation[]> {
   return Promise.all(rawAll.map(deserializeOutboxMutation));
 }
 
-export async function getPendingCount(): Promise<number> {
-  const pending = await getPendingMutations();
+export async function getPendingCount(farmId?: string | null): Promise<number> {
+  const pending = await getPendingMutations(farmId);
   return pending.length;
 }
 
@@ -295,8 +343,9 @@ export async function clearSyncedOutbox(): Promise<void> {
 // Almacenamiento de Catálogos (Cache local de Lotes, Ubicaciones, etc.)
 // ─────────────────────────────────────────────────────────────
 
-export async function setCachedCatalog<T>(key: string, data: T): Promise<void> {
+export async function setCachedCatalog<T>(key: string, data: T, farmId?: string | null): Promise<void> {
   if (!isIndexedDBSupported()) return;
+  const scopedKey = resolveScopedOfflineKey(key, farmId);
   const encryptedData = await encryptJsonPayload(data);
   const db = await getOfflineDB();
 
@@ -304,7 +353,7 @@ export async function setCachedCatalog<T>(key: string, data: T): Promise<void> {
     const tx = db.transaction("catalogs", "readwrite");
     const store = tx.objectStore("catalogs");
     const entry = {
-      key,
+      key: scopedKey,
       data: encryptedData,
       updatedAt: Date.now(),
     };
@@ -315,14 +364,15 @@ export async function setCachedCatalog<T>(key: string, data: T): Promise<void> {
   });
 }
 
-export async function getCachedCatalog<T>(key: string): Promise<T | null> {
+export async function getCachedCatalog<T>(key: string, farmId?: string | null): Promise<T | null> {
   if (!isIndexedDBSupported()) return null;
+  const scopedKey = resolveScopedOfflineKey(key, farmId);
   const db = await getOfflineDB();
 
   const entry = await new Promise<CatalogEntry<unknown> | undefined>((resolve, reject) => {
     const tx = db.transaction("catalogs", "readonly");
     const store = tx.objectStore("catalogs");
-    const req = store.get(key);
+    const req = store.get(scopedKey);
 
     req.onsuccess = () => resolve(req.result as CatalogEntry<unknown> | undefined);
     req.onerror = () => reject(req.error);
@@ -336,8 +386,9 @@ export async function getCachedCatalog<T>(key: string): Promise<T | null> {
 // Almacenamiento de Registros Recientes (Caché de consultas offline)
 // ─────────────────────────────────────────────────────────────
 
-export async function setCachedRecords<T>(key: string, data: T): Promise<void> {
+export async function setCachedRecords<T>(key: string, data: T, farmId?: string | null): Promise<void> {
   if (!isIndexedDBSupported()) return;
+  const scopedKey = resolveScopedOfflineKey(key, farmId);
   const encryptedData = await encryptJsonPayload(data);
   const db = await getOfflineDB();
 
@@ -345,7 +396,7 @@ export async function setCachedRecords<T>(key: string, data: T): Promise<void> {
     const tx = db.transaction("cached_records", "readwrite");
     const store = tx.objectStore("cached_records");
     const entry = {
-      key,
+      key: scopedKey,
       data: encryptedData,
       updatedAt: Date.now(),
     };
@@ -356,19 +407,20 @@ export async function setCachedRecords<T>(key: string, data: T): Promise<void> {
   });
 }
 
-export async function getCachedRecords<T>(key: string): Promise<T | null> {
-  const entry = await getCachedRecordEntry<T>(key);
+export async function getCachedRecords<T>(key: string, farmId?: string | null): Promise<T | null> {
+  const entry = await getCachedRecordEntry<T>(key, farmId);
   return entry ? entry.data : null;
 }
 
-export async function getCachedRecordEntry<T>(key: string): Promise<CachedRecordEntry<T> | null> {
+export async function getCachedRecordEntry<T>(key: string, farmId?: string | null): Promise<CachedRecordEntry<T> | null> {
   if (!isIndexedDBSupported()) return null;
+  const scopedKey = resolveScopedOfflineKey(key, farmId);
   const db = await getOfflineDB();
 
   const entry = await new Promise<CachedRecordEntry<unknown> | undefined>((resolve, reject) => {
     const tx = db.transaction("cached_records", "readonly");
     const store = tx.objectStore("cached_records");
-    const req = store.get(key);
+    const req = store.get(scopedKey);
 
     req.onsuccess = () => resolve(req.result as CachedRecordEntry<unknown> | undefined);
     req.onerror = () => reject(req.error);
@@ -383,9 +435,10 @@ export async function getCachedRecordEntry<T>(key: string): Promise<CachedRecord
   };
 }
 
-export async function getAllCachedRecordKeys(): Promise<string[]> {
+export async function getAllCachedRecordKeys(farmId?: string | null): Promise<string[]> {
   if (!isIndexedDBSupported()) return [];
   const db = await getOfflineDB();
+  const effectiveFarmId = resolveEffectiveOfflineFarmId(farmId);
 
   return new Promise((resolve, reject) => {
     const tx = db.transaction("cached_records", "readonly");
@@ -394,7 +447,17 @@ export async function getAllCachedRecordKeys(): Promise<string[]> {
 
     req.onsuccess = () => {
       const keys = Array.isArray(req.result) ? req.result.map(String) : [];
-      resolve(keys);
+      if (!effectiveFarmId) {
+        resolve(keys.filter((k) => !k.startsWith("farm:")));
+        return;
+      }
+      resolve(
+        keys.filter(
+          (k) =>
+            k.startsWith(`api:${effectiveFarmId}:`) ||
+            k.startsWith(`farm:${effectiveFarmId}:`),
+        ),
+      );
     };
     req.onerror = () => reject(req.error);
   });

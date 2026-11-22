@@ -1,5 +1,6 @@
 import { getCachedRecords, setCachedRecords } from "./offline/db";
 import { syncManager } from "./offline/syncManager";
+import { readCachedActiveFarmMeta } from "./active-farm-client";
 
 const NON_CACHEABLE_GET_PREFIXES = ["/api/health", "/api/auth/login", "/api/auth/logout", "/api/auth/register", "/api/asistente/cuota", "/api/billing/", "/api/superadmin/"];
 const NON_QUEUEABLE_MUTATION_PREFIXES = [
@@ -16,8 +17,11 @@ const METHOD_LABELS: Record<string, string> = {
   DELETE: "Eliminar",
 };
 
-export function getApiCacheKey(pathnameWithSearch: string): string {
-  return `api:${pathnameWithSearch}`;
+export function getApiCacheKey(pathnameWithSearch: string, farmId?: string | null): string {
+  const effectiveFarmId =
+    farmId !== undefined ? farmId : readCachedActiveFarmMeta()?.id ?? null;
+  const trimmed = typeof effectiveFarmId === "string" ? effectiveFarmId.trim() : "";
+  return trimmed ? `api:${trimmed}:${pathnameWithSearch}` : `api:${pathnameWithSearch}`;
 }
 
 export function shouldCacheApiGet(pathname: string): boolean {
@@ -82,15 +86,18 @@ export async function apiFetch(url: string, options?: RequestInit, cookies?: str
   const parsedUrl = isBrowser ? new URL(url, window.location.origin) : null;
   const isSameOriginApi = Boolean(parsedUrl && parsedUrl.origin === window.location.origin);
   const endpoint = parsedUrl ? `${parsedUrl.pathname}${parsedUrl.search}` : url;
+  const activeFarmId = isBrowser ? readCachedActiveFarmMeta()?.id ?? null : null;
+  let clientMutationId = headers.get("X-Client-Mutation-Id")?.trim() || undefined;
   if (
     isSameOriginApi &&
     (method === "POST" || method === "PUT" || method === "DELETE") &&
-    !headers.has("X-Client-Mutation-Id")
+    !clientMutationId
   ) {
-    headers.set("X-Client-Mutation-Id", crypto.randomUUID());
+    clientMutationId = crypto.randomUUID();
+    headers.set("X-Client-Mutation-Id", clientMutationId);
   }
   const cacheableGet = Boolean(isSameOriginApi && method === "GET" && parsedUrl && shouldCacheApiGet(parsedUrl.pathname));
-  const cacheKey = getApiCacheKey(endpoint);
+  const cacheKey = getApiCacheKey(endpoint, activeFarmId);
 
   // En modo offline para GET: responder inmediatamente desde IndexedDB si existe copia local
   if (cacheableGet && isBrowser && navigator.onLine === false) {
@@ -109,6 +116,8 @@ export async function apiFetch(url: string, options?: RequestInit, cookies?: str
     const parsedBody = parseJsonBody(options?.body);
     if (!parsedBody.valid) return null;
     const stored = await syncManager.enqueueOfflineMutation({
+      id: clientMutationId,
+      farmId: activeFarmId,
       endpoint,
       method: method as "POST" | "PUT" | "DELETE",
       entity: "general",

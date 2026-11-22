@@ -5,8 +5,27 @@ import {
   setCachedCatalog,
   setCachedRecords,
 } from "./db";
+import { readCachedActiveFarmMeta } from "../active-farm-client";
 
 export const OFFLINE_QUEUED_EVENT = "gallinero-offline-queued";
+
+export function extractPathnameFromApiCacheKey(key: string): string | null {
+  let rest = key;
+  if (rest.startsWith("farm:")) {
+    const secondColon = rest.indexOf(":", 5);
+    if (secondColon === -1) return null;
+    rest = rest.slice(secondColon + 1);
+  }
+  if (!rest.startsWith("api:")) return null;
+  const afterApi = rest.slice(4);
+  const pathPart = afterApi.startsWith("/")
+    ? afterApi
+    : afterApi.includes(":/")
+      ? afterApi.slice(afterApi.indexOf(":/") + 1)
+      : null;
+  if (!pathPart) return null;
+  return pathPart.split("?")[0];
+}
 
 function applyArrayMutation(
   list: any[],
@@ -61,11 +80,7 @@ export async function applyOptimisticMutationToCache(
       ? await getAllCachedRecordKeys().catch(() => [])
       : [];
 
-    const matchingKeys = keys.filter((key) => {
-      if (!key.startsWith("api:")) return false;
-      const keyPath = key.slice(4).split("?")[0];
-      return keyPath === pathname;
-    });
+    const matchingKeys = keys.filter((key) => extractPathnameFromApiCacheKey(key) === pathname);
 
     for (const key of matchingKeys) {
       const cached = await getCachedRecords<any>(key).catch(() => null);
@@ -80,7 +95,10 @@ export async function applyOptimisticMutationToCache(
     }
 
     // Actualizar optimistamente las tareas clave del día si ya están cacheadas
-    const tareasKey = "api:/api/dashboard/tareas-pendientes";
+    const activeFarmId = readCachedActiveFarmMeta()?.id ?? null;
+    const tareasKey = activeFarmId
+      ? `api:${activeFarmId}:/api/dashboard/tareas-pendientes`
+      : "api:/api/dashboard/tareas-pendientes";
     const tareas = await getCachedRecords<any>(tareasKey).catch(() => null);
     if (tareas && typeof tareas === "object") {
       let dirty = false;

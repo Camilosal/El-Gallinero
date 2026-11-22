@@ -11,10 +11,12 @@ import {
   removeOutboxMutation,
   getPendingCount,
   addOutboxMutation,
+  mutationMatchesFarm,
 } from "./db";
 import { v4 as uuidv4 } from "uuid";
 import { applyOptimisticMutationToCache } from "./optimisticCache";
 import { flushAdoptionTelemetry } from "./telemetry";
+import { readCachedActiveFarmMeta } from "../active-farm-client";
 
 const BATCHABLE_ENTITIES = new Set<OutboxMutation["entity"]>([
   "huevos",
@@ -77,6 +79,39 @@ export function buildIndividualSyncRequestInit(mutation: OutboxMutation): Reques
 
 export type SyncState = "idle" | "syncing" | "error" | "success";
 
+export type SyncResolutionKind =
+  | "confirmed"
+  | "duplicate_confirmed"
+  | "business_conflict"
+  | "permission_denied"
+  | "retryable_error";
+
+export function classifySyncHttpResponse(
+  status: number,
+  headers?: Pick<Headers, "get"> | null,
+  body?: Record<string, any> | null,
+): SyncResolutionKind {
+  const isIdempotentHeader = headers?.get("X-Idempotent-Replay") === "1";
+  const isDuplicateFlag = body?.deduplicated === true || body?.code === "DUPLICATE_MUTATION";
+  if (isIdempotentHeader || isDuplicateFlag) {
+    return "duplicate_confirmed";
+  }
+  if (status >= 200 && status < 300) {
+    return "confirmed";
+  }
+  if (status === 401 || status === 403) {
+    return "permission_denied";
+  }
+  if (status === 409) {
+    // INT-01: Nunca tratar HTTP 409 como éxito si no existe confirmación explícita de idempotencia.
+    return "business_conflict";
+  }
+  if (status >= 500 || status === 408 || status === 429) {
+    return "retryable_error";
+  }
+  return "business_conflict";
+}
+
 export interface SyncStatusEventDetail {
   isOnline: boolean;
   isSyncing: boolean;
@@ -134,7 +169,8 @@ class SyncManager {
   }
 
   public async getStatus(): Promise<SyncStatusEventDetail> {
-    const pendingCount = await getPendingCount().catch(() => 0);
+    const activeFarmId = readCachedActiveFarmMeta()?.id ?? null;
+    const pendingCount = await getPendingCount(activeFarmId).catch(() => 0);
     return {
       isOnline: this.isOnline(),
       isSyncing: this.isSyncing,
@@ -177,7 +213,9 @@ class SyncManager {
       return { success: false, synced: 0, failed: 0 };
     }
 
-    const pending = await getPendingMutations();
+    const activeFarmId = readCachedActiveFarmMeta()?.id ?? null;
+    const allPending = await getPendingMutations(activeFarmId);
+    const pending = allPending.filter((m) => mutationMatchesFarm(m, activeFarmId));
     if (pending.length === 0) {
       this.isSyncing = false;
       this.syncError = null;
@@ -302,14 +340,20 @@ class SyncManager {
         await updateOutboxMutation(mutation.id, { status: "syncing" });
 
         const res = await fetch(mutation.endpoint, buildIndividualSyncRequestInit(mutation));
+        const resData = await res.clone().json().catch(() => ({}));
+        const resolution = classifySyncHttpResponse(res.status, res.headers, resData);
 
-        if (res.ok || res.status === 409) {
-          // 200/201 o 409 (ya existía por idempotencia)
+        if (resolution === "confirmed" || resolution === "duplicate_confirmed") {
           await removeOutboxMutation(mutation.id);
           synced++;
         } else {
-          const errData = await res.json().catch(() => ({}));
-          const errMsg = errData.error || `HTTP ${res.status}`;
+          const fallbackMsg =
+            resolution === "permission_denied"
+              ? `Sin permisos o sesión expirada (HTTP ${res.status})`
+              : resolution === "business_conflict"
+                ? `Conflicto pendiente de revisión (HTTP ${res.status})`
+                : `HTTP ${res.status}`;
+          const errMsg = resData?.error || fallbackMsg;
           await updateOutboxMutation(mutation.id, {
             status: "failed",
             error: errMsg,
@@ -335,17 +379,27 @@ class SyncManager {
    * Preserva el payload original sin inyectar campos extra.
    */
   public async enqueueOfflineMutation(params: {
+    id?: string;
+    farmId?: string | null;
     endpoint: string;
     method: "POST" | "PUT" | "DELETE";
     description: string;
     payload?: Record<string, any>;
     entity?: OutboxMutation["entity"];
   }): Promise<OutboxMutation> {
-    const id = typeof crypto !== "undefined" && crypto.randomUUID ? crypto.randomUUID() : uuidv4();
+    const id =
+      typeof params.id === "string" && params.id.trim().length > 0
+        ? params.id.trim()
+        : typeof crypto !== "undefined" && crypto.randomUUID
+          ? crypto.randomUUID()
+          : uuidv4();
+    const activeFarmId =
+      params.farmId !== undefined ? params.farmId : readCachedActiveFarmMeta()?.id ?? null;
     const clientTimestamp = new Date().toISOString();
     const payload = params.payload ?? {};
     const stored = await addOutboxMutation({
       id,
+      farmId: activeFarmId,
       endpoint: params.endpoint,
       method: params.method,
       entity: params.entity ?? "general",
@@ -364,6 +418,7 @@ class SyncManager {
    * Si está offline o la red falla, la almacena en la cola local de Outbox.
    */
   public async executeMutation<T = any>(params: {
+    farmId?: string | null;
     endpoint: string;
     method?: "POST" | "PUT" | "DELETE";
     entity: OutboxMutation["entity"];
@@ -373,6 +428,8 @@ class SyncManager {
   }): Promise<{ ok: boolean; status?: number; data?: T; error?: string; offline: boolean; mutationId: string }> {
     const id = params.payload.id || (typeof crypto !== "undefined" && crypto.randomUUID ? crypto.randomUUID() : uuidv4());
     const method = params.method || "POST";
+    const activeFarmId =
+      params.farmId !== undefined ? params.farmId : readCachedActiveFarmMeta()?.id ?? null;
     const clientTimestamp = new Date().toISOString();
 
     const mutationPayload = {
@@ -384,6 +441,7 @@ class SyncManager {
     if (!this.isOnline()) {
       const stored = await addOutboxMutation({
         id,
+        farmId: activeFarmId,
         endpoint: params.endpoint,
         method,
         entity: params.entity,
@@ -433,6 +491,7 @@ class SyncManager {
       if (response.status >= 502) {
         const stored = await addOutboxMutation({
           id,
+          farmId: activeFarmId,
           endpoint: params.endpoint,
           method,
           entity: params.entity,
@@ -466,6 +525,7 @@ class SyncManager {
       // Cayó la conexión durante el envío: guardar en outbox como respaldo
       const stored = await addOutboxMutation({
         id,
+        farmId: activeFarmId,
         endpoint: params.endpoint,
         method,
         entity: params.entity,

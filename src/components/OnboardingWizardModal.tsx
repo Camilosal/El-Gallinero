@@ -6,6 +6,7 @@ import {
   ArrowLeft,
   ArrowRight,
   CheckCircle2,
+  Clock,
   Download,
   FileSpreadsheet,
   Plus,
@@ -59,6 +60,20 @@ interface CompletedSummary {
   milestonesCreated: number;
   sanitaryEventsCreated: number;
   costPerKg: number;
+  queuedOffline?: boolean;
+  queuedMutationId?: string | null;
+}
+
+export function isQueuedOfflineOnboardingResponse(
+  status: number,
+  headers?: Pick<Headers, "get"> | null,
+  body?: Record<string, any> | null,
+): boolean {
+  return (
+    status === 202 ||
+    headers?.get("X-Gallinero-Offline-Queued") === "1" ||
+    Boolean(body?.queued || body?.offline)
+  );
 }
 
 const AGE_UNIT_MULTIPLIER: Record<AgeUnit, number> = {
@@ -635,6 +650,25 @@ function WizardBody({
         setError(json.error || "No se pudo guardar la configuración inicial.");
         return;
       }
+
+      const validBagCost = Math.max(0, Number(costoPorBulto40kg) || 0);
+      if (isQueuedOfflineOnboardingResponse(res.status, res.headers, json)) {
+        // OFF-02: HTTP 202 (encolado offline) NO es configuración confirmada.
+        // Conservamos el borrador local intacto y evitamos declarar lotes creados ni telemetría.
+        setCompletedSummary({
+          locationsCreated: 0,
+          animalsCreated: 0,
+          feedEntriesCreated: 0,
+          totalFeedKg: 0,
+          milestonesCreated: 0,
+          sanitaryEventsCreated: 0,
+          costPerKg: Math.round(validBagCost / 40),
+          queuedOffline: true,
+          queuedMutationId: typeof json?.mutationId === "string" ? json.mutationId : null,
+        });
+        return;
+      }
+
       if (json.state) {
         broadcastOnboardingState(json.state);
       }
@@ -647,7 +681,6 @@ function WizardBody({
       const durationSec = Math.max(1, Math.min(3600, Math.round((Date.now() - startMs) / 1000)));
       trackOnboardingCompletion(durationSec);
 
-      const validBagCost = Math.max(0, Number(costoPorBulto40kg) || 0);
       setCompletedSummary({
         locationsCreated: Number(json.created?.locationsCreated ?? unidades.length),
         animalsCreated: Number(json.created?.animalsCreated ?? 0),
@@ -656,6 +689,7 @@ function WizardBody({
         milestonesCreated: Number(json.created?.milestonesCreated ?? 0),
         sanitaryEventsCreated: Number(json.created?.sanitaryEventsCreated ?? 0),
         costPerKg: Math.round(validBagCost / 40),
+        queuedOffline: false,
       });
     } catch {
       setError("Error de red al guardar el arranque Día 1.");
@@ -683,14 +717,16 @@ function WizardBody({
             <span>Arranque Día 1 sin Fricción · &lt; 3 min</span>
           </p>
           <h2 id="onboarding-wizard-title" className="text-lg sm:text-xl font-bold mt-0.5">
-            {completedSummary
-              ? "¡Tu granja está lista para operar!"
-              : "Configura tu granja sin llenar historial pasado"}
+            {completedSummary?.queuedOffline
+              ? "Configuración pendiente de sincronizar"
+              : completedSummary
+                ? "¡Tu granja está lista para operar!"
+                : "Configura tu granja sin llenar historial pasado"}
           </h2>
         </div>
         <button
           type="button"
-          onClick={completedSummary ? onCompleted : onClose}
+          onClick={completedSummary && !completedSummary.queuedOffline ? onCompleted : onClose}
           className="rounded-lg p-2 text-emerald-200 hover:bg-green-900 hover:text-white transition-colors min-h-[44px] min-w-[44px] flex items-center justify-center"
           aria-label="Cerrar asistente de arranque"
         >
@@ -699,6 +735,39 @@ function WizardBody({
       </div>
 
       {completedSummary ? (
+        completedSummary.queuedOffline ? (
+          <div className="flex-1 overflow-y-auto px-5 py-5 space-y-5">
+            <div className="rounded-xl border border-amber-300 bg-amber-50 p-4 flex items-start gap-3">
+              <Clock className="w-6 h-6 text-amber-700 shrink-0 mt-0.5" aria-hidden="true" />
+              <div>
+                <p className="text-sm font-bold text-amber-950">
+                  Guardado en este dispositivo (pendiente de confirmación del servidor)
+                </p>
+                <p className="text-xs text-amber-900 mt-1 leading-relaxed">
+                  No se detectó respuesta confirmada del servidor (HTTP 202 encolado offline). Tu borrador local sigue protegido en este dispositivo y el arranque de{" "}
+                  <strong>{nombrePredio || "tu granja"}</strong> se completará automáticamente cuando regrese la conexión.
+                </p>
+              </div>
+            </div>
+
+            <div className="flex flex-wrap items-center gap-2.5">
+              <button
+                type="button"
+                onClick={() => setCompletedSummary(null)}
+                className="inline-flex items-center gap-2 rounded-lg bg-amber-700 px-4 py-2.5 min-h-[44px] text-sm font-semibold text-white hover:bg-amber-800 cursor-pointer"
+              >
+                <span>Volver al borrador / Reintentar</span>
+              </button>
+              <button
+                type="button"
+                onClick={onClose}
+                className="inline-flex items-center gap-2 rounded-lg border border-slate-300 bg-white px-4 py-2.5 min-h-[44px] text-sm font-semibold text-slate-700 hover:bg-slate-100 cursor-pointer"
+              >
+                <span>Cerrar por ahora</span>
+              </button>
+            </div>
+          </div>
+        ) : (
         <div className="flex-1 overflow-y-auto px-5 py-5 space-y-5">
           <div className="rounded-xl border border-emerald-200 bg-emerald-50/70 p-4 flex items-start gap-3">
             <CheckCircle2 className="w-6 h-6 text-emerald-700 shrink-0 mt-0.5" aria-hidden="true" />
@@ -778,6 +847,7 @@ function WizardBody({
             </div>
           </div>
         </div>
+        )
       ) : (
         <>
 

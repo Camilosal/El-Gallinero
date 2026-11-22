@@ -17,6 +17,7 @@ import {
   getCachedRecords,
   setCachedRecords,
 } from "./db";
+import { FARM_META_CHANGED_EVENT, readCachedActiveFarmMeta } from "../active-farm-client";
 
 export function useOfflineSync() {
   const [status, setStatus] = useState<SyncStatusEventDetail>({
@@ -31,7 +32,8 @@ export function useOfflineSync() {
 
   const refreshOutbox = useCallback(async () => {
     try {
-      const items = await getAllOutboxMutations();
+      const activeFarmId = readCachedActiveFarmMeta()?.id ?? null;
+      const items = await getAllOutboxMutations(activeFarmId);
       setOutboxItems(items);
     } catch (err) {
       console.error("Error al obtener elementos de outbox", err);
@@ -51,7 +53,20 @@ export function useOfflineSync() {
       if (active) setMirrorState(newMirrorState);
     });
 
-    void getAllOutboxMutations()
+    const handleFarmChange = () => {
+      if (!active) return;
+      void syncManager.getStatus().then((nextStatus) => {
+        if (active) setStatus(nextStatus);
+      });
+      void refreshOutbox();
+    };
+
+    if (typeof window !== "undefined") {
+      window.addEventListener(FARM_META_CHANGED_EVENT, handleFarmChange);
+    }
+
+    const activeFarmId = readCachedActiveFarmMeta()?.id ?? null;
+    void getAllOutboxMutations(activeFarmId)
       .then((items) => {
         if (active) setOutboxItems(items);
       })
@@ -63,6 +78,9 @@ export function useOfflineSync() {
       active = false;
       unsubscribe();
       unsubscribeMirror();
+      if (typeof window !== "undefined") {
+        window.removeEventListener(FARM_META_CHANGED_EVENT, handleFarmChange);
+      }
     };
   }, [refreshOutbox]);
 

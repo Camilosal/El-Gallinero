@@ -1,6 +1,7 @@
 import type { FarmPurposeKey } from "./onboarding";
 import type { QuickCaptureMode } from "./quick-capture-events";
 import type { SchoolCurriculumRouteId } from "./school-curriculum";
+import { readCachedActiveFarmMeta } from "./active-farm-client";
 
 export type NudgeTone = "emerald" | "amber" | "sky" | "slate";
 
@@ -881,12 +882,25 @@ export function resolveNudgeContextMeta(
   };
 }
 
+export function resolveNudgeFeedbackStorageKey(farmId?: string | null): string {
+  const effectiveFarmId =
+    farmId !== undefined
+      ? farmId
+      : typeof window !== "undefined"
+        ? readCachedActiveFarmMeta()?.id ?? null
+        : null;
+  const trimmed = typeof effectiveFarmId === "string" ? effectiveFarmId.trim() : "";
+  return trimmed ? `${NUDGE_FEEDBACK_STORAGE_KEY}:${trimmed}` : NUDGE_FEEDBACK_STORAGE_KEY;
+}
+
 export function getNudgeFeedbackMap(
   storage?: Pick<Storage, "getItem"> | null,
+  farmId?: string | null,
 ): Record<string, NudgeFeedbackStats> {
   if (!storage) return {};
   try {
-    const raw = storage.getItem(NUDGE_FEEDBACK_STORAGE_KEY);
+    const key = resolveNudgeFeedbackStorageKey(farmId);
+    const raw = storage.getItem(key) ?? (key !== NUDGE_FEEDBACK_STORAGE_KEY ? storage.getItem(NUDGE_FEEDBACK_STORAGE_KEY) : null);
     if (!raw) return {};
     const parsed = JSON.parse(raw);
     if (!parsed || typeof parsed !== "object") return {};
@@ -914,8 +928,9 @@ export function recordNudgeFeedback(
   outcome: NudgeFeedbackOutcome,
   storage?: Pick<Storage, "getItem" | "setItem"> | null,
   nowMs: number = Date.now(),
+  farmId?: string | null,
 ): NudgeFeedbackStats {
-  const map = getNudgeFeedbackMap(storage);
+  const map = getNudgeFeedbackMap(storage, farmId);
   const current = map[nudgeId] ? { ...emptyStats(nudgeId), ...map[nudgeId] } : emptyStats(nudgeId);
 
   if (outcome === "shown") {
@@ -936,7 +951,7 @@ export function recordNudgeFeedback(
     try {
       // Limitar a 120 nudges más recientes para mantener almacenamiento mínimo
       const entries = Object.entries(map).slice(-120);
-      storage.setItem(NUDGE_FEEDBACK_STORAGE_KEY, JSON.stringify(Object.fromEntries(entries)));
+      storage.setItem(resolveNudgeFeedbackStorageKey(farmId), JSON.stringify(Object.fromEntries(entries)));
     } catch {
       // Ignore storage quota errors
     }
