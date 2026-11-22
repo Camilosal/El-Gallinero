@@ -16,6 +16,7 @@ import { resolveDimensions } from "@/lib/analytics-dimensions";
 import { assertDateNotClosed, assertNoActiveWithdrawal } from "@/lib/sanitary-locks";
 import { resolveManagedTransactionTaxColumns } from "@/lib/analytics/payroll-tax-supplies";
 import { getTaxAndPayrollConfig } from "@/lib/settings";
+import { learnFromSaleAction } from "@/lib/agent/ui-memory-bridge";
 
 export const dynamic = "force-dynamic";
 
@@ -205,8 +206,18 @@ export const POST = withApiHandler(async (req: NextRequest) => {
       });
     }
 
-    return { ...created, items: createdItems, transactionId: txRow.id };
+    return { ...created, items: createdItems, transactionId: txRow.id, sizeSummary: sizeDesc, effectiveSpecies };
   });
+  if (body.buyer) {
+    await learnFromSaleAction({
+      buyer: String(body.buyer),
+      productLine: "huevos",
+      summary: `${totalQuantity} huevos (${result.sizeSummary})`,
+      unitPrice: items.length === 1 ? items[0].pricePerUnit : null,
+      isCredit: Boolean(body.isCredit),
+      entities: [String(result.effectiveSpecies || "gallina")],
+    }).catch(() => null);
+  }
   return NextResponse.json(result, { status: 201 });
 });
 

@@ -15,6 +15,7 @@ import { syncManager } from "@/lib/offline/syncManager";
 import { getCachedRecords, setCachedRecords } from "@/lib/offline/db";
 import AttachmentPanel from "@/components/attachments/AttachmentPanel";
 import MicroInsightCard from "@/components/MicroInsightCard";
+import { recordMortalityCaptureHabit } from "@/lib/form-habit-learner";
 import {
   MORTALITY_QUICK_OBSERVATIONS,
   bindDraftAttachments,
@@ -236,6 +237,13 @@ export default function MortalidadPage() {
           offline: true,
         }),
       );
+      if (method === "POST") {
+        recordMortalityCaptureHabit({
+          locationId: payload.locationId || "",
+          birdType: payload.birdType,
+          cause: payload.cause,
+        });
+      }
       return;
     }
 
@@ -265,6 +273,13 @@ export default function MortalidadPage() {
         offline: false,
       }),
     );
+    if (method === "POST") {
+      recordMortalityCaptureHabit({
+        locationId: payload.locationId || "",
+        birdType: payload.birdType,
+        cause: payload.cause,
+      });
+    }
     void load();
   };
 

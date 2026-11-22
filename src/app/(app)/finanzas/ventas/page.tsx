@@ -12,6 +12,7 @@ import ContactField from "@/components/contacts/ContactField";
 import MicroInsightCard from "@/components/MicroInsightCard";
 import { computeCreditDueDate } from "@/lib/contacts-shared";
 import { buildSaleMicroInsight, type MicroInsightPayload } from "@/lib/micro-insights";
+import { recordSaleCaptureHabit } from "@/lib/form-habit-learner";
 import KgSaleTab from "./_components/KgSaleTab";
 import OtherSalesTab from "./_components/OtherSalesTab";
 import TableSearch from "@/components/TableSearch";
@@ -481,6 +482,17 @@ function VentasContent() {
         isBirdSale: false,
       }),
     );
+    if (!editing) {
+      recordSaleCaptureHabit({
+        saleType: "huevos",
+        buyer: form.buyer || "",
+        species: form.species || "gallina",
+        size: form.items[0]?.size || "A",
+        unitPrice: unitPriceAvg,
+        quantity: totalEggsAllItems,
+        isCredit,
+      });
+    }
     setModalOpen(false);
     setIsCredit(false);
     setDueDate("");
@@ -642,6 +654,15 @@ function VentasContent() {
         saleKind: "animales",
       }),
     );
+    if (!editingBird) {
+      recordSaleCaptureHabit({
+        saleType: "animales",
+        buyer: birdForm.buyer || "",
+        unitPrice: qty > 0 ? totalAmt / qty : price,
+        quantity: qty,
+        isCredit: birdIsCredit,
+      });
+    }
     setBirdModalOpen(false);
     setBirdIsCredit(false);
     setBirdDueDate("");

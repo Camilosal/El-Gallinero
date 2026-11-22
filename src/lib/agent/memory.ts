@@ -1,7 +1,7 @@
 import { db } from "@/db";
 import { agentMemories, aiConversations, aiMessages } from "@/db/schema";
 import { getCurrentFarmId } from "@/db/tenant-context";
-import { and, asc, desc, eq, inArray, sql } from "drizzle-orm";
+import { and, asc, desc, eq, inArray, ne, or, sql } from "drizzle-orm";
 import type { AgentConfig } from "./config";
 import { normalizeSearchText, tokenizeQuery } from "./knowledge";
 
@@ -176,8 +176,19 @@ export async function saveFarmMemory(input: SaveMemoryInput): Promise<FarmMemory
   return row as FarmMemoryRecord;
 }
 
-export async function listFarmMemories(userId: string, category?: string, limit = 60): Promise<FarmMemoryRecord[]> {
-  const conditions = [eq(agentMemories.userId, userId), eq(agentMemories.isActive, true)];
+export async function listFarmMemories(
+  userId: string,
+  category?: string,
+  limit = 60,
+  options?: { includeFarmShared?: boolean },
+): Promise<FarmMemoryRecord[]> {
+  const conditions = [eq(agentMemories.isActive, true)];
+  if (options?.includeFarmShared) {
+    conditions.push(eq(agentMemories.farmId, getCurrentFarmId()));
+    conditions.push(or(eq(agentMemories.userId, userId), ne(agentMemories.category, "preferencia"))!);
+  } else {
+    conditions.push(eq(agentMemories.userId, userId));
+  }
   if (category) {
     conditions.push(eq(agentMemories.category, normalizeMemoryCategory(category)));
   }
@@ -187,7 +198,29 @@ export async function listFarmMemories(userId: string, category?: string, limit 
     .where(and(...conditions))
     .orderBy(desc(agentMemories.importance), desc(agentMemories.updatedAt))
     .limit(Math.min(200, Math.max(1, limit)));
-  return rows as FarmMemoryRecord[];
+
+  if (!options?.includeFarmShared) {
+    return rows as FarmMemoryRecord[];
+  }
+
+  // Deduplicar por (category, subjectKey) priorizando la memoria del usuario actual y la más reciente
+  const byKey = new Map<string, FarmMemoryRecord>();
+  for (const row of rows as FarmMemoryRecord[]) {
+    const key = `${row.category}:${row.subjectKey}`;
+    const existing = byKey.get(key);
+    if (!existing) {
+      byKey.set(key, row);
+      continue;
+    }
+    const rowMine = row.userId === userId;
+    const existingMine = existing.userId === userId;
+    if (rowMine && !existingMine) {
+      byKey.set(key, row);
+    } else if (rowMine === existingMine && new Date(row.updatedAt).getTime() > new Date(existing.updatedAt).getTime()) {
+      byKey.set(key, row);
+    }
+  }
+  return Array.from(byKey.values());
 }
 
 export async function deleteFarmMemory(userId: string, memoryId: string): Promise<boolean> {
@@ -205,7 +238,7 @@ export async function recallRelevantMemories(
   limit = 6,
 ): Promise<FarmMemoryRecord[]> {
   try {
-    const candidates = await listFarmMemories(userId, undefined, 120);
+    const candidates = await listFarmMemories(userId, undefined, 120, { includeFarmShared: true });
     if (candidates.length === 0) return [];
 
     const ranked = candidates

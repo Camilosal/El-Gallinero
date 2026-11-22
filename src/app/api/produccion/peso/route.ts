@@ -4,7 +4,9 @@ import { eq, and, desc, gt, inArray, sql } from "drizzle-orm";
 import { NextRequest, NextResponse } from "next/server";
 import { withApiHandler, safeParseJson } from "@/lib/api-handler";
 import { isDateOnly } from "@/lib/date-validation";
-import { computeDailyGainG, computeUniformityStats, parseIndividualWeightsInput } from "@/lib/zootechnics";
+import { computeDailyGainG, computeEmpiricalCurveCalibration, computeUniformityStats, parseIndividualWeightsInput } from "@/lib/zootechnics";
+import { getStandardCurve } from "@/lib/standard-curves";
+import { learnFromBiologicalCalibrationAction } from "@/lib/agent/ui-memory-bridge";
 import { aggregateStandardRowsByWeek, listAvailableWeightBreeds } from "@/lib/breed-standards-db";
 import { getAlertThresholds } from "@/lib/settings";
 
@@ -177,6 +179,52 @@ export const POST = withApiHandler(async (req: NextRequest) => {
       notes: notes || null,
     })
     .returning();
+
+  // Sintetizar calibración empírica hacia la memoria operativa de Gina de forma no bloqueante
+  const refCurve = getStandardCurve(requestedSpecies, resolvedBreed || undefined);
+  let empiricalFactor: number | null = null;
+  let confidencePct: number | null = null;
+  if (refCurve && refCurve.metric === "peso") {
+    const recentLogs = await db
+      .select({
+        weekNumber: weightLogs.weekNumber,
+        avgWeightKg: weightLogs.avgWeightKg,
+        sampleSize: weightLogs.sampleSize,
+        species: weightLogs.species,
+        breed: weightLogs.breed,
+      })
+      .from(weightLogs)
+      .orderBy(desc(weightLogs.date))
+      .limit(40);
+    const matching = recentLogs.filter(
+      (r) =>
+        r.weekNumber != null &&
+        (!r.species || r.species === requestedSpecies) &&
+        (!resolvedBreed || !r.breed || r.breed === resolvedBreed),
+    );
+    const cal = computeEmpiricalCurveCalibration({
+      points: refCurve.points,
+      observations: matching.map((r) => ({
+        week: Number(r.weekNumber),
+        actualValue: Number(r.avgWeightKg) * 1000,
+        sampleSize: r.sampleSize,
+      })),
+    });
+    if (cal.observationCount > 0) {
+      empiricalFactor = cal.empiricalFactor;
+      confidencePct = cal.confidencePct;
+    }
+  }
+
+  await learnFromBiologicalCalibrationAction({
+    species: requestedSpecies,
+    breed: resolvedBreed || null,
+    weekNumber: resolvedWeek,
+    avgWeightKg: resolvedWeightKg,
+    sampleSize: sample,
+    empiricalFactor,
+    confidencePct,
+  }).catch(() => null);
 
   return NextResponse.json(
     {
