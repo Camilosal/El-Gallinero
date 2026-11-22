@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useRouter } from "next/navigation";
 import {
   AlertTriangle,
   Banknote,
@@ -31,6 +32,7 @@ import {
 } from "@/lib/attachments-shared";
 import { computeCreditDueDate } from "@/lib/contacts-shared";
 import {
+  adaptMicroInsightForPurpose,
   buildEggMicroInsight,
   buildExpenseMicroInsight,
   buildFeedMicroInsight,
@@ -38,6 +40,7 @@ import {
   buildSaleMicroInsight,
   type MicroInsightPayload,
 } from "@/lib/micro-insights";
+import { useOnboardingState } from "@/lib/useOnboardingState";
 import { apiFetch } from "@/lib/fetch";
 import { todayColombiaIso } from "@/lib/date-validation";
 import { useCatalog } from "@/lib/useCatalog";
@@ -312,6 +315,8 @@ export default function QuickCaptureModal() {
   const [successInfo, setSuccessInfo] = useState<MicroInsightPayload | null>(null);
   const [habitSuggested, setHabitSuggested] = useState(false);
   const [habitVersion, setHabitVersion] = useState(0);
+  const router = useRouter();
+  const { config: onboardingConfig } = useOnboardingState();
 
   const { locations } = useFarmLocations(true);
   const { items: sizeCatalog } = useCatalog("tamano_huevo");
@@ -900,20 +905,30 @@ export default function QuickCaptureModal() {
 
       setEggOverLimitMsg("");
       setSuccessInfo(
-        buildEggMicroInsight({
-          date: eggDate,
-          species: eggSpecies,
-          locationName: locName,
-          totalCollected: totalEggsCollected,
-          broken: brokenEggs,
-          forIncubation: incubEggs,
-          unitPrice: eggUnitPrice,
-          activeLayingBirds: activeLayingCount > 0 ? activeLayingCount : undefined,
-          previousDayCollected: lastEggRecord?.totalCollected ?? null,
-          todayFeedKg: todayFeedKg > 0 ? Math.round(todayFeedKg * 100) / 100 : null,
-          todayFeedCostCOP: todayFeedCostCOP > 0 ? Math.round(todayFeedCostCOP) : null,
-          offline: result.offline,
-        }),
+        adaptMicroInsightForPurpose(
+          buildEggMicroInsight({
+            date: eggDate,
+            species: eggSpecies,
+            locationName: locName,
+            totalCollected: totalEggsCollected,
+            broken: brokenEggs,
+            forIncubation: incubEggs,
+            unitPrice: eggUnitPrice,
+            activeLayingBirds: activeLayingCount > 0 ? activeLayingCount : undefined,
+            previousDayCollected: lastEggRecord?.totalCollected ?? null,
+            todayFeedKg: todayFeedKg > 0 ? Math.round(todayFeedKg * 100) / 100 : null,
+            todayFeedCostCOP: todayFeedCostCOP > 0 ? Math.round(todayFeedCostCOP) : null,
+            quantityAutoconsumo: autoEggs,
+            offline: result.offline,
+          }),
+          {
+            insightFamily: "huevos",
+            purposes: onboardingConfig?.purposes,
+            primaryPurpose: onboardingConfig?.primaryPurpose,
+            species: eggSpecies,
+            quantityAutoconsumo: autoEggs,
+          },
+        ),
       );
       recordEggCaptureHabit({
         locationId: loc,
@@ -1001,18 +1016,26 @@ export default function QuickCaptureModal() {
         : null;
 
       setSuccessInfo(
-        buildFeedMicroInsight({
-          date: feedDate,
-          feedName: feedLabel,
-          unit: unitLabel,
-          quantity: qty,
-          isEntry: false,
-          locationName: locName,
-          remainingStockAfter,
-          activeAnimalsCount: birdsInLoc > 0 ? birdsInLoc : null,
-          batch: feedBatchInfo,
-          offline: result.offline,
-        }),
+        adaptMicroInsightForPurpose(
+          buildFeedMicroInsight({
+            date: feedDate,
+            feedName: feedLabel,
+            unit: unitLabel,
+            quantity: qty,
+            isEntry: false,
+            locationName: locName,
+            remainingStockAfter,
+            activeAnimalsCount: birdsInLoc > 0 ? birdsInLoc : null,
+            batch: feedBatchInfo,
+            offline: result.offline,
+          }),
+          {
+            insightFamily: "alimentacion",
+            purposes: onboardingConfig?.purposes,
+            primaryPurpose: onboardingConfig?.primaryPurpose,
+            species: feedBatchInfo?.species ?? onboardingConfig?.selectedSpecies?.[0],
+          },
+        ),
       );
       recordFeedCaptureHabit({
         locationId: loc,
@@ -1098,18 +1121,26 @@ export default function QuickCaptureModal() {
           : null;
 
       setSuccessInfo(
-        buildMortalityMicroInsight({
-          date: mortDate,
-          species: mortSpecies,
-          birdTypeLabel,
-          quantity: qty,
-          causeLabel,
-          locationName: locName,
-          remainingPopulation: remainingPop,
-          notes: mortNotes.trim() || null,
-          batch: mortBatchInfo,
-          offline: result.offline,
-        }),
+        adaptMicroInsightForPurpose(
+          buildMortalityMicroInsight({
+            date: mortDate,
+            species: mortSpecies,
+            birdTypeLabel,
+            quantity: qty,
+            causeLabel,
+            locationName: locName,
+            remainingPopulation: remainingPop,
+            notes: mortNotes.trim() || null,
+            batch: mortBatchInfo,
+            offline: result.offline,
+          }),
+          {
+            insightFamily: "mortalidad",
+            purposes: onboardingConfig?.purposes,
+            primaryPurpose: onboardingConfig?.primaryPurpose,
+            species: mortSpecies,
+          },
+        ),
       );
       recordMortalityCaptureHabit({
         locationId: loc,
@@ -1168,16 +1199,24 @@ export default function QuickCaptureModal() {
 
       const locName = locations.find((l) => l.id === expLocationId)?.name || null;
       setSuccessInfo(
-        buildExpenseMicroInsight({
-          date: expDate,
-          category: expCategory,
-          description: expDescription.trim(),
-          amount,
-          counterparty: expCounterparty.trim() || null,
-          species: expSpecies || null,
-          locationName: locName,
-          offline: isQueued,
-        }),
+        adaptMicroInsightForPurpose(
+          buildExpenseMicroInsight({
+            date: expDate,
+            category: expCategory,
+            description: expDescription.trim(),
+            amount,
+            counterparty: expCounterparty.trim() || null,
+            species: expSpecies || null,
+            locationName: locName,
+            offline: isQueued,
+          }),
+          {
+            insightFamily: "gasto",
+            purposes: onboardingConfig?.purposes,
+            primaryPurpose: onboardingConfig?.primaryPurpose,
+            species: expSpecies || undefined,
+          },
+        ),
       );
       recordExpenseCaptureHabit({
         category: categoriesList.includes(expCategory) ? expCategory : categoriesList[0] || "Otro egreso",
@@ -1452,7 +1491,17 @@ export default function QuickCaptureModal() {
       }
       setDraftSaleId(createDraftEntityId("qsale"));
 
-      setSuccessInfo(buildSaleMicroInsight({ ...insightArgs, offline: isQueued }));
+      setSuccessInfo(
+        adaptMicroInsightForPurpose(
+          buildSaleMicroInsight({ ...insightArgs, offline: isQueued }),
+          {
+            insightFamily: "venta",
+            purposes: onboardingConfig?.purposes,
+            primaryPurpose: onboardingConfig?.primaryPurpose,
+            species: insightArgs.species,
+          },
+        ),
+      );
       const recordedUnitPrice =
         saleType === "huevos"
           ? salePrice
@@ -1574,6 +1623,11 @@ export default function QuickCaptureModal() {
                 setMode(action.mode);
                 setSuccessInfo(null);
                 setError("");
+              } else if (action.href) {
+                setSuccessInfo(null);
+                setError("");
+                setOpen(false);
+                router.push(action.href);
               }
             }}
             onDismiss={() => setOpen(false)}

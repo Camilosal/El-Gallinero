@@ -14,9 +14,12 @@ import {
 } from "lucide-react";
 import { Badge, Card, StatCard } from "@/components/ui";
 import {
+  FARM_PURPOSE_CATALOG,
   FEATURE_FLAG_BY_KEY,
   FEATURE_FLAG_CATALOG,
   exportDay1StarterCsvTemplate,
+  resolvePurposeProfileMode,
+  type FarmPurposeKey,
   type ProducerScale,
   type ProgressiveUnlockableFlagKey,
 } from "@/lib/onboarding";
@@ -83,6 +86,39 @@ export default function FeatureFlagsPanel() {
       });
     } catch (err) {
       setFeedback({ type: "err", text: err instanceof Error ? err.message : "Error al cambiar módulo" });
+    } finally {
+      setSavingKey(null);
+    }
+  };
+
+  const handleTogglePurpose = async (purposeKey: FarmPurposeKey) => {
+    const current = state?.config.purposes ?? [];
+    const exists = current.includes(purposeKey);
+    const nextPurposes = exists ? current.filter((p) => p !== purposeKey) : [...current, purposeKey];
+    const currentPrimary = state?.config.primaryPurpose ?? null;
+    const nextPrimary = currentPrimary && nextPurposes.includes(currentPrimary)
+      ? currentPrimary
+      : nextPurposes[0] ?? null;
+    setSavingKey(`purpose-${purposeKey}`);
+    setFeedback(null);
+    try {
+      await patchOnboarding({ purposes: nextPurposes, primaryPurpose: nextPrimary });
+      setFeedback({ type: "ok", text: "Propósitos de la granja actualizados sin modificar tu historial." });
+    } catch (err) {
+      setFeedback({ type: "err", text: err instanceof Error ? err.message : "Error al actualizar propósitos" });
+    } finally {
+      setSavingKey(null);
+    }
+  };
+
+  const handlePrimaryPurposeChange = async (nextPrimary: FarmPurposeKey | null) => {
+    setSavingKey("purpose-primary");
+    setFeedback(null);
+    try {
+      await patchOnboarding({ primaryPurpose: nextPrimary });
+      setFeedback({ type: "ok", text: "Prioridad principal actualizada." });
+    } catch (err) {
+      setFeedback({ type: "err", text: err instanceof Error ? err.message : "Error al actualizar prioridad" });
     } finally {
       setSavingKey(null);
     }
@@ -215,6 +251,84 @@ export default function FeatureFlagsPanel() {
             );
           })}
         </div>
+      </Card>
+
+      {/* Mis propósitos en IwaGranja (v2.3 combinables y editables) */}
+      <Card>
+        <div className="flex flex-wrap items-start justify-between gap-3 mb-3">
+          <div>
+            <h2 className="text-base font-bold text-[var(--iw-semantic-text-primary)]">
+              Mis propósitos en IwaGranja
+            </h2>
+            <p className="text-xs text-[var(--iw-semantic-text-secondary)] mt-0.5">
+              Orienta las recomendaciones, cápsulas MicroInsight, nudges y guías según tu finalidad actual, sin cambiar permisos ni perder datos.
+            </p>
+          </div>
+          <Badge color="green">
+            Perfil:{" "}
+            {(() => {
+              const mode = resolvePurposeProfileMode(state.config.purposes);
+              if (mode === "mixto") return "Mixto (Hogar + Negocio)";
+              if (mode === "hogar") return "Hogar / Autoconsumo";
+              if (mode === "ingresos") return "Comercial / Negocio";
+              return "Neutral por necesidad";
+            })()}
+          </Badge>
+        </div>
+
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2.5">
+          {FARM_PURPOSE_CATALOG.map((p) => {
+            const active = (state.config.purposes ?? []).includes(p.key);
+            const isPrimary = state.config.primaryPurpose === p.key;
+            return (
+              <button
+                key={p.key}
+                type="button"
+                disabled={savingKey !== null}
+                onClick={() => void handleTogglePurpose(p.key)}
+                className={`text-left rounded-xl border p-3 transition-colors ${
+                  active
+                    ? "border-[var(--iw-semantic-border-strong)] bg-[var(--iw-semantic-bg-feature)]"
+                    : "border-[var(--iw-semantic-border-default)] bg-[var(--iw-semantic-bg-surface)] hover:bg-[var(--iw-semantic-bg-subtle)]"
+                }`}
+              >
+                <div className="flex items-center justify-between gap-2">
+                  <span className="text-xs font-bold text-[var(--iw-semantic-text-primary)]">{p.label}</span>
+                  <Badge color={active ? (isPrimary ? "green" : "blue") : "gray"}>
+                    {active ? (isPrimary ? "Prioritario" : "Activo") : "Elegir"}
+                  </Badge>
+                </div>
+                <p className="mt-1 text-[11px] text-[var(--iw-semantic-text-secondary)] leading-snug">
+                  {p.description}
+                </p>
+              </button>
+            );
+          })}
+        </div>
+
+        {(state.config.purposes ?? []).length >= 2 && (
+          <div className="mt-3 flex flex-wrap items-center gap-2 border-t border-[var(--iw-semantic-border-default)] pt-3">
+            <label htmlFor="ff-primary-purpose" className="text-xs font-semibold text-[var(--iw-semantic-text-primary)]">
+              Prioridad principal:
+            </label>
+            <select
+              id="ff-primary-purpose"
+              value={state.config.primaryPurpose ?? ""}
+              disabled={savingKey !== null}
+              onChange={(e) => void handlePrimaryPurposeChange((e.target.value || null) as FarmPurposeKey | null)}
+              className="rounded-lg border border-[var(--iw-semantic-border-default)] bg-[var(--iw-semantic-bg-surface)] px-2.5 py-1.5 text-xs font-semibold text-[var(--iw-semantic-text-primary)]"
+            >
+              {(state.config.purposes ?? []).map((key) => {
+                const def = FARM_PURPOSE_CATALOG.find((item) => item.key === key);
+                return (
+                  <option key={key} value={key}>
+                    {def ? def.label : key}
+                  </option>
+                );
+              })}
+            </select>
+          </div>
+        )}
       </Card>
 
       {/* Catálogo de Feature Flags + Auto Triggers */}

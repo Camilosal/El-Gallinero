@@ -5,6 +5,7 @@ import { apiFetch } from "@/lib/fetch";
 import { QUICK_CAPTURE_SAVED_EVENT } from "@/lib/quick-capture-events";
 import {
   ONBOARDING_UPDATED_EVENT,
+  type FarmPurposeKey,
   type FeatureFlagKey,
   type ProducerScale,
   type ProgressiveUnlockableFlagKey,
@@ -88,6 +89,10 @@ export function useOnboardingState() {
       onboardingCompleted?: boolean;
       wizardDismissed?: boolean;
       selectedSpecies?: string[];
+      purposes?: FarmPurposeKey[];
+      primaryPurpose?: FarmPurposeKey | null;
+      projectPurposes?: FarmPurposeKey[];
+      acceptedSharedPurposes?: FarmPurposeKey[];
     }) => {
       const res = await apiFetch("/api/onboarding", {
         method: "PATCH",

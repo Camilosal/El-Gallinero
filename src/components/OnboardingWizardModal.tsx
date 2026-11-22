@@ -20,13 +20,16 @@ import { Tooltip } from "@/components/ui";
 import { todayColombiaIso } from "@/lib/date-validation";
 import { COLOMBIA_DIVIPOLA_CATALOG, resolveZoneWithFallback } from "@/lib/divipola-catalog";
 import {
+  FARM_PURPOSE_CATALOG,
   FEATURE_FLAG_BY_KEY,
   buildScaleDefaultFlags,
   evaluateProgressiveTriggers,
   exportDay1StarterCsvTemplate,
   parseDay1StarterCsv,
+  type FarmPurposeKey,
   type ProducerScale,
 } from "@/lib/onboarding";
+import { readCachedActiveFarmMeta } from "@/lib/active-farm-client";
 import { broadcastOnboardingState, useOnboardingState } from "@/lib/useOnboardingState";
 import { openQuickCapture } from "@/lib/quick-capture-events";
 import { trackOnboardingCompletion } from "@/lib/offline/telemetry";
@@ -63,6 +66,37 @@ const AGE_UNIT_MULTIPLIER: Record<AgeUnit, number> = {
   semanas: 7,
   meses: 30,
 };
+
+interface OnboardingDraftPayload {
+  step: 1 | 2 | 3;
+  purposes: FarmPurposeKey[];
+  primaryPurpose: FarmPurposeKey | null;
+  escala: ProducerScale;
+  selectedSpecies: string[];
+  solicitaReporteFormal: boolean;
+  unidades: UnitDraft[];
+  nombreAlimento: string;
+  bultos40kg: string;
+  kgAdicional: string;
+  costoPorBulto40kg: string;
+}
+
+function getWizardDraftKey(): string {
+  const farmId = readCachedActiveFarmMeta()?.id || "default";
+  return `gallinero:onboarding_draft:v1:${farmId}`;
+}
+
+function readWizardDraft(): Partial<OnboardingDraftPayload> | null {
+  if (typeof window === "undefined") return null;
+  try {
+    const raw = window.localStorage.getItem(getWizardDraftKey());
+    if (!raw) return null;
+    const parsed = JSON.parse(raw);
+    return parsed && typeof parsed === "object" ? (parsed as Partial<OnboardingDraftPayload>) : null;
+  } catch {
+    return null;
+  }
+}
 
 function computeAgeDays(valor: string, unidad: AgeUnit): string {
   const num = Number(valor);
@@ -160,6 +194,8 @@ export default function OnboardingWizardModal({
           initialScale={state?.config.scale || "PEQUENO"}
           initialSpecies={state?.config.selectedSpecies?.length ? state.config.selectedSpecies : ["gallina"]}
           initialFormalReport={Boolean(state?.config.solicitaReporteFormal)}
+          initialPurposes={state?.config.purposes ?? []}
+          initialPrimaryPurpose={state?.config.primaryPurpose ?? null}
           onClose={handleClose}
           onCompleted={() => {
             handleClose();
@@ -179,6 +215,8 @@ function WizardBody({
   initialScale,
   initialSpecies,
   initialFormalReport,
+  initialPurposes,
+  initialPrimaryPurpose,
   onClose,
   onCompleted,
 }: {
@@ -189,10 +227,15 @@ function WizardBody({
   initialScale: ProducerScale;
   initialSpecies: string[];
   initialFormalReport: boolean;
+  initialPurposes: FarmPurposeKey[];
+  initialPrimaryPurpose: FarmPurposeKey | null;
   onClose: () => void;
   onCompleted: () => void;
 }) {
-  const [step, setStep] = useState<1 | 2 | 3>(1);
+  const [initialDraft] = useState<Partial<OnboardingDraftPayload> | null>(() => readWizardDraft());
+  const [step, setStep] = useState<1 | 2 | 3>(() =>
+    initialDraft?.step === 2 || initialDraft?.step === 3 ? initialDraft.step : 1,
+  );
   const stepHeadingRef = useRef<HTMLHeadingElement>(null);
   const wizardOpenedAtRef = useRef<number>(0);
 
@@ -212,9 +255,27 @@ function WizardBody({
   const altitudMsnm = altitudOverride ?? initialAltitude;
   const administrador = administradorOverride ?? initialAdminName;
 
-  const [escala, setEscala] = useState<ProducerScale>(initialScale);
-  const [selectedSpecies, setSelectedSpecies] = useState<string[]>(initialSpecies);
-  const [solicitaReporteFormal, setSolicitaReporteFormal] = useState(initialFormalReport);
+  const [purposes, setPurposes] = useState<FarmPurposeKey[]>(() =>
+    Array.isArray(initialDraft?.purposes) ? initialDraft.purposes : initialPurposes,
+  );
+  const [primaryPurpose, setPrimaryPurpose] = useState<FarmPurposeKey | null>(() =>
+    initialDraft?.primaryPurpose !== undefined ? initialDraft.primaryPurpose : initialPrimaryPurpose,
+  );
+  const [escala, setEscala] = useState<ProducerScale>(() =>
+    initialDraft?.escala === "MEDIANO" || initialDraft?.escala === "PEQUENO"
+      ? initialDraft.escala
+      : initialScale,
+  );
+  const [selectedSpecies, setSelectedSpecies] = useState<string[]>(() =>
+    Array.isArray(initialDraft?.selectedSpecies) && initialDraft.selectedSpecies.length > 0
+      ? initialDraft.selectedSpecies
+      : initialSpecies,
+  );
+  const [solicitaReporteFormal, setSolicitaReporteFormal] = useState<boolean>(() =>
+    typeof initialDraft?.solicitaReporteFormal === "boolean"
+      ? initialDraft.solicitaReporteFormal
+      : initialFormalReport,
+  );
   const [fechaInicio, setFechaInicio] = useState(todayColombiaIso());
   const [quickDescribeText, setQuickDescribeText] = useState("");
   const [quickDescribeLoading, setQuickDescribeLoading] = useState(false);
@@ -223,21 +284,62 @@ function WizardBody({
   // Paso 2
   const [inputMode, setInputMode] = useState<"manual" | "csv">("manual");
   const [unidades, setUnidades] = useState<UnitDraft[]>(() =>
-    initialSpecies.map((sp, i) => makeUnitDraftForSpecies(sp, i)),
+    Array.isArray(initialDraft?.unidades) && initialDraft.unidades.length > 0
+      ? initialDraft.unidades
+      : initialSpecies.map((sp, i) => makeUnitDraftForSpecies(sp, i)),
   );
   const [csvText, setCsvText] = useState("");
   const [csvNotice, setCsvNotice] = useState<string | null>(null);
 
   // Paso 3
-  const [nombreAlimento, setNombreAlimento] = useState("Concentrado Inicial en Bodega");
-  const [bultos40kg, setBultos40kg] = useState("2");
-  const [kgAdicional, setKgAdicional] = useState("0");
-  const [costoPorBulto40kg, setCostoPorBulto40kg] = useState("78000");
+  const [nombreAlimento, setNombreAlimento] = useState(
+    () => initialDraft?.nombreAlimento || "Concentrado Inicial en Bodega",
+  );
+  const [bultos40kg, setBultos40kg] = useState(() => initialDraft?.bultos40kg ?? "2");
+  const [kgAdicional, setKgAdicional] = useState(() => initialDraft?.kgAdicional ?? "0");
+  const [costoPorBulto40kg, setCostoPorBulto40kg] = useState(
+    () => initialDraft?.costoPorBulto40kg ?? "78000",
+  );
 
   // Envío, confirmación y errores
   const [error, setError] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [completedSummary, setCompletedSummary] = useState<CompletedSummary | null>(null);
+
+  useEffect(() => {
+    if (completedSummary) return;
+    try {
+      const payload: OnboardingDraftPayload = {
+        step,
+        purposes,
+        primaryPurpose,
+        escala,
+        selectedSpecies,
+        solicitaReporteFormal,
+        unidades,
+        nombreAlimento,
+        bultos40kg,
+        kgAdicional,
+        costoPorBulto40kg,
+      };
+      window.localStorage.setItem(getWizardDraftKey(), JSON.stringify(payload));
+    } catch {
+      // Ignore storage quota errors
+    }
+  }, [
+    step,
+    purposes,
+    primaryPurpose,
+    escala,
+    selectedSpecies,
+    solicitaReporteFormal,
+    unidades,
+    nombreAlimento,
+    bultos40kg,
+    kgAdicional,
+    costoPorBulto40kg,
+    completedSummary,
+  ]);
 
   const moveToStep = (nextStep: 1 | 2 | 3) => {
     setError("");
@@ -300,6 +402,17 @@ function WizardBody({
     } finally {
       setQuickDescribeLoading(false);
     }
+  };
+
+  const togglePurpose = (key: FarmPurposeKey) => {
+    setPurposes((prev) => {
+      const exists = prev.includes(key);
+      const next = exists ? prev.filter((p) => p !== key) : [...prev, key];
+      setPrimaryPurpose((curr) =>
+        curr && next.includes(curr) ? curr : next[0] ?? null,
+      );
+      return next;
+    });
   };
 
   const toggleSpecies = (key: string) => {
@@ -498,6 +611,8 @@ function WizardBody({
           especies: selectedSpecies,
           fechaInicioOperacion: fechaInicio,
           solicitaReporteFormal,
+          purposes,
+          primaryPurpose,
           unidades: unidades.map((u) => ({
             nombreInstalacion: u.nombreInstalacion.trim(),
             tipoInstalacion: u.tipoInstalacion,
@@ -522,6 +637,11 @@ function WizardBody({
       }
       if (json.state) {
         broadcastOnboardingState(json.state);
+      }
+      try {
+        window.localStorage.removeItem(getWizardDraftKey());
+      } catch {
+        // Ignore storage errors
       }
       const startMs = wizardOpenedAtRef.current || Date.now();
       const durationSec = Math.max(1, Math.min(3600, Math.round((Date.now() - startMs) / 1000)));
@@ -873,6 +993,67 @@ function WizardBody({
               </div>
             </div>
           )}
+
+            <fieldset className="space-y-2.5 rounded-xl border border-[var(--iw-semantic-border-default)] p-3.5 bg-[var(--iw-semantic-bg-feature)]">
+              <legend className="px-1 text-sm font-bold text-[var(--iw-semantic-text-primary)]">
+                ¿Para qué quieres criar tus animales? (Mis propósitos · opcional)
+              </legend>
+              <p className="text-xs text-[var(--iw-semantic-text-secondary)]">
+                Puedes elegir varias opciones (p. ej. hogar y venta), dejarlo para después o cambiarlo cuando quieras sin perder tu historial.
+              </p>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                {FARM_PURPOSE_CATALOG.map((p) => {
+                  const checked = purposes.includes(p.key);
+                  return (
+                    <label
+                      key={p.key}
+                      className={`flex items-start gap-2.5 rounded-lg border px-3 py-2 min-h-[44px] cursor-pointer transition-colors ${
+                        checked
+                          ? "border-[var(--iw-semantic-border-strong)] bg-[var(--iw-semantic-bg-surface)] text-[var(--iw-semantic-text-primary)]"
+                          : "border-[var(--iw-semantic-border-default)] bg-[var(--iw-semantic-bg-surface)]/80 text-[var(--iw-semantic-text-secondary)] hover:bg-[var(--iw-semantic-bg-surface)]"
+                      }`}
+                    >
+                      <input
+                        type="checkbox"
+                        checked={checked}
+                        onChange={() => togglePurpose(p.key)}
+                        className="mt-1 h-4 w-4 accent-[var(--iw-semantic-action-primary)] shrink-0"
+                      />
+                      <span>
+                        <span className="block text-xs sm:text-sm font-semibold text-[var(--iw-semantic-text-primary)]">
+                          {p.label}
+                        </span>
+                        <span className="block text-[11px] text-[var(--iw-semantic-text-secondary)] leading-snug">
+                          {p.description}
+                        </span>
+                      </span>
+                    </label>
+                  );
+                })}
+              </div>
+              {purposes.length >= 2 && (
+                <div className="pt-1 flex flex-wrap items-center gap-2">
+                  <label htmlFor="ob-primary-purpose" className="text-xs font-semibold text-[var(--iw-semantic-text-primary)]">
+                    ¿Qué te gustaría lograr primero?
+                  </label>
+                  <select
+                    id="ob-primary-purpose"
+                    value={primaryPurpose ?? ""}
+                    onChange={(e) => setPrimaryPurpose((e.target.value || null) as FarmPurposeKey | null)}
+                    className="rounded-lg border border-[var(--iw-semantic-border-default)] bg-[var(--iw-semantic-bg-surface)] px-2.5 py-1.5 text-xs font-semibold text-[var(--iw-semantic-text-primary)]"
+                  >
+                    {purposes.map((key) => {
+                      const def = FARM_PURPOSE_CATALOG.find((item) => item.key === key);
+                      return (
+                        <option key={key} value={key}>
+                          {def ? def.label : key}
+                        </option>
+                      );
+                    })}
+                  </select>
+                </div>
+              )}
+            </fieldset>
 
             <fieldset className="space-y-2 rounded-xl border border-slate-200 p-3.5 bg-slate-50/70">
               <legend className="px-1 text-sm font-bold text-slate-800">

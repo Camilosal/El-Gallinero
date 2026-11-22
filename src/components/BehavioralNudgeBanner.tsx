@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import { usePathname, useSearchParams } from "next/navigation";
-import { ArrowRight, ChevronDown, ChevronUp, Lightbulb, RefreshCw, Sparkles } from "lucide-react";
+import { ArrowRight, BookOpen, ChevronDown, ChevronUp, Lightbulb, RefreshCw, Sparkles } from "lucide-react";
 import {
   pickAdaptiveNudge,
   recordNudgeFeedback,
@@ -13,6 +13,7 @@ import {
   type NudgeTone,
 } from "@/lib/behavioral-nudges";
 import { openQuickCapture } from "@/lib/quick-capture-events";
+import { useOnboardingState } from "@/lib/useOnboardingState";
 
 const TONE_CLASSES: Record<
   NudgeTone,
@@ -71,6 +72,11 @@ export default function BehavioralNudgeBanner({
   const searchParams = useSearchParams();
   const query = searchParams.toString();
 
+  const { config: onboardingConfig } = useOnboardingState();
+  const purposesKey = (onboardingConfig?.purposes ?? []).join(",");
+  const primaryPurpose = onboardingConfig?.primaryPurpose ?? null;
+  const speciesKey = (onboardingConfig?.selectedSpecies ?? []).join(",");
+
   const group = useMemo(() => resolvePageNudgeGroup(pathname, query), [pathname, query]);
   const pageKey = useMemo(() => {
     const cleanPath = pathname.split("?")[0].replace(/\/+$/, "") || "/inicio";
@@ -90,15 +96,26 @@ export default function BehavioralNudgeBanner({
     void Promise.resolve().then(() => {
       if (!active) return;
       const now = Date.now();
-      const recent = RECENT_ROTATIONS.get(pageKey);
+      const cacheKey = `${pageKey}:${purposesKey}:${primaryPurpose || ""}:${speciesKey}`;
+      const recent = RECENT_ROTATIONS.get(cacheKey);
       let picked: AdaptiveNudgeResult;
       if (recent && now - recent.at < 180) {
         picked = recent.result;
       } else {
         const storage = safeStorage();
-        picked = pickAdaptiveNudge(pageKey, group.nudges, storage, { advance: true, nowMs: now });
+        const purposes = purposesKey
+          ? (purposesKey.split(",").filter(Boolean) as NonNullable<typeof onboardingConfig>["purposes"])
+          : undefined;
+        const activeSpecies = speciesKey ? speciesKey.split(",").filter(Boolean) : undefined;
+        picked = pickAdaptiveNudge(pageKey, group.nudges, storage, {
+          advance: true,
+          nowMs: now,
+          purposes,
+          primaryPurpose,
+          activeSpecies,
+        });
         recordNudgeFeedback(picked.nudge.id, "shown", storage, now);
-        RECENT_ROTATIONS.set(pageKey, { at: now, result: picked });
+        RECENT_ROTATIONS.set(cacheKey, { at: now, result: picked });
       }
       setMinimized(false);
       setState({ pageKey, picked });
@@ -106,7 +123,7 @@ export default function BehavioralNudgeBanner({
     return () => {
       active = false;
     };
-  }, [group.nudges, pageKey]);
+  }, [group.nudges, pageKey, purposesKey, primaryPurpose, speciesKey]);
 
   const activePicked: AdaptiveNudgeResult =
     state && state.pageKey === pageKey
@@ -129,10 +146,21 @@ export default function BehavioralNudgeBanner({
   const handleManualNext = () => {
     const storage = safeStorage();
     const now = Date.now();
+    const cacheKey = `${pageKey}:${purposesKey}:${primaryPurpose || ""}:${speciesKey}`;
+    const purposes = purposesKey
+      ? (purposesKey.split(",").filter(Boolean) as NonNullable<typeof onboardingConfig>["purposes"])
+      : undefined;
+    const activeSpecies = speciesKey ? speciesKey.split(",").filter(Boolean) : undefined;
     recordNudgeFeedback(nudge.id, "skipped", storage, now);
-    const next = pickAdaptiveNudge(pageKey, group.nudges, storage, { advance: true, nowMs: now });
+    const next = pickAdaptiveNudge(pageKey, group.nudges, storage, {
+      advance: true,
+      nowMs: now,
+      purposes,
+      primaryPurpose,
+      activeSpecies,
+    });
     recordNudgeFeedback(next.nudge.id, "shown", storage, now);
-    RECENT_ROTATIONS.set(pageKey, { at: now, result: next });
+    RECENT_ROTATIONS.set(cacheKey, { at: now, result: next });
     setState({ pageKey, picked: next });
   };
 
@@ -212,6 +240,17 @@ export default function BehavioralNudgeBanner({
             >
               <span>{nudge.actionLabel}</span>
               <ArrowRight className="h-3 w-3" aria-hidden="true" />
+            </Link>
+          )}
+          {!minimized && activePicked.appGuideHref && activePicked.appGuideHref !== nudge.actionHref && (
+            <Link
+              href={activePicked.appGuideHref}
+              onClick={() => trackOutcome("acted")}
+              title="Ver guía de uso de esta función en /guia"
+              className="inline-flex items-center gap-1 rounded-[var(--iw-radius-control)] border border-[var(--iw-semantic-border-default)] bg-[var(--iw-semantic-bg-surface)] px-2 py-1.5 text-[11px] font-medium text-[var(--iw-semantic-action-primary)] hover:bg-[var(--iw-semantic-bg-subtle)] transition-colors"
+            >
+              <BookOpen className="h-3 w-3" aria-hidden="true" />
+              <span>Cómo usar en app</span>
             </Link>
           )}
           <button
