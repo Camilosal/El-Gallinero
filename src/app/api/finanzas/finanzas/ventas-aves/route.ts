@@ -20,6 +20,7 @@ import {
 import { assertDateNotClosed, assertNoActiveWithdrawal } from "@/lib/sanitary-locks";
 import { resolveManagedTransactionTaxColumns } from "@/lib/analytics/payroll-tax-supplies";
 import { getTaxAndPayrollConfig } from "@/lib/settings";
+import { learnFromSaleAction } from "@/lib/agent/ui-memory-bridge";
 
 export const dynamic = "force-dynamic";
 
@@ -254,6 +255,17 @@ export const POST = withApiHandler(async (req: NextRequest) => {
 
     return { ...inserted, transactionId: transaction.id };
   });
+
+  if (created.buyer) {
+    await learnFromSaleAction({
+      buyer: created.buyer,
+      productLine: "animales",
+      summary: `${created.quantity} ${String(created.birdType || "aves").replace(/_/g, " ")}`,
+      unitPrice: Number(created.pricePerUnit || 0),
+      isCredit: Boolean(body.isCredit),
+      entities: created.species ? [created.species] : undefined,
+    }).catch(() => null);
+  }
 
   return NextResponse.json(created, { status: 201 });
 });

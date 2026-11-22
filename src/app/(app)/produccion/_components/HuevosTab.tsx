@@ -18,6 +18,7 @@ import { useActionQuery } from "@/lib/useActionQuery";
 import { syncManager } from "@/lib/offline/syncManager";
 import { getCachedRecords, setCachedRecords } from "@/lib/offline/db";
 import { classifyWeightNtc1240, checkEggStorageTelemetry, getNtc1240Hint, generateEggLotCode } from "@/lib/ntc1240";
+import { recordEggCaptureHabit } from "@/lib/form-habit-learner";
 import MicroInsightCard from "@/components/MicroInsightCard";
 import FeatureGateBanner from "@/components/FeatureGateBanner";
 import { useOnboardingState } from "@/lib/useOnboardingState";
@@ -490,6 +491,15 @@ export default function HuevosPage() {
           offline: true,
         }),
       );
+      if (method === "POST") {
+        recordEggCaptureHabit({
+          locationId: payload.locationId || "",
+          species: payload.species || "gallina",
+          batchId: payload.batchId || "",
+          trays: Math.floor(totalToSave / 30),
+          looseEggs: totalToSave % 30,
+        });
+      }
       return;
     }
 
@@ -516,6 +526,15 @@ export default function HuevosPage() {
         offline: false,
       }),
     );
+    if (method === "POST") {
+      recordEggCaptureHabit({
+        locationId: payload.locationId || "",
+        species: payload.species || "gallina",
+        batchId: payload.batchId || "",
+        trays: Math.floor(totalToSave / 30),
+        looseEggs: totalToSave % 30,
+      });
+    }
     load();
 
     try {

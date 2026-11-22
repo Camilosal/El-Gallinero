@@ -255,6 +255,26 @@ export const GET = withApiHandler(async (req: NextRequest) => {
     points: empiricalCalibration.calibratedPoints,
   };
 
+  let calibratedComparison: Record<string, unknown> | null = null;
+  if (
+    comparison &&
+    typeof comparison.week === "number" &&
+    typeof comparison.actual === "number"
+  ) {
+    const calTarget = interpolateStandard(calibratedCurve, comparison.week);
+    if (calTarget) {
+      calibratedComparison = {
+        ...comparison,
+        target: calTarget.target,
+        min: calTarget.min,
+        max: calTarget.max,
+        variancePercent:
+          calTarget.target > 0 ? ((comparison.actual - calTarget.target) / calTarget.target) * 100 : null,
+        status: performanceStatus(comparison.actual, calTarget.min, calTarget.max),
+      };
+    }
+  }
+
   const [latestMetrics, weatherSnap] = [
     [...logs].reverse().find((l) => l.cvPercent != null || l.dailyGainG != null),
     await syncWeatherSnapshot().catch(() => null),
@@ -262,6 +282,7 @@ export const GET = withApiHandler(async (req: NextRequest) => {
   return NextResponse.json({
     curve,
     calibratedCurve,
+    calibratedComparison,
     empiricalCalibration,
     logs,
     actualPoints,

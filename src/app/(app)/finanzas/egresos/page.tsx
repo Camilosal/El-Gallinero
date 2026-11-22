@@ -17,6 +17,7 @@ import {
   type OcrExtractedPayload,
 } from "@/lib/attachments-shared";
 import { buildExpenseMicroInsight, type MicroInsightPayload } from "@/lib/micro-insights";
+import { recordExpenseCaptureHabit } from "@/lib/form-habit-learner";
 import TableSearch from "@/components/TableSearch";
 import { matchesTextQuery } from "@/lib/text";
 import { useSearchParams } from "next/navigation";
@@ -684,6 +685,14 @@ export default function EgresosPage() {
         factor: body.factor ? Number(body.factor) : null,
       }),
     );
+    if (!editing) {
+      recordExpenseCaptureHabit({
+        category: form.category,
+        counterparty: form.counterparty || "",
+        amount: finalAmount,
+        description: form.description || form.category,
+      });
+    }
     setModalOpen(false);
     load();
   };

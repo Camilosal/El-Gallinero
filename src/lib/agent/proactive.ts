@@ -1,6 +1,7 @@
 import { db } from "@/db";
 import {
   agentBriefings,
+  agentMemories,
   budgets,
   budgetItems,
   dailyClosures,
@@ -9,7 +10,7 @@ import {
   mortalityRecords,
   transactions,
 } from "@/db/schema";
-import { and, eq, gte, lte, sql } from "drizzle-orm";
+import { and, desc, eq, gte, inArray, lte, sql } from "drizzle-orm";
 import { getSettings } from "@/lib/settings";
 import { addDaysIso, todayColombiaIso } from "@/lib/date-validation";
 import { getFeedInventoryProjection } from "@/lib/feeding/inventory";
@@ -191,17 +192,46 @@ async function detectStreakAtRisk(todayIso: string): Promise<BriefingFinding | n
   };
 }
 
+/** Contexto operativo aprendido en memorias de alta importancia (lotes, protocolos, restricciones). */
+export async function detectOperationalMemoryContext(): Promise<BriefingFinding | null> {
+  const rows = await db
+    .select({
+      category: agentMemories.category,
+      content: agentMemories.content,
+    })
+    .from(agentMemories)
+    .where(
+      and(
+        eq(agentMemories.isActive, true),
+        gte(agentMemories.importance, 4),
+        inArray(agentMemories.category, ["lote", "protocolo", "restriccion"]),
+      ),
+    )
+    .orderBy(desc(agentMemories.updatedAt))
+    .limit(2);
+
+  if (rows.length === 0) return null;
+  return {
+    code: "memoria_operativa_finca",
+    severity: "info",
+    title: "Contexto aprendido de tu operación",
+    detail: rows.map((r) => r.content).join(" · "),
+    href: "/analisis/razas",
+  };
+}
+
 /** Hallazgos deterministas del día, priorizados por severidad. */
 export async function collectBriefingFindings(todayIso: string = todayColombiaIso()): Promise<BriefingFinding[]> {
   const findings: BriefingFinding[] = [];
   const soonIso = addDaysIso(todayIso, 3);
 
-  const [snapshot, feedProjection, mortalityAnomaly, budgetDeviations, streakRisk] = await Promise.all([
+  const [snapshot, feedProjection, mortalityAnomaly, budgetDeviations, streakRisk, memoryContext] = await Promise.all([
     getLiveSituationalSnapshot(),
     getFeedInventoryProjection(7).catch(() => []),
     detectMortalityAnomaly(todayIso).catch(() => null),
     detectBudgetDeviations(todayIso).catch(() => [] as BriefingFinding[]),
     detectStreakAtRisk(todayIso).catch(() => null),
+    detectOperationalMemoryContext().catch(() => null),
   ]);
 
   // Cobertura de alimento (proyección existente de inventario, consumo últimos 7 días).
@@ -279,6 +309,7 @@ export async function collectBriefingFindings(todayIso: string = todayColombiaIs
   if (mortalityAnomaly) findings.push(mortalityAnomaly);
   findings.push(...budgetDeviations);
   if (streakRisk) findings.push(streakRisk);
+  if (memoryContext) findings.push(memoryContext);
 
   return sortFindings(findings);
 }
