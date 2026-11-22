@@ -14,6 +14,7 @@ import {
   Plus,
   Receipt,
   ShoppingBag,
+  Sparkles,
   Wheat,
   WifiOff,
 } from "lucide-react";
@@ -60,6 +61,18 @@ import {
   type QuickCaptureMode,
   type QuickCaptureSaleType,
 } from "@/lib/quick-capture-events";
+import {
+  predictEggCaptureDefaults,
+  predictExpenseShortcuts,
+  predictFeedForLocation,
+  predictMortalityDefaults,
+  predictSaleShortcuts,
+  recordEggCaptureHabit,
+  recordExpenseCaptureHabit,
+  recordFeedCaptureHabit,
+  recordMortalityCaptureHabit,
+  recordSaleCaptureHabit,
+} from "@/lib/form-habit-learner";
 
 interface EggRecordCache {
   id: string;
@@ -297,6 +310,8 @@ export default function QuickCaptureModal() {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
   const [successInfo, setSuccessInfo] = useState<MicroInsightPayload | null>(null);
+  const [habitSuggested, setHabitSuggested] = useState(false);
+  const [habitVersion, setHabitVersion] = useState(0);
 
   const { locations } = useFarmLocations(true);
   const { items: sizeCatalog } = useCatalog("tamano_huevo");
@@ -548,12 +563,24 @@ export default function QuickCaptureModal() {
     setSaving(false);
     setEggOverLimitMsg("");
 
+    const eggHabit = predictEggCaptureDefaults({ locationId: detail.locationId || undefined });
+    const feedHabit = predictFeedForLocation({ locationId: detail.locationId || undefined });
+    const mortHabit = predictMortalityDefaults();
+    const expHabit = predictExpenseShortcuts();
+    const nextSaleType: QuickCaptureSaleType = detail.saleType || "huevos";
+    const saleHabit = predictSaleShortcuts({ saleType: nextSaleType });
+
     // Reset eggs
     setEggDate(today);
-    const sp = detail.species && ["gallina", "codorniz", "pato"].includes(detail.species) ? detail.species : "gallina";
-    setEggSpecies(sp);
-    setEggLocationId(detail.locationId || "");
-    setEggBatchId(detail.batchId || "");
+    const resolvedEggSpecies =
+      detail.species && ["gallina", "codorniz", "pato"].includes(detail.species)
+        ? detail.species
+        : eggHabit.species && ["gallina", "codorniz", "pato"].includes(eggHabit.species)
+          ? eggHabit.species
+          : "gallina";
+    setEggSpecies(resolvedEggSpecies);
+    setEggLocationId(detail.locationId || eggHabit.locationId || "");
+    setEggBatchId(detail.batchId || (resolvedEggSpecies !== "gallina" ? eggHabit.batchId || "" : ""));
     const suggested = detail.suggestedEggs && detail.suggestedEggs > 0 ? Math.round(detail.suggestedEggs) : 0;
     setTrays(Math.floor(suggested / 30));
     setLooseEggs(suggested % 30);
@@ -566,42 +593,54 @@ export default function QuickCaptureModal() {
 
     // Reset feed
     setFeedDate(today);
-    setFeedLocationId(detail.locationId || "");
-    setFeedId(detail.suggestedFeedId || "");
-    setFeedQty(detail.suggestedFeedQty && detail.suggestedFeedQty > 0 ? String(detail.suggestedFeedQty) : "1");
+    setFeedLocationId(detail.locationId || feedHabit.locationId || "");
+    setFeedId(detail.suggestedFeedId || feedHabit.feedId || "");
+    setFeedQty(
+      detail.suggestedFeedQty && detail.suggestedFeedQty > 0
+        ? String(detail.suggestedFeedQty)
+        : feedHabit.quantity || "1",
+    );
     setFeedNotes("");
 
     // Reset mortality
     setMortDate(today);
-    setMortLocationId(detail.locationId || "");
+    setMortLocationId(detail.locationId || mortHabit.locationId || "");
     const initialAnimalType = detail.roosterId
       ? "gallo"
       : detail.batchId
         ? batchTypeForSpecies(detail.species)
-        : "gallina";
+        : mortHabit.birdType || "gallina";
     setMortBirdType(initialAnimalType);
     setMortHenId(detail.henId || "");
     setMortRoosterId(detail.roosterId || "");
     setMortBatchId(detail.batchId || "");
     setMortQty("1");
-    setMortCause("enfermedad");
+    setMortCause(mortHabit.cause || "enfermedad");
     setMortNotes("");
 
     // Reset expense
     setExpDate(today);
+    if (expHabit.preferredCategory) setExpCategory(expHabit.preferredCategory);
     setExpAmount("");
     setExpDescription("");
     setExpCounterparty("");
 
     // Reset sale
-    const nextSaleType: QuickCaptureSaleType = detail.saleType || "huevos";
     setSaleType(nextSaleType);
     setSaleDate(today);
     setSaleSpecies(
       detail.species ||
         (nextSaleType === "carne" ? "pollo" : nextSaleType === "huevos" ? "gallina" : ""),
     );
-    setSaleLocationId(detail.locationId || "");
+    setSaleLocationId(detail.locationId || saleHabit.preferredLocationId || "");
+
+    const appliedRoutine =
+      (detail.mode === "huevos" && Boolean((!detail.locationId && eggHabit.locationId) || (!detail.species && eggHabit.species))) ||
+      (detail.mode === "alimentacion" && Boolean((!detail.suggestedFeedId && feedHabit.feedId) || (!detail.locationId && feedHabit.locationId))) ||
+      (detail.mode === "mortalidad" && Boolean(mortHabit.birdType || mortHabit.locationId)) ||
+      (detail.mode === "gasto" && Boolean(expHabit.preferredCategory)) ||
+      (detail.mode === "venta" && Boolean(saleHabit.frequentBuyers.length > 0 || saleHabit.preferredLocationId));
+    setHabitSuggested(appliedRoutine);
     setSaleBuyer("");
     setSalePresentation("");
     setSaleIsCredit(false);
@@ -651,6 +690,24 @@ export default function QuickCaptureModal() {
   const effectiveDefaultLocation = useMemo(() => {
     return locations[0]?.id || "";
   }, [locations]);
+
+  const eggHabitQuantities = useMemo(() => {
+    void open;
+    void habitVersion;
+    return predictEggCaptureDefaults({ locationId: eggLocationId || undefined, limit: 2 }).topQuantities;
+  }, [open, habitVersion, eggLocationId]);
+
+  const expenseHabitShortcuts = useMemo(() => {
+    void open;
+    void habitVersion;
+    return predictExpenseShortcuts({ limit: 3 });
+  }, [open, habitVersion]);
+
+  const saleHabitShortcuts = useMemo(() => {
+    void open;
+    void habitVersion;
+    return predictSaleShortcuts({ saleType, limit: 3 });
+  }, [open, habitVersion, saleType]);
 
   const totalEggsCollected = Math.max(0, trays * 30 + looseEggs);
   const goodEggs = Math.max(0, totalEggsCollected - brokenEggs - incubEggs);
@@ -842,6 +899,14 @@ export default function QuickCaptureModal() {
           offline: result.offline,
         }),
       );
+      recordEggCaptureHabit({
+        locationId: loc,
+        species: eggSpecies,
+        batchId: eggBatchId,
+        trays,
+        looseEggs,
+      });
+      setHabitVersion((v) => v + 1);
       trackCaptureTelemetry("huevos");
       window.dispatchEvent(new CustomEvent(QUICK_CAPTURE_SAVED_EVENT, { detail: { mode: "huevos" } }));
     } finally {
@@ -933,6 +998,12 @@ export default function QuickCaptureModal() {
           offline: result.offline,
         }),
       );
+      recordFeedCaptureHabit({
+        locationId: loc,
+        feedId,
+        quantity: String(qty),
+      });
+      setHabitVersion((v) => v + 1);
       trackCaptureTelemetry("alimentacion");
       window.dispatchEvent(new CustomEvent(QUICK_CAPTURE_SAVED_EVENT, { detail: { mode: "alimentacion" } }));
     } finally {
@@ -1024,6 +1095,12 @@ export default function QuickCaptureModal() {
           offline: result.offline,
         }),
       );
+      recordMortalityCaptureHabit({
+        locationId: loc,
+        birdType: mortBirdType,
+        cause: mortCause,
+      });
+      setHabitVersion((v) => v + 1);
       trackCaptureTelemetry("mortalidad");
       window.dispatchEvent(new CustomEvent(QUICK_CAPTURE_SAVED_EVENT, { detail: { mode: "mortalidad" } }));
     } finally {
@@ -1086,6 +1163,15 @@ export default function QuickCaptureModal() {
           offline: isQueued,
         }),
       );
+      recordExpenseCaptureHabit({
+        category: categoriesList.includes(expCategory) ? expCategory : categoriesList[0] || "Otro egreso",
+        counterparty: expCounterparty.trim(),
+        species: expSpecies,
+        locationId: expLocationId,
+        amount,
+        description: expDescription.trim(),
+      });
+      setHabitVersion((v) => v + 1);
       trackCaptureTelemetry("gasto");
       window.dispatchEvent(new CustomEvent(QUICK_CAPTURE_SAVED_EVENT, { detail: { mode: "gasto" } }));
     } finally {
@@ -1351,6 +1437,39 @@ export default function QuickCaptureModal() {
       setDraftSaleId(createDraftEntityId("qsale"));
 
       setSuccessInfo(buildSaleMicroInsight({ ...insightArgs, offline: isQueued }));
+      const recordedUnitPrice =
+        saleType === "huevos"
+          ? salePrice
+          : saleType === "carne"
+            ? saleMeatPriceKg
+            : saleType === "animales"
+              ? saleAnimalPrice
+              : saleType === "gallinaza"
+                ? saleManurePriceKg
+                : saleOtherUnitPrice;
+      const recordedQty =
+        saleType === "huevos"
+          ? saleQty
+          : saleType === "carne"
+            ? saleMeatKg
+            : saleType === "animales"
+              ? saleAnimalQty
+              : saleType === "gallinaza"
+                ? saleManureKg
+                : saleOtherQty;
+      recordSaleCaptureHabit({
+        saleType,
+        buyer: saleBuyer.trim(),
+        species: saleSpecies,
+        locationId: saleLocationId,
+        size: saleSize,
+        presentation: salePresentation.trim(),
+        unitPrice: recordedUnitPrice,
+        quantity: recordedQty,
+        isCredit: saleIsCredit,
+        creditDays: saleClientCreditDays,
+      });
+      setHabitVersion((v) => v + 1);
       trackCaptureTelemetry("venta");
       window.dispatchEvent(new CustomEvent(QUICK_CAPTURE_SAVED_EVENT, { detail: { mode: "venta", saleType } }));
     } finally {
@@ -1413,6 +1532,13 @@ export default function QuickCaptureModal() {
             );
           })}
         </div>
+
+        {habitSuggested && !successInfo && (
+          <div className="inline-flex items-center gap-1.5 rounded-full border border-[var(--iw-semantic-border-default)] bg-[var(--iw-semantic-bg-feature)] px-3 py-1 text-[11px] font-semibold text-[var(--iw-semantic-action-primary)]">
+            <Sparkles className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
+            <span>Sugerido por tu rutina habitual</span>
+          </div>
+        )}
 
         {error && (
           <div role="alert" className="flex items-start gap-2 rounded-[var(--iw-radius-control)] border border-[var(--iw-semantic-status-danger)]/40 bg-[var(--iw-semantic-bg-subtle)] px-3 py-2.5 text-sm text-[var(--iw-semantic-status-danger)]">
@@ -1477,16 +1603,35 @@ export default function QuickCaptureModal() {
                       </button>
                     ))}
                   </div>
-                  {lastEggRecord && (
-                    <button
-                      type="button"
-                      onClick={applyLastEggRecord}
-                      className="inline-flex min-h-[40px] items-center gap-1 rounded-[var(--iw-radius-control)] border border-[var(--iw-semantic-border-default)] bg-[var(--iw-semantic-bg-feature)] px-3 py-1.5 text-xs font-semibold text-[var(--iw-semantic-action-primary)] hover:brightness-95"
-                    >
-                      <Copy className="h-3.5 w-3.5" aria-hidden="true" />
-                      <span>Igual que ayer ({lastEggRecord.totalCollected})</span>
-                    </button>
-                  )}
+                  <div className="flex flex-wrap items-center gap-1.5">
+                    {eggHabitQuantities.map((q) => (
+                      <button
+                        key={`${q.trays}:${q.looseEggs}`}
+                        type="button"
+                        onClick={() => {
+                          setTrays(q.trays);
+                          setLooseEggs(q.looseEggs);
+                          setHabitSuggested(true);
+                        }}
+                        className="inline-flex min-h-[40px] items-center gap-1 rounded-[var(--iw-radius-control)] border border-[var(--iw-semantic-border-default)] bg-[var(--iw-semantic-bg-surface)] px-2.5 py-1.5 text-xs font-semibold text-[var(--iw-semantic-text-primary)] hover:bg-[var(--iw-semantic-bg-feature)] tabular-nums"
+                      >
+                        <Sparkles className="h-3 w-3 text-[var(--iw-semantic-action-primary)]" aria-hidden="true" />
+                        <span>
+                          {q.trays > 0 ? `${q.trays} cub.${q.looseEggs > 0 ? ` + ${q.looseEggs}` : ""}` : `${q.looseEggs} u.`} ({q.total})
+                        </span>
+                      </button>
+                    ))}
+                    {lastEggRecord && (
+                      <button
+                        type="button"
+                        onClick={applyLastEggRecord}
+                        className="inline-flex min-h-[40px] items-center gap-1 rounded-[var(--iw-radius-control)] border border-[var(--iw-semantic-border-default)] bg-[var(--iw-semantic-bg-feature)] px-3 py-1.5 text-xs font-semibold text-[var(--iw-semantic-action-primary)] hover:brightness-95"
+                      >
+                        <Copy className="h-3.5 w-3.5" aria-hidden="true" />
+                        <span>Igual que ayer ({lastEggRecord.totalCollected})</span>
+                      </button>
+                    )}
+                  </div>
                 </div>
 
                 <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
@@ -1675,7 +1820,15 @@ export default function QuickCaptureModal() {
                 <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                   <FarmLocationSelect
                     value={feedLocationId || effectiveDefaultLocation}
-                    onChange={setFeedLocationId}
+                    onChange={(nextLoc) => {
+                      setFeedLocationId(nextLoc);
+                      const predicted = predictFeedForLocation({ locationId: nextLoc });
+                      if (predicted.feedId && feeds.some((f) => f.id === predicted.feedId)) {
+                        setFeedId(predicted.feedId);
+                        if (predicted.quantity) setFeedQty(predicted.quantity);
+                        setHabitSuggested(true);
+                      }
+                    }}
                     label="Galpón / ubicación"
                     help="Lugar donde entregaste esta ración de alimento."
                   />
@@ -2014,6 +2167,35 @@ export default function QuickCaptureModal() {
                   onChange={(e) => setExpDescription(e.target.value)}
                   placeholder="Ej: Bulto de ponedora, vacunas, transporte..."
                 />
+
+                {expenseHabitShortcuts.frequentSuppliers.length > 0 && (
+                  <div className="space-y-1.5">
+                    <span className="block font-mono text-[10px] font-bold uppercase tracking-wider text-[var(--iw-semantic-action-primary)]">
+                      Proveedores frecuentes (1 toque)
+                    </span>
+                    <div className="flex flex-wrap gap-1.5">
+                      {expenseHabitShortcuts.frequentSuppliers.map((sup) => (
+                        <button
+                          key={sup.counterparty}
+                          type="button"
+                          onClick={() => {
+                            setExpCounterparty(sup.counterparty);
+                            if (sup.category) setExpCategory(sup.category);
+                            if (sup.species) setExpSpecies(sup.species);
+                            if (sup.locationId) setExpLocationId(sup.locationId);
+                            if (sup.lastDescription) setExpDescription(sup.lastDescription);
+                            if (sup.lastAmount > 0) setExpAmount(String(sup.lastAmount));
+                            setHabitSuggested(true);
+                          }}
+                          className="inline-flex min-h-[40px] items-center gap-1.5 rounded-[var(--iw-radius-control)] border border-[var(--iw-semantic-border-default)] bg-[var(--iw-semantic-bg-feature)] px-2.5 py-1 text-xs font-semibold text-[var(--iw-semantic-action-primary)] hover:brightness-95"
+                        >
+                          <Sparkles className="h-3 w-3 shrink-0" aria-hidden="true" />
+                          <span>{sup.counterparty}</span>
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                )}
 
                 <ContactField
                   role="proveedor"
@@ -2399,6 +2581,55 @@ export default function QuickCaptureModal() {
                       <Input label="Presentación (opc.)" value={salePresentation} onChange={(e) => setSalePresentation(e.target.value)} placeholder="Bolsa, caja..." />
                     </div>
                   </>
+                )}
+
+                {saleHabitShortcuts.frequentBuyers.length > 0 && (
+                  <div className="space-y-1.5">
+                    <span className="block font-mono text-[10px] font-bold uppercase tracking-wider text-[var(--iw-semantic-action-primary)]">
+                      Clientes frecuentes · {saleType} (1 toque)
+                    </span>
+                    <div className="flex flex-wrap gap-1.5">
+                      {saleHabitShortcuts.frequentBuyers.map((cli) => (
+                        <button
+                          key={`${cli.saleType}:${cli.buyer}`}
+                          type="button"
+                          onClick={() => {
+                            setSaleBuyer(cli.buyer);
+                            if (cli.species) setSaleSpecies(cli.species);
+                            if (cli.locationId) setSaleLocationId(cli.locationId);
+                            if (cli.presentation) setSalePresentation(cli.presentation);
+                            if (cli.saleType === "huevos") {
+                              if (cli.size) setSaleSize(cli.size);
+                              if (cli.unitPrice) setSalePrice(cli.unitPrice);
+                              if (cli.quantity) setSaleQty(cli.quantity);
+                            } else if (cli.saleType === "carne") {
+                              if (cli.unitPrice) setSaleMeatPriceKg(cli.unitPrice);
+                              if (cli.quantity) setSaleMeatKg(cli.quantity);
+                            } else if (cli.saleType === "animales") {
+                              if (cli.unitPrice) setSaleAnimalPrice(cli.unitPrice);
+                              if (cli.quantity) setSaleAnimalQty(cli.quantity);
+                            } else if (cli.saleType === "gallinaza") {
+                              if (cli.unitPrice) setSaleManurePriceKg(cli.unitPrice);
+                              if (cli.quantity) setSaleManureKg(cli.quantity);
+                            } else if (cli.saleType === "otros") {
+                              if (cli.unitPrice) setSaleOtherUnitPrice(cli.unitPrice);
+                              if (cli.quantity) setSaleOtherQty(cli.quantity);
+                            }
+                            setSaleIsCredit(cli.isCredit);
+                            if (cli.isCredit) {
+                              setSaleClientCreditDays(cli.creditDays);
+                              setSaleDueDate(addDaysIso(saleDate, cli.creditDays || 15));
+                            }
+                            setHabitSuggested(true);
+                          }}
+                          className="inline-flex min-h-[40px] items-center gap-1.5 rounded-[var(--iw-radius-control)] border border-[var(--iw-semantic-border-default)] bg-[var(--iw-semantic-bg-feature)] px-2.5 py-1 text-xs font-semibold text-[var(--iw-semantic-action-primary)] hover:brightness-95"
+                        >
+                          <Sparkles className="h-3 w-3 shrink-0" aria-hidden="true" />
+                          <span>{cli.buyer}</span>
+                        </button>
+                      ))}
+                    </div>
+                  </div>
                 )}
 
                 <ContactField

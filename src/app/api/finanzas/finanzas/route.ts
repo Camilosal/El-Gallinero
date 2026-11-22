@@ -37,9 +37,33 @@ import {
 } from "@/lib/analytics/payroll-tax-supplies";
 import { loadPeriodPayrollAndSupplies } from "@/lib/analytics/payroll-tax-supplies-db";
 import { getTaxAndPayrollConfig } from "@/lib/settings";
+import { learnFromExpenseAction, learnFromSaleAction } from "@/lib/agent/ui-memory-bridge";
 
 export const dynamic = "force-dynamic";
 
+
+async function recordFinanceMemoryIfRelevant(body: Record<string, any>, saved: { amount?: string | number; type?: string }) {
+  const txType = String(saved.type || body.type || "egreso");
+  const amt = Number(saved.amount ?? body.amount ?? 0);
+  if (txType === "egreso") {
+    await learnFromExpenseAction({
+      counterparty: body.counterparty ? String(body.counterparty) : null,
+      category: String(body.category || "Otro egreso"),
+      description: String(body.description || ""),
+      amount: amt,
+      species: body.species ? String(body.species) : null,
+    }).catch(() => null);
+  } else if (txType === "ingreso" && body.counterparty) {
+    await learnFromSaleAction({
+      buyer: String(body.counterparty),
+      productLine: String(body.category || "ingreso"),
+      summary: String(body.description || body.category || "Venta"),
+      unitPrice: body.unitPrice ?? null,
+      isCredit: Boolean(body.isCredit),
+      entities: body.species ? [String(body.species)] : undefined,
+    }).catch(() => null);
+  }
+}
 
 export const GET = withApiHandler(async (req: NextRequest) => {
   const { searchParams } = new URL(req.url);
@@ -525,7 +549,8 @@ export const POST = withApiHandler(async (req: NextRequest) => {
         return created;
       });
 
-      return NextResponse.json(result, { status: 201 });
+      await recordFinanceMemoryIfRelevant(body, result);
+  return NextResponse.json(result, { status: 201 });
     }
     
     // Non-feed purchase with presentation — optionally links to supplyInventory with weighted average cost
@@ -633,7 +658,8 @@ export const POST = withApiHandler(async (req: NextRequest) => {
       return created;
     });
 
-    return NextResponse.json(result, { status: 201 });
+    await recordFinanceMemoryIfRelevant(body, result);
+  return NextResponse.json(result, { status: 201 });
   }
 
   // Legacy path: no presentation data
@@ -685,6 +711,7 @@ export const POST = withApiHandler(async (req: NextRequest) => {
     return created;
   });
 
+  await recordFinanceMemoryIfRelevant(body, result);
   return NextResponse.json(result, { status: 201 });
 });
 
