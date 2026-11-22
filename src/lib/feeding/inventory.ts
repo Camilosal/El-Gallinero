@@ -15,6 +15,15 @@ export interface FeedInventoryProjection {
   supplier: string | null;
   dryMatterPct: string | null;
   crudeProteinPct: string | null;
+  standardCatalogId: string | null;
+  sanitaryStatus: string | null;
+  energyKcalKgDm: string | null;
+  calciumDmPct: string | null;
+  availablePhosphorusDmPct: string | null;
+  lysineDigDmPct: string | null;
+  metCysDigDmPct: string | null;
+  crudeFiberDmPct: string | null;
+  nutritionProfile: unknown;
   estimatedValue: number;
   isLow: boolean;
   daysRemaining: number | null;
@@ -83,6 +92,15 @@ export async function getFeedInventoryProjection(
       supplier: f.supplier,
       dryMatterPct: f.dryMatterPct,
       crudeProteinPct: f.crudeProteinPct,
+      standardCatalogId: f.standardCatalogId ?? null,
+      sanitaryStatus: f.sanitaryStatus ?? null,
+      energyKcalKgDm: f.energyKcalKgDm ?? null,
+      calciumDmPct: f.calciumDmPct ?? null,
+      availablePhosphorusDmPct: f.availablePhosphorusDmPct ?? null,
+      lysineDigDmPct: f.lysineDigDmPct ?? null,
+      metCysDigDmPct: f.metCysDigDmPct ?? null,
+      crudeFiberDmPct: f.crudeFiberDmPct ?? null,
+      nutritionProfile: f.nutritionProfile ?? null,
       estimatedValue,
       isLow,
       daysRemaining,

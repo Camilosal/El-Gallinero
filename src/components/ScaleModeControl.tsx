@@ -56,15 +56,15 @@ export function ScaleModeControl({ variant = "topbar" }: ScaleModeControlProps) 
 
   const buttonClass =
     variant === "hero"
-      ? `inline-flex items-center gap-1.5 rounded-lg border px-3 py-1.5 text-xs font-semibold transition-colors cursor-pointer ${
+      ? `inline-flex min-h-[42px] items-center gap-1.5 rounded-[var(--iw-radius-control)] border px-3 py-1.5 text-xs font-semibold transition-colors cursor-pointer ${
           isMediano
-            ? "border-sky-300/60 bg-sky-500/20 text-white hover:bg-sky-500/30"
-            : "border-emerald-300/50 bg-emerald-950/35 text-emerald-100 hover:bg-emerald-950/55"
+            ? "border-white/30 bg-white/15 text-white hover:bg-white/25"
+            : "border-[var(--iw-color-sage)]/45 bg-[var(--iw-color-forest-dark)]/70 text-[var(--iw-color-paper)] hover:bg-[var(--iw-color-forest-dark)]/90"
         }`
-      : `inline-flex items-center gap-1.5 rounded-lg border px-2.5 py-1.5 text-xs font-semibold transition-colors shrink-0 cursor-pointer ${
+      : `inline-flex h-10 min-h-[40px] items-center gap-1.5 rounded-[var(--iw-radius-control)] border px-3 py-0 text-xs sm:text-sm font-semibold shadow-xs transition-colors shrink-0 cursor-pointer ${
           isMediano
-            ? "border-sky-300 bg-sky-50 text-sky-900 hover:bg-sky-100"
-            : "border-amber-300 bg-amber-50 text-amber-950 hover:bg-amber-100"
+            ? "border-[var(--iw-semantic-status-info)]/40 bg-[var(--iw-semantic-bg-subtle)] text-[var(--iw-semantic-status-info)] hover:bg-[var(--iw-semantic-bg-feature)]"
+            : "border-[var(--iw-semantic-status-warning)]/40 bg-[var(--iw-color-paper)] text-[var(--iw-semantic-status-warning)] hover:bg-[var(--iw-semantic-bg-subtle)]"
         }`;
 
   return (
@@ -84,12 +84,12 @@ export function ScaleModeControl({ variant = "topbar" }: ScaleModeControlProps) 
         </span>
         <span className="sm:hidden">{isMediano ? "M" : "P"}</span>
         <span
-          className={`rounded px-1.5 py-0.5 text-[10px] font-bold ${
+          className={`rounded px-1.5 py-0.5 text-[10px] font-bold tabular-nums ${
             variant === "hero"
               ? "bg-white/20 text-white"
               : isMediano
-                ? "bg-sky-200/80 text-sky-950"
-                : "bg-amber-200/90 text-amber-950"
+                ? "bg-[var(--iw-semantic-status-info)]/15 text-[var(--iw-semantic-status-info)]"
+                : "bg-[var(--iw-semantic-status-warning)]/15 text-[var(--iw-semantic-status-warning)]"
           }`}
         >
           {unlockedCount}/5
@@ -100,13 +100,13 @@ export function ScaleModeControl({ variant = "topbar" }: ScaleModeControlProps) 
         <div
           role="menu"
           aria-label="Selector de escala operativa"
-          className="absolute right-0 mt-2 w-80 max-w-[calc(100vw-2rem)] rounded-xl border border-slate-200 bg-white p-2 shadow-xl z-50 text-left text-slate-900"
+          className="absolute right-0 mt-2 w-80 max-w-[calc(100vw-2rem)] rounded-xl border border-[var(--iw-semantic-border-default)] bg-[var(--iw-semantic-bg-surface)] p-2 shadow-[var(--iw-shadow-popover)] z-50 text-left text-[var(--iw-semantic-text-primary)]"
         >
-          <div className="px-2.5 py-1.5 border-b border-slate-100 mb-1.5">
-            <p className="text-[11px] font-bold uppercase tracking-wide text-slate-500">
+          <div className="px-2.5 py-1.5 border-b border-[var(--iw-semantic-border-default)] mb-1.5">
+            <p className="text-[11px] font-bold uppercase tracking-wide text-[var(--iw-semantic-text-secondary)]">
               Modo de operación de la granja
             </p>
-            <p className="text-[11px] text-slate-500">
+            <p className="text-[11px] text-[var(--iw-semantic-text-secondary)]">
               Cambia al instante sin perder ni migrar datos.
             </p>
           </div>
@@ -117,21 +117,21 @@ export function ScaleModeControl({ variant = "topbar" }: ScaleModeControlProps) 
             aria-checked={currentScale === "PEQUENO"}
             disabled={saving}
             onClick={() => void selectScale("PEQUENO")}
-            className={`w-full rounded-lg p-2.5 text-left transition-colors mb-1 cursor-pointer border ${
+            className={`w-full rounded-[var(--iw-radius-control)] p-2.5 text-left transition-colors mb-1 cursor-pointer border ${
               currentScale === "PEQUENO"
-                ? "border-emerald-500 bg-emerald-50/80"
-                : "border-transparent hover:bg-slate-50"
+                ? "border-[var(--iw-semantic-border-strong)] bg-[var(--iw-semantic-bg-feature)]"
+                : "border-transparent hover:bg-[var(--iw-semantic-bg-subtle)]"
             }`}
           >
             <div className="flex items-center justify-between gap-2">
-              <span className="text-xs font-bold text-slate-900">
+              <span className="text-xs font-bold text-[var(--iw-semantic-text-primary)]">
                 Pequeño Productor (Esencial)
               </span>
               {currentScale === "PEQUENO" && (
-                <Check className="w-4 h-4 text-emerald-700 shrink-0" aria-hidden="true" />
+                <Check className="w-4 h-4 text-[var(--iw-semantic-action-primary)] shrink-0" aria-hidden="true" />
               )}
             </div>
-            <p className="text-[11px] text-slate-600 mt-0.5 leading-snug">
+            <p className="text-[11px] text-[var(--iw-semantic-text-secondary)] mt-0.5 leading-snug">
               Captura diaria rápida en Inicio, huevos sin matriz NTC 1240/PEPS, menú limpio sin auditorías, presupuestos ni IoT.
             </p>
           </button>
@@ -142,30 +142,30 @@ export function ScaleModeControl({ variant = "topbar" }: ScaleModeControlProps) 
             aria-checked={currentScale === "MEDIANO"}
             disabled={saving}
             onClick={() => void selectScale("MEDIANO")}
-            className={`w-full rounded-lg p-2.5 text-left transition-colors cursor-pointer border ${
+            className={`w-full rounded-[var(--iw-radius-control)] p-2.5 text-left transition-colors cursor-pointer border ${
               currentScale === "MEDIANO"
-                ? "border-sky-500 bg-sky-50/80"
-                : "border-transparent hover:bg-slate-50"
+                ? "border-[var(--iw-semantic-status-info)] bg-[var(--iw-semantic-bg-subtle)]"
+                : "border-transparent hover:bg-[var(--iw-semantic-bg-subtle)]"
             }`}
           >
             <div className="flex items-center justify-between gap-2">
-              <span className="text-xs font-bold text-slate-900">
+              <span className="text-xs font-bold text-[var(--iw-semantic-text-primary)]">
                 Mediano / Tecnificado (9/9)
               </span>
               {currentScale === "MEDIANO" && (
-                <Check className="w-4 h-4 text-sky-700 shrink-0" aria-hidden="true" />
+                <Check className="w-4 h-4 text-[var(--iw-semantic-status-info)] shrink-0" aria-hidden="true" />
               )}
             </div>
-            <p className="text-[11px] text-slate-600 mt-0.5 leading-snug">
+            <p className="text-[11px] text-[var(--iw-semantic-text-secondary)] mt-0.5 leading-snug">
               Habilita POE GAB ICA, calibres NTC 1240 PEPS, presupuestos DIAN, analítica/ROI, pedigrí 3G y telemetría IoT.
             </p>
           </button>
 
-          <div className="mt-1.5 pt-1.5 border-t border-slate-100">
+          <div className="mt-1.5 pt-1.5 border-t border-[var(--iw-semantic-border-default)]">
             <Link
               href="/configuracion/modulos"
               onClick={() => setOpen(false)}
-              className="flex items-center justify-between rounded-lg px-2.5 py-2 text-xs font-semibold text-emerald-800 hover:bg-emerald-50"
+              className="flex items-center justify-between rounded-[var(--iw-radius-control)] px-2.5 py-2 text-xs font-semibold text-[var(--iw-semantic-action-primary)] hover:bg-[var(--iw-semantic-bg-feature)]"
             >
               <span className="inline-flex items-center gap-1.5">
                 <SlidersHorizontal className="w-3.5 h-3.5" aria-hidden="true" />

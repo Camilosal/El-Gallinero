@@ -786,11 +786,11 @@ function VentasContent() {
               <YAxis fontSize={11} />
               <Tooltip formatter={(v) => `$${Number(v).toLocaleString()}`} />
               <Legend />
-              <Bar dataKey="huevos" fill="#eab308" name="Huevos" stackId="a" />
-              <Bar dataKey="animales" fill="#22c55e" name="Animales en pie" stackId="a" />
-              <Bar dataKey="carne" fill="#ef4444" name="Carne" stackId="a" />
-              <Bar dataKey="gallinaza" fill="#84cc16" name="Gallinaza" stackId="a" />
-              <Bar dataKey="otros" fill="#6366f1" radius={[4, 4, 0, 0]} name="Otras ventas" stackId="a" />
+              <Bar dataKey="huevos" fill="var(--iw-color-ochre)" name="Huevos" stackId="a" />
+              <Bar dataKey="animales" fill="var(--iw-color-forest)" name="Animales en pie" stackId="a" />
+              <Bar dataKey="carne" fill="var(--iw-color-terracotta)" name="Carne" stackId="a" />
+              <Bar dataKey="gallinaza" fill="var(--iw-color-success)" name="Gallinaza" stackId="a" />
+              <Bar dataKey="otros" fill="var(--iw-color-info)" radius={[4, 4, 0, 0]} name="Otras ventas" stackId="a" />
             </BarChart>
           </ResponsiveContainer>
         </Card>

@@ -19,11 +19,21 @@ export interface StarterFeedDef {
     | "Bore o Raices"
     | "Mosca Soldado"
     | "Maíz Germinado"
-    | "Maiz en Grano";
+    | "Maiz en Grano"
+    | "Otro"
+    | "Purinas";
   unit: string;
   minStock: string;
   dryMatterPct: string;
   crudeProteinPct: string;
+  standardCatalogId?: string;
+  sanitaryStatus?: "CONDICIONAL" | "RESTRINGIDO";
+  energyKcalKgDm?: string;
+  calciumDmPct?: string;
+  availablePhosphorusDmPct?: string;
+  lysineDigDmPct?: string;
+  metCysDigDmPct?: string;
+  crudeFiberDmPct?: string;
 }
 
 export interface StarterStageProgramDef {
@@ -37,7 +47,7 @@ export interface StarterStageProgramDef {
 }
 
 export const STARTER_FEED_DEFINITIONS: ReadonlyArray<StarterFeedDef> = [
-  // Concentrados por especie y etapa (sin proveedor ni stock ficticio)
+  // Concentrados por especie y etapa (sin proveedor ni stock ficticio; referencia guía editable contra etiqueta real)
   {
     key: "conc_pollita_inicio",
     name: "Concentrado Pollitas Iniciación (0-6 sem)",
@@ -47,6 +57,12 @@ export const STARTER_FEED_DEFINITIONS: ReadonlyArray<StarterFeedDef> = [
     minStock: "15",
     dryMatterPct: "89.00",
     crudeProteinPct: "20.00",
+    standardCatalogId: "IG-004",
+    sanitaryStatus: "CONDICIONAL",
+    energyKcalKgDm: "3120.00",
+    calciumDmPct: "1.10",
+    availablePhosphorusDmPct: "0.48",
+    crudeFiberDmPct: "4.00",
   },
   {
     key: "conc_levante",
@@ -57,6 +73,12 @@ export const STARTER_FEED_DEFINITIONS: ReadonlyArray<StarterFeedDef> = [
     minStock: "10",
     dryMatterPct: "89.00",
     crudeProteinPct: "16.00",
+    standardCatalogId: "IG-003",
+    sanitaryStatus: "CONDICIONAL",
+    energyKcalKgDm: "2980.00",
+    calciumDmPct: "1.05",
+    availablePhosphorusDmPct: "0.46",
+    crudeFiberDmPct: "5.20",
   },
   {
     key: "conc_pre_postura",
@@ -67,6 +89,12 @@ export const STARTER_FEED_DEFINITIONS: ReadonlyArray<StarterFeedDef> = [
     minStock: "10",
     dryMatterPct: "89.00",
     crudeProteinPct: "17.00",
+    standardCatalogId: "IG-002",
+    sanitaryStatus: "CONDICIONAL",
+    energyKcalKgDm: "3020.00",
+    calciumDmPct: "2.45",
+    availablePhosphorusDmPct: "0.48",
+    crudeFiberDmPct: "4.80",
   },
   {
     key: "conc_postura",
@@ -77,6 +105,12 @@ export const STARTER_FEED_DEFINITIONS: ReadonlyArray<StarterFeedDef> = [
     minStock: "30",
     dryMatterPct: "89.00",
     crudeProteinPct: "17.50",
+    standardCatalogId: "IG-001",
+    sanitaryStatus: "CONDICIONAL",
+    energyKcalKgDm: "3050.00",
+    calciumDmPct: "4.15",
+    availablePhosphorusDmPct: "0.48",
+    crudeFiberDmPct: "4.50",
   },
   {
     key: "conc_pollo_inicio",
@@ -87,6 +121,12 @@ export const STARTER_FEED_DEFINITIONS: ReadonlyArray<StarterFeedDef> = [
     minStock: "15",
     dryMatterPct: "89.00",
     crudeProteinPct: "22.00",
+    standardCatalogId: "IG-004",
+    sanitaryStatus: "CONDICIONAL",
+    energyKcalKgDm: "3280.00",
+    calciumDmPct: "1.10",
+    availablePhosphorusDmPct: "0.50",
+    crudeFiberDmPct: "3.80",
   },
   {
     key: "conc_pollo_engorde",
@@ -97,6 +137,12 @@ export const STARTER_FEED_DEFINITIONS: ReadonlyArray<StarterFeedDef> = [
     minStock: "20",
     dryMatterPct: "89.00",
     crudeProteinPct: "19.00",
+    standardCatalogId: "IG-003",
+    sanitaryStatus: "CONDICIONAL",
+    energyKcalKgDm: "3420.00",
+    calciumDmPct: "0.98",
+    availablePhosphorusDmPct: "0.45",
+    crudeFiberDmPct: "4.20",
   },
   {
     key: "conc_codorniz",
@@ -107,6 +153,11 @@ export const STARTER_FEED_DEFINITIONS: ReadonlyArray<StarterFeedDef> = [
     minStock: "10",
     dryMatterPct: "89.50",
     crudeProteinPct: "21.00",
+    sanitaryStatus: "CONDICIONAL",
+    energyKcalKgDm: "3160.00",
+    calciumDmPct: "3.35",
+    availablePhosphorusDmPct: "0.46",
+    crudeFiberDmPct: "4.50",
   },
   {
     key: "conc_conejo_cuy",
@@ -116,7 +167,12 @@ export const STARTER_FEED_DEFINITIONS: ReadonlyArray<StarterFeedDef> = [
     unit: "kg",
     minStock: "15",
     dryMatterPct: "88.50",
-    crudeProteinPct: "16.50",
+    crudeProteinPct: "17.50",
+    sanitaryStatus: "CONDICIONAL",
+    energyKcalKgDm: "2680.00",
+    calciumDmPct: "0.95",
+    availablePhosphorusDmPct: "0.55",
+    crudeFiberDmPct: "14.50",
   },
   // Forrajes y fuentes locales en fresco
   {
@@ -128,6 +184,12 @@ export const STARTER_FEED_DEFINITIONS: ReadonlyArray<StarterFeedDef> = [
     minStock: "20",
     dryMatterPct: "22.00",
     crudeProteinPct: "3.20",
+    standardCatalogId: "IG-071",
+    sanitaryStatus: "CONDICIONAL",
+    energyKcalKgDm: "1950.00",
+    calciumDmPct: "0.45",
+    availablePhosphorusDmPct: "0.22",
+    crudeFiberDmPct: "28.00",
   },
   {
     key: "forraje_oreado",
@@ -138,18 +200,30 @@ export const STARTER_FEED_DEFINITIONS: ReadonlyArray<StarterFeedDef> = [
     minStock: "20",
     dryMatterPct: "26.00",
     crudeProteinPct: "5.20",
+    standardCatalogId: "IG-058",
+    sanitaryStatus: "CONDICIONAL",
+    energyKcalKgDm: "2050.00",
+    calciumDmPct: "1.94",
+    availablePhosphorusDmPct: "0.24",
+    crudeFiberDmPct: "26.70",
   },
   {
-    key: "bore_raices",
-    name: "Bore / Raíces",
+    key: "batata_fresca",
+    name: "Batata / camote raíz fresca (energía local)",
     category: "En Fresco",
     feedType: "Bore o Raices",
     unit: "kg",
     minStock: "10",
-    dryMatterPct: "18.00",
-    crudeProteinPct: "3.50",
+    dryMatterPct: "30.00",
+    crudeProteinPct: "1.65",
+    standardCatalogId: "IG-039",
+    sanitaryStatus: "CONDICIONAL",
+    energyKcalKgDm: "3300.00",
+    calciumDmPct: "0.12",
+    availablePhosphorusDmPct: "0.14",
+    crudeFiberDmPct: "3.20",
   },
-  // Preparados y granos complementarios
+  // Preparados, granos, proteína y mineral cálcico estandarizados
   {
     key: "larvas_bsf",
     name: "Larvas de BSF deshidratadas",
@@ -157,8 +231,14 @@ export const STARTER_FEED_DEFINITIONS: ReadonlyArray<StarterFeedDef> = [
     feedType: "Mosca Soldado",
     unit: "kg",
     minStock: "5",
-    dryMatterPct: "92.00",
-    crudeProteinPct: "42.00",
+    dryMatterPct: "91.70",
+    crudeProteinPct: "37.69",
+    standardCatalogId: "IG-007",
+    sanitaryStatus: "CONDICIONAL",
+    energyKcalKgDm: "3967.00",
+    calciumDmPct: "3.30",
+    availablePhosphorusDmPct: "0.55",
+    crudeFiberDmPct: "7.00",
   },
   {
     key: "maiz_germinado",
@@ -169,6 +249,12 @@ export const STARTER_FEED_DEFINITIONS: ReadonlyArray<StarterFeedDef> = [
     minStock: "8",
     dryMatterPct: "32.00",
     crudeProteinPct: "4.50",
+    standardCatalogId: "IG-031",
+    sanitaryStatus: "CONDICIONAL",
+    energyKcalKgDm: "3250.00",
+    calciumDmPct: "0.08",
+    availablePhosphorusDmPct: "0.14",
+    crudeFiberDmPct: "5.80",
   },
   {
     key: "maiz_grano",
@@ -177,13 +263,37 @@ export const STARTER_FEED_DEFINITIONS: ReadonlyArray<StarterFeedDef> = [
     feedType: "Maiz en Grano",
     unit: "kg",
     minStock: "15",
-    dryMatterPct: "88.00",
-    crudeProteinPct: "8.80",
+    dryMatterPct: "86.30",
+    crudeProteinPct: "7.59",
+    standardCatalogId: "IG-015",
+    sanitaryStatus: "CONDICIONAL",
+    energyKcalKgDm: "3660.00",
+    calciumDmPct: "0.05",
+    availablePhosphorusDmPct: "0.07",
+    lysineDigDmPct: "0.24",
+    metCysDigDmPct: "0.37",
+    crudeFiberDmPct: "2.60",
+  },
+  {
+    key: "carbonato_calcio",
+    name: "Carbonato de calcio grado alimenticio",
+    category: "Preparados",
+    feedType: "Otro",
+    unit: "kg",
+    minStock: "5",
+    dryMatterPct: "99.00",
+    crudeProteinPct: "0.00",
+    standardCatalogId: "IG-115",
+    sanitaryStatus: "CONDICIONAL",
+    energyKcalKgDm: "0.00",
+    calciumDmPct: "38.00",
+    availablePhosphorusDmPct: "0.00",
+    crudeFiberDmPct: "0.00",
   },
 ];
 
 export const STARTER_STAGE_PROGRAMS: ReadonlyArray<StarterStageProgramDef> = [
-  // Gallinas ponedoras (4 etapas)
+  // Gallinas ponedoras (4 etapas balanceadas contra FEDNA / Hy-Line)
   {
     species: "gallina",
     value: "Pollito",
@@ -204,10 +314,10 @@ export const STARTER_STAGE_PROGRAMS: ReadonlyArray<StarterStageProgramDef> = [
     expectedEggsPerHen: "0",
     sortOrder: 1,
     items: [
-      { feedKey: "conc_levante", gramsPerDay: 30 },
-      { feedKey: "pastos_gramineas", gramsPerDay: 15 },
-      { feedKey: "larvas_bsf", gramsPerDay: 10 },
-      { feedKey: "maiz_germinado", gramsPerDay: 8 },
+      { feedKey: "conc_levante", gramsPerDay: 50 },
+      { feedKey: "pastos_gramineas", gramsPerDay: 12 },
+      { feedKey: "maiz_grano", gramsPerDay: 8 },
+      { feedKey: "larvas_bsf", gramsPerDay: 3 },
     ],
   },
   {
@@ -218,12 +328,11 @@ export const STARTER_STAGE_PROGRAMS: ReadonlyArray<StarterStageProgramDef> = [
     expectedEggsPerHen: "0.3",
     sortOrder: 2,
     items: [
-      { feedKey: "conc_pre_postura", gramsPerDay: 36 },
-      { feedKey: "pastos_gramineas", gramsPerDay: 18 },
-      { feedKey: "larvas_bsf", gramsPerDay: 10 },
-      { feedKey: "maiz_grano", gramsPerDay: 12 },
-      { feedKey: "maiz_germinado", gramsPerDay: 5 },
-      { feedKey: "bore_raices", gramsPerDay: 4 },
+      { feedKey: "conc_pre_postura", gramsPerDay: 70 },
+      { feedKey: "pastos_gramineas", gramsPerDay: 12 },
+      { feedKey: "maiz_grano", gramsPerDay: 10 },
+      { feedKey: "larvas_bsf", gramsPerDay: 3 },
+      { feedKey: "carbonato_calcio", gramsPerDay: 1 },
     ],
   },
   {
@@ -234,12 +343,11 @@ export const STARTER_STAGE_PROGRAMS: ReadonlyArray<StarterStageProgramDef> = [
     expectedEggsPerHen: "0.85",
     sortOrder: 3,
     items: [
-      { feedKey: "conc_postura", gramsPerDay: 42 },
-      { feedKey: "pastos_gramineas", gramsPerDay: 22 },
-      { feedKey: "larvas_bsf", gramsPerDay: 14 },
-      { feedKey: "maiz_grano", gramsPerDay: 16 },
-      { feedKey: "maiz_germinado", gramsPerDay: 10 },
-      { feedKey: "bore_raices", gramsPerDay: 6 },
+      { feedKey: "conc_postura", gramsPerDay: 82 },
+      { feedKey: "pastos_gramineas", gramsPerDay: 16 },
+      { feedKey: "maiz_grano", gramsPerDay: 12 },
+      { feedKey: "larvas_bsf", gramsPerDay: 6 },
+      { feedKey: "carbonato_calcio", gramsPerDay: 2 },
     ],
   },
   // Gallos reproductores
@@ -251,10 +359,11 @@ export const STARTER_STAGE_PROGRAMS: ReadonlyArray<StarterStageProgramDef> = [
     expectedEggsPerHen: "0",
     sortOrder: 4,
     items: [
-      { feedKey: "conc_levante", gramsPerDay: 45 },
-      { feedKey: "pastos_gramineas", gramsPerDay: 25 },
-      { feedKey: "maiz_grano", gramsPerDay: 25 },
-      { feedKey: "larvas_bsf", gramsPerDay: 10 },
+      { feedKey: "conc_levante", gramsPerDay: 85 },
+      { feedKey: "pastos_gramineas", gramsPerDay: 20 },
+      { feedKey: "maiz_grano", gramsPerDay: 15 },
+      { feedKey: "larvas_bsf", gramsPerDay: 3 },
+      { feedKey: "carbonato_calcio", gramsPerDay: 1 },
     ],
   },
   // Pollos de engorde
@@ -278,10 +387,10 @@ export const STARTER_STAGE_PROGRAMS: ReadonlyArray<StarterStageProgramDef> = [
     expectedEggsPerHen: "0",
     sortOrder: 6,
     items: [
-      { feedKey: "conc_pollo_engorde", gramsPerDay: 80 },
-      { feedKey: "maiz_grano", gramsPerDay: 20 },
-      { feedKey: "pastos_gramineas", gramsPerDay: 15 },
-      { feedKey: "larvas_bsf", gramsPerDay: 10 },
+      { feedKey: "conc_pollo_engorde", gramsPerDay: 105 },
+      { feedKey: "maiz_grano", gramsPerDay: 15 },
+      { feedKey: "pastos_gramineas", gramsPerDay: 10 },
+      { feedKey: "larvas_bsf", gramsPerDay: 5 },
     ],
   },
   // Codornices
@@ -293,9 +402,9 @@ export const STARTER_STAGE_PROGRAMS: ReadonlyArray<StarterStageProgramDef> = [
     expectedEggsPerHen: "0",
     sortOrder: 7,
     items: [
-      { feedKey: "conc_codorniz", gramsPerDay: 14 },
-      { feedKey: "forraje_oreado", gramsPerDay: 3 },
+      { feedKey: "conc_pollo_inicio", gramsPerDay: 16 },
       { feedKey: "larvas_bsf", gramsPerDay: 2 },
+      { feedKey: "pastos_gramineas", gramsPerDay: 1 },
     ],
   },
   {
@@ -306,10 +415,10 @@ export const STARTER_STAGE_PROGRAMS: ReadonlyArray<StarterStageProgramDef> = [
     expectedEggsPerHen: "0.88",
     sortOrder: 8,
     items: [
-      { feedKey: "conc_codorniz", gramsPerDay: 18 },
-      { feedKey: "forraje_oreado", gramsPerDay: 4 },
-      { feedKey: "larvas_bsf", gramsPerDay: 3 },
-      { feedKey: "maiz_germinado", gramsPerDay: 2 },
+      { feedKey: "conc_codorniz", gramsPerDay: 21 },
+      { feedKey: "maiz_grano", gramsPerDay: 2 },
+      { feedKey: "pastos_gramineas", gramsPerDay: 2 },
+      { feedKey: "larvas_bsf", gramsPerDay: 1 },
     ],
   },
   // Patos
@@ -321,9 +430,10 @@ export const STARTER_STAGE_PROGRAMS: ReadonlyArray<StarterStageProgramDef> = [
     expectedEggsPerHen: "0",
     sortOrder: 9,
     items: [
-      { feedKey: "conc_pollita_inicio", gramsPerDay: 70 },
-      { feedKey: "forraje_oreado", gramsPerDay: 20 },
-      { feedKey: "larvas_bsf", gramsPerDay: 10 },
+      { feedKey: "conc_pollo_inicio", gramsPerDay: 72 },
+      { feedKey: "pastos_gramineas", gramsPerDay: 12 },
+      { feedKey: "maiz_grano", gramsPerDay: 8 },
+      { feedKey: "larvas_bsf", gramsPerDay: 4 },
     ],
   },
   {
@@ -334,10 +444,10 @@ export const STARTER_STAGE_PROGRAMS: ReadonlyArray<StarterStageProgramDef> = [
     expectedEggsPerHen: "0.55",
     sortOrder: 10,
     items: [
-      { feedKey: "conc_pollo_engorde", gramsPerDay: 110 },
-      { feedKey: "pastos_gramineas", gramsPerDay: 50 },
-      { feedKey: "bore_raices", gramsPerDay: 25 },
-      { feedKey: "maiz_grano", gramsPerDay: 25 },
+      { feedKey: "conc_pollo_engorde", gramsPerDay: 132 },
+      { feedKey: "pastos_gramineas", gramsPerDay: 25 },
+      { feedKey: "maiz_grano", gramsPerDay: 22 },
+      { feedKey: "carbonato_calcio", gramsPerDay: 1 },
     ],
   },
   // Conejos
@@ -361,9 +471,9 @@ export const STARTER_STAGE_PROGRAMS: ReadonlyArray<StarterStageProgramDef> = [
     expectedEggsPerHen: "0",
     sortOrder: 12,
     items: [
-      { feedKey: "conc_conejo_cuy", gramsPerDay: 75 },
-      { feedKey: "forraje_oreado", gramsPerDay: 110 },
-      { feedKey: "bore_raices", gramsPerDay: 35 },
+      { feedKey: "conc_conejo_cuy", gramsPerDay: 95 },
+      { feedKey: "forraje_oreado", gramsPerDay: 105 },
+      { feedKey: "batata_fresca", gramsPerDay: 15 },
     ],
   },
   // Cuyes
@@ -375,9 +485,9 @@ export const STARTER_STAGE_PROGRAMS: ReadonlyArray<StarterStageProgramDef> = [
     expectedEggsPerHen: "0",
     sortOrder: 13,
     items: [
+      { feedKey: "conc_conejo_cuy", gramsPerDay: 46 },
       { feedKey: "forraje_oreado", gramsPerDay: 35 },
-      { feedKey: "conc_conejo_cuy", gramsPerDay: 18 },
-      { feedKey: "bore_raices", gramsPerDay: 7 },
+      { feedKey: "maiz_grano", gramsPerDay: 5 },
     ],
   },
   {
@@ -388,10 +498,10 @@ export const STARTER_STAGE_PROGRAMS: ReadonlyArray<StarterStageProgramDef> = [
     expectedEggsPerHen: "0",
     sortOrder: 14,
     items: [
-      { feedKey: "forraje_oreado", gramsPerDay: 70 },
-      { feedKey: "pastos_gramineas", gramsPerDay: 40 },
-      { feedKey: "conc_conejo_cuy", gramsPerDay: 25 },
-      { feedKey: "bore_raices", gramsPerDay: 15 },
+      { feedKey: "conc_conejo_cuy", gramsPerDay: 75 },
+      { feedKey: "forraje_oreado", gramsPerDay: 65 },
+      { feedKey: "pastos_gramineas", gramsPerDay: 25 },
+      { feedKey: "maiz_grano", gramsPerDay: 10 },
     ],
   },
 ];
@@ -443,6 +553,14 @@ export async function seedStarterFeedsAndPrograms(
           supplier: null,
           dryMatterPct: def.dryMatterPct,
           crudeProteinPct: def.crudeProteinPct,
+          standardCatalogId: def.standardCatalogId ?? null,
+          sanitaryStatus: def.sanitaryStatus ?? null,
+          energyKcalKgDm: def.energyKcalKgDm ?? null,
+          calciumDmPct: def.calciumDmPct ?? null,
+          availablePhosphorusDmPct: def.availablePhosphorusDmPct ?? null,
+          lysineDigDmPct: def.lysineDigDmPct ?? null,
+          metCysDigDmPct: def.metCysDigDmPct ?? null,
+          crudeFiberDmPct: def.crudeFiberDmPct ?? null,
         })),
       )
       .returning({ id: feedInventory.id, name: feedInventory.name });

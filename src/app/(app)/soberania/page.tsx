@@ -403,8 +403,8 @@ export default function SoberaniaPage() {
               <BarChart data={data.monthlyTrends} margin={{ top: 10, right: 30, left: 10, bottom: 5 }}>
                 <CartesianGrid strokeDasharray="3 3" vertical={false} />
                 <XAxis dataKey="month" tick={{ fontSize: 12 }} />
-                <YAxis yAxisId="left" orientation="left" stroke="#16a34a" tick={{ fontSize: 12 }} />
-                <YAxis yAxisId="right" orientation="right" stroke="#2563eb" tick={{ fontSize: 12 }} />
+                <YAxis yAxisId="left" orientation="left" stroke="var(--iw-color-success)" tick={{ fontSize: 12 }} />
+                <YAxis yAxisId="right" orientation="right" stroke="var(--iw-color-info)" tick={{ fontSize: 12 }} />
                 <Tooltip
                   formatter={(value: any, name: any) => {
                     if (name === "Ahorro ($ COP)") return [`$ ${Number(value).toLocaleString("es-CO")}`, name];
@@ -413,8 +413,8 @@ export default function SoberaniaPage() {
                   }}
                 />
                 <Legend />
-                <Bar yAxisId="left" dataKey="savings" name="Ahorro ($ COP)" fill="#22c55e" radius={[4, 4, 0, 0]} />
-                <Bar yAxisId="right" dataKey="meatKg" name="Carne (kg)" fill="#3b82f6" radius={[4, 4, 0, 0]} />
+                <Bar yAxisId="left" dataKey="savings" name="Ahorro ($ COP)" fill="var(--iw-color-success)" radius={[4, 4, 0, 0]} />
+                <Bar yAxisId="right" dataKey="meatKg" name="Carne (kg)" fill="var(--iw-color-info)" radius={[4, 4, 0, 0]} />
               </BarChart>
             </ResponsiveContainer>
           </div>

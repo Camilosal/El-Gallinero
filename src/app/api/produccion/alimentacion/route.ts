@@ -6,11 +6,73 @@ import { getFeedInventoryProjection } from "@/lib/feeding/inventory";
 import { withApiHandler, safeParseJson } from "@/lib/api-handler";
 import { deleteTransactionsAndUnpaidAccounts } from "@/lib/financial-records";
 import { normalizeFeedCategory, normalizeFeedType } from "@/lib/feed-classification";
-import { parseOptionalPercent } from "@/lib/feeding/ration";
+import { parseOptionalNutrientDecimal, parseOptionalPercent } from "@/lib/feeding/ration";
+import { findStandardFeedById, type StandardFeedItem } from "@/lib/feeding/standard-feed-catalog";
 import { getSessionUser } from "@/lib/auth";
 import { canPerformAction } from "@/lib/rbac";
 
 export const dynamic = "force-dynamic";
+
+const ALLOWED_SANITARY_STATUSES = new Set(["CONDICIONAL", "RESTRINGIDO", "NO USAR"]);
+
+function buildStandardProfileSnapshot(std: StandardFeedItem | null, existing?: unknown): Record<string, unknown> | null {
+  if (!std) return existing && typeof existing === "object" ? (existing as Record<string, unknown>) : null;
+  return {
+    group: std.group,
+    botanicalName: std.botanicalName,
+    presentation: std.presentation,
+    origin: std.origin,
+    preparation: std.preparation,
+    evidenceQuality: std.evidenceQuality,
+    risks: std.risks,
+    sourceUrl: std.sourceUrl,
+    compositionNotes: std.compositionNotes,
+    crudeProteinDmPct: std.crudeProteinDmPct,
+    fatDmPct: std.fatDmPct,
+    totalPhosphorusDmPct: std.totalPhosphorusDmPct,
+    formulationStatus: std.formulationStatus,
+  };
+}
+
+function validateExtraNutritionFields(body: Record<string, unknown>) {
+  const energy =
+    body.energyKcalKgDm === undefined
+      ? undefined
+      : parseOptionalNutrientDecimal(body.energyKcalKgDm, "La energía metabolizable (EM)", { max: 9000 });
+  if (energy && "error" in energy) return { error: energy.error };
+
+  const calcium =
+    body.calciumDmPct === undefined ? undefined : parseOptionalPercent(body.calciumDmPct, "El calcio (% MS)");
+  if (calcium && "error" in calcium) return { error: calcium.error };
+
+  const phosphorus =
+    body.availablePhosphorusDmPct === undefined
+      ? undefined
+      : parseOptionalPercent(body.availablePhosphorusDmPct, "El fósforo disponible (% MS)");
+  if (phosphorus && "error" in phosphorus) return { error: phosphorus.error };
+
+  const lysine =
+    body.lysineDigDmPct === undefined ? undefined : parseOptionalPercent(body.lysineDigDmPct, "La lisina digestible (% MS)");
+  if (lysine && "error" in lysine) return { error: lysine.error };
+
+  const metCys =
+    body.metCysDigDmPct === undefined ? undefined : parseOptionalPercent(body.metCysDigDmPct, "Metionina+Cistina (% MS)");
+  if (metCys && "error" in metCys) return { error: metCys.error };
+
+  const fiber =
+    body.crudeFiberDmPct === undefined ? undefined : parseOptionalPercent(body.crudeFiberDmPct, "La fibra bruta (% MS)");
+  if (fiber && "error" in fiber) return { error: fiber.error };
+
+  const rawSanitary =
+    body.sanitaryStatus === undefined || body.sanitaryStatus === null || body.sanitaryStatus === ""
+      ? undefined
+      : String(body.sanitaryStatus).trim().toUpperCase();
+  if (rawSanitary !== undefined && !ALLOWED_SANITARY_STATUSES.has(rawSanitary)) {
+    return { error: "Estado sanitario no reconocido. Usa CONDICIONAL, RESTRINGIDO o NO USAR." };
+  }
+
+  return { energy, calcium, phosphorus, lysine, metCys, fiber, sanitaryStatus: rawSanitary };
+}
 
 // GET - feed inventory contains stock costs and supplier data, so it is private.
 export const GET = withApiHandler(async (req: NextRequest) => {
@@ -32,30 +94,73 @@ export const GET = withApiHandler(async (req: NextRequest) => {
 export const POST = withApiHandler(async (req: NextRequest) => {
   const body = await safeParseJson(req);
   if (!body || typeof body !== "object") return NextResponse.json({ error: "Cuerpo inválido" }, { status: 400 });
-  const dryMatter = parseOptionalPercent(body.dryMatterPct, "La materia seca", { positive: true });
+
+  const requestedStdId = typeof body.standardCatalogId === "string" ? body.standardCatalogId.trim() : "";
+  const standardItem = requestedStdId ? findStandardFeedById(requestedStdId) : null;
+  if (requestedStdId && !standardItem) {
+    return NextResponse.json({ error: `Ingrediente base '${requestedStdId}' no encontrado en el catálogo estandarizado.` }, { status: 400 });
+  }
+  if (standardItem?.isBlocked) {
+    return NextResponse.json(
+      { error: `Ingrediente bloqueado (NO USAR): ${standardItem.name}. ${standardItem.risks || standardItem.preparation || ""}`.trim() },
+      { status: 400 },
+    );
+  }
+
+  const dryMatterInput = body.dryMatterPct === undefined || body.dryMatterPct === "" ? standardItem?.dryMatterPct : body.dryMatterPct;
+  const proteinInput = body.crudeProteinPct === undefined || body.crudeProteinPct === "" ? standardItem?.crudeProteinAsFedPct : body.crudeProteinPct;
+
+  const dryMatter = parseOptionalPercent(dryMatterInput, "La materia seca", { positive: true });
   if ("error" in dryMatter) return NextResponse.json({ error: dryMatter.error }, { status: 400 });
-  const protein = parseOptionalPercent(body.crudeProteinPct, "La proteína cruda");
+  const protein = parseOptionalPercent(proteinInput, "La proteína cruda");
   if ("error" in protein) return NextResponse.json({ error: protein.error }, { status: 400 });
+
+  const extra = validateExtraNutritionFields(body);
+  if ("error" in extra) return NextResponse.json({ error: extra.error }, { status: 400 });
+  const resolvedSanitary = extra.sanitaryStatus ?? standardItem?.sanitaryStatus ?? null;
+  if (resolvedSanitary === "NO USAR") {
+    return NextResponse.json(
+      { error: "No se puede registrar un alimento con estado sanitario NO USAR." },
+      { status: 400 },
+    );
+  }
+
   const initialStock = Number(body.currentStock ?? 0);
   if (!Number.isFinite(initialStock) || initialStock < 0) {
     return NextResponse.json({ error: "Stock inicial inválido" }, { status: 400 });
   }
-  const category = normalizeFeedCategory(body.category);
-  const feedType = normalizeFeedType(body.feedType);
+  const category = normalizeFeedCategory(body.category ?? standardItem?.defaultCategory);
+  const feedType = normalizeFeedType(body.feedType ?? standardItem?.defaultFeedType);
   if (!category) return NextResponse.json({ error: "Categoría de alimento no reconocida. Revisa el catálogo de categorías." }, { status: 400 });
   if (!feedType) return NextResponse.json({ error: "Tipo de alimento no reconocido. Revisa el catálogo de tipos." }, { status: 400 });
+
+  const toDecimalOrStd = (parsed: { value: string | null } | undefined, stdVal: number | null | undefined) => {
+    if (parsed !== undefined && parsed.value !== null) return parsed.value;
+    if (parsed !== undefined && parsed.value === null) return null;
+    return stdVal !== null && stdVal !== undefined ? stdVal.toFixed(2) : null;
+  };
+
   const [created] = await db.transaction(async (tx) => {
     const [row] = await tx.insert(feedInventory).values({
-      name: body.name,
+      name: (typeof body.name === "string" && body.name.trim()) ? body.name.trim() : standardItem?.name || "",
       category,
       feedType,
-      unit: body.unit,
+      unit: body.unit || standardItem?.defaultUnit || "kg",
       currentStock: initialStock.toFixed(2),
       minStock: body.minStock || "0",
       costPerUnit: body.costPerUnit || "0",
       supplier: body.supplier || null,
       dryMatterPct: dryMatter.value,
       crudeProteinPct: protein.value,
+      standardCatalogId: standardItem?.id ?? null,
+      sanitaryStatus: resolvedSanitary,
+      energyKcalKgDm: toDecimalOrStd(extra.energy, standardItem?.energyKcalKgDm),
+      calciumDmPct: toDecimalOrStd(extra.calcium, standardItem?.calciumDmPct),
+      availablePhosphorusDmPct: toDecimalOrStd(extra.phosphorus, standardItem?.availablePhosphorusDmPct),
+      lysineDigDmPct: toDecimalOrStd(extra.lysine, standardItem?.lysineDigDmPct),
+      metCysDigDmPct: toDecimalOrStd(extra.metCys, standardItem?.metCysDigDmPct),
+      crudeFiberDmPct: toDecimalOrStd(extra.fiber, standardItem?.crudeFiberDmPct),
+      nutritionProfile: body.nutritionProfile ?? buildStandardProfileSnapshot(standardItem),
     }).returning();
     if (initialStock > 0) {
       await tx.insert(feedMovements).values({
@@ -78,10 +183,33 @@ export const PUT = withApiHandler(async (req: NextRequest) => {
   if (!body || typeof body !== "object") return NextResponse.json({ error: "Cuerpo inválido" }, { status: 400 });
   if (!body.id) return NextResponse.json({ error: "ID requerido" }, { status: 400 });
 
+  const requestedStdId =
+    body.standardCatalogId === undefined
+      ? undefined
+      : typeof body.standardCatalogId === "string" && body.standardCatalogId.trim()
+        ? body.standardCatalogId.trim()
+        : null;
+  const standardItem = requestedStdId ? findStandardFeedById(requestedStdId) : null;
+  if (requestedStdId && !standardItem) {
+    return NextResponse.json({ error: `Ingrediente base '${requestedStdId}' no encontrado en el catálogo estandarizado.` }, { status: 400 });
+  }
+  if (standardItem?.isBlocked) {
+    return NextResponse.json(
+      { error: `Ingrediente bloqueado (NO USAR): ${standardItem.name}. ${standardItem.risks || standardItem.preparation || ""}`.trim() },
+      { status: 400 },
+    );
+  }
+
   const dryMatter = body.dryMatterPct === undefined ? undefined : parseOptionalPercent(body.dryMatterPct, "La materia seca", { positive: true });
   if (dryMatter && "error" in dryMatter) return NextResponse.json({ error: dryMatter.error }, { status: 400 });
   const protein = body.crudeProteinPct === undefined ? undefined : parseOptionalPercent(body.crudeProteinPct, "La proteína cruda");
   if (protein && "error" in protein) return NextResponse.json({ error: protein.error }, { status: 400 });
+  const extra = validateExtraNutritionFields(body);
+  if ("error" in extra) return NextResponse.json({ error: extra.error }, { status: 400 });
+  if (extra.sanitaryStatus === "NO USAR") {
+    return NextResponse.json({ error: "No se permite estado sanitario NO USAR." }, { status: 400 });
+  }
+
   const requestedCategory = body.category == null ? undefined : normalizeFeedCategory(body.category);
   const requestedFeedType = body.feedType == null ? undefined : normalizeFeedType(body.feedType);
   if (body.category != null && !requestedCategory) {
@@ -108,6 +236,27 @@ export const PUT = withApiHandler(async (req: NextRequest) => {
       supplier: body.supplier !== undefined ? body.supplier : existing.supplier,
       dryMatterPct: dryMatter === undefined ? existing.dryMatterPct : dryMatter.value,
       crudeProteinPct: protein === undefined ? existing.crudeProteinPct : protein.value,
+      standardCatalogId: requestedStdId === undefined ? existing.standardCatalogId : requestedStdId,
+      sanitaryStatus:
+        extra.sanitaryStatus !== undefined
+          ? extra.sanitaryStatus
+          : requestedStdId === null
+            ? null
+            : standardItem?.sanitaryStatus ?? existing.sanitaryStatus,
+      energyKcalKgDm: extra.energy === undefined ? existing.energyKcalKgDm : extra.energy.value,
+      calciumDmPct: extra.calcium === undefined ? existing.calciumDmPct : extra.calcium.value,
+      availablePhosphorusDmPct: extra.phosphorus === undefined ? existing.availablePhosphorusDmPct : extra.phosphorus.value,
+      lysineDigDmPct: extra.lysine === undefined ? existing.lysineDigDmPct : extra.lysine.value,
+      metCysDigDmPct: extra.metCys === undefined ? existing.metCysDigDmPct : extra.metCys.value,
+      crudeFiberDmPct: extra.fiber === undefined ? existing.crudeFiberDmPct : extra.fiber.value,
+      nutritionProfile:
+        body.nutritionProfile !== undefined
+          ? body.nutritionProfile
+          : standardItem
+            ? buildStandardProfileSnapshot(standardItem, existing.nutritionProfile)
+            : requestedStdId === null
+              ? null
+              : existing.nutritionProfile,
       updatedAt: new Date(),
     }).where(eq(feedInventory.id, body.id)).returning();
 

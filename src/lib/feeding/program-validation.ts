@@ -1,6 +1,7 @@
 import { db } from "@/db";
 import { feedInventory, feedPrograms } from "@/db/schema";
 import { eq, inArray } from "drizzle-orm";
+import { findStandardFeedById } from "@/lib/feeding/standard-feed-catalog";
 
 type Client = Pick<typeof db, "select" | "update">;
 
@@ -56,6 +57,29 @@ export async function findMissingFeeds(client: Client, feedIds: string[]): Promi
   const rows = await client.select({ id: feedInventory.id }).from(feedInventory).where(inArray(feedInventory.id, feedIds));
   const found = new Set(rows.map((row) => row.id));
   return feedIds.filter((id) => !found.has(id));
+}
+
+/** Devuelve los alimentos marcados sanitariamente como NO USAR (en inventario o catálogo base). */
+export async function findBlockedFeeds(
+  client: Client,
+  feedIds: string[],
+): Promise<Array<{ id: string; name: string; standardCatalogId: string | null }>> {
+  if (feedIds.length === 0) return [];
+  const rows = await client
+    .select({
+      id: feedInventory.id,
+      name: feedInventory.name,
+      standardCatalogId: feedInventory.standardCatalogId,
+      sanitaryStatus: feedInventory.sanitaryStatus,
+    })
+    .from(feedInventory)
+    .where(inArray(feedInventory.id, feedIds));
+
+  return rows.filter((row) => {
+    if (row.sanitaryStatus === "NO USAR") return true;
+    const std = findStandardFeedById(row.standardCatalogId);
+    return std?.isBlocked === true;
+  });
 }
 
 /** Recalcula `percentage` de todas las filas de una etapa a partir de sus gramos. */

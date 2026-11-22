@@ -1,7 +1,7 @@
 import { db } from "@/db";
 import { catalogos, feedInventory, feedPrograms } from "@/db/schema";
 import { and, asc, eq } from "drizzle-orm";
-import { findMissingFeeds, recomputeStagePercentages } from "@/lib/feeding/program-validation";
+import { findBlockedFeeds, findMissingFeeds, recomputeStagePercentages } from "@/lib/feeding/program-validation";
 import { NextRequest, NextResponse } from "next/server";
 import { requirePermission } from "@/lib/rbac-server";
 import { withApiHandler, safeParseJson } from "@/lib/api-handler";
@@ -64,6 +64,20 @@ export const POST = withApiHandler(async (req: NextRequest) => {
   if ((await findMissingFeeds(db, [data.feedId])).length > 0) {
     return NextResponse.json({ error: "El alimento no existe" }, { status: 400 });
   }
+  const blockedPut = await findBlockedFeeds(db, [data.feedId]);
+  if (blockedPut.length > 0) {
+    return NextResponse.json(
+      { error: `No se puede programar un alimento bloqueado (NO USAR): ${blockedPut[0].name}` },
+      { status: 400 },
+    );
+  }
+  const blocked = await findBlockedFeeds(db, [data.feedId]);
+  if (blocked.length > 0) {
+    return NextResponse.json(
+      { error: `No se puede programar un alimento bloqueado (NO USAR): ${blocked[0].name}` },
+      { status: 400 },
+    );
+  }
   const [stage] = await db.select({ id: catalogos.id }).from(catalogos)
     .where(and(eq(catalogos.id, data.stageCatalogoId), eq(catalogos.category, "etapa_crecimiento")));
   if (!stage) return NextResponse.json({ error: "Etapa no encontrada" }, { status: 404 });
@@ -89,6 +103,20 @@ export const PUT = withApiHandler(async (req: NextRequest) => {
 
   if ((await findMissingFeeds(db, [data.feedId])).length > 0) {
     return NextResponse.json({ error: "El alimento no existe" }, { status: 400 });
+  }
+  const blockedPut = await findBlockedFeeds(db, [data.feedId]);
+  if (blockedPut.length > 0) {
+    return NextResponse.json(
+      { error: `No se puede programar un alimento bloqueado (NO USAR): ${blockedPut[0].name}` },
+      { status: 400 },
+    );
+  }
+  const blocked = await findBlockedFeeds(db, [data.feedId]);
+  if (blocked.length > 0) {
+    return NextResponse.json(
+      { error: `No se puede programar un alimento bloqueado (NO USAR): ${blocked[0].name}` },
+      { status: 400 },
+    );
   }
   const updated = await db.transaction(async (tx) => {
     const [existing] = await tx.select().from(feedPrograms).where(eq(feedPrograms.id, body.id)).for("update");

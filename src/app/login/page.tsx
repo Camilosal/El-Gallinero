@@ -5,9 +5,9 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { Leaf } from "lucide-react";
 import { BrandLogo } from "@/components/BrandLogo";
-import { HeroFrame } from "@/components/HeroFrame";
 import { DeveloperCredit } from "@/components/DeveloperCredit";
 import { LegalLinksBar } from "@/components/LegalLinksBar";
+import { HERO_THEMES } from "@/lib/hero-themes";
 
 export default function LoginPage() {
   const router = useRouter();
@@ -49,26 +49,47 @@ export default function LoginPage() {
       {/* Main Content */}
       <div className="flex-1 flex items-center justify-center px-4 py-8 pb-12">
         <div className="w-full max-w-md">
-          {/* Hero Header */}
-          <HeroFrame
-            theme="inicio"
-            compact
-            icon={<BrandLogo variant="mark" size={18} decorative className="rounded-sm bg-white/95 p-0.5" />}
-            eyebrow="Acceso al sistema"
-            title="IwaGranja"
-            description="Tu granja, todo bajo control."
-            className="mb-6"
-          />
+          {/* Login Card with Unified Single Header */}
+          <div className="overflow-hidden rounded-2xl border border-[var(--iw-semantic-border-default)] bg-[var(--iw-semantic-bg-surface)] shadow-[var(--iw-shadow-card)]">
+            <header className="gallinero-hero border-b border-[var(--iw-semantic-border-default)] px-6 py-5">
+              <picture className="gallinero-hero-picture">
+                <source
+                  type="image/webp"
+                  srcSet={`${HERO_THEMES.inicio.src1xWebp} 1x, ${HERO_THEMES.inicio.src2xWebp} 2x`}
+                />
+                <img
+                  src={HERO_THEMES.inicio.fallbackJpg}
+                  alt={HERO_THEMES.inicio.alt}
+                  width={1600}
+                  height={560}
+                  decoding="async"
+                  fetchPriority="high"
+                  className="gallinero-hero-img"
+                />
+              </picture>
+              <div className="gallinero-hero-scrim" aria-hidden="true" />
+              <div className="relative z-10 flex items-center gap-4">
+                <BrandLogo
+                  variant="square"
+                  size={68}
+                  priority
+                  className="shrink-0 rounded-xl border border-white/30 bg-white/95 p-1 shadow-sm"
+                />
+                <div className="min-w-0">
+                  <span className="inline-flex items-center rounded-full border border-white/25 bg-white/15 px-2.5 py-0.5 text-[11px] font-medium tracking-wide text-[var(--iw-color-paper)]">
+                    Acceso al sistema
+                  </span>
+                  <h1 className="mt-1.5 font-display text-2xl font-bold leading-tight tracking-tight text-white drop-shadow-[0_1px_2px_rgba(0,0,0,0.35)]">
+                    IwaGranja
+                  </h1>
+                  <p className="mt-0.5 text-sm leading-snug text-[var(--iw-color-paper)]/90">
+                    Tu granja, todo bajo control.
+                  </p>
+                </div>
+              </div>
+            </header>
 
-          {/* Login Form */}
-          <div className="bg-[var(--iw-semantic-bg-surface)] rounded-2xl shadow-[var(--iw-shadow-card)] p-8 border border-[var(--iw-semantic-border-default)]">
-            <div className="flex justify-center mb-5">
-              <BrandLogo
-                variant="square"
-                size={96}
-                className="rounded-2xl bg-[var(--iw-semantic-bg-page)] p-1.5 border border-[var(--iw-semantic-border-default)] shadow-xs"
-              />
-            </div>
+            <div className="p-6 sm:p-8">
             <form onSubmit={submit} className="space-y-5">
               <div>
                 <label className="block text-sm font-semibold text-[var(--iw-semantic-text-primary)] mb-2">
@@ -133,6 +154,7 @@ export default function LoginPage() {
                 </div>
               </div>
             </form>
+            </div>
           </div>
 
           {/* Footer Info */}

@@ -96,7 +96,7 @@ export default function OfflineSyncStatus() {
       <button
         type="button"
         onClick={() => setIsOpen(true)}
-        className={`inline-flex min-h-[40px] items-center gap-1.5 px-2.5 sm:px-3 py-1.5 sm:py-2 rounded-[var(--iw-radius-control)] text-xs sm:text-sm font-medium border shadow-xs transition-colors hover:brightness-95 shrink-0 ${badgeColor}`}
+        className={`inline-flex h-10 min-h-[40px] items-center gap-1.5 px-2.5 sm:px-3 py-0 rounded-[var(--iw-radius-control)] text-xs sm:text-sm font-semibold border shadow-xs transition-colors hover:brightness-95 shrink-0 ${badgeColor}`}
         title="Ver estado de conexión, copia offline y sincronización"
       >
         <Icon className={`w-3.5 h-3.5 sm:w-4 sm:h-4 shrink-0 ${isSyncing ? "animate-spin" : ""}`} />

@@ -305,7 +305,7 @@ function CierreYSensoresInner() {
       <Modal open={!!reopenTarget} onClose={() => setReopenTarget(null)} title={`Reabrir Jornada ${reopenTarget?.closureDate || ""}`}>
         <div className="space-y-4">
           <p className="text-xs text-slate-600">Solo un usuario con rol Administrador o Propietario puede desbloquear una fecha cerrada.</p>
-          <Textarea label="Motivo de auditoría *" value={reopenReason} onChange={(e) => setReopenReason(e.target.value)} placeholder="Ej: Corrección factura de venta #124" />
+          <Textarea label="Motivo de auditoría *" value={reopenReason} onChange={(e) => setReopenReason(e.target.value)} placeholder="Ej: Corrección factura de venta nro. 124" />
           <div className="flex justify-end gap-2">
             <Button variant="secondary" onClick={() => setReopenTarget(null)}>Cancelar</Button>
             <Button variant="danger" onClick={confirmReopen}>Confirmar Reapertura</Button>

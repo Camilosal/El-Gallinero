@@ -146,16 +146,16 @@ export default function GlobalSearch({
         <button
           type="button"
           onClick={openSearch}
-          className={`flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-2.5 sm:px-3 py-1.5 sm:py-2 text-left text-xs sm:text-sm text-slate-500 shadow-xs transition-colors hover:border-slate-300 hover:bg-slate-50 hover:text-slate-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-green-500 ${className}`}
+          className={`flex h-10 min-h-[40px] items-center gap-2 rounded-[var(--iw-radius-control)] border border-[var(--iw-semantic-border-input)] bg-[var(--iw-semantic-bg-surface)] px-2.5 sm:px-3 py-0 text-left text-xs sm:text-sm text-[var(--iw-semantic-text-secondary)] shadow-xs transition-colors hover:border-[var(--iw-semantic-border-strong)] hover:bg-[var(--iw-semantic-bg-subtle)] hover:text-[var(--iw-semantic-text-primary)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--iw-semantic-focus-ring)] ${className}`}
           aria-label="Buscar en el sistema"
           aria-keyshortcuts="Control+K Meta+K"
         >
-          <Search className="w-4 h-4 text-slate-400 shrink-0" />
+          <Search className="w-4 h-4 text-[var(--iw-semantic-text-secondary)] shrink-0" />
           <span className="truncate flex-1">
             <span className="sm:hidden">Buscar...</span>
             <span className="hidden sm:inline">Buscar módulo o acción...</span>
           </span>
-          <kbd className="hidden md:inline-flex rounded border border-slate-200 bg-slate-100 px-1.5 py-0.5 text-[10px] font-medium text-slate-500">
+          <kbd className="hidden md:inline-flex rounded border border-[var(--iw-semantic-border-default)] bg-[var(--iw-semantic-bg-subtle)] px-1.5 py-0.5 text-[10px] font-medium text-[var(--iw-semantic-text-secondary)]">
             Ctrl K
           </kbd>
         </button>

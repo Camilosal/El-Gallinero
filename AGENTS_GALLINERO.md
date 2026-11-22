@@ -109,3 +109,26 @@ DEMO_ADMIN_PASSWORD='elige-una-clave-segura-de-12-caracteres' npm run db:seed --
 | `npm run db:issue-admin-recovery-code` | Emitir código de recuperación de un solo uso |
 | `npm run typecheck` / `lint` | Verificación estricta de TypeScript y ESLint |
 | `npm run test` / `e2e` | Pruebas Vitest (`tests/`) y E2E Playwright |
+
+# Instrucciones permanentes de interfaz para agentes · Iwagé
+
+## Se aplica a
+
+Cualquier cambio de UI/UX, landing, componentes, CSS, navegación, onboarding, paneles, materiales visuales o documentación de producto. El Corral es la primera implementación del sistema Agroeditorial Ilustrado.
+
+## Pasos antes de editar
+
+1. Leer `.agents/skills/iwage-agroeditorial-ui/SKILL.md` en su totalidad.
+2. Leer `docs/GUIA_IDENTIDAD_VISUAL.md` y `tokens/tokens.json`.
+3. Inspeccionar la implementación actual, buscar componentes existentes y evitar duplicados.
+4. Proponer cambios que reutilicen tokens y componentes; no reescribir funcionalidad de negocio para ajustar apariencia.
+
+## Para finalizar
+
+1. Si cambian tokens, ejecutar `python3 scripts/build_tokens.py`.
+2. Ejecutar `python3 scripts/check_contrast.py` y revisar `docs/CHECKLIST_QA.md`.
+3. Ejecutar auditoría de estilos (`python3 scripts/audit_styles.py <ruta-front>`) y explicar excepciones legítimas.
+4. Probar responsive, teclado, estados de interacción y operación offline cuando aplique.
+5. Informar rutas modificadas, qué se reutilizó, pruebas realizadas y divergencias pendientes.
+
+> Esta política documenta la intención del proyecto; la activación automática de las skills depende del agente/herramienta utilizado.

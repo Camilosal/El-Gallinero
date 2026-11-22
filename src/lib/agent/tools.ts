@@ -3495,6 +3495,11 @@ const gestionarAlimento: AgentTool = {
       proveedor: { type: "string" },
       materia_seca_pct: { type: "number", minimum: 1, maximum: 100 },
       proteina_cruda_pct: { type: "number", minimum: 0, maximum: 100 },
+      codigo_estandar: { type: "string", description: "Código de ficha base del catálogo estandarizado (ej: IG-015, IG-025)." },
+      em_kcal_kg_ms: { type: "number", minimum: 0, maximum: 9000 },
+      calcio_ms_pct: { type: "number", minimum: 0, maximum: 100 },
+      fosforo_disp_ms_pct: { type: "number", minimum: 0, maximum: 100 },
+      fibra_ms_pct: { type: "number", minimum: 0, maximum: 100 },
     },
     required: ["nombre"],
     additionalProperties: false,
@@ -3524,6 +3529,12 @@ const gestionarAlimento: AgentTool = {
         supplier: args.proveedor !== undefined ? args.proveedor : existing.supplier,
         dryMatterPct: args.materia_seca_pct !== undefined ? Number(args.materia_seca_pct) : existing.dryMatterPct,
         crudeProteinPct: args.proteina_cruda_pct !== undefined ? Number(args.proteina_cruda_pct) : existing.crudeProteinPct,
+        standardCatalogId: args.codigo_estandar !== undefined ? String(args.codigo_estandar).trim() : existing.standardCatalogId,
+        energyKcalKgDm: args.em_kcal_kg_ms !== undefined ? Number(args.em_kcal_kg_ms) : existing.energyKcalKgDm,
+        calciumDmPct: args.calcio_ms_pct !== undefined ? Number(args.calcio_ms_pct) : existing.calciumDmPct,
+        availablePhosphorusDmPct:
+          args.fosforo_disp_ms_pct !== undefined ? Number(args.fosforo_disp_ms_pct) : existing.availablePhosphorusDmPct,
+        crudeFiberDmPct: args.fibra_ms_pct !== undefined ? Number(args.fibra_ms_pct) : existing.crudeFiberDmPct,
       };
       return {
         args: { _method: "PUT", payload },
@@ -3542,6 +3553,11 @@ const gestionarAlimento: AgentTool = {
       supplier: args.proveedor || null,
       dryMatterPct: args.materia_seca_pct !== undefined ? Number(args.materia_seca_pct) : undefined,
       crudeProteinPct: args.proteina_cruda_pct !== undefined ? Number(args.proteina_cruda_pct) : undefined,
+      standardCatalogId: args.codigo_estandar ? String(args.codigo_estandar).trim() : undefined,
+      energyKcalKgDm: args.em_kcal_kg_ms !== undefined ? Number(args.em_kcal_kg_ms) : undefined,
+      calciumDmPct: args.calcio_ms_pct !== undefined ? Number(args.calcio_ms_pct) : undefined,
+      availablePhosphorusDmPct: args.fosforo_disp_ms_pct !== undefined ? Number(args.fosforo_disp_ms_pct) : undefined,
+      crudeFiberDmPct: args.fibra_ms_pct !== undefined ? Number(args.fibra_ms_pct) : undefined,
     };
     return {
       args: { _method: "POST", payload },

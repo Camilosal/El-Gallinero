@@ -317,8 +317,8 @@ export default function PresupuestosPage() {
                     <YAxis fontSize={11} tickFormatter={(v) => `$${(v / 1000).toFixed(0)}k`} />
                     <Tooltip formatter={(v) => fmt(Number(v))} />
                     <Legend />
-                    <Bar dataKey="objetivo" name="Objetivo" fill="#3b82f6" radius={[4, 4, 0, 0]} />
-                    <Bar dataKey="real" name="Real" fill="#22c55e" radius={[4, 4, 0, 0]} />
+                    <Bar dataKey="objetivo" name="Objetivo" fill="var(--iw-color-info)" radius={[4, 4, 0, 0]} />
+                    <Bar dataKey="real" name="Real" fill="var(--iw-color-forest)" radius={[4, 4, 0, 0]} />
                   </BarChart>
                 </ResponsiveContainer>
               </div>

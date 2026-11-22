@@ -309,6 +309,15 @@ export const feedInventory = pgTable("feed_inventory", {
   supplier: varchar("supplier", { length: 200 }),
   dryMatterPct: decimal("dry_matter_pct", { precision: 5, scale: 2 }), // % materia seca (forrajes frescos ~20-30, concentrado ~88-90)
   crudeProteinPct: decimal("crude_protein_pct", { precision: 5, scale: 2 }), // % proteína cruda en base fresca
+  standardCatalogId: varchar("standard_catalog_id", { length: 20 }), // Referencia IG-xxx de Catalogo Alimentos.csv
+  sanitaryStatus: varchar("sanitary_status", { length: 24 }), // CONDICIONAL | RESTRINGIDO | NO USAR
+  energyKcalKgDm: decimal("energy_kcal_kg_dm", { precision: 7, scale: 2 }), // EM kcal/kg MS
+  calciumDmPct: decimal("calcium_dm_pct", { precision: 5, scale: 2 }), // Ca % MS
+  availablePhosphorusDmPct: decimal("available_phosphorus_dm_pct", { precision: 5, scale: 2 }), // P disp % MS
+  lysineDigDmPct: decimal("lysine_dig_dm_pct", { precision: 5, scale: 2 }), // Lis dig % MS
+  metCysDigDmPct: decimal("met_cys_dig_dm_pct", { precision: 5, scale: 2 }), // Met+Cys dig % MS
+  crudeFiberDmPct: decimal("crude_fiber_dm_pct", { precision: 5, scale: 2 }), // Fibra bruta % MS
+  nutritionProfile: jsonb("nutrition_profile"), // Metadatos de composición, preparación, riesgos y fuente
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });

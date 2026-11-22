@@ -238,7 +238,13 @@ const LINE_ICONS: Record<string, string> = {
   otros: "package",
 };
 
-const COLORS = ["#22c55e", "#eab308", "#3b82f6", "#ef4444", "#a855f7"];
+const COLORS = [
+  "var(--iw-color-forest)",
+  "var(--iw-color-ochre)",
+  "var(--iw-color-info)",
+  "var(--iw-color-danger)",
+  "var(--iw-color-terracotta)",
+];
 const fmt = (n: number) => `$${Math.round(n).toLocaleString()}`;
 const UNASSIGNED_KEYS = new Set(["sin_asignar", "sin_especie"]);
 const speciesName = (key: string) =>
@@ -898,8 +904,8 @@ ${netText}`);
                   <XAxis dataKey="label" fontSize={11} />
                   <YAxis fontSize={11} tickFormatter={(v) => `$${(Number(v) / 1000).toFixed(0)}k`} />
                   <Tooltip formatter={(v) => fmt(Number(v))} /><Legend />
-                  <Bar dataKey="directRevenue" name="Ingresos" fill="#22c55e" radius={[4, 4, 0, 0]} />
-                  <Bar dataKey="totalCost" name="Costos Totales" fill="#ef4444" radius={[4, 4, 0, 0]} />
+                  <Bar dataKey="directRevenue" name="Ingresos" fill="var(--iw-color-success)" radius={[4, 4, 0, 0]} />
+                  <Bar dataKey="totalCost" name="Costos Totales" fill="var(--iw-color-danger)" radius={[4, 4, 0, 0]} />
                 </BarChart>
               </ResponsiveContainer>
             </Card>

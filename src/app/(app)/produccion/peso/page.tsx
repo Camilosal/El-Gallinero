@@ -265,9 +265,9 @@ export default function PesoPage() {
               <YAxis label={{ value: "Gramos", angle: -90, position: "left" }} />
               <Tooltip />
               <Legend />
-              <Area type="monotone" dataKey="range" name="Rango (min-max)" fill="#bbf7d0" stroke="#86efac" fillOpacity={0.5} />
-              <Line type="monotone" dataKey="target" name="Peso objetivo" stroke="#16a34a" strokeDasharray="5 5" dot={false} />
-              <Scatter dataKey="actual" name="Peso real" fill="#2563eb" shape="circle" />
+              <Area type="monotone" dataKey="range" name="Rango (min-max)" fill="var(--iw-color-sage)" stroke="var(--iw-color-outline-soft)" fillOpacity={0.55} />
+              <Line type="monotone" dataKey="target" name="Peso objetivo" stroke="var(--iw-color-forest)" strokeDasharray="5 5" dot={false} />
+              <Scatter dataKey="actual" name="Peso real" fill="var(--iw-color-info)" shape="circle" />
             </ComposedChart>
           </ResponsiveContainer>
         </Card>

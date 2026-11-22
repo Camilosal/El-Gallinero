@@ -1,5 +1,6 @@
-import { afterAll, describe, expect, it } from "vitest";
-import { db } from "@/db";
+import { afterAll, beforeAll, describe, expect, it } from "vitest";
+import { db, pool } from "@/db";
+import { runPendingMigrations } from "@/db/migrate-prod";
 import {
   animalSpeciesEnum, broilerBatches, catalogos, farmLocations, feedInventory,
   feedMovements, feedPrograms, transactions,
@@ -20,6 +21,10 @@ const created = {
   stages: [] as string[], feeds: [] as string[], locations: [] as string[],
   transactions: [] as string[], batches: [] as string[],
 };
+
+beforeAll(async () => {
+  await runPendingMigrations(pool);
+});
 
 afterAll(async () => {
   if (created.stages.length) await db.delete(feedMovements).where(inArray(feedMovements.stageCatalogoId, created.stages));

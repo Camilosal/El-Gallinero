@@ -644,12 +644,12 @@ function PlanParvadaInner() {
                     type="monotone"
                     dataKey="esperado"
                     name="Esperado"
-                    stroke="#3b82f6"
-                    fill="#3b82f6"
+                    stroke="var(--iw-color-info)"
+                    fill="var(--iw-color-info)"
                     fillOpacity={0.15}
                     strokeWidth={2}
                   />
-                  <Bar dataKey="real" name="Real" fill="#22c55e" radius={[3, 3, 0, 0]} maxBarSize={18} />
+                  <Bar dataKey="real" name="Real" fill="var(--iw-color-forest)" radius={[3, 3, 0, 0]} maxBarSize={18} />
                 </ComposedChart>
               </ResponsiveContainer>
             </div>

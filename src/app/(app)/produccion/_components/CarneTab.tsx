@@ -465,8 +465,8 @@ export default function CarneTab() {
               <YAxis yAxisId="left" fontSize={11} />
               <YAxis yAxisId="right" orientation="right" fontSize={11} />
               <Tooltip />
-              <Bar yAxisId="left" dataKey="kg" fill="#f97316" radius={[4, 4, 0, 0]} name="kg Canal" />
-              <Bar yAxisId="right" dataKey="aves" fill="#8b5cf6" radius={[4, 4, 0, 0]} name="Animales" />
+              <Bar yAxisId="left" dataKey="kg" fill="var(--iw-color-terracotta)" radius={[4, 4, 0, 0]} name="kg Canal" />
+              <Bar yAxisId="right" dataKey="aves" fill="var(--iw-color-forest)" radius={[4, 4, 0, 0]} name="Animales" />
             </BarChart>
           </ResponsiveContainer>
         </Card>

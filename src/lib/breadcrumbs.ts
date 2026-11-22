@@ -73,6 +73,12 @@ const PATH_OVERRIDES: Record<string, BreadcrumbItem[]> = {
     { label: "Configuración", href: "/configuracion" },
     { label: "Panel de Granjas" },
   ],
+  "/configuracion/granjas/conciliacion": [
+    { label: "Inicio", href: "/inicio" },
+    { label: "Configuración", href: "/configuracion" },
+    { label: "Panel de Granjas", href: "/configuracion/granjas" },
+    { label: "Conciliación de pagos" },
+  ],
   "/configuracion/usuarios": [
     { label: "Inicio", href: "/inicio" },
     { label: "Configuración", href: "/configuracion" },

@@ -380,15 +380,15 @@ export function PesosTab() {
                 type="monotone"
                 dataKey="range"
                 name="Rango (mín–máx)"
-                stroke="#86efac"
-                fill="#bbf7d0"
-                fillOpacity={0.45}
+                stroke="var(--iw-color-outline-soft)"
+                fill="var(--iw-color-sage)"
+                fillOpacity={0.55}
               />
               <Line
                 type="monotone"
                 dataKey="target"
                 name="Objetivo"
-                stroke="#15803d"
+                stroke="var(--iw-color-forest)"
                 strokeWidth={2.5}
                 dot={{ r: 3 }}
               />

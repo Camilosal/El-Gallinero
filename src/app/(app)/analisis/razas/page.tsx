@@ -194,9 +194,9 @@ export default function RazasPage() {
                 <XAxis dataKey="week" type="number" domain={["dataMin", "dataMax"]} label={{ value: "Edad (semanas)", position: "bottom" }} />
                 <YAxis label={{ value: isLayer ? "% postura ave-día" : "Peso (g)", angle: -90, position: "insideLeft" }} />
                 <Tooltip formatter={(value) => typeof value === "number" ? formatMetric(value, selectedCurve) : value} />
-                <Area type="monotone" dataKey="range" name="Rango esperado" stroke="#86efac" fill="#bbf7d0" fillOpacity={0.45} />
-                <Line type="monotone" dataKey="target" name="Objetivo" stroke="#15803d" strokeWidth={2} dot={false} />
-                <Scatter data={data?.actualPoints || []} dataKey="actual" name={isLayer ? "Postura real" : "Peso real"} fill="#2563eb" shape="circle" />
+                <Area type="monotone" dataKey="range" name="Rango esperado" stroke="var(--iw-color-outline-soft)" fill="var(--iw-color-sage)" fillOpacity={0.55} />
+                <Line type="monotone" dataKey="target" name="Objetivo" stroke="var(--iw-color-forest)" strokeWidth={2} dot={false} />
+                <Scatter data={data?.actualPoints || []} dataKey="actual" name={isLayer ? "Postura real" : "Peso real"} fill="var(--iw-color-info)" shape="circle" />
               </ComposedChart>
             </ResponsiveContainer>
             <p className="mt-2 text-xs text-slate-500">

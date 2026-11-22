@@ -69,11 +69,11 @@ interface BroilerBatch {
 }
 
 const SIZE_COLORS: Record<string, string> = {
-  Jumbo: "#7c3aed",
-  Extra: "#3b82f6",
-  Grande: "#22c55e",
-  Mediano: "#eab308",
-  Pequeño: "#f97316",
+  Jumbo: "var(--iw-color-forest-dark)",
+  Extra: "var(--iw-color-info)",
+  Grande: "var(--iw-color-forest)",
+  Mediano: "var(--iw-color-ochre)",
+  Pequeño: "var(--iw-color-terracotta)",
 };
 
 const stageColors: Record<string, string> = {
@@ -659,9 +659,9 @@ export default function HuevosPage() {
               <YAxis fontSize={11} />
               <Tooltip />
               <Legend />
-              <Bar dataKey="Hogar" fill="#16a34a" radius={[3, 3, 0, 0]} name="Consumo Hogar" />
-              <Bar dataKey="Excedente" fill="#3b82f6" radius={[3, 3, 0, 0]} name="Venta Excedente" />
-              <Bar dataKey="Rotos" fill="#ef4444" radius={[3, 3, 0, 0]} name="Rotos" />
+              <Bar dataKey="Hogar" fill="var(--iw-color-success)" radius={[3, 3, 0, 0]} name="Consumo Hogar" />
+              <Bar dataKey="Excedente" fill="var(--iw-color-info)" radius={[3, 3, 0, 0]} name="Venta Excedente" />
+              <Bar dataKey="Rotos" fill="var(--iw-color-danger)" radius={[3, 3, 0, 0]} name="Rotos" />
             </BarChart>
           </ResponsiveContainer>
         </Card>

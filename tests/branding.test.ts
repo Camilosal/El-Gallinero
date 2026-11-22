@@ -58,6 +58,7 @@ describe("marca y atribución de desarrollo en producción", () => {
     const inicioSrc = read("src/app/(app)/inicio/page.tsx");
     expect(inicioSrc).toContain("FarmID:");
     expect(inicioSrc).toContain("Copiar FarmID");
+    expect(read("src/components/Sidebar.tsx")).not.toContain("sidebar-farm-id");
 
     for (const surface of [
       "src/app/page.tsx",

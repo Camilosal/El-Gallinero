@@ -95,6 +95,7 @@ export function getApiPermission(
       return "animal_metrics:write";
     }
     if (startsWithPath(pathname, "/api/produccion/plan-parvada")) return "planning:write";
+    if (pathname === "/api/produccion/alimentacion/catalogo-estandar") return "inventory:read";
     if (startsWithPath(pathname, "/api/produccion/etapas")) return "production:write";
     if (startsWithPath(pathname, "/api/produccion/incubacion") || startsWithPath(pathname, "/api/produccion/reproduccion")) {
       return "production:write";
@@ -142,6 +143,7 @@ export function getApiPermission(
     return verb === "POST" && !isPurchase ? "production:write" : "finance:write";
   }
   if (pathname === "/api/produccion/alimentacion") return "finance:write";
+  if (pathname === "/api/produccion/alimentacion/alinear-catalogo") return ["catalogs:write", "finance:write"];
   if (pathname === "/api/perdidas-huevos") return "production:write";
   if (pathname === "/api/onboarding" || pathname === "/api/onboarding/sugerir") return "settings:manage";
   if (startsWithPath(pathname, "/api/inventarios/insumos")) return "finance:write";

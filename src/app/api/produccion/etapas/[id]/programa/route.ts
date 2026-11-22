@@ -3,7 +3,7 @@ import { feedPrograms, feedInventory, catalogos } from "@/db/schema";
 import { eq, and } from "drizzle-orm";
 import { NextRequest, NextResponse } from "next/server";
 import { withApiHandler, safeParseJson } from "@/lib/api-handler";
-import { findMissingFeeds, normalizeProgramEntries } from "@/lib/feeding/program-validation";
+import { findBlockedFeeds, findMissingFeeds, normalizeProgramEntries } from "@/lib/feeding/program-validation";
 import { markFeedingProgramsReviewed } from "@/lib/feeding/review";
 
 export const dynamic = "force-dynamic";
@@ -55,6 +55,13 @@ export const POST = withApiHandler(async (
   const entries = normalized.entries;
   const missingFeeds = await findMissingFeeds(db, entries.map((entry) => entry.feedId));
   if (missingFeeds.length > 0) return NextResponse.json({ error: "Alguno de los alimentos del programa no existe" }, { status: 400 });
+  const blockedFeeds = await findBlockedFeeds(db, entries.map((entry) => entry.feedId));
+  if (blockedFeeds.length > 0) {
+    return NextResponse.json(
+      { error: `No se puede formular con ingrediente bloqueado (NO USAR): ${blockedFeeds.map((b) => b.name).join(", ")}` },
+      { status: 400 },
+    );
+  }
 
   // Upsert: eliminar entradas existentes para esta etapa y re-insertar
   const inserted = await db.transaction(async (tx) => {

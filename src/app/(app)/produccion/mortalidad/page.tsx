@@ -51,7 +51,14 @@ type EggLoss = {
 };
 
 const CAUSE_LABELS: Record<string, string> = { enfermedad: "Enfermedad", depredador: "Depredador", accidente: "Accidente", sacrificio_sanitario: "Sacrificio sanitario", causa_natural: "Causa natural", otro: "Otro" };
-const CAUSE_COLORS = ["#ef4444", "#f97316", "#eab308", "#3b82f6", "#8b5cf6", "#6b7280"];
+const CAUSE_COLORS = [
+  "var(--iw-color-danger)",
+  "var(--iw-color-terracotta)",
+  "var(--iw-color-ochre)",
+  "var(--iw-color-info)",
+  "var(--iw-color-forest)",
+  "var(--iw-color-muted)",
+];
 const BATCH_TYPES = ["lote_pollos", "lote_codornices", "lote_patos", "lote_conejos", "lote_cuyes"];
 const BATCH_SPECIES_BY_TYPE: Record<string, string> = {
   lote_pollos: "pollo",
@@ -69,7 +76,12 @@ const BIRD_LABELS: Record<string, string> = {
   lote_conejos: "Lote de conejos",
   lote_cuyes: "Lote de cuyes",
 };
-const REASON_COLORS = ["#ef4444", "#f97316", "#eab308", "#6b7280"];
+const REASON_COLORS = [
+  "var(--iw-color-danger)",
+  "var(--iw-color-terracotta)",
+  "var(--iw-color-ochre)",
+  "var(--iw-color-muted)",
+];
 
 const emptyForm = { date: new Date().toISOString().split("T")[0], birdType: "gallina", cause: "enfermedad", henId: "", roosterId: "", batchId: "", locationId: "", quantity: "1", description: "" };
 const emptyLoss = { date: new Date().toISOString().split("T")[0], quantity: "1", size: "", reason: "roto", notes: "" };

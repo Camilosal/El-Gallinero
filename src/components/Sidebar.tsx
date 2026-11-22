@@ -339,20 +339,6 @@ export default function Sidebar() {
 
         {/* Footer: guide, logout and developer credit */}
         <div className={`border-t border-[var(--iw-color-forest)] space-y-2 ${collapsed ? "p-2" : "p-3.5"}`}>
-          {!collapsed && farmMeta?.farmId && (
-            <div
-              data-testid="sidebar-farm-id"
-              className="flex items-center justify-between gap-2 rounded-[var(--iw-radius-control)] border border-white/15 bg-[var(--iw-color-ink-strong)]/35 px-2.5 py-1.5 text-[11px] text-[var(--iw-color-paper)]"
-              title={`Identificador de granja: ${farmMeta.farmId}`}
-            >
-              <span className="truncate font-medium">
-                {farmMeta.farmName ? farmMeta.farmName : "Granja activa"}
-              </span>
-              <span className="shrink-0 font-mono text-[10px] text-[var(--iw-color-sage)] tabular-nums">
-                ID {farmMeta.farmId}
-              </span>
-            </div>
-          )}
           <div className={collapsed ? "flex flex-col gap-1.5" : "grid grid-cols-2 gap-1.5"}>
             <a
               href="/guia"

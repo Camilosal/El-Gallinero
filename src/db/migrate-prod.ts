@@ -23,6 +23,7 @@ export const DEFAULT_USER_ROLE_MIGRATION_FILE = "drizzle/0012_default_user_role_
 export const GINA_USAGE_EVENTS_MIGRATION_FILE = "drizzle/0013_gina_usage_events.sql";
 export const BILLING_PROVIDER_TX_UNIQUE_MIGRATION_FILE = "drizzle/0014_billing_provider_tx_unique.sql";
 export const FARM_SUBSCRIPTION_EVENTS_MIGRATION_FILE = "drizzle/0015_farm_subscription_events.sql";
+export const FEED_STANDARD_CATALOG_MIGRATION_FILE = "drizzle/0016_feed_standard_catalog.sql";
 
 export const ORDERED_MIGRATION_SCRIPTS = [
   BASELINE_MIGRATION_FILE,
@@ -41,6 +42,7 @@ export const ORDERED_MIGRATION_SCRIPTS = [
   GINA_USAGE_EVENTS_MIGRATION_FILE,
   BILLING_PROVIDER_TX_UNIQUE_MIGRATION_FILE,
   FARM_SUBSCRIPTION_EVENTS_MIGRATION_FILE,
+  FEED_STANDARD_CATALOG_MIGRATION_FILE,
 ] as const;
 
 export function getOrderedMigrationScripts(rootDir = process.cwd()): string[] {

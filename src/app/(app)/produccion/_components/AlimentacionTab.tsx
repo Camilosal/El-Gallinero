@@ -25,6 +25,20 @@ import {
   normalizeFeedType,
 } from "@/lib/feed-classification";
 import { getStageSpecies, type FeedingSpecies } from "@/lib/feeding/stage-species";
+import {
+  STANDARD_FEED_CATALOG,
+  STANDARD_FEED_GROUPS,
+  findStandardFeedById,
+  resolveEffectiveFeedProfile,
+  searchStandardFeedCatalog,
+  type StandardFeedItem,
+} from "@/lib/feeding/standard-feed-catalog";
+import {
+  suggestSafeSubstitutesForStandardId,
+  validateFeedingProgram,
+  type DietValidationResult,
+} from "@/lib/feeding/nutrition-validator";
+import { DietValidationSummary } from "@/app/(app)/produccion/_components/DietValidationSummary";
 import MicroInsightCard from "@/components/MicroInsightCard";
 import { buildFeedMicroInsight, type MicroInsightPayload } from "@/lib/micro-insights";
 
@@ -40,6 +54,15 @@ interface Feed {
   supplier: string | null;
   dryMatterPct?: string | null;
   crudeProteinPct?: string | null;
+  standardCatalogId?: string | null;
+  sanitaryStatus?: string | null;
+  energyKcalKgDm?: string | null;
+  calciumDmPct?: string | null;
+  availablePhosphorusDmPct?: string | null;
+  lysineDigDmPct?: string | null;
+  metCysDigDmPct?: string | null;
+  crudeFiberDmPct?: string | null;
+  nutritionProfile?: Record<string, unknown> | null;
 }
 
 interface FeedProgramEntry {
@@ -67,6 +90,7 @@ interface Stage {
     crudeProteinPctAsFed: number | null;
     freshSharePct: number;
   };
+  nutritionValidation?: DietValidationResult | null;
 }
 
 /** El porcentaje de cada alimento se deriva de sus gramos (lo calcula también el servidor). */
@@ -270,11 +294,16 @@ export default function AlimentacionPage() {
   const [reviewSaving, setReviewSaving] = useState(false);
   const [seedingDefaults, setSeedingDefaults] = useState(false);
   const [reviewNotice, setReviewNotice] = useState("");
+  const [aligningCatalog, setAligningCatalog] = useState(false);
+  const [alignNotice, setAlignNotice] = useState("");
 
   // ─── Nuevo Plan de Alimentación Multiespecie ───
   const [newPlanModalOpen, setNewPlanModalOpen] = useState(false);
   const [selectedProgramSpeciesFilter, setSelectedProgramSpeciesFilter] = useState<string>("all");
   const [newPlanError, setNewPlanError] = useState("");
+  const [programError, setProgramError] = useState("");
+  const [catalogSearch, setCatalogSearch] = useState("");
+  const [catalogGroup, setCatalogGroup] = useState("all");
   const [newPlanForm, setNewPlanForm] = useState({
     species: "pollo",
     name: "",
@@ -282,7 +311,27 @@ export default function AlimentacionPage() {
     maxWeeks: "7",
     entries: [{ feedId: "", percentage: "100", dailyAmountPerHen: "100" }],
   });
-  const [form, setForm] = useState({ name: "", category: "En Fresco", feedType: "Pastos y gramíneas", unit: "kg", currentStock: "0", minStock: "0", costPerUnit: "0", supplier: "", dryMatterPct: "", crudeProteinPct: "" });
+  const emptyFeedForm = {
+    name: "",
+    category: "En Fresco",
+    feedType: "Pastos y gramíneas",
+    unit: "kg",
+    currentStock: "0",
+    minStock: "0",
+    costPerUnit: "0",
+    supplier: "",
+    dryMatterPct: "",
+    crudeProteinPct: "",
+    standardCatalogId: "",
+    sanitaryStatus: "",
+    energyKcalKgDm: "",
+    calciumDmPct: "",
+    availablePhosphorusDmPct: "",
+    lysineDigDmPct: "",
+    metCysDigDmPct: "",
+    crudeFiberDmPct: "",
+  };
+  const [form, setForm] = useState(emptyFeedForm);
   const [feedError, setFeedError] = useState("");
   const [savingFeed, setSavingFeed] = useState(false);
   const [movForm, setMovForm] = useState({ feedId: "", quantity: "", isEntry: true, movementType: "compra", stageCatalogoId: "", henCount: "", date: new Date().toISOString().split("T")[0], locationId: "", notes: "" });
@@ -413,17 +462,107 @@ export default function AlimentacionPage() {
     }
   };
 
+  const alignCatalog = async () => {
+    setAligningCatalog(true);
+    setAlignNotice("");
+    try {
+      const res = await apiFetch("/api/produccion/alimentacion/alinear-catalogo", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ seedStarterCalciumAndRoot: true }),
+      });
+      const body = await res.json().catch(() => null);
+      if (!res.ok) {
+        setAlignNotice(body?.error || "No se pudo alinear el inventario con el catálogo estándar");
+        return;
+      }
+      setAlignNotice(
+        `Inventario alineado: ${body?.updatedFeeds ?? 0} alimentos vinculados al catálogo (${body?.seededMissingStandards ?? 0} ingredientes base agregados) sin alterar existencias ni costos.`,
+      );
+      load();
+    } finally {
+      setAligningCatalog(false);
+    }
+  };
+
+  const selectedStandardItem: StandardFeedItem | null = useMemo(
+    () => findStandardFeedById(form.standardCatalogId),
+    [form.standardCatalogId],
+  );
+
+  const filteredStandardCatalog = useMemo(
+    () =>
+      searchStandardFeedCatalog(catalogSearch, {
+        group: catalogGroup,
+        includeBlocked: true,
+      }),
+    [catalogSearch, catalogGroup],
+  );
+
+  const applyStandardFeed = (stdId: string) => {
+    if (!stdId) {
+      setForm((prev) => ({
+        ...prev,
+        standardCatalogId: "",
+        sanitaryStatus: "",
+      }));
+      return;
+    }
+    const item = findStandardFeedById(stdId);
+    if (!item) return;
+    setForm((prev) => ({
+      ...prev,
+      standardCatalogId: item.id,
+      sanitaryStatus: item.sanitaryStatus,
+      name: editing ? prev.name : item.name,
+      category: item.defaultCategory,
+      feedType: item.defaultFeedType,
+      unit: prev.unit || item.defaultUnit,
+      dryMatterPct: item.dryMatterPct !== null ? String(item.dryMatterPct) : "",
+      crudeProteinPct: item.crudeProteinAsFedPct !== null ? String(item.crudeProteinAsFedPct) : "",
+      energyKcalKgDm: item.energyKcalKgDm !== null ? String(item.energyKcalKgDm) : "",
+      calciumDmPct: item.calciumDmPct !== null ? String(item.calciumDmPct) : "",
+      availablePhosphorusDmPct: item.availablePhosphorusDmPct !== null ? String(item.availablePhosphorusDmPct) : "",
+      lysineDigDmPct: item.lysineDigDmPct !== null ? String(item.lysineDigDmPct) : "",
+      metCysDigDmPct: item.metCysDigDmPct !== null ? String(item.metCysDigDmPct) : "",
+      crudeFiberDmPct: item.crudeFiberDmPct !== null ? String(item.crudeFiberDmPct) : "",
+    }));
+  };
+
   const openNewFeed = () => {
     setEditing(null);
     setFeedError("");
-    setForm({ name: "", category: "En Fresco", feedType: "Pastos y gramíneas", unit: "kg", currentStock: "0", minStock: "0", costPerUnit: "0", supplier: "", dryMatterPct: "", crudeProteinPct: "" });
+    setCatalogSearch("");
+    setCatalogGroup("all");
+    setForm(emptyFeedForm);
     setModalOpen(true);
   };
 
   const openEditFeed = (f: Feed) => {
     setEditing(f);
     setFeedError("");
-    setForm({ name: f.name, category: currentFeedCategory(f.category) || f.category, feedType: currentFeedType(f.feedType) || f.feedType, unit: f.unit, currentStock: f.currentStock, minStock: f.minStock, costPerUnit: f.costPerUnit, supplier: f.supplier || "", dryMatterPct: f.dryMatterPct ?? "", crudeProteinPct: f.crudeProteinPct ?? "" });
+    setCatalogSearch("");
+    setCatalogGroup("all");
+    setForm({
+      name: f.name,
+      category: currentFeedCategory(f.category) || f.category,
+      feedType: currentFeedType(f.feedType) || f.feedType,
+      unit: f.unit,
+      currentStock: f.currentStock,
+      minStock: f.minStock,
+      costPerUnit: f.costPerUnit,
+      supplier: f.supplier || "",
+      dryMatterPct: f.dryMatterPct ?? "",
+      crudeProteinPct: f.crudeProteinPct ?? "",
+      standardCatalogId: f.standardCatalogId ?? "",
+      sanitaryStatus: f.sanitaryStatus ?? "",
+      energyKcalKgDm: f.energyKcalKgDm ?? "",
+      calciumDmPct: f.calciumDmPct ?? "",
+      availablePhosphorusDmPct: f.availablePhosphorusDmPct ?? "",
+      lysineDigDmPct: f.lysineDigDmPct ?? "",
+      metCysDigDmPct: f.metCysDigDmPct ?? "",
+      crudeFiberDmPct: f.crudeFiberDmPct ?? "",
+    });
     setModalOpen(true);
   };
 
@@ -547,6 +686,7 @@ export default function AlimentacionPage() {
   // Programa alimenticio
   const openProgramEditor = (stage: Stage) => {
     setEditingStage(stage);
+    setProgramError("");
     setProgramEntries(
       stage.programs.length > 0
         ? stage.programs.map((p) => ({ id: p.id, feedId: p.feedId, percentage: p.percentage, dailyAmountPerHen: p.dailyAmountPerHen }))
@@ -569,13 +709,124 @@ export default function AlimentacionPage() {
     setProgramEntries(updated);
   };
 
+  const buildValidationFromEntries = useCallback(
+    (
+      entries: Array<{ feedId: string; dailyAmountPerHen: string }>,
+      species: FeedingSpecies,
+      stageName: string,
+      minWeeks: number,
+      maxWeeks: number | null,
+    ): DietValidationResult | null => {
+      const valid = entries.filter((e) => e.feedId && Number(e.dailyAmountPerHen) > 0);
+      if (valid.length === 0) return null;
+      const lines = valid.map((entry) => {
+        const feed = feeds.find((f) => f.id === entry.feedId);
+        const resolved = resolveEffectiveFeedProfile({
+          name: feed?.name,
+          standardCatalogId: feed?.standardCatalogId,
+          sanitaryStatus: feed?.sanitaryStatus,
+          dryMatterPct: feed?.dryMatterPct,
+          crudeProteinPct: feed?.crudeProteinPct,
+          energyKcalKgDm: feed?.energyKcalKgDm,
+          calciumDmPct: feed?.calciumDmPct,
+          availablePhosphorusDmPct: feed?.availablePhosphorusDmPct,
+          lysineDigDmPct: feed?.lysineDigDmPct,
+          metCysDigDmPct: feed?.metCysDigDmPct,
+          crudeFiberDmPct: feed?.crudeFiberDmPct,
+          nutritionProfile: feed?.nutritionProfile ?? null,
+        });
+        return {
+          grams: Number(entry.dailyAmountPerHen) || 0,
+          dryMatterPct: resolved.dryMatterPct,
+          crudeProteinPct: resolved.crudeProteinAsFedPct,
+          category: feed?.category ?? null,
+          energyKcalKgDm: resolved.energyKcalKgDm,
+          calciumDmPct: resolved.calciumDmPct,
+          availablePhosphorusDmPct: resolved.availablePhosphorusDmPct,
+          lysineDigDmPct: resolved.lysineDigDmPct,
+          metCysDigDmPct: resolved.metCysDigDmPct,
+          crudeFiberDmPct: resolved.crudeFiberDmPct,
+          sanitaryStatus: resolved.sanitaryStatus,
+          standardCatalogId: resolved.standardCatalogId,
+          feedName: feed?.name ?? null,
+        };
+      });
+      return validateFeedingProgram({
+        species,
+        stageName,
+        minWeeks,
+        maxWeeks,
+        lines,
+        availableFeeds: feeds,
+      });
+    },
+    [feeds],
+  );
+
+  const addRecommendedFeedToProgram = (feedId: string, suggestedGrams = 15) => {
+    setProgramEntries((prev) => {
+      const existingIdx = prev.findIndex((p) => p.feedId === feedId);
+      if (existingIdx >= 0) {
+        const copy = [...prev];
+        const nextGrams = (Number(copy[existingIdx].dailyAmountPerHen) || 0) + suggestedGrams;
+        copy[existingIdx] = { ...copy[existingIdx], dailyAmountPerHen: String(nextGrams) };
+        return copy;
+      }
+      return [...prev, { feedId, percentage: "0", dailyAmountPerHen: String(suggestedGrams) }];
+    });
+  };
+
+  const addRecommendedFeedToNewPlan = (feedId: string, suggestedGrams = 15) => {
+    setNewPlanForm((prev) => {
+      const existingIdx = prev.entries.findIndex((p) => p.feedId === feedId);
+      if (existingIdx >= 0) {
+        const copy = [...prev.entries];
+        const nextGrams = (Number(copy[existingIdx].dailyAmountPerHen) || 0) + suggestedGrams;
+        copy[existingIdx] = { ...copy[existingIdx], dailyAmountPerHen: String(nextGrams) };
+        return { ...prev, entries: copy };
+      }
+      return {
+        ...prev,
+        entries: [...prev.entries, { feedId, percentage: "0", dailyAmountPerHen: String(suggestedGrams) }],
+      };
+    });
+  };
+
+  const liveProgramValidation = useMemo(() => {
+    if (!programModalOpen || !editingStage) return null;
+    return buildValidationFromEntries(
+      programEntries,
+      getStageSpecies(editingStage),
+      editingStage.value,
+      editingStage.minWeeks ?? 0,
+      editingStage.maxWeeks ?? null,
+    );
+  }, [programModalOpen, editingStage, programEntries, buildValidationFromEntries]);
+
+  const liveNewPlanValidation = useMemo(() => {
+    if (!newPlanModalOpen) return null;
+    return buildValidationFromEntries(
+      newPlanForm.entries,
+      newPlanForm.species as FeedingSpecies,
+      newPlanForm.name || newPlanForm.species,
+      Number(newPlanForm.minWeeks) || 0,
+      newPlanForm.maxWeeks ? Number(newPlanForm.maxWeeks) : null,
+    );
+  }, [newPlanModalOpen, newPlanForm, buildValidationFromEntries]);
+
   const saveProgram = async () => {
     if (!editingStage) return;
-    await apiFetch(`/api/produccion/etapas/${editingStage.id}/programa`, {
+    setProgramError("");
+    const res = await apiFetch(`/api/produccion/etapas/${editingStage.id}/programa`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ entries: programEntries.map(({ feedId, percentage, dailyAmountPerHen }) => ({ feedId, percentage, dailyAmountPerHen })) }),
     });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      setProgramError(err.error || "No se pudo guardar el programa de alimentación.");
+      return;
+    }
     setProgramModalOpen(false);
     load();
   };
@@ -604,7 +855,10 @@ export default function AlimentacionPage() {
     alimento: () => {
       selectTab("inventario");
       setEditing(null);
-      setForm({ name: "", category: "En Fresco", feedType: "Pastos y gramíneas", unit: "kg", currentStock: "0", minStock: "0", costPerUnit: "0", supplier: "", dryMatterPct: "", crudeProteinPct: "" });
+      setFeedError("");
+      setCatalogSearch("");
+      setCatalogGroup("all");
+      setForm(emptyFeedForm);
       setModalOpen(true);
     },
     movimiento: () => {
@@ -682,6 +936,9 @@ export default function AlimentacionPage() {
   const lowStock = feeds.filter((f) => Number(f.currentStock) <= Number(f.minStock));
   const farmFeeds = feeds.filter((f) => !isPurchasedFeedCategory(f.category));
   const purchasedFeeds = feeds.filter((f) => isPurchasedFeedCategory(f.category));
+  const unalignedFeeds = feeds.filter(
+    (f) => !f.standardCatalogId || !f.dryMatterPct || !f.energyKcalKgDm || !f.calciumDmPct || !f.availablePhosphorusDmPct,
+  );
   const totalAnimals = stages.reduce((sum, stage) => sum + Number(stage.animalCount ?? stage.henCount ?? 0), 0);
 
   const filteredFeeds = useMemo(() => {
@@ -696,6 +953,8 @@ export default function AlimentacionPage() {
         feed.costPerUnit,
         feed.unit,
         feed.supplier,
+        feed.standardCatalogId,
+        feed.sanitaryStatus,
         Number(feed.currentStock) <= Number(feed.minStock) ? "stock bajo" : "",
       ]),
     );
@@ -873,6 +1132,30 @@ export default function AlimentacionPage() {
       {/* Tab: Inventario */}
       {tab === "inventario" && (
         <Card>
+          {!loading && (unalignedFeeds.length > 0 || alignNotice) && (
+            <div className="mb-4 flex flex-col justify-between gap-3 rounded-xl border border-[var(--iw-semantic-border-default)] bg-[var(--iw-semantic-bg-subtle)] p-3.5 sm:flex-row sm:items-center">
+              <div className="min-w-0">
+                <p className="text-sm font-semibold text-[var(--iw-semantic-text-primary)]">
+                  {unalignedFeeds.length > 0
+                    ? `${unalignedFeeds.length} alimento(s) del inventario sin ficha nutricional completa o código estándar`
+                    : "Inventario alineado con el catálogo estándar"}
+                </p>
+                <p className="mt-0.5 text-xs text-[var(--iw-semantic-text-secondary)]">
+                  {alignNotice ||
+                    "Vincula cada alimento existente con su código IG-xxx (MS, PB, EM, Ca, P, Fibra) para evaluar todas las dietas sin alterar stock, costos ni movimientos."}
+                </p>
+              </div>
+              {unalignedFeeds.length > 0 && (
+                <Button
+                  onClick={alignCatalog}
+                  disabled={aligningCatalog || loading}
+                  className="shrink-0"
+                >
+                  {aligningCatalog ? "Alineando..." : "Alinear inventario con catálogo estándar"}
+                </Button>
+              )}
+            </div>
+          )}
           <TableSearch
             value={feedSearch}
             onChange={setFeedSearch}
@@ -894,23 +1177,51 @@ export default function AlimentacionPage() {
             />
           ) : (
             <Table headers={["Alimento", "Categoría", "Tipo", "Stock", "Mín.", "Costo/Unidad", "Proveedor", "Acciones"]}>
-              {filteredFeeds.map((f) => (
-                <tr key={f.id} className={`hover:bg-slate-50 ${Number(f.currentStock) <= Number(f.minStock) ? "bg-red-50" : ""}`}>
-                  <td className="px-4 py-3 font-semibold">{f.name}</td>
-                  <td className="px-4 py-3 text-sm">{categoryLabels[f.category] || f.category}</td>
-                  <td className="px-4 py-3 text-sm">{feedTypeLabels[f.feedType] || f.feedType}</td>
-                  <td className="px-4 py-3 font-semibold">{f.currentStock} {f.unit}</td>
-                  <td className="px-4 py-3 text-sm">{f.minStock} {f.unit}</td>
-                  <td className="px-4 py-3">${f.costPerUnit}</td>
-                  <td className="px-4 py-3 text-sm">{f.supplier || "Producción propia"}</td>
-                  <td className="px-4 py-3">
-                    <div className="flex gap-1">
-                      <button onClick={() => openEditFeed(f)} className="text-blue-600 hover:underline text-xs">Editar</button>
-                      <button onClick={() => removeFeed(f.id)} className="text-red-600 hover:underline text-xs">Eliminar</button>
-                    </div>
-                  </td>
-                </tr>
-              ))}
+              {filteredFeeds.map((f) => {
+                const missingProfile =
+                  !f.dryMatterPct || !f.energyKcalKgDm || !f.calciumDmPct || !f.availablePhosphorusDmPct;
+                return (
+                  <tr key={f.id} className={`hover:bg-slate-50 ${Number(f.currentStock) <= Number(f.minStock) ? "bg-red-50" : ""}`}>
+                    <td className="px-4 py-3">
+                      <div className="font-semibold">{f.name}</div>
+                      <div className="mt-1 flex flex-wrap items-center gap-1">
+                        {f.standardCatalogId && (
+                          <span className="rounded border border-[var(--iw-semantic-border-default)] bg-[var(--iw-semantic-bg-subtle)] px-1.5 py-0.5 font-mono text-[10px] font-semibold text-[var(--iw-semantic-text-secondary)]">
+                            {f.standardCatalogId}
+                          </span>
+                        )}
+                        {f.sanitaryStatus === "NO USAR" && (
+                          <span className="rounded border border-[var(--iw-semantic-status-danger)]/45 bg-[var(--iw-semantic-bg-surface)] px-1.5 py-0.5 text-[10px] font-bold text-[var(--iw-semantic-status-danger)]">
+                            NO USAR
+                          </span>
+                        )}
+                        {f.sanitaryStatus === "RESTRINGIDO" && (
+                          <span className="rounded border border-[var(--iw-semantic-status-warning)]/40 bg-[var(--iw-color-paper)] px-1.5 py-0.5 text-[10px] font-semibold text-[var(--iw-semantic-status-warning)]">
+                            RESTRINGIDO
+                          </span>
+                        )}
+                        {missingProfile && (
+                          <span className="rounded border border-[var(--iw-semantic-border-default)] bg-[var(--iw-semantic-bg-page)] px-1.5 py-0.5 text-[10px] font-medium text-[var(--iw-semantic-text-secondary)]">
+                            Falta ficha MS/EM/Ca
+                          </span>
+                        )}
+                      </div>
+                    </td>
+                    <td className="px-4 py-3 text-sm">{categoryLabels[f.category] || f.category}</td>
+                    <td className="px-4 py-3 text-sm">{feedTypeLabels[f.feedType] || f.feedType}</td>
+                    <td className="px-4 py-3 font-semibold">{f.currentStock} {f.unit}</td>
+                    <td className="px-4 py-3 text-sm">{f.minStock} {f.unit}</td>
+                    <td className="px-4 py-3">${f.costPerUnit}</td>
+                    <td className="px-4 py-3 text-sm">{f.supplier || "Producción propia"}</td>
+                    <td className="px-4 py-3">
+                      <div className="flex gap-1">
+                        <button onClick={() => openEditFeed(f)} className="text-blue-600 hover:underline text-xs">Editar</button>
+                        <button onClick={() => removeFeed(f.id)} className="text-red-600 hover:underline text-xs">Eliminar</button>
+                      </div>
+                    </td>
+                  </tr>
+                );
+              })}
             </Table>
           )}
         </Card>
@@ -985,8 +1296,14 @@ export default function AlimentacionPage() {
                     : "Revisa las dietas mixtas precargadas por especie y etapa (concentrado, forrajes y suplementos) antes de confirmar este paso de arranque."}
                 </p>
                 {reviewNotice && <p className="mt-2 text-xs font-medium text-slate-700">{reviewNotice}</p>}
+                {alignNotice && <p className="mt-2 text-xs font-medium text-[var(--iw-semantic-text-primary)]">{alignNotice}</p>}
               </div>
               <div className="flex flex-wrap items-center gap-2 shrink-0">
+                {unalignedFeeds.length > 0 && (
+                  <Button variant="secondary" onClick={alignCatalog} disabled={aligningCatalog || loading}>
+                    {aligningCatalog ? "Alineando..." : `Alinear ${unalignedFeeds.length} alimento(s) al catálogo`}
+                  </Button>
+                )}
                 {(stages.length === 0 || !stages.some((s) => s.programs.length > 0)) && (
                   <Button variant="secondary" onClick={seedDefaultPrograms} disabled={seedingDefaults || loading}>
                     {seedingDefaults ? "Inicializando..." : "Inicializar planes base"}
@@ -1127,11 +1444,14 @@ export default function AlimentacionPage() {
                           </tr>
                         </Table>
                         {stage.ration && stage.ration.totalGrams > 0 && (
-                          <p className="mt-2 text-xs text-slate-500">
+                          <p className="mt-2 text-xs text-[var(--iw-semantic-text-secondary)]">
                             Forraje fresco {stage.ration.freshSharePct}% de la ración
                             {stage.ration.dryMatterComplete ? ` · materia seca ${stage.ration.dryMatterGrams} g/animal/día` : " · agrega la materia seca de los alimentos para ver la ración en base seca"}
-                            {stage.ration.crudeProteinPctAsFed !== null ? ` · proteína ${stage.ration.crudeProteinPctAsFed}%` : ""}
+                            {stage.ration.crudeProteinPctAsFed !== null ? ` · proteína ${stage.ration.crudeProteinPctAsFed}% tal cual` : ""}
                           </p>
+                        )}
+                        {stage.nutritionValidation && (
+                          <DietValidationSummary validation={stage.nutritionValidation} />
                         )}
                       </div>
                     )}
@@ -1260,8 +1580,8 @@ export default function AlimentacionPage() {
                   <YAxis fontSize={11} label={{ value: "kg", angle: -90, position: "insideLeft" }} />
                   <Tooltip />
                   <Legend />
-                  <Bar dataKey="planificado" name="Planificado" fill="#3b82f6" radius={[4, 4, 0, 0]} />
-                  <Bar dataKey="real" name="Real" fill="#22c55e" radius={[4, 4, 0, 0]} />
+                  <Bar dataKey="planificado" name="Planificado" fill="var(--iw-color-info)" radius={[4, 4, 0, 0]} />
+                  <Bar dataKey="real" name="Real" fill="var(--iw-color-forest)" radius={[4, 4, 0, 0]} />
                 </BarChart>
               </ResponsiveContainer>
             </Card>
@@ -1440,7 +1760,13 @@ export default function AlimentacionPage() {
                     {stockDaysData.map((item) => (
                       <Cell
                         key={item.name}
-                        fill={item.alertLevel === "critico" ? "#ef4444" : item.alertLevel === "bajo" ? "#f59e0b" : "#22c55e"}
+                        fill={
+                          item.alertLevel === "critico"
+                            ? "var(--iw-color-danger)"
+                            : item.alertLevel === "bajo"
+                              ? "var(--iw-color-warning)"
+                              : "var(--iw-color-success)"
+                        }
                       />
                     ))}
                   </Bar>
@@ -1455,6 +1781,119 @@ export default function AlimentacionPage() {
       {/* New/Edit Feed Modal */}
       <Modal open={modalOpen} onClose={() => setModalOpen(false)} title={editing ? "Editar Alimento" : "Nuevo Alimento"}>
         <div className="space-y-4">
+          <div className="rounded-[var(--iw-radius-control)] border border-[var(--iw-semantic-border-default)] bg-[var(--iw-semantic-bg-subtle)] p-3 space-y-2.5">
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <div>
+                <p className="text-xs font-bold text-[var(--iw-semantic-text-primary)]">
+                  Base estandarizada de alimentos ({STANDARD_FEED_CATALOG.length} ingredientes · IG-001 a IG-119)
+                </p>
+                <p className="text-[11px] text-[var(--iw-semantic-text-secondary)]">
+                  Elige un ingrediente estándar para precargar su perfil nutricional, riesgos y estado sanitario, o deja personalizado.
+                </p>
+              </div>
+              {form.standardCatalogId && (
+                <button
+                  type="button"
+                  onClick={() => applyStandardFeed("")}
+                  className="text-[11px] font-semibold text-[var(--iw-semantic-action-primary)] hover:underline"
+                >
+                  Desvincular ficha base
+                </button>
+              )}
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+              <input
+                type="search"
+                value={catalogSearch}
+                onChange={(e) => setCatalogSearch(e.target.value)}
+                placeholder="Buscar por nombre, especie botánica o ID (ej: IG-015 maíz)..."
+                className="min-h-[42px] w-full rounded-[var(--iw-radius-control)] border border-[var(--iw-semantic-border-input)] bg-[var(--iw-semantic-bg-surface)] px-3 py-2 text-xs text-[var(--iw-semantic-text-primary)]"
+              />
+              <select
+                value={catalogGroup}
+                onChange={(e) => setCatalogGroup(e.target.value)}
+                aria-label="Filtrar grupo de ingrediente estándar"
+                className="min-h-[42px] w-full rounded-[var(--iw-radius-control)] border border-[var(--iw-semantic-border-input)] bg-[var(--iw-semantic-bg-surface)] px-3 py-2 text-xs text-[var(--iw-semantic-text-primary)]"
+              >
+                <option value="all">Todos los grupos ({STANDARD_FEED_CATALOG.length})</option>
+                {STANDARD_FEED_GROUPS.map((g) => (
+                  <option key={g} value={g}>{g}</option>
+                ))}
+              </select>
+            </div>
+
+            <select
+              value={form.standardCatalogId}
+              onChange={(e) => applyStandardFeed(e.target.value)}
+              aria-label="Seleccionar ingrediente del catálogo estandarizado"
+              className="min-h-[44px] w-full rounded-[var(--iw-radius-control)] border border-[var(--iw-semantic-border-input)] bg-[var(--iw-semantic-bg-surface)] px-3 py-2 text-xs font-medium text-[var(--iw-semantic-text-primary)]"
+            >
+              <option value="">-- Alimento personalizado (sin ficha base) --</option>
+              {filteredStandardCatalog.map((item) => (
+                <option key={item.id} value={item.id}>
+                  {item.id} · {item.name} ({item.sanitaryStatus})
+                  {item.dryMatterPct !== null ? ` · MS ${item.dryMatterPct}%` : ""}
+                  {item.crudeProteinDmPct !== null ? ` · PB ${item.crudeProteinDmPct}% MS` : ""}
+                </option>
+              ))}
+            </select>
+
+            {selectedStandardItem && (
+              <div
+                className={`rounded-lg border p-2.5 text-xs space-y-1 ${
+                  selectedStandardItem.isBlocked
+                    ? "border-[var(--iw-semantic-status-danger)]/50 bg-[var(--iw-semantic-bg-surface)] text-[var(--iw-semantic-status-danger)]"
+                    : selectedStandardItem.sanitaryStatus === "RESTRINGIDO"
+                      ? "border-[var(--iw-semantic-status-warning)]/45 bg-[var(--iw-color-paper)] text-[var(--iw-semantic-text-primary)]"
+                      : "border-[var(--iw-semantic-border-default)] bg-[var(--iw-semantic-bg-surface)] text-[var(--iw-semantic-text-primary)]"
+                }`}
+              >
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <span className="font-bold">
+                    {selectedStandardItem.id} · {selectedStandardItem.name}
+                    {selectedStandardItem.botanicalName ? ` (${selectedStandardItem.botanicalName})` : ""}
+                  </span>
+                  <span className="rounded-full border border-current/30 px-2 py-0.5 text-[10px] font-bold">
+                    {selectedStandardItem.sanitaryStatus}
+                  </span>
+                </div>
+                {selectedStandardItem.preparation && (
+                  <p className="text-[11px] leading-snug">
+                    <strong>Preparación / validación:</strong> {selectedStandardItem.preparation}
+                  </p>
+                )}
+                {selectedStandardItem.risks && (
+                  <p className="text-[11px] leading-snug">
+                    <strong>Riesgos / condiciones:</strong> {selectedStandardItem.risks}
+                  </p>
+                )}
+                {selectedStandardItem.missingCriticalFields.length > 0 && !selectedStandardItem.isBlocked && (
+                  <p className="text-[11px] font-medium text-[var(--iw-semantic-status-warning)]">
+                    Campos por completar de etiqueta/lote: {selectedStandardItem.missingCriticalFields.join(", ")}.
+                  </p>
+                )}
+                {selectedStandardItem.isBlocked && (
+                  <div className="pt-1.5 border-t border-[var(--iw-semantic-status-danger)]/25 space-y-1.5">
+                    <p className="text-[11px] font-bold">Sustitutos seguros recomendados:</p>
+                    <div className="flex flex-wrap gap-1.5">
+                      {suggestSafeSubstitutesForStandardId(selectedStandardItem.id, feeds).map((sub) => (
+                        <button
+                          key={sub.standardCatalogId || sub.name}
+                          type="button"
+                          onClick={() => sub.standardCatalogId && applyStandardFeed(sub.standardCatalogId)}
+                          className="rounded-md border border-[var(--iw-semantic-action-primary)]/40 bg-[var(--iw-semantic-bg-feature)] px-2 py-1 text-[11px] font-semibold text-[var(--iw-semantic-action-primary)] hover:bg-[var(--iw-semantic-bg-page)]"
+                        >
+                          Cambiar a {sub.standardCatalogId ? `${sub.standardCatalogId} · ` : ""}{sub.name}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+
           <Input label="Nombre del Alimento" help="Nombre descriptivo del alimento. Ej: 'Larvas de BSF', 'Maíz molido', 'Concentrado postura'." value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} placeholder="Ej: Larvas de BSF deshidratadas" required />
           <Select label="Categoría" help="Clasificación del alimento: de granja (producido por ti) o suplementario (comprado)." value={form.category} onChange={(e) => setForm({ ...form, category: e.target.value })}>
             {categorySelectOptions.map((c) => <option key={c.value} value={c.value}>{c.label}</option>)}
@@ -1473,9 +1912,31 @@ export default function AlimentacionPage() {
             <Input label="Costo por unidad ($)" help="Costo de cada unidad de este alimento. Se usa para calcular gastos." type="number" step="0.01" value={form.costPerUnit} onChange={(e) => setForm({ ...form, costPerUnit: e.target.value })} />
           </div>
           <div className="grid grid-cols-2 gap-3">
-            <Input label="Materia seca (%)" help="Opcional. Forrajes frescos suelen estar entre 20 y 30; concentrados cerca de 88 a 90. Permite comparar dietas combinadas en base seca." type="number" step="0.1" min="0" max="100" value={form.dryMatterPct} onChange={(e) => setForm({ ...form, dryMatterPct: e.target.value })} />
-            <Input label="Proteína cruda (%)" help="Opcional. Proteína del alimento tal como se ofrece." type="number" step="0.1" min="0" max="100" value={form.crudeProteinPct} onChange={(e) => setForm({ ...form, crudeProteinPct: e.target.value })} />
+            <Input label="Materia seca (%)" help="Forrajes frescos suelen estar entre 15 y 30; concentrados cerca de 88 a 90. Obligatoria para validar dietas en base seca." type="number" step="0.1" min="0" max="100" value={form.dryMatterPct} onChange={(e) => setForm({ ...form, dryMatterPct: e.target.value })} />
+            <div>
+              <Input label="Proteína cruda (% tal cual)" help="Proteína del alimento tal como se ofrece (% PB en MS × % MS / 100)." type="number" step="0.1" min="0" max="100" value={form.crudeProteinPct} onChange={(e) => setForm({ ...form, crudeProteinPct: e.target.value })} />
+              {Number(form.dryMatterPct) > 0 && form.crudeProteinPct !== "" && Number.isFinite(Number(form.crudeProteinPct)) && (
+                <p className="mt-1 text-[11px] text-[var(--iw-semantic-text-secondary)] tabular-nums">
+                  Equivale a <strong>{((Number(form.crudeProteinPct) / Number(form.dryMatterPct)) * 100).toFixed(1)}% PB en MS</strong>
+                </p>
+              )}
+            </div>
           </div>
+
+          <details className="rounded-[var(--iw-radius-control)] border border-[var(--iw-semantic-border-default)] bg-[var(--iw-semantic-bg-subtle)] p-3" open={Boolean(selectedStandardItem && selectedStandardItem.missingCriticalFields.length > 0)}>
+            <summary className="cursor-pointer text-xs font-semibold text-[var(--iw-semantic-text-primary)]">
+              Perfil nutricional técnico en base seca (% MS) — energía, minerales y fibra
+            </summary>
+            <div className="mt-3 grid grid-cols-2 sm:grid-cols-3 gap-3">
+              <Input label="EM (kcal/kg MS)" type="number" step="1" min="0" max="9000" value={form.energyKcalKgDm} onChange={(e) => setForm({ ...form, energyKcalKgDm: e.target.value })} placeholder="Ej: 2950" />
+              <Input label="Calcio (% MS)" type="number" step="0.01" min="0" max="100" value={form.calciumDmPct} onChange={(e) => setForm({ ...form, calciumDmPct: e.target.value })} placeholder="Ej: 3.90" />
+              <Input label="Fósforo disp. (% MS)" type="number" step="0.01" min="0" max="100" value={form.availablePhosphorusDmPct} onChange={(e) => setForm({ ...form, availablePhosphorusDmPct: e.target.value })} placeholder="Ej: 0.42" />
+              <Input label="Lisina dig. (% MS)" type="number" step="0.01" min="0" max="100" value={form.lysineDigDmPct} onChange={(e) => setForm({ ...form, lysineDigDmPct: e.target.value })} placeholder="Ej: 0.85" />
+              <Input label="Met+Cys dig. (% MS)" type="number" step="0.01" min="0" max="100" value={form.metCysDigDmPct} onChange={(e) => setForm({ ...form, metCysDigDmPct: e.target.value })} placeholder="Ej: 0.70" />
+              <Input label="Fibra bruta (% MS)" type="number" step="0.01" min="0" max="100" value={form.crudeFiberDmPct} onChange={(e) => setForm({ ...form, crudeFiberDmPct: e.target.value })} placeholder="Ej: 4.50" />
+            </div>
+          </details>
+
           <ContactField
             role="proveedor"
             label="Proveedor (vacío si es producción propia)"
@@ -1485,10 +1946,12 @@ export default function AlimentacionPage() {
             placeholder="Nombre del proveedor"
           />
           <div className="flex gap-3">
-            <Button onClick={saveFeed} disabled={!form.name || savingFeed}>{savingFeed ? "Guardando…" : editing ? "Actualizar" : "Registrar"}</Button>
+            <Button onClick={saveFeed} disabled={!form.name || savingFeed || Boolean(selectedStandardItem?.isBlocked)}>
+              {savingFeed ? "Guardando…" : selectedStandardItem?.isBlocked ? "Bloqueado (NO USAR)" : editing ? "Actualizar" : "Registrar"}
+            </Button>
             <Button variant="secondary" onClick={() => setModalOpen(false)}>Cancelar</Button>
           </div>
-          {feedError && <p className="text-sm text-red-700" role="alert">{feedError}</p>}
+          {feedError && <p className="text-sm text-[var(--iw-semantic-status-danger)]" role="alert">{feedError}</p>}
         </div>
       </Modal>
 
@@ -1543,8 +2006,13 @@ export default function AlimentacionPage() {
       {/* Program Editor Modal */}
       <Modal open={programModalOpen} onClose={() => setProgramModalOpen(false)} title={`Programa: ${editingStage?.value || ""}`}>
         <div className="space-y-4">
-          <p className="text-sm text-slate-500">
-            Define los alimentos, porcentajes y cantidad diaria por gallina para la etapa{" "}
+          {programError && (
+            <p role="alert" className="rounded-[var(--iw-radius-control)] border border-[var(--iw-semantic-status-danger)]/40 bg-[var(--iw-semantic-bg-surface)] p-3 text-sm text-[var(--iw-semantic-status-danger)]">
+              {programError}
+            </p>
+          )}
+          <p className="text-sm text-[var(--iw-semantic-text-secondary)]">
+            Define los alimentos, porcentajes y cantidad diaria por animal para la etapa{" "}
             <strong>{editingStage?.value}</strong> ({editingStage?.minWeeks}–{editingStage?.maxWeeks ? `${editingStage.maxWeeks} sem` : "+ sem"}).
           </p>
 
@@ -1604,12 +2072,22 @@ export default function AlimentacionPage() {
             ))}
           </div>
 
-          <button onClick={addProgramEntry} className="text-sm text-green-600 hover:underline">
+          <button onClick={addProgramEntry} className="text-sm font-semibold text-[var(--iw-semantic-action-primary)] hover:underline">
             + Agregar alimento
           </button>
 
+          {liveProgramValidation && (
+            <DietValidationSummary
+              validation={liveProgramValidation}
+              compact
+              onAddRecommendedFeed={addRecommendedFeedToProgram}
+            />
+          )}
+
           <div className="flex gap-3 pt-2">
-            <Button onClick={saveProgram}>Guardar Programa</Button>
+            <Button onClick={saveProgram} disabled={Boolean(liveProgramValidation?.sanitaryAlerts.some((a) => a.status === "NO USAR"))}>
+              Guardar Programa
+            </Button>
             <Button variant="secondary" onClick={() => setProgramModalOpen(false)}>Cancelar</Button>
           </div>
         </div>
@@ -1740,8 +2218,18 @@ export default function AlimentacionPage() {
             </div>
           </div>
 
+          {liveNewPlanValidation && (
+            <DietValidationSummary
+              validation={liveNewPlanValidation}
+              compact
+              onAddRecommendedFeed={addRecommendedFeedToNewPlan}
+            />
+          )}
+
           <div className="flex gap-3 pt-2">
-            <Button onClick={saveNewPlan}>Crear Plan de Alimentación</Button>
+            <Button onClick={saveNewPlan} disabled={Boolean(liveNewPlanValidation?.sanitaryAlerts.some((a) => a.status === "NO USAR"))}>
+              Crear Plan de Alimentación
+            </Button>
             <Button variant="secondary" onClick={() => setNewPlanModalOpen(false)}>Cancelar</Button>
           </div>
         </div>

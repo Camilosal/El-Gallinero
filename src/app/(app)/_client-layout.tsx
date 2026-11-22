@@ -73,7 +73,7 @@ export default function ClientAppLayout({ children }: { children: React.ReactNod
             onClick={() => openBugReportModal({ triggerSource: "topbar" })}
             title="Reportar una falla o inconsistencia desde esta pantalla"
             aria-label="Reportar falla"
-            className="relative inline-flex min-h-[40px] items-center gap-1.5 rounded-[var(--iw-radius-control)] border border-[var(--iw-semantic-status-danger)]/35 bg-[var(--iw-semantic-bg-surface)] hover:bg-[var(--iw-semantic-bg-subtle)] px-2.5 py-2 text-xs font-semibold text-[var(--iw-semantic-status-danger)] transition-colors shrink-0"
+            className="relative inline-flex h-10 min-h-[40px] items-center gap-1.5 rounded-[var(--iw-radius-control)] border border-[var(--iw-semantic-status-danger)]/40 bg-[var(--iw-semantic-bg-surface)] hover:bg-[var(--iw-semantic-bg-subtle)] px-3 py-0 text-xs sm:text-sm font-semibold text-[var(--iw-semantic-status-danger)] shadow-xs transition-colors shrink-0"
           >
             <Bug className="h-3.5 w-3.5 text-[var(--iw-semantic-status-danger)]" aria-hidden="true" />
             <span className="hidden lg:inline">Reportar falla</span>

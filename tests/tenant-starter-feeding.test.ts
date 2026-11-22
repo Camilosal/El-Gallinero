@@ -239,7 +239,7 @@ describe("Bloque A: Precarga de alimentos (sin proveedor), planes mixtos multies
         ownerName: "Admin Finca",
         ownerUsername: `sa_${suffix}`,
         ownerPassword: "Password123!",
-        planCode: "TRIAL_14",
+        planCode: "FREEMIUM_SEMILLA",
       }),
     });
     const res = await superadminCreateFarmPost(req);

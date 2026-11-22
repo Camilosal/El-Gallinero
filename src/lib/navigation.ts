@@ -252,6 +252,7 @@ const FIXED_ENTRIES: SearchEntry[] = [
   { href: "/escanear", label: "Escanear", icon: "qrcode", group: "General", groupIcon: "home", keywords: ["escanear", "qr", "codigo", "animal", "lote", "ubicacion", "equipo", "identificar", "camara"] },
   { href: "/configuracion/modulos", label: "Escala de granja y módulos visibles", icon: "sparkles", group: "Configuración", groupIcon: "settings", keywords: ["onboarding", "escala", "pequeno", "mediano", "feature flags", "modulos", "desbloquear", "dia 1", "wizard", "auto trigger"] },
   { href: "/configuracion/fallas", label: "Reportes de fallas e incidencias", icon: "alert", group: "Configuración", groupIcon: "settings", keywords: ["fallas", "reporte", "reportar error", "bug", "error", "soporte", "tags", "origen", "diagnostico"] },
+  { href: "/configuracion/granjas/conciliacion", label: "Conciliación de pagos y eventos", icon: "shield", group: "Configuración", groupIcon: "settings", keywords: ["conciliacion", "pagos", "wompi", "reservas", "eventos", "suscripcion", "superadmin", "auditoria"] },
   { href: "/operaciones/activos", label: "Activos y equipos", icon: "equipment", group: "Almacén", groupIcon: "warehouse", keywords: ["activo", "activos", "equipos", "herramientas", "infraestructura", "garantia", "numero de serie"] },
 
   // Subvistas de especies y lotes

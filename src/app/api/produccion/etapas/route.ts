@@ -7,8 +7,9 @@ import { withApiHandler, safeParseJson } from "@/lib/api-handler";
 import { countAnimalsByStageForDate } from "@/lib/feeding/runProgram";
 import { getStageSpecies } from "@/lib/feeding/stage-species";
 import { ANIMAL_SPECIES, FEEDING_SPECIES } from "@/lib/species";
-import { findMissingFeeds, normalizeProgramEntries } from "@/lib/feeding/program-validation";
-import { summarizeRation } from "@/lib/feeding/ration";
+import { findBlockedFeeds, findMissingFeeds, normalizeProgramEntries } from "@/lib/feeding/program-validation";
+import { validateFeedingProgram } from "@/lib/feeding/nutrition-validator";
+import { resolveEffectiveFeedProfile } from "@/lib/feeding/standard-feed-catalog";
 import { markFeedingProgramsReviewed } from "@/lib/feeding/review";
 
 export const dynamic = "force-dynamic";
@@ -26,7 +27,31 @@ export const GET = withApiHandler(async () => {
   const ownStages = allStages.filter((stage) => stage.farmId === currentFarmId);
   const stages = ownStages.length > 0 ? ownStages : allStages;
 
-  const animalCounts = await countAnimalsByStageForDate(new Date());
+  const [animalCounts, allInventoryFeeds] = await Promise.all([
+    countAnimalsByStageForDate(new Date()),
+    db
+      .select({
+        id: feedInventory.id,
+        name: feedInventory.name,
+        category: feedInventory.category,
+        standardCatalogId: feedInventory.standardCatalogId,
+        sanitaryStatus: feedInventory.sanitaryStatus,
+        dryMatterPct: feedInventory.dryMatterPct,
+        crudeProteinPct: feedInventory.crudeProteinPct,
+        energyKcalKgDm: feedInventory.energyKcalKgDm,
+        calciumDmPct: feedInventory.calciumDmPct,
+        availablePhosphorusDmPct: feedInventory.availablePhosphorusDmPct,
+        lysineDigDmPct: feedInventory.lysineDigDmPct,
+        metCysDigDmPct: feedInventory.metCysDigDmPct,
+        crudeFiberDmPct: feedInventory.crudeFiberDmPct,
+        nutritionProfile: feedInventory.nutritionProfile,
+      })
+      .from(feedInventory),
+  ]);
+  const availableFeeds = allInventoryFeeds.map((f) => ({
+    ...f,
+    nutritionProfile: (f.nutritionProfile ?? null) as Record<string, unknown> | null,
+  }));
   const result = [];
 
   for (const stage of stages) {
@@ -44,10 +69,64 @@ export const GET = withApiHandler(async () => {
         feedCategory: feedInventory.category,
         dryMatterPct: feedInventory.dryMatterPct,
         crudeProteinPct: feedInventory.crudeProteinPct,
+        standardCatalogId: feedInventory.standardCatalogId,
+        sanitaryStatus: feedInventory.sanitaryStatus,
+        energyKcalKgDm: feedInventory.energyKcalKgDm,
+        calciumDmPct: feedInventory.calciumDmPct,
+        availablePhosphorusDmPct: feedInventory.availablePhosphorusDmPct,
+        lysineDigDmPct: feedInventory.lysineDigDmPct,
+        metCysDigDmPct: feedInventory.metCysDigDmPct,
+        crudeFiberDmPct: feedInventory.crudeFiberDmPct,
+        nutritionProfile: feedInventory.nutritionProfile,
       })
       .from(feedPrograms)
       .leftJoin(feedInventory, eq(feedPrograms.feedId, feedInventory.id))
       .where(eq(feedPrograms.stageCatalogoId, stage.id));
+
+    const rationLines = programs.map((p) => {
+      const resolved = resolveEffectiveFeedProfile({
+        name: p.feedName,
+        standardCatalogId: p.standardCatalogId,
+        sanitaryStatus: p.sanitaryStatus,
+        dryMatterPct: p.dryMatterPct,
+        crudeProteinPct: p.crudeProteinPct,
+        energyKcalKgDm: p.energyKcalKgDm,
+        calciumDmPct: p.calciumDmPct,
+        availablePhosphorusDmPct: p.availablePhosphorusDmPct,
+        lysineDigDmPct: p.lysineDigDmPct,
+        metCysDigDmPct: p.metCysDigDmPct,
+        crudeFiberDmPct: p.crudeFiberDmPct,
+        nutritionProfile: p.nutritionProfile as Record<string, unknown> | null,
+      });
+      return {
+        grams: Number(p.dailyAmountPerHen),
+        dryMatterPct: resolved.dryMatterPct,
+        crudeProteinPct: resolved.crudeProteinAsFedPct,
+        category: p.feedCategory,
+        energyKcalKgDm: resolved.energyKcalKgDm,
+        calciumDmPct: resolved.calciumDmPct,
+        availablePhosphorusDmPct: resolved.availablePhosphorusDmPct,
+        lysineDigDmPct: resolved.lysineDigDmPct,
+        metCysDigDmPct: resolved.metCysDigDmPct,
+        crudeFiberDmPct: resolved.crudeFiberDmPct,
+        sanitaryStatus: resolved.sanitaryStatus,
+        standardCatalogId: resolved.standardCatalogId,
+        feedName: p.feedName,
+      };
+    });
+
+    const stageSpecies = getStageSpecies(stage);
+    const nutritionValidation =
+      programs.length > 0
+        ? validateFeedingProgram({
+            species: stageSpecies,
+            stageName: stage.value,
+            minWeeks: stage.minWeeks ?? 0,
+            maxWeeks: stage.maxWeeks ?? null,
+            lines: rationLines,
+            availableFeeds,
+          })
+        : null;
 
     result.push({
       ...stage,
@@ -55,13 +134,9 @@ export const GET = withApiHandler(async () => {
       // Compatibility for older clients; this value now counts the stage's species.
       henCount: animalCount,
       programs,
-      // Composición de la dieta combinada (materia seca, proteína y proporción de forraje fresco).
-      ration: summarizeRation(programs.map((p) => ({
-        grams: Number(p.dailyAmountPerHen),
-        dryMatterPct: p.dryMatterPct === null ? null : Number(p.dryMatterPct),
-        crudeProteinPct: p.crudeProteinPct === null ? null : Number(p.crudeProteinPct),
-        category: p.feedCategory,
-      }))),
+      // Composición y validación nutricional de la dieta frente a requerimientos de especie y etapa.
+      ration: nutritionValidation ? nutritionValidation.summary : null,
+      nutritionValidation,
     });
   }
 
@@ -96,6 +171,13 @@ export const POST = withApiHandler(async (req: NextRequest) => {
   const programs = normalized.entries;
   const missingFeeds = await findMissingFeeds(db, programs.map((program) => program.feedId));
   if (missingFeeds.length > 0) return NextResponse.json({ error: "Alguno de los alimentos del programa no existe" }, { status: 400 });
+  const blockedFeeds = await findBlockedFeeds(db, programs.map((program) => program.feedId));
+  if (blockedFeeds.length > 0) {
+    return NextResponse.json(
+      { error: `No se puede formular con ingrediente bloqueado (NO USAR): ${blockedFeeds.map((b) => b.name).join(", ")}` },
+      { status: 400 },
+    );
+  }
 
   const createdStage = await db.transaction(async (tx) => {
     const [stage] = await tx.insert(catalogos).values({

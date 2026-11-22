@@ -664,7 +664,7 @@ export default function EgresosPage() {
               <XAxis dataKey="fecha" fontSize={11} />
               <YAxis fontSize={11} />
               <Tooltip formatter={(v) => `$${Number(v).toLocaleString()}`} />
-              <Bar dataKey="egresos" fill="#ef4444" radius={[4, 4, 0, 0]} />
+              <Bar dataKey="egresos" fill="var(--iw-color-danger)" radius={[4, 4, 0, 0]} />
             </BarChart>
           </ResponsiveContainer>
         </Card>

@@ -214,6 +214,47 @@ npm run e2e         # Pruebas E2E con Playwright
 
 ---
 
+Sistema de identidad visual transversal para productos digitales Iwagé, comenzando por **El Corral / IwaGranja**. Asegura que landing, app, tableros, onboarding y documentación se perciban como un mismo producto. Los valores fundamentales son: cercanía rural, claridad operativa, credibilidad técnica y coherencia entre superficies.
+
+## Qué contiene
+
+| Ruta | Uso |
+|---|---|
+| `docs/GUIA_IDENTIDAD_VISUAL.md` | Guía creativa y normas del sistema. Documento normativo humano. |
+| `.agents/skills/iwage-agroeditorial-ui/SKILL.md` | Skill ejecutable como instrucciones para agentes de desarrollo/diseño. |
+| `tokens/tokens.json` | **Fuente única** de tokens de diseño. |
+| `tokens/theme.css` | Variables CSS generadas desde JSON; no modificar a mano. |
+| `scripts/build_tokens.py` | Regenera CSS a partir de JSON con validación básica de referencias. |
+| `scripts/check_contrast.py` | Comprueba relaciones de contraste esenciales de la paleta. |
+| `AGENTS.md` | Regla para que los agentes del repositorio invoquen siempre la skill en cambios de interfaz. |
+| `scripts/audit_styles.py` | Auditoría no destructiva de estilos ad hoc en código fuente. |
+| `docs/CHECKLIST_QA.md` | Plantilla de revisión de pantallas y pull requests. |
+| `ejemplos/componentes.html` | Muestra local de estilos y componentes, no es la landing. |
+
+## Identidad Visual Cómo instalar en un repositorio
+
+1. Copiar `AGENTS.md`, `docs/`, `tokens/`, `scripts/`, `ejemplos/` y `.agents/skills/iwage-agroeditorial-ui/` al **root del repositorio**. Si ya existe un sistema de tokens, mapearlo; **no mantener dos fuentes independientes**.
+2. Regenerar variables: `python3 scripts/build_tokens.py`.
+3. Importar `tokens/theme.css` en el punto global de estilos de la app o usar los tokens en el adaptador del framework existente.
+4. Configurar **Fraunces** para titulares editoriales y **Inter** para UI. Preferir instalación autohospedada y fallback sistémico. No se incluyen archivos de fuentes.
+5. Pedir a los agentes que lean `.agents/skills/iwage-agroeditorial-ui/SKILL.md` antes de proponer o modificar interfaces.
+6. Hacer inventario de las pantallas existentes, elegir componentes canónicos y migrar por etapas; evitar rediseñar todas las páginas de una vez.
+
+## Decisiones de arquitectura visual
+
+- **Iwagé**: marca paraguas que conserva las bases de tipografía, color, espaciado, accesibilidad e ilustración.
+- **El Corral / IwaGranja**: aplicación prioritaria de este sistema. Puede usar animales y señales de producción como identidad contextual, pero no crear un sistema paralelo.
+- **Otros productos del ecosistema**: podrán introducir acentos o motivos secundarios en futuras extensiones documentadas. No se debe aplicar automáticamente la iconografía de especies pecuarias a Café Iwagé, turismo rural u otras marcas.
+- **Landing ≠ App**: pueden diferir en densidad ilustrativa, **nunca** en tokens semánticos, lenguaje de interacción y patrones de componente.
+
+## Qué no está validado todavía
+
+Las URL `https://app.iwage.co/` y `https://gallinero.iwage.co/` no permitieron una inspección automatizada completa al preparar este paquete. La guía describe el **estado objetivo**; no afirma que los componentes ni las funciones estén hoy implementados. Antes de migrar se requiere un inventario de páginas, componentes y assets reales.
+
+## Mantenimiento
+
+**Toda modificación visual permanente** sigue: issue/ADR breve → cambio en tokens o biblioteca compartida → ejemplo/estado documentado → QA responsive/accesibilidad → adopción por las pantallas. Si una excepción es inevitable, registrarla con dueño, motivo y fecha de revisión.
+
 ## Documentación Asociada del Core Abierto
 
 - [LICENSE](LICENSE) — Licencia completa **GNU Affero General Public License v3 (AGPLv3)**.
