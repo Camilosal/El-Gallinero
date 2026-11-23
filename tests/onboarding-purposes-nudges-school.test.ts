@@ -273,6 +273,8 @@ describe("Cadena Onboarding (Propósitos) -> 69 Nudges -> MicroInsights -> Contr
       hogar: 24,
       comercial: 80,
       unit: "huevos",
+      hogarValuationCOP: 14400,
+      comercialValueCOP: 48000,
     });
     expect(insight.destinationBreakdown!.hogar + insight.destinationBreakdown!.comercial).toBe(
       insight.destinationBreakdown!.total,
@@ -330,6 +332,8 @@ describe("Cadena Onboarding (Propósitos) -> 69 Nudges -> MicroInsights -> Contr
       hogar: 10,
       comercial: 20,
       unit: "huevos",
+      hogarValuationCOP: 6000,
+      comercialValueCOP: 12000,
     });
 
     // Inferencia automática de familia y recálculo de hábito/nextAction sin insightFamily explícito

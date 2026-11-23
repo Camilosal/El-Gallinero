@@ -249,7 +249,7 @@ export const GET = withApiHandler(async () => {
     }
   }
 
-  // 1. Time to Value (minutos desde inicio/registro hasta completar onboarding)
+  // 1. Time to Value (duración de onboarding) + KPI-08 Time to First Value (primera utilidad operativa registrada)
   let timeToValueMinutes: number | null = null;
   if (telemetry.onboardingDurationSec !== null) {
     timeToValueMinutes = Math.round((telemetry.onboardingDurationSec / 60) * 100) / 100;
@@ -257,6 +257,26 @@ export const GET = withApiHandler(async () => {
     const diffMs = new Date(onboardingCompletedAtIso).getTime() - new Date(farmRow.createdAt).getTime();
     if (Number.isFinite(diffMs) && diffMs >= 0) {
       timeToValueMinutes = Math.round((diffMs / 60000) * 100) / 100;
+    }
+  }
+
+  const hasOperationalCapture =
+    telemetry.captureSamples.length > 0 ||
+    eggs21d.length > 0 ||
+    feeds21d.length > 0 ||
+    morts21d.length > 0;
+  let firstValueAchieved = false;
+  let timeToFirstValueMinutes: number | null = null;
+  if (hasOperationalCapture) {
+    firstValueAchieved = true;
+    const firstCaptureSec = telemetry.captureSamples[0]?.durationSec ?? 0;
+    if (telemetry.onboardingDurationSec !== null) {
+      timeToFirstValueMinutes =
+        Math.round(((telemetry.onboardingDurationSec + firstCaptureSec) / 60) * 100) / 100;
+    } else if (firstCaptureSec > 0) {
+      timeToFirstValueMinutes = Math.round((firstCaptureSec / 60) * 100) / 100;
+    } else if (timeToValueMinutes !== null) {
+      timeToFirstValueMinutes = timeToValueMinutes;
     }
   }
 
@@ -340,6 +360,8 @@ export const GET = withApiHandler(async () => {
   return NextResponse.json({
     farmId,
     timeToValueMinutes,
+    timeToFirstValueMinutes,
+    firstValueAchieved,
     avgFieldCaptureSeconds,
     medianCaptureSec,
     captureSamplesCount,

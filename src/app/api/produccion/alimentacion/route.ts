@@ -85,8 +85,11 @@ function validateExtraNutritionFields(body: Record<string, unknown>) {
 export const GET = withApiHandler(async (req: NextRequest) => {
   const { searchParams } = new URL(req.url);
   const days = parseInt(searchParams.get("days") || "30", 10);
+  const readonlyMode = searchParams.get("readonly") === "1" || searchParams.get("materialize") === "0";
 
-  const items = await getFeedInventoryProjection(days);
+  const items = await getFeedInventoryProjection(days, {
+    materializeProgramCatchup: !readonlyMode,
+  });
 
   const user = await getSessionUser();
   const canSeeCosts = canPerformAction(user?.role, "finance:read");

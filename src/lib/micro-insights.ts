@@ -10,6 +10,22 @@ export interface MicroInsightDestinationBreakdown {
   hogar: number;
   comercial: number;
   unit: string;
+  hogarValuationCOP?: number;
+  comercialValueCOP?: number;
+}
+
+export interface MicroInsightEconomicContract {
+  resultKind:
+    | "produccion_registrada"
+    | "valor_referencia"
+    | "venta_efectiva"
+    | "margen_parcial_alimento"
+    | "margen_estimado_parametrico"
+    | "margen_costo_trazable";
+  costSource: "trazable" | "parametrico" | "parcial_alimento" | "sin_costo";
+  saleableValueCOP?: number;
+  householdSubstitutionCOP?: number;
+  partialFeedMarginCOP?: number;
 }
 
 export interface MicroInsightLearningAction {
@@ -75,6 +91,7 @@ export interface MicroInsightPayload {
   syncStatus?: MicroInsightSyncStatus;
   assumptions?: string[];
   destinationBreakdown?: MicroInsightDestinationBreakdown;
+  economicContract?: MicroInsightEconomicContract;
   learningAction?: MicroInsightLearningAction;
   purposeMode?: FarmPurposeProfileMode;
   reasonCode?: string;
@@ -204,7 +221,6 @@ export function getDailyHabitProgress(
       break;
     }
   }
-  if (streakDays === 0) streakDays = 1;
 
   const nextMissing = essentialList.find(
     (item) => !completedSteps.includes(item.step),
@@ -213,7 +229,7 @@ export function getDailyHabitProgress(
   return {
     date: targetDate,
     completedSteps,
-    completedEssentialCount: Math.max(1, essentialDone),
+    completedEssentialCount: essentialDone,
     essentialTotal: Math.max(1, essentialList.length),
     streakDays,
     nextSuggestedMode: nextMissing?.mode,
@@ -471,6 +487,16 @@ export function buildEggMicroInsight(input: {
   const rawAuto = Math.max(0, Math.round(Number(input.quantityAutoconsumo || 0)));
   const hogarCount = Math.min(commercialEggs, rawAuto);
   const comercialCount = Math.max(0, commercialEggs - hogarCount);
+  const hogarValuationCOP = Math.round(hogarCount * input.unitPrice);
+  const comercialValueCOP = Math.round(comercialCount * input.unitPrice);
+
+  if (hogarCount > 0 && metrics[1]) {
+    metrics[1] = {
+      ...metrics[1],
+      helper: `Venta: $${comercialValueCOP.toLocaleString("es-CO")} · Hogar (sustitución): $${hogarValuationCOP.toLocaleString("es-CO")}`,
+    };
+  }
+
   const destinationBreakdown: MicroInsightDestinationBreakdown | undefined =
     hogarCount > 0
       ? {
@@ -478,18 +504,38 @@ export function buildEggMicroInsight(input: {
           hogar: hogarCount,
           comercial: comercialCount,
           unit: "huevos",
+          hogarValuationCOP,
+          comercialValueCOP,
         }
       : undefined;
 
   const assumptions: string[] = [];
+  if (hogarCount > 0) {
+    assumptions.push(
+      `Valorización mixta: $${comercialValueCOP.toLocaleString("es-CO")} disponibles para venta (${comercialCount} u.) y $${hogarValuationCOP.toLocaleString("es-CO")} de sustitución bruta al hogar (${hogarCount} u., no ingreso de caja).`,
+    );
+  }
   if (netProfitToday !== null && feedCostToday !== null) {
     assumptions.push(
-      "Margen parcial estimado: descuenta únicamente el costo del alimento registrado hoy; no incluye sanidad, empaque ni mano de obra.",
+      "Margen parcial estimado sobre alimento: descuenta únicamente el alimento registrado hoy; no incluye sanidad, empaque, mano de obra ni depreciación.",
     );
   }
   if (monthlySavedIfLowBreakage === 0) {
     assumptions.push("Sin rotura significativa o sin precio unitario definido para proyectar ahorro mensual.");
   }
+
+  const economicContract: MicroInsightEconomicContract = {
+    resultKind:
+      netProfitToday !== null && feedCostToday !== null
+        ? "margen_parcial_alimento"
+        : input.unitPrice > 0
+          ? "valor_referencia"
+          : "produccion_registrada",
+    costSource: feedCostToday !== null ? "parcial_alimento" : "sin_costo",
+    saleableValueCOP: comercialValueCOP,
+    householdSubstitutionCOP: hogarValuationCOP,
+    partialFeedMarginCOP: feedCostToday !== null ? comercialValueCOP - feedCostToday : undefined,
+  };
 
   return {
     id: `egg-${Date.now()}`,
@@ -510,6 +556,7 @@ export function buildEggMicroInsight(input: {
     valueKind: feedCostToday !== null ? "estimate" : "calculated",
     assumptions: assumptions.length > 0 ? assumptions : undefined,
     destinationBreakdown,
+    economicContract,
     habit,
     nextAction: habit.nextSuggestedMode
       ? {
@@ -796,12 +843,16 @@ export function buildSaleMicroInsight(input: {
       : effectiveKind === "otros"
         ? 0.65
         : 0.72;
-  const estUnitCost =
-    input.referenceUnitCost && input.referenceUnitCost > 0
-      ? input.referenceUnitCost
-      : isEggSale
-        ? 420 // Costo base referencia por huevo en COP
-        : input.unitPrice * defaultMarginRatio;
+  const hasTraceableCost = Boolean(
+    typeof input.referenceUnitCost === "number" &&
+      Number.isFinite(input.referenceUnitCost) &&
+      input.referenceUnitCost > 0,
+  );
+  const estUnitCost = hasTraceableCost
+    ? input.referenceUnitCost!
+    : isEggSale
+      ? 420 // Costo base referencia por huevo en COP
+      : input.unitPrice * defaultMarginRatio;
 
   const unitMargin = Math.round(input.unitPrice - estUnitCost);
   const totalMargin = Math.round(unitMargin * input.totalUnits);
@@ -867,9 +918,9 @@ export function buildSaleMicroInsight(input: {
       highlight: "good",
     },
     {
-      label: isBelowBreakEven ? "Pérdida vs. Costo" : "Utilidad Estimada",
+      label: isBelowBreakEven ? "Pérdida vs. Costo" : hasTraceableCost ? "Margen s/ Costo Trazable" : "Utilidad Estimada",
       value: `${totalMargin >= 0 ? "+" : ""}$${totalMargin.toLocaleString("es-CO")}`,
-      helper: `Margen ~${marginPct}% ($${unitMargin.toLocaleString("es-CO")}/${unitSuffix})`,
+      helper: `Margen ~${marginPct}% ($${unitMargin.toLocaleString("es-CO")}/${unitSuffix})${hasTraceableCost ? " · costo trazable" : " · est. paramétrica"}`,
       highlight: isBelowBreakEven ? "bad" : marginPct >= 15 ? "good" : "warn",
     },
     {
@@ -911,6 +962,19 @@ export function buildSaleMicroInsight(input: {
       ? "Contabilidad Anti-Subsidio · PEPS"
       : "Contabilidad Anti-Subsidio · Multilínea";
 
+  const saleAssumptions = !hasTraceableCost
+    ? [
+        isEggSale
+          ? "Margen estimado con costo paramétrico de referencia ($420 COP/huevo) por ausencia de costo contable trazable del lote."
+          : `Margen estimado con relación de costo paramétrica (${Math.round(defaultMarginRatio * 100)}%) por ausencia de costo unitario real.`,
+      ]
+    : undefined;
+
+  const saleEconomicContract: MicroInsightEconomicContract = {
+    resultKind: hasTraceableCost ? "margen_costo_trazable" : "margen_estimado_parametrico",
+    costSource: hasTraceableCost ? "trazable" : "parametrico",
+  };
+
   const whatsappText =
     `💵 *Comprobante Rápido de Venta (${input.date})*\n` +
     `👤 Cliente: ${input.buyer || "Venta de contado"}\n` +
@@ -929,6 +993,9 @@ export function buildSaleMicroInsight(input: {
     normativeTag,
     whatsappText,
     offline: input.offline,
+    valueKind: hasTraceableCost ? "calculated" : "estimate",
+    assumptions: saleAssumptions,
+    economicContract: saleEconomicContract,
     habit,
   };
 }

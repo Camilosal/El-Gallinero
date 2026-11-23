@@ -223,9 +223,17 @@ export default function MicroInsightCard({
           )}
           {effectiveInsight.destinationBreakdown && (
             <p className="mt-1 text-xs font-semibold text-slate-800">
-              Destino sin doble conteo: {effectiveInsight.destinationBreakdown.hogar} al hogar ·{" "}
-              {effectiveInsight.destinationBreakdown.comercial} disponibles para comercialización (Total:{" "}
-              {effectiveInsight.destinationBreakdown.total} {effectiveInsight.destinationBreakdown.unit})
+              Destino sin doble conteo: {effectiveInsight.destinationBreakdown.hogar} al hogar
+              {typeof effectiveInsight.destinationBreakdown.hogarValuationCOP === "number" &&
+              effectiveInsight.destinationBreakdown.hogarValuationCOP > 0
+                ? ` ($${effectiveInsight.destinationBreakdown.hogarValuationCOP.toLocaleString("es-CO")} sustitución)`
+                : ""}{" "}
+              · {effectiveInsight.destinationBreakdown.comercial} disponibles para comercialización
+              {typeof effectiveInsight.destinationBreakdown.comercialValueCOP === "number" &&
+              effectiveInsight.destinationBreakdown.comercialValueCOP > 0
+                ? ` ($${effectiveInsight.destinationBreakdown.comercialValueCOP.toLocaleString("es-CO")})`
+                : ""}{" "}
+              (Total: {effectiveInsight.destinationBreakdown.total} {effectiveInsight.destinationBreakdown.unit})
             </p>
           )}
         </div>
