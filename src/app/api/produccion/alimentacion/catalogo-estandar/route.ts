@@ -10,12 +10,13 @@ export const dynamic = "force-dynamic";
 
 /**
  * GET /api/produccion/alimentacion/catalogo-estandar
- * Consulta la base estandarizada de alimentos e ingredientes (IG-001..IG-119).
+ * Consulta la base estandarizada de alimentos e ingredientes (IG-001..IG-126).
  */
 export const GET = withApiHandler(async (req: NextRequest) => {
   const { searchParams } = new URL(req.url);
   const q = searchParams.get("q") || "";
   const group = searchParams.get("group") || "all";
+  const species = searchParams.get("species") || "all";
   const includeBlocked = searchParams.get("includeBlocked") !== "false";
   const sanitaryStatusParam = searchParams.get("sanitaryStatus");
   const sanitaryStatus =
@@ -27,6 +28,7 @@ export const GET = withApiHandler(async (req: NextRequest) => {
 
   const items = searchStandardFeedCatalog(q, {
     group,
+    species,
     includeBlocked,
     sanitaryStatus,
   });

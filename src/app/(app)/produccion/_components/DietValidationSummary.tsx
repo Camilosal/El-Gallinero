@@ -87,6 +87,20 @@ export function DietValidationSummary({
         </div>
       )}
 
+      {validation.speciesAlerts && validation.speciesAlerts.length > 0 && (
+        <div className="mt-2 space-y-1">
+          {validation.speciesAlerts.map((alert, idx) => (
+            <p
+              key={`${alert.feedName}-${alert.targetSpecies}-${idx}`}
+              className="rounded-md border border-[var(--iw-semantic-status-warning)]/40 bg-[var(--iw-color-paper)] px-2.5 py-1.5 text-xs font-medium text-[var(--iw-semantic-status-warning)]"
+            >
+              <strong>Especie no recomendada:</strong> {alert.feedName}
+              {alert.standardCatalogId ? ` (${alert.standardCatalogId})` : ""} — {alert.message}
+            </p>
+          ))}
+        </div>
+      )}
+
       <div className={`mt-2.5 grid gap-2 ${compact ? "grid-cols-1 sm:grid-cols-2" : "grid-cols-1 sm:grid-cols-2 lg:grid-cols-3"}`}>
         {validation.checks.map((check) => (
           <div

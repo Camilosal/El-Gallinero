@@ -4,7 +4,8 @@ import {
   resolveEffectiveFeedProfile,
   type FeedNutritionSourceInput,
 } from "@/lib/feeding/standard-feed-catalog";
-import type { FeedingSpecies } from "@/lib/species";
+import { SPECIES_LABELS, type FeedingSpecies } from "@/lib/species";
+import { formatSpeciesBadgesLabel, isFeedCompatibleWithSpecies, normalizeFeedSpeciesList } from "@/lib/feeding/feed-catalog-metadata";
 
 export interface StageNutritionRequirement {
   species: FeedingSpecies;
@@ -352,6 +353,14 @@ export interface SanitaryFeedAlert {
   message: string;
 }
 
+export interface SpeciesFeedAlert {
+  feedName: string;
+  standardCatalogId: string | null;
+  targetSpecies: FeedingSpecies;
+  allowedSpecies: FeedingSpecies[];
+  message: string;
+}
+
 export interface DietSubstituteCandidate {
   source: "inventory" | "standard_catalog";
   feedId?: string;
@@ -384,6 +393,7 @@ export interface DietValidationResult {
   summary: RationSummary;
   checks: NutritionMetricCheck[];
   sanitaryAlerts: SanitaryFeedAlert[];
+  speciesAlerts?: SpeciesFeedAlert[];
   missingNutrients: string[];
   recommendations: DietRecommendation[];
 }
@@ -487,6 +497,7 @@ export function validateFeedingProgram(params: {
   const summary = summarizeRation(params.lines);
   const checks: NutritionMetricCheck[] = [];
   const sanitaryAlerts: SanitaryFeedAlert[] = [];
+  const speciesAlerts: SpeciesFeedAlert[] = [];
   const missingNutrients: string[] = [];
 
   for (const line of params.lines) {
@@ -503,6 +514,20 @@ export function validateFeedingProgram(params: {
         standardCatalogId: line.standardCatalogId ?? null,
         status: "RESTRINGIDO",
         message: "Ingrediente RESTRINGIDO: exige tratamiento, límite de inclusión y validación del lote.",
+      });
+    }
+
+    const explicitLineSpecies = normalizeFeedSpeciesList(line.allowedSpecies);
+    const stdSpecies = line.standardCatalogId ? findStandardFeedById(line.standardCatalogId)?.targetSpecies ?? [] : [];
+    const checkedSpecies = explicitLineSpecies.length > 0 ? explicitLineSpecies : stdSpecies;
+    if (checkedSpecies.length > 0 && !isFeedCompatibleWithSpecies(checkedSpecies, params.species)) {
+      const targetLabel = SPECIES_LABELS[params.species]?.plural ?? params.species;
+      speciesAlerts.push({
+        feedName: line.feedName || "Alimento",
+        standardCatalogId: line.standardCatalogId ?? null,
+        targetSpecies: params.species,
+        allowedSpecies: checkedSpecies,
+        message: `Este alimento está configurado para ${formatSpeciesBadgesLabel(checkedSpecies)}, no para ${targetLabel}. Verifica si realmente aplica antes de suministrar.`,
       });
     }
   }
@@ -778,7 +803,9 @@ export function validateFeedingProgram(params: {
 
   const hasError = checks.some((c) => c.status === "error") || sanitaryAlerts.some((a) => a.status === "NO USAR");
   const hasWarningOrMissing =
-    checks.some((c) => c.status === "warning" || c.status === "missing") || sanitaryAlerts.length > 0;
+    checks.some((c) => c.status === "warning" || c.status === "missing") ||
+    sanitaryAlerts.length > 0 ||
+    speciesAlerts.length > 0;
 
   const status: DietValidationResult["status"] = hasError
     ? "rechazado"
@@ -814,6 +841,7 @@ export function validateFeedingProgram(params: {
     summary,
     checks,
     sanitaryAlerts,
+    speciesAlerts,
     missingNutrients,
     recommendations,
   };

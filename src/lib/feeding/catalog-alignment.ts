@@ -4,11 +4,13 @@ import { feedInventory } from "@/db/schema";
 import { currentFeedCategory, currentFeedType, inferFeedCatalogGroup, normalizeFeedCatalogGroup } from "@/lib/feed-classification";
 import { STARTER_FEED_DEFINITIONS } from "@/lib/feeding/default-tenant-seed";
 import { findStandardFeedById } from "@/lib/feeding/standard-feed-catalog";
+import { inferDefaultImageByFeed, inferDefaultSpeciesByFeed } from "@/lib/feeding/feed-catalog-metadata";
 
 type DbClient = Pick<typeof db, "select" | "update" | "insert">;
 
 export interface FeedAlignmentMatch {
   standardCatalogId: string | null;
+  feedType?: typeof feedInventory.$inferSelect["feedType"];
   sanitaryStatus?: string | null;
   dryMatterPct?: string;
   crudeProteinPct?: string;
@@ -33,6 +35,7 @@ export function inferLegacyFeedAlignment(name: string, feedType?: string | null)
   if (starterExact) {
     return {
       standardCatalogId: starterExact.standardCatalogId ?? null,
+      feedType: starterExact.feedType,
       sanitaryStatus: starterExact.sanitaryStatus ?? "CONDICIONAL",
       dryMatterPct: starterExact.dryMatterPct,
       crudeProteinPct: starterExact.crudeProteinPct,
@@ -52,27 +55,42 @@ export function inferLegacyFeedAlignment(name: string, feedType?: string | null)
     return { ...STARTER_FEED_DEFINITIONS.find((d) => d.key === "conc_pre_postura")!, standardCatalogId: "IG-002" };
   }
   if (n.includes("levante") || n.includes("desarrollo") || n.includes("pollo engorde") || n.includes("finalizacion")) {
-    const def = STARTER_FEED_DEFINITIONS.find((d) => d.key === (n.includes("pollo") ? "conc_pollo_engorde" : "conc_levante"))!;
-    return { ...def, standardCatalogId: "IG-003" };
+    const isPollo = n.includes("pollo");
+    const def = STARTER_FEED_DEFINITIONS.find((d) => d.key === (isPollo ? "conc_pollo_engorde" : "conc_levante"))!;
+    return { ...def, feedType: def.feedType, standardCatalogId: isPollo ? "IG-120" : "IG-003" };
   }
   if (n.includes("iniciacion") || n.includes("pre-iniciador") || n.includes("pollo inicio")) {
-    const def = STARTER_FEED_DEFINITIONS.find((d) => d.key === (n.includes("pollo") ? "conc_pollo_inicio" : "conc_pollita_inicio"))!;
-    return { ...def, standardCatalogId: "IG-004" };
+    const isCodorniz = n.includes("codorniz");
+    const def = STARTER_FEED_DEFINITIONS.find((d) =>
+      d.key === (isCodorniz ? "conc_codorniz_cria" : n.includes("pollo") ? "conc_pollo_inicio" : "conc_pollita_inicio"),
+    )!;
+    return { ...def, feedType: def.feedType, standardCatalogId: isCodorniz ? "IG-121" : "IG-004" };
   }
   if (n.includes("codorniz")) {
     const def = STARTER_FEED_DEFINITIONS.find((d) => d.key === "conc_codorniz")!;
-    return { ...def, standardCatalogId: "IG-001" };
+    return { ...def, feedType: def.feedType, standardCatalogId: "IG-122" };
   }
-  if (n.includes("conejo") || n.includes("cuy")) {
+  if (n.includes("conejo") && n.includes("cuy")) {
+    const def = STARTER_FEED_DEFINITIONS.find((d) => d.key === "conc_conejo_cuy")!;
+    return { ...def, feedType: def.feedType, standardCatalogId: "IG-126" };
+  }
+  if (n.includes("cuy") || n.includes("curi")) {
     if (n.includes("alfalfa") || n.includes("forraje")) {
       return { ...STARTER_FEED_DEFINITIONS.find((d) => d.key === "forraje_oreado")!, standardCatalogId: "IG-058" };
     }
-    const def = STARTER_FEED_DEFINITIONS.find((d) => d.key === "conc_conejo_cuy")!;
-    return { ...def, standardCatalogId: "IG-003" };
+    const def = STARTER_FEED_DEFINITIONS.find((d) => d.key === "conc_cuy")!;
+    return { ...def, feedType: def.feedType, standardCatalogId: "IG-125" };
+  }
+  if (n.includes("conejo")) {
+    if (n.includes("alfalfa") || n.includes("forraje")) {
+      return { ...STARTER_FEED_DEFINITIONS.find((d) => d.key === "forraje_oreado")!, standardCatalogId: "IG-058" };
+    }
+    const def = STARTER_FEED_DEFINITIONS.find((d) => d.key === "conc_conejo")!;
+    return { ...def, feedType: def.feedType, standardCatalogId: "IG-124" };
   }
   if (n.includes("pato")) {
-    const def = STARTER_FEED_DEFINITIONS.find((d) => d.key === "conc_pollo_engorde")!;
-    return { ...def, standardCatalogId: "IG-003" };
+    const def = STARTER_FEED_DEFINITIONS.find((d) => d.key === "conc_pato")!;
+    return { ...def, feedType: def.feedType, standardCatalogId: "IG-123" };
   }
   if (n.includes("alfalfa")) {
     return { ...STARTER_FEED_DEFINITIONS.find((d) => d.key === "forraje_oreado")!, standardCatalogId: "IG-058" };
@@ -145,12 +163,19 @@ export async function alignFarmFeedsToStandardCatalog(
   const alignedStandardIds = new Set<string>();
 
   for (const row of existing) {
-    const nextCategory = currentFeedCategory(row.category) ?? row.category;
-    const nextFeedType = currentFeedType(row.feedType) ?? row.feedType;
+    const LEGACY_GENERIC_POULTRY = new Set(["IG-001", "IG-002", "IG-003", "IG-004", "IG-005"]);
+    const SPECIES_SPECIFIC_CATALOG_IDS = new Set(["IG-120", "IG-121", "IG-122", "IG-123", "IG-124", "IG-125", "IG-126"]);
     const inferred = inferLegacyFeedAlignment(row.name, row.feedType);
-    const std = findStandardFeedById(row.standardCatalogId || inferred?.standardCatalogId);
-
-    const nextStdId = row.standardCatalogId ?? inferred?.standardCatalogId ?? null;
+    const upgradedDedicatedConcentrate =
+      Boolean(row.standardCatalogId && LEGACY_GENERIC_POULTRY.has(row.standardCatalogId)) &&
+      Boolean(inferred?.standardCatalogId && SPECIES_SPECIFIC_CATALOG_IDS.has(inferred.standardCatalogId));
+    const nextStdId = upgradedDedicatedConcentrate
+      ? inferred!.standardCatalogId
+      : row.standardCatalogId ?? inferred?.standardCatalogId ?? null;
+    const std = findStandardFeedById(nextStdId);
+    const nextCategory = currentFeedCategory(row.category) ?? row.category;
+    const rawFeedType = upgradedDedicatedConcentrate && inferred?.feedType ? inferred.feedType : row.feedType;
+    const nextFeedType = currentFeedType(rawFeedType) ?? rawFeedType;
     const nextCatalogGroup =
       std?.group ??
       normalizeFeedCatalogGroup(row.catalogGroup) ??
@@ -197,6 +222,32 @@ export async function alignFarmFeedsToStandardCatalog(
           }
         : null);
 
+    const existingSpecies = Array.isArray(row.allowedSpecies) ? row.allowedSpecies : [];
+    const nextAllowedSpecies =
+      existingSpecies.length > 0 && !upgradedDedicatedConcentrate
+        ? existingSpecies
+        : std?.targetSpecies ??
+          inferDefaultSpeciesByFeed({
+            standardCatalogId: nextStdId,
+            group: nextCatalogGroup,
+            feedType: nextFeedType,
+            name: row.name,
+            sanitaryStatus: nextSanitary,
+          });
+    const nextImageUrl =
+      (!upgradedDedicatedConcentrate ? row.imageUrl : null) ||
+      std?.imageUrl ||
+      inferDefaultImageByFeed({
+        standardCatalogId: nextStdId,
+        group: nextCatalogGroup,
+        feedType: nextFeedType,
+        name: row.name,
+      });
+    const nextDescription = row.description || std?.description || null;
+    const existingRegional = Array.isArray(row.regionalNames) ? row.regionalNames : [];
+    const nextRegionalNames =
+      existingRegional.length > 0 ? existingRegional : std?.regionalNames ?? [];
+
     const changed =
       nextCategory !== row.category ||
       nextFeedType !== row.feedType ||
@@ -211,7 +262,11 @@ export async function alignFarmFeedsToStandardCatalog(
       nextLysine !== row.lysineDigDmPct ||
       nextMetCys !== row.metCysDigDmPct ||
       nextFiber !== row.crudeFiberDmPct ||
-      (!row.nutritionProfile && nextProfile !== null);
+      (!row.nutritionProfile && nextProfile !== null) ||
+      (JSON.stringify(existingSpecies) !== JSON.stringify(nextAllowedSpecies) && nextAllowedSpecies.length > 0) ||
+      (nextImageUrl !== row.imageUrl && Boolean(nextImageUrl)) ||
+      (!row.description && Boolean(nextDescription)) ||
+      (existingRegional.length === 0 && nextRegionalNames.length > 0);
 
     if (changed) {
       await client
@@ -231,6 +286,10 @@ export async function alignFarmFeedsToStandardCatalog(
           metCysDigDmPct: nextMetCys,
           crudeFiberDmPct: nextFiber,
           nutritionProfile: nextProfile,
+          allowedSpecies: nextAllowedSpecies,
+          imageUrl: nextImageUrl,
+          description: nextDescription,
+          regionalNames: nextRegionalNames,
           updatedAt: new Date(),
         })
         .where(eq(feedInventory.id, row.id));
@@ -272,6 +331,10 @@ export async function alignFarmFeedsToStandardCatalog(
         calciumDmPct: def.calciumDmPct ?? null,
         availablePhosphorusDmPct: def.availablePhosphorusDmPct ?? null,
         crudeFiberDmPct: def.crudeFiberDmPct ?? null,
+        allowedSpecies: stdSeed?.targetSpecies ?? inferDefaultSpeciesByFeed({ standardCatalogId: def.standardCatalogId, name: def.name }),
+        imageUrl: stdSeed?.imageUrl ?? inferDefaultImageByFeed({ standardCatalogId: def.standardCatalogId, name: def.name }),
+        description: stdSeed?.description ?? null,
+        regionalNames: stdSeed?.regionalNames ?? [],
       });
       seededMissingStandards++;
     }

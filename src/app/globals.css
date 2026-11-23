@@ -1237,6 +1237,27 @@ dialog::backdrop {
   overscroll-behavior: contain;
 }
 
+/* Native top-layer modal frame: always centered/bounded within viewport even inside sticky/blur parents */
+dialog.iw-dialog {
+  margin: auto;
+  padding: 0;
+  max-width: calc(100vw - 1.5rem);
+  max-height: calc(100dvh - 1.5rem);
+  overscroll-behavior: contain;
+}
+
+dialog.iw-dialog--top {
+  margin: min(9vh, 4.5rem) auto auto;
+  max-height: calc(100dvh - min(9vh, 4.5rem) - 1rem);
+}
+
+dialog.iw-dialog::backdrop {
+  background: rgba(25, 34, 39, 0.56);
+  backdrop-filter: blur(2px);
+  overflow: hidden;
+  overscroll-behavior: contain;
+}
+
 .kpi-customizer-dialog {
   margin: auto;
   padding: 0;

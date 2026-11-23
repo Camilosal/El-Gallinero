@@ -73,6 +73,11 @@ import {
   recordMortalityCaptureHabit,
   recordSaleCaptureHabit,
 } from "@/lib/form-habit-learner";
+import { FeedFichaModal, type FeedFichaRecord } from "@/components/feeding/FeedFichaModal";
+import { FeedSearchPicker } from "@/components/feeding/FeedSearchPicker";
+import { canPerformAction } from "@/lib/rbac";
+import { useAppRole } from "@/lib/useAppRole";
+import { normalizeFeedingSpecies, type FeedingSpecies } from "@/lib/species";
 
 interface EggRecordCache {
   id: string;
@@ -90,8 +95,25 @@ interface FeedItem {
   id: string;
   name: string;
   unit: string;
+  category?: string;
+  feedType?: string;
+  catalogGroup?: string | null;
+  standardCatalogId?: string | null;
+  sanitaryStatus?: string | null;
   currentStock: string;
+  minStock?: string | null;
   costPerUnit?: string | number | null;
+  dryMatterPct?: string | null;
+  crudeProteinPct?: string | null;
+  energyKcalKgDm?: string | null;
+  calciumDmPct?: string | null;
+  availablePhosphorusDmPct?: string | null;
+  crudeFiberDmPct?: string | null;
+  nutritionProfile?: Record<string, unknown> | null;
+  allowedSpecies?: string[] | null;
+  imageUrl?: string | null;
+  description?: string | null;
+  regionalNames?: string[] | null;
 }
 
 interface FeedMovementCache {
@@ -354,11 +376,14 @@ export default function QuickCaptureModal() {
   const [eggOverLimitMsg, setEggOverLimitMsg] = useState("");
 
   // Feed state
+  const role = useAppRole();
+  const canSeeFinancials = canPerformAction(role, "finance:read");
   const [feedDate, setFeedDate] = useState(todayIso);
   const [feedLocationId, setFeedLocationId] = useState("");
   const [feedId, setFeedId] = useState("");
   const [feedQty, setFeedQty] = useState("1");
   const [feedNotes, setFeedNotes] = useState("");
+  const [inspectFeedFicha, setInspectFeedFicha] = useState<FeedFichaRecord | null>(null);
 
   // Mortality state
   const [mortDate, setMortDate] = useState(todayIso);
@@ -779,6 +804,12 @@ export default function QuickCaptureModal() {
   }, [batches, mortBirdType, mortLocationId]);
 
   const selectedFeedObj = useMemo(() => feeds.find((f) => f.id === feedId) || null, [feeds, feedId]);
+  const selectedFeedLocationSpecies = useMemo<FeedingSpecies | null>(() => {
+    const locId = feedLocationId || effectiveDefaultLocation;
+    const matched = locations.find((l) => l.id === locId);
+    const sp = matched?.allowedSpecies?.[0];
+    return sp ? normalizeFeedingSpecies(sp) : null;
+  }, [locations, feedLocationId, effectiveDefaultLocation]);
   const categoriesList = useMemo(() => {
     const filteredExpenseCategories = expenseCategories.filter((c) => c !== "Compra de alimento");
     const merged = new Set<string>([...QUICK_CAPTURE_STANDARD_FAMILY_NAMES, ...filteredExpenseCategories]);
@@ -1841,19 +1872,16 @@ export default function QuickCaptureModal() {
                   />
                 </div>
 
-                <Select
+                <FeedSearchPicker
                   label="Alimento del inventario"
                   help="Producto de tu bodega del cual se descontará esta cantidad."
                   value={feedId}
-                  onChange={(e) => setFeedId(e.target.value)}
-                >
-                  <option value="">Selecciona un alimento…</option>
-                  {feeds.map((f) => (
-                    <option key={f.id} value={f.id}>
-                      {f.name} ({Number(f.currentStock).toFixed(1)} {f.unit} disp.)
-                    </option>
-                  ))}
-                </Select>
+                  onChange={setFeedId}
+                  feeds={feeds}
+                  targetSpecies={selectedFeedLocationSpecies}
+                  onInspectFeed={(f) => setInspectFeedFicha(f)}
+                  emptyLabel="Selecciona un alimento…"
+                />
 
                 <div className="rounded-xl border border-amber-200 bg-amber-50/70 p-3 space-y-2.5">
                   <Input
@@ -2713,6 +2741,12 @@ export default function QuickCaptureModal() {
           </>
         )}
       </div>
+      <FeedFichaModal
+        open={Boolean(inspectFeedFicha)}
+        onClose={() => setInspectFeedFicha(null)}
+        feed={inspectFeedFicha}
+        canSeeFinancials={canSeeFinancials && inspectFeedFicha?.costPerUnit != null}
+      />
     </Modal>
   );
 }

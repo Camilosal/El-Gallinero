@@ -18,6 +18,8 @@ import { loadSpeciesParams } from "@/lib/species-db";
 import { getStandardCurves, type CurveSpecies } from "@/lib/standard-curves";
 import { getSessionUser } from "@/lib/auth";
 import { canPerformAction } from "@/lib/rbac";
+import { inferFeedCatalogGroup, normalizeFeedCatalogGroup } from "@/lib/feed-classification";
+import { resolveEffectiveFeedProfile } from "@/lib/feeding/standard-feed-catalog";
 
 export const dynamic = "force-dynamic";
 
@@ -90,9 +92,43 @@ export const GET = withApiHandler(async () => {
   const standardCurves = Object.fromEntries(
     CURVE_SPECIES.map((sp) => [sp, getStandardCurves(sp)]),
   );
+  const enrichedFeeds = feeds.map((feed) => {
+    const resolvedGroup =
+      normalizeFeedCatalogGroup(feed.catalogGroup) ??
+      inferFeedCatalogGroup(feed.feedType, feed.name, feed.category);
+    const profile = resolveEffectiveFeedProfile({
+      name: feed.name,
+      feedType: feed.feedType,
+      category: feed.category,
+      catalogGroup: resolvedGroup,
+      standardCatalogId: feed.standardCatalogId,
+      sanitaryStatus: feed.sanitaryStatus,
+      dryMatterPct: feed.dryMatterPct,
+      crudeProteinPct: feed.crudeProteinPct,
+      energyKcalKgDm: feed.energyKcalKgDm,
+      calciumDmPct: feed.calciumDmPct,
+      availablePhosphorusDmPct: feed.availablePhosphorusDmPct,
+      lysineDigDmPct: feed.lysineDigDmPct,
+      metCysDigDmPct: feed.metCysDigDmPct,
+      crudeFiberDmPct: feed.crudeFiberDmPct,
+      nutritionProfile: (feed.nutritionProfile ?? null) as Record<string, unknown> | null,
+      allowedSpecies: feed.allowedSpecies,
+      regionalNames: feed.regionalNames,
+      description: feed.description,
+      imageUrl: feed.imageUrl,
+    });
+    return {
+      ...feed,
+      catalogGroup: resolvedGroup,
+      allowedSpecies: profile.allowedSpecies,
+      regionalNames: profile.regionalNames,
+      description: profile.description,
+      imageUrl: profile.imageUrl,
+    };
+  });
   const visibleFeeds = canSeeCosts
-    ? feeds
-    : feeds.map((feed) => ({ ...feed, costPerUnit: null, supplier: null }));
+    ? enrichedFeeds
+    : enrichedFeeds.map((feed) => ({ ...feed, costPerUnit: null, supplier: null }));
   const visibleSupplies = canSeeCosts
     ? supplies
     : supplies.map((supply) => ({ ...supply, costPerUnit: null, supplier: null }));

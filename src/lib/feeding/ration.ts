@@ -16,6 +16,7 @@ export type RationLine = {
   sanitaryStatus?: string | null;
   standardCatalogId?: string | null;
   feedName?: string | null;
+  allowedSpecies?: string[] | null;
 };
 
 export type RationSummary = {

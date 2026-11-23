@@ -2,10 +2,11 @@
 
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
-import { AlertTriangle, PackageOpen, Wheat, Wrench } from "lucide-react";
+import { AlertTriangle, BookOpen, PackageOpen, Search, Wheat, Wrench, X } from "lucide-react";
 import { AppIcon } from "@/components/AppIcon";
-import { PageHeader, HeroActionLink, Card, StatCard, Badge, EmptyState } from "@/components/ui";
-import TableSearch from "@/components/TableSearch";
+import { PageHeader, HeroActionLink, Card, StatCard, Badge, Button, EmptyState } from "@/components/ui";
+import { FeedFichaModal, SpeciesTagList, type FeedFichaRecord } from "@/components/feeding/FeedFichaModal";
+import { inferDefaultImageByFeed, normalizeFeedSpeciesList, normalizeRegionalNamesList } from "@/lib/feeding/feed-catalog-metadata";
 import { apiFetch } from "@/lib/fetch";
 import { matchesTextQuery } from "@/lib/text";
 import { isHrefEnabledByFlags } from "@/lib/onboarding";
@@ -13,15 +14,22 @@ import { useOnboardingState } from "@/lib/useOnboardingState";
 import { canAccessAppRoute, canPerformAction } from "@/lib/rbac";
 import { useAppRole } from "@/lib/useAppRole";
 
-interface Feed {
+interface Feed extends FeedFichaRecord {
   id: string;
   name: string;
   category: string;
+  feedType?: string;
+  catalogGroup?: string | null;
+  standardCatalogId?: string | null;
   unit: string;
   currentStock: string;
   minStock: string;
   costPerUnit: string | null;
   supplier: string | null;
+  allowedSpecies?: string[] | null;
+  imageUrl?: string | null;
+  description?: string | null;
+  regionalNames?: string[] | null;
 }
 
 interface Supply {
@@ -115,6 +123,7 @@ export default function AlmacenPage() {
   const [maintenance, setMaintenance] = useState<MaintenanceSummary | null>(null);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
+  const [selectedFicha, setSelectedFicha] = useState<FeedFichaRecord | null>(null);
   const { flags, isFlagEnabled } = useOnboardingState();
   const showEnterpriseMaintenance = isFlagEnabled("reportes_dian_roi_credito");
 
@@ -168,7 +177,20 @@ export default function AlmacenPage() {
     [enabledQuickLinks, search],
   );
   const filteredLowFeeds = useMemo(
-    () => (search.trim() ? lowFeeds.filter((f) => matchesTextQuery(search, [f.name, f.category, categoryLabels[f.category], f.supplier])) : lowFeeds),
+    () =>
+      search.trim()
+        ? lowFeeds.filter((f) =>
+            matchesTextQuery(search, [
+              f.name,
+              f.category,
+              categoryLabels[f.category],
+              f.supplier,
+              f.standardCatalogId,
+              normalizeRegionalNamesList(f.regionalNames).join(" "),
+              normalizeFeedSpeciesList(f.allowedSpecies).join(" "),
+            ]),
+          )
+        : lowFeeds,
     [lowFeeds, search],
   );
   const filteredLowSupplies = useMemo(
@@ -176,7 +198,21 @@ export default function AlmacenPage() {
     [lowSupplies, search],
   );
   const filteredFeeds = useMemo(
-    () => (search.trim() ? feeds.filter((f) => matchesTextQuery(search, [f.name, f.category, categoryLabels[f.category], f.supplier])) : feeds),
+    () =>
+      search.trim()
+        ? feeds.filter((f) =>
+            matchesTextQuery(search, [
+              f.name,
+              f.category,
+              categoryLabels[f.category],
+              f.supplier,
+              f.standardCatalogId,
+              f.description,
+              normalizeRegionalNamesList(f.regionalNames).join(" "),
+              normalizeFeedSpeciesList(f.allowedSpecies).join(" "),
+            ]),
+          )
+        : feeds,
     [feeds, search],
   );
   const filteredSupplies = useMemo(
@@ -209,15 +245,42 @@ export default function AlmacenPage() {
         </Card>
       ) : (
         <div className="space-y-6">
-          <TableSearch
-            value={search}
-            onChange={setSearch}
-            placeholder="Buscar en almacén: módulos, alimentos, insumos o proveedores..."
-            resultCount={
-              filteredQuickLinks.length + filteredFeeds.length + filteredSupplies.length
-            }
-            totalCount={quickLinks.length + feeds.length + supplies.length}
-          />
+          <form
+            onSubmit={(e) => e.preventDefault()}
+            className="flex flex-col gap-2 sm:flex-row sm:items-center"
+          >
+            <div className="relative flex-1 sm:max-w-lg">
+              <Search className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[var(--iw-semantic-text-secondary)]" aria-hidden="true" />
+              <input
+                type="search"
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                placeholder="Buscar alimento, alias regional, insumo o módulo..."
+                aria-label="Buscar en almacén"
+                className="min-h-[42px] w-full rounded-[var(--iw-radius-control)] border border-[var(--iw-semantic-border-input)] bg-[var(--iw-semantic-bg-surface)] py-2 pl-9 pr-9 text-sm text-[var(--iw-semantic-text-primary)] outline-none focus:border-[var(--iw-semantic-focus-ring)]"
+              />
+              {search && (
+                <button
+                  type="button"
+                  onClick={() => setSearch("")}
+                  aria-label="Limpiar búsqueda"
+                  className="absolute right-2 top-1/2 -translate-y-1/2 rounded p-1 text-[var(--iw-semantic-text-secondary)]"
+                >
+                  <X className="w-3.5 h-3.5" aria-hidden="true" />
+                </button>
+              )}
+            </div>
+            <Button type="submit" className="min-h-[42px] shrink-0">
+              <Search className="mr-1.5 h-4 w-4" aria-hidden="true" />
+              Buscar alimento
+            </Button>
+            {search.trim() && (
+              <span className="text-xs text-[var(--iw-semantic-text-secondary)]">
+                {filteredQuickLinks.length + filteredFeeds.length + filteredSupplies.length} de{" "}
+                {quickLinks.length + feeds.length + supplies.length} registros
+              </span>
+            )}
+          </form>
 
           <div className={`grid grid-cols-2 gap-2.5 sm:gap-4 ${canSeeFinancials ? (showEnterpriseMaintenance ? "lg:grid-cols-5" : "lg:grid-cols-4") : (showEnterpriseMaintenance ? "lg:grid-cols-3" : "lg:grid-cols-2")}`}>
             {canSeeFinancials && <StatCard icon="wheat" label="Valor en alimentos" value={fmtMoney(feedValue)} color="blue" />}
@@ -339,23 +402,57 @@ export default function AlmacenPage() {
                 <div className="space-y-2">
                   {filteredFeeds.slice(0, 8).map((feed) => {
                     const isLow = Number(feed.currentStock) <= Number(feed.minStock);
+                    const thumb =
+                      feed.imageUrl ||
+                      inferDefaultImageByFeed({
+                        standardCatalogId: feed.standardCatalogId,
+                        group: feed.catalogGroup,
+                        feedType: feed.feedType,
+                        name: feed.name,
+                      });
                     return (
                       <div
                         key={feed.id}
-                        className={`flex items-center justify-between rounded-lg px-3 py-2 ${isLow ? "bg-red-50" : "bg-slate-50"}`}
+                        className={`flex items-center justify-between gap-2 rounded-lg px-3 py-2 ${isLow ? "bg-red-50" : "bg-slate-50"}`}
                       >
-                        <div>
-                          <p className="text-sm font-medium text-slate-800">{feed.name}</p>
-                          <p className="text-xs text-slate-500">
-                            {categoryLabels[feed.category] || feed.category}
-                            {feed.supplier ? ` · ${feed.supplier}` : ""}
-                          </p>
+                        <div className="flex min-w-0 items-center gap-2.5">
+                          {/* eslint-disable-next-line @next/next/no-img-element */}
+                          <img
+                            src={thumb}
+                            alt={feed.name}
+                            className="h-10 w-12 shrink-0 rounded-md border border-[var(--iw-semantic-border-default)] object-cover"
+                          />
+                          <div className="min-w-0 space-y-0.5">
+                            <button
+                              type="button"
+                              onClick={() => setSelectedFicha(feed)}
+                              className="text-left text-sm font-semibold text-slate-800 hover:text-[var(--iw-semantic-action-primary)] hover:underline line-clamp-1"
+                            >
+                              {feed.name}
+                            </button>
+                            <SpeciesTagList species={feed.allowedSpecies} compact />
+                            <p className="text-xs text-slate-500">
+                              {categoryLabels[feed.category] || feed.category}
+                              {canSeeFinancials && feed.supplier ? ` · ${feed.supplier}` : ""}
+                            </p>
+                          </div>
                         </div>
-                        <div className="text-right">
-                          <p className={`text-sm font-bold ${isLow ? "text-red-600" : "text-green-700"}`}>
-                            {fmtNumber(Number(feed.currentStock))} {feed.unit}
-                          </p>
-                          {canSeeFinancials && <p className="text-xs text-slate-500">{fmtMoney(Number(feed.currentStock) * Number(feed.costPerUnit))}</p>}
+                        <div className="flex shrink-0 items-center gap-2">
+                          <div className="text-right">
+                            <p className={`text-sm font-bold ${isLow ? "text-red-600" : "text-green-700"}`}>
+                              {fmtNumber(Number(feed.currentStock))} {feed.unit}
+                            </p>
+                            {canSeeFinancials && <p className="text-xs text-slate-500">{fmtMoney(Number(feed.currentStock) * Number(feed.costPerUnit))}</p>}
+                          </div>
+                          <button
+                            type="button"
+                            onClick={() => setSelectedFicha(feed)}
+                            aria-label={`Ver ficha de ${feed.name}`}
+                            className="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-[var(--iw-semantic-border-default)] bg-white text-[var(--iw-semantic-action-primary)] hover:bg-[var(--iw-semantic-bg-feature)]"
+                            title="Ver ficha del alimento"
+                          >
+                            <BookOpen className="h-3.5 w-3.5" aria-hidden="true" />
+                          </button>
                         </div>
                       </div>
                     );
@@ -443,6 +540,13 @@ export default function AlmacenPage() {
           )}
         </div>
       )}
+
+      <FeedFichaModal
+        open={Boolean(selectedFicha)}
+        onClose={() => setSelectedFicha(null)}
+        feed={selectedFicha}
+        canSeeFinancials={canSeeFinancials}
+      />
     </div>
   );
 }

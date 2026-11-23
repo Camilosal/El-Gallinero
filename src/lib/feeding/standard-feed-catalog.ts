@@ -4,6 +4,14 @@ import {
   type SanitaryStatus,
 } from "./standard-feed-catalog-data";
 import { FEED_CURRENT_CATEGORIES, FEED_CURRENT_TYPES } from "@/lib/feed-classification";
+import type { FeedingSpecies } from "@/lib/species";
+import {
+  inferDefaultImageByFeed,
+  inferDefaultSpeciesByFeed,
+  normalizeFeedSpeciesList,
+  normalizeRegionalNamesList,
+  resolveStandardFeedEnrichment,
+} from "./feed-catalog-metadata";
 
 export type FeedCategoryCurrent = (typeof FEED_CURRENT_CATEGORIES)[number];
 export type FeedTypeCurrent = (typeof FEED_CURRENT_TYPES)[number];
@@ -15,6 +23,10 @@ export interface StandardFeedItem extends RawStandardFeedEntry {
   crudeProteinAsFedPct: number | null;
   missingCriticalFields: string[];
   isBlocked: boolean;
+  targetSpecies: FeedingSpecies[];
+  regionalNames: string[];
+  description: string;
+  imageUrl: string;
 }
 
 const round2 = (value: number) => Math.round(value * 100) / 100;
@@ -55,7 +67,15 @@ function inferDefaultFeedType(entry: RawStandardFeedEntry): FeedTypeCurrent {
   const name = entry.name.toLocaleLowerCase("es");
   const group = entry.group;
 
-  if (group === "Balanceados") return "Concentrado Aves";
+  if (group === "Balanceados") {
+    if (name.includes("conejo") && name.includes("cuy")) return "Concentrado Multiespecie";
+    if (name.includes("conej")) return "Concentrado Conejos";
+    if (name.includes("cuy") || name.includes("curí")) return "Concentrado Cuyes";
+    if (name.includes("codorniz")) return "Concentrado Codorniz";
+    if (name.includes("pato")) return "Concentrado Patos";
+    if (name.includes("pollo")) return "Concentrado Pollo Engorde";
+    return "Concentrado Aves";
+  }
   if (group === "Insectos y anélidos" && (name.includes("bsf") || name.includes("mosca"))) {
     return "Mosca Soldado";
   }
@@ -81,18 +101,38 @@ function collectMissingCriticalFields(entry: RawStandardFeedEntry): string[] {
   return missing;
 }
 
-export const STANDARD_FEED_CATALOG: ReadonlyArray<StandardFeedItem> = RAW_STANDARD_FEED_CATALOG.map((entry) => ({
-  ...entry,
-  defaultCategory: inferDefaultCategory(entry),
-  defaultFeedType: inferDefaultFeedType(entry),
-  defaultUnit: "kg",
-  crudeProteinAsFedPct:
-    entry.dryMatterPct !== null && entry.crudeProteinDmPct !== null
-      ? round2((entry.crudeProteinDmPct * entry.dryMatterPct) / 100)
-      : null,
-  missingCriticalFields: collectMissingCriticalFields(entry),
-  isBlocked: entry.sanitaryStatus === "NO USAR",
-}));
+export const STANDARD_FEED_CATALOG: ReadonlyArray<StandardFeedItem> = RAW_STANDARD_FEED_CATALOG.map((entry) => {
+  const defaultFeedType = inferDefaultFeedType(entry);
+  const enrichment = resolveStandardFeedEnrichment({
+    id: entry.id,
+    group: entry.group,
+    name: entry.name,
+    botanicalName: entry.botanicalName,
+    presentation: entry.presentation,
+    origin: entry.origin,
+    sanitaryStatus: entry.sanitaryStatus,
+    preparation: entry.preparation,
+    risks: entry.risks,
+    compositionNotes: entry.compositionNotes,
+    defaultFeedType,
+  });
+  return {
+    ...entry,
+    defaultCategory: inferDefaultCategory(entry),
+    defaultFeedType,
+    defaultUnit: "kg" as const,
+    crudeProteinAsFedPct:
+      entry.dryMatterPct !== null && entry.crudeProteinDmPct !== null
+        ? round2((entry.crudeProteinDmPct * entry.dryMatterPct) / 100)
+        : null,
+    missingCriticalFields: collectMissingCriticalFields(entry),
+    isBlocked: entry.sanitaryStatus === "NO USAR",
+    targetSpecies: enrichment.targetSpecies,
+    regionalNames: enrichment.regionalNames,
+    description: enrichment.description,
+    imageUrl: enrichment.imageUrl,
+  };
+});
 
 export const STANDARD_FEED_GROUPS: ReadonlyArray<string> = Array.from(
   new Set(STANDARD_FEED_CATALOG.map((item) => item.group)),
@@ -111,16 +151,35 @@ function normalizeSearch(value: string): string {
 
 export function searchStandardFeedCatalog(
   query = "",
-  options: { group?: string; includeBlocked?: boolean; sanitaryStatus?: SanitaryStatus } = {},
+  options: {
+    group?: string;
+    species?: string;
+    includeBlocked?: boolean;
+    sanitaryStatus?: SanitaryStatus;
+  } = {},
 ): StandardFeedItem[] {
   const normalizedQuery = normalizeSearch(query);
+  const normalizedSpecies = options.species && options.species !== "all"
+    ? normalizeFeedSpeciesList([options.species])[0]
+    : undefined;
   return STANDARD_FEED_CATALOG.filter((item) => {
     if (options.includeBlocked === false && item.isBlocked) return false;
     if (options.group && options.group !== "all" && item.group !== options.group) return false;
     if (options.sanitaryStatus && item.sanitaryStatus !== options.sanitaryStatus) return false;
+    if (normalizedSpecies && !item.targetSpecies.includes(normalizedSpecies)) return false;
     if (!normalizedQuery) return true;
     const haystack = normalizeSearch(
-      [item.id, item.name, item.botanicalName || "", item.group, item.presentation || ""].join(" "),
+      [
+        item.id,
+        item.name,
+        item.botanicalName || "",
+        item.group,
+        item.presentation || "",
+        item.defaultFeedType,
+        item.description,
+        item.regionalNames.join(" "),
+        item.targetSpecies.join(" "),
+      ].join(" "),
     );
     return haystack.includes(normalizedQuery);
   });
@@ -144,6 +203,9 @@ export interface StoredNutritionProfile {
 
 export interface FeedNutritionSourceInput {
   name?: string | null;
+  feedType?: string | null;
+  category?: string | null;
+  catalogGroup?: string | null;
   standardCatalogId?: string | null;
   sanitaryStatus?: string | null;
   dryMatterPct?: string | number | null;
@@ -155,6 +217,10 @@ export interface FeedNutritionSourceInput {
   metCysDigDmPct?: string | number | null;
   crudeFiberDmPct?: string | number | null;
   nutritionProfile?: StoredNutritionProfile | null;
+  allowedSpecies?: string[] | null;
+  regionalNames?: string[] | null;
+  description?: string | null;
+  imageUrl?: string | null;
 }
 
 function toNumberOrNull(value: unknown): number | null {
@@ -183,6 +249,37 @@ export function resolveEffectiveFeedProfile(feed: FeedNutritionSourceInput) {
     std?.sanitaryStatus ??
     null;
 
+  const resolvedGroup = profile.group ?? std?.group ?? feed.catalogGroup ?? null;
+  const normalizedSpecies = normalizeFeedSpeciesList(feed.allowedSpecies);
+  const effectiveAllowedSpecies =
+    normalizedSpecies.length > 0
+      ? normalizedSpecies
+      : std?.targetSpecies ??
+        inferDefaultSpeciesByFeed({
+          standardCatalogId: feed.standardCatalogId,
+          group: resolvedGroup,
+          feedType: feed.feedType,
+          name: feed.name,
+          sanitaryStatus,
+        });
+  const normalizedRegional = normalizeRegionalNamesList(feed.regionalNames);
+  const effectiveRegionalNames =
+    normalizedRegional.length > 0 ? normalizedRegional : std?.regionalNames ?? [];
+  const effectiveDescription =
+    (typeof feed.description === "string" && feed.description.trim()) ||
+    std?.description ||
+    profile.compositionNotes ||
+    null;
+  const effectiveImageUrl =
+    (typeof feed.imageUrl === "string" && feed.imageUrl.trim()) ||
+    std?.imageUrl ||
+    inferDefaultImageByFeed({
+      standardCatalogId: feed.standardCatalogId,
+      group: resolvedGroup,
+      feedType: feed.feedType,
+      name: feed.name,
+    });
+
   return {
     standardCatalogId: std?.id ?? (feed.standardCatalogId || null),
     standardItem: std,
@@ -204,5 +301,9 @@ export function resolveEffectiveFeedProfile(feed: FeedNutritionSourceInput) {
     preparation: profile.preparation ?? std?.preparation ?? null,
     risks: profile.risks ?? std?.risks ?? null,
     sourceUrl: profile.sourceUrl ?? std?.sourceUrl ?? null,
+    allowedSpecies: effectiveAllowedSpecies,
+    regionalNames: effectiveRegionalNames,
+    description: effectiveDescription,
+    imageUrl: effectiveImageUrl,
   };
 }

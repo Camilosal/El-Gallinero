@@ -15,6 +15,13 @@ import {
 } from "@/lib/feed-classification";
 import { parseOptionalNutrientDecimal, parseOptionalPercent } from "@/lib/feeding/ration";
 import { findStandardFeedById, type StandardFeedItem } from "@/lib/feeding/standard-feed-catalog";
+import {
+  inferDefaultImageByFeed,
+  inferDefaultSpeciesByFeed,
+  normalizeFeedImageUrl,
+  normalizeFeedSpeciesList,
+  normalizeRegionalNamesList,
+} from "@/lib/feeding/feed-catalog-metadata";
 import { getSessionUser } from "@/lib/auth";
 import { canPerformAction } from "@/lib/rbac";
 
@@ -154,6 +161,41 @@ export const POST = withApiHandler(async (req: NextRequest) => {
     return stdVal !== null && stdVal !== undefined ? stdVal.toFixed(2) : null;
   };
 
+  const imageCheck = normalizeFeedImageUrl(body.imageUrl);
+  if (imageCheck.error) {
+    return NextResponse.json({ error: imageCheck.error }, { status: 400 });
+  }
+  const hasExplicitSpecies = body.allowedSpecies !== undefined || body.targetSpecies !== undefined;
+  const parsedSpecies = normalizeFeedSpeciesList(body.allowedSpecies ?? body.targetSpecies);
+  const allowedSpecies = hasExplicitSpecies
+    ? parsedSpecies
+    : standardItem?.targetSpecies ??
+      inferDefaultSpeciesByFeed({
+        standardCatalogId: standardItem?.id ?? null,
+        group: catalogGroup,
+        feedType,
+        name: feedName,
+        sanitaryStatus: resolvedSanitary,
+      });
+
+  const hasExplicitRegional = body.regionalNames !== undefined;
+  const regionalNames = hasExplicitRegional
+    ? normalizeRegionalNamesList(body.regionalNames)
+    : standardItem?.regionalNames ?? [];
+
+  const rawDescription =
+    typeof body.description === "string" ? body.description.trim().slice(0, 2000) : "";
+  const description = rawDescription || standardItem?.description || null;
+  const imageUrl =
+    imageCheck.value ||
+    standardItem?.imageUrl ||
+    inferDefaultImageByFeed({
+      standardCatalogId: standardItem?.id ?? null,
+      group: catalogGroup,
+      feedType,
+      name: feedName,
+    });
+
   const [created] = await db.transaction(async (tx) => {
     const [row] = await tx.insert(feedInventory).values({
       name: feedName,
@@ -176,6 +218,10 @@ export const POST = withApiHandler(async (req: NextRequest) => {
       metCysDigDmPct: toDecimalOrStd(extra.metCys, standardItem?.metCysDigDmPct),
       crudeFiberDmPct: toDecimalOrStd(extra.fiber, standardItem?.crudeFiberDmPct),
       nutritionProfile: body.nutritionProfile ?? buildStandardProfileSnapshot(standardItem),
+      allowedSpecies,
+      imageUrl,
+      description,
+      regionalNames,
     }).returning();
     if (initialStock > 0) {
       await tx.insert(feedMovements).values({
@@ -236,6 +282,22 @@ export const PUT = withApiHandler(async (req: NextRequest) => {
   const requestedCategory = parsedCategory ? (currentFeedCategory(parsedCategory) ?? parsedCategory) : undefined;
   const requestedFeedType = parsedFeedType ? (currentFeedType(parsedFeedType) ?? parsedFeedType) : undefined;
   const requestedGroup = body.catalogGroup == null ? undefined : normalizeFeedCatalogGroup(body.catalogGroup);
+  const imageCheck = body.imageUrl === undefined ? undefined : normalizeFeedImageUrl(body.imageUrl);
+  if (imageCheck?.error) {
+    return NextResponse.json({ error: imageCheck.error }, { status: 400 });
+  }
+  const hasExplicitSpecies = body.allowedSpecies !== undefined || body.targetSpecies !== undefined;
+  const requestedSpecies = hasExplicitSpecies
+    ? normalizeFeedSpeciesList(body.allowedSpecies ?? body.targetSpecies)
+    : undefined;
+  const requestedRegional =
+    body.regionalNames !== undefined ? normalizeRegionalNamesList(body.regionalNames) : undefined;
+  const requestedDescription =
+    body.description === undefined
+      ? undefined
+      : typeof body.description === "string" && body.description.trim()
+        ? body.description.trim().slice(0, 2000)
+        : null;
 
   const [updated] = await db.transaction(async (tx) => {
     const [existing] = await tx.select().from(feedInventory).where(eq(feedInventory.id, body.id)).for("update");
@@ -283,6 +345,33 @@ export const PUT = withApiHandler(async (req: NextRequest) => {
             : requestedStdId === null
               ? null
               : existing.nutritionProfile,
+      allowedSpecies:
+        requestedSpecies !== undefined
+          ? requestedSpecies
+          : standardItem && (!existing.allowedSpecies || existing.allowedSpecies.length === 0)
+            ? standardItem.targetSpecies
+            : existing.allowedSpecies,
+      imageUrl:
+        imageCheck !== undefined
+          ? imageCheck.value
+          : existing.imageUrl ??
+            standardItem?.imageUrl ??
+            inferDefaultImageByFeed({
+              standardCatalogId: requestedStdId === undefined ? existing.standardCatalogId : requestedStdId,
+              group: standardItem?.group ?? requestedGroup ?? existing.catalogGroup,
+              feedType: nextFeedType,
+              name: nextName,
+            }),
+      description:
+        requestedDescription !== undefined
+          ? requestedDescription
+          : existing.description ?? standardItem?.description ?? null,
+      regionalNames:
+        requestedRegional !== undefined
+          ? requestedRegional
+          : existing.regionalNames && existing.regionalNames.length > 0
+            ? existing.regionalNames
+            : standardItem?.regionalNames ?? [],
       updatedAt: new Date(),
     }).where(eq(feedInventory.id, body.id)).returning();
 

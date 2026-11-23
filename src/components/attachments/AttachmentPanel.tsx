@@ -15,7 +15,7 @@ import {
   X,
 } from "lucide-react";
 import { apiFetch } from "@/lib/fetch";
-import { Tooltip } from "@/components/ui";
+import { PortalDialog, Tooltip } from "@/components/ui";
 import {
   ATTACHMENT_CATEGORIES,
   parseColombianAgroDocument,
@@ -511,16 +511,15 @@ export default function AttachmentPanel({
       ) : null}
 
       {/* Visor modal (Lightbox) */}
-      {previewItem && (
-        <div
-          className="fixed inset-0 z-[80] flex items-center justify-center bg-slate-950/75 p-4"
-          onClick={() => setPreviewItem(null)}
-        >
-          <div
-            className="max-h-[90vh] w-full max-w-2xl overflow-y-auto rounded-2xl bg-white p-4 shadow-2xl space-y-3"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <div className="flex items-center justify-between border-b border-slate-200 pb-2.5">
+      <PortalDialog
+        open={Boolean(previewItem)}
+        onClose={() => setPreviewItem(null)}
+        ariaLabel={previewItem?.fileName || "Vista previa de adjunto"}
+        size="lg"
+      >
+        {previewItem && (
+          <div className="flex flex-1 min-h-0 flex-col overflow-hidden p-4 space-y-3">
+            <div className="shrink-0 flex items-center justify-between border-b border-slate-200 pb-2.5">
               <div>
                 <h4 className="text-sm font-bold text-slate-900">{previewItem.fileName}</h4>
                 <p className="text-xs text-slate-500">
@@ -532,47 +531,50 @@ export default function AttachmentPanel({
               <button
                 type="button"
                 onClick={() => setPreviewItem(null)}
+                aria-label="Cerrar vista previa"
                 className="rounded-lg p-1.5 text-slate-500 hover:bg-slate-100"
               >
                 <X className="h-5 w-5" />
               </button>
             </div>
 
-            {previewItem.mimeType === "application/pdf" ? (
-              <div className="text-center py-6 space-y-3">
-                <FileText className="mx-auto h-12 w-12 text-red-600" />
-                <p className="text-sm text-slate-700">Documento PDF adjunto ({formatSize(previewItem.sizeBytes)})</p>
-                <a
-                  href={previewItem.dataUrl}
-                  download={previewItem.fileName}
-                  className="inline-flex items-center gap-2 rounded-xl bg-emerald-600 px-4 py-2 text-xs font-bold text-white hover:bg-emerald-700"
-                >
-                  <Download className="h-4 w-4" />
-                  <span>Descargar PDF</span>
-                </a>
-              </div>
-            ) : (
-              // eslint-disable-next-line @next/next/no-img-element
-              <img
-                src={previewItem.dataUrl}
-                alt={previewItem.fileName}
-                className="mx-auto max-h-[68vh] rounded-xl object-contain"
-              />
-            )}
+            <div className="flex-1 min-h-0 overflow-y-auto overscroll-contain space-y-3">
+              {previewItem.mimeType === "application/pdf" ? (
+                <div className="text-center py-6 space-y-3">
+                  <FileText className="mx-auto h-12 w-12 text-red-600" />
+                  <p className="text-sm text-slate-700">Documento PDF adjunto ({formatSize(previewItem.sizeBytes)})</p>
+                  <a
+                    href={previewItem.dataUrl}
+                    download={previewItem.fileName}
+                    className="inline-flex items-center gap-2 rounded-xl bg-emerald-600 px-4 py-2 text-xs font-bold text-white hover:bg-emerald-700"
+                  >
+                    <Download className="h-4 w-4" />
+                    <span>Descargar PDF</span>
+                  </a>
+                </div>
+              ) : (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img
+                  src={previewItem.dataUrl}
+                  alt={previewItem.fileName}
+                  className="mx-auto max-h-[68vh] rounded-xl object-contain"
+                />
+              )}
 
-            {previewItem.extractedText && (
-              <div className="rounded-lg bg-emerald-50 p-2.5 text-xs text-emerald-900">
-                <strong>Datos extraídos OCR:</strong> {previewItem.extractedText}
-              </div>
-            )}
-            {previewItem.notes && (
-              <p className="text-xs text-slate-600">
-                <strong>Nota:</strong> {previewItem.notes}
-              </p>
-            )}
+              {previewItem.extractedText && (
+                <div className="rounded-lg bg-emerald-50 p-2.5 text-xs text-emerald-900">
+                  <strong>Datos extraídos OCR:</strong> {previewItem.extractedText}
+                </div>
+              )}
+              {previewItem.notes && (
+                <p className="text-xs text-slate-600">
+                  <strong>Nota:</strong> {previewItem.notes}
+                </p>
+              )}
+            </div>
           </div>
-        </div>
-      )}
+        )}
+      </PortalDialog>
     </div>
   );
 }

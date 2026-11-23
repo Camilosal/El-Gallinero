@@ -10,7 +10,9 @@ import {
   useId,
   useRef,
   useState,
+  useSyncExternalStore,
 } from "react";
+import { createPortal } from "react-dom";
 import { X } from "lucide-react";
 import { AppIcon } from "@/components/AppIcon";
 import {
@@ -409,46 +411,192 @@ export function Badge({ children, color = "green" }: { children: ReactNode; colo
   );
 }
 
+const DIALOG_WIDTH_CLASSES = {
+  sm: "w-[min(calc(100vw-1.5rem),28rem)]",
+  md: "w-[min(calc(100vw-1.5rem),32rem)]",
+  lg: "w-[min(calc(100vw-1.5rem),42rem)]",
+  xl: "w-[min(calc(100vw-1.5rem),56rem)]",
+  "2xl": "w-[min(calc(100vw-1.5rem),64rem)]",
+} as const;
+
+export type DialogSize = keyof typeof DIALOG_WIDTH_CLASSES;
+
+function isPointerOutsideElement(
+  event: { clientX: number; clientY: number },
+  element: HTMLElement,
+): boolean {
+  const rect = element.getBoundingClientRect();
+  return (
+    event.clientX < rect.left ||
+    event.clientX > rect.right ||
+    event.clientY < rect.top ||
+    event.clientY > rect.bottom
+  );
+}
+
+const emptySubscribe = () => () => {};
+
+/** Devuelve `true` solo tras hidratar en el cliente, evitando desajustes SSR en portales. */
+export function useIsClient(): boolean {
+  return useSyncExternalStore(emptySubscribe, () => true, () => false);
+}
+
+/**
+ * Renderiza un `<dialog>` nativo promovido al top layer (`showModal()`) y portaleado
+ * a `document.body`, evitando recortes por ancestros con `backdrop-filter`, `overflow`
+ * o `transform` (como la barra superior fija).
+ */
+export function PortalDialog({
+  open,
+  onClose,
+  ariaLabel,
+  ariaLabelledBy,
+  size = "md",
+  variant = "center",
+  className = "",
+  children,
+}: {
+  open: boolean;
+  onClose: () => void;
+  ariaLabel?: string;
+  ariaLabelledBy?: string;
+  size?: DialogSize;
+  variant?: "center" | "top";
+  className?: string;
+  children: ReactNode;
+}) {
+  const mounted = useIsClient();
+  const dialogRef = useRef<HTMLDialogElement>(null);
+  const onCloseRef = useRef(onClose);
+  const pressedOutsideRef = useRef(false);
+
+  useEffect(() => {
+    onCloseRef.current = onClose;
+  }, [onClose]);
+
+  useEffect(() => {
+    if (!open || !mounted) return;
+    const dialog = dialogRef.current;
+    if (!dialog) return;
+
+    const supportsShowModal = typeof dialog.showModal === "function";
+    if (supportsShowModal) {
+      if (!dialog.open) {
+        try {
+          dialog.showModal();
+        } catch {
+          dialog.setAttribute("open", "");
+        }
+      }
+    } else if (!dialog.hasAttribute("open")) {
+      dialog.setAttribute("open", "");
+    }
+
+    const handleClose = () => {
+      dialog.returnValue = "";
+      onCloseRef.current();
+    };
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (!supportsShowModal && event.key === "Escape") {
+        onCloseRef.current();
+      }
+    };
+
+    dialog.addEventListener("close", handleClose);
+    if (!supportsShowModal) {
+      window.addEventListener("keydown", handleKeyDown);
+    }
+
+    return () => {
+      dialog.removeEventListener("close", handleClose);
+      if (!supportsShowModal) {
+        window.removeEventListener("keydown", handleKeyDown);
+      }
+      if (dialog.open && typeof dialog.close === "function") {
+        dialog.close();
+      } else {
+        dialog.removeAttribute("open");
+      }
+    };
+  }, [open, mounted]);
+
+  if (!open || !mounted || typeof document === "undefined") return null;
+
+  return createPortal(
+    <dialog
+      ref={dialogRef}
+      {...({ closedby: "any" } as Record<string, string>)}
+      aria-label={ariaLabelledBy ? undefined : ariaLabel}
+      aria-labelledby={ariaLabelledBy}
+      onPointerDown={(event) => {
+        const dialog = dialogRef.current;
+        if (!dialog || typeof HTMLDialogElement === "undefined" || "closedBy" in HTMLDialogElement.prototype) {
+          pressedOutsideRef.current = false;
+          return;
+        }
+        pressedOutsideRef.current = isPointerOutsideElement(event, dialog);
+      }}
+      onPointerUp={(event) => {
+        const dialog = dialogRef.current;
+        if (!dialog || typeof HTMLDialogElement === "undefined" || "closedBy" in HTMLDialogElement.prototype) return;
+        const shouldClose = pressedOutsideRef.current && isPointerOutsideElement(event, dialog);
+        pressedOutsideRef.current = false;
+        if (shouldClose) {
+          if (typeof dialog.close === "function" && dialog.open) {
+            dialog.close();
+          } else {
+            onCloseRef.current();
+          }
+        }
+      }}
+      className={`iw-dialog ${variant === "top" ? "iw-dialog--top" : ""} ${DIALOG_WIDTH_CLASSES[size]} rounded-2xl border border-[var(--iw-semantic-border-default)] bg-[var(--iw-semantic-bg-surface)] text-[var(--iw-semantic-text-primary)] shadow-[var(--iw-shadow-popover)] overflow-hidden open:flex open:flex-col sm:max-h-[90dvh] ${className}`}
+    >
+      {children}
+    </dialog>,
+    document.body,
+  );
+}
+
 export function Modal({
   open,
   onClose,
   title,
+  subtitle,
+  size = "md",
   children,
 }: {
   open: boolean;
   onClose: () => void;
   title: string;
+  subtitle?: string;
+  size?: DialogSize;
   children: ReactNode;
 }) {
-  if (!open) return null;
+  const headingId = useId();
   return (
-    <div
-      role="dialog"
-      aria-modal="true"
-      aria-label={title}
-      className="fixed inset-0 z-[100] flex items-center justify-center bg-[var(--iw-color-ink-strong)]/50 backdrop-blur-[2px]"
-      onClick={onClose}
-    >
-      <div
-        className="bg-[var(--iw-semantic-bg-surface)] rounded-2xl shadow-[var(--iw-shadow-popover)] border border-[var(--iw-semantic-border-default)] w-full max-w-lg max-h-[90vh] overflow-y-auto m-4"
-        onClick={(e) => e.stopPropagation()}
-      >
-        <div className="flex items-center justify-between px-6 py-4 border-b border-[var(--iw-semantic-border-default)] bg-[var(--iw-semantic-bg-subtle)]">
-          <h2 className="font-display text-lg font-semibold text-[var(--iw-semantic-text-primary)]">
+    <PortalDialog open={open} onClose={onClose} ariaLabelledBy={headingId} size={size}>
+      <div className="shrink-0 flex items-start justify-between gap-3 px-6 py-4 border-b border-[var(--iw-semantic-border-default)] bg-[var(--iw-semantic-bg-subtle)]">
+        <div className="min-w-0">
+          <h2 id={headingId} className="font-display text-lg font-semibold text-[var(--iw-semantic-text-primary)]">
             {title}
           </h2>
-          <button
-            type="button"
-            onClick={onClose}
-            aria-label="Cerrar"
-            className="inline-flex h-10 w-10 items-center justify-center rounded-[var(--iw-radius-control)] text-[var(--iw-semantic-text-secondary)] hover:bg-[var(--iw-semantic-bg-page)] hover:text-[var(--iw-semantic-text-primary)] transition-colors"
-          >
-            <X className="w-5 h-5" />
-          </button>
+          {subtitle && (
+            <p className="mt-0.5 text-xs text-[var(--iw-semantic-text-secondary)]">{subtitle}</p>
+          )}
         </div>
-        <div className="p-6 text-[var(--iw-semantic-text-primary)]">{children}</div>
+        <button
+          type="button"
+          onClick={onClose}
+          aria-label="Cerrar"
+          className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-[var(--iw-radius-control)] text-[var(--iw-semantic-text-secondary)] hover:bg-[var(--iw-semantic-bg-page)] hover:text-[var(--iw-semantic-text-primary)] cursor-pointer transition-colors"
+        >
+          <X className="w-5 h-5" aria-hidden="true" />
+        </button>
       </div>
-    </div>
+      <div className="flex-1 min-h-0 overflow-y-auto overscroll-contain p-6 text-[var(--iw-semantic-text-primary)]">
+        {children}
+      </div>
+    </PortalDialog>
   );
 }
 

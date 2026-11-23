@@ -30,7 +30,14 @@ export const GET = withApiHandler(async () => {
 
   return NextResponse.json({
     stages: stages.map((s) => ({ id: s.id, value: s.value })),
-    feeds: feeds.map((f) => ({ id: f.id, name: f.name, unit: f.unit })),
+    feeds: feeds.map((f) => ({
+      id: f.id,
+      name: f.name,
+      unit: f.unit,
+      allowedSpecies: f.allowedSpecies,
+      imageUrl: f.imageUrl,
+      regionalNames: f.regionalNames,
+    })),
     programs,
   });
 });

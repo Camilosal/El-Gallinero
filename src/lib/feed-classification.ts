@@ -16,8 +16,12 @@ export const FEED_CURRENT_CATEGORIES = ["Concentrado", "En Fresco", "Preparados"
 export const FEED_CURRENT_TYPES = [
   "Bore o Raices",
   "Concentrado Aves",
+  "Concentrado Pollo Engorde",
   "Concentrado Codorniz",
+  "Concentrado Patos",
   "Concentrado Conejos",
+  "Concentrado Cuyes",
+  "Concentrado Multiespecie",
   "Forraje Verde",
   "Maiz en Grano",
   "Maíz Germinado",
@@ -100,8 +104,12 @@ export function inferFeedCatalogGroup(
   const hay = normalizeLabel(`${name || ""} ${String(feedType || "")}`);
   if (
     normalizedType === "Concentrado Aves" ||
+    normalizedType === "Concentrado Pollo Engorde" ||
     normalizedType === "Concentrado Codorniz" ||
+    normalizedType === "Concentrado Patos" ||
     normalizedType === "Concentrado Conejos" ||
+    normalizedType === "Concentrado Cuyes" ||
+    normalizedType === "Concentrado Multiespecie" ||
     hay.includes("concentrado") ||
     hay.includes("balanceado")
   ) {

@@ -34,6 +34,8 @@ export const GET = withApiHandler(async () => {
         id: feedInventory.id,
         name: feedInventory.name,
         category: feedInventory.category,
+        feedType: feedInventory.feedType,
+        catalogGroup: feedInventory.catalogGroup,
         standardCatalogId: feedInventory.standardCatalogId,
         sanitaryStatus: feedInventory.sanitaryStatus,
         dryMatterPct: feedInventory.dryMatterPct,
@@ -45,6 +47,7 @@ export const GET = withApiHandler(async () => {
         metCysDigDmPct: feedInventory.metCysDigDmPct,
         crudeFiberDmPct: feedInventory.crudeFiberDmPct,
         nutritionProfile: feedInventory.nutritionProfile,
+        allowedSpecies: feedInventory.allowedSpecies,
       })
       .from(feedInventory),
   ]);
@@ -64,9 +67,11 @@ export const GET = withApiHandler(async () => {
         feedId: feedPrograms.feedId,
         feedName: feedInventory.name,
         feedUnit: feedInventory.unit,
+        feedType: feedInventory.feedType,
         percentage: feedPrograms.percentage,
         dailyAmountPerHen: feedPrograms.dailyAmountPerHen,
         feedCategory: feedInventory.category,
+        catalogGroup: feedInventory.catalogGroup,
         dryMatterPct: feedInventory.dryMatterPct,
         crudeProteinPct: feedInventory.crudeProteinPct,
         standardCatalogId: feedInventory.standardCatalogId,
@@ -78,6 +83,8 @@ export const GET = withApiHandler(async () => {
         metCysDigDmPct: feedInventory.metCysDigDmPct,
         crudeFiberDmPct: feedInventory.crudeFiberDmPct,
         nutritionProfile: feedInventory.nutritionProfile,
+        allowedSpecies: feedInventory.allowedSpecies,
+        imageUrl: feedInventory.imageUrl,
       })
       .from(feedPrograms)
       .leftJoin(feedInventory, eq(feedPrograms.feedId, feedInventory.id))
@@ -86,6 +93,9 @@ export const GET = withApiHandler(async () => {
     const rationLines = programs.map((p) => {
       const resolved = resolveEffectiveFeedProfile({
         name: p.feedName,
+        feedType: p.feedType,
+        category: p.feedCategory,
+        catalogGroup: p.catalogGroup,
         standardCatalogId: p.standardCatalogId,
         sanitaryStatus: p.sanitaryStatus,
         dryMatterPct: p.dryMatterPct,
@@ -97,6 +107,7 @@ export const GET = withApiHandler(async () => {
         metCysDigDmPct: p.metCysDigDmPct,
         crudeFiberDmPct: p.crudeFiberDmPct,
         nutritionProfile: p.nutritionProfile as Record<string, unknown> | null,
+        allowedSpecies: p.allowedSpecies,
       });
       return {
         grams: Number(p.dailyAmountPerHen),
@@ -112,6 +123,7 @@ export const GET = withApiHandler(async () => {
         sanitaryStatus: resolved.sanitaryStatus,
         standardCatalogId: resolved.standardCatalogId,
         feedName: p.feedName,
+        allowedSpecies: resolved.allowedSpecies,
       };
     });
 

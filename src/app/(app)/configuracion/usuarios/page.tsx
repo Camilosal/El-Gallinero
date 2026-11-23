@@ -18,7 +18,7 @@ import {
   X,
 } from "lucide-react";
 import { HeroActionLink, HeroBanner } from "@/components/HeroBanner";
-import { Tooltip } from "@/components/ui";
+import { Modal, Tooltip } from "@/components/ui";
 import {
   PERMISSION_LABELS,
   ROLE_LABELS,
@@ -601,30 +601,14 @@ export default function UsuariosConfiguracionPage() {
       </div>
 
       {/* Modal Editar / Restablecer contraseña */}
-      {editingUser && (
-        <div
-          className="fixed inset-0 z-50 bg-slate-950/60 flex items-center justify-center p-4"
-          role="dialog"
-          aria-modal="true"
-          aria-label={`Editar cuenta de ${editingUser.name}`}
-        >
-          <div className="bg-white rounded-2xl border border-slate-200 shadow-xl w-full max-w-md p-5 sm:p-6 space-y-4">
-            <div className="flex items-start justify-between gap-2">
-              <div>
-                <h3 className="text-lg font-bold text-slate-900">Editar / Restablecer clave</h3>
-                <p className="text-xs font-mono text-slate-600">@{editingUser.username}</p>
-              </div>
-              <button
-                type="button"
-                onClick={() => setEditingUser(null)}
-                aria-label="Cerrar modal"
-                className="min-h-[48px] min-w-[48px] rounded-xl border border-slate-200 flex items-center justify-center text-slate-700 hover:bg-slate-50"
-              >
-                <X className="w-5 h-5" />
-              </button>
-            </div>
-
-            <form onSubmit={handleSaveEdit} className="space-y-4">
+      <Modal
+        open={Boolean(editingUser)}
+        onClose={() => setEditingUser(null)}
+        title="Editar / Restablecer clave"
+        subtitle={editingUser ? `@${editingUser.username}` : undefined}
+      >
+        {editingUser && (
+          <form onSubmit={handleSaveEdit} className="space-y-4">
               <div>
                 <div className="flex items-center gap-1 mb-1">
                   <label className="block text-sm font-semibold text-slate-800">Nombre completo</label>
@@ -691,9 +675,8 @@ export default function UsuariosConfiguracionPage() {
                 </button>
               </div>
             </form>
-          </div>
-        </div>
-      )}
+        )}
+      </Modal>
     </div>
   );
 }

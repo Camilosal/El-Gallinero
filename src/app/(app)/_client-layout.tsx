@@ -62,9 +62,9 @@ export default function ClientAppLayout({ children }: { children: React.ReactNod
     <div className="flex min-h-screen bg-[var(--iw-semantic-bg-page)] text-[var(--iw-semantic-text-primary)]">
       <Sidebar />
       <main className={`flex-1 ${marginClass} min-w-0 p-4 pb-24 md:p-6 md:pb-6 transition-all duration-300`}>
-        <header className="sticky top-0 z-30 -mx-4 -mt-4 mb-5 flex items-center md:justify-end gap-2 sm:gap-3 border-b border-[var(--iw-semantic-border-default)] bg-[var(--iw-semantic-bg-surface)]/95 backdrop-blur-md px-4 py-2.5 pl-16 shadow-xs md:-mx-6 md:-mt-6 md:px-6 md:pl-6">
+        <header className="sticky top-0 z-30 -mx-4 -mt-4 mb-5 flex items-center md:justify-end gap-1.5 sm:gap-2.5 border-b border-[var(--iw-semantic-border-default)] bg-[var(--iw-semantic-bg-surface)]/95 backdrop-blur-md pl-14 pr-3 py-2.5 shadow-xs sm:px-4 sm:pl-16 md:-mx-6 md:-mt-6 md:px-6 md:pl-6">
           <OfflineSyncStatus />
-          <div className="flex-1 min-w-0 max-w-xs sm:max-w-sm md:max-w-xs lg:max-w-sm">
+          <div className="flex-1 min-w-[72px] max-w-xs sm:max-w-sm md:max-w-xs lg:max-w-sm">
             <GlobalSearch variant="topbar" className="w-full" />
           </div>
           <ScaleModeControl variant="topbar" />
@@ -73,7 +73,7 @@ export default function ClientAppLayout({ children }: { children: React.ReactNod
             onClick={() => openBugReportModal({ triggerSource: "topbar" })}
             title="Reportar una falla o inconsistencia desde esta pantalla"
             aria-label="Reportar falla"
-            className="relative inline-flex h-10 min-h-[40px] items-center gap-1.5 rounded-[var(--iw-radius-control)] border border-[var(--iw-semantic-status-danger)]/40 bg-[var(--iw-semantic-bg-surface)] hover:bg-[var(--iw-semantic-bg-subtle)] px-3 py-0 text-xs sm:text-sm font-semibold text-[var(--iw-semantic-status-danger)] shadow-xs transition-colors shrink-0"
+            className="relative inline-flex h-9 min-h-[36px] w-9 items-center justify-center gap-1.5 rounded-[var(--iw-radius-control)] border border-[var(--iw-semantic-status-danger)]/40 bg-[var(--iw-semantic-bg-surface)] hover:bg-[var(--iw-semantic-bg-subtle)] px-0 py-0 text-xs sm:h-10 sm:min-h-[40px] sm:text-sm lg:w-auto lg:px-3 font-semibold text-[var(--iw-semantic-status-danger)] shadow-xs transition-colors shrink-0"
           >
             <Bug className="h-3.5 w-3.5 text-[var(--iw-semantic-status-danger)]" aria-hidden="true" />
             <span className="hidden lg:inline">Reportar falla</span>

@@ -464,10 +464,49 @@ async function nextBatchSequentialCodes(
   return Array.from({ length: count }, (_, idx) => `${prefix}-${String(max + idx + 1).padStart(3, "0")}`);
 }
 
-function feedTypeForSpecies(speciesList: string[]): "Concentrado Aves" | "Concentrado Codorniz" | "Concentrado Conejos" {
-  if (speciesList.length === 1 && speciesList[0] === "codorniz") return "Concentrado Codorniz";
-  if (speciesList.length === 1 && (speciesList[0] === "conejo" || speciesList[0] === "cuy")) return "Concentrado Conejos";
-  return "Concentrado Aves";
+function feedTypeForSpecies(
+  speciesList: string[],
+):
+  | "Concentrado Aves"
+  | "Concentrado Pollo Engorde"
+  | "Concentrado Codorniz"
+  | "Concentrado Patos"
+  | "Concentrado Conejos"
+  | "Concentrado Cuyes"
+  | "Concentrado Multiespecie" {
+  if (speciesList.length === 1) {
+    const sp = speciesList[0];
+    if (sp === "codorniz") return "Concentrado Codorniz";
+    if (sp === "conejo") return "Concentrado Conejos";
+    if (sp === "cuy") return "Concentrado Cuyes";
+    if (sp === "pato") return "Concentrado Patos";
+    if (sp === "pollo") return "Concentrado Pollo Engorde";
+    return "Concentrado Aves";
+  }
+  const hasMammals = speciesList.some((sp) => sp === "conejo" || sp === "cuy");
+  const hasBirds = speciesList.some(
+    (sp) => sp === "gallina" || sp === "gallo" || sp === "pollo" || sp === "codorniz" || sp === "pato",
+  );
+  if (hasMammals && !hasBirds) return "Concentrado Multiespecie";
+  if (!hasMammals && hasBirds) return "Concentrado Aves";
+  return "Concentrado Multiespecie";
+}
+
+function defaultStandardCatalogForSpecies(speciesList: string[]): string {
+  if (speciesList.length === 1) {
+    const sp = speciesList[0];
+    if (sp === "gallina") return "IG-001";
+    if (sp === "pollo") return "IG-120";
+    if (sp === "codorniz") return "IG-122";
+    if (sp === "pato") return "IG-123";
+    if (sp === "conejo") return "IG-124";
+    if (sp === "cuy") return "IG-125";
+  }
+  const hasMammals = speciesList.some((sp) => sp === "conejo" || sp === "cuy");
+  const hasBirds = speciesList.some((sp) => sp !== "conejo" && sp !== "cuy");
+  if (hasMammals && !hasBirds) return "IG-126";
+  if (speciesList.includes("gallina") || speciesList.includes("codorniz")) return "IG-001";
+  return "IG-003";
 }
 
 function defaultTargetDaysForSpecies(species: string): { weeks: number; weightKg: string } {
@@ -760,8 +799,7 @@ export async function executeDay1Setup(
       const feedName =
         String(payload.nombreAlimentoInicial || "").trim() ||
         `Concentrado Base (${speciesList.map((s) => speciesLabel(s)).join(" / ") || "Granja"})`;
-      const defaultStdId =
-        speciesList.includes("gallina") || speciesList.includes("codorniz") ? "IG-001" : "IG-003";
+      const defaultStdId = defaultStandardCatalogForSpecies(speciesList);
       const stdFeed = findStandardFeedById(defaultStdId);
       const [createdFeed] = await tx
         .insert(feedInventory)
@@ -785,6 +823,10 @@ export async function executeDay1Setup(
           availablePhosphorusDmPct:
             stdFeed?.availablePhosphorusDmPct != null ? stdFeed.availablePhosphorusDmPct.toFixed(2) : null,
           crudeFiberDmPct: stdFeed?.crudeFiberDmPct != null ? stdFeed.crudeFiberDmPct.toFixed(2) : null,
+          allowedSpecies: speciesList.length > 0 ? speciesList : stdFeed?.targetSpecies ?? ["gallina"],
+          imageUrl: stdFeed?.imageUrl ?? "/images/alimentos/concentrado-aves.svg",
+          description: stdFeed?.description ?? null,
+          regionalNames: stdFeed?.regionalNames ?? [],
         })
         .returning();
       await tx.insert(feedMovements).values({
