@@ -84,6 +84,10 @@ const stageColors: Record<string, string> = {
   Postura: "green",
 };
 
+import { computeDailyEggAverage } from "@/lib/kpi-dictionary";
+
+export { computeDailyEggAverage };
+
 export default function HuevosPage() {
   const searchParams = useSearchParams();
   const { priceEgg } = useSpeciesCatalog();
@@ -590,7 +594,7 @@ export default function HuevosPage() {
   const totalAutoconsumo = filteredRecords.reduce((s, r) => s + (r.quantityAutoconsumo || 0), 0);
   const totalExcedente = filteredRecords.reduce((s, r) => s + (r.quantityExcedente || 0), 0);
   const totalSavings = filteredRecords.reduce((s, r) => s + ((r.quantityAutoconsumo || 0) * Number(r.referenceUnitPrice || 0)), 0);
-  const avgDaily = filteredRecords.length > 0 ? Math.round(totalAll / filteredRecords.length) : 0;
+  const { avgPerObservedDay: avgDaily } = computeDailyEggAverage(filteredRecords);
 
   // Gráfico de evolución
   const chartData = filteredRecords.slice(0, 30).reverse().map((r) => {
@@ -637,7 +641,7 @@ export default function HuevosPage() {
         <StatCard icon="egg" label="Total Huevos" value={totalAll} color="yellow" />
         <StatCard icon="bar-chart" label="Promedio/día" value={avgDaily} color="blue" />
         <StatCard icon="home" label="Para el Hogar" value={`${totalAutoconsumo} uds`} color="green" />
-        <StatCard icon="banknote" label="Ahorro Hogar" value={`$${Math.round(totalSavings).toLocaleString("es-CO")}`} color="purple" />
+        <StatCard icon="banknote" label="Sustitución Hogar (est.)" value={`$${Math.round(totalSavings).toLocaleString("es-CO")}`} color="purple" />
         <StatCard icon="money" label="Excedentes Venta" value={`${totalExcedente} uds`} color="blue" />
         <StatCard icon="heart-crack" label="Rotos / Descarte" value={totalBroken} color="red" />
       </div>

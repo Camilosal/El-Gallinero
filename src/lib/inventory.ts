@@ -44,6 +44,10 @@ export interface EggInventory {
   summary: {
     produced: number;
     saleableProduced: number;
+    autoconsumed: number;
+    explicitSaleableProduced: number;
+    legacyInferredSaleableProduced: number;
+    pendingDestination: number;
     sold: number;
     lost: number;
     recordedLost: number;
@@ -155,16 +159,31 @@ export async function computeEggInventory(
     return new Map(allocations.map((row) => [row.size, row.quantity]));
   };
 
+  let totalAutoconsumed = 0;
+  let explicitSaleableProduced = 0;
+  let legacyInferredSaleableProduced = 0;
+  let pendingDestination = 0;
+
   for (const production of productions) {
     const productionDetails = detailsByProduction.get(production.id) || [];
     const classifiedTotal = productionDetails.reduce((sum, row) => sum + row.quantity, 0);
     const autoconsumed = Math.min(classifiedTotal, Math.max(0, Number(production.quantityAutoconsumo) || 0));
     const rawExcess = Math.max(0, Number(production.quantityExcedente) || 0);
-    // Before quantityExcedente was maintained consistently, a zero with no
-    // autoconsumption meant all classified eggs were saleable. Keep those rows
-    // usable while honoring an explicit zero when autoconsumption is recorded.
-    const requestedSaleable = rawExcess === 0 && autoconsumed === 0 ? classifiedTotal : rawExcess;
+    // Antes de que quantityExcedente se mantuviera consistentemente, cero sin autoconsumo
+    // significaba 100 % comercializable. Conservamos lectura heredada etiquetándola explícitamente.
+    const isLegacyFallback = rawExcess === 0 && autoconsumed === 0 && classifiedTotal > 0;
+    const requestedSaleable = isLegacyFallback ? classifiedTotal : rawExcess;
     const saleableTotal = Math.min(classifiedTotal - autoconsumed, requestedSaleable);
+    const pendingForRow = Math.max(0, classifiedTotal - autoconsumed - saleableTotal);
+
+    totalAutoconsumed += autoconsumed;
+    if (isLegacyFallback) {
+      legacyInferredSaleableProduced += saleableTotal;
+    } else {
+      explicitSaleableProduced += saleableTotal;
+    }
+    pendingDestination += pendingForRow;
+
     const saleableBySize = allocateBySize(productionDetails, saleableTotal);
     for (const [size, quantity] of saleableBySize) {
       const previous = saleableProducedBySize.get(size) || 0;
@@ -295,7 +314,19 @@ export async function computeEggInventory(
     : null;
 
   return {
-    summary: { produced: totalProduced, saleableProduced: totalSaleableProduced, sold: totalSold, lost: totalLost, recordedLost, available: totalAvailable, sizes },
+    summary: {
+      produced: totalProduced,
+      saleableProduced: totalSaleableProduced,
+      autoconsumed: totalAutoconsumed,
+      explicitSaleableProduced,
+      legacyInferredSaleableProduced,
+      pendingDestination,
+      sold: totalSold,
+      lost: totalLost,
+      recordedLost,
+      available: totalAvailable,
+      sizes,
+    },
     lots,
     aging,
     oldestLot,

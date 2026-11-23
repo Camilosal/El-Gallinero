@@ -4,6 +4,70 @@ import { and, desc, eq, sql } from "drizzle-orm";
 import { inferFeedCatalogGroup, normalizeFeedCatalogGroup } from "@/lib/feed-classification";
 import { runFeedProgramCatchup } from "./runProgram";
 
+export interface NormalizedMassResult {
+  quantityKg: number | null;
+  conversionFactor: number | null;
+  canonicalUnit: "kg";
+  isConvertible: boolean;
+}
+
+const MASS_UNIT_TO_KG_FACTOR: Readonly<Record<string, number>> = {
+  kg: 1,
+  kilogramo: 1,
+  kilogramos: 1,
+  kilo: 1,
+  kilos: 1,
+  g: 0.001,
+  gr: 0.001,
+  gramo: 0.001,
+  gramos: 0.001,
+  lb: 0.5,
+  libra: 0.5,
+  libras: 0.5,
+  bulto: 40,
+  bultos: 40,
+  bulto_40kg: 40,
+  bultos_40kg: 40,
+  saco: 40,
+  sacos: 40,
+  ton: 1000,
+  tonelada: 1000,
+  toneladas: 1000,
+};
+
+/**
+ * DAT-06: Normaliza cantidades de alimento hacia la unidad canónica kg mediante factores verificados.
+ * Unidades no másicas (ej. litros o unidades) devuelven `isConvertible: false` y `quantityKg: null`.
+ */
+export function normalizeFeedQuantityToKg(
+  quantity: number | string,
+  unit: string | null | undefined,
+): NormalizedMassResult {
+  const num = Number(quantity);
+  const normalizedUnit = String(unit || "kg")
+    .trim()
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[̀-ͯ]/g, "");
+
+  const factor = MASS_UNIT_TO_KG_FACTOR[normalizedUnit];
+  if (!factor || !Number.isFinite(num)) {
+    return {
+      quantityKg: null,
+      conversionFactor: factor ?? null,
+      canonicalUnit: "kg",
+      isConvertible: Boolean(factor),
+    };
+  }
+
+  return {
+    quantityKg: Math.round(num * factor * 1000) / 1000,
+    conversionFactor: factor,
+    canonicalUnit: "kg",
+    isConvertible: true,
+  };
+}
+
 export interface FeedInventoryProjection {
   id: string;
   name: string;
@@ -29,21 +93,27 @@ export interface FeedInventoryProjection {
   estimatedValue: number;
   isLow: boolean;
   daysRemaining: number | null;
+  currentStockKg: number | null;
+  dailyConsumptionKg: number | null;
+  unitConversionVerified: boolean;
 }
 
 /**
- * Devuelve el inventario de alimentos con su valor estimado y la proyección
- * de días restantes según el consumo registrado en los últimos `days` días.
+ * Devuelve el inventario de alimentos con su valor estimado, equivalente en kg canónicos
+ * y proyección de días restantes según el consumo registrado en los últimos `days` días.
  *
- * Antes de calcular, materializa los consumos pendientes del programa de
- * alimentación (catch-up idempotente), igual que hacía el endpoint GET.
+ * DAT-09: Permite desactivar la materialización automática durante consultas de solo lectura
+ * pasando `{ materializeProgramCatchup: false }`.
  */
 export async function getFeedInventoryProjection(
   days: number = 30,
+  options: { materializeProgramCatchup?: boolean } = {},
 ): Promise<FeedInventoryProjection[]> {
   const period = Number.isFinite(days) && days > 0 ? Math.floor(days) : 30;
 
-  await runFeedProgramCatchup();
+  if (options.materializeProgramCatchup !== false) {
+    await runFeedProgramCatchup();
+  }
 
   const inventory = await db
     .select()
@@ -64,7 +134,7 @@ export async function getFeedInventoryProjection(
       ),
     );
 
-  // Consumo promedio diario por alimento
+  // Consumo promedio diario por alimento en unidad original del ítem
   const consumptionByFeed = new Map<string, number>();
   for (const m of movements) {
     const daily = Number(m.quantity) / period;
@@ -81,6 +151,9 @@ export async function getFeedInventoryProjection(
     const isLow = dailyConsumption > 0 && currentStock / dailyConsumption <= 7;
     const daysRemaining =
       dailyConsumption > 0 ? Math.floor(currentStock / dailyConsumption) : null;
+
+    const stockNormalized = normalizeFeedQuantityToKg(currentStock, f.unit);
+    const consumptionNormalized = normalizeFeedQuantityToKg(dailyConsumption, f.unit);
 
     return {
       id: f.id,
@@ -109,6 +182,9 @@ export async function getFeedInventoryProjection(
       estimatedValue,
       isLow,
       daysRemaining,
+      currentStockKg: stockNormalized.quantityKg,
+      dailyConsumptionKg: consumptionNormalized.quantityKg,
+      unitConversionVerified: stockNormalized.isConvertible,
     };
   });
 }
