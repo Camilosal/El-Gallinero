@@ -3525,6 +3525,17 @@ const gestionarAlimento: AgentTool = {
       calcio_ms_pct: { type: "number", minimum: 0, maximum: 100 },
       fosforo_disp_ms_pct: { type: "number", minimum: 0, maximum: 100 },
       fibra_ms_pct: { type: "number", minimum: 0, maximum: 100 },
+      especies_objetivo: {
+        type: "array",
+        items: { type: "string", enum: ["gallina", "gallo", "pollo", "codorniz", "pato", "conejo", "cuy"] },
+        description: "Para qué especies aplica este alimento (ej. ['conejo', 'cuy'] o ['gallina']).",
+      },
+      descripcion: { type: "string", description: "Ficha descriptiva del alimento, preparación y precauciones." },
+      nombres_regionales: {
+        type: "array",
+        items: { type: "string" },
+        description: "Nombres regionales o sinónimos (ej. ['Cuido', 'Purina', 'Ahuyama', 'Zapallo']).",
+      },
     },
     required: ["nombre"],
     additionalProperties: false,
@@ -3563,6 +3574,9 @@ const gestionarAlimento: AgentTool = {
         availablePhosphorusDmPct:
           args.fosforo_disp_ms_pct !== undefined ? Number(args.fosforo_disp_ms_pct) : existing.availablePhosphorusDmPct,
         crudeFiberDmPct: args.fibra_ms_pct !== undefined ? Number(args.fibra_ms_pct) : existing.crudeFiberDmPct,
+        ...(args.especies_objetivo !== undefined ? { allowedSpecies: args.especies_objetivo } : {}),
+        ...(args.descripcion !== undefined ? { description: args.descripcion } : {}),
+        ...(args.nombres_regionales !== undefined ? { regionalNames: args.nombres_regionales } : {}),
       };
       return {
         args: { _method: "PUT", payload },
@@ -3594,6 +3608,9 @@ const gestionarAlimento: AgentTool = {
           : stdFeed?.availablePhosphorusDmPct ?? undefined,
       crudeFiberDmPct:
         args.fibra_ms_pct !== undefined ? Number(args.fibra_ms_pct) : stdFeed?.crudeFiberDmPct ?? undefined,
+      ...(args.especies_objetivo !== undefined ? { allowedSpecies: args.especies_objetivo } : {}),
+      ...(args.descripcion !== undefined ? { description: args.descripcion } : {}),
+      ...(args.nombres_regionales !== undefined ? { regionalNames: args.nombres_regionales } : {}),
     };
     return {
       args: { _method: "POST", payload },

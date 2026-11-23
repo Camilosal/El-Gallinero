@@ -1,9 +1,8 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { createPortal } from "react-dom";
+import { useState } from "react";
 import { Building2, MapPin, Phone, Receipt, User, X } from "lucide-react";
-import { Button, Input, Select, Textarea, Tooltip } from "@/components/ui";
+import { Button, Input, PortalDialog, Select, Textarea, Tooltip } from "@/components/ui";
 import { apiFetch } from "@/lib/fetch";
 import {
   CLIENT_CATEGORY_SUGGESTIONS,
@@ -129,17 +128,6 @@ function ContactFormModalBody({
   const [error, setError] = useState("");
   const [conflictContact, setConflictContact] = useState<ContactRecord | null>(null);
 
-  useEffect(() => {
-    const handleKeyDown = (event: KeyboardEvent) => {
-      if (event.key === "Escape") {
-        event.stopPropagation();
-        onClose();
-      }
-    };
-    window.addEventListener("keydown", handleKeyDown, true);
-    return () => window.removeEventListener("keydown", handleKeyDown, true);
-  }, [onClose]);
-
   const isEditing = Boolean(initialContact?.id);
   const tagSuggestions =
     form.role === "proveedor"
@@ -249,42 +237,32 @@ function ContactFormModalBody({
         ? "Nuevo cliente y proveedor"
         : "Nuevo cliente";
 
-  return createPortal(
-    <div
-      className="fixed inset-0 z-[120] flex items-center justify-center bg-black/55 p-3 sm:p-4"
-      onClick={(e) => {
-        e.stopPropagation();
-        onClose();
-      }}
-    >
-      <div
-        className="w-full max-w-2xl max-h-[92vh] overflow-y-auto rounded-2xl bg-white shadow-2xl border border-slate-200"
-        onClick={(e) => e.stopPropagation()}
-      >
-        <div className="sticky top-0 z-10 flex items-center justify-between border-b border-slate-200 bg-white px-5 py-4">
-          <div>
-            <h2 className="text-lg font-semibold text-slate-800">{modalTitle}</h2>
-            <p className="text-xs text-slate-500">
-              Registra datos de contacto, ubicación y condiciones comerciales para agilizar ventas, compras y cobros.
-            </p>
-          </div>
-          <button
-            type="button"
-            onClick={onClose}
-            aria-label="Cerrar"
-            className="rounded-lg p-1.5 text-slate-400 hover:bg-slate-100 hover:text-slate-700 transition-colors"
-          >
-            <X className="h-5 w-5" />
-          </button>
+  return (
+    <PortalDialog open onClose={onClose} ariaLabel={modalTitle} size="lg">
+      <div className="shrink-0 flex items-center justify-between border-b border-slate-200 bg-white px-5 py-4">
+        <div>
+          <h2 className="text-lg font-semibold text-slate-800">{modalTitle}</h2>
+          <p className="text-xs text-slate-500">
+            Registra datos de contacto, ubicación y condiciones comerciales para agilizar ventas, compras y cobros.
+          </p>
         </div>
-
-        <form
-          onSubmit={(e) => {
-            e.preventDefault();
-            void submitPayload(false);
-          }}
-          className="space-y-5 p-5"
+        <button
+          type="button"
+          onClick={onClose}
+          aria-label="Cerrar"
+          className="rounded-lg p-1.5 text-slate-400 hover:bg-slate-100 hover:text-slate-700 transition-colors"
         >
+          <X className="h-5 w-5" />
+        </button>
+      </div>
+
+      <form
+        onSubmit={(e) => {
+          e.preventDefault();
+          void submitPayload(false);
+        }}
+        className="flex-1 min-h-0 overflow-y-auto overscroll-contain space-y-5 p-5"
+      >
           {error && (
             <div className="rounded-xl border border-red-200 bg-red-50 p-3 text-sm text-red-700 space-y-2">
               <p>{error}</p>
@@ -588,9 +566,7 @@ function ContactFormModalBody({
               {saving ? "Guardando..." : isEditing ? "Guardar cambios" : "Guardar contacto"}
             </Button>
           </div>
-        </form>
-      </div>
-    </div>,
-    document.body,
+      </form>
+    </PortalDialog>
   );
 }

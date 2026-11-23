@@ -70,8 +70,12 @@ export const feedTypeEnum = pgEnum("feed_type", [
   // Valores actuales del catálogo tipo_alimento.
   "Bore o Raices",
   "Concentrado Aves",
+  "Concentrado Pollo Engorde",
   "Concentrado Codorniz",
+  "Concentrado Patos",
   "Concentrado Conejos",
+  "Concentrado Cuyes",
+  "Concentrado Multiespecie",
   "Forraje Verde",
   "Maiz en Grano",
   "Maíz Germinado",
@@ -327,6 +331,10 @@ export const feedInventory = pgTable("feed_inventory", {
   metCysDigDmPct: decimal("met_cys_dig_dm_pct", { precision: 5, scale: 2 }), // Met+Cys dig % MS
   crudeFiberDmPct: decimal("crude_fiber_dm_pct", { precision: 5, scale: 2 }), // Fibra bruta % MS
   nutritionProfile: jsonb("nutrition_profile"), // Metadatos de composición, preparación, riesgos y fuente
+  allowedSpecies: jsonb("allowed_species").$type<string[]>().default([]).notNull(), // Especies compatibles (gallina, gallo, pollo, codorniz, pato, conejo, cuy)
+  imageUrl: text("image_url"), // Ilustración del catálogo o foto cargada por el productor
+  description: text("description"), // Ficha descriptiva de uso, preparación y notas regionales
+  regionalNames: jsonb("regional_names").$type<string[]>().default([]).notNull(), // Nombres comunes/regionales (cuido, purina, chonque, zapallo...)
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 }, (t) => [

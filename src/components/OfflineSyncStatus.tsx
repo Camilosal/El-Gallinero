@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { getPendingVoiceNotesCount } from "@/lib/offline/db";
 import { VOICE_NOTES_CHANGED_EVENT } from "@/lib/offline/voiceNotes";
 import { useOfflineSync } from "@/lib/offline/useOfflineSync";
+import { PortalDialog } from "@/components/ui";
 import { Cloud, CloudOff, Download, Mic, RefreshCw, AlertCircle, CheckCircle2, Smartphone, Trash2, X } from "lucide-react";
 
 export default function OfflineSyncStatus() {
@@ -96,53 +97,45 @@ export default function OfflineSyncStatus() {
       <button
         type="button"
         onClick={() => setIsOpen(true)}
-        className={`inline-flex h-10 min-h-[40px] items-center gap-1.5 px-2.5 sm:px-3 py-0 rounded-[var(--iw-radius-control)] text-xs sm:text-sm font-semibold border shadow-xs transition-colors hover:brightness-95 shrink-0 ${badgeColor}`}
-        title="Ver estado de conexión, copia offline y sincronización"
+        className={`relative inline-flex h-9 min-h-[36px] w-9 justify-center items-center gap-1.5 px-0 sm:h-10 sm:min-h-[40px] sm:w-auto sm:px-3 py-0 rounded-[var(--iw-radius-control)] text-xs sm:text-sm font-semibold border shadow-xs transition-colors hover:brightness-95 shrink-0 ${badgeColor}`}
+        title={`${text} — Ver estado de conexión, copia offline y sincronización`}
+        aria-label={text}
       >
         <Icon className={`w-3.5 h-3.5 sm:w-4 sm:h-4 shrink-0 ${isSyncing ? "animate-spin" : ""}`} />
-        <span className="whitespace-nowrap">{text}</span>
+        <span className="hidden sm:inline whitespace-nowrap">{text}</span>
       </button>
 
       {/* Modal / Dialog de estado de sincronización */}
-      {isOpen && (
-        <div
-          role="dialog"
-          aria-modal="true"
-          aria-label="Estado de conexión y sincronización"
-          className="fixed inset-0 z-50 flex items-center justify-center bg-[var(--iw-color-ink-strong)]/45 backdrop-blur-xs p-4 animate-in fade-in duration-150"
-        >
-          <div className="bg-[var(--iw-semantic-bg-surface)] rounded-2xl shadow-[var(--iw-shadow-popover)] max-w-md w-full overflow-hidden border border-[var(--iw-semantic-border-default)]">
-            {/* Cabecera */}
-            <div className="flex items-center justify-between px-5 py-4 border-b border-[var(--iw-semantic-border-default)] bg-[var(--iw-semantic-bg-subtle)]">
-              <div className="flex items-center gap-2">
-                {isOnline ? (
-                  <CheckCircle2 className="w-5 h-5 text-[var(--iw-semantic-status-success)]" />
-                ) : (
-                  <CloudOff className="w-5 h-5 text-[var(--iw-semantic-status-warning)]" />
-                )}
-                <div>
-                  <h3 className="font-display text-sm font-semibold text-[var(--iw-semantic-text-primary)]">
-                    {isOnline ? "Conectado a Internet" : "Modo Sin Conexión (Offline)"}
-                  </h3>
-                  <p className="text-xs text-[var(--iw-semantic-text-secondary)]">
-                    {isOnline
-                      ? "Los cambios se guardan y sincronizan con la nube"
-                      : "Tus registros se guardan en el teléfono de forma segura"}
-                  </p>
-                </div>
-              </div>
-              <button
-                type="button"
-                aria-label="Cerrar"
-                onClick={() => setIsOpen(false)}
-                className="inline-flex h-9 w-9 items-center justify-center text-[var(--iw-semantic-text-secondary)] hover:text-[var(--iw-semantic-text-primary)] hover:bg-[var(--iw-semantic-bg-page)] rounded-[var(--iw-radius-control)] transition-colors"
-              >
-                <X className="w-5 h-5" />
-              </button>
+      <PortalDialog open={isOpen} onClose={() => setIsOpen(false)} ariaLabel="Estado de conexión y sincronización" size="md">
+        <div className="shrink-0 flex items-center justify-between px-5 py-4 border-b border-[var(--iw-semantic-border-default)] bg-[var(--iw-semantic-bg-subtle)]">
+          <div className="flex items-center gap-2">
+            {isOnline ? (
+              <CheckCircle2 className="w-5 h-5 text-[var(--iw-semantic-status-success)]" />
+            ) : (
+              <CloudOff className="w-5 h-5 text-[var(--iw-semantic-status-warning)]" />
+            )}
+            <div>
+              <h2 className="font-display text-sm font-semibold text-[var(--iw-semantic-text-primary)]">
+                {isOnline ? "Conectado a Internet" : "Modo Sin Conexión (Offline)"}
+              </h2>
+              <p className="text-xs text-[var(--iw-semantic-text-secondary)]">
+                {isOnline
+                  ? "Los cambios se guardan y sincronizan con la nube"
+                  : "Tus registros se guardan en el teléfono de forma segura"}
+              </p>
             </div>
+          </div>
+          <button
+            type="button"
+            aria-label="Cerrar"
+            onClick={() => setIsOpen(false)}
+            className="inline-flex h-9 w-9 items-center justify-center text-[var(--iw-semantic-text-secondary)] hover:text-[var(--iw-semantic-text-primary)] hover:bg-[var(--iw-semantic-bg-page)] rounded-[var(--iw-radius-control)] transition-colors"
+          >
+            <X className="w-5 h-5" />
+          </button>
+        </div>
 
-            {/* Contenido */}
-            <div className="p-5 space-y-4">
+        <div className="flex-1 min-h-0 overflow-y-auto overscroll-contain p-5 space-y-4">
               {/* Notificación de feedback */}
               {syncFeedback && (
                 <div className="p-3 bg-[var(--iw-semantic-bg-feature)] border border-[var(--iw-semantic-status-success)]/35 text-[var(--iw-semantic-status-success)] rounded-[var(--iw-radius-control)] text-xs font-medium">
@@ -304,8 +297,7 @@ export default function OfflineSyncStatus() {
               )}
             </div>
 
-            {/* Pie con acciones */}
-            <div className="px-5 py-3 bg-[var(--iw-semantic-bg-subtle)] border-t border-[var(--iw-semantic-border-default)] flex items-center justify-between gap-2">
+            <div className="shrink-0 px-5 py-3 bg-[var(--iw-semantic-bg-subtle)] border-t border-[var(--iw-semantic-border-default)] flex items-center justify-between gap-2">
               <span className="text-[11px] text-[var(--iw-semantic-text-secondary)]">
                 {isOnline ? "Conexión activa" : "Sin conexión celular/Wi-Fi"}
               </span>
@@ -320,9 +312,7 @@ export default function OfflineSyncStatus() {
                 {isSyncing ? "Sincronizando..." : "Sincronizar ahora"}
               </button>
             </div>
-          </div>
-        </div>
-      )}
+      </PortalDialog>
     </>
   );
 }

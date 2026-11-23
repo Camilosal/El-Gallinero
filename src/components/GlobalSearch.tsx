@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Search } from "lucide-react";
 import { AppIcon } from "@/components/AppIcon";
+import { PortalDialog } from "@/components/ui";
 import { searchNavigation, type SearchEntry } from "@/lib/navigation";
 import { FEATURE_FLAG_CATALOG } from "@/lib/onboarding";
 import { useOnboardingState } from "@/lib/useOnboardingState";
@@ -89,31 +90,23 @@ export default function GlobalSearch({
     setOpen(true);
   }, []);
 
-  // Atajo global Ctrl/Cmd+K y cierre con Escape
+  // Atajo global Ctrl/Cmd+K
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
       if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === "k") {
         event.preventDefault();
         openSearch();
       }
-      if (event.key === "Escape") {
-        setOpen(false);
-      }
     };
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
   }, [openSearch]);
 
-  // Reiniciar estado y enfocar al abrir
+  // Enfocar el campo de búsqueda al abrir el diálogo nativo
   useEffect(() => {
     if (!open) return;
-    const timeout = window.setTimeout(() => inputRef.current?.focus(), 30);
-    const previousOverflow = document.body.style.overflow;
-    document.body.style.overflow = "hidden";
-    return () => {
-      window.clearTimeout(timeout);
-      document.body.style.overflow = previousOverflow;
-    };
+    const frame = window.requestAnimationFrame(() => inputRef.current?.focus());
+    return () => window.cancelAnimationFrame(frame);
   }, [open]);
 
   const navigate = (href: string) => {
@@ -146,13 +139,13 @@ export default function GlobalSearch({
         <button
           type="button"
           onClick={openSearch}
-          className={`flex h-10 min-h-[40px] items-center gap-2 rounded-[var(--iw-radius-control)] border border-[var(--iw-semantic-border-input)] bg-[var(--iw-semantic-bg-surface)] px-2.5 sm:px-3 py-0 text-left text-xs sm:text-sm text-[var(--iw-semantic-text-secondary)] shadow-xs transition-colors hover:border-[var(--iw-semantic-border-strong)] hover:bg-[var(--iw-semantic-bg-subtle)] hover:text-[var(--iw-semantic-text-primary)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--iw-semantic-focus-ring)] ${className}`}
+          className={`flex h-9 min-h-[36px] sm:h-10 sm:min-h-[40px] items-center gap-1.5 sm:gap-2 rounded-[var(--iw-radius-control)] border border-[var(--iw-semantic-border-input)] bg-[var(--iw-semantic-bg-surface)] px-2 sm:px-3 py-0 text-left text-xs sm:text-sm text-[var(--iw-semantic-text-secondary)] shadow-xs transition-colors hover:border-[var(--iw-semantic-border-strong)] hover:bg-[var(--iw-semantic-bg-subtle)] hover:text-[var(--iw-semantic-text-primary)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--iw-semantic-focus-ring)] ${className}`}
           aria-label="Buscar en el sistema"
           aria-keyshortcuts="Control+K Meta+K"
         >
-          <Search className="w-4 h-4 text-[var(--iw-semantic-text-secondary)] shrink-0" />
+          <Search className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-[var(--iw-semantic-text-secondary)] shrink-0" />
           <span className="truncate flex-1">
-            <span className="sm:hidden">Buscar...</span>
+            <span className="sm:hidden">Buscar</span>
             <span className="hidden sm:inline">Buscar módulo o acción...</span>
           </span>
           <kbd className="hidden md:inline-flex rounded border border-[var(--iw-semantic-border-default)] bg-[var(--iw-semantic-bg-subtle)] px-1.5 py-0.5 text-[10px] font-medium text-[var(--iw-semantic-text-secondary)]">
@@ -186,104 +179,91 @@ export default function GlobalSearch({
         </button>
       )}
 
-      {open && (
-        <div
-          className="fixed inset-0 z-[100] flex items-start justify-center bg-black/60 px-4 pt-[8vh] sm:pt-[12vh]"
-          onClick={() => setOpen(false)}
-          role="presentation"
-        >
-          <div
-            className="w-full max-w-xl overflow-hidden rounded-2xl bg-white shadow-2xl"
-            onClick={(event) => event.stopPropagation()}
-            role="dialog"
-            aria-modal="true"
-            aria-label="Buscador global"
-          >
-            <div className="flex items-center gap-3 border-b border-slate-200 px-4">
-              <Search className="w-4 h-4 text-slate-400 shrink-0" />
-              <input
-                ref={inputRef}
-                value={query}
-                onChange={(event) => {
-                  setQuery(event.target.value);
-                  setActiveIndex(0);
-                }}
-                onKeyDown={handleInputKeyDown}
-                placeholder="Busca en palabras sencillas: huevo, equipo, ganancia real, norma, falla, clima..."
-                className="flex-1 bg-transparent py-4 text-sm text-slate-800 outline-none placeholder:text-slate-400"
-                aria-label="Término de búsqueda"
-                autoComplete="off"
-                spellCheck={false}
-              />
-              <kbd className="rounded border border-slate-300 bg-slate-50 px-1.5 py-0.5 text-[10px] font-semibold text-slate-500">
-                Esc
-              </kbd>
-            </div>
-
-            <div className="max-h-[60vh] overflow-y-auto py-2">
-              {results.length === 0 ? (
-                <div className="px-4 py-10 text-center">
-                  <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-2xl bg-slate-100 text-slate-400">
-                    <Search className="w-6 h-6" />
-                  </div>
-                  <p className="mt-3 text-sm font-medium text-slate-700">
-                    Sin resultados para “{query}”
-                  </p>
-                  {smartLoading ? (
-                    <p className="mt-2 text-xs text-slate-500">Buscando coincidencias relacionadas...</p>
-                  ) : visibleSmartSuggestions.length > 0 ? (
-                    <div className="mt-4 max-w-md mx-auto text-left space-y-1.5">
-                      <p className="text-[11px] font-bold uppercase tracking-wide text-green-700 px-1">
-                        Quizás buscas
-                      </p>
-                      {visibleSmartSuggestions.map((s) => (
-                        <button
-                          key={s.id}
-                          type="button"
-                          onClick={() => navigate(s.href)}
-                          className="w-full rounded-lg border border-slate-200 bg-slate-50/70 px-3 py-2 text-left hover:border-green-400 hover:bg-green-50/60 transition-colors"
-                        >
-                          <span className="block text-sm font-semibold text-slate-900">{s.title}</span>
-                          {s.group ? (
-                            <span className="block text-xs text-slate-500">{s.group}</span>
-                          ) : null}
-                        </button>
-                      ))}
-                    </div>
-                  ) : null}
-                  <p className="mt-1 text-xs text-slate-500">
-                    Prueba con “huevos”, “cuyes”, “rutinas”, “sensores”, “prorrateo” o “vacunas”.
-                  </p>
-                </div>
-              ) : (
-                <>
-                  {!query.trim() && (
-                    <p className="px-4 pb-1 pt-2 text-[11px] font-semibold uppercase tracking-wide text-slate-400">
-                      Accesos rápidos
-                    </p>
-                  )}
-                  {results.map((entry, index) => (
-                    <SearchResultRow
-                      key={`${entry.href}-${entry.label}`}
-                      entry={entry}
-                      active={index === activeIndex}
-                      onHover={() => setActiveIndex(index)}
-                      onSelect={() => navigate(entry.href)}
-                    />
-                  ))}
-                </>
-              )}
-            </div>
-
-            <div className="flex flex-wrap items-center gap-x-4 gap-y-1 border-t border-slate-200 bg-slate-50 px-4 py-2 text-[11px] text-slate-500">
-              <span>↑↓ navegar</span>
-              <span>↵ abrir</span>
-              <span>Esc cerrar</span>
-              <span className="ml-auto hidden sm:inline">Búsqueda por nombre y sinónimos</span>
-            </div>
-          </div>
+      <PortalDialog open={open} onClose={() => setOpen(false)} ariaLabel="Buscador global" size="lg" variant="top" className="max-w-xl">
+        <div className="shrink-0 flex items-center gap-3 border-b border-slate-200 px-4">
+          <Search className="w-4 h-4 text-slate-400 shrink-0" />
+          <input
+            ref={inputRef}
+            autoFocus
+            value={query}
+            onChange={(event) => {
+              setQuery(event.target.value);
+              setActiveIndex(0);
+            }}
+            onKeyDown={handleInputKeyDown}
+            placeholder="Busca en palabras sencillas: huevo, alimento, equipo, ganancia real, norma, falla..."
+            className="flex-1 bg-transparent py-4 text-sm text-slate-800 outline-none placeholder:text-slate-400"
+            aria-label="Término de búsqueda"
+            autoComplete="off"
+            spellCheck={false}
+          />
+          <kbd className="rounded border border-slate-300 bg-slate-50 px-1.5 py-0.5 text-[10px] font-semibold text-slate-500">
+            Esc
+          </kbd>
         </div>
-      )}
+
+        <div className="flex-1 min-h-0 overflow-y-auto overscroll-contain py-2">
+          {results.length === 0 ? (
+            <div className="px-4 py-10 text-center">
+              <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-2xl bg-slate-100 text-slate-400">
+                <Search className="w-6 h-6" />
+              </div>
+              <p className="mt-3 text-sm font-medium text-slate-700">
+                Sin resultados para “{query}”
+              </p>
+              {smartLoading ? (
+                <p className="mt-2 text-xs text-slate-500">Buscando coincidencias relacionadas...</p>
+              ) : visibleSmartSuggestions.length > 0 ? (
+                <div className="mt-4 max-w-md mx-auto text-left space-y-1.5">
+                  <p className="text-[11px] font-bold uppercase tracking-wide text-green-700 px-1">
+                    Quizás buscas
+                  </p>
+                  {visibleSmartSuggestions.map((s) => (
+                    <button
+                      key={s.id}
+                      type="button"
+                      onClick={() => navigate(s.href)}
+                      className="w-full rounded-lg border border-slate-200 bg-slate-50/70 px-3 py-2 text-left hover:border-green-400 hover:bg-green-50/60 transition-colors"
+                    >
+                      <span className="block text-sm font-semibold text-slate-900">{s.title}</span>
+                      {s.group ? (
+                        <span className="block text-xs text-slate-500">{s.group}</span>
+                      ) : null}
+                    </button>
+                  ))}
+                </div>
+              ) : null}
+              <p className="mt-1 text-xs text-slate-500">
+                Prueba con “huevos”, “cuyes”, “rutinas”, “sensores”, “prorrateo” o “vacunas”.
+              </p>
+            </div>
+          ) : (
+            <>
+              {!query.trim() && (
+                <p className="px-4 pb-1 pt-2 text-[11px] font-semibold uppercase tracking-wide text-slate-400">
+                  Accesos rápidos
+                </p>
+              )}
+              {results.map((entry, index) => (
+                <SearchResultRow
+                  key={`${entry.href}-${entry.label}`}
+                  entry={entry}
+                  active={index === activeIndex}
+                  onHover={() => setActiveIndex(index)}
+                  onSelect={() => navigate(entry.href)}
+                />
+              ))}
+            </>
+          )}
+        </div>
+
+        <div className="shrink-0 flex flex-wrap items-center gap-x-4 gap-y-1 border-t border-slate-200 bg-slate-50 px-4 py-2 text-[11px] text-slate-500">
+          <span>↑↓ navegar</span>
+          <span>↵ abrir</span>
+          <span>Esc cerrar</span>
+          <span className="ml-auto hidden sm:inline">Búsqueda por nombre y sinónimos</span>
+        </div>
+      </PortalDialog>
     </>
   );
 }

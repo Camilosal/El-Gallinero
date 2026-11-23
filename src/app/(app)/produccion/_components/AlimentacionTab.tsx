@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useCallback, useMemo } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { AlertTriangle, ArrowDown, ArrowUp, BarChart3, ClipboardList, Lightbulb, Package, Pencil, ShoppingCart, Sparkles, TrendingDown, TrendingUp, X } from "lucide-react";
+import { AlertTriangle, ArrowDown, ArrowUp, BarChart3, BookOpen, ClipboardList, Image as ImageIcon, Lightbulb, Package, Pencil, Search, ShoppingCart, Sparkles, TrendingDown, TrendingUp, Upload, X } from "lucide-react";
 import { PageHeader, HeroActionButton, Button, Card, Table, Badge, Modal, Input, Select, Textarea, EmptyState, StatCard, Tooltip as FieldTooltip } from "@/components/ui";
 import { AppIcon } from "@/components/AppIcon";
 import { useCatalog } from "@/lib/useCatalog";
@@ -38,11 +38,26 @@ import {
   type StandardFeedItem,
 } from "@/lib/feeding/standard-feed-catalog";
 import {
+  FEED_IMAGE_PRESETS,
+  FEED_SPECIES_SELECTOR_OPTIONS,
+  inferDefaultImageByFeed,
+  inferDefaultSpeciesByFeed,
+  normalizeFeedSpeciesList,
+  normalizeRegionalNamesList,
+} from "@/lib/feeding/feed-catalog-metadata";
+import {
   suggestSafeSubstitutesForStandardId,
   validateFeedingProgram,
   type DietValidationResult,
 } from "@/lib/feeding/nutrition-validator";
 import { DietValidationSummary } from "@/app/(app)/produccion/_components/DietValidationSummary";
+import {
+  FeedCatalogExplorerModal,
+  FeedFichaModal,
+  SpeciesTagList,
+  type FeedFichaRecord,
+} from "@/components/feeding/FeedFichaModal";
+import { FeedSearchPicker, compressFeedImageFile } from "@/components/feeding/FeedSearchPicker";
 import MicroInsightCard from "@/components/MicroInsightCard";
 import { buildFeedMicroInsight, type MicroInsightPayload } from "@/lib/micro-insights";
 
@@ -68,6 +83,10 @@ interface Feed {
   metCysDigDmPct?: string | null;
   crudeFiberDmPct?: string | null;
   nutritionProfile?: Record<string, unknown> | null;
+  allowedSpecies?: string[] | null;
+  imageUrl?: string | null;
+  description?: string | null;
+  regionalNames?: string[] | null;
 }
 
 interface FeedProgramEntry {
@@ -255,8 +274,12 @@ const feedTypeLabels: Record<string, string> = {
   otro: "Otro",
   "Bore o Raices": "Bore o Raices",
   "Concentrado Aves": "Concentrado Aves",
+  "Concentrado Pollo Engorde": "Concentrado Pollo Engorde",
   "Concentrado Codorniz": "Concentrado Codorniz",
+  "Concentrado Patos": "Concentrado Patos",
   "Concentrado Conejos": "Concentrado Conejos",
+  "Concentrado Cuyes": "Concentrado Cuyes",
+  "Concentrado Multiespecie": "Concentrado Multiespecie",
   "Forraje Verde": "Forraje Verde",
   "Maiz en Grano": "Maiz en Grano",
   "Maíz Germinado": "Maíz Germinado",
@@ -309,6 +332,7 @@ export default function AlimentacionPage() {
   const [programError, setProgramError] = useState("");
   const [catalogSearch, setCatalogSearch] = useState("");
   const [catalogGroup, setCatalogGroup] = useState("all");
+  const [catalogSpecies, setCatalogSpecies] = useState("all");
   const [newPlanForm, setNewPlanForm] = useState({
     species: "pollo",
     name: "",
@@ -336,10 +360,17 @@ export default function AlimentacionPage() {
     lysineDigDmPct: "",
     metCysDigDmPct: "",
     crudeFiberDmPct: "",
+    allowedSpecies: ["gallina", "gallo", "pollo", "pato", "conejo", "cuy"] as FeedingSpecies[],
+    imageUrl: "/images/alimentos/forrajes-hojas.svg",
+    description: "",
+    regionalNamesText: "",
   };
   const [form, setForm] = useState(emptyFeedForm);
   const [feedError, setFeedError] = useState("");
+  const [feedImageError, setFeedImageError] = useState("");
   const [savingFeed, setSavingFeed] = useState(false);
+  const [fichaFeed, setFichaFeed] = useState<FeedFichaRecord | null>(null);
+  const [explorerOpen, setExplorerOpen] = useState(false);
   const [movForm, setMovForm] = useState({ feedId: "", quantity: "", isEntry: true, movementType: "compra", stageCatalogoId: "", henCount: "", date: new Date().toISOString().split("T")[0], locationId: "", notes: "" });
   const [movementError, setMovementError] = useState("");
   const [lastInsight, setLastInsight] = useState<MicroInsightPayload | null>(null);
@@ -347,6 +378,7 @@ export default function AlimentacionPage() {
   const [prediccionDays, setPrediccionDays] = useState<number>(14);
   const [feedSearch, setFeedSearch] = useState("");
   const [feedGroupFilter, setFeedGroupFilter] = useState("all");
+  const [feedSpeciesFilter, setFeedSpeciesFilter] = useState("all");
   const [movementSearch, setMovementSearch] = useState("");
   const [comparativoSearch, setComparativoSearch] = useState("");
   const [predictionSearch, setPredictionSearch] = useState("");
@@ -501,9 +533,10 @@ export default function AlimentacionPage() {
     () =>
       searchStandardFeedCatalog(catalogSearch, {
         group: catalogGroup,
+        species: catalogSpecies,
         includeBlocked: true,
       }),
-    [catalogSearch, catalogGroup],
+    [catalogSearch, catalogGroup, catalogSpecies],
   );
 
   const applyStandardFeed = (stdId: string) => {
@@ -534,31 +567,88 @@ export default function AlimentacionPage() {
       lysineDigDmPct: item.lysineDigDmPct !== null ? String(item.lysineDigDmPct) : "",
       metCysDigDmPct: item.metCysDigDmPct !== null ? String(item.metCysDigDmPct) : "",
       crudeFiberDmPct: item.crudeFiberDmPct !== null ? String(item.crudeFiberDmPct) : "",
+      allowedSpecies: item.targetSpecies,
+      imageUrl: item.imageUrl,
+      description: editing && prev.description ? prev.description : item.description,
+      regionalNamesText: editing && prev.regionalNamesText ? prev.regionalNamesText : item.regionalNames.join(", "),
     }));
   };
 
   const openNewFeed = () => {
     setEditing(null);
     setFeedError("");
+    setFeedImageError("");
     setCatalogSearch("");
     setCatalogGroup("all");
+    setCatalogSpecies("all");
     setForm(emptyFeedForm);
     setModalOpen(true);
   };
 
+  const openNewFeedFromStandard = (item: StandardFeedItem) => {
+    setEditing(null);
+    setFeedError("");
+    setFeedImageError("");
+    setCatalogSearch("");
+    setCatalogGroup(item.group);
+    setCatalogSpecies("all");
+    setForm({
+      ...emptyFeedForm,
+      standardCatalogId: item.id,
+      catalogGroup: item.group,
+      sanitaryStatus: item.sanitaryStatus,
+      name: item.name,
+      category: item.defaultCategory,
+      feedType: item.defaultFeedType,
+      dryMatterPct: item.dryMatterPct !== null ? String(item.dryMatterPct) : "",
+      crudeProteinPct: item.crudeProteinAsFedPct !== null ? String(item.crudeProteinAsFedPct) : "",
+      energyKcalKgDm: item.energyKcalKgDm !== null ? String(item.energyKcalKgDm) : "",
+      calciumDmPct: item.calciumDmPct !== null ? String(item.calciumDmPct) : "",
+      availablePhosphorusDmPct: item.availablePhosphorusDmPct !== null ? String(item.availablePhosphorusDmPct) : "",
+      lysineDigDmPct: item.lysineDigDmPct !== null ? String(item.lysineDigDmPct) : "",
+      metCysDigDmPct: item.metCysDigDmPct !== null ? String(item.metCysDigDmPct) : "",
+      crudeFiberDmPct: item.crudeFiberDmPct !== null ? String(item.crudeFiberDmPct) : "",
+      allowedSpecies: item.targetSpecies,
+      imageUrl: item.imageUrl,
+      description: item.description,
+      regionalNamesText: item.regionalNames.join(", "),
+    });
+    setModalOpen(true);
+  };
+
   const openEditFeed = (f: Feed) => {
+    const resolvedGroup =
+      normalizeFeedCatalogGroup(f.catalogGroup) ??
+      findStandardFeedById(f.standardCatalogId)?.group ??
+      inferFeedCatalogGroup(f.feedType, f.name, f.category);
+    const std = findStandardFeedById(f.standardCatalogId);
+    const resolvedSpecies =
+      normalizeFeedSpeciesList(f.allowedSpecies).length > 0
+        ? normalizeFeedSpeciesList(f.allowedSpecies)
+        : std?.targetSpecies ??
+          inferDefaultSpeciesByFeed({
+            standardCatalogId: f.standardCatalogId,
+            group: resolvedGroup,
+            feedType: f.feedType,
+            name: f.name,
+            sanitaryStatus: f.sanitaryStatus,
+          });
+    const resolvedRegional =
+      normalizeRegionalNamesList(f.regionalNames).length > 0
+        ? normalizeRegionalNamesList(f.regionalNames)
+        : std?.regionalNames ?? [];
+
     setEditing(f);
     setFeedError("");
+    setFeedImageError("");
     setCatalogSearch("");
     setCatalogGroup("all");
+    setCatalogSpecies("all");
     setForm({
       name: f.name,
       category: currentFeedCategory(f.category) || f.category,
       feedType: currentFeedType(f.feedType) || f.feedType,
-      catalogGroup:
-        normalizeFeedCatalogGroup(f.catalogGroup) ??
-        findStandardFeedById(f.standardCatalogId)?.group ??
-        inferFeedCatalogGroup(f.feedType, f.name, f.category),
+      catalogGroup: resolvedGroup,
       unit: f.unit,
       currentStock: f.currentStock,
       minStock: f.minStock,
@@ -574,13 +664,40 @@ export default function AlimentacionPage() {
       lysineDigDmPct: f.lysineDigDmPct ?? "",
       metCysDigDmPct: f.metCysDigDmPct ?? "",
       crudeFiberDmPct: f.crudeFiberDmPct ?? "",
+      allowedSpecies: resolvedSpecies,
+      imageUrl:
+        f.imageUrl ||
+        std?.imageUrl ||
+        inferDefaultImageByFeed({
+          standardCatalogId: f.standardCatalogId,
+          group: resolvedGroup,
+          feedType: f.feedType,
+          name: f.name,
+        }),
+      description: f.description || std?.description || "",
+      regionalNamesText: resolvedRegional.join(", "),
     });
     setModalOpen(true);
   };
 
+  const toggleFormSpecies = (sp: FeedingSpecies) => {
+    setForm((prev) => {
+      const exists = prev.allowedSpecies.includes(sp);
+      const next = exists
+        ? prev.allowedSpecies.filter((s) => s !== sp)
+        : [...prev.allowedSpecies, sp];
+      return { ...prev, allowedSpecies: normalizeFeedSpeciesList(next) };
+    });
+  };
+
   const saveFeed = async () => {
     const method = editing ? "PUT" : "POST";
-    const body = editing ? { ...form, id: editing.id } : form;
+    const { regionalNamesText, ...restForm } = form;
+    const payload = {
+      ...restForm,
+      regionalNames: normalizeRegionalNamesList(regionalNamesText),
+    };
+    const body = editing ? { ...payload, id: editing.id } : payload;
     setFeedError("");
     setSavingFeed(true);
     try {
@@ -771,6 +888,7 @@ export default function AlimentacionPage() {
           sanitaryStatus: resolved.sanitaryStatus,
           standardCatalogId: resolved.standardCatalogId,
           feedName: feed?.name ?? null,
+          allowedSpecies: resolved.allowedSpecies,
         };
       });
       return validateFeedingProgram({
@@ -878,8 +996,10 @@ export default function AlimentacionPage() {
       selectTab("inventario");
       setEditing(null);
       setFeedError("");
+      setFeedImageError("");
       setCatalogSearch("");
       setCatalogGroup("all");
+      setCatalogSpecies("all");
       setForm(emptyFeedForm);
       setModalOpen(true);
     },
@@ -970,6 +1090,10 @@ export default function AlimentacionPage() {
         findStandardFeedById(feed.standardCatalogId)?.group ??
         inferFeedCatalogGroup(feed.feedType, feed.name, feed.category);
       if (feedGroupFilter !== "all" && feedGroup !== feedGroupFilter) return false;
+      const speciesList = normalizeFeedSpeciesList(feed.allowedSpecies);
+      if (feedSpeciesFilter !== "all" && speciesList.length > 0 && !speciesList.includes(feedSpeciesFilter as FeedingSpecies)) {
+        return false;
+      }
       if (!feedSearch.trim()) return true;
       return matchesTextQuery(feedSearch, [
         feed.name,
@@ -983,10 +1107,13 @@ export default function AlimentacionPage() {
         feed.supplier,
         feed.standardCatalogId,
         feed.sanitaryStatus,
+        feed.description,
+        normalizeRegionalNamesList(feed.regionalNames).join(" "),
+        speciesList.join(" "),
         Number(feed.currentStock) <= Number(feed.minStock) ? "stock bajo" : "",
       ]);
     });
-  }, [feeds, feedSearch, feedGroupFilter]);
+  }, [feeds, feedSearch, feedGroupFilter, feedSpeciesFilter]);
 
   const filteredMovements = useMemo(() => {
     if (!movementSearch.trim()) return movements;
@@ -1184,26 +1311,114 @@ export default function AlimentacionPage() {
               )}
             </div>
           )}
-          <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
-            <TableSearch
-              value={feedSearch}
-              onChange={setFeedSearch}
-              placeholder="Buscar por alimento, código IG, grupo o proveedor..."
-              resultCount={filteredFeeds.length}
-              totalCount={feeds.length}
-              className="flex-1"
-            />
-            <div className="w-full sm:w-64 shrink-0">
-              <Select
-                label="Grupo catálogo (CSV)"
-                value={feedGroupFilter}
-                onChange={(e) => setFeedGroupFilter(e.target.value)}
+          <div className="mb-4 space-y-3">
+            <div className="flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
+              <form
+                onSubmit={(e) => e.preventDefault()}
+                className="flex flex-1 flex-col gap-2 sm:flex-row sm:items-end"
               >
-                <option value="all">Todos los grupos ({FEED_CATALOG_GROUPS.length})</option>
-                {FEED_CATALOG_GROUPS.map((g) => (
-                  <option key={g} value={g}>{g}</option>
-                ))}
-              </Select>
+                <div className="flex-1">
+                  <label htmlFor="feed-inventory-search" className="block text-xs font-semibold text-[var(--iw-semantic-text-secondary)] mb-1">
+                    Búsqueda directa de alimentos
+                  </label>
+                  <div className="relative">
+                    <Search className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[var(--iw-semantic-text-secondary)]" aria-hidden="true" />
+                    <input
+                      id="feed-inventory-search"
+                      type="search"
+                      value={feedSearch}
+                      onChange={(e) => setFeedSearch(e.target.value)}
+                      placeholder="Buscar por nombre, sinónimo regional (cuido, zapallo, chonque), IG o animal..."
+                      className="min-h-[42px] w-full rounded-[var(--iw-radius-control)] border border-[var(--iw-semantic-border-input)] bg-[var(--iw-semantic-bg-surface)] py-2 pl-9 pr-9 text-sm text-[var(--iw-semantic-text-primary)] outline-none focus:border-[var(--iw-semantic-focus-ring)]"
+                    />
+                    {feedSearch && (
+                      <button
+                        type="button"
+                        onClick={() => setFeedSearch("")}
+                        aria-label="Limpiar búsqueda de alimentos"
+                        className="absolute right-2 top-1/2 -translate-y-1/2 rounded p-1 text-[var(--iw-semantic-text-secondary)]"
+                      >
+                        <X className="w-3.5 h-3.5" aria-hidden="true" />
+                      </button>
+                    )}
+                  </div>
+                </div>
+                <Button type="submit" className="min-h-[42px] shrink-0">
+                  <Search className="mr-1.5 w-4 h-4" aria-hidden="true" />
+                  Buscar alimento
+                </Button>
+              </form>
+
+              <div className="flex flex-wrap items-end gap-2 shrink-0">
+                <div className="w-full sm:w-56">
+                  <Select
+                    label="Grupo catálogo (CSV)"
+                    value={feedGroupFilter}
+                    onChange={(e) => setFeedGroupFilter(e.target.value)}
+                  >
+                    <option value="all">Todos los grupos ({FEED_CATALOG_GROUPS.length})</option>
+                    {FEED_CATALOG_GROUPS.map((g) => (
+                      <option key={g} value={g}>{g}</option>
+                    ))}
+                  </Select>
+                </div>
+                <Button
+                  type="button"
+                  variant="secondary"
+                  onClick={() => setExplorerOpen(true)}
+                  className="min-h-[42px] shrink-0"
+                >
+                  <BookOpen className="mr-1.5 w-4 h-4" aria-hidden="true" />
+                  Explorar fichas
+                </Button>
+              </div>
+            </div>
+
+            <div className="flex flex-wrap items-center gap-1.5">
+              <button
+                type="button"
+                onClick={() => setFeedSpeciesFilter("all")}
+                className={`min-h-[34px] rounded-full border px-3 py-1 text-xs font-semibold transition-colors ${
+                  feedSpeciesFilter === "all"
+                    ? "border-[var(--iw-semantic-action-primary)] bg-[var(--iw-semantic-action-primary)] text-[var(--iw-semantic-action-primary-text)]"
+                    : "border-[var(--iw-semantic-border-default)] bg-[var(--iw-semantic-bg-subtle)] text-[var(--iw-semantic-text-secondary)] hover:text-[var(--iw-semantic-text-primary)]"
+                }`}
+              >
+                Todos los animales
+              </button>
+              {FEED_SPECIES_SELECTOR_OPTIONS.map((sp) => (
+                <button
+                  key={sp.value}
+                  type="button"
+                  onClick={() => setFeedSpeciesFilter(sp.value)}
+                  className={`inline-flex min-h-[34px] items-center gap-1 rounded-full border px-3 py-1 text-xs font-semibold transition-colors ${
+                    feedSpeciesFilter === sp.value
+                      ? "border-[var(--iw-semantic-action-primary)] bg-[var(--iw-semantic-action-primary)] text-[var(--iw-semantic-action-primary-text)]"
+                      : "border-[var(--iw-semantic-border-default)] bg-[var(--iw-semantic-bg-subtle)] text-[var(--iw-semantic-text-secondary)] hover:text-[var(--iw-semantic-text-primary)]"
+                  }`}
+                >
+                  <AppIcon
+                    icon={
+                      sp.value === "gallina"
+                        ? "hen"
+                        : sp.value === "codorniz"
+                          ? "egg"
+                          : sp.value === "pato"
+                            ? "duck"
+                            : sp.value === "conejo" || sp.value === "cuy"
+                              ? "rabbit"
+                              : "rooster"
+                    }
+                    className="w-3.5 h-3.5"
+                  />
+                  <span>{sp.shortLabel}</span>
+                </button>
+              ))}
+              {(feedSearch.trim() || feedGroupFilter !== "all" || feedSpeciesFilter !== "all") && (
+                <span className="ml-auto text-xs text-[var(--iw-semantic-text-secondary)] tabular-nums">
+                  {filteredFeeds.length} de {feeds.length} alimentos
+                </span>
+              )}
             </div>
           </div>
           {loading ? (
@@ -1212,13 +1427,13 @@ export default function AlimentacionPage() {
             <EmptyState
               icon="wheat"
               message={
-                feedSearch.trim()
+                feedSearch.trim() || feedSpeciesFilter !== "all" || feedGroupFilter !== "all"
                   ? "No hay alimentos que coincidan con la búsqueda"
                   : "No hay alimentos registrados"
               }
             />
           ) : (
-            <Table headers={["Alimento", "Categoría", "Grupo / Tipo", "Stock", "Mín.", "Costo/Unidad", "Proveedor", "Acciones"]}>
+            <Table headers={["Alimento y ficha", "Para qué animales", "Categoría", "Grupo / Tipo", "Stock", "Mín.", "Costo/Unidad", "Proveedor", "Acciones"]}>
               {filteredFeeds.map((f) => {
                 const missingProfile =
                   !f.dryMatterPct || !f.energyKcalKgDm || !f.calciumDmPct || !f.availablePhosphorusDmPct;
@@ -1226,32 +1441,73 @@ export default function AlimentacionPage() {
                   normalizeFeedCatalogGroup(f.catalogGroup) ??
                   findStandardFeedById(f.standardCatalogId)?.group ??
                   inferFeedCatalogGroup(f.feedType, f.name, f.category);
+                const thumb =
+                  f.imageUrl ||
+                  inferDefaultImageByFeed({
+                    standardCatalogId: f.standardCatalogId,
+                    group: feedGroup,
+                    feedType: f.feedType,
+                    name: f.name,
+                  });
+                const regional = normalizeRegionalNamesList(f.regionalNames);
                 return (
                   <tr key={f.id} className={`hover:bg-slate-50 ${Number(f.currentStock) <= Number(f.minStock) ? "bg-red-50" : ""}`}>
                     <td className="px-4 py-3">
-                      <div className="font-semibold">{f.name}</div>
-                      <div className="mt-1 flex flex-wrap items-center gap-1">
-                        {f.standardCatalogId && (
-                          <span className="rounded border border-[var(--iw-semantic-border-default)] bg-[var(--iw-semantic-bg-subtle)] px-1.5 py-0.5 font-mono text-[10px] font-semibold text-[var(--iw-semantic-text-secondary)]">
-                            {f.standardCatalogId}
-                          </span>
-                        )}
-                        {f.sanitaryStatus === "NO USAR" && (
-                          <span className="rounded border border-[var(--iw-semantic-status-danger)]/45 bg-[var(--iw-semantic-bg-surface)] px-1.5 py-0.5 text-[10px] font-bold text-[var(--iw-semantic-status-danger)]">
-                            NO USAR
-                          </span>
-                        )}
-                        {f.sanitaryStatus === "RESTRINGIDO" && (
-                          <span className="rounded border border-[var(--iw-semantic-status-warning)]/40 bg-[var(--iw-color-paper)] px-1.5 py-0.5 text-[10px] font-semibold text-[var(--iw-semantic-status-warning)]">
-                            RESTRINGIDO
-                          </span>
-                        )}
-                        {missingProfile && (
-                          <span className="rounded border border-[var(--iw-semantic-border-default)] bg-[var(--iw-semantic-bg-page)] px-1.5 py-0.5 text-[10px] font-medium text-[var(--iw-semantic-text-secondary)]">
-                            Falta ficha MS/EM/Ca
-                          </span>
-                        )}
+                      <div className="flex items-start gap-2.5">
+                        <button
+                          type="button"
+                          onClick={() => setFichaFeed(f)}
+                          aria-label={`Explorar ficha de ${f.name}`}
+                          className="shrink-0 overflow-hidden rounded-lg border border-[var(--iw-semantic-border-default)] bg-[var(--iw-semantic-bg-subtle)]"
+                        >
+                          {/* eslint-disable-next-line @next/next/no-img-element */}
+                          <img src={thumb} alt={f.name} className="h-11 w-14 object-cover" />
+                        </button>
+                        <div className="min-w-0">
+                          <button
+                            type="button"
+                            onClick={() => setFichaFeed(f)}
+                            className="text-left font-semibold text-[var(--iw-semantic-text-primary)] hover:text-[var(--iw-semantic-action-primary)] hover:underline"
+                          >
+                            {f.name}
+                          </button>
+                          {regional.length > 0 && (
+                            <p className="mt-0.5 text-[11px] text-[var(--iw-semantic-text-secondary)]">
+                              También: {regional.slice(0, 3).join(", ")}
+                            </p>
+                          )}
+                          {f.description && (
+                            <p className="mt-0.5 text-[11px] text-[var(--iw-semantic-text-secondary)] line-clamp-1 max-w-xs">
+                              {f.description}
+                            </p>
+                          )}
+                          <div className="mt-1 flex flex-wrap items-center gap-1">
+                            {f.standardCatalogId && (
+                              <span className="rounded border border-[var(--iw-semantic-border-default)] bg-[var(--iw-semantic-bg-subtle)] px-1.5 py-0.5 font-mono text-[10px] font-semibold text-[var(--iw-semantic-text-secondary)]">
+                                {f.standardCatalogId}
+                              </span>
+                            )}
+                            {f.sanitaryStatus === "NO USAR" && (
+                              <span className="rounded border border-[var(--iw-semantic-status-danger)]/45 bg-[var(--iw-semantic-bg-surface)] px-1.5 py-0.5 text-[10px] font-bold text-[var(--iw-semantic-status-danger)]">
+                                NO USAR
+                              </span>
+                            )}
+                            {f.sanitaryStatus === "RESTRINGIDO" && (
+                              <span className="rounded border border-[var(--iw-semantic-status-warning)]/40 bg-[var(--iw-color-paper)] px-1.5 py-0.5 text-[10px] font-semibold text-[var(--iw-semantic-status-warning)]">
+                                RESTRINGIDO
+                              </span>
+                            )}
+                            {missingProfile && (
+                              <span className="rounded border border-[var(--iw-semantic-border-default)] bg-[var(--iw-semantic-bg-page)] px-1.5 py-0.5 text-[10px] font-medium text-[var(--iw-semantic-text-secondary)]">
+                                Falta ficha MS/EM/Ca
+                              </span>
+                            )}
+                          </div>
+                        </div>
                       </div>
+                    </td>
+                    <td className="px-4 py-3">
+                      <SpeciesTagList species={f.allowedSpecies} compact />
                     </td>
                     <td className="px-4 py-3 text-sm">{categoryLabels[f.category] || f.category}</td>
                     <td className="px-4 py-3 text-sm">
@@ -1260,12 +1516,13 @@ export default function AlimentacionPage() {
                     </td>
                     <td className="px-4 py-3 font-semibold">{f.currentStock} {f.unit}</td>
                     <td className="px-4 py-3 text-sm">{f.minStock} {f.unit}</td>
-                    <td className="px-4 py-3">${f.costPerUnit}</td>
+                    <td className="px-4 py-3">{f.costPerUnit != null ? `$${f.costPerUnit}` : "—"}</td>
                     <td className="px-4 py-3 text-sm">{f.supplier || "Producción propia"}</td>
                     <td className="px-4 py-3">
-                      <div className="flex gap-1">
-                        <button onClick={() => openEditFeed(f)} className="text-blue-600 hover:underline text-xs">Editar</button>
-                        <button onClick={() => removeFeed(f.id)} className="text-red-600 hover:underline text-xs">Eliminar</button>
+                      <div className="flex flex-wrap gap-2">
+                        <button type="button" onClick={() => setFichaFeed(f)} className="text-[var(--iw-semantic-action-primary)] hover:underline text-xs font-semibold">Ver ficha</button>
+                        <button type="button" onClick={() => openEditFeed(f)} className="text-blue-600 hover:underline text-xs">Editar</button>
+                        <button type="button" onClick={() => removeFeed(f.id)} className="text-red-600 hover:underline text-xs">Eliminar</button>
                       </div>
                     </td>
                   </tr>
@@ -1828,48 +2085,117 @@ export default function AlimentacionPage() {
       )}
 
       {/* New/Edit Feed Modal */}
-      <Modal open={modalOpen} onClose={() => setModalOpen(false)} title={editing ? "Editar Alimento" : "Nuevo Alimento"}>
+      <Modal
+        open={modalOpen}
+        onClose={() => setModalOpen(false)}
+        title={editing ? "Editar Alimento y Ficha" : "Nuevo Alimento y Ficha"}
+        size="lg"
+      >
         <div className="space-y-4">
           <div className="rounded-[var(--iw-radius-control)] border border-[var(--iw-semantic-border-default)] bg-[var(--iw-semantic-bg-subtle)] p-3 space-y-2.5">
             <div className="flex flex-wrap items-center justify-between gap-2">
               <div>
                 <p className="text-xs font-bold text-[var(--iw-semantic-text-primary)]">
-                  Base estandarizada de alimentos ({STANDARD_FEED_CATALOG.length} ingredientes · IG-001 a IG-119)
+                  Base estandarizada de alimentos ({STANDARD_FEED_CATALOG.length} ingredientes · IG-001 a IG-126)
                 </p>
                 <p className="text-[11px] text-[var(--iw-semantic-text-secondary)]">
-                  Elige un ingrediente estándar para precargar su perfil nutricional, riesgos y estado sanitario, o deja personalizado.
+                  Elige un ingrediente estándar (incluye concentrados por especie) para precargar imagen, especies, sinónimos y nutrición.
                 </p>
               </div>
-              {form.standardCatalogId && (
-                <button
-                  type="button"
-                  onClick={() => applyStandardFeed("")}
-                  className="text-[11px] font-semibold text-[var(--iw-semantic-action-primary)] hover:underline"
-                >
-                  Desvincular ficha base
-                </button>
-              )}
+              <div className="flex items-center gap-3">
+                {selectedStandardItem && (
+                  <button
+                    type="button"
+                    onClick={() =>
+                      setFichaFeed({
+                        name: selectedStandardItem.name,
+                        category: selectedStandardItem.defaultCategory,
+                        feedType: selectedStandardItem.defaultFeedType,
+                        catalogGroup: selectedStandardItem.group,
+                        standardCatalogId: selectedStandardItem.id,
+                        sanitaryStatus: selectedStandardItem.sanitaryStatus,
+                        dryMatterPct: selectedStandardItem.dryMatterPct,
+                        crudeProteinPct: selectedStandardItem.crudeProteinAsFedPct,
+                        crudeProteinDmPct: selectedStandardItem.crudeProteinDmPct,
+                        energyKcalKgDm: selectedStandardItem.energyKcalKgDm,
+                        calciumDmPct: selectedStandardItem.calciumDmPct,
+                        availablePhosphorusDmPct: selectedStandardItem.availablePhosphorusDmPct,
+                        crudeFiberDmPct: selectedStandardItem.crudeFiberDmPct,
+                        allowedSpecies: selectedStandardItem.targetSpecies,
+                        regionalNames: selectedStandardItem.regionalNames,
+                        description: selectedStandardItem.description,
+                        imageUrl: selectedStandardItem.imageUrl,
+                        botanicalName: selectedStandardItem.botanicalName,
+                        presentation: selectedStandardItem.presentation,
+                        preparation: selectedStandardItem.preparation,
+                        risks: selectedStandardItem.risks,
+                        sourceUrl: selectedStandardItem.sourceUrl,
+                      })
+                    }
+                    className="text-[11px] font-semibold text-[var(--iw-semantic-action-primary)] hover:underline"
+                  >
+                    Ver ficha base
+                  </button>
+                )}
+                {form.standardCatalogId && (
+                  <button
+                    type="button"
+                    onClick={() => applyStandardFeed("")}
+                    className="text-[11px] font-semibold text-[var(--iw-semantic-text-secondary)] hover:underline"
+                  >
+                    Desvincular
+                  </button>
+                )}
+              </div>
             </div>
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-              <input
-                type="search"
-                value={catalogSearch}
-                onChange={(e) => setCatalogSearch(e.target.value)}
-                placeholder="Buscar por nombre, especie botánica o ID (ej: IG-015 maíz)..."
-                className="min-h-[42px] w-full rounded-[var(--iw-radius-control)] border border-[var(--iw-semantic-border-input)] bg-[var(--iw-semantic-bg-surface)] px-3 py-2 text-xs text-[var(--iw-semantic-text-primary)]"
-              />
+            <div className="grid grid-cols-1 sm:grid-cols-[1fr_auto_auto_auto] gap-2 items-center">
+              <div className="relative">
+                <Search className="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-[var(--iw-semantic-text-secondary)]" aria-hidden="true" />
+                <input
+                  type="search"
+                  value={catalogSearch}
+                  onChange={(e) => setCatalogSearch(e.target.value)}
+                  placeholder="Buscar por nombre, alias regional (cuido, cuy, zapallo) o IG..."
+                  aria-label="Buscar ingrediente en catálogo estándar"
+                  className="min-h-[42px] w-full rounded-[var(--iw-radius-control)] border border-[var(--iw-semantic-border-input)] bg-[var(--iw-semantic-bg-surface)] py-2 pl-8 pr-3 text-xs text-[var(--iw-semantic-text-primary)]"
+                />
+              </div>
+              <select
+                value={catalogSpecies}
+                onChange={(e) => setCatalogSpecies(e.target.value)}
+                aria-label="Filtrar catálogo base por animal"
+                className="min-h-[42px] w-full rounded-[var(--iw-radius-control)] border border-[var(--iw-semantic-border-input)] bg-[var(--iw-semantic-bg-surface)] px-2.5 py-2 text-xs text-[var(--iw-semantic-text-primary)]"
+              >
+                <option value="all">Todas las especies</option>
+                {FEED_SPECIES_SELECTOR_OPTIONS.map((sp) => (
+                  <option key={sp.value} value={sp.value}>{sp.shortLabel}</option>
+                ))}
+              </select>
               <select
                 value={catalogGroup}
                 onChange={(e) => setCatalogGroup(e.target.value)}
                 aria-label="Filtrar grupo de ingrediente estándar"
-                className="min-h-[42px] w-full rounded-[var(--iw-radius-control)] border border-[var(--iw-semantic-border-input)] bg-[var(--iw-semantic-bg-surface)] px-3 py-2 text-xs text-[var(--iw-semantic-text-primary)]"
+                className="min-h-[42px] w-full rounded-[var(--iw-radius-control)] border border-[var(--iw-semantic-border-input)] bg-[var(--iw-semantic-bg-surface)] px-2.5 py-2 text-xs text-[var(--iw-semantic-text-primary)]"
               >
                 <option value="all">Todos los grupos ({STANDARD_FEED_CATALOG.length})</option>
                 {STANDARD_FEED_GROUPS.map((g) => (
                   <option key={g} value={g}>{g}</option>
                 ))}
               </select>
+              <Button
+                type="button"
+                variant="secondary"
+                onClick={() => {
+                  if (filteredStandardCatalog.length === 1) {
+                    applyStandardFeed(filteredStandardCatalog[0].id);
+                  }
+                }}
+                className="min-h-[42px] px-3 py-1.5 text-xs"
+              >
+                <Search className="mr-1 h-3.5 w-3.5" aria-hidden="true" />
+                Buscar ({filteredStandardCatalog.length})
+              </Button>
             </div>
 
             <select
@@ -1943,8 +2269,151 @@ export default function AlimentacionPage() {
             )}
           </div>
 
-          <Input label="Nombre del Alimento" help="Nombre descriptivo del alimento. Ej: 'Larvas de BSF', 'Maíz molido', 'Concentrado postura'." value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} placeholder="Ej: Larvas de BSF deshidratadas" required />
-          <Select label="Grupo del Catálogo (CSV)" help="Grupo oficial del Catálogo de Alimentos (IG-001..IG-119)." value={form.catalogGroup} onChange={(e) => setForm({ ...form, catalogGroup: e.target.value })}>
+          <Input label="Nombre del Alimento" help="Nombre descriptivo del alimento. Ej: 'Larvas de BSF', 'Concentrado Conejos', 'Maíz molido'." value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} placeholder="Ej: Concentrado Peletizado Cuyes" required />
+
+          {/* Para qué animales aplica */}
+          <div className="rounded-[var(--iw-radius-control)] border border-[var(--iw-semantic-border-default)] bg-[var(--iw-semantic-bg-subtle)] p-3 space-y-2.5">
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <div className="flex items-center gap-1">
+                <span className="text-xs font-semibold text-[var(--iw-semantic-text-primary)]">
+                  Para qué animales aplica
+                </span>
+                <FieldTooltip text="Marca una o varias especies que pueden consumir este alimento con seguridad." />
+              </div>
+              <div className="flex flex-wrap gap-1.5">
+                <button
+                  type="button"
+                  onClick={() => setForm((p) => ({ ...p, allowedSpecies: ["gallina", "gallo", "pollo", "codorniz", "pato"] }))}
+                  className="rounded-md border border-[var(--iw-semantic-border-default)] bg-[var(--iw-semantic-bg-surface)] px-2 py-0.5 text-[11px] font-medium text-[var(--iw-semantic-text-secondary)] hover:text-[var(--iw-semantic-text-primary)]"
+                >
+                  Solo aves
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setForm((p) => ({ ...p, allowedSpecies: ["conejo", "cuy"] }))}
+                  className="rounded-md border border-[var(--iw-semantic-border-default)] bg-[var(--iw-semantic-bg-surface)] px-2 py-0.5 text-[11px] font-medium text-[var(--iw-semantic-text-secondary)] hover:text-[var(--iw-semantic-text-primary)]"
+                >
+                  Conejos y cuyes
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setForm((p) => ({ ...p, allowedSpecies: ["gallina", "gallo", "pollo", "codorniz", "pato", "conejo", "cuy"] }))}
+                  className="rounded-md border border-[var(--iw-semantic-border-default)] bg-[var(--iw-semantic-bg-surface)] px-2 py-0.5 text-[11px] font-medium text-[var(--iw-semantic-text-secondary)] hover:text-[var(--iw-semantic-text-primary)]"
+                >
+                  Todas
+                </button>
+              </div>
+            </div>
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+              {FEED_SPECIES_SELECTOR_OPTIONS.map((sp) => {
+                const checked = form.allowedSpecies.includes(sp.value);
+                return (
+                  <label
+                    key={sp.value}
+                    className={`flex min-h-[42px] cursor-pointer items-center gap-2 rounded-[var(--iw-radius-control)] border px-2.5 py-1.5 text-xs font-semibold transition-colors ${
+                      checked
+                        ? "border-[var(--iw-semantic-action-primary)] bg-[var(--iw-semantic-bg-feature)] text-[var(--iw-semantic-action-primary)]"
+                        : "border-[var(--iw-semantic-border-default)] bg-[var(--iw-semantic-bg-surface)] text-[var(--iw-semantic-text-secondary)]"
+                    }`}
+                  >
+                    <input
+                      type="checkbox"
+                      checked={checked}
+                      onChange={() => toggleFormSpecies(sp.value)}
+                      className="rounded border-slate-300 text-green-700 focus:ring-green-600"
+                    />
+                    <span>{sp.shortLabel}</span>
+                  </label>
+                );
+              })}
+            </div>
+          </div>
+
+          <Input
+            label="Nombres regionales / sinónimos"
+            help="Otros nombres con que se conoce este alimento en distintas regiones (separados por coma)."
+            value={form.regionalNamesText}
+            onChange={(e) => setForm({ ...form, regionalNamesText: e.target.value })}
+            placeholder="Ej: Cuido postura, Purina, Cuyina, Zapallo, Chonque"
+          />
+
+          <Textarea
+            label="Descripción del alimento"
+            help="Resumen práctico sobre qué es, cómo prepararlo, qué aporta y cuidados según la especie."
+            value={form.description}
+            onChange={(e) => setForm({ ...form, description: e.target.value })}
+            rows={3}
+            placeholder="Describe presentación, preparación recomendada (ej: orear 12-24 h), riesgos o beneficios por especie..."
+          />
+
+          {/* Imagen de la ficha del alimento */}
+          <div className="rounded-[var(--iw-radius-control)] border border-[var(--iw-semantic-border-default)] bg-[var(--iw-semantic-bg-subtle)] p-3 space-y-2.5">
+            <div className="flex items-center gap-1">
+              <span className="text-xs font-semibold text-[var(--iw-semantic-text-primary)]">
+                Imagen del alimento (ficha visual)
+              </span>
+              <FieldTooltip text="Foto real del bulto/ingrediente o ilustración del catálogo para reconocerlo fácil." />
+            </div>
+            <div className="grid grid-cols-1 sm:grid-cols-[120px_1fr] gap-3 items-center">
+              <div className="h-24 w-full sm:w-28 overflow-hidden rounded-xl border border-[var(--iw-semantic-border-default)] bg-[var(--iw-semantic-bg-surface)] flex items-center justify-center">
+                {form.imageUrl ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img src={form.imageUrl} alt={form.name || "Vista previa"} className="h-full w-full object-cover" />
+                ) : (
+                  <ImageIcon className="h-6 w-6 text-[var(--iw-semantic-text-secondary)]" />
+                )}
+              </div>
+              <div className="space-y-2">
+                <div className="flex flex-wrap items-center gap-2">
+                  <label className="inline-flex min-h-[38px] cursor-pointer items-center gap-1.5 rounded-[var(--iw-radius-control)] border border-[var(--iw-semantic-border-default)] bg-[var(--iw-semantic-bg-surface)] px-3 py-1.5 text-xs font-semibold text-[var(--iw-semantic-text-primary)] hover:bg-[var(--iw-semantic-bg-page)]">
+                    <Upload className="h-3.5 w-3.5" aria-hidden="true" />
+                    <span>Subir foto del alimento</span>
+                    <input
+                      type="file"
+                      accept="image/*"
+                      className="sr-only"
+                      onChange={async (e) => {
+                        const file = e.target.files?.[0];
+                        e.target.value = "";
+                        if (!file) return;
+                        setFeedImageError("");
+                        try {
+                          const dataUrl = await compressFeedImageFile(file);
+                          setForm((prev) => ({ ...prev, imageUrl: dataUrl }));
+                        } catch (err) {
+                          setFeedImageError(err instanceof Error ? err.message : "No se pudo cargar la imagen.");
+                        }
+                      }}
+                    />
+                  </label>
+                  <select
+                    value={FEED_IMAGE_PRESETS.some((p) => p.imageUrl === form.imageUrl) ? form.imageUrl : ""}
+                    onChange={(e) => {
+                      if (e.target.value) setForm((prev) => ({ ...prev, imageUrl: e.target.value }));
+                    }}
+                    aria-label="Elegir ilustración del catálogo"
+                    className="min-h-[38px] flex-1 rounded-[var(--iw-radius-control)] border border-[var(--iw-semantic-border-input)] bg-[var(--iw-semantic-bg-surface)] px-2.5 py-1.5 text-xs text-[var(--iw-semantic-text-primary)]"
+                  >
+                    <option value="">Elegir ilustración base...</option>
+                    {FEED_IMAGE_PRESETS.map((preset) => (
+                      <option key={preset.id} value={preset.imageUrl}>{preset.label}</option>
+                    ))}
+                  </select>
+                </div>
+                <input
+                  type="text"
+                  value={form.imageUrl.startsWith("data:image/") ? "" : form.imageUrl}
+                  onChange={(e) => setForm({ ...form, imageUrl: e.target.value })}
+                  placeholder={form.imageUrl.startsWith("data:image/") ? "Foto cargada desde tu dispositivo (lista)" : "O pega una URL / ruta de imagen..."}
+                  aria-label="URL de imagen del alimento"
+                  className="min-h-[36px] w-full rounded-[var(--iw-radius-control)] border border-[var(--iw-semantic-border-input)] bg-[var(--iw-semantic-bg-surface)] px-2.5 py-1 text-xs text-[var(--iw-semantic-text-primary)]"
+                />
+                {feedImageError && <p className="text-xs text-[var(--iw-semantic-status-danger)]">{feedImageError}</p>}
+              </div>
+            </div>
+          </div>
+
+          <Select label="Grupo del Catálogo (CSV)" help="Grupo oficial del Catálogo de Alimentos (IG-001..IG-126)." value={form.catalogGroup} onChange={(e) => setForm({ ...form, catalogGroup: e.target.value })}>
             {FEED_CATALOG_GROUPS.map((g) => <option key={g} value={g}>{g}</option>)}
           </Select>
           <Select label="Categoría" help="Clasificación del alimento: de granja (producido por ti) o suplementario (comprado)." value={form.category} onChange={(e) => setForm({ ...form, category: e.target.value })}>
@@ -2034,9 +2503,15 @@ export default function AlimentacionPage() {
             <span>El consumo diario por programa se registra automáticamente. Aquí registras compras,
               donaciones, traslados, producción propia (entradas) y salidas manuales como uso interno o merma.</span>
           </p>
-          <Select label="Alimento" help="Selecciona el alimento al que aplica este movimiento." value={movForm.feedId} onChange={(e) => setMovForm({ ...movForm, feedId: e.target.value })}>
-            {feeds.map((f) => <option key={f.id} value={f.id}>{f.name} ({f.currentStock} {f.unit})</option>)}
-          </Select>
+          <FeedSearchPicker
+            label="Alimento"
+            help="Selecciona o busca directamente el alimento al que aplica este movimiento."
+            value={movForm.feedId}
+            feeds={feeds}
+            onChange={(feedId) => setMovForm({ ...movForm, feedId })}
+            onInspectFeed={(f) => setFichaFeed(f)}
+            allowEmpty={false}
+          />
           <Select label="Motivo" help="Razón del movimiento: compra, donación, consumo manual, merma, etc." value={movForm.movementType} onChange={(e) => setMovForm({ ...movForm, movementType: e.target.value })}>
             {(movForm.isEntry ? entryMovementTypes : exitMovementTypes).map((mt) => (
               <option key={mt} value={mt}>{movementTypeLabels[mt] || mt}</option>
@@ -2071,18 +2546,18 @@ export default function AlimentacionPage() {
           <div className="space-y-3">
             {programEntries.map((entry, idx) => (
               <div key={idx} className="flex gap-2 items-end">
-                <div className="flex-1">
-                  <div className="flex items-center gap-1 mb-1">
-                    <label className="block text-xs font-medium text-slate-600">Alimento</label>
-                    <FieldTooltip text="Concentrado, grano o forraje de esta receta." />
-                  </div>
-                  <select
-                    className="w-full border rounded-lg px-3 py-2 text-sm"
+                <div className="flex-1 min-w-0">
+                  <FeedSearchPicker
+                    label="Alimento"
+                    help="Concentrado, grano o forraje de esta receta."
                     value={entry.feedId}
-                    onChange={(e) => updateProgramEntry(idx, "feedId", e.target.value)}
-                  >
-                    {feeds.map((f) => <option key={f.id} value={f.id}>{f.name}</option>)}
-                  </select>
+                    feeds={feeds}
+                    targetSpecies={editingStage ? getStageSpecies(editingStage) : undefined}
+                    onChange={(feedId) => updateProgramEntry(idx, "feedId", feedId)}
+                    onInspectFeed={(f) => setFichaFeed(f)}
+                    compact
+                    allowEmpty={false}
+                  />
                 </div>
                 <div className="w-24">
                   <div className="flex items-center gap-1 mb-1">
@@ -2209,21 +2684,18 @@ export default function AlimentacionPage() {
             <div className="space-y-2">
               {newPlanForm.entries.map((entry, idx) => (
                 <div key={idx} className="flex gap-2 items-end bg-slate-50 p-2 rounded-lg border border-slate-200">
-                  <div className="flex-1">
-                    <div className="flex items-center gap-1 mb-1">
-                      <label className="block text-[11px] font-medium text-slate-600">Alimento</label>
-                      <FieldTooltip text="Producto o ingrediente de bodega incluido en el plan." />
-                    </div>
-                    <select
-                      className="w-full border rounded-md px-2 py-1.5 text-xs bg-white"
+                  <div className="flex-1 min-w-0">
+                    <FeedSearchPicker
+                      label="Alimento"
+                      help="Producto o ingrediente de bodega incluido en el plan."
                       value={entry.feedId}
-                      onChange={(e) => updatePlanEntry(idx, "feedId", e.target.value)}
-                    >
-                      <option value="">-- Seleccionar alimento --</option>
-                      {feeds.map((f) => (
-                        <option key={f.id} value={f.id}>{f.name} ({f.currentStock} {f.unit} disp.)</option>
-                      ))}
-                    </select>
+                      feeds={feeds}
+                      targetSpecies={newPlanForm.species as FeedingSpecies}
+                      onChange={(feedId) => updatePlanEntry(idx, "feedId", feedId)}
+                      onInspectFeed={(f) => setFichaFeed(f)}
+                      compact
+                      emptyLabel="-- Seleccionar alimento --"
+                    />
                   </div>
                   <div className="w-20">
                     <div className="flex items-center gap-1 mb-1">
@@ -2286,6 +2758,39 @@ export default function AlimentacionPage() {
           </div>
         </div>
       </Modal>
+
+      <FeedFichaModal
+        open={Boolean(fichaFeed)}
+        onClose={() => setFichaFeed(null)}
+        feed={fichaFeed}
+        canSeeFinancials={fichaFeed?.costPerUnit != null}
+        onEdit={
+          fichaFeed?.id
+            ? (feed) => {
+                const found = feeds.find((x) => x.id === feed.id);
+                if (found) openEditFeed(found);
+              }
+            : undefined
+        }
+        onUseFeed={
+          !fichaFeed?.id && fichaFeed?.standardCatalogId
+            ? (feed) => {
+                const std = findStandardFeedById(feed.standardCatalogId);
+                if (std) openNewFeedFromStandard(std);
+              }
+            : undefined
+        }
+        useFeedLabel="Crear alimento con esta ficha"
+      />
+
+      <FeedCatalogExplorerModal
+        open={explorerOpen}
+        onClose={() => setExplorerOpen(false)}
+        feeds={feeds}
+        initialSpecies={feedSpeciesFilter}
+        onInspectFeed={(feed) => setFichaFeed(feed)}
+        onAddStandardFeed={(item) => openNewFeedFromStandard(item)}
+      />
     </div>
   );
 }

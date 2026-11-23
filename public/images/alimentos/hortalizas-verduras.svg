@@ -1,0 +1,17 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 240 160" width="240" height="160" role="img" aria-label="Hortalizas y Verduras">
+  <defs>
+    <pattern id="grain" width="12" height="12" patternUnits="userSpaceOnUse">
+      <circle cx="2" cy="2" r="0.6" fill="#315245" fill-opacity="0.06"/>
+      <circle cx="8" cy="7" r="0.5" fill="#B17A45" fill-opacity="0.06"/>
+    </pattern>
+  </defs>
+  <rect width="240" height="160" rx="16" fill="#E5EBD8"/>
+  <rect width="240" height="160" rx="16" fill="url(#grain)"/>
+  <rect x="8" y="8" width="224" height="144" rx="12" fill="none" stroke="#C76E4C" stroke-opacity="0.28" stroke-width="1.25"/>
+  <g transform="translate(62, 16)"><ellipse cx="58" cy="60" rx="30" ry="24" fill="#C76E4C" stroke="#21382F" stroke-width="2"/><path d="M58 36 C48 44, 48 76, 58 84 M58 36 C68 44, 68 76, 58 84" fill="none" stroke="#E9D2B0" stroke-width="1.6"/><path d="M56 36 C56 26, 62 24, 66 26" fill="none" stroke="#315245" stroke-width="3" stroke-linecap="round"/></g>
+  <g transform="translate(16, 134)">
+    <rect x="0" y="-14" width="208" height="22" rx="6" fill="#FAF6EC" fill-opacity="0.92" stroke="#C76E4C" stroke-opacity="0.35"/>
+    <text x="10" y="1" font-family="Georgia, serif" font-size="11" font-weight="700" fill="#253238">Hortalizas y Verduras</text>
+    <text x="198" y="1" text-anchor="end" font-family="system-ui, sans-serif" font-size="8.5" font-weight="600" fill="#C76E4C">Ahuyama / Hortalizas</text>
+  </g>
+</svg>

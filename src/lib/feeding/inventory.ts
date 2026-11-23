@@ -2,6 +2,8 @@ import { db } from "@/db";
 import { feedInventory, feedMovements } from "@/db/schema";
 import { and, desc, eq, sql } from "drizzle-orm";
 import { inferFeedCatalogGroup, normalizeFeedCatalogGroup } from "@/lib/feed-classification";
+import { resolveEffectiveFeedProfile } from "@/lib/feeding/standard-feed-catalog";
+import type { FeedingSpecies } from "@/lib/species";
 import { runFeedProgramCatchup } from "./runProgram";
 
 export interface NormalizedMassResult {
@@ -90,6 +92,10 @@ export interface FeedInventoryProjection {
   metCysDigDmPct: string | null;
   crudeFiberDmPct: string | null;
   nutritionProfile: unknown;
+  allowedSpecies: FeedingSpecies[];
+  imageUrl: string | null;
+  description: string | null;
+  regionalNames: string[];
   estimatedValue: number;
   isLow: boolean;
   daysRemaining: number | null;
@@ -154,6 +160,30 @@ export async function getFeedInventoryProjection(
 
     const stockNormalized = normalizeFeedQuantityToKg(currentStock, f.unit);
     const consumptionNormalized = normalizeFeedQuantityToKg(dailyConsumption, f.unit);
+    const resolvedGroup =
+      normalizeFeedCatalogGroup(f.catalogGroup) ??
+      inferFeedCatalogGroup(f.feedType, f.name, f.category);
+    const effectiveProfile = resolveEffectiveFeedProfile({
+      name: f.name,
+      feedType: f.feedType,
+      category: f.category,
+      catalogGroup: resolvedGroup,
+      standardCatalogId: f.standardCatalogId,
+      sanitaryStatus: f.sanitaryStatus,
+      dryMatterPct: f.dryMatterPct,
+      crudeProteinPct: f.crudeProteinPct,
+      energyKcalKgDm: f.energyKcalKgDm,
+      calciumDmPct: f.calciumDmPct,
+      availablePhosphorusDmPct: f.availablePhosphorusDmPct,
+      lysineDigDmPct: f.lysineDigDmPct,
+      metCysDigDmPct: f.metCysDigDmPct,
+      crudeFiberDmPct: f.crudeFiberDmPct,
+      nutritionProfile: (f.nutritionProfile ?? null) as Record<string, unknown> | null,
+      allowedSpecies: f.allowedSpecies,
+      regionalNames: f.regionalNames,
+      description: f.description,
+      imageUrl: f.imageUrl,
+    });
 
     return {
       id: f.id,
@@ -168,9 +198,7 @@ export async function getFeedInventoryProjection(
       dryMatterPct: f.dryMatterPct,
       crudeProteinPct: f.crudeProteinPct,
       standardCatalogId: f.standardCatalogId ?? null,
-      catalogGroup:
-        normalizeFeedCatalogGroup(f.catalogGroup) ??
-        inferFeedCatalogGroup(f.feedType, f.name, f.category),
+      catalogGroup: resolvedGroup,
       sanitaryStatus: f.sanitaryStatus ?? null,
       energyKcalKgDm: f.energyKcalKgDm ?? null,
       calciumDmPct: f.calciumDmPct ?? null,
@@ -179,6 +207,10 @@ export async function getFeedInventoryProjection(
       metCysDigDmPct: f.metCysDigDmPct ?? null,
       crudeFiberDmPct: f.crudeFiberDmPct ?? null,
       nutritionProfile: f.nutritionProfile ?? null,
+      allowedSpecies: effectiveProfile.allowedSpecies,
+      imageUrl: effectiveProfile.imageUrl,
+      description: effectiveProfile.description,
+      regionalNames: effectiveProfile.regionalNames,
       estimatedValue,
       isLow,
       daysRemaining,

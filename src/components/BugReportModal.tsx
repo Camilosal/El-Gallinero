@@ -43,7 +43,7 @@ import {
 } from "@/lib/bug-report";
 import { apiFetch } from "@/lib/fetch";
 import type { BugTriageGuidance } from "@/lib/agent/jev-capabilities";
-import { Badge, Button, Input, Select, Textarea } from "@/components/ui";
+import { Badge, Button, Input, PortalDialog, Select, Textarea } from "@/components/ui";
 
 interface UserContextLite {
   name?: string;
@@ -391,22 +391,10 @@ export default function BugReportModal() {
     }
   };
 
-  if (!open) return null;
-
   return (
-    <div
-      className="fixed inset-0 z-[105] flex items-center justify-center bg-black/55 p-3 sm:p-4"
-      onClick={() => setOpen(false)}
-      role="dialog"
-      aria-modal="true"
-      aria-labelledby="bug-report-modal-title"
-    >
-      <div
-        className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl max-h-[92vh] flex flex-col overflow-hidden"
-        onClick={(e) => e.stopPropagation()}
-      >
-        {/* Header */}
-        <div className="flex items-center justify-between gap-3 px-5 py-4 border-b border-slate-200 bg-slate-900 text-white">
+    <PortalDialog open={open} onClose={() => setOpen(false)} ariaLabelledBy="bug-report-modal-title" size="lg">
+      {/* Header */}
+      <div className="shrink-0 flex items-center justify-between gap-3 px-5 py-4 border-b border-slate-200 bg-slate-900 text-white">
           <div className="flex items-center gap-2.5 min-w-0">
             <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-rose-500/20 border border-rose-400/40 text-rose-200">
               <Bug className="w-4.5 h-4.5" aria-hidden="true" />
@@ -475,7 +463,7 @@ export default function BugReportModal() {
         </div>
 
         {/* Body */}
-        <div className="flex-1 overflow-y-auto p-5 space-y-4">
+        <div className="flex-1 min-h-0 overflow-y-auto overscroll-contain p-5 space-y-4">
           {activeTab === "crear" ? (
             submittedResult ? (
               <div className="space-y-4 py-2">
@@ -821,8 +809,7 @@ export default function BugReportModal() {
               )}
             </div>
           )}
-        </div>
-      </div>
-    </div>
-  );
-}
+          </div>
+        </PortalDialog>
+      );
+    }

@@ -4,6 +4,7 @@ import { catalogos, feedInventory, feedPrograms } from "@/db/schema";
 import { withDerivedPercentages } from "@/lib/feeding/program-validation";
 import { inferFeedCatalogGroup } from "@/lib/feed-classification";
 import { findStandardFeedById } from "@/lib/feeding/standard-feed-catalog";
+import { resolveStandardFeedEnrichment } from "@/lib/feeding/feed-catalog-metadata";
 import type { FeedingSpecies } from "@/lib/species";
 
 type SeedDbClient = Pick<typeof db, "select" | "insert" | "transaction">;
@@ -14,8 +15,12 @@ export interface StarterFeedDef {
   category: "Concentrado" | "En Fresco" | "Preparados";
   feedType:
     | "Concentrado Aves"
+    | "Concentrado Pollo Engorde"
     | "Concentrado Codorniz"
+    | "Concentrado Patos"
     | "Concentrado Conejos"
+    | "Concentrado Cuyes"
+    | "Concentrado Multiespecie"
     | "Forraje Verde"
     | "Pastos y gramíneas"
     | "Bore o Raices"
@@ -36,6 +41,10 @@ export interface StarterFeedDef {
   lysineDigDmPct?: string;
   metCysDigDmPct?: string;
   crudeFiberDmPct?: string;
+  allowedSpecies?: FeedingSpecies[];
+  regionalNames?: string[];
+  description?: string;
+  imageUrl?: string;
 }
 
 export interface StarterStageProgramDef {
@@ -118,7 +127,7 @@ export const STARTER_FEED_DEFINITIONS: ReadonlyArray<StarterFeedDef> = [
     key: "conc_pollo_inicio",
     name: "Concentrado Pollo Inicio / Pre-iniciador (0-3 sem)",
     category: "Concentrado",
-    feedType: "Concentrado Aves",
+    feedType: "Concentrado Pollo Engorde",
     unit: "kg",
     minStock: "15",
     dryMatterPct: "89.00",
@@ -129,54 +138,126 @@ export const STARTER_FEED_DEFINITIONS: ReadonlyArray<StarterFeedDef> = [
     calciumDmPct: "1.10",
     availablePhosphorusDmPct: "0.50",
     crudeFiberDmPct: "3.80",
+    allowedSpecies: ["pollo"],
   },
   {
     key: "conc_pollo_engorde",
     name: "Concentrado Pollo Engorde / Finalización (3+ sem)",
     category: "Concentrado",
-    feedType: "Concentrado Aves",
+    feedType: "Concentrado Pollo Engorde",
     unit: "kg",
     minStock: "20",
     dryMatterPct: "89.00",
     crudeProteinPct: "19.00",
-    standardCatalogId: "IG-003",
+    standardCatalogId: "IG-120",
     sanitaryStatus: "CONDICIONAL",
     energyKcalKgDm: "3420.00",
     calciumDmPct: "0.98",
     availablePhosphorusDmPct: "0.45",
     crudeFiberDmPct: "4.20",
+    allowedSpecies: ["pollo"],
+  },
+  {
+    key: "conc_codorniz_cria",
+    name: "Concentrado Codorniz Cría / Iniciación (0-5 sem)",
+    category: "Concentrado",
+    feedType: "Concentrado Codorniz",
+    unit: "kg",
+    minStock: "10",
+    dryMatterPct: "89.50",
+    crudeProteinPct: "23.00",
+    standardCatalogId: "IG-121",
+    sanitaryStatus: "CONDICIONAL",
+    energyKcalKgDm: "3160.00",
+    calciumDmPct: "1.10",
+    availablePhosphorusDmPct: "0.48",
+    crudeFiberDmPct: "4.20",
+    allowedSpecies: ["codorniz"],
   },
   {
     key: "conc_codorniz",
-    name: "Concentrado Codorniz Cría y Postura",
+    name: "Concentrado Codorniz Postura (5+ sem)",
     category: "Concentrado",
     feedType: "Concentrado Codorniz",
     unit: "kg",
     minStock: "10",
     dryMatterPct: "89.50",
     crudeProteinPct: "21.00",
-    standardCatalogId: "IG-001",
+    standardCatalogId: "IG-122",
     sanitaryStatus: "CONDICIONAL",
     energyKcalKgDm: "3160.00",
     calciumDmPct: "3.35",
     availablePhosphorusDmPct: "0.46",
     crudeFiberDmPct: "4.50",
+    allowedSpecies: ["codorniz"],
   },
   {
-    key: "conc_conejo_cuy",
-    name: "Concentrado Conejos y Cuyes (Peletizado)",
+    key: "conc_pato",
+    name: "Concentrado Patos (Cría y Engorde)",
+    category: "Concentrado",
+    feedType: "Concentrado Patos",
+    unit: "kg",
+    minStock: "15",
+    dryMatterPct: "89.00",
+    crudeProteinPct: "19.20",
+    standardCatalogId: "IG-123",
+    sanitaryStatus: "CONDICIONAL",
+    energyKcalKgDm: "3200.00",
+    calciumDmPct: "1.02",
+    availablePhosphorusDmPct: "0.48",
+    crudeFiberDmPct: "4.50",
+    allowedSpecies: ["pato"],
+  },
+  {
+    key: "conc_conejo",
+    name: "Concentrado Peletizado Conejos",
     category: "Concentrado",
     feedType: "Concentrado Conejos",
     unit: "kg",
     minStock: "15",
     dryMatterPct: "88.50",
+    crudeProteinPct: "16.80",
+    standardCatalogId: "IG-124",
+    sanitaryStatus: "CONDICIONAL",
+    energyKcalKgDm: "2650.00",
+    calciumDmPct: "0.95",
+    availablePhosphorusDmPct: "0.52",
+    crudeFiberDmPct: "15.50",
+    allowedSpecies: ["conejo"],
+  },
+  {
+    key: "conc_cuy",
+    name: "Concentrado Peletizado Cuyes (Vitamina C)",
+    category: "Concentrado",
+    feedType: "Concentrado Cuyes",
+    unit: "kg",
+    minStock: "15",
+    dryMatterPct: "88.50",
+    crudeProteinPct: "17.80",
+    standardCatalogId: "IG-125",
+    sanitaryStatus: "CONDICIONAL",
+    energyKcalKgDm: "2720.00",
+    calciumDmPct: "1.00",
+    availablePhosphorusDmPct: "0.52",
+    crudeFiberDmPct: "13.50",
+    allowedSpecies: ["cuy"],
+  },
+  {
+    key: "conc_conejo_cuy",
+    name: "Concentrado Conejos y Cuyes (Peletizado Mixto)",
+    category: "Concentrado",
+    feedType: "Concentrado Multiespecie",
+    unit: "kg",
+    minStock: "15",
+    dryMatterPct: "88.50",
     crudeProteinPct: "17.50",
-    standardCatalogId: "IG-003",
+    standardCatalogId: "IG-126",
     sanitaryStatus: "CONDICIONAL",
     energyKcalKgDm: "2680.00",
     calciumDmPct: "0.95",
     availablePhosphorusDmPct: "0.55",
     crudeFiberDmPct: "14.50",
+    allowedSpecies: ["conejo", "cuy"],
   },
   // Forrajes y fuentes locales en fresco
   {
@@ -406,8 +487,8 @@ export const STARTER_STAGE_PROGRAMS: ReadonlyArray<StarterStageProgramDef> = [
     expectedEggsPerHen: "0",
     sortOrder: 7,
     items: [
-      { feedKey: "conc_pollo_inicio", gramsPerDay: 16 },
-      { feedKey: "larvas_bsf", gramsPerDay: 2 },
+      { feedKey: "conc_codorniz_cria", gramsPerDay: 17 },
+      { feedKey: "larvas_bsf", gramsPerDay: 1 },
       { feedKey: "pastos_gramineas", gramsPerDay: 1 },
     ],
   },
@@ -434,10 +515,10 @@ export const STARTER_STAGE_PROGRAMS: ReadonlyArray<StarterStageProgramDef> = [
     expectedEggsPerHen: "0",
     sortOrder: 9,
     items: [
-      { feedKey: "conc_pollo_inicio", gramsPerDay: 72 },
-      { feedKey: "pastos_gramineas", gramsPerDay: 12 },
+      { feedKey: "conc_pato", gramsPerDay: 70 },
+      { feedKey: "pastos_gramineas", gramsPerDay: 10 },
       { feedKey: "maiz_grano", gramsPerDay: 8 },
-      { feedKey: "larvas_bsf", gramsPerDay: 4 },
+      { feedKey: "larvas_bsf", gramsPerDay: 6 },
     ],
   },
   {
@@ -448,9 +529,9 @@ export const STARTER_STAGE_PROGRAMS: ReadonlyArray<StarterStageProgramDef> = [
     expectedEggsPerHen: "0.55",
     sortOrder: 10,
     items: [
-      { feedKey: "conc_pollo_engorde", gramsPerDay: 132 },
-      { feedKey: "pastos_gramineas", gramsPerDay: 25 },
-      { feedKey: "maiz_grano", gramsPerDay: 22 },
+      { feedKey: "conc_pato", gramsPerDay: 132 },
+      { feedKey: "pastos_gramineas", gramsPerDay: 24 },
+      { feedKey: "maiz_grano", gramsPerDay: 24 },
       { feedKey: "carbonato_calcio", gramsPerDay: 1 },
     ],
   },
@@ -463,7 +544,7 @@ export const STARTER_STAGE_PROGRAMS: ReadonlyArray<StarterStageProgramDef> = [
     expectedEggsPerHen: "0",
     sortOrder: 11,
     items: [
-      { feedKey: "conc_conejo_cuy", gramsPerDay: 45 },
+      { feedKey: "conc_conejo", gramsPerDay: 50 },
       { feedKey: "forraje_oreado", gramsPerDay: 45 },
     ],
   },
@@ -475,7 +556,7 @@ export const STARTER_STAGE_PROGRAMS: ReadonlyArray<StarterStageProgramDef> = [
     expectedEggsPerHen: "0",
     sortOrder: 12,
     items: [
-      { feedKey: "conc_conejo_cuy", gramsPerDay: 95 },
+      { feedKey: "conc_conejo", gramsPerDay: 95 },
       { feedKey: "forraje_oreado", gramsPerDay: 105 },
       { feedKey: "batata_fresca", gramsPerDay: 15 },
     ],
@@ -489,7 +570,7 @@ export const STARTER_STAGE_PROGRAMS: ReadonlyArray<StarterStageProgramDef> = [
     expectedEggsPerHen: "0",
     sortOrder: 13,
     items: [
-      { feedKey: "conc_conejo_cuy", gramsPerDay: 46 },
+      { feedKey: "conc_cuy", gramsPerDay: 50 },
       { feedKey: "forraje_oreado", gramsPerDay: 35 },
       { feedKey: "maiz_grano", gramsPerDay: 5 },
     ],
@@ -502,7 +583,7 @@ export const STARTER_STAGE_PROGRAMS: ReadonlyArray<StarterStageProgramDef> = [
     expectedEggsPerHen: "0",
     sortOrder: 14,
     items: [
-      { feedKey: "conc_conejo_cuy", gramsPerDay: 75 },
+      { feedKey: "conc_cuy", gramsPerDay: 80 },
       { feedKey: "forraje_oreado", gramsPerDay: 65 },
       { feedKey: "pastos_gramineas", gramsPerDay: 25 },
       { feedKey: "maiz_grano", gramsPerDay: 10 },
@@ -545,30 +626,49 @@ export async function seedStarterFeedsAndPrograms(
     const insertedFeeds = await client
       .insert(feedInventory)
       .values(
-        missingFeeds.map((def) => ({
-          farmId,
-          name: def.name,
-          category: def.category,
-          feedType: def.feedType,
-          unit: def.unit,
-          currentStock: "0",
-          minStock: def.minStock,
-          costPerUnit: "0",
-          supplier: null,
-          dryMatterPct: def.dryMatterPct,
-          crudeProteinPct: def.crudeProteinPct,
-          standardCatalogId: def.standardCatalogId ?? null,
-          catalogGroup:
-            findStandardFeedById(def.standardCatalogId)?.group ??
-            inferFeedCatalogGroup(def.feedType, def.name, def.category),
-          sanitaryStatus: def.sanitaryStatus ?? null,
-          energyKcalKgDm: def.energyKcalKgDm ?? null,
-          calciumDmPct: def.calciumDmPct ?? null,
-          availablePhosphorusDmPct: def.availablePhosphorusDmPct ?? null,
-          lysineDigDmPct: def.lysineDigDmPct ?? null,
-          metCysDigDmPct: def.metCysDigDmPct ?? null,
-          crudeFiberDmPct: def.crudeFiberDmPct ?? null,
-        })),
+        missingFeeds.map((def) => {
+          const std = findStandardFeedById(def.standardCatalogId);
+          const group = std?.group ?? inferFeedCatalogGroup(def.feedType, def.name, def.category);
+          const enrichment = resolveStandardFeedEnrichment({
+            id: def.standardCatalogId || "",
+            group,
+            name: def.name,
+            botanicalName: std?.botanicalName,
+            presentation: std?.presentation,
+            origin: std?.origin,
+            sanitaryStatus: def.sanitaryStatus ?? std?.sanitaryStatus ?? "CONDICIONAL",
+            preparation: std?.preparation,
+            risks: std?.risks,
+            compositionNotes: std?.compositionNotes,
+            defaultFeedType: def.feedType,
+          });
+          return {
+            farmId,
+            name: def.name,
+            category: def.category,
+            feedType: def.feedType,
+            unit: def.unit,
+            currentStock: "0",
+            minStock: def.minStock,
+            costPerUnit: "0",
+            supplier: null,
+            dryMatterPct: def.dryMatterPct,
+            crudeProteinPct: def.crudeProteinPct,
+            standardCatalogId: def.standardCatalogId ?? null,
+            catalogGroup: group,
+            sanitaryStatus: def.sanitaryStatus ?? null,
+            energyKcalKgDm: def.energyKcalKgDm ?? null,
+            calciumDmPct: def.calciumDmPct ?? null,
+            availablePhosphorusDmPct: def.availablePhosphorusDmPct ?? null,
+            lysineDigDmPct: def.lysineDigDmPct ?? null,
+            metCysDigDmPct: def.metCysDigDmPct ?? null,
+            crudeFiberDmPct: def.crudeFiberDmPct ?? null,
+            allowedSpecies: def.allowedSpecies ?? enrichment.targetSpecies,
+            imageUrl: def.imageUrl ?? enrichment.imageUrl,
+            description: def.description ?? enrichment.description,
+            regionalNames: def.regionalNames ?? enrichment.regionalNames,
+          };
+        }),
       )
       .returning({ id: feedInventory.id, name: feedInventory.name });
 

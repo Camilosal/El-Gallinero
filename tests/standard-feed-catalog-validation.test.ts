@@ -47,11 +47,17 @@ describe("Catálogo estandarizado de alimentos y validación nutricional de diet
     }
   });
 
-  it("sincroniza los 119 ingredientes de docs/Catalogos/Catalogo Alimentos.csv", () => {
+  it("sincroniza los ingredientes base y concentrados multi-especie de docs/Catalogos/Catalogo Alimentos.csv", () => {
     const csvPath = path.join(process.cwd(), "docs/Catalogos/Catalogo Alimentos.csv");
     const rawLines = fs.readFileSync(csvPath).toString("latin1").trim().split(/\r?\n/);
-    expect(rawLines.length - 1).toBe(119);
-    expect(STANDARD_FEED_CATALOG).toHaveLength(119);
+    expect(rawLines.length - 1).toBe(126);
+    expect(STANDARD_FEED_CATALOG).toHaveLength(126);
+    expect(findStandardFeedById("IG-120")?.targetSpecies).toContain("pollo");
+    expect(findStandardFeedById("IG-122")?.targetSpecies).toContain("codorniz");
+    expect(findStandardFeedById("IG-123")?.targetSpecies).toContain("pato");
+    expect(findStandardFeedById("IG-124")?.targetSpecies).toContain("conejo");
+    expect(findStandardFeedById("IG-125")?.targetSpecies).toContain("cuy");
+    expect(findStandardFeedById("IG-126")?.targetSpecies).toEqual(["conejo", "cuy"]);
 
     const maize = findStandardFeedById("IG-015");
     expect(maize).toMatchObject({
@@ -462,5 +468,85 @@ describe("Catálogo estandarizado de alimentos y validación nutricional de diet
     expect(secondRes.status).toBe(200);
     const secondBody = await secondRes.json();
     expect(secondBody.seededMissingStandards).toBe(0);
+  });
+
+  it("persiste especies objetivo, imagen, descripción y nombres regionales y alerta incompatibilidad por especie", async () => {
+    const postRes = await feedPost(
+      new NextRequest("http://localhost:3000/api/produccion/alimentacion", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          name: "Concentrado Peletizado Mixto Prueba",
+          category: "Concentrado",
+          feedType: "Concentrado Multiespecie",
+          standardCatalogId: "IG-126",
+          allowedSpecies: ["conejo", "cuy"],
+          regionalNames: ["Conejina", "Cuyina", "Pellet curí"],
+          description: "Pellet fibroso compatible con conejos y cuyes en producción mixta.",
+          imageUrl: "/images/alimentos/concentrado-multiespecie.svg",
+          dryMatterPct: "88.5",
+          crudeProteinPct: "17.5",
+          energyKcalKgDm: "2680",
+          calciumDmPct: "0.95",
+          availablePhosphorusDmPct: "0.55",
+          crudeFiberDmPct: "14.5",
+          currentStock: "12",
+          unit: "kg",
+        }),
+      }),
+    );
+    expect(postRes.status).toBe(201);
+    const created = await postRes.json();
+    createdFeedIds.push(created.id);
+    expect(created.allowedSpecies).toEqual(["conejo", "cuy"]);
+    expect(created.regionalNames).toEqual(["Conejina", "Cuyina", "Pellet curí"]);
+    expect(created.imageUrl).toBe("/images/alimentos/concentrado-multiespecie.svg");
+    expect(created.description).toContain("conejos y cuyes");
+
+    // Búsqueda por alias regionales y filtro por especie
+    expect(searchStandardFeedCatalog("zapallo").some((item) => item.id === "IG-082")).toBe(true);
+    expect(searchStandardFeedCatalog("chonque").some((item) => item.id === "IG-042")).toBe(true);
+    expect(searchStandardFeedCatalog("cuyina").some((item) => item.id === "IG-125")).toBe(true);
+    const cuyOnly = searchStandardFeedCatalog("", { species: "cuy" });
+    expect(cuyOnly.some((item) => item.id === "IG-125")).toBe(true);
+    expect(cuyOnly.some((item) => item.id === "IG-007")).toBe(false); // BSF no aplica a cuyes
+    expect(cuyOnly.some((item) => item.id === "IG-001")).toBe(false); // Ponedoras no aplica a cuyes
+
+    // Si asignamos Larvas BSF (aves) a una dieta de Cuy, genera speciesAlerts
+    const mismatchValidation = validateFeedingProgram({
+      species: "cuy",
+      stageName: "Cuy Engorde",
+      minWeeks: 8,
+      lines: [
+        {
+          feedName: "Larvas BSF",
+          standardCatalogId: "IG-007",
+          allowedSpecies: ["gallina", "pollo", "codorniz", "pato"],
+          category: "Preparados",
+          grams: 30,
+          dryMatterPct: 91.7,
+          crudeProteinPct: 37.69,
+          energyKcalKgDm: 3967,
+          calciumDmPct: 3.3,
+          availablePhosphorusDmPct: 0.55,
+          crudeFiberDmPct: 7.0,
+        },
+        {
+          feedName: "Concentrado Conejos y Cuyes",
+          standardCatalogId: "IG-126",
+          allowedSpecies: ["conejo", "cuy"],
+          category: "Concentrado",
+          grams: 120,
+          dryMatterPct: 88.5,
+          crudeProteinPct: 17.5,
+          energyKcalKgDm: 2680,
+          calciumDmPct: 0.95,
+          availablePhosphorusDmPct: 0.55,
+          crudeFiberDmPct: 14.5,
+        },
+      ],
+    });
+    expect(mismatchValidation.speciesAlerts?.length).toBe(1);
+    expect(mismatchValidation.speciesAlerts?.[0].feedName).toBe("Larvas BSF");
   });
 });
