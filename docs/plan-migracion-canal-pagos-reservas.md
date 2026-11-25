@@ -475,3 +475,9 @@ No cambiar la URL de eventos de Producción hasta que todas se cumplan:
 - IwaGranja: [`src/app/api/billing/checkout/route.ts`](../src/app/api/billing/checkout/route.ts), [`src/app/api/billing/history/route.ts`](../src/app/api/billing/history/route.ts), [`src/app/api/cron/suscripciones-vencidas/route.ts`](../src/app/api/cron/suscripciones-vencidas/route.ts), [`src/app/api/superadmin/granjas/route.ts`](../src/app/api/superadmin/granjas/route.ts), [`src/lib/subscription.ts`](../src/lib/subscription.ts), [`src/db/schema.ts`](../src/db/schema.ts), [`src/lib/pricing/quote.ts`](../src/lib/pricing/quote.ts).
 - Reservas: [`src/pages/api/pagos/webhook.ts`](../../app_reservas/src/pages/api/pagos/webhook.ts), [`src/pages/api/reservas/index.ts`](../../app_reservas/src/pages/api/reservas/index.ts), [`src/lib/wompi.ts`](../../app_reservas/src/lib/wompi.ts), [`strapi/src/api/pago/content-types/pago/schema.json`](../../app_reservas/strapi/src/api/pago/content-types/pago/schema.json).
 - Wompi Colombia: [Widget y Web Checkout](https://docs.wompi.co/docs/colombia/widget-checkout-web/), [Eventos](https://docs.wompi.co/docs/colombia/eventos/), [Transacciones](https://docs.wompi.co/docs/colombia/transacciones/).
+
+### Despliegue de R2 — 2026-11-25 (Bogotá)
+
+El commit local `3fd9271` contiene la migración de Reservas y su prueba. Strapi detectó el archivo en su directorio montado y ejecutó `20261125000100-ensure-wompi-transaction-unique-index.js` en producción. Una consulta de solo lectura confirmó una entrada en el registro de migraciones y el índice único válido y listo sobre `pagos.wompi_transaction_id`. Strapi respondió HTTP 204 en su endpoint de salud y la aplicación web respondió HTTP 302 en la raíz.
+
+Se retiraron los contenedores desechables `codex-pagos-pg-sandbox-20261124` y `codex-pagos-redis-sandbox-20261124`. Se conservaron los entornos de staging compartidos. La verificación de producción se limitó a la migración y la salud de los servicios.
