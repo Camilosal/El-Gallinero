@@ -15,6 +15,7 @@ const PAYMENT_EVENT_TYPES = [
   "subscription_activated",
   "subscription_renewed",
   "subscription_reactivated",
+  "payment_review_required",
 ] as const;
 const PAYMENT_EVENT_SOURCES = ["reservas_delivery", "wompi_webhook"] as const;
 
@@ -63,6 +64,7 @@ export const GET = withApiHandler(async () => {
       source: farmSubscriptionEvents.source,
       resultStatus: farmSubscriptionEvents.resultStatus,
       occurredAt: farmSubscriptionEvents.occurredAt,
+      providerTxId: sql<string | null>`${farmSubscriptionEvents.afterSnapshot}->>'providerTxId'`,
     })
       .from(farmSubscriptionEvents)
       .leftJoin(farms, eq(farmSubscriptionEvents.farmId, farms.id))

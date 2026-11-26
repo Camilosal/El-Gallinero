@@ -7,6 +7,7 @@ import { notifyPaymentApproved } from "@/lib/notifications";
 import { getPlanEntitlements, resolveCommercialPlan } from "@/lib/pricing/entitlements";
 import { isSupportedPricingTerm } from "@/lib/pricing/quote";
 import type { PricingPlanKey } from "@/lib/pricing/types";
+import { getWompiEnvironment } from "@/lib/reservas-payments";
 
 export type BillingPlanCode =
   | "FREEMIUM_SEMILLA"
@@ -141,15 +142,6 @@ function getWompiSecrets() {
   return {
     eventsSecret: process.env.WOMPI_EVENTS_SECRET?.trim() || null,
   };
-}
-
-function getWompiEnvironment(): { app: "sandbox" | "production"; event: "test" | "prod" } | null {
-  const configured = process.env.WOMPI_ENVIRONMENT?.trim().toLowerCase();
-  const appEnvironment = process.env.NODE_ENV === "production" ? "production" : "sandbox";
-  if (configured !== appEnvironment) return null;
-  return appEnvironment === "production"
-    ? { app: "production", event: "prod" }
-    : { app: "sandbox", event: "test" };
 }
 
 export async function getFarmSubscriptionStatus(targetFarmId?: string): Promise<FarmSubscriptionStatus> {
@@ -820,6 +812,13 @@ async function processVerifiedWompiPaymentPayload(payload: Record<string, unknow
   let transition: TransitionResult;
   try {
     transition = await runWithFarmContext(payment.farmId, () => db.transaction(async (tx) => {
+      if (mappedStatus === "approved") {
+        // Serialize approvals per farm, even when its subscription has yet to be created.
+        await tx.select({ id: farms.id }).from(farms)
+          .where(eq(farms.id, payment.farmId))
+          .for("no key update");
+      }
+
       const [currentPayment] = await tx
         .select()
         .from(billingPayments)
@@ -923,7 +922,13 @@ async function processVerifiedWompiPaymentPayload(payload: Record<string, unknow
             }
           }
         }
-        return { kind: "accepted", paymentStatus: currentPayment.status, idempotent: true, activated: false };
+        return {
+          kind: "accepted",
+          paymentStatus: currentPayment.status,
+          idempotent: true,
+          activated: false,
+          ...(currentPayment.status === "review" ? { reviewRequired: true } : {}),
+        };
       }
 
       // Compare-and-set makes payment approval and subscription activation a single winner under concurrent webhooks.
@@ -956,7 +961,13 @@ async function processVerifiedWompiPaymentPayload(payload: Record<string, unknow
           return { kind: "accepted", paymentStatus: "approved", idempotent: true, activated: false };
         }
         if (latestPayment?.status === mappedStatus && latestPayment.providerTxId === providerTxId) {
-          return { kind: "accepted", paymentStatus: latestPayment.status, idempotent: true, activated: false };
+          return {
+            kind: "accepted",
+            paymentStatus: latestPayment.status,
+            idempotent: true,
+            activated: false,
+            ...(latestPayment.status === "review" ? { reviewRequired: true } : {}),
+          };
         }
         await recordReview("El estado del pago cambió durante la confirmación; el caso requiere conciliación.");
         return { kind: "reviewed", paymentStatus: latestPayment?.status ?? currentPayment.status };
@@ -975,12 +986,13 @@ async function processVerifiedWompiPaymentPayload(payload: Record<string, unknow
         ? getProductorPurchaseSnapshot(claimedPayment.rawPayload)
         : null;
       const legacyPlan = PLAN_CATALOG[payment.planCode as keyof typeof PLAN_CATALOG] || PLAN_CATALOG.CICLO_60D;
-      const now = new Date();
       const [existingSub] = await tx
         .select()
         .from(farmSubscriptions)
         .where(eq(farmSubscriptions.farmId, payment.farmId))
-        .limit(1);
+        .limit(1)
+        .for("update");
+      const now = new Date();
 
       const baseDate =
         existingSub?.currentPeriodEnd && existingSub.currentPeriodEnd.getTime() > now.getTime()

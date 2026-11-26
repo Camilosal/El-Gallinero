@@ -2,7 +2,7 @@ import { config } from "dotenv";
 config({ path: ".env.local" });
 
 import { db, pool } from "./index";
-import { hens, feedInventory, feedMovements, feedPrograms, eggProduction, eggProductionDetails, eggSales, eggSalesItems, transactions, maintenance, healthControl, incubation, users, sessions, catalogos, chickenSales, slaughter, roosters, broilerBatches, manureFactors, manureSales, manureAdjustments, birdAcquisitions, mortalityRecords, eggLosses, supplyInventory, supplyMovements, meatSales, meatLosses, manureProduction, budgets, budgetItems, accountsReceivable, accountsPayable, payments, sanitaryCalendar, flockPlans, flockPlanMilestones, weightLogs, autoconsumoLogs } from "./schema";
+import { hens, feedInventory, feedMovements, feedPrograms, eggProduction, eggProductionDetails, eggSales, eggSalesItems, transactions, maintenance, healthControl, incubation, users, sessions, catalogos, chickenSales, slaughter, roosters, broilerBatches, manureFactors, manureSales, manureAdjustments, birdAcquisitions, mortalityRecords, eggLosses, supplyInventory, supplyMovements, meatSales, meatLosses, manureProduction, budgets, budgetItems, accountsReceivable, accountsPayable, payments, sanitaryCalendar, flockPlans, flockPlanMilestones, weightLogs, autoconsumoLogs, animalLocationMovements } from "./schema";
 import { and, eq, sql } from "drizzle-orm";
 import { hashPassword } from "@/lib/auth";
 import { DEFAULT_FARM_ID } from "./tenant-context";
@@ -54,8 +54,9 @@ async function main() {
   await db.delete(eggProduction);
   await db.delete(hens);
   await db.delete(roosters);
-  await db.delete(birdAcquisitions);
+  await db.delete(animalLocationMovements);
   await db.delete(broilerBatches);
+  await db.delete(birdAcquisitions);
   await db.delete(manureProduction);
   await db.delete(sessions);
   await db.delete(manureSales);

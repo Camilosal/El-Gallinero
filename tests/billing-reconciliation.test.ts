@@ -132,6 +132,25 @@ describe("reporte de conciliación local de pagos", () => {
     }]);
   });
 
+  it("muestra el ID Wompi del evento aunque aún no se haya vinculado al pago", () => {
+    const reviewEvent = event({
+      id: "review-event-unlinked",
+      paymentId: null,
+      externalReference: "IWG-not-linked",
+      providerTxId: "wompi-tx-unlinked",
+      eventType: "payment_review_required",
+      resultStatus: "review_required",
+    });
+    const findings = buildBillingReconciliationFindings([], [reviewEvent], { completeScan: true });
+
+    expect(findings).toMatchObject([{
+      code: "payment_requires_review",
+      paymentId: null,
+      externalReference: "IWG-not-linked",
+      providerTxId: "wompi-tx-unlinked",
+    }]);
+  });
+
   it("no concluye relaciones huérfanas cuando la lectura está truncada", () => {
     const findings = buildBillingReconciliationFindings([payment()], [], { completeScan: false });
     expect(findings).toEqual([]);

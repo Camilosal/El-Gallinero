@@ -9,7 +9,7 @@ import { createPricingQuote, getPublicPricingOffer } from "@/lib/pricing/quote";
 import { verifyProducerRenewalFarmId } from "@/lib/pricing/renewal-farm";
 import { LEGAL_DOCS_VERSION } from "@/lib/legal";
 import { getSessionUser } from "@/lib/auth";
-import { isSafeReservationsCheckoutUrl, signReservationsServiceRequest } from "@/lib/reservas-payments";
+import { getWompiEnvironment, isSafeReservationsCheckoutUrl, signReservationsServiceRequest } from "@/lib/reservas-payments";
 
 export const dynamic = "force-dynamic";
 
@@ -166,13 +166,11 @@ export const POST = withApiHandler(async (req: NextRequest) => {
     );
   }
 
-  const environment = process.env.WOMPI_ENVIRONMENT?.trim().toLowerCase();
-  const environmentMatchesApp = process.env.NODE_ENV === "production"
-    ? environment === "production"
-    : environment === "sandbox";
+  const environment = getWompiEnvironment()?.app;
+  const sandboxStaging = process.env.BILLING_SANDBOX_STAGING === "true";
   const reservationsUrl = process.env.RESERVAS_PAYMENT_INTENTS_URL?.trim();
   const reservationsSecret = process.env.RESERVAS_PAYMENT_API_SECRET?.trim();
-  if (!environmentMatchesApp || !reservationsUrl || !reservationsSecret) {
+  if (!environment || !reservationsUrl || !reservationsSecret) {
     return NextResponse.json(
       { error: "El pago en línea todavía no está habilitado para esta aplicación.", code: "CHECKOUT_PROVIDER_NOT_CONFIGURED" },
       { status: 503 },
@@ -191,6 +189,7 @@ export const POST = withApiHandler(async (req: NextRequest) => {
   if (
     !["https:", ...(process.env.NODE_ENV === "production" ? [] : ["http:"])].includes(apiUrl.protocol) ||
     apiUrl.username || apiUrl.password ||
+    (sandboxStaging && apiUrl.hostname === "reservas.iwage.co") ||
     (process.env.NODE_ENV === "production" && apiUrl.protocol !== "https:") ||
     (process.env.NODE_ENV !== "production" && apiUrl.protocol === "http:" && !["localhost", "127.0.0.1"].includes(apiUrl.hostname))
   ) {
@@ -220,7 +219,7 @@ export const POST = withApiHandler(async (req: NextRequest) => {
   const production = process.env.NODE_ENV === "production";
   const returnOrigin = process.env.APP_URL?.trim() || (process.env.NODE_ENV === "production" ? "" : "http://localhost:3000");
   const generatedReturnUrl = makeReturnUrl(returnOrigin, reference, production);
-  if (!generatedReturnUrl) {
+  if (!generatedReturnUrl || (sandboxStaging && new URL(generatedReturnUrl).hostname === "app.iwage.co")) {
     return NextResponse.json({ error: "El regreso seguro después del pago no está configurado." }, { status: 503 });
   }
   let existingPayload = record(existingPayment?.rawPayload) ? existingPayment.rawPayload : {};
@@ -258,8 +257,8 @@ export const POST = withApiHandler(async (req: NextRequest) => {
     if (
       existingPayment.farmId !== farmId ||
       existingPayment.amountCop !== quote.totalBeforeLogisticsAndTaxCop ||
-      !saved || typeof saved !== "object" ||
-      !sameCommercialQuote((saved as Record<string, unknown>).quote, quote)
+      !record(saved) || saved.environment !== environment ||
+      !sameCommercialQuote(saved.quote, quote)
     ) {
       return NextResponse.json({ error: "Esta solicitud ya se usó con otra selección. Actualiza la página e inténtalo de nuevo." }, { status: 409 });
     }
@@ -278,7 +277,7 @@ export const POST = withApiHandler(async (req: NextRequest) => {
     const previous = (existingPayment.rawPayload as Record<string, unknown>).reservasCheckout;
     if (previous && typeof previous === "object") {
       const checkoutUrl = (previous as Record<string, unknown>).checkoutUrl;
-      if (isSafeReservationsCheckoutUrl(checkoutUrl)) {
+      if (isSafeReservationsCheckoutUrl(checkoutUrl, sandboxStaging)) {
         return NextResponse.json({ redirectUrl: checkoutUrl, reference, status: "pending", recovered: true }, { headers: { "Cache-Control": "no-store" } });
       }
     }
@@ -311,7 +310,8 @@ export const POST = withApiHandler(async (req: NextRequest) => {
       const racedPurchase = racedPayload.pricingPurchase;
       if (
         existingPayment.amountCop !== quote.totalBeforeLogisticsAndTaxCop ||
-        !record(racedPurchase) || !sameCommercialQuote(racedPurchase.quote, quote)
+        !record(racedPurchase) || racedPurchase.environment !== environment ||
+        !sameCommercialQuote(racedPurchase.quote, quote)
       ) {
         return NextResponse.json({ error: "Esta solicitud ya se usó con otra selección. Actualiza la página e inténtalo de nuevo." }, { status: 409 });
       }
@@ -366,7 +366,7 @@ export const POST = withApiHandler(async (req: NextRequest) => {
 
   const centralCheckoutUrl = centralResult.checkoutUrl;
   const alreadyApproved = centralResult.status === "approved" || centralResult.alreadyPaid === true;
-  if (!alreadyApproved && !isSafeReservationsCheckoutUrl(centralCheckoutUrl)) {
+  if (!alreadyApproved && !isSafeReservationsCheckoutUrl(centralCheckoutUrl, sandboxStaging)) {
     return NextResponse.json({ error: "El servicio de pago no devolvió un enlace seguro." }, { status: 502 });
   }
 

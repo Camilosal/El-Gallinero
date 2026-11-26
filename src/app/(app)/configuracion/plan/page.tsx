@@ -6,6 +6,7 @@ import { ArrowLeft, Bird, Brain, CalendarClock, CheckCircle2, CreditCard, MapPin
 import { HeroActionLink, HeroBanner } from "@/components/HeroBanner";
 import { Badge, Card } from "@/components/ui";
 import { apiFetch } from "@/lib/fetch";
+import { getPaymentReturnLoginUrl } from "@/lib/billing-return";
 import type { FarmSubscriptionStatus } from "@/lib/subscription";
 
 interface GinaQuotaSnapshot {
@@ -259,6 +260,8 @@ export default function PlanSuscripcionPage() {
         });
         if (!active) return;
         if (response.status === 401) {
+          const loginUrl = getPaymentReturnLoginUrl(new URL(window.location.href));
+          if (loginUrl) window.location.assign(loginUrl.toString());
           setPaymentResult({ reference, payment: null, loading: false, error: "Inicia sesión para consultar el estado de este pago." });
           return;
         }

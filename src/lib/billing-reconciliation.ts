@@ -21,6 +21,7 @@ export interface ReconciliationSubscriptionEvent {
   source: string;
   resultStatus: string;
   occurredAt: string;
+  providerTxId?: string | null;
 }
 
 export type ReconciliationFindingCode =
@@ -97,7 +98,7 @@ function eventFinding(
     paymentId: payment?.id ?? event.paymentId,
     eventId: event.id,
     externalReference: event.externalReference ?? payment?.externalReference ?? null,
-    providerTxId: payment?.providerTxId ?? null,
+    providerTxId: payment?.providerTxId ?? event.providerTxId ?? null,
     amountCop: payment?.amountCop ?? null,
     planCode: payment?.planCode ?? null,
     paymentStatus: payment?.status ?? null,

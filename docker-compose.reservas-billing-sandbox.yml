@@ -1,0 +1,31 @@
+# Apply after ../app_iwage/docker-compose.staging.yml, with app_iwage as project directory.
+services:
+  reservas_app_stage:
+    image: reservas-billing-sandbox:local
+    environment:
+      APP_URL: ${BILLING_SANDBOX_RESERVAS_ORIGIN:?Origen HTTPS de Reservas Sandbox requerido}
+      WOMPI_PUBLIC_KEY: ${BILLING_SANDBOX_WOMPI_PUBLIC_KEY:?Llave pública Sandbox requerida}
+      WOMPI_PRIVATE_KEY: ${BILLING_SANDBOX_WOMPI_PRIVATE_KEY:?Llave privada Sandbox requerida}
+      WOMPI_INTEGRITY_SECRET: ${BILLING_SANDBOX_WOMPI_INTEGRITY_SECRET:?Secreto de integridad Sandbox requerido}
+      WOMPI_EVENTS_SECRET: ${BILLING_SANDBOX_WOMPI_EVENTS_SECRET:?Secreto de eventos Sandbox requerido}
+      IWAGRANJA_RETURN_ORIGINS: ${BILLING_SANDBOX_IWAGRANJA_ORIGIN:?Origen HTTPS de IwaGranja Sandbox requerido}
+      IWAGRANJA_PAYMENT_RESULT_URL: ${BILLING_SANDBOX_IWAGRANJA_ORIGIN:?Origen HTTPS de IwaGranja Sandbox requerido}/api/billing/reservas
+      IWAGRANJA_PAYMENT_API_SECRET: ${BILLING_SANDBOX_INTENT_SECRET:?Secreto del intento de prueba requerido}
+      IWAGRANJA_PAYMENT_RESULT_SECRET: ${BILLING_SANDBOX_RESULT_SECRET:?Secreto del resultado de prueba requerido}
+      IWAGRANJA_PAYMENT_OUTBOX_SECRET: ${BILLING_SANDBOX_OUTBOX_SECRET:?Secreto del worker de prueba requerido}
+    volumes:
+      - ../app_gallinero/scripts/validate-reservas-billing-sandbox.mjs:/app/scripts/validate-reservas-billing-sandbox.mjs:ro
+    command: ["sh", "-ec", "node scripts/validate-reservas-billing-sandbox.mjs && exec node ./dist/server/entry.mjs"]
+    networks:
+      default:
+        aliases: ["reservas_app"]
+
+  reservas_billing_sandbox_worker:
+    image: reservas-billing-sandbox:local
+    restart: unless-stopped
+    depends_on:
+      - reservas_app_stage
+    environment:
+      IWAGRANJA_PAYMENT_OUTBOX_SECRET: ${BILLING_SANDBOX_OUTBOX_SECRET:?Secreto del worker de prueba requerido}
+      RESERVAS_PAYMENT_RETRY_URL: http://reservas_app:4326/api/pagos/reintentar-resultados
+    command: ["node", "scripts/payment-result-retry-worker.mjs"]

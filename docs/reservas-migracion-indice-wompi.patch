@@ -1,0 +1,208 @@
+--- /dev/null
++++ b/strapi/database/migrations/20261125000100-ensure-wompi-transaction-unique-index.js
+@@ -0,0 +1,84 @@
++'use strict';
++
++const TABLE_NAME = 'pagos';
++const COLUMN_NAME = 'wompi_transaction_id';
++const INDEX_NAME = 'pagos_wompi_transaction_id_unique_idx';
++
++const FIND_INDEX_SQL = `
++  SELECT
++    table_class.relname AS table_name,
++    index_data.indisunique AS is_unique,
++    (index_data.indisvalid AND index_data.indisready) AS is_usable,
++    index_data.indpred IS NULL AS is_unfiltered,
++    index_data.indexprs IS NULL AS has_no_expressions,
++    index_data.indnatts = 1 AS is_single_column,
++    pg_get_indexdef(index_data.indexrelid, 1, true) AS indexed_column
++  FROM pg_index AS index_data
++  JOIN pg_class AS table_class
++    ON table_class.oid = index_data.indrelid
++  JOIN pg_namespace AS table_schema
++    ON table_schema.oid = table_class.relnamespace
++  JOIN pg_class AS index_class
++    ON index_class.oid = index_data.indexrelid
++  JOIN pg_namespace AS index_schema
++    ON index_schema.oid = index_class.relnamespace
++  WHERE table_schema.nspname = current_schema()
++    AND index_schema.nspname = current_schema()
++    AND index_class.relname = ?
++`;
++
++function isExpectedIndex(index) {
++  return Boolean(
++    index &&
++      index.table_name === TABLE_NAME &&
++      index.is_unique === true &&
++      index.is_usable === true &&
++      index.is_unfiltered === true &&
++      index.has_no_expressions === true &&
++      index.is_single_column === true &&
++      index.indexed_column === COLUMN_NAME,
++  );
++}
++
++async function findIndex(knex) {
++  const result = await knex.raw(FIND_INDEX_SQL, [INDEX_NAME]);
++  return result.rows[0] ?? null;
++}
++
++module.exports = {
++  async up(knex) {
++    if (!(await knex.schema.hasTable(TABLE_NAME))) return;
++    if (!(await knex.schema.hasColumn(TABLE_NAME, COLUMN_NAME))) return;
++
++    const existingIndex = await findIndex(knex);
++    if (existingIndex) {
++      if (!isExpectedIndex(existingIndex)) {
++        throw new Error(
++          'No se puede garantizar la unicidad de wompi_transaction_id: el nombre esperado ya pertenece a un índice incompatible. ' +
++            'Revísalo antes de reiniciar Reservas; no se modificaron filas.',
++        );
++      }
++      return;
++    }
++
++    try {
++      await knex.raw(
++        `CREATE UNIQUE INDEX IF NOT EXISTS "${INDEX_NAME}" ON "${TABLE_NAME}" ("${COLUMN_NAME}")`,
++      );
++    } catch (error) {
++      if (error?.code !== '23505') throw error;
++      // PostgreSQL may include the conflicting value in the original error detail.
++      throw new Error('Existen IDs Wompi repetidos. Concílialos antes de crear el índice único; no se modificaron filas.');
++    }
++
++    const createdIndex = await findIndex(knex);
++    if (!isExpectedIndex(createdIndex)) {
++      throw new Error(
++        'No se pudo verificar el índice único de wompi_transaction_id después de crearlo. ' +
++          'No se modificaron filas.',
++      );
++    }
++  },
++
++  async down() {},
++};
+--- /dev/null
++++ b/tests/wompi-unique-index-migration.test.mjs
+@@ -0,0 +1,118 @@
++import assert from 'node:assert/strict';
++import { existsSync } from 'node:fs';
++import { createRequire } from 'node:module';
++import { fileURLToPath } from 'node:url';
++import { test } from 'node:test';
++
++const require = createRequire(import.meta.url);
++const migrationPath = fileURLToPath(new URL(
++  '../strapi/database/migrations/20261125000100-ensure-wompi-transaction-unique-index.js',
++  import.meta.url,
++));
++
++function validIndex() {
++  return {
++    table_name: 'pagos',
++    is_unique: true,
++    is_usable: true,
++    is_unfiltered: true,
++    has_no_expressions: true,
++    is_single_column: true,
++    indexed_column: 'wompi_transaction_id',
++  };
++}
++
++function createKnexMock({ tableExists = true, columnExists = true, index = null, creationError = null } = {}) {
++  const calls = [];
++  let currentIndex = index;
++  const knex = () => {
++    throw new Error('La migración no debe consultar filas de pago.');
++  };
++
++  knex.schema = {
++    async hasTable(tableName) {
++      assert.equal(tableName, 'pagos');
++      return tableExists;
++    },
++    async hasColumn(tableName, columnName) {
++      assert.equal(tableName, 'pagos');
++      assert.equal(columnName, 'wompi_transaction_id');
++      return columnExists;
++    },
++  };
++
++  knex.raw = async (sql) => {
++    calls.push(sql);
++    if (sql.includes('FROM pg_index')) return { rows: currentIndex ? [currentIndex] : [] };
++    if (sql.includes('CREATE UNIQUE INDEX')) {
++      if (creationError) throw creationError;
++      currentIndex = validIndex();
++      return { rows: [] };
++    }
++    throw new Error('Consulta SQL inesperada en la migración de unicidad Wompi.');
++  };
++
++  return { knex, calls };
++}
++
++function loadMigration() {
++  assert.ok(existsSync(migrationPath), 'Debe existir una migración explícita para actualizar esquemas previos.');
++  return require(migrationPath);
++}
++
++test('la migración no falla si pagos o wompi_transaction_id aún no existen', async () => {
++  const { up } = loadMigration();
++  const missingTable = createKnexMock({ tableExists: false });
++  const missingColumn = createKnexMock({ columnExists: false });
++  await up(missingTable.knex);
++  await up(missingColumn.knex);
++  assert.deepEqual(missingTable.calls, []);
++  assert.deepEqual(missingColumn.calls, []);
++});
++
++test('la migración crea y luego valida el índice único en un esquema previo', async () => {
++  const { up } = loadMigration();
++  const { knex, calls } = createKnexMock();
++  await up(knex);
++  const creation = calls.find((sql) => sql.includes('CREATE UNIQUE INDEX'));
++  assert.ok(creation, 'Debe crear el índice único faltante.');
++  assert.match(creation, /IF NOT EXISTS/);
++  assert.match(creation, /pagos_wompi_transaction_id_unique_idx/);
++  assert.match(creation, /pagos/);
++  assert.match(creation, /wompi_transaction_id/);
++  assert.equal(calls.filter((sql) => sql.includes('FROM pg_index')).length, 2);
++});
++
++test('la migración es idempotente si el índice esperado ya existe', async () => {
++  const { up } = loadMigration();
++  const { knex, calls } = createKnexMock({ index: validIndex() });
++  await up(knex);
++  assert.equal(calls.filter((sql) => sql.includes('CREATE UNIQUE INDEX')).length, 0);
++  assert.equal(calls.filter((sql) => sql.includes('FROM pg_index')).length, 1);
++});
++
++test('la migración se detiene si el nombre esperado pertenece a un índice incompatible', async () => {
++  const { up } = loadMigration();
++  const invalidIndex = { ...validIndex(), is_unique: false };
++  const { knex, calls } = createKnexMock({ index: invalidIndex });
++  await assert.rejects(up(knex), /índice incompatible/i);
++  assert.equal(calls.filter((sql) => sql.includes('CREATE UNIQUE INDEX')).length, 0);
++});
++
++test('la migración rechaza un índice único que PostgreSQL marcó como inválido', async () => {
++  const { up } = loadMigration();
++  const { knex, calls } = createKnexMock({ index: { ...validIndex(), is_usable: false } });
++  await assert.rejects(up(knex), /índice incompatible/i);
++  assert.equal(calls.filter((sql) => sql.includes('CREATE UNIQUE INDEX')).length, 0);
++});
++
++test('un duplicado nuevo detiene la migración sin exponer el ID de transacción', async () => {
++  const { up } = loadMigration();
++  const error = Object.assign(new Error('valor-privado-de-prueba'), { code: '23505' });
++  const { knex } = createKnexMock({ creationError: error });
++  await assert.rejects(up(knex), (result) => {
++    assert.match(result.message, /IDs Wompi repetidos/);
++    assert.doesNotMatch(result.message, /valor-privado-de-prueba/);
++    return true;
++  });
++});

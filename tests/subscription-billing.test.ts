@@ -1,3 +1,5 @@
+import { updateSettings } from "@/lib/settings";
+import masterReferences from "@/lib/configuration/master-references.json";
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 vi.mock("server-only", () => ({}));
 
@@ -7,7 +9,7 @@ import { createServer as createHttpServer } from "node:http";
 import { dirname, join } from "node:path";
 import { tmpdir } from "node:os";
 import { fileURLToPath, pathToFileURL } from "node:url";
-import { and, eq } from "drizzle-orm";
+import { and, eq, sql } from "drizzle-orm";
 import { NextRequest } from "next/server";
 import { Pool } from "pg";
 import { db } from "@/db";
@@ -31,9 +33,11 @@ import { POST as ventaAvesPOST } from "@/app/api/finanzas/finanzas/ventas-aves/r
 import * as authMod from "@/lib/auth";
 import { createPricingQuote } from "@/lib/pricing/quote";
 import {
+  addCalendarMonths,
   expirePaidSubscriptionForFarm,
   getFarmSubscriptionStatus,
   getSubscriptionApprovalEventType,
+  processReservationsPaymentResult,
   processWompiWebhookEvent,
 } from "@/lib/subscription";
 import { signReservationsServiceRequest } from "@/lib/reservas-payments";
@@ -196,6 +200,9 @@ describe("Suscripción por Ciclo Productivo y Pagos Wompi Nequi/Daviplata/PSE (T
         })
         .returning();
       locationId = loc.id;
+      await updateSettings(Object.entries(masterReferences)
+        .filter(([key]) => key.startsWith("tax.") || key.startsWith("payroll.") || key === "external.tax_uvt_cop")
+        .map(([key, value]) => ({ key, value })), userId);
     });
 
     vi.mocked(authMod.getSessionUser).mockResolvedValue({
@@ -251,7 +258,7 @@ describe("Suscripción por Ciclo Productivo y Pagos Wompi Nequi/Daviplata/PSE (T
         },
       }),
     );
-    expect([200, 201]).toContain(firstRes.status);
+    expect([200, 201], await firstRes.clone().text()).toContain(firstRes.status);
     const firstJson = (await parseJson(firstRes)) as { createdBirdIds?: string[] };
     const firstBatchId = firstJson.createdBirdIds?.[0];
     expect(firstBatchId).toBeTruthy();
@@ -303,7 +310,7 @@ describe("Suscripción por Ciclo Productivo y Pagos Wompi Nequi/Daviplata/PSE (T
         },
       }),
     );
-    expect([200, 201]).toContain(closeSaleRes.status);
+    expect([200, 201], await closeSaleRes.clone().text()).toContain(closeSaleRes.status);
 
     // Confirmar promptPostHarvestRenewal activo
     const billingRes = await billingGET(mockRequest("http://localhost/api/billing/checkout", { method: "GET" }));
@@ -520,6 +527,7 @@ describe("Suscripción por Ciclo Productivo y Pagos Wompi Nequi/Daviplata/PSE (T
       "WOMPI_ENVIRONMENT",
       "WOMPI_EVENTS_SECRET",
       "WOMPI_INTEGRITY_SECRET",
+      "WOMPI_PRIVATE_KEY",
       "WOMPI_PUBLIC_KEY",
     ];
     const previousEnv = new Map(envKeys.map((key) => [key, process.env[key]]));
@@ -549,6 +557,7 @@ describe("Suscripción por Ciclo Productivo y Pagos Wompi Nequi/Daviplata/PSE (T
       process.env.WOMPI_ENVIRONMENT = "sandbox";
       process.env.WOMPI_EVENTS_SECRET = "iwagranja-http-e2e-wompi-events";
       process.env.WOMPI_INTEGRITY_SECRET = "iwagranja-http-e2e-wompi-integrity";
+      process.env.WOMPI_PRIVATE_KEY = "prv_test_iwagranja_http_e2e";
       process.env.WOMPI_PUBLIC_KEY = "pub_test_iwagranja_http_e2e";
 
       adminPool = new Pool({ connectionString: databaseUrl.toString(), max: 2 });
@@ -944,6 +953,22 @@ describe("Suscripción por Ciclo Productivo y Pagos Wompi Nequi/Daviplata/PSE (T
       .limit(1);
     expect(pendingPayment?.amountCop).toBe(quote.totalBeforeLogisticsAndTaxCop);
 
+    const paymentLookup = () => billingGET(new NextRequest(
+      `http://localhost/api/billing/checkout?reference=${checkoutJson.reference}&status=approved`,
+    ));
+    vi.mocked(authMod.getSessionUser).mockResolvedValueOnce(null);
+    expect((await paymentLookup()).status).toBe(401);
+    const billingUser = await authMod.getSessionUser();
+    expect(billingUser?.farmId).toBe(farmId);
+    vi.mocked(authMod.getSessionUser).mockResolvedValueOnce({ ...billingUser!, farmId: randomUUID() });
+    expect((await paymentLookup()).status).toBe(404);
+    const paymentBeforeWebhook = await paymentLookup();
+    expect(paymentBeforeWebhook.status).toBe(200);
+    expect(paymentBeforeWebhook.headers.get("cache-control")).toContain("no-store");
+    expect(await parseJson(paymentBeforeWebhook)).toMatchObject({
+      payment: { externalReference: checkoutJson.reference, status: "pending", paidAt: null },
+    });
+
     // Webhook inválido rechazado con 401
     const badWebhook = await webhookPOST(
       mockRequest("http://localhost/api/billing/webhook", {
@@ -1024,6 +1049,10 @@ describe("Suscripción por Ciclo Productivo y Pagos Wompi Nequi/Daviplata/PSE (T
     expect(replayResult.idempotent).toBe(true);
     expect(activationResult.subscription.status).toBe("active");
     expect(activationResult.subscription.planCode).toBe("PRODUCTOR");
+    const paymentAfterWebhook = await paymentLookup();
+    expect(await parseJson(paymentAfterWebhook)).toMatchObject({
+      payment: { externalReference: checkoutJson.reference, status: "approved" },
+    });
 
     const firstPeriodEnd = new Date(activationResult.subscription.currentPeriodEnd).getTime();
     expect(firstPeriodEnd).toBeGreaterThan(Date.now() + 17 * 30 * 86400000);
@@ -1400,6 +1429,122 @@ describe("Suscripción por Ciclo Productivo y Pagos Wompi Nequi/Daviplata/PSE (T
       });
     } finally {
       await db.delete(billingPayments).where(eq(billingPayments.id, payment!.id));
+    }
+  });
+
+  it("acumula ambos períodos cuando se aprueban dos pagos Productor de la misma granja", async () => {
+    const concurrentFarmId = randomUUID();
+    const baseline = new Date(Date.UTC(new Date().getUTCFullYear() + 1, 0, 10));
+    const quote = createPricingQuote({
+      segment: "producer",
+      users: 3,
+      months: 3,
+      renewal: false,
+      locations: 1,
+    });
+    const amountCop = quote.totalBeforeLogisticsAndTaxCop;
+    const events = Array.from({ length: 2 }, () => ({
+      eventId: randomUUID(),
+      sourceApp: "iwagranja",
+      purpose: "subscription",
+      provider: "wompi",
+      providerTransactionId: randomUUID(),
+      reference: `IWG-${randomUUID()}`,
+      status: "APPROVED",
+      amountInCents: amountCop * 100,
+      currency: "COP",
+      environment: "test",
+    }));
+    await db.insert(farms).values({
+      id: concurrentFarmId,
+      slug: `test-payments-${concurrentFarmId}`,
+      name: "Granja de concurrencia Productor",
+      deploymentMode: "saas",
+      planCode: "PRODUCTOR",
+    });
+    try {
+      await runWithFarmContext(concurrentFarmId, async () => {
+        await db.insert(farmSubscriptions).values({
+          farmId: concurrentFarmId,
+          planCode: "PRODUCTOR",
+          status: "active",
+          maxUsers: 3,
+          currentPeriodStart: new Date(),
+          currentPeriodEnd: baseline,
+        });
+        await db.insert(billingPayments).values(events.map((event) => ({
+          farmId: concurrentFarmId,
+          externalReference: event.reference,
+          provider: "wompi",
+          method: "checkout",
+          amountCop,
+          planCode: "PRODUCTOR",
+          status: "pending",
+          rawPayload: { pricingPurchase: {
+            policyVersion: quote.policyVersion,
+            termsVersion: "test-terms",
+            acceptedAt: new Date().toISOString(),
+            environment: "sandbox",
+            acceptedTerms: true,
+            acceptedDocuments: ["terminos", "retracto"],
+            quote,
+          } },
+        })));
+      });
+
+      let approvals: Promise<Awaited<ReturnType<typeof processReservationsPaymentResult>>[]> | undefined;
+      try {
+        await runWithFarmContext(concurrentFarmId, () => db.transaction(async (gate) => {
+          await gate.select({ id: farmSubscriptions.id }).from(farmSubscriptions)
+            .where(eq(farmSubscriptions.farmId, concurrentFarmId)).for("update");
+          const [{ pid }] = (await gate.execute<{ pid: number }>(sql`SELECT pg_backend_pid() AS pid`)).rows;
+          approvals = Promise.all(events.map(processReservationsPaymentResult));
+          // Let both approval transactions reach the database lock before releasing it.
+          await expect.poll(async () => {
+            const { rows: [result] } = await db.execute<{ count: number }>(sql`
+              WITH RECURSIVE waiting(pid) AS (
+                SELECT ${pid}::int
+                UNION
+                SELECT activity.pid
+                FROM pg_stat_activity AS activity
+                JOIN waiting ON waiting.pid = ANY(pg_blocking_pids(activity.pid))
+                WHERE activity.datname = current_database()
+              )
+              SELECT (count(*) - 1)::int AS count FROM waiting
+            `);
+            return result.count;
+          }, { timeout: 5_000 }).toBeGreaterThanOrEqual(2);
+        }));
+      } finally {
+        await approvals;
+      }
+      const results = await approvals;
+      expect(results).toMatchObject(events.map(() => ({ ok: true, paymentStatus: "approved", idempotent: false })));
+      const midPeriod = addCalendarMonths(baseline, 3).toISOString();
+      const finalPeriod = addCalendarMonths(baseline, 6).toISOString();
+
+      await runWithFarmContext(concurrentFarmId, async () => {
+        const [subscription] = await db.select().from(farmSubscriptions)
+          .where(eq(farmSubscriptions.farmId, concurrentFarmId));
+        const audit = await db.select().from(farmSubscriptionEvents)
+          .where(eq(farmSubscriptionEvents.farmId, concurrentFarmId));
+        expect(subscription?.currentPeriodEnd?.toISOString()).toBe(finalPeriod);
+        expect(audit).toHaveLength(2);
+        expect(audit).toEqual(expect.arrayContaining([
+          expect.objectContaining({
+            eventType: "subscription_renewed",
+            beforeSnapshot: expect.objectContaining({ currentPeriodEnd: baseline.toISOString() }),
+            afterSnapshot: expect.objectContaining({ currentPeriodEnd: midPeriod }),
+          }),
+          expect.objectContaining({
+            eventType: "subscription_renewed",
+            beforeSnapshot: expect.objectContaining({ currentPeriodEnd: midPeriod }),
+            afterSnapshot: expect.objectContaining({ currentPeriodEnd: finalPeriod }),
+          }),
+        ]));
+      });
+    } finally {
+      await db.delete(farms).where(eq(farms.id, concurrentFarmId));
     }
   });
 

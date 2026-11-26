@@ -83,6 +83,18 @@ describe("ruta de conciliación de Super-Administración", () => {
         source: "reservas_delivery",
         resultStatus: "applied",
         occurredAt: observedAt,
+        providerTxId: "wompi-tx-orphan-event",
+      }, {
+        id: "event-review-1",
+        farmId,
+        farmName: "Granja de prueba",
+        paymentId: null,
+        externalReference: "IWG-review-audit",
+        eventType: "payment_review_required",
+        source: "wompi_webhook",
+        resultStatus: "review_required",
+        occurredAt: observedAt,
+        providerTxId: "wompi-tx-review-event",
       }]));
 
     const response = await GET(request());
@@ -96,9 +108,16 @@ describe("ruta de conciliación de Super-Administración", () => {
       limitations: expect.arrayContaining([expect.stringContaining("No consulta Reservas ni Wompi")]),
     });
     expect(report.findings.map((finding: { code: string }) => finding.code)).toEqual([
+      "payment_requires_review",
       "approved_without_lifecycle_event",
       "lifecycle_event_without_payment",
     ]);
+    expect(report.findings[2]).toMatchObject({ providerTxId: "wompi-tx-orphan-event" });
+    expect(report.findings[0]).toMatchObject({
+      code: "payment_requires_review",
+      externalReference: "IWG-review-audit",
+      providerTxId: "wompi-tx-review-event",
+    });
     expect(JSON.stringify(report)).not.toContain("no-debe-aparecer");
     expect(response.headers.get("cache-control")).toContain("no-store");
   });

@@ -44,6 +44,11 @@ describe("cron de vencimiento de suscripciones", () => {
     process.env.CRON_SECRET = "secret-for-test";
     const unauthorized = await POST(cronRequest("wrong-secret"));
     expect(unauthorized.status).toBe(401);
+    const rawSecret = await POST(new NextRequest("http://localhost/api/cron/suscripciones-vencidas", {
+      method: "POST",
+      headers: { authorization: "secret-for-test" },
+    }));
+    expect(rawSecret.status).toBe(401);
     expect(selectMock).not.toHaveBeenCalled();
   });
 

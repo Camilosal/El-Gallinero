@@ -1,0 +1,8 @@
+# Copiar a la configuración privada de un túnel dedicado a staging.
+# Agregar tunnel y credentials-file en esa copia.
+# Usar el mismo nombre en DNS y BILLING_SANDBOX_RESERVAS_ORIGIN.
+ingress:
+  - hostname: reservas-sandbox.iwage.co
+    path: '^/api/pagos/(webhook|callback|intentos)$'
+    service: http://127.0.0.1:4332
+  - service: http_status:404

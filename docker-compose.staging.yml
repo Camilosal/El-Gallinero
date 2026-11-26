@@ -5,6 +5,9 @@ services:
 
   app:
     image: iwagranja-staging:local
+    environment:
+      BILLING_SANDBOX_STAGING: "true"
+      WOMPI_ENVIRONMENT: sandbox
     ports: !override
       - "127.0.0.1:${STAGING_APP_PORT:-3100}:3000"
     healthcheck:

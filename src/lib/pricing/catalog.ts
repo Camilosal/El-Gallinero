@@ -4,6 +4,7 @@ import {
   PROGRESSIVE_UNLOCKABLE_KEYS,
 } from "@/lib/onboarding";
 import { RESPONSE_TIME } from "@/lib/legal";
+import { getWompiEnvironment } from "@/lib/reservas-payments";
 import type {
   PricingCatalog,
   PricingCatalogBenefit,
@@ -14,10 +15,7 @@ import type {
 type PublicOfferData = Omit<PublicPricingOffer, "catalog">;
 
 function isReservationsCheckoutConfigured(): boolean {
-  const environment = process.env.WOMPI_ENVIRONMENT?.trim().toLowerCase();
-  const environmentMatchesApp = process.env.NODE_ENV === "production"
-    ? environment === "production"
-    : environment === "sandbox";
+  const environment = getWompiEnvironment();
   const hasServerCredentials = Boolean(
     process.env.RESERVAS_PAYMENT_INTENTS_URL?.trim() &&
     process.env.RESERVAS_PAYMENT_API_SECRET?.trim() &&
@@ -27,7 +25,8 @@ function isReservationsCheckoutConfigured(): boolean {
     const url = new URL(process.env.RESERVAS_PAYMENT_INTENTS_URL?.trim() || "");
     const localHttp = url.protocol === "http:" && ["localhost", "127.0.0.1"].includes(url.hostname);
     const secureTransport = url.protocol === "https:" || (process.env.NODE_ENV !== "production" && localHttp);
-    return Boolean(hasServerCredentials && environmentMatchesApp && secureTransport && !url.username && !url.password);
+    return Boolean(hasServerCredentials && environment && secureTransport && !url.username && !url.password &&
+      !(process.env.BILLING_SANDBOX_STAGING === "true" && url.hostname === "reservas.iwage.co"));
   } catch {
     return false;
   }

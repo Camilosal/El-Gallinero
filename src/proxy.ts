@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { APP_ROUTE_PREFIXES } from "@/lib/app-routes";
+import { getPaymentReturnLoginUrl } from "@/lib/billing-return";
 
 export const config = {
   matcher: ["/((?!_next/static|_next/image|favicon.ico|manifest.json|sw.js|icon-192.png|icon-512.png|.*\\.(?:png|jpg|jpeg|gif|svg|webp|ico|css|js|woff|woff2|ttf|eot)$).*)"],
@@ -42,14 +43,17 @@ const PUBLIC_EXACT = [
   "/api/pricing/offer",
   "/api/pricing/matrix",
   "/api/pricing/quote",
-  // This endpoint validates its own Bearer CRON_SECRET before doing any work.
+  // These endpoints validate their own Bearer CRON_SECRET.
   "/api/cron/fuentes-externas",
   "/api/cron/agente-proactivo",
+  "/api/cron/suscripciones-vencidas",
   // Telegram valida su propio header X-Telegram-Bot-Api-Secret-Token.
   "/api/telegram/webhook",
   "/api/contacto",
   "/api/busqueda/sugerir",
   "/api/billing/webhook",
+  // Reservas valida HMAC, timestamp y tamaño del cuerpo dentro del handler.
+  "/api/billing/reservas",
   // Exportación: valida cookie de sesión o token de solo lectura dentro de la ruta.
   "/api/export",
   // Servidor MCP: valida el token de integración (Bearer) dentro de la ruta.
@@ -111,7 +115,7 @@ export async function proxy(req: NextRequest) {
           return NextResponse.redirect(loginUrl);
         }
       }
-      return NextResponse.redirect(new URL("/login", req.url));
+      return NextResponse.redirect(getPaymentReturnLoginUrl(new URL(req.url)) ?? new URL("/login", req.url));
     }
     // API requests → 401
     return NextResponse.json({ error: "No autenticado" }, { status: 401 });

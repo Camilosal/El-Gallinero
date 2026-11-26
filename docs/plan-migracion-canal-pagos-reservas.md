@@ -1,11 +1,12 @@
 # Plan monitoreable: migración del canal de pagos a Reservas
 
 **Iniciativa:** centralizar en Reservas la creación del checkout Wompi y la recepción de sus eventos para las suscripciones de IwaGranja.
-**Versión:** 1.41
-**Actualizado:** 2026-11-20
-**Estado general:** El checkout de Productor solicita a Reservas el enlace de Wompi en el código local; aún no está habilitado para ventas. Los eventos solo activan una suscripción después de validar firma, ambiente, referencia e importe. Si el resultado firmado se puede relacionar con un pago pero exige revisión —por ejemplo, importe/moneda, ambiente, estado tardío o transacción duplicada— IwaGranja guarda un evento append-only y confirma la recepción para detener reintentos; el pago y el acceso no cambian. El panel muestra plan, vigencia, cupos, consumo individual de Gina, pagos y una bitácora paginada por granja. Aún faltan la resolución manual auditable de revisiones, la política de reembolsos y la ruta de soporte. La vista de conciliación local detecta pagos sin activación, activaciones sin pago aprobado, duplicados, estados en revisión y discrepancias de FarmID; solo consulta IwaGranja, no Reservas ni Wompi. Los derechos de un plan vencido se resuelven como Gratis; la ruta cron local puede persistir `expired` una sola vez, pero no está programada. También faltan aprobar la política de gracia/avisos, completar los cambios iniciados por el cliente y resolver cómo Reservas separa fallos transitorios de referencias no correlacionables para que estas últimas pasen a una cola de revisión en vez de reintentarse indefinidamente. La renovación verifica FarmID, pero eso no completa el ciclo. La fuente de Reservas tiene un preflight que revisa `reference_id` e `idempotency_key`, pero no `wompi_transaction_id`; su carpeta de migraciones sigue protegida contra escritura. Falta Wompi Sandbox, integrar worker/ACK/recovery, conciliar ambos sistemas y datos históricos, emitir/consultar comprobantes y habilitar soporte. No se accedió ni se hicieron cambios en Producción.
+**Versión:** 1.43
+**Actualizado:** 2026-11-24
+**Estado general:** El checkout de Productor solicita a Reservas el enlace de Wompi en el código local; aún no está habilitado para ventas. Los eventos solo activan una suscripción después de validar firma, ambiente, referencia e importe. Si el resultado firmado se puede relacionar con un pago pero exige revisión —por ejemplo, importe/moneda, ambiente, estado tardío o transacción duplicada— IwaGranja guarda un evento append-only y confirma la recepción para detener reintentos; el pago y el acceso no cambian. El reporte local de conciliación conserva también el ID de Wompi escrito en ese evento aunque aún no esté asociado al pago. El panel muestra plan, vigencia, cupos, consumo individual de Gina, pagos y una bitácora paginada por granja. Aún faltan la resolución manual auditable de revisiones, la política de reembolsos y la ruta de soporte. La vista local detecta pagos sin activación, activaciones sin pago aprobado, duplicados, estados en revisión y discrepancias de FarmID; solo consulta IwaGranja, no Reservas ni Wompi. Los derechos de un plan vencido se resuelven como Gratis; la ruta cron local puede persistir `expired` una sola vez, pero no está programada. También faltan aprobar la política de gracia/avisos, completar los cambios iniciados por el cliente y resolver cómo Reservas separa fallos transitorios de referencias no correlacionables para que estas últimas pasen a una cola de revisión en vez de reintentarse indefinidamente. La renovación verifica FarmID, pero eso no completa el ciclo. La fuente de Reservas tiene un preflight que revisa `reference_id` e `idempotency_key`, pero no `wompi_transaction_id`; su carpeta de migraciones sigue protegida contra escritura. Falta Wompi Sandbox, integrar worker/ACK/recovery, conciliar ambos sistemas y datos históricos, emitir/consultar comprobantes y habilitar soporte. No se accedió ni se hicieron cambios en Producción.
 
-**Evidencia de esta revisión:** se agregó una excepción idempotente para discrepancias firmadas de importe/moneda, ambiente, envoltura inesperada y estados incompatibles/tardíos. Cuando la excepción queda persistida, IwaGranja responde `200` con `reviewRequired`; no marca el pago como aprobado, no vincula la transacción conflictiva y no cambia la suscripción. La unicidad transaccional concurrente se registra por separado después del rollback y también devuelve ACK una vez persistida. Se agregaron pruebas PostgreSQL para discrepancia de importe, preservación de acceso, no activación y colisión, pero no se ejecutaron: `pg_isready` no encontró PostgreSQL aislado en `127.0.0.1:25432` y el daemon Docker rechazó acceso. Las seis suites sin PostgreSQL pasaron 34/34; ESLint focalizado, `npm run typecheck -- --pretty false` y `git diff --check` pasaron. Los tests de integración nuevos están compilados por typecheck, pendientes de DB aislada. Reservas solo se inspeccionó en lectura: su worker actual reintenta cualquier respuesta no `2xx`; aún falta editarlo para distinguir `4xx` correlacionables ya confirmados de eventos sin referencia local, mandar estos últimos a una cola terminal de revisión y comprobar alertas. No hubo cambios en Reservas fuente, Wompi Sandbox ni Producción.
+**Evidencia de esta revisión:** se agregó una excepción idempotente para discrepancias firmadas de importe/moneda, ambiente, envoltura inesperada y estados incompatibles/tardíos. Cuando la excepción queda persistida, IwaGranja responde `200` con `reviewRequired`; no marca el pago como aprobado, no vincula la transacción conflictiva y no cambia la suscripción. La unicidad transaccional concurrente se registra por separado después del rollback y también devuelve ACK una vez persistida. La conciliación ahora puede mostrar el ID Wompi extraído del evento aun si el pago sigue sin vínculo, para facilitar su rastreo. Se agregaron pruebas PostgreSQL para discrepancia de importe, preservación de acceso, no activación y colisión, pero no se ejecutaron: `pg_isready` no encontró PostgreSQL aislado en `127.0.0.1:25432` y el daemon Docker rechazó acceso. Las suites sin PostgreSQL pasan 35/35; ESLint focalizado, `npm run typecheck -- --pretty false` y `git diff --check` pasan. Los tests de integración nuevos están compilados por typecheck, pendientes de DB aislada. Reservas solo se inspeccionó en lectura: su worker actual reintenta cualquier respuesta no `2xx`; aún falta editarlo para distinguir `4xx` correlacionables ya confirmados de eventos sin referencia local, mandar estos últimos a una cola terminal de revisión y comprobar alertas. No hubo cambios en Reservas fuente, Wompi Sandbox ni Producción.
+**Nota de vigencia documental (2026-11-24):** el párrafo de estado y la evidencia anterior describen el corte del 2026-11-23. Para el estado posterior de Reservas, incluida la nueva migración local, el outbox durable y el reporte con filtros, prevalece la sección final “Seguimiento R1–R6 en Reservas”. Producción continúa sin cambios.
 **Alcance inicial:** pagos prepago de Productor. Organización se gestiona en un frente posterior hasta que su modelo de activación y cuotas esté listo.
 **Producción:** no cambiar configuración, llaves ni URL de eventos hasta superar las puertas de salida de este documento.
 
@@ -68,6 +69,8 @@ Esta matriz es el checklist funcional del ciclo. “Parcial” significa que hay
 **Ruta crítica en orden:** (1) aplicar la migración única de Reservas en un entorno editable después del preflight y con plan de reversión; (2) aprobar reglas de alta, renovación, cambios, vencimiento, Gina, reembolsos y prestaciones; (3) completar los eventos restantes de la bitácora auditable y verificar su consulta desde el panel; (4) integrar Strapi real con Redis, scheduler, worker/ACK y demostrar recuperación tras corte TCP; (5) completar selección→pago→activación en Wompi Sandbox; (6) validar permisos, comprobantes, kit, soporte y estados de excepción; (7) inventariar suscripciones y pagos existentes, conciliar duplicados/huérfanos y ensayar reversión; (8) ejecutar regresión y gates de release; (9) solicitar autorización antes de cualquier cambio de Producción.
 
 ### Secuencia de cierre accionable
+
+La instancia con acceso al repositorio de Reservas puede ejecutar el [plan detallado de trabajo en Reservas](./plan-ejecucion-pagos-reservas.md) y devolver la evidencia por etapa.
 
 Este orden separa las tareas de desarrollo de las decisiones comerciales y de la operación externa. Una evidencia local no habilita el paso siguiente si su puerta de aceptación sigue abierta.
 
@@ -290,7 +293,7 @@ Los responsables están asignados por sistema/función, no por persona. Fechas o
 ### Fase 4 — Duplicados, pagos huérfanos y conciliación
 
 - [ ] **DATA-01 — Construir reporte de conciliación entre los dos registros.** Responsable: IwaGranja + Reservas. Prioridad: P0. Depende de: OPS-01, API-01.
-  **Cierre:** reporte por referencia que compara importe, moneda, estado, transacción Wompi, aplicación de origen y efecto de suscripción/reserva. Es de solo lectura y no modifica datos. **Estado:** En curso. **Evidencia parcial:** `GET /api/superadmin/billing/reconciliation` y la vista `/configuracion/granjas/conciliacion` son de solo lectura, exclusivas de Super-Administración y comparan pagos Wompi locales con la bitácora append-only de activación; detectan aprobados sin evento, eventos sin pago aprobado, FarmID/referencias discrepantes, transacciones duplicadas y resultados en revisión. Los eventos `payment_review_required` también se elevan aunque el estado del pago no cambie o el escaneo esté truncado. No exponen `rawPayload`, no se guardan en caché offline y los 11 casos del clasificador pasan dentro de una suite de 25 pruebas. El escaneo declara si quedó truncado y conserva eventos cuyo FarmID no tenga ficha. Todavía no consulta Reservas ni Wompi, no compara monedas/cantidades de esas fuentes y no asigna responsable/resolución; requiere endpoint de lectura central y acceso autorizado.
+  **Cierre:** reporte por referencia que compara importe, moneda, estado, transacción Wompi, aplicación de origen y efecto de suscripción/reserva. Es de solo lectura y no modifica datos. **Estado:** En curso. **Evidencia parcial:** `GET /api/superadmin/billing/reconciliation` y la vista `/configuracion/granjas/conciliacion` son de solo lectura, exclusivas de Super-Administración y comparan pagos Wompi locales con la bitácora append-only de activación; detectan aprobados sin evento, eventos sin pago aprobado, FarmID/referencias discrepantes, transacciones duplicadas y resultados en revisión. Los eventos `payment_review_required` también se elevan aunque el estado del pago no cambie o el escaneo esté truncado; muestran el ID Wompi conservado en el evento aunque aún no esté asociado al pago. No exponen `rawPayload`, no se guardan en caché offline y los casos del clasificador cuentan con pruebas. El escaneo declara si quedó truncado y conserva eventos cuyo FarmID no tenga ficha. Todavía no consulta Reservas ni Wompi, no compara monedas/cantidades de esas fuentes y no asigna responsable/resolución; requiere endpoint de lectura central y acceso autorizado.
 - [ ] **DATA-02 — Detectar y clasificar duplicados.** Responsable: Datos + ambos sistemas. Prioridad: P0. Depende de: DATA-01.
   **Cierre:** identificar referencias repetidas, varias transacciones por intento, dobles intentos activos y aprobaciones repetidas; clasificar como duplicado técnico, reintento legítimo o compra distinta. No fusionar pagos aprobados/reembolsados automáticamente. **Estado:** En curso. **Evidencia:** La migración 0014 de IwaGranja impide asociar el mismo ID Wompi a dos pagos. En una copia temporal de Reservas, el preflight bloqueó duplicados sintéticos de `wompi_transaction_id`, conservó ambas filas y el índice rechazó otra asociación con 23505. La prueba API real confirmó concurrencia/idempotencia de la referencia y detección de colisión de creación en Strapi. En la fuente, `20261120000100-preflight-payment-uniqueness.js` solo valida `reference_id` e `idempotency_key`, y `schema.json` no hace único `wompi_transaction_id`; se confirmó además que el directorio para crear la migración está protegido contra escritura. Faltan la migración y el índice en un árbol editable, pruebas contra esa fuente e inventario de duplicados/huérfanos históricos.
 - [ ] **DATA-03 — Registrar y resolver huérfanos.** Responsable: Reservas + IwaGranja. Prioridad: P0. Depende de: API-04, DATA-01.
@@ -469,6 +472,8 @@ No cambiar la URL de eventos de Producción hasta que todas se cumplan:
 | 2026-11-20 | Se actualizó a v1.39 para cerrar el caso de carrera en estados desconocidos: cuando dos entregas idénticas llegan simultáneamente, la segunda devuelve el estado ya aplicado como idempotente y la bitácora mantiene una sola clave de revisión. La prueba de integración ahora ejecuta dos entregas concurrentes más un reintento, pero queda pendiente de DB aislada. Volvieron a pasar 32 pruebas sin DB, ESLint, TypeScript y `git diff --check`. Sin cambios en Reservas fuente ni Producción, commit o push. | Codex; IwaGranja local y validación estática/suites sin DB. |
 | 2026-11-20 | Se actualizó a v1.40 para que el conciliador también eleve a revisión los eventos `payment_review_required` aunque el pago aún figure pendiente/aprobado o el escaneo de pagos esté truncado; así no oculta conflictos de estado. Se añadieron dos pruebas del clasificador. La suite sin PostgreSQL pasó 34/34; ESLint, TypeScript y `git diff --check` pasaron. La integración que escribe el evento en PostgreSQL sigue sin ejecución por falta de DB aislada y acceso a Docker. Reservas fuente, Sandbox y Producción sin cambios. | Codex; IwaGranja local y pruebas sin DB. |
 | 2026-11-20 | Se actualizó a v1.41 para cerrar el ciclo de reintentos de excepciones correlacionables: IwaGranja registra de forma idempotente discrepancias firmadas de importe/moneda, ambiente, origen del mensaje, estado incompatible/tardío y colisión de ID Wompi; solo después responde `200 reviewRequired`, sin activar ni cambiar el pago/acceso. Se añadieron pruebas de integración para discrepancia, duplicado, no activación y período intacto; no pudieron ejecutarse sin PostgreSQL aislado. Las seis suites sin DB pasaron 34/34; ESLint focalizado, typecheck y `git diff --check` pasaron. Revisando el worker fuente de Reservas se confirmó que reintenta todos los `non-2xx`; sigue pendiente clasificar los `4xx` no correlacionables como cola terminal de revisión con alerta. No se modificó Reservas, no se conectó Sandbox y no hubo cambios de Producción, commit ni push. | Codex; IwaGranja local, tests con URL sintética, PostgreSQL local no disponible; Reservas inspeccionada en solo lectura. |
+| 2026-11-23 | Se actualizó a v1.42: la conciliación muestra el ID Wompi guardado en una excepción firmada aunque no se haya vinculado al pago, y conserva la clasificación de revisión. Se añadió una prueba unitaria para ese caso y una aserción en la ruta Super-Administración. Las suites sin PostgreSQL pasan 35/35; TypeScript, ESLint y `git diff --check` pasan. La nueva persistencia en PostgreSQL sigue sin poder probarse porque no hay DB aislada en `127.0.0.1:25432`. No hay acceso de escritura al directorio protegido de migraciones de Reservas; worker/cuarentena de referencias desconocidas, Sandbox, conciliación intersistemas y Producción siguen pendientes. | Codex; IwaGranja local y pruebas sin DB. |
+| 2026-11-24 | Seguimiento v1.43 de R1–R6 en Reservas: preflight e índice único de `wompi_transaction_id`, outbox durable por evento, casos revisables, límites de reintentos/lease, operación administrativa y reporte local de solo lectura con filtros/cursor. Suite completa: 92 aprobadas, 0 fallidas, 2 omitidas porque faltaba `RESERVAS_TEST_DATABASE_URL`; `pg_isready` respondió en `127.0.0.1:5432`, pero psql no pudo autenticar sin credenciales. Typecheck de Strapi y build Astro aprobados. DATA-01 sigue parcial porque no hay exporte intersistemas; Redis/scheduler real, PostgreSQL de prueba, Wompi Sandbox, datos históricos y corte siguen pendientes. Cambios solo locales; no hubo despliegue ni modificación de Producción. | Codex; fuente local de Reservas y datos sintéticos; sin credenciales/DB aislada de prueba, Redis ni Wompi Sandbox. |
 
 ## Referencias técnicas
 
@@ -476,8 +481,303 @@ No cambiar la URL de eventos de Producción hasta que todas se cumplan:
 - Reservas: [`src/pages/api/pagos/webhook.ts`](../../app_reservas/src/pages/api/pagos/webhook.ts), [`src/pages/api/reservas/index.ts`](../../app_reservas/src/pages/api/reservas/index.ts), [`src/lib/wompi.ts`](../../app_reservas/src/lib/wompi.ts), [`strapi/src/api/pago/content-types/pago/schema.json`](../../app_reservas/strapi/src/api/pago/content-types/pago/schema.json).
 - Wompi Colombia: [Widget y Web Checkout](https://docs.wompi.co/docs/colombia/widget-checkout-web/), [Eventos](https://docs.wompi.co/docs/colombia/eventos/), [Transacciones](https://docs.wompi.co/docs/colombia/transacciones/).
 
+## Seguimiento R1–R6 en Reservas — estado vigente al 2026-11-24
+
+Esta sección es la evidencia más reciente de Reservas y complementa la línea base anterior del plan. Los estados siguen siendo parciales: el código local no sustituye la verificación del esquema PostgreSQL, la revisión de datos históricos, la integración entre sistemas ni Wompi Sandbox.
+
+| Referencias del plan | Estado actualizado | Evidencia y límite |
+|---|---|---|
+| API-03 | En curso | La API firmada/idempotente de intentos se conserva. Las pruebas locales de concurrencia y recuperación simulada pasan; las dos pruebas opcionales de PostgreSQL se omitieron. |
+| API-04 | En curso | Reservas persiste cada resultado IWG en `pago-evento` antes del ACK de Wompi y del despacho al receptor; conserva revisiones separadas. Falta validar atomicidad y recuperación en PostgreSQL real. |
+| API-05 | En curso | El webhook enruta IWG por el procesamiento durable y conserva la regresión local `ORD-`/`RSV-`. Los casos de webhook firmados disponibles pasaron; la suite no equivale a regresión en base real. |
+| API-06 | En curso | Se mantiene consulta canónica de Wompi y comprobación de ambiente, referencia, monto, moneda y estado antes de aceptar una transición. La prueba local confirma el uso de la referencia canónica; falta completar estados y discrepancias en Sandbox. |
+| API-07 | En curso | Entrega firmada con ACK JSON estructurado, clasificación de referencias desconocidas, reintentos y casos terminales. Falta llamada real a IwaGranja y verificación del ACK persistido. |
+| API-08 | En curso | El retorno mantiene origen/ruta permitidos y no concede acceso por redirección. Las pruebas locales de URL pasan; falta el recorrido entre servicios en Sandbox. |
+| API-09 | En curso | El esquema declara el índice único `pagos_wompi_transaction_id_unique_idx` y el preflight bloquea vacíos, espacios y duplicados sin mutar filas ni mostrar IDs. La migración fuente quedó creada; el directorio sigue sin permisos de escritura para `ubuntu`, por lo que la integración física debe comprobarse desde un checkout editable. |
+| DATA-01 | En curso | Reservas ofrece reporte administrativo de solo lectura con alcance `iwagranja/subscription`, filtros y cursor estable. La vista aún no cruza eventos de IwaGranja ni estado canónico de Wompi. |
+| DATA-02 | En curso | La unicidad del esquema y el caso durable evitan una segunda asociación en el código. Sigue pendiente inventariar y resolver duplicados históricos con autorización. |
+| DATA-03 | En curso | Referencias desconocidas y conflictos quedan en revisión durable; existe búsqueda y resolución con actor/evidencia. Falta conciliar datos de ambos sistemas y validar persistencia en PostgreSQL. |
+| OPS-03 | En curso | El reintento protegido informa trabajo fallido, revisado o agotado; cuenta con lease y límites en código. Faltan Redis/scheduler reales, dos workers concurrentes, alertas operativas y prueba de recuperación. |
+| OPS-04 | En curso | Reservas dispone de endpoints y pantallas administrativas para buscar, reenviar el mismo evento y resolver con motivo/evidencia. Falta procedimiento conjunto con responsables, SLA y fuente intersistemas. |
+| QA-02 | En curso | Las pruebas locales cubren firma/canonicalización, respuestas malformadas, estados y `VOIDED` tardío. Falta matriz completa sobre PostgreSQL y Wompi Sandbox. |
+| QA-03 | En curso | Hay pruebas simuladas de concurrencia, idempotencia, leases, webhook y paginación. Las pruebas de PostgreSQL quedaron omitidas; faltan Strapi/Redis reales y pérdida de respuesta entre servicios. |
+
+### Registro reproducible de Reservas
+
+- `cd ../../app_reservas && npm test`: 94 pruebas totales, 92 aprobadas, 0 fallidas y 2 omitidas por falta de `RESERVAS_TEST_DATABASE_URL`. PostgreSQL aceptó el chequeo de disponibilidad en loopback, pero psql no pudo autenticar sin credenciales de prueba; no se consultaron ni alteraron datos.
+- `cd ../../app_reservas/strapi && npx tsc --noEmit --pretty false`: finalizó correctamente.
+- `cd ../../app_reservas && npm run build`: finalizó correctamente; Vite emitió avisos de opciones `esbuild` deprecadas.
+- La carpeta `strapi/database/migrations` y el nuevo archivo de preflight pertenecen a `root`; no es escribible por `ubuntu`. El proyecto Reservas se encuentra dentro del repositorio padre como directorio sin seguimiento Git independiente. La evidencia local está disponible, pero no se creó rama, commit ni PR.
+- Permanecen pendientes el reporte histórico autorizado, PostgreSQL real y migración física, Redis/scheduler, exporte de IwaGranja, comparación Wompi, Wompi Sandbox y las puertas de Producción. El corte requiere autorización explícita.
+
+## Adenda de conciliación intersistemas — 2026-11-24
+
+Se implementó el endpoint de exportación HMAC `GET /api/v1/integrations/billing/reconciliation` en IwaGranja y su consumo servidor a servidor desde el panel administrativo de Reservas. El exporte ofrece pagos y eventos de suscripción con filtros, cursores estables por flujo y campos minimizados; el cruce por referencia informa discrepancias y revisiones. La ruta de Reservas sigue siendo de solo lectura y su BFF requiere sesión de administración. El filtro del reporte local ahora incluye `payment_review_required`, y la ruta firmada `POST /api/billing/reservas` quedó alcanzable a través del Proxy para ejecutar su propia verificación HMAC.
+
+No se configuró ningún secreto ni URL real. La pareja requerida es `RESERVAS_RECONCILIATION_HMAC_SECRET` en IwaGranja y `IWAGRANJA_RECONCILIATION_HMAC_SECRET` en Reservas, con `IWAGRANJA_RECONCILIATION_URL` apuntando al endpoint HTTPS. La interfaz limita las conclusiones a registros que comparten las páginas recuperadas y no llama a Wompi; la ausencia en una página no se reporta como huérfano definitivo.
+
+DATA-01/DATA-03 continúan en curso hasta verificar ambos servicios con una configuración de prueba y datos sintéticos comunes, recorrer todos los cursores, consultar Wompi cuando aplique y revisar históricos autorizados. PostgreSQL/Redis aislados, Wompi Sandbox, alertas y salida a Producción siguen pendientes. Sin cambios de Producción, credenciales, Docker, commit ni push.
+
+### Verificación local de la adenda
+
+Reservas: `npm test` completó 97 pruebas, con 95 aprobadas, 0 fallidas y 2 omitidas por ausencia de PostgreSQL aislado; `npm run build` aprobó. IwaGranja: `npm run typecheck`, ESLint focalizado y cuatro suites dirigidas pasaron 14/14. El cliente HMAC se ejercitó con un fetch simulado y Vitest usó una URL `DATABASE_URL` sintética. No se conectaron IwaGranja/Reservas ni una base con datos de pago.
+
+`DATABASE_URL='postgresql://127.0.0.1:15432/gallinero_test' npm run build` en IwaGranja pasó la compilación, el TypeScript interno y la generación de 209 páginas, incluida la ruta de exportación como endpoint dinámico. No se levantaron contenedores.
+
+## Adenda de evidencia R1–R6 con PostgreSQL temporal — 2026-11-24
+
+Se habilitó una instancia PostgreSQL efímera, sin volumen y accesible solo por loopback, con bases sintéticas para ambos proyectos. IwaGranja completó `db:bootstrap` (23 migraciones); Reservas creó y eliminó esquemas temporales dentro de sus pruebas. No se usaron bases persistentes ni datos de clientes.
+
+| Referencia | Actualización de evidencia | Estado |
+|---|---|---|
+| API-03 | La creación y recuperación concurrente del intento pasó con PostgreSQL sintético: una sola fila, mismo checkout y recuperación tras pérdida de respuesta. | En curso: falta Strapi real y la fuente protegida de migraciones. |
+| API-04–06 | Facturación pasó 11/11; el estado desconocido conserva la revisión en respuestas idempotentes concurrentes. Los casos de webhook y callback mantienen su cobertura sintética. | En curso: falta revisar el esquema físico de Reservas, estados completos en Sandbox y recorrido operativo. |
+| API-07–08 | El ACK estructurado, reintentos, límites, URLs de retorno y receptor siguen cubiertos por pruebas locales. | En curso: no se verificó Redis ni el intercambio HMAC con secretos compartidos. |
+| API-09 / DATA-02 | La asociación de transacción se ejercitó en IwaGranja; la migración e índice físico de `wompi_transaction_id` en Reservas no se aplicaron a PostgreSQL porque la migración fuente es de solo lectura para este usuario. | En curso. |
+| DATA-01 / DATA-03 | La exportación y el consumidor HMAC pasaron 28 pruebas focalizadas; paginación y límites se verifican localmente. | En curso: el cliente usa fetch de prueba; faltan conexión entre servicios, Wompi y revisión histórica autorizada. |
+| OPS-03 / OPS-04 | La lógica de lease, reintentos, revisión y acciones administrativas mantiene sus suites locales. | En curso: faltan Redis/scheduler aislados, dos workers y alertas integradas. |
+| QA-02 / QA-03 | Reservas pasó 96/97 (una prueba de Strapi real omitida); su integración PostgreSQL pasó 1/1. IwaGranja `subscription-billing` pasó 11/11 y conciliación/Proxy 28/28. Typecheck, ESLint focalizado y build IwaGranja pasaron; el build generó 209 páginas. | En curso: no hay Wompi Sandbox ni ciclo completo de pagos. La pasada global de Vitest encontró cinco fallos en suites de otras áreas que siguen sin investigar. |
+
+En la suite global de IwaGranja, una respuesta 503 provenía de una fixture sin `WOMPI_PRIVATE_KEY`; se completó con una llave sintética. El otro fallo de pagos era el marcador `reviewRequired` ausente en la repetición concurrente; la corrección pasó la suite de facturación dirigida. La suite global completa no se repitió después de esos cambios, así que sus otros cinco fallos quedan anotados sin atribuir su causa.
+
+R1–R6 y API-03–09/DATA-01–03/OPS-03/04/QA-02/03 continúan **En curso**. No se configuraron secretos reales, Redis, Wompi Sandbox, Producción ni la instancia real de Strapi; la fuente central de migraciones sigue protegida. El PostgreSQL temporal se detiene al finalizar esta verificación.
+
+### Prueba de preflight e índice en PostgreSQL sintético — 2026-11-24
+
+La migración `20261124000100-preflight-wompi-transaction-uniqueness.js`, cargada desde su ruta original en modo lectura, se ejecutó contra una tabla `pagos` aislada en PostgreSQL 16 temporal. El preflight aceptó IDs válidos y varias filas `NULL`. Un índice único con el nombre declarado en `schema.json` rechazó una segunda asociación. Después de retirar ese índice solo dentro del esquema descartable e insertar dos IDs duplicados, el preflight se detuvo con mensaje genérico, no expuso el valor y no modificó el número de filas. El contenedor temporal fue detenido y eliminado.
+
+Esta prueba valida el código de preflight y el comportamiento del índice de PostgreSQL, pero no la sincronización automática del content type por Strapi ni un reinicio desde el esquema anterior. No altera el bloqueo de escritura del directorio central; API-09 sigue **En curso**.
+
+### Lease Redis aislado de R4 — 2026-11-24
+
+El helper `acquirePaymentRetryLock` se ejecutó con Redis 7 temporal, publicado solo en loopback y sin persistencia. Dos llamadas concurrentes produjeron un único ganador; tras expirar el primer lease, su token antiguo no pudo borrar el bloqueo del sucesor. Redis se detuvo y eliminó al terminar. Esto valida exclusión mutua y fencing del lease; no ejecuta el endpoint del scheduler ni el despacho completo sobre Strapi. OPS-03/QA-03 siguen **En curso**.
+
+## Adenda de evidencia con Strapi real y HMAC interservicio — 2026-11-24
+
+Se creó un sandbox temporal para cerrar parte de la validación local: copias aisladas de Reservas y Gallinero, PostgreSQL 16 sin volumen con ambas bases de prueba, Redis 7 sin persistencia y valores HMAC/Wompi ficticios. Los puertos están enlazados solo a `127.0.0.1`; el detalle operativo está en `/tmp/codex-pagos-sandbox-20261124/README.md`.
+
+| Referencia | Evidencia nueva | Estado |
+|---|---|---|
+| API-09 / DATA-02 | Strapi 5.51 inició conectado a `reservas_test`, aplicó el preflight y sincronizó los índices físicos. Se comprobó `pagos_wompi_transaction_id_unique_idx`; una inserción duplicada generó `unique_violation`, se aceptaron varios `NULL` y se revirtió la transacción. Se arreglaron dos índices del outbox para apuntar a `created_at`; prueba de regresión 11/11. | En curso: falta diagnóstico contra histórico autorizado y reinicio desde esquema previo. |
+| DATA-01 / DATA-03 | Reservas firmó y consultó por HTTP el endpoint real de Next/Gallinero. El exporte devolvió exactamente un pago aprobado y un evento `subscription_activated` sintéticos. La función de comparación encontró coincidencia por referencia sin hallazgos usando una fila local sintética en memoria. | En curso: falta cruzar con registros persistidos de Reservas, agotar cursores y verificar Wompi/históricos autorizados. |
+| OPS-03 / OPS-04 | Redis 7 aislado permanece disponible en `127.0.0.1:26379`; la prueba previa del lease verificó un único ganador y fencing tras expiración. | En curso: faltan scheduler, dos workers, entrega/recuperación y alertas integradas. |
+| QA-02 / QA-03 | `/admin` de Strapi contestó 200, `/` de Next contestó 200 tras calentamiento y la ruta HMAC aceptó la firma compartida sintética con respuesta 200. | En curso: no se repitió Vitest global ni se completó checkout en Wompi Sandbox. |
+
+La ruta HTTP se validó además con filtros `environment=test` y referencia sintética. El intento sin firma devolvió 401; con firma y timestamp válido devolvió 200. Las copias `.env.local` guardan exclusivamente valores sintéticos y no imprimieron secretos. No se tocaron credenciales, datos históricos, PostgreSQL/Redis persistentes, Compose global ni Producción.
+
+Los cuatro servicios locales están actualmente activos en este sandbox. No se pueden crear desde el repositorio las credenciales oficiales de Wompi ni un historial autorizado: esas evidencias siguen requiriendo acceso Sandbox y un conjunto histórico aprobado. R1–R6 y API-03–09/DATA-01–03/OPS-03/04/QA-02/03 conservan el estado **En curso** hasta cubrir sus criterios completos.
+
+### Nota de persistencia del sandbox — 2026-11-24
+
+Precisión sobre el aislamiento: las imágenes oficiales montaron volúmenes anónimos para los datos de PostgreSQL y Redis. `docker inspect` confirmó `AutoRemove=true` en ambos contenedores; Docker los elimina, con sus volúmenes anónimos, al detenerlos. No se configuraron volúmenes compartidos o persistentes. La adenda anterior usa “sin volumen” para indicar ausencia de persistencia duradera.
+
+### Suite completa con PostgreSQL y Strapi reales de prueba — 2026-11-24
+
+En la copia temporal de Reservas, `npm test` terminó **98/98**, sin fallos ni pruebas omitidas, con `RESERVAS_TEST_DATABASE_URL` apuntando a PostgreSQL 16 aislado y token sintético para Strapi 5.51 en `127.0.0.1:14337`. El caso de API de intentos pasó tanto contra su adaptador PostgreSQL como contra el Strapi real; dos POST directos concurrentes al content API devolvieron 201/409 y la recuperación idempotente conservó una sola referencia/checkout.
+
+El handler autenticado del scheduler/outbox se invocó dos veces en paralelo con PostgreSQL, Strapi y Redis reales de prueba: una respuesta 200 informó cero eventos procesados y la otra 202 indicó `alreadyRunning: true`. La ruta sí llegó a `claim-due`, pero la cola estaba vacía; falta despachar un evento pendiente contra el receptor y probar fallos/reintentos. La validación HMAC R5 con un pago/evento sintéticos sigue registrada arriba. El token full-access temporal reside en `/tmp/codex-pagos-sandbox-20261124/reservas-test-strapi-token` con modo 0600, dentro del entorno local.
+
+No se repitió el Vitest completo de Gallinero. Wompi oficial, historial autorizado y el ciclo integrado con entrega siguen pendientes; no se han usado secretos o datos reales.
+
+## Corrección de evidencia Sandbox y estado de R6 — 2026-11-24
+
+Las credenciales oficiales de Wompi Sandbox sí estaban en `/home/ubuntu/negocio/.env`; queda reemplazada la afirmación anterior de que solo había llaves ficticias disponibles. Se verificaron únicamente presencia y prefijos de las llaves pública/privada (`pub_test_`/`prv_test_`), sin mostrar ni copiar valores. El endpoint vigente `GET /v1/merchants/info`, con la llave pública en `x-merchant-public-key`, respondió 200 y entregó los objetos de aceptación.
+
+En el entorno temporal, el handler de intentos de Reservas recibió las variables Wompi reales solo en memoria del proceso y mantuvo sintéticos el resto de secretos y los datos. Creó una intención local con respuesta 201; el reintento devolvió 200 con el mismo checkout y una sola fila `environment=test`. La fila se limpió al terminar. No se creó transacción Wompi, no se disparó un webhook y no se usó el `APP_URL` central.
+
+API-03/QA-02 avanzan: ya hay evidencia contra la API oficial Sandbox y contra el inicio idempotente del checkout. R6 sigue **En curso** hasta completar aprobación, rechazo, pendiente, webhook y retorno. El dashboard configura una URL de eventos distinta por ambiente y su destino Sandbox no está documentado en `.env`; antes de crear una transacción se requiere un receptor de prueba aislado confirmado. El ciclo integrado también necesita los secretos HMAC de Reservas/IwaGranja en el entorno de prueba. La fuente histórica autorizada y la regresión conjunta `ORD-`/`RSV-` siguen abiertas.
+
+La documentación oficial consultada: [Ambientes y llaves](https://docs.wompi.co/docs/colombia/ambientes-y-llaves/), [Tokens de aceptación](https://docs.wompi.co/docs/colombia/tokens-de-aceptacion/) y [Eventos](https://docs.wompi.co/docs/colombia/eventos/). El endpoint de eventos se configura por separado en el dashboard para Sandbox y Producción.
+
+### Recuperación integrada de la entrega de Reservas
+
+El primer ensayo con un evento persistido descubrió que un HTTP 503 vacío se enviaba a revisión terminal porque el cliente exigía JSON antes de clasificar el código HTTP. En `app_reservas/src/lib/iwagranja-payment-results.ts` se clasifican ahora 408, 429 y 5xx como reintentables antes de leer el cuerpo. Un acuse 2xx todavía requiere el JSON del contrato. La suite `tests/payment-intents.test.mjs` pasó 16/16, incluidos 503 vacío, 502 HTML y 429 con `Retry-After`.
+
+El handler de reintentos de Reservas, con Strapi, PostgreSQL, Redis y el receptor HTTP real de IwaGranja en loopback, procesó la referencia sintética `IWG-f30bab0b-feff-4fb0-9083-4938a92bffa8`. Tras un 503 vacío quedó pendiente con un intento y cero activaciones. Al adelantar el vencimiento del reintento únicamente en la base de prueba y recuperar el receptor, el evento quedó entregado con dos intentos y una activación. Repetir el mismo evento no provocó otro despacho ni otra activación. Se sembró un plan histórico sintético para probar el transporte y el receptor. Este ensayo ejercitó el handler del worker y la persistencia Strapi, sin reloj real del scheduler ni checkout de Productor en Wompi.
+
+API-04/07 y OPS-03 avanzan con evidencia del reintento integrado. Siguen abiertas la validación del scheduler y sus alertas, el checkout de Productor con eventos oficiales de Wompi Sandbox, la regresión conjunta ORD/RSV y la conciliación histórica autorizada.
+
+### Productor ante pérdida del acuse y regresión de ORD y RSV
+
+- [x] **QA-03 · Productor con pérdida del acuse después de la activación.** El endpoint de precios de IwaGranja calculó 1.866.600 COP por 10 usuarios durante 12 meses. Se sembró el intento con la cotización del servidor y una aceptación contractual sintética. La referencia `IWG-4bebf227-6e00-4f0f-8f31-3ba4196f7290` se procesó mediante el outbox de Strapi y el handler de reintentos de Reservas con PostgreSQL, Redis y el receptor HMAC de IwaGranja en loopback. Un proxy de prueba entregó el primer resultado, recibió HTTP 200 de IwaGranja y cortó la conexión antes de devolver ese acuse a Reservas. Se verificó una activación con el evento aún pendiente. Al adelantar la fecha del reintento en PostgreSQL de prueba, Reservas confirmó la entrega en el segundo intento. El plan conservó 10 cupos y la vigencia de 12 meses, con un único evento aplicado. Repetir el evento en Strapi no provocó otra entrega. Ensayo con resultado Wompi sintético y sin pasar por la pantalla de pago.
+- [x] **API-05 · Regresión de confirmación de órdenes y reservas.** `node --test tests/wompi-webhook-verification.test.mjs tests/wompi-voided-review.test.mjs` pasó 3/3. Los casos `ORD-` y `RSV-` ejecutan el handler Astro con Wompi simulado y una API Strapi de prueba. Verifican que se usa la referencia canónica, que se confirma la orden y su reserva vinculada o la reserva directa, y que repetir la aprobación no repite escrituras. El tercer caso verifica que un `VOIDED` tardío conserva la aprobación de una orden y registra una revisión. Queda pendiente la regresión integral con datos persistidos de órdenes y reservas en el ambiente integrado.
+
+R6 continúa en curso. El siguiente recorrido externo requiere confirmar la URL receptora del ambiente Sandbox de Wompi. La pérdida de conexión se indujo después de recibir el 200 real del receptor, y la activación y vigencia se comprobaron en la base aislada.
+
+### Conciliación de Productor con registros persistidos
+
+- [x] **DATA-01 · Cruce por referencia en desarrollo.** El handler del reporte administrativo de Reservas consultó su Strapi real y el exporte HMAC de IwaGranja por HTTP. Para la referencia sintética `IWG-4bebf227-6e00-4f0f-8f31-3ba4196f7290` coincidieron el importe de 1.866.600 COP y el ID de transacción. El outbox registró la entrega, IwaGranja registró el pago aprobado y la activación aplicada, y el cruce devolvió cero hallazgos. Con una fila por página se recorrieron los tres cursores hasta el final de la muestra aislada: cuatro eventos de Reservas, cuatro pagos y tres eventos de suscripción de IwaGranja, sin repetir registros.
+- [x] **DATA-03 · Corrección del aviso de transición ausente.** Reservas exigía una transición de suscripción incluso para entregas pendientes, rechazadas o anuladas. El reporte exige una transición aplicada al conciliar una aprobación y emite un solo aviso por ese problema en la misma referencia. Conserva la condición de evaluar la ausencia solo si la consulta abarca todo el conjunto de eventos relevante. `node --test tests/iwagranja-reconciliation.test.mjs` pasó 4/4.
+
+La integración se verificó con registros sintéticos persistidos. DATA-01 y DATA-03 siguen en curso hasta conciliar el histórico autorizado y contrastar con Wompi los casos que lo requieran. La ejecución directa del handler cubrió el cruce y la paginación. La sesión de administrador en el navegador y la operación con casos históricos quedan pendientes.
+
+### Scheduler, agotamiento y recuperación manual
+
+- [x] **OPS-03 · Ejecución y aviso de agotamiento en desarrollo.** El scheduler de Reservas llamó por HTTP al handler de reintentos con su identidad de servicio. Ese handler usó Redis, Strapi 5.51 y PostgreSQL 16 aislados. Para la referencia sintética `IWG-9c0b3820-db81-4cd9-89e7-435897b1f2a8` el receptor respondió 503 siete veces. Las seis primeras dejaron el mismo evento pendiente con siguiente fecha de ejecución. La séptima dejó el evento agotado, sin reintento programado y con un solo caso abierto por `delivery_attempts_exhausted`. El scheduler emitió un aviso con `agotados=1` y en el octavo ciclo no volvió a despachar el evento. Se adelantaron las fechas en la base de prueba para recorrer el calendario en una sola ejecución.
+- [x] **OPS-04 · Recuperación del mismo evento.** Se recuperó el receptor HTTP real de IwaGranja y se solicitó un reenvío mediante la acción autenticada de Strapi, con operador, motivo y referencia de evidencia. Se conservó el ID del evento, el reenvío pasó a entregado y se aplicó una sola activación en la granja sintética. La acción de cierre guardó el estado resuelto, el operador y la evidencia. La prueba usó un plan histórico sintético para verificar la recuperación operativa.
+- [ ] **OPS-03/04 · Activar y probar el monitoreo del entorno de salida.** Usar `agotados>0` y los ciclos fallidos del scheduler como señales del monitor. Configurar el destino y responsable de guardia, verificar recepción del aviso y abrir el reporte filtrado por estado de entrega agotado. Antes de reenviar, contrastar referencia, ambiente, estado e ID Wompi. Confirmar que el evento fue aplicado y cerrar el caso con evidencia. La prueba aislada confirma la advertencia en logs y la recuperación vía API. Falta activar la integración de monitoreo y ensayar el acceso del operador desde la interfaz en el entorno de salida.
+
+### Validación de discrepancias antes del despacho
+
+Reservas guardaba las discrepancias locales en la bandeja de revisión, pero también dejaba sus eventos elegibles para despacho. El controlador ahora deja esos eventos en revisión y vuelve a validar el pago local antes de reclamar un evento, incluido el reenvío manual. Una referencia todavía ausente espera dentro de la ventana de diez minutos. Si aparece un pago que coincide en tipo, ambiente, importe, moneda e ID de transacción, se vincula y actualiza antes del despacho. Si la referencia sigue ausente al vencer la ventana, se conserva el evento en revisión.
+
+**Evidencia API-04/05, DATA-02/03 y QA-02.** Con Strapi reiniciado desde el controlador actualizado y PostgreSQL aislado se verificaron cuatro casos. Una discrepancia de importe quedó bloqueada incluso tras solicitar reenvío manual y el pago conservó su estado. Un intento que llegó tarde se vinculó y aprobó en Reservas antes del despacho, y su caso de espera se resolvió al simular el acuse. Un ID Wompi reclamado por otra referencia quedó en revisión. Un intento que seguía ausente después de diez minutos se puso en revisión sin reclamarlo para entrega. Las suites de webhook, reporte y reintentos de Reservas pasaron 20/20. El ensayo de referencias usó eventos sintéticos en Strapi. El webhook oficial de Wompi Sandbox y la conciliación histórica siguen pendientes.
+
+Tras el cambio se repitieron los ensayos integrados de Productor con pérdida del acuse y de agotamiento con recuperación manual. El primero conservó una sola activación y diez cupos. El segundo agotó siete entregas, dejó un caso abierto y permitió resolverlo tras reenviar el mismo evento y comprobar la activación.
+
+### Regresión con órdenes y reservas persistidas
+
+**API-05 y QA-02.** El handler del webhook Astro consultó transacciones Wompi simuladas y actualizó pagos, órdenes y reservas en Strapi 5.51 con PostgreSQL aislado. Para `ORD-` y `RSV-`, una aprobación confirmó los registros vinculados y un rechazo los dejó expirados. Se comprobó el ID de transacción en el pago y que repetir cada evento mantuvo los mismos datos.
+
+Durante la revisión se corrigió el caso en que se guarda el pago aprobado y falla la confirmación de un registro asociado. Al repetir el webhook, Reservas ahora confirma los registros que aún esperan el pago con la fecha de aprobación original. La prueba inyectó un 503 al actualizar una reserva después de guardar la aprobación, tanto para una orden con reserva vinculada como para una reserva directa. En ambas, el reintento completó la confirmación, conservó intacto el pago aprobado y quedó idempotente ante otra repetición. Pasaron los seis escenarios con persistencia y las cinco pruebas dirigidas de webhook.
+
+La evidencia cubre estados persistidos, idempotencia y recuperación de confirmación. Los fixtures no tenían disponibilidad asociada ni un destino real de notificaciones. El checkout con eventos oficiales, el efecto sobre cupos y la operación en el entorno de salida conservan su validación pendiente.
+
+### Dos aprobaciones concurrentes para la misma granja
+
+**BUG-03 y QA-03.** Se reprodujo en PostgreSQL aislado una pérdida de vigencia con dos pagos Productor de tres meses y transacciones Wompi distintas. Ambas aprobaciones se aplicaban sobre la misma fecha de vencimiento y solo sumaban tres meses. IwaGranja ahora serializa las aprobaciones por granja y lee la suscripción bajo bloqueo antes de calcular la extensión. El segundo pago toma como base el resultado del primero.
+
+La prueba de regresión sincroniza las dos aprobaciones mediante un bloqueo de fila y observa ambas sesiones en espera antes de liberarlo. Antes de la corrección confirmó tres meses. Después confirmó seis meses y dos eventos de renovación enlazados por sus valores anterior y posterior. La suite de facturación pasó 12/12, incluido el corte de socket del intento con PostgreSQL de prueba. También pasaron ESLint focalizado, TypeScript y `git diff --check`. Queda pendiente la prueba del ciclo comercial con Wompi Sandbox.
+
+### Regreso al pago con sesión vencida
+
+**API-08, IWG-05/08 y QA-08.** IwaGranja preserva la referencia del pago cuando el regreso al plan requiere iniciar sesión. Tanto el Proxy sin cookie como el manejo de una respuesta 401 en el navegador construyen un destino interno con la referencia validada. La consulta posterior sigue filtrada por la granja autenticada.
+
+El callback de Astro consultó un pago persistido en Strapi con Wompi simulado. Aunque el resultado de la consulta decía aprobado, el pago en Reservas conservó su estado creado. Una URL externa guardada en el intento se descartó y el callback redirigió al origen de IwaGranja permitido. La solicitud HTTP sin sesión a ese origen devolvió 307 hacia el login con la referencia, excluyendo el ID de transacción y otros parámetros del destino posterior al login. En IwaGranja, las pruebas del handler verificaron 401 sin sesión, 404 para otra granja y estado pendiente antes del webhook aunque el navegador enviara `status=approved`. Tras el webhook firmado se leyó el estado aprobado. Facturación, Proxy y modo offline pasaron 28/28 y ESLint focalizado pasó.
+
+La prueba usó datos sintéticos y verificó la redirección HTTP y el acceso al estado. Aún falta recorrer el login desde el navegador después del checkout oficial de Wompi Sandbox.
+
+### Programación de vencimientos de IwaGranja
+
+**LIFE-02 y OPS-03.** El Proxy deja pasar la ruta exacta `POST /api/cron/suscripciones-vencidas` a su validador de credenciales. Antes exigía una cookie de usuario y rechazaba al scheduler. El handler ahora exige el encabezado Bearer y verifica el secreto antes de consultar la base de datos.
+
+Compose incluye el servicio `subscription-expiry-scheduler` bajo el perfil optativo `billing`. Su intervalo inicial es de 15 minutos y se puede ajustar con `SUBSCRIPTION_EXPIRY_INTERVAL_MINUTES`. Consume hasta diez lotes consecutivos por ciclo y deja un aviso si quedan vencimientos, falla un lote o no hay progreso. Conserva el cron idempotente que registra la transición.
+
+Pasaron las siete pruebas de Proxy y cron con base simulada. Un ensayo del script verificó dos lotes, el informe de fallo parcial y el rechazo de una respuesta inválida. Compose reconoció el servicio en el perfil. Falta ejecutar ese perfil contra el entorno integrado y verificar un vencimiento real con PostgreSQL de prueba. En esta sesión el entorno aislado previo no respondió por loopback y el acceso al daemon de Docker fue denegado por permisos. La programación en el entorno de salida y el checkout oficial de Wompi Sandbox siguen pendientes.
+
+### Evidencia adicional R4/R5 · scheduler conectado y cruce persistido — 2026-11-24
+
+En el sandbox integrado se arrancó Astro/worker en `127.0.0.1:4130` y se conectó a Strapi/PostgreSQL, Redis y Next de Gallinero por loopback. Se insertó un evento sintético de outbox y un pago pendiente, sin emitir un webhook Wompi. La primera entrega recibió HTTP 503 por `callback_url_invalid` al faltar el origen local en el allowlist. Tras corregir el allowlist solo en el proceso de prueba y registrar el reenvío con actor, motivo y evidencia, el mismo evento terminó en `delivered` con HTTP 200. La revisión de configuración quedó cerrada y auditada.
+
+La base de Gallinero registró el pago aprobado de 56.715 COP en `test`, una única activación aplicada y la suscripción `PRODUCTOR` activa. El reporte HMAC de Next se consultó por HTTP y se comparó con el evento persistido obtenido del endpoint de conciliación de Strapi. Para la referencia de prueba, la comparación resultó `both_current_pages`, una fila local, un pago remoto, un evento remoto y cero hallazgos. Esto agrega evidencia concreta a OPS-03/04 y DATA-01.
+
+Los datos se sembraron en bases descartables y la transacción/ID son ficticios. R4 todavía requiere el caso de caída del receptor o pérdida de acuse con este scheduler y la validación operativa de alertas; R5 requiere el histórico y fuentes canónicas autorizadas. R1 sigue abierto por ausencia de reporte histórico autorizado. R6 continúa abierto: las llaves de prueba disponibles no revelan a qué URL apunta el dashboard de eventos Sandbox, y no se inició una transacción Wompi que pudiera notificar fuera del sandbox.
+
+### Confirmación del estado de accesos externos R1/R6 — 2026-11-24
+
+El responsable confirma que no hay un reporte histórico autorizado disponible y que la URL de eventos de Sandbox en Wompi aún no está configurada. La implementación local continúa; el inventario histórico queda pendiente según el cierre alternativo de R1. No se debe iniciar una transacción Sandbox hasta que se configure y confirme un receptor HTTPS aislado para ese ambiente. No se modificó Producción ni se copiaron credenciales a las copias de prueba.
+
+### Revalidación R2/R5 tras reiniciar los servicios aislados — 2026-11-24
+
+Strapi volvió a iniciar con PostgreSQL `reservas_test`; `/admin` respondió 200. Next de Gallinero respondió 200 después de compilar el primer acceso y el helper real de Reservas volvió a firmar y consumir el exporte HMAC. Una consulta de solo lectura confirmó que siguen presentes el índice único `pagos_wompi_transaction_id_unique_idx` y los índices del outbox que usan `created_at`. La conciliación de la referencia sintética persistida devolvió `both_current_pages`, con una fila local, un pago remoto, un evento remoto y cero hallazgos. El primer intento ocurrió durante la compilación fría y fue `unavailable`; después de que Next terminó de compilar, el helper devolvió `connected`.
+
+La fuente histórica no está disponible y el dashboard Sandbox de Wompi aún no tiene URL de eventos. Esos dos pendientes externos permanecen como se registró arriba.
+
+### URL registrada en Wompi informada el 25 de noviembre de 2026
+
+El usuario informó `https://reservas.iwage.co/api/pagos/webhook` como URL registrada en Wompi. El Compose central declara `reservas.iwage.co` como origen del servicio `reservas_app`, con `NODE_ENV=production`. El nginx de Reservas declara el mismo dominio. El Compose de staging usa un servicio distinto, `reservas_app_stage`, con origen local `http://127.0.0.1:4332`. La URL informada identifica el frente público de Reservas según la configuración del repositorio. La sesión no pudo resolver el dominio para comprobar su despliegue.
+
+Wompi configura una URL de eventos por ambiente. El webhook de Reservas valida la firma, el ambiente configurado y la transacción consultada en Wompi antes de persistir el resultado. [Documentación de eventos de Wompi](https://docs.wompi.co/docs/colombia/eventos/).
+
+- [ ] Confirmar en qué ambiente del panel está guardada la URL informada.
+- [ ] Publicar o identificar una URL HTTPS de staging para `/api/pagos/webhook` que llegue al servicio de Reservas de prueba. Confirmar que usa Strapi/PostgreSQL de prueba, llaves Sandbox y el receptor de IwaGranja de prueba. Conservar la URL productiva para los eventos reales.
+- [ ] Registrar la URL aislada en el campo Sandbox. Ejecutar el checkout Productor y guardar evidencia de recepción Wompi, transición en Reservas, entrega y activación única en IwaGranja. Repetir con rechazo y con estado pendiente según los métodos disponibles.
+
+### Límite R2 · actualización desde esquema previo — 2026-11-25
+
+La simulación en `reservas_test` retiró solo la restricción única después de confirmar cero duplicados y 24 filas. El primer Strapi `develop` no alcanzó a conectar con PostgreSQL ni a abrir el puerto tras varios minutos; se detuvo sin aplicar sincronización. Se volvió a agregar la restricción manualmente, se comprobó que el conteo de pagos seguía en 24, y el arranque posterior de Strapi respondió. La restricción y los índices de `pago_eventos` están presentes en el estado final.
+
+Esto no demuestra que Strapi reconstruya por sí solo la restricción ausente. La actualización desde el esquema anterior queda pendiente y no se marca como completada.
+
+
+### Evidencia R2 con migración explícita y corrección R6 — 2026-11-25
+
+En reservas_test se simularon 24 pagos sintéticos, 19 con ID Wompi y cero duplicados. Se quitó la restricción para reproducir el esquema anterior. El arranque normal de Strapi terminó sin volver a crear el índice que el esquema JSON declara. En la copia temporal se añadió 20261125000100-ensure-wompi-transaction-unique-index.js; el siguiente inicio registró la migración como aplicada y PostgreSQL confirmó pagos_wompi_transaction_id_unique_idx como índice único. Las 24 filas permanecieron intactas. La prueba unitaria focalizada pasó en esa copia.
+
+La prueba demuestra el comportamiento de la migración en el sandbox temporal, no su incorporación al checkout fuente. El sistema de archivos de app_reservas está montado en solo lectura y rechazó escribir en strapi/database/migrations. R2 queda En curso en la fuente hasta trasladar el cambio y su prueba a un checkout editable y verificarlo allí; no se cambiaron permisos ni propietarios.
+
+Estado de R6: el estado anterior indicaba que Sandbox aún no tenía una URL. El usuario compartió después la URL registrada en Wompi, pero no identificó el ambiente donde aparece. La verificación del receptor HTTPS aislado sigue pendiente. Wompi configura una URL de eventos distinta para cada ambiente ([documentación oficial](https://docs.wompi.co/docs/colombia/eventos/)).
+
+### Habilitación técnica del checkout Sandbox en staging
+
+IwaGranja usaba `NODE_ENV=production` para exigir el ambiente productivo de Wompi, aunque staging ejecuta la misma compilación de Next. La selección del ambiente ahora es compartida por el catálogo, el checkout y el receptor de pagos. El Compose de staging selecciona Sandbox explícitamente. Conserva el requisito HTTPS, evita los dominios públicos activos en el inicio y retorno del checkout, y solo entrega al navegador enlaces de Wompi con una llave pública de prueba. La recuperación de un intento exige que el ambiente coincida con el guardado al aceptar el plan.
+
+El Compose base pasa a la aplicación el ambiente y las variables privadas del enlace con Reservas. Para usarlo en staging se requieren sus propios `APP_URL`, `RESERVAS_PAYMENT_INTENTS_URL` y pares HMAC de prueba. Queda pendiente configurar en el servicio `reservas_app_stage` las llaves Wompi Sandbox, el secreto de eventos, el origen público HTTPS de pruebas y el callback de IwaGranja de pruebas. La última URL compartida por el usuario fue `https://reservas.iwage.co/api/pagos/webhook`. Sigue por confirmar en qué ambiente del dashboard está guardada y publicar la ruta HTTPS que realmente llegue a staging.
+
+### Configuración de Reservas para el ensayo oficial
+
+`docker-compose.reservas-billing-sandbox.yml` complementa el Compose de staging de `app_iwage`. Conecta Reservas a Strapi/PostgreSQL y Redis de pruebas y añade su worker en la red del proyecto. El validador de arranque exige dos orígenes HTTPS distintos de los dominios públicos activos, credenciales Wompi Sandbox y tres secretos de servicio separados. El proceso se detiene antes de arrancar si falla alguna comprobación.
+
+Usar un archivo local de variables de staging. Además de las variables existentes del Compose base, requiere:
+
+| Variable del archivo de staging | Valor esperado |
+|---|---|
+| `BILLING_SANDBOX_RESERVAS_ORIGIN`, `BILLING_SANDBOX_IWAGRANJA_ORIGIN` | Orígenes HTTPS de los dos servicios de pruebas, sin ruta ni barra final |
+| `BILLING_SANDBOX_WOMPI_PUBLIC_KEY`, `BILLING_SANDBOX_WOMPI_PRIVATE_KEY` | Llaves oficiales de prueba |
+| `BILLING_SANDBOX_WOMPI_INTEGRITY_SECRET`, `BILLING_SANDBOX_WOMPI_EVENTS_SECRET` | Secretos de integridad y eventos del mismo ambiente |
+| `BILLING_SANDBOX_INTENT_SECRET`, `BILLING_SANDBOX_RESULT_SECRET`, `BILLING_SANDBOX_OUTBOX_SECRET` | Secretos de prueba distintos, de al menos 32 bytes. Los dos primeros coinciden con `RESERVAS_PAYMENT_API_SECRET` y `RESERVAS_PAYMENT_RESULT_SECRET` respectivamente en IwaGranja de staging. |
+
+Desde IwaGranja, comprobar el manifiesto sin imprimir valores de configuración:
+
+```sh
+docker compose --env-file /ruta/privada/reservas-sandbox.env \
+  --project-directory ../app_iwage -p reservas-billing-sandbox \
+  -f ../app_iwage/docker-compose.staging.yml \
+  -f docker-compose.reservas-billing-sandbox.yml config --services
+```
+
+El proxy HTTPS del entorno de pruebas debe encaminar `/api/pagos/webhook` y `/api/pagos/callback` a Reservas en el puerto local 4332. El inicio de intentos debe llegar a `/api/pagos/intentos` del mismo servicio. Para el worker, el alias `reservas_app` existe dentro de la red del proyecto aislado. IwaGranja configura `APP_URL` con su propio origen de pruebas y `RESERVAS_PAYMENT_INTENTS_URL` con el origen HTTPS de Reservas de pruebas y la ruta de intentos.
+
+**Verificación local.** Compose expandió el manifiesto con valores sintéticos y confirmó el servicio de staging, la base `reservas_stage`, Redis de staging y un worker sin puerto publicado. El validador pasó cinco escenarios, incluida la detección de dominio activo, callback activo, llave de producción y secretos duplicados. Falta arrancar los servicios, publicar el proxy HTTPS y registrar la dirección aislada en Wompi Sandbox.
+
+### Entrega de la migración del índice a un checkout editable
+
+El [parche de Reservas](./reservas-migracion-indice-wompi.patch) contiene la migración explícita y su prueba. Crea el índice único si falta y comprueba que PostgreSQL lo marque válido y listo. Si aparecen duplicados entre el preflight y la creación, devuelve un error sin incluir el ID en el mensaje. La prueba aislada aplicó el parche desde cero y pasó los seis escenarios.
+
+Desde la raíz de un repositorio independiente de Reservas, ejecutar `git apply --check /ruta/absoluta/reservas-migracion-indice-wompi.patch` y luego `git apply /ruta/absoluta/reservas-migracion-indice-wompi.patch`. Si Reservas está dentro del monorepo `negocio`, ejecutar los mismos comandos desde la raíz con `--directory=data/app_reservas`. Ejecutar `node --test tests/wompi-unique-index-migration.test.mjs` desde el directorio de Reservas. Después arrancar Strapi sobre una base de prueba con el esquema anterior y comprobar que se registra la migración, aparece el índice único y permanece intacto el número de pagos. El árbol fuente de Reservas sigue en un montaje de solo lectura para esta sesión.
+
+### Enrutamiento HTTPS de Reservas Sandbox
+
+La consulta de solo lectura a Cloudflare encontró un registro DNS para `reservas.iwage.co` y ningún registro con los nombres exactos `reservas-sandbox.iwage.co` y `granja-sandbox.iwage.co`. Se propone el primero para Reservas y el segundo para IwaGranja de pruebas. En la sesión actual los puertos locales 4332 y 3100 no respondieron. Los nombres todavía no se publicaron.
+
+La [plantilla de Cloudflare Tunnel](./reservas-sandbox-cloudflared.example.yml) dirige las rutas exactas de webhook, callback e intentos a Reservas de staging en el puerto 4332. El resto queda en la regla 404, incluido el worker y la administración. La plantilla se integra en la configuración privada de un túnel dedicado y se verifica con `cloudflared tunnel --config /ruta/config.yml ingress validate` e `ingress rule`. [Configuración oficial de Cloudflare Tunnel](https://developers.cloudflare.com/tunnel/features/locally-managed-tunnels/configuration-file/).
+
+Para habilitar el checkout oficial, arrancar ambos servicios con el entorno aislado, publicar su HTTPS y comprobar que el dominio de Reservas puede recibir el POST de Wompi y que el callback firmado de Reservas puede llegar a IwaGranja. El navegador de pruebas también necesita acceder al origen HTTPS de IwaGranja para autenticación y retorno. Registrar `https://reservas-sandbox.iwage.co/api/pagos/webhook` en el campo de eventos Sandbox solo cuando el dominio coincida con el publicado.
+
+### Comprobación de los contenedores de staging ya existentes
+
+La inspección de solo lectura desde Docker confirmó que los dos servicios existentes están activos. La raíz de Reservas respondió 302 desde su contenedor y `/api/health` de IwaGranja respondió 200. Los accesos fallidos por loopback desde la sesión restringida no demuestran que los contenedores estén detenidos.
+
+Reservas de staging apunta a `reservas_strapi_stage`, pero su proceso no tiene llaves Wompi Sandbox, secreto de eventos ni los tres secretos de enlace. El proceso de IwaGranja aún no tiene el selector Sandbox ni las variables de intentos o resultados. El archivo de staging de IwaGranja tampoco contiene esas variables. Se confirmó por prefijo que en la configuración local están disponibles las cuatro credenciales oficiales de Wompi Sandbox. La inspección devolvió solo indicadores y códigos HTTP.
+
+El trabajo de infraestructura pendiente es arrancar la configuración nueva del canal de pagos con orígenes dedicados y pares HMAC propios, sin reusar el contenedor de staging de alojamientos como si ya tuviera facturación configurada. Después de verificar el nuevo despliegue, se puede registrar el receptor de prueba en el panel Wompi y ejecutar el recorrido oficial.
+
+
+### Decisión de cierre y aplazamientos — 2026-11-25
+
+El responsable limita el cierre actual a R2. R6 queda aplazado; el usuario informa que la integración ya fue probada externamente y funciona. R4 queda aplazado por instrucción del usuario. R1 y la conciliación histórica de R5 quedan aplazados porque no hay histórico disponible. Los registros anteriores sobre R6 describen el estado previo a esta confirmación y quedan supersedidos por esta nota. El cierre actual exige aplicar y verificar R2 en el checkout fuente; los otros puntos se mantienen documentados como aplazados.
+
+
+### Zona horaria de las adendas — 2026-11-24
+
+Las adendas fechadas 2026-11-25 en esta sesión usan UTC del host. En hora local America/Bogota corresponden al 24 de noviembre de 2026.
+
+### R2 verificado en el código fuente de Reservas — 2026-11-25 (Bogotá)
+
+Se instaló la migración explícita del índice único Wompi en el directorio fuente de Strapi y se añadió su prueba. Ambos archivos se compararon con el parche validado. Pasaron 17 pruebas de migración y preflight desde el checkout fuente. En un esquema temporal de `reservas_test`, la migración creó el índice desde el esquema anterior, se ejecutó de nuevo sin cambios, preservó las filas, aceptó varios nulos y rechazó IDs repetidos. Si ya había duplicados, se detuvo y conservó los datos. La transacción de prueba se revirtió.
+
+R2 cumple el criterio de cierre en desarrollo. El cambio queda local, pendiente de commit y despliegue. Consultar el [seguimiento de ejecución en Reservas](./plan-ejecucion-pagos-reservas.md).
+
 ### Despliegue de R2 — 2026-11-25 (Bogotá)
 
 El commit local `3fd9271` contiene la migración de Reservas y su prueba. Strapi detectó el archivo en su directorio montado y ejecutó `20261125000100-ensure-wompi-transaction-unique-index.js` en producción. Una consulta de solo lectura confirmó una entrada en el registro de migraciones y el índice único válido y listo sobre `pagos.wompi_transaction_id`. Strapi respondió HTTP 204 en su endpoint de salud y la aplicación web respondió HTTP 302 en la raíz.
 
 Se retiraron los contenedores desechables `codex-pagos-pg-sandbox-20261124` y `codex-pagos-redis-sandbox-20261124`. Se conservaron los entornos de staging compartidos. La verificación de producción se limitó a la migración y la salud de los servicios.
+
+### Reanudación del ciclo completo — 2026-11-25 (Bogotá)
+
+R2 está aplicado y verificado en producción. Se repitieron pruebas enfocadas de IwaGranja sobre PostgreSQL efímera (41 aprobadas, 1 omitida), TypeScript y ESLint enfocado; Reservas pasó 3 pruebas de concurrencia/idempotencia contra PostgreSQL efímera y omitió la prueba que requiere Strapi real. La suite global de IwaGranja no finalizó con un resultado utilizable y la compilación quedó bloqueada por el entorno local de Next. Los detalles y comandos están en el [plan de ejecución](./plan-ejecucion-pagos-reservas.md).
+
+La inspección de solo lectura de Producción muestra que IwaGranja y Reservas siguen usando llaves Wompi de prueba y no tienen configurados los secretos/URLs HMAC requeridos para conectar los dos servicios. El usuario informó que el ensayo Sandbox externo funcionó; no se repitió ni se trató como evidencia de llaves Live. Se preparó el Compose raíz con el traspaso de variables y los workers bajo el perfil optativo `billing`, validado sin reiniciar contenedores.
+
+El objetivo de migración no está cerrado: falta cargar las credenciales Live y los secretos HMAC en el gestor de secretos, confirmar el webhook del ambiente Live, activar los workers y probar el ciclo real. El repositorio contenedor de Reservas no tiene remoto Git, por lo que la migración nueva no puede publicarse desde este checkout; R2 sí permanece desplegado. No activar pagos reales mientras la configuración siga con prefijos `pub_test_`/`prv_test_`.

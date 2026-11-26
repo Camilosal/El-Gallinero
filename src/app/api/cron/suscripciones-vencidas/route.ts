@@ -12,7 +12,7 @@ const BATCH_SIZE = 250;
 
 function isAuthorized(request: NextRequest): boolean {
   const expected = process.env.CRON_SECRET || "";
-  const actual = request.headers.get("authorization")?.replace(/^Bearer\s+/i, "") || "";
+  const actual = /^Bearer\s+(\S+)$/i.exec(request.headers.get("authorization") ?? "")?.[1] ?? "";
   if (!expected || !actual) return false;
   const expectedBytes = Buffer.from(expected);
   const actualBytes = Buffer.from(actual);
